@@ -47,7 +47,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
     {options, _remaining} = parse_options(args)
 
     unless EmailTracking.enabled?() do
-      Mix.shell().error("Email Tracking is not enabled. Enable it first with:")
+      Mix.shell().error("Email is not enabled. Enable it first with:")
       Mix.shell().info("  PhoenixKit.EmailTracking.enable_system()")
       exit({:shutdown, 1})
     end
@@ -83,7 +83,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   defp show_table_stats(options) do
     stats = get_stats_data(options)
 
-    Mix.shell().info(IO.ANSI.cyan() <> "\n📧 Email Tracking Statistics" <> IO.ANSI.reset())
+    Mix.shell().info(IO.ANSI.cyan() <> "\n📧 Email Statistics" <> IO.ANSI.reset())
     Mix.shell().info(String.duplicate("=", 50))
 
     # General stats

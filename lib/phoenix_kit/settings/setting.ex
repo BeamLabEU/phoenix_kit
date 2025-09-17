@@ -314,7 +314,7 @@ defmodule PhoenixKit.Settings.Setting do
       )
     end
 
-    # Validates time format is one of the supported formats  
+    # Validates time format is one of the supported formats
     defp validate_time_format(changeset) do
       supported_formats = ["H:i", "h:i A"]
 

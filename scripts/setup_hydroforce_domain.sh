@@ -290,7 +290,8 @@ show_next_steps() {
     print_info "2. ⏱️  Wait for DNS propagation (up to 72 hours)"
     print_info "3. 🔍 Verify domain status in AWS SES Console"
     print_info "4. 🚀 Use PhoenixKit AWS SES setup script:"
-    print_info "   export WEBHOOK_ENDPOINT=https://yourdomain.com/phoenix_kit/webhooks/email"
+    print_info "   export WEBHOOK_ENDPOINT=https://yourdomain.com{prefix}/webhooks/email"
+    print_info "   # Note: Replace {prefix} with your configured PhoenixKit URL prefix (default: /phoenix_kit)"
     print_info "   /app/scripts/aws_ses_setup.sh"
     print_info "5. ✅ Test email tracking with PhoenixKit"
     echo

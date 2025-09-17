@@ -22,8 +22,10 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
 
   ## Route
 
-  This LiveView is mounted at `/phoenix_kit/admin/email-blocklist` and requires
+  This LiveView is mounted at `{prefix}/admin/email-blocklist` and requires
   appropriate admin permissions.
+
+  Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
   ## Usage
 
@@ -43,6 +45,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
   alias PhoenixKit.EmailTracking.RateLimiter
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
 
@@ -94,7 +97,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
       {:ok,
        socket
        |> put_flash(:error, "Email tracking is not enabled")
-       |> push_navigate(to: "/phoenix_kit/admin")}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 
@@ -347,7 +350,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
         <header class="w-full relative mb-6">
           <%!-- Back Button --%>
           <.link
-            navigate="/phoenix_kit/admin"
+            navigate={Routes.path("/admin")}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
             <.icon_arrow_left /> Back to Admin
@@ -781,7 +784,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
   ## --- Private Functions ---
 
   defp get_current_path(_socket, _session) do
-    "/phoenix_kit/admin/email-blocklist"
+    Routes.path("/admin/email-blocklist")
   end
 
   defp load_blocklist_data(socket) do

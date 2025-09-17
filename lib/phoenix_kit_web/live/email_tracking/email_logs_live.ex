@@ -17,8 +17,10 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
 
   ## Route
 
-  This LiveView is mounted at `/phoenix_kit/admin/email-logs` and requires
+  This LiveView is mounted at `{prefix}/admin/email-logs` and requires
   appropriate admin permissions.
+
+  Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
   ## Usage
 
@@ -73,7 +75,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
       {:ok,
        socket
        |> put_flash(:error, "Email tracking is not enabled")
-       |> push_navigate(to: "/phoenix_kit/admin/dashboard")}
+       |> push_navigate(to: Routes.path("/admin/dashboard"))}
     end
   end
 
@@ -117,14 +119,14 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
 
     {:noreply,
      socket
-     |> push_patch(to: "/phoenix_kit/admin/email-logs?#{new_params}")}
+     |> push_patch(to: Routes.path("/admin/email-logs?#{new_params}"))}
   end
 
   @impl true
   def handle_event("clear_filters", _params, socket) do
     {:noreply,
      socket
-     |> push_patch(to: "/phoenix_kit/admin/email-logs")}
+     |> push_patch(to: Routes.path("/admin/email-logs"))}
   end
 
   @impl true
@@ -141,7 +143,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
   def handle_event("view_details", %{"id" => log_id}, socket) do
     {:noreply,
      socket
-     |> push_navigate(to: "/phoenix_kit/admin/email-logs/#{log_id}")}
+     |> push_navigate(to: Routes.path("/admin/email-logs/#{log_id}"))}
   end
 
   @impl true
@@ -191,7 +193,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
         <header class="w-full relative mb-6">
           <%!-- Back Button (Left aligned) --%>
           <.link
-            navigate="/phoenix_kit/admin/dashboard"
+            navigate={Routes.path("/admin/dashboard")}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
             <.icon_arrow_left /> Back to Dashboard
@@ -708,7 +710,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
 
   defp build_page_url(page, assigns) do
     params = build_url_params(assigns, %{"page" => page})
-    "/phoenix_kit/admin/email-logs?#{params}"
+    Routes.path("/admin/email-logs?#{params}")
   end
 
   defp format_datetime_for_csv(nil), do: ""

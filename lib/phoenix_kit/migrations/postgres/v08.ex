@@ -80,7 +80,7 @@ defmodule PhoenixKit.Migrations.Postgres.V08 do
         WHERE id = $2
         """
 
-        Ecto.Adapters.SQL.query!(PhoenixKit.RepoHelper.repo(), update_query, [username, user_id])
+        SQL.query!(PhoenixKit.RepoHelper.repo(), update_query, [username, user_id])
 
         # Return updated used_usernames set for next iteration
         {MapSet.put(used_usernames, username), 0}

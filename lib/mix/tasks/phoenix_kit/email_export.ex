@@ -66,7 +66,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
     {options, _remaining} = parse_options(args)
 
     unless EmailTracking.enabled?() do
-      Mix.shell().error("Email Tracking is not enabled.")
+      Mix.shell().error("Email is not enabled.")
       exit({:shutdown, 1})
     end
 

@@ -16,17 +16,17 @@ defmodule PhoenixKitWeb.AdminNav do
   ## Examples
 
       <.admin_nav_item
-        href="/phoenix_kit/admin/dashboard"
+        href={Routes.path("/admin/dashboard")}
         icon="dashboard"
         label="Dashboard"
-        current_path="/phoenix_kit/admin/dashboard"
+        current_path={Routes.path("/admin/dashboard")}
       />
 
       <.admin_nav_item
-        href="/phoenix_kit/admin/users"
+        href={Routes.path("/admin/users")}
         icon="users"
         label="Users"
-        current_path="/phoenix_kit/admin/dashboard"
+        current_path={Routes.path("/admin/dashboard")}
         mobile={true}
       />
   """
@@ -396,11 +396,14 @@ defmodule PhoenixKitWeb.AdminNav do
     # Remove query parameters and split path
     [path_part | _] = String.split(path, "?")
 
-    # Normalize phoenix_kit paths
+    # Get dynamic prefix and normalize paths
+    prefix = PhoenixKit.Config.get_url_prefix()
+    admin_prefix = if prefix == "/", do: "/admin", else: "#{prefix}/admin"
+
     base_path =
       path_part
-      |> String.replace_prefix("/phoenix_kit/admin", "")
-      |> String.replace_prefix("/phoenix_kit", "")
+      |> String.replace_prefix(admin_prefix, "")
+      |> String.replace_prefix(prefix, "")
       |> case do
         # Default to dashboard for root
         "" -> "dashboard"

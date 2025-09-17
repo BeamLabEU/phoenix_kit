@@ -38,7 +38,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Extended system configuration
   - Performance optimizations
 
-  ### V07 - Email Tracking System
+  ### V07 - Email System
   - Phoenix_kit_email_logs for comprehensive email logging
   - Phoenix_kit_email_events for delivery event tracking (open, click, bounce)
   - Advanced email analytics and monitoring

@@ -77,9 +77,7 @@ defmodule PhoenixKitWeb.Integration do
     url_prefix =
       case raw_prefix do
         "" -> "/"
-        nil -> "/"
-        prefix when is_binary(prefix) -> prefix
-        _ -> "/"
+        prefix -> prefix
       end
 
     quote do
@@ -105,7 +103,7 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/log-out", Users.SessionController, :get_logout
         get "/users/magic-link/:token", Users.MagicLinkController, :verify
 
-        # Email Tracking webhook endpoint (no authentication required)
+        # Email webhook endpoint (no authentication required)
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
       end
 

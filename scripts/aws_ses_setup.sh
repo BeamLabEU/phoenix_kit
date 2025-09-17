@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AWS SES Setup Script for PhoenixKit Email Tracking
+# AWS SES Setup Script for PhoenixKit Email
 # This script automates the setup of AWS SES Configuration Set, SNS Topic, and Event Destinations
 
 set -e
@@ -53,7 +53,8 @@ verify_aws_credentials() {
 check_webhook_endpoint() {
     if [[ -z "$WEBHOOK_ENDPOINT" ]]; then
         print_error "WEBHOOK_ENDPOINT environment variable is required"
-        print_info "Set it with: export WEBHOOK_ENDPOINT=https://yourdomain.com/phoenix_kit/webhooks/email"
+        print_info "Set it with: export WEBHOOK_ENDPOINT=https://yourdomain.com{prefix}/webhooks/email"
+        print_info "Note: Replace {prefix} with your configured PhoenixKit URL prefix (default: /phoenix_kit)"
         exit 1
     fi
     
@@ -290,15 +291,16 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Environment Variables:"
-    echo "  WEBHOOK_ENDPOINT          Required. Your webhook URL (https://yourdomain.com/phoenix_kit/webhooks/email)"
+    echo "  WEBHOOK_ENDPOINT          Required. Your webhook URL (https://yourdomain.com{prefix}/webhooks/email)"
     echo "  CONFIGURATION_SET_NAME    Optional. Configuration Set name (default: phoenixkit-tracking)"
     echo "  SNS_TOPIC_NAME           Optional. SNS Topic name (default: phoenixkit-email-events)"
     echo "  EVENT_DESTINATION_NAME   Optional. Event Destination name (default: phoenixkit-events)"
     echo "  AWS_REGION               Optional. AWS Region (default: eu-north-1)"
     echo
     echo "Example:"
-    echo "  export WEBHOOK_ENDPOINT=https://myapp.com/phoenix_kit/webhooks/email"
+    echo "  export WEBHOOK_ENDPOINT=https://myapp.com{prefix}/webhooks/email"
     echo "  export AWS_REGION=us-east-1"
+    echo "  # Note: Replace {prefix} with your configured PhoenixKit URL prefix (default: /phoenix_kit)"
     echo "  $0"
     echo
     echo "Options:"

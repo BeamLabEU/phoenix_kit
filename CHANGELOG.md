@@ -1,9 +1,24 @@
+## 1.2.8 - 2025-09-17
+
+### Improved
+- **Asset Build Pipeline** - Enhanced asset rebuilding using standard Phoenix asset pipeline (mix assets.build) with intelligent fallbacks to esbuild, tailwind, and npm commands for better compatibility
+- **Dynamic URL Prefix Handling** - Replaced hardcoded /phoenix_kit/ paths with dynamic Routes.path() throughout the codebase for proper prefix support
+- **Code Quality** - Improved code formatting, comment alignment, and whitespace consistency across all modules
+- **Installation Messages** - Enhanced user feedback messages with dynamic prefix support and clearer instructions
+
+### Fixed
+- **Hardcoded Paths** - Replaced static URL paths with dynamic prefix resolution using PhoenixKit.Utils.Routes
+- **Asset Rebuild Process** - Asset builder now tries multiple commands in order of preference for maximum compatibility
+
+### Removed
+- **SimpleTest File** - Removed unused development test artifact (simple_test.ex)
+
 ## 1.2.7 - 2025-09-16
 
 ### Added
-- **Email Tracking Navigation** - Added Email Metrics, Email Queue, and Email Blocklist pages to admin navigation menu
+- **Email Navigation** - Added Email Metrics, Email Queue, and Email Blocklist pages to admin navigation menu
 - **Email Blocklist System (V09 Migration)** - Complete email blocklist functionality with temporary/permanent blocks, reason tracking, and audit trail
-- **Email Tracking Routes** - Added routes for all Email Tracking LiveView pages in admin integration
+- **Email Routes** - Added routes for all Email LiveView pages in admin integration
 - **Users Menu Grouping** - Reorganized admin navigation with expandable Users and Email groups using HTML5 details/summary
 - **Migration Documentation** - Comprehensive migration system documentation with all version paths and rollback options
 
@@ -14,7 +29,7 @@
 
 ### Improved
 - **Navigation Menu Structure** - Replaced custom JavaScript with native HTML5 details/summary for better reliability and performance
-- **Email Group Organization** - Email Tracking, Email Metrics, Email Queue, and Email Blocklist now properly grouped under Email section 
+- **Email Group Organization** - Email, Metrics, Queue, and Blocklist now properly grouped under Email section 
 
 
 ## 1.2.6 - 2025-09-15
@@ -36,9 +51,9 @@
 ## 1.2.5 - 2025-09-12
 
 ### Added
-- **Email Tracking System Foundation** with email logging and event tracking schemas
+- **Email System Foundation** with email logging and event tracking schemas
 - **Email Rate Limiting Core** with basic rate limiting functionality and blocklist management
-- **Email Tracking Database Schema (V07)** with optimized tables and proper indexing
+- **Email Database Schema (V07)** with optimized tables and proper indexing
 - **Email Interceptor System** for pre-send filtering and validation capabilities
 - **Webhook Processing Foundation** for AWS SES event handling (bounces, complaints, opens, clicks)
 - **get_mailer/0 function** in PhoenixKit.Config for improved mailer integration

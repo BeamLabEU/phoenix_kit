@@ -18,7 +18,7 @@ CONFIGURATION_SET_NAME="${CONFIGURATION_SET_NAME:-phoenixkit-tracking}"
 SNS_TOPIC_NAME="${SNS_TOPIC_NAME:-phoenixkit-email-events}"
 EVENT_DESTINATION_NAME="${EVENT_DESTINATION_NAME:-phoenixkit-events}"
 AWS_REGION="${AWS_REGION:-eu-north-1}"
-WEBHOOK_ENDPOINT="${WEBHOOK_ENDPOINT:-http://localhost:4000/phoenix_kit/webhooks/email}"
+WEBHOOK_ENDPOINT="${WEBHOOK_ENDPOINT:-http://localhost:4000{prefix}/webhooks/email}"
 
 # Function to print colored output
 print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
@@ -56,7 +56,7 @@ check_prerequisites() {
     # Check webhook endpoint
     if [[ "$WEBHOOK_ENDPOINT" == *"localhost"* ]]; then
         print_warning "Webhook endpoint is localhost - events won't be received from AWS"
-        print_info "For production, set: WEBHOOK_ENDPOINT=https://yourdomain.com/phoenix_kit/webhooks/email"
+        print_info "For production, set: WEBHOOK_ENDPOINT=https://yourdomain.com{prefix}/webhooks/email"
         print_info "For testing, use ngrok: ngrok http 4000"
     fi
     
@@ -319,12 +319,12 @@ import Swoosh.Email
 
 test_email = "timujeen@gmail.com"
 from_email = "marketing@hydroforce.ee"
-subject = "Email Tracking Test - #{:os.system_time(:second)}"
+subject = "Email Test - #{:os.system_time(:second)}"
 
 body_html = """
 <html>
 <body>
-<h2>Email Tracking Test</h2>
+<h2>Email Test</h2>
 <p>This email tests the complete tracking flow:</p>
 <ul>
   <li>✓ Send event</li>
@@ -436,7 +436,7 @@ show_final_status() {
     if [[ "$event_count" =~ ^[0-9]+$ ]] && [[ $event_count -gt 0 ]]; then
         print_success "Email tracking is now working!"
         print_info "Found $event_count events in database"
-        print_info "Admin panel: http://localhost:4000/phoenix_kit/admin/email-logs"
+        print_info "Admin panel: http://localhost:4000{prefix}/admin/email-logs"
     else
         print_warning "No events received yet"
         print_info "This may be due to:"
@@ -536,13 +536,13 @@ show_help() {
     echo "Usage: $0 [OPTIONS]"
     echo
     echo "Environment Variables:"
-    echo "  WEBHOOK_ENDPOINT         Required. Webhook URL (default: http://localhost:4000/phoenix_kit/webhooks/email)"
+    echo "  WEBHOOK_ENDPOINT         Required. Webhook URL (default: http://localhost:4000{prefix}/webhooks/email)"
     echo "  CONFIGURATION_SET_NAME   Optional. Configuration Set name (default: phoenixkit-tracking)"
     echo "  SNS_TOPIC_NAME          Optional. SNS Topic name (default: phoenixkit-email-events)"
     echo "  AWS_REGION              Optional. AWS Region (default: eu-north-1)"
     echo
     echo "For production use:"
-    echo "  export WEBHOOK_ENDPOINT=https://yourdomain.com/phoenix_kit/webhooks/email"
+    echo "  export WEBHOOK_ENDPOINT=https://yourdomain.com{prefix}/webhooks/email"
     echo "  $0"
     echo
     echo "For local testing:"
@@ -550,8 +550,9 @@ show_help() {
     echo "  ngrok http 4000"
     echo "  "
     echo "  # Terminal 2: Use ngrok URL"
-    echo "  export WEBHOOK_ENDPOINT=https://abc123.ngrok.io/phoenix_kit/webhooks/email"
+    echo "  export WEBHOOK_ENDPOINT=https://abc123.ngrok.io{prefix}/webhooks/email"
     echo "  $0"
+    echo "  # Note: Replace {prefix} with your configured PhoenixKit URL prefix (default: /phoenix_kit)"
     echo
     echo "Options:"
     echo "  -h, --help    Show this help message"

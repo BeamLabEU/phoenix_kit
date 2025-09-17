@@ -66,9 +66,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.VerifyConfig do
 
     {options, _remaining} = parse_options(args)
 
-    Mix.shell().info(
-      IO.ANSI.cyan() <> "\n🔍 Email Tracking Configuration Verification" <> IO.ANSI.reset()
-    )
+    Mix.shell().info(IO.ANSI.cyan() <> "\n🔍 Email Configuration Verification" <> IO.ANSI.reset())
 
     Mix.shell().info(String.duplicate("=", 55))
 

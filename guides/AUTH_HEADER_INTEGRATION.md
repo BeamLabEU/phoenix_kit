@@ -66,13 +66,13 @@ Update your header navigation to conditionally display authentication status and
         <%= Scope.user_email(assigns.phoenix_kit_current_scope) %>
       </li>
       <li>
-        <.link href={~p"/phoenix_kit/users/settings"} class="btn btn-ghost btn-sm">
+        <.link href={PhoenixKit.Utils.Routes.path("/users/settings")} class="btn btn-ghost btn-sm">
           <.icon name="hero-user" class="size-4" />
           <span class="hidden sm:inline ml-1">Account</span>
         </.link>
       </li>
       <li>
-        <.link href={~p"/phoenix_kit/users/log-out"} method="delete" class="btn btn-ghost btn-sm">
+        <.link href={PhoenixKit.Utils.Routes.path("/users/log-out")} method="delete" class="btn btn-ghost btn-sm">
           <.icon name="hero-arrow-right-on-rectangle" class="size-4" />
           <span class="hidden sm:inline ml-1">Log out</span>
         </.link>
@@ -80,13 +80,13 @@ Update your header navigation to conditionally display authentication status and
     <% else %>
       <!-- Logged out: Show login/signup options -->
       <li>
-        <.link href={~p"/phoenix_kit/users/log-in"} class="btn btn-ghost btn-sm">
+        <.link href={PhoenixKit.Utils.Routes.path("/users/log-in")} class="btn btn-ghost btn-sm">
           <.icon name="hero-arrow-left-on-rectangle" class="size-4" />
           <span class="hidden sm:inline ml-1">Log in</span>
         </.link>
       </li>
       <li>
-        <.link href={~p"/phoenix_kit/users/register"} class="btn btn-primary btn-sm">
+        <.link href={PhoenixKit.Utils.Routes.path("/users/register")} class="btn btn-primary btn-sm">
           <.icon name="hero-user-plus" class="size-4" />
           <span class="hidden sm:inline ml-1">Sign up</span>
         </.link>
@@ -102,12 +102,14 @@ Update your header navigation to conditionally display authentication status and
 
 After integration, these authentication routes are available:
 
-- `/phoenix_kit/users/log-in` - User login page
-- `/phoenix_kit/users/register` - User registration page  
-- `/phoenix_kit/users/settings` - User account settings
-- `/phoenix_kit/users/log-out` - Logout endpoint (DELETE method)
-- `/phoenix_kit/users/magic-link` - Passwordless login
-- `/phoenix_kit/users/reset-password` - Password reset flow
+- `{prefix}/users/log-in` - User login page
+- `{prefix}/users/register` - User registration page
+- `{prefix}/users/settings` - User account settings
+- `{prefix}/users/log-out` - Logout endpoint (DELETE method)
+- `{prefix}/users/magic-link` - Passwordless login
+- `{prefix}/users/reset-password` - Password reset flow
+
+Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
 ## Authentication Helpers
 

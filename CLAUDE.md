@@ -279,8 +279,8 @@ end
 **Key Features:**
 - **Three System Roles** - Owner, Admin, User with automatic assignment
 - **Elixir Logic** - First user automatically becomes Owner
-- **Admin Dashboard** - Built-in dashboard at `/phoenix_kit/admin/dashboard` for system statistics
-- **User Management** - Complete user management interface at `/phoenix_kit/admin/users`
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
+- **User Management** - Complete user management interface at `{prefix}/admin/users`
 - **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
 - **Security Features** - Owner protection, audit trail, self-modification prevention
 - **Scope Integration** - Role checks via `PhoenixKit.Users.Auth.Scope`
@@ -289,7 +289,7 @@ end
 
 - **PhoenixKit.Settings** - Settings context for system-wide configuration management
 - **PhoenixKit.Settings.Setting** - Settings schema with key/value storage and timestamps
-- **PhoenixKitWeb.Live.SettingsLive** - Settings management interface at `/phoenix_kit/admin/settings`
+- **PhoenixKitWeb.Live.SettingsLive** - Settings management interface at `{prefix}/admin/settings`
 
 **Core Settings:**
 - **time_zone** - System timezone offset (UTC-12 to UTC+12)
@@ -298,7 +298,7 @@ end
 
 **Key Features:**
 - **Database Storage** - Settings persisted in phoenix_kit_settings table
-- **Admin Interface** - Complete settings management at `/phoenix_kit/admin/settings`
+- **Admin Interface** - Complete settings management at `{prefix}/admin/settings`
 - **Default Values** - Fallback defaults for all settings (UTC+0, Y-m-d, H:i)
 - **Validation** - Form validation with real-time preview examples
 - **Integration** - Automatic integration with date formatting utilities
@@ -378,7 +378,10 @@ end
 4. **Configure Mailer**: PhoenixKit auto-detects and uses your app's mailer, or set up email delivery in `config/config.exs`
 5. **Run Migrations**: Database tables created automatically
 6. **Theme Support**: Optionally enable with `--theme-enabled` flag
-7. **Settings Management**: Access admin settings at `/phoenix_kit/admin/settings`
+7. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
+
+> **Note**: `{prefix}` represents your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
+> This can be customized via `config :phoenix_kit, url_prefix: "/your_custom_prefix"`.
 
 ### Integration Pattern
 

@@ -35,5 +35,5 @@ defmodule PhoenixKitWeb.Router do
   # Parent applications should include their own LiveDashboard configuration
 
   ## Authentication routes are now handled by AuthRouter via forward
-  ## All PhoenixKit routes are available under /phoenix_kit/ by default
+  ## All PhoenixKit routes are available under your configured URL prefix (default: /phoenix_kit/)
 end

@@ -10,8 +10,9 @@ defmodule PhoenixKit.Install.MigrationStrategy do
   """
 
   alias Igniter.Project.Application
+  alias PhoenixKit.Install.Common
   alias PhoenixKit.Migrations.Postgres
-  alias PhoenixKit.Install.{AssetRebuild, Common}
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Creates PhoenixKit migration without interactive prompts (used by igniter).
@@ -350,10 +351,7 @@ defmodule PhoenixKit.Install.MigrationStrategy do
         {output, 0} ->
           IO.puts("\n✅ Migration completed successfully!\n")
           IO.puts(output)
-          # Always rebuild assets after successful migration
-          asset_result = AssetRebuild.check_and_rebuild(verbose: false)
-
-          show_success_notice(asset_result)
+          show_success_notice()
 
         {output, _} ->
           IO.puts("\n❌ Migration failed:")
@@ -385,9 +383,9 @@ defmodule PhoenixKit.Install.MigrationStrategy do
     """)
   end
 
-  defp show_success_notice(:rebuild_completed) do
+  defp show_success_notice do
     IO.puts("""
-    🎉 PhoenixKit ready! Visit: /phoenix_kit/users/register
+    🎉 PhoenixKit ready! Visit: #{Routes.path("/users/register")}
     """)
   end
 

@@ -134,16 +134,6 @@ defmodule PhoenixKitWeb.Live.SettingsLive do
     |> Enum.join(", ")
   end
 
-  defp format_error_message(errors) when is_list(errors) do
-    errors
-    |> List.first()
-    |> to_string()
-  end
-
-  defp format_error_message(error) when is_binary(error) do
-    error
-  end
-
   # Helper functions for template to show dropdown labels
   def get_timezone_label(value, setting_options) do
     Settings.get_timezone_label(value, setting_options)

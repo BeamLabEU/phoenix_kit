@@ -48,6 +48,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     use Igniter.Mix.Task
 
     alias PhoenixKit.Install.{
+      AssetRebuild,
       CssIntegration,
       DemoFiles,
       LayoutConfig,
@@ -56,6 +57,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       RepoDetection,
       RouterIntegration
     }
+
+    alias PhoenixKit.Utils.Routes
 
     @impl Igniter.Mix.Task
     def info(_argv, _composing_task) do
@@ -68,7 +71,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           repo: :string,
           prefix: :string,
           create_schema: :boolean,
-          theme_enabled: :boolean
+          theme_enabled: :boolean,
+          skip_assets: :boolean
         ],
         aliases: [
           r: :router_path,
@@ -103,7 +107,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             repo: :string,
             prefix: :string,
             create_schema: :boolean,
-            theme_enabled: :boolean
+            theme_enabled: :boolean,
+            skip_assets: :boolean
           ],
           aliases: [
             r: :router_path,
@@ -120,6 +125,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # After igniter is done, handle interactive migration
       MigrationStrategy.handle_interactive_migration_after_config(elem(opts, 1))
 
+      # Always rebuild assets unless explicitly skipped
+      unless Keyword.get(elem(opts, 1), :skip_assets, false) do
+        AssetRebuild.check_and_rebuild(verbose: true)
+      end
+
       result
     end
 
@@ -130,7 +140,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ✅ PhoenixKit ready! Next:
         • mix ecto.migrate
         • mix phx.server
-        • Visit /phoenix_kit/users/register
+        • Visit #{Routes.path("/users/register")}
         • Test: /test-current-user, /test-ensure-auth
       """
 

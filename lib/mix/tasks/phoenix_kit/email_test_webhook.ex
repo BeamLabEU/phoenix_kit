@@ -41,7 +41,9 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
       mix phoenix_kit.email.test_webhook --event bounce --message-id test-123
 
       # Test all events with custom endpoint
-      mix phoenix_kit.email.test_webhook --all --endpoint /phoenix_kit/webhooks/email
+      mix phoenix_kit.email.test_webhook --all --endpoint {prefix}/webhooks/email
+
+      # Where {prefix} is your configured PhoenixKit URL prefix
 
       # Quick delivery test
       mix phoenix_kit.email.test_webhook --event delivery
@@ -56,7 +58,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
     {options, _remaining} = parse_options(args)
 
     unless EmailTracking.enabled?() do
-      Mix.shell().error("Email Tracking is not enabled.")
+      Mix.shell().error("Email is not enabled.")
       exit({:shutdown, 1})
     end
 

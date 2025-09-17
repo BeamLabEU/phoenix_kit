@@ -53,7 +53,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
     days_old = parse_days(options[:older_than])
 
-    Mix.shell().info(IO.ANSI.cyan() <> "\n🧹 Email Tracking Cleanup" <> IO.ANSI.reset())
+    Mix.shell().info(IO.ANSI.cyan() <> "\n🧹 Email Cleanup" <> IO.ANSI.reset())
     Mix.shell().info(String.duplicate("=", 40))
 
     if options[:compress_only] do
@@ -128,7 +128,11 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
       if not options[:dry_run] do
         case EmailTracking.archive_to_s3(days_old) do
-          {:ok, archived_count} ->
+          {:ok, :skipped} ->
+            Mix.shell().info("ℹ️  Archive skipped (email tracking disabled)")
+
+          {:ok, result} ->
+            archived_count = Keyword.get(result, :archived_count, 0)
             Mix.shell().info("✅ Archived #{archived_count} logs to S3")
         end
       end

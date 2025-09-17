@@ -250,9 +250,10 @@ defmodule PhoenixKit.Install.RouterIntegration do
        end
 
     3. The routes will be available at:
-       • /phoenix_kit/register - User registration
-       • /phoenix_kit/login - User login
-       • /phoenix_kit/reset_password - Password reset
+       • {prefix}/register - User registration
+       • {prefix}/login - User login
+       • {prefix}/reset_password - Password reset
+       Note: {prefix} is your configured PhoenixKit URL prefix (default: /phoenix_kit)
        • And other authentication routes
 
     📖 Common router locations:

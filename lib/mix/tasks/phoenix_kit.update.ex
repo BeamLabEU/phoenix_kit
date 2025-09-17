@@ -52,6 +52,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   """
 
   alias PhoenixKit.Install.{AssetRebuild, Common}
+  alias PhoenixKit.Utils.Routes
 
   @shortdoc "Updates PhoenixKit to the latest version"
 
@@ -130,8 +131,14 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   # Handle update needed scenario
   defp handle_update_needed(prefix, current_version, target_version, force, skip_assets) do
     migration_file = create_update_migration(prefix, current_version, target_version, force)
+
+    # Always rebuild assets unless explicitly skipped
+    unless skip_assets do
+      AssetRebuild.check_and_rebuild(verbose: true)
+    end
+
     # Run interactive migration execution
-    run_update_migration_interactive(migration_file, skip_assets)
+    run_update_migration_interactive(migration_file)
   end
 
   # Perform the actual update
@@ -210,11 +217,11 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Run interactive migration execution (similar to install command)
-  defp run_update_migration_interactive(migration_file, skip_assets) do
+  defp run_update_migration_interactive(migration_file) do
     # Check if we can run migrations safely
     case check_migration_conditions() do
       :ok ->
-        run_interactive_migration_prompt(migration_file, skip_assets)
+        run_interactive_migration_prompt(migration_file)
 
       {:error, reason} ->
         Mix.shell().info("""
@@ -246,7 +253,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Prompt user for migration execution
-  defp run_interactive_migration_prompt(_migration_file, skip_assets) do
+  defp run_interactive_migration_prompt(_migration_file) do
     Mix.shell().info("""
 
     🚀 Would you like to run the database migration now?
@@ -261,7 +268,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
          |> String.trim()
          |> String.downcase() do
       response when response in ["", "y", "yes"] ->
-        run_migration_with_feedback(skip_assets)
+        run_migration_with_feedback()
 
       _ ->
         Mix.shell().info("""
@@ -273,7 +280,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Execute migration with feedback
-  defp run_migration_with_feedback(skip_assets) do
+  defp run_migration_with_feedback do
     Mix.shell().info("\n⏳ Running database migration...")
 
     try do
@@ -281,14 +288,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
         {output, 0} ->
           Mix.shell().info("\n✅ Migration completed successfully!")
           Mix.shell().info(output)
-
-          # Rebuild assets after successful migration (unless skipped)
-          if skip_assets do
-            show_update_success_notice(:assets_skipped)
-          else
-            asset_result = AssetRebuild.check_and_rebuild(verbose: false)
-            show_update_success_notice(asset_result)
-          end
+          show_update_success_notice()
 
         {output, _} ->
           Mix.shell().info("\n❌ Migration failed:")
@@ -303,18 +303,9 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Show success notice after update
-  defp show_update_success_notice(:rebuild_completed) do
+  defp show_update_success_notice do
     Mix.shell().info("""
-    🎉 PhoenixKit updated successfully! Visit: /phoenix_kit/users/register
-    """)
-  end
-
-  defp show_update_success_notice(:assets_skipped) do
-    Mix.shell().info("""
-    🎉 PhoenixKit updated successfully! Visit: /phoenix_kit/users/register
-
-    💡 You may want to rebuild assets later:
-      mix phoenix_kit.assets.rebuild
+    🎉 PhoenixKit updated successfully! Visit: #{Routes.path("/users/register")}
     """)
   end
 

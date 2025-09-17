@@ -142,7 +142,7 @@
                 </div>
 
                 <.link
-                  navigate="/phoenix_kit/admin/referral-codes"
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/referral-codes")}
                   class="btn btn-outline btn-primary btn-sm"
                 >
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,13 +166,13 @@
           <% end %>
         </div>
 
-        <%!-- Email Tracking Module --%>
+        <%!-- Email Module --%>
         <div class="border border-base-300 rounded-lg p-6 mb-4">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center">
               <div class="text-2xl mr-3">📧</div>
               <div>
-                <h3 class="text-lg font-semibold text-base-content">Email Tracking System</h3>
+                <h3 class="text-lg font-semibold text-base-content">Email System</h3>
                 <p class="text-sm text-base-content/70">
                   Track and analyze all outgoing emails with delivery events
                 </p>
@@ -270,7 +270,7 @@
                   Status: <span class="font-medium text-success">Active</span>
                 </div>
                 <.link
-                  navigate="/phoenix_kit/admin/email-logs"
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/email-logs")}
                   class="btn btn-outline btn-primary btn-sm"
                 >
                   <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">

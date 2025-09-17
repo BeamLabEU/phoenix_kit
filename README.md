@@ -171,8 +171,10 @@ mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 ## Quick Start
 
 Visit these URLs after installation:
-- `http://localhost:4000/phoenix_kit/users/register` - User registration
-- `http://localhost:4000/phoenix_kit/users/log-in` - User login
+- `http://localhost:4000{prefix}/users/register` - User registration
+- `http://localhost:4000{prefix}/users/log-in` - User login
+
+Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
 ## Configuration
 
@@ -255,17 +257,17 @@ config :phoenix_kit, PhoenixKit.Mailer,
 ## Routes
 
 ### Public Routes
-- `GET /phoenix_kit/users/register` - Registration form
-- `GET /phoenix_kit/users/log-in` - Login form
-- `GET /phoenix_kit/users/reset-password` - Password reset
-- `GET /phoenix_kit/users/confirm/:token` - Email confirmation
+- `GET {prefix}/users/register` - Registration form
+- `GET {prefix}/users/log-in` - Login form
+- `GET {prefix}/users/reset-password` - Password reset
+- `GET {prefix}/users/confirm/:token` - Email confirmation
 
 ### Authenticated Routes
-- `GET /phoenix_kit/users/settings` - User settings
+- `GET {prefix}/users/settings` - User settings
 
 ### Admin Routes (Owner/Admin only)
-- `GET /phoenix_kit/admin/dashboard` - Admin dashboard
-- `GET /phoenix_kit/admin/users` - User management
+- `GET {prefix}/admin/dashboard` - Admin dashboard
+- `GET {prefix}/admin/users` - User management
 
 ## API Usage
 
@@ -329,8 +331,8 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 ```
 
 ### Built-in Admin Interface
-- `/phoenix_kit/admin/dashboard` - System statistics
-- `/phoenix_kit/admin/users` - User management with role controls
+- `{prefix}/admin/dashboard` - System statistics
+- `{prefix}/admin/users` - User management with role controls
 
 ## Architecture
 

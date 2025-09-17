@@ -5,10 +5,14 @@ defmodule Mix.Tasks.PhoenixKit.Assets.Rebuild do
   @spec run([String.t()]) :: :ok
 
   @moduledoc """
-  Rebuilds assets for PhoenixKit when CSS configuration changes.
+  Rebuilds assets for PhoenixKit using standard Phoenix asset pipeline.
 
-  This task is designed to rebuild assets when PhoenixKit CSS integration
-  has been modified or when daisyUI/Tailwind configuration requires updates.
+  This task rebuilds assets using the Phoenix asset build system by trying
+  multiple commands in order of preference:
+
+  1. `mix assets.build` - Phoenix 1.8+ standard asset pipeline
+  2. `mix esbuild` and `mix tailwind` - Individual asset builders
+  3. `npm run build` - NPM build script fallback
 
   ## Usage
 
@@ -26,13 +30,14 @@ defmodule Mix.Tasks.PhoenixKit.Assets.Rebuild do
   ## When to use
 
   This task is automatically called by:
-  - `mix phoenix_kit.install` (when CSS integration is set up)
-  - `mix phoenix_kit.update` (when version requires asset changes)
+  - `mix phoenix_kit.install` (after successful installation)
+  - `mix phoenix_kit.update` (after successful update, unless --skip-assets)
 
   You may need to run it manually when:
-  - CSS @source directives were manually modified
+  - CSS integration was manually modified
   - Tailwind/daisyUI configuration was changed
   - PhoenixKit assets are not displaying correctly
+  - After updating Phoenix asset configuration
 
   ## Examples
 
@@ -45,13 +50,11 @@ defmodule Mix.Tasks.PhoenixKit.Assets.Rebuild do
       # Silent rebuild (only show errors)
       mix phoenix_kit.assets.rebuild --silent
 
-  ## Integration with CSS
+  ## Asset Build Pipeline
 
-  This task works closely with CSS integration to determine when rebuilds
-  are needed based on:
-  - Changes in @source "../../deps/phoenix_kit" directives
-  - daisyUI plugin configuration
-  - PhoenixKit version updates that include CSS changes
+  This task uses the standard Phoenix asset pipeline to ensure compatibility
+  with your application's build process. It automatically detects and uses
+  the appropriate build commands available in your project.
   """
 
   alias PhoenixKit.Install.AssetRebuild

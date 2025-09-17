@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Migrations.Postgres.V07 do
   @moduledoc """
-  PhoenixKit V07 Migration: Email Tracking System
+  PhoenixKit V07 Migration: Email System
 
   This migration introduces comprehensive email tracking capabilities including
   logging of outgoing emails, event tracking (open, click, bounce), and 
@@ -8,7 +8,7 @@ defmodule PhoenixKit.Migrations.Postgres.V07 do
 
   ## Changes
 
-  ### Email Tracking System
+  ### Email  System
   - Adds phoenix_kit_email_logs table for comprehensive email logging
   - Adds phoenix_kit_email_events table for tracking delivery events
   - Supports AWS SES integration with configuration sets

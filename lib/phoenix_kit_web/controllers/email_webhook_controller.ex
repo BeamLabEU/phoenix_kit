@@ -38,7 +38,9 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
   Add to your router:
 
       # Public webhook endpoint (no authentication)
-      post "/phoenix_kit/webhooks/email", PhoenixKitWeb.Controllers.EmailWebhookController, :handle
+      post "{prefix}/webhooks/email", PhoenixKitWeb.Controllers.EmailWebhookController, :handle
+
+      # Note: {prefix} is your configured PhoenixKit URL prefix (default: /phoenix_kit)
 
   ## AWS SNS Setup
 

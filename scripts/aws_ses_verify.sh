@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AWS SES Verification Script for PhoenixKit Email Tracking
+# AWS SES Verification Script for PhoenixKit Email
 # This script verifies the AWS SES configuration and troubleshoots common issues
 
 set -e
