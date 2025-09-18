@@ -16,8 +16,8 @@
 - **Email Routes** - Reorganized email routes for better clarity:
   - `/admin/email-logs` → `/admin/emails`
   - `/admin/email-metrics` → `/admin/emails/dashboard`
-  - `/admin/email-queue` → `/admin/email/queue`
-  - `/admin/email-blocklist` → `/admin/email/blocklist`
+  - `/admin/email-queue` → `/admin/emails/queue`
+  - `/admin/email-blocklist` → `/admin/emails/blocklist`
 
 ### Added
 - **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage

@@ -263,7 +263,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         disable_active={true}
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/email/queue", "/admin/email/blocklist"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/emails/queue", "/admin/emails/blocklist"]) do %>
                         <%!-- Email submenu items --%>
                         <div class="mt-1">
                           <.admin_nav_item
@@ -283,7 +283,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/email/queue")}
+                            href={Routes.path("/admin/emails/queue")}
                             icon="email"
                             label="Queue"
                             current_path={@current_path || ""}
@@ -291,7 +291,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/email/blocklist")}
+                            href={Routes.path("/admin/emails/blocklist")}
                             icon="email"
                             label="Blocklist"
                             current_path={@current_path || ""}

@@ -151,8 +151,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/emails/dashboard", Live.EmailTracking.EmailMetricsLive, :index
           live "/admin/emails", Live.EmailTracking.EmailLogsLive, :index
           live "/admin/emails/:id", Live.EmailTracking.EmailDetailsLive, :show
-          live "/admin/email/queue", Live.EmailTracking.EmailQueueLive, :index
-          live "/admin/email/blocklist", Live.EmailTracking.EmailBlocklistLive, :index
+          live "/admin/emails/queue", Live.EmailTracking.EmailQueueLive, :index
+          live "/admin/emails/blocklist", Live.EmailTracking.EmailBlocklistLive, :index
         end
       end
     end
