@@ -301,7 +301,7 @@
                           data-confirm={"Are you sure you want to #{if user.confirmed_at, do: "unconfirm", else: "confirm"} this user's email?"}
                         >
                           <%= if user.confirmed_at do %>
-                            <PhoenixKitWeb.Components.Core.Icons.icon_warning class="h-3 w-3 mr-1" />
+                            <PhoenixKitWeb.Components.Core.Icons.icon_x_thin class="h-3 w-3 mr-1" />
                             Unconfirm
                           <% else %>
                             <PhoenixKitWeb.Components.Core.Icons.icon_shield class="h-3 w-3 mr-1" />
@@ -309,11 +309,17 @@
                           <% end %>
                         </button>
                       <% else %>
-                        <span class="text-xs text-base-content/50">
-                          {if user.id == @phoenix_kit_current_user.id,
-                            do: "Self",
-                            else: "Protected"}
-                        </span>
+                        <%= if user.id == @phoenix_kit_current_user.id do %>
+                          <.link
+                            navigate={Routes.path("/users/settings")}
+                            class="btn btn-xs btn-outline btn-info"
+                          >
+                            <PhoenixKitWeb.Components.Core.Icons.icon_settings class="h-3 w-3 mr-1" />
+                            Settings
+                          </.link>
+                        <% else %>
+                          <span class="text-xs text-base-content/50">Protected</span>
+                        <% end %>
                       <% end %>
                     </div>
                   </td>
