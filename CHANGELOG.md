@@ -7,6 +7,7 @@
 - **Code Quality** - Eliminated duplicate SVG code and standardized icon usage patterns throughout admin interfaces, forms, and user authentication flows
 - **LiveView Module Organization** - Reorganized LiveView modules into logical subfolders for better structure
 - **Route Organization** - Restructured admin routes with improved hierarchical organization
+- **Email URL Generation** - Enhanced Routes.url/1 function to prioritize site_url setting from Settings over dynamic endpoint detection, ensuring consistent email links across PROD and DEV environments
 
 ### Changed
 - **User Routes** - Moved all user-related routes under `/admin/users/` prefix:
@@ -25,6 +26,8 @@
 - **icon_login Component** - Added new login icon component (arrow entering door) to Icons module for authentication pages
 - **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage
 - **Icon Documentation** - Enhanced Icons module with detailed component documentation and usage examples
+- **HTML Email Templates** - Added professional HTML versions for all authentication emails (confirmation, password reset, email update) with responsive design and consistent branding
+- **Site URL Configuration** - Email links now use site_url setting from Settings panel when configured, providing full control over email URLs in production environments
 
 ### Fixed
 - **Icon Reference** - Fixed incorrect icon_check_circle reference to icon_check_circle_filled in magic_link_live.ex
