@@ -37,12 +37,12 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
 
 ## 🛣️ Roadmap / Ideas / Feature requests
 - User module
+  - User's timezone (mismatch detection)
+  - Location of registration (ip, country, region, city)
+  - User's locale
   - OAuth (google, facebook, twitter, github, etc...)
   - 2FA
-  - User's locale
-  - User's timezone (mismatch detection)
   - Fail2ban
-  - Location of registration
 - Backend admin
   - Design / templates / themes
   - Modules manager
