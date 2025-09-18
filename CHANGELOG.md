@@ -15,6 +15,7 @@
   - `/admin/referral-codes` → `/admin/users/referral-codes`
 - **Email Routes** - Reorganized email routes for better clarity:
   - `/admin/email-logs` → `/admin/emails`
+  - `/admin/email-logs/:id` → `/admin/emails/email/:id`
   - `/admin/email-metrics` → `/admin/emails/dashboard`
   - `/admin/email-queue` → `/admin/emails/queue`
   - `/admin/email-blocklist` → `/admin/emails/blocklist`

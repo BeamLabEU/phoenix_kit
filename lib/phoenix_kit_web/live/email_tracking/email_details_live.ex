@@ -530,7 +530,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
                         <div class="space-y-2">
                           <%= for related <- Enum.take(@related_emails, 5) do %>
                             <.link
-                              navigate={Routes.path("/admin/emails/#{related.id}")}
+                              navigate={Routes.path("/admin/emails/email/#{related.id}")}
                               class="block p-2 rounded hover:bg-base-200 text-sm"
                             >
                               <div class="font-medium truncate">{related.to}</div>
@@ -786,6 +786,6 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
 
   defp get_current_path(_socket, _session, email_id) do
     # For EmailDetailsLive, return email details path with ID
-    Routes.path("/admin/emails/#{email_id}")
+    Routes.path("/admin/emails/email/#{email_id}")
   end
 end

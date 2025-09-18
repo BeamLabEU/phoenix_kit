@@ -143,7 +143,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailLogsLive do
   def handle_event("view_details", %{"id" => log_id}, socket) do
     {:noreply,
      socket
-     |> push_navigate(to: Routes.path("/admin/emails/#{log_id}"))}
+     |> push_navigate(to: Routes.path("/admin/emails/email/#{log_id}"))}
   end
 
   @impl true
