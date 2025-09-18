@@ -31,6 +31,9 @@
   # False positive guard clause warnings (function returns boolean correctly)
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :guard_fail, 209},
 
+  # False positive pattern match warnings (runtime behavior differs from static analysis)
+  {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
+
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/
 ]
