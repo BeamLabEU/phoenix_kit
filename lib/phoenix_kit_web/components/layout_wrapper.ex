@@ -206,7 +206,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/live_sessions", "/admin/sessions", "/admin/roles", "/admin/referral-codes"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
                       <%!-- Submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -218,7 +218,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         />
 
                         <.admin_nav_item
-                          href={Routes.path("/admin/live_sessions")}
+                          href={Routes.path("/admin/users/live_sessions")}
                           icon="live_sessions"
                           label="Live Sessions"
                           current_path={@current_path || ""}
@@ -226,7 +226,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         />
 
                         <.admin_nav_item
-                          href={Routes.path("/admin/sessions")}
+                          href={Routes.path("/admin/users/sessions")}
                           icon="sessions"
                           label="Sessions"
                           current_path={@current_path || ""}
@@ -234,7 +234,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         />
 
                         <.admin_nav_item
-                          href={Routes.path("/admin/roles")}
+                          href={Routes.path("/admin/users/roles")}
                           icon="roles"
                           label="Roles"
                           current_path={@current_path || ""}
@@ -243,7 +243,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                         <%= if PhoenixKit.ReferralCodes.enabled?() do %>
                           <.admin_nav_item
-                            href={Routes.path("/admin/referral-codes")}
+                            href={Routes.path("/admin/users/referral-codes")}
                             icon="referral_codes"
                             label="Referral System"
                             current_path={@current_path || ""}
@@ -256,18 +256,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <%= if PhoenixKit.EmailTracking.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
                       <.admin_nav_item
-                        href={Routes.path("/admin/email-metrics")}
+                        href={Routes.path("/admin/emails/dashboard")}
                         icon="email"
                         label="Emails"
                         current_path={@current_path || ""}
                         disable_active={true}
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/email-logs", "/admin/email-metrics", "/admin/email-queue", "/admin/email-blocklist"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/email/queue", "/admin/email/blocklist"]) do %>
                         <%!-- Email submenu items --%>
                         <div class="mt-1">
                           <.admin_nav_item
-                            href={Routes.path("/admin/email-metrics")}
+                            href={Routes.path("/admin/emails/dashboard")}
                             icon="email"
                             label="Dashboard"
                             current_path={@current_path || ""}
@@ -275,7 +275,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/email-logs")}
+                            href={Routes.path("/admin/emails")}
                             icon="email"
                             label="Emails"
                             current_path={@current_path || ""}
@@ -283,7 +283,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/email-queue")}
+                            href={Routes.path("/admin/email/queue")}
                             icon="email"
                             label="Queue"
                             current_path={@current_path || ""}
@@ -291,7 +291,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
-                            href={Routes.path("/admin/email-blocklist")}
+                            href={Routes.path("/admin/email/blocklist")}
                             icon="email"
                             label="Blocklist"
                             current_path={@current_path || ""}

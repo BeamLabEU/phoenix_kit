@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.RolesLive do
+defmodule PhoenixKitWeb.Live.Users.RolesLive do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Events
@@ -39,7 +39,7 @@ defmodule PhoenixKitWeb.Live.RolesLive do
 
   defp get_current_path do
     # For RolesLive, always return roles path
-    Routes.path("/admin/roles")
+    Routes.path("/admin/users/roles")
   end
 
   def handle_event("show_create_form", _params, socket) do

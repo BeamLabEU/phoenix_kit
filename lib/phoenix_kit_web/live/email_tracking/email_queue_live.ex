@@ -16,7 +16,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
 
   ## Route
 
-  This LiveView is mounted at `{prefix}/admin/email-queue` and requires
+  This LiveView is mounted at `{prefix}/admin/email/queue` and requires
   appropriate admin permissions.
 
   Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
@@ -511,7 +511,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
   ## --- Private Functions ---
 
   defp get_current_path(_socket, _session) do
-    Routes.path("/admin/email-queue")
+    Routes.path("/admin/email/queue")
   end
 
   defp load_queue_data(socket) do

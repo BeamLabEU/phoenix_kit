@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.LiveSessionsLive do
+defmodule PhoenixKitWeb.Live.Users.LiveSessionsLive do
   @moduledoc """
   Real-time session monitoring dashboard for the PhoenixKit admin panel.
 
@@ -268,7 +268,7 @@ defmodule PhoenixKitWeb.Live.LiveSessionsLive do
 
       _ ->
         case session["current_path"] do
-          nil -> Routes.path("/admin/live_sessions")
+          nil -> Routes.path("/admin/users/live_sessions")
           path -> path
         end
     end
@@ -304,7 +304,7 @@ defmodule PhoenixKitWeb.Live.LiveSessionsLive do
         session_id: session_id,
         ip_address: get_connect_info(socket, :peer_data) |> extract_ip_address(),
         user_agent: get_connect_info(socket, :user_agent),
-        current_page: Routes.path("/admin/live_sessions")
+        current_page: Routes.path("/admin/users/live_sessions")
       })
     end
   end

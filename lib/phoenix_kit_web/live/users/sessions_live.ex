@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.SessionsLive do
+defmodule PhoenixKitWeb.Live.Users.SessionsLive do
   @moduledoc """
   Live component for managing active user sessions in the PhoenixKit admin panel.
 
@@ -259,7 +259,7 @@ defmodule PhoenixKitWeb.Live.SessionsLive do
   end
 
   defp get_current_path(_socket, _session) do
-    Routes.path("/admin/sessions")
+    Routes.path("/admin/users/sessions")
   end
 
   defp format_age_badge(age_in_days) when age_in_days < 1, do: {"badge-success", "Today"}

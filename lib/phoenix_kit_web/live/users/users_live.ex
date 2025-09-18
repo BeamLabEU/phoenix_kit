@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.UsersLive do
+defmodule PhoenixKitWeb.Live.Users.UsersLive do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Events

@@ -118,7 +118,7 @@ The beneficiary system allows administrators to designate which user should rece
 ## User Interface
 
 ### Admin Interface (LiveView)
-Located at: `{prefix}/admin/referral-codes`
+Located at: `{prefix}/admin/users/referral-codes`
 
 Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`)
 

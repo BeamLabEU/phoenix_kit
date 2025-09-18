@@ -4,10 +4,27 @@
 - **Icon System Centralization** - Consolidated all inline SVG icons across the codebase into centralized PhoenixKitWeb.Components.Core.Icons module for better maintainability and consistency
 - **Component Reusability** - Migrated 50+ SVG icons from 20+ template files to reusable component functions with configurable CSS classes
 - **Code Quality** - Eliminated duplicate SVG code and standardized icon usage patterns throughout admin interfaces, forms, and user authentication flows
+- **LiveView Module Organization** - Reorganized LiveView modules into logical subfolders for better structure
+- **Route Organization** - Restructured admin routes with improved hierarchical organization
+
+### Changed
+- **User Routes** - Moved all user-related routes under `/admin/users/` prefix:
+  - `/admin/roles` → `/admin/users/roles`
+  - `/admin/live_sessions` → `/admin/users/live_sessions`
+  - `/admin/sessions` → `/admin/users/sessions`
+  - `/admin/referral-codes` → `/admin/users/referral-codes`
+- **Email Routes** - Reorganized email routes for better clarity:
+  - `/admin/email-logs` → `/admin/emails`
+  - `/admin/email-metrics` → `/admin/emails/dashboard`
+  - `/admin/email-queue` → `/admin/email/queue`
+  - `/admin/email-blocklist` → `/admin/email/blocklist`
 
 ### Added
 - **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage
 - **Icon Documentation** - Enhanced Icons module with detailed component documentation and usage examples
+
+### Fixed
+- **Code Readability** - Removed unnecessary alias expansion braces for single module imports
 
 ## 1.2.8 - 2025-09-17
 

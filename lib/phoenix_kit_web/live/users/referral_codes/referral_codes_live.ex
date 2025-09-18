@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.ReferralCodesLive do
+defmodule PhoenixKitWeb.Live.Users.ReferralCodesLive do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.ReferralCodes
@@ -72,7 +72,7 @@ defmodule PhoenixKitWeb.Live.ReferralCodesLive do
   end
 
   defp get_current_path(_socket, _session) do
-    Routes.path("/admin/referral-codes")
+    Routes.path("/admin/users/referral-codes")
   end
 
   defp format_expiration_date(nil), do: "No expiration"

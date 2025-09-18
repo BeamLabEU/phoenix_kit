@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
 
   ## Route
 
-  This LiveView is mounted at `{prefix}/admin/email-blocklist` and requires
+  This LiveView is mounted at `{prefix}/admin/email/blocklist` and requires
   appropriate admin permissions.
 
   Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
@@ -784,7 +784,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
   ## --- Private Functions ---
 
   defp get_current_path(_socket, _session) do
-    Routes.path("/admin/email-blocklist")
+    Routes.path("/admin/email/blocklist")
   end
 
   defp load_blocklist_data(socket) do

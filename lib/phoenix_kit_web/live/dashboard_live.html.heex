@@ -33,7 +33,7 @@
       </.link>
 
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/roles")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
         class="card bg-info text-info-content hover:shadow-lg transition-all"
       >
         <div class="card-body">
@@ -48,7 +48,7 @@
       </.link>
 
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/sessions")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/sessions")}
         class="card bg-success text-success-content hover:shadow-lg transition-all"
       >
         <div class="card-body">
@@ -63,7 +63,7 @@
       </.link>
 
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/live_sessions")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/live_sessions")}
         class="card bg-warning text-warning-content hover:shadow-lg transition-all"
       >
         <div class="card-body">
@@ -94,7 +94,7 @@
 
       <%= if PhoenixKit.EmailTracking.enabled?() do %>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/email-logs")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/emails")}
           class="card bg-purple-500 text-white hover:shadow-lg transition-all"
         >
           <div class="card-body">

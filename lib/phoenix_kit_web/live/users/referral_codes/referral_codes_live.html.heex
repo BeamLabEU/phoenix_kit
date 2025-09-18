@@ -98,7 +98,7 @@
 
           <%= if @config.enabled do %>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/referral-codes/new")}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes/new")}
               class="btn btn-primary"
             >
               <PhoenixKitWeb.Components.Core.Icons.icon_plus class="w-4 h-4 mr-2" /> New Code
@@ -126,7 +126,7 @@
                 Create your first referral code to start tracking user registrations.
               </p>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/referral-codes/new")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes/new")}
                 class="btn btn-primary"
               >
                 Create First Code
@@ -201,7 +201,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/referral-codes/edit/#{code.id}"
+                                "/admin/users/referral-codes/edit/#{code.id}"
                               )
                             }
                             class="btn btn-sm btn-outline"

@@ -436,7 +436,7 @@ show_final_status() {
     if [[ "$event_count" =~ ^[0-9]+$ ]] && [[ $event_count -gt 0 ]]; then
         print_success "Email tracking is now working!"
         print_info "Found $event_count events in database"
-        print_info "Admin panel: http://localhost:4000{prefix}/admin/email-logs"
+        print_info "Admin panel: http://localhost:4000{prefix}/admin/emails"
     else
         print_warning "No events received yet"
         print_info "This may be due to:"

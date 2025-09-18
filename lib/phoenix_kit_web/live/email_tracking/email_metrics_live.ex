@@ -23,7 +23,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailMetricsLive do
 
   ## Route
 
-  This LiveView is mounted at `{prefix}/admin/email-metrics` and requires
+  This LiveView is mounted at `{prefix}/admin/emails/dashboard` and requires
   appropriate admin permissions.
 
   Note: `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
@@ -581,7 +581,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailMetricsLive do
   ## --- Private Functions ---
 
   defp get_current_path(_socket, _session) do
-    Routes.path("/admin/email-metrics")
+    Routes.path("/admin/emails/dashboard")
   end
 
   defp load_metrics_data(socket) do

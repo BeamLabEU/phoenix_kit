@@ -39,8 +39,8 @@ defmodule PhoenixKitWeb.Integration do
   - /users/log-out (GET/DELETE)
 
   Admin routes (Owner/Admin only):
-  - /admin/dashboard, /admin/users, /admin/roles
-  - /admin/live_sessions, /admin/sessions
+  - /admin/dashboard, /admin/users, /admin/users/roles
+  - /admin/users/live_sessions, /admin/users/sessions
   - /admin/settings, /admin/modules
 
   ## DaisyUI Setup
@@ -137,22 +137,22 @@ defmodule PhoenixKitWeb.Integration do
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/dashboard", Live.DashboardLive, :index
           live "/admin", Live.DashboardLive, :index
-          live "/admin/users", Live.UsersLive, :index
+          live "/admin/users", Live.Users.UsersLive, :index
           live "/admin/users/new", Users.UserFormLive, :new
           live "/admin/users/edit/:id", Users.UserFormLive, :edit
-          live "/admin/roles", Live.RolesLive, :index
-          live "/admin/live_sessions", Live.LiveSessionsLive, :index
-          live "/admin/sessions", Live.SessionsLive, :index
+          live "/admin/users/roles", Live.Users.RolesLive, :index
+          live "/admin/users/live_sessions", Live.Users.LiveSessionsLive, :index
+          live "/admin/users/sessions", Live.Users.SessionsLive, :index
           live "/admin/settings", Live.SettingsLive, :index
           live "/admin/modules", Live.ModulesLive, :index
-          live "/admin/referral-codes", Live.ReferralCodesLive, :index
-          live "/admin/referral-codes/new", Live.ReferralCodeFormLive, :new
-          live "/admin/referral-codes/edit/:id", Live.ReferralCodeFormLive, :edit
-          live "/admin/email-logs", Live.EmailTracking.EmailLogsLive, :index
-          live "/admin/email-logs/:id", Live.EmailTracking.EmailDetailsLive, :show
-          live "/admin/email-metrics", Live.EmailTracking.EmailMetricsLive, :index
-          live "/admin/email-queue", Live.EmailTracking.EmailQueueLive, :index
-          live "/admin/email-blocklist", Live.EmailTracking.EmailBlocklistLive, :index
+          live "/admin/users/referral-codes", Live.Users.ReferralCodesLive, :index
+          live "/admin/users/referral-codes/new", Live.Users.ReferralCodeFormLive, :new
+          live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeFormLive, :edit
+          live "/admin/emails/dashboard", Live.EmailTracking.EmailMetricsLive, :index
+          live "/admin/emails", Live.EmailTracking.EmailLogsLive, :index
+          live "/admin/emails/:id", Live.EmailTracking.EmailDetailsLive, :show
+          live "/admin/email/queue", Live.EmailTracking.EmailQueueLive, :index
+          live "/admin/email/blocklist", Live.EmailTracking.EmailBlocklistLive, :index
         end
       end
     end
