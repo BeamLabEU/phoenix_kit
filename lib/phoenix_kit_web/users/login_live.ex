@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.Users.LoginLive do
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title="{@project_title} - Sign in"
     >
-      <div class="flex items-center justify-center py-8 min-h-[80vh] bg-base-200">
+      <div class="flex items-center justify-center py-8 min-h-[80vh]">
         <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
           <div class="card-body">
             <h1 class="text-2xl font-bold text-center mb-6">{@project_title} Sign in</h1>
@@ -25,24 +25,32 @@ defmodule PhoenixKitWeb.Users.LoginLive do
               <fieldset class="fieldset">
                 <legend class="fieldset-legend sr-only">Login with Password</legend>
 
-                <label class="label" for="user_email">Email</label>
+                <label class="label" for="user_email">
+                  <span class="label-text flex items-center">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
+                  </span>
+                </label>
                 <input
                   id="user_email"
                   name="user[email]"
                   type="email"
-                  class="input input-bordered w-full"
-                  placeholder="Email"
+                  class="input input-bordered w-full transition-colors focus:input-primary"
+                  placeholder="Enter your email address"
                   value={@form.params["email"] || ""}
                   required
                 />
 
-                <label class="label" for="user_password">Password</label>
+                <label class="label" for="user_password">
+                  <span class="label-text flex items-center">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> Password
+                  </span>
+                </label>
                 <input
                   id="user_password"
                   name="user[password]"
                   type="password"
-                  class="input input-bordered w-full"
-                  placeholder="Password"
+                  class="input input-bordered w-full transition-colors focus:input-primary"
+                  placeholder="Enter your password"
                   required
                 />
 
@@ -70,12 +78,35 @@ defmodule PhoenixKitWeb.Users.LoginLive do
                 <button
                   type="submit"
                   phx-disable-with="Logging in..."
-                  class="btn btn-primary w-full mt-4"
+                  class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Log in <span aria-hidden="true">→</span>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_login class="w-5 h-5 mr-2" /> Log in
+                  <span aria-hidden="true">→</span>
                 </button>
               </fieldset>
             </.form>
+            
+    <!-- Magic Link section -->
+            <div class="mt-6">
+              <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                  <div class="w-full border-t border-base-300" />
+                </div>
+                <div class="relative flex justify-center text-sm">
+                  <span class="px-2 bg-base-100 text-base-content/60">Or continue with</span>
+                </div>
+              </div>
+
+              <div class="mt-4 text-center">
+                <.link
+                  navigate={Routes.path("/users/magic-link")}
+                  class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
+                  Sign in with Magic Link
+                </.link>
+              </div>
+            </div>
             
     <!-- Registration link -->
             <%= if @allow_registration do %>

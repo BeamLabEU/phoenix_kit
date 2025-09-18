@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title="{@project_title} - Create account"
     >
-      <div class="flex items-center justify-center py-8 min-h-[80vh] bg-base-200">
+      <div class="flex items-center justify-center py-8 min-h-[80vh]">
         <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
           <div class="card-body">
             <h1 class="text-2xl font-bold text-center mb-6">{@project_title} Create account</h1>
@@ -38,22 +38,33 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 </div>
 
                 <div phx-feedback-for="user[email]">
-                  <.label for="user_email">Email</.label>
+                  <label class="label" for="user_email">
+                    <span class="label-text flex items-center">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
+                    </span>
+                  </label>
                   <.input
                     field={@form[:email]}
                     type="email"
                     placeholder="Enter your email address"
+                    class="transition-colors focus:input-primary"
                     required
                   />
                 </div>
 
                 <%!-- Username Field (optional) --%>
                 <div phx-feedback-for="user[username]">
-                  <.label for="user_username">Username</.label>
+                  <label class="label" for="user_username">
+                    <span class="label-text flex items-center">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                      Username
+                    </span>
+                  </label>
                   <.input
                     field={@form[:username]}
                     type="text"
                     placeholder="Choose a unique username (optional)"
+                    class="transition-colors focus:input-primary"
                   />
                   <div class="text-xs text-base-content/60 mt-1">
                     If not provided, we'll generate one from your email
@@ -89,11 +100,16 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 <% end %>
 
                 <div phx-feedback-for="user[password]">
-                  <.label for="user_password">Password</.label>
+                  <label class="label" for="user_password">
+                    <span class="label-text flex items-center">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> Password
+                    </span>
+                  </label>
                   <.input
                     field={@form[:password]}
                     type="password"
                     placeholder="Choose a secure password"
+                    class="transition-colors focus:input-primary"
                     required
                   />
                 </div>
@@ -101,8 +117,9 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 <button
                   type="submit"
                   phx-disable-with="Creating account..."
-                  class="btn btn-primary w-full mt-4"
+                  class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
                 >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-5 h-5 mr-2" />
                   Create account <span aria-hidden="true">→</span>
                 </button>
               </fieldset>

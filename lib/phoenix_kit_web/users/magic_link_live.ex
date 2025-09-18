@@ -138,99 +138,109 @@ defmodule PhoenixKitWeb.Users.MagicLinkLive do
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title={@page_title}
     >
-      <div class="mx-auto max-w-sm">
-        <.header class="text-center">
-          Magic Link Login
-          <:subtitle>Enter your email to receive a secure login link</:subtitle>
-        </.header>
+      <div class="flex items-center justify-center py-8 min-h-[80vh]">
+        <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+          <div class="card-body">
+            <h1 class="text-2xl font-bold text-center mb-2">Magic Link Login</h1>
+            <p class="text-center text-base-content/60 text-sm mb-6">
+              Enter your email to receive a secure login link
+            </p>
 
-        <.form
-          for={@form}
-          id="magic_link_form"
-          phx-submit="send_magic_link"
-          phx-change="validate"
-        >
-          <fieldset class="fieldset">
-            <legend class="fieldset-legend sr-only">Magic Link Authentication</legend>
-
-            <div :if={@error} class="alert alert-error text-sm mb-4">
-              <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
-              <span>{@error}</span>
-            </div>
-
-            <label class="label" for="magic_link_email">Email</label>
-            <input
-              id="magic_link_email"
-              name="magic_link[email]"
-              type="email"
-              class="input input-bordered w-full"
-              placeholder="you@example.com"
-              value={@form.params["email"] || ""}
-              required
-            />
-
-            <button
-              type="submit"
-              phx-disable-with="Sending magic link..."
-              class="btn btn-primary w-full mt-4"
-              disabled={@loading || @sent}
+            <.form
+              for={@form}
+              id="magic_link_form"
+              phx-submit="send_magic_link"
+              phx-change="validate"
             >
-              <%= if @loading do %>
-                <span class="loading loading-spinner loading-sm mr-2"></span> Sending magic link...
-              <% else %>
-                Send Magic Link <span aria-hidden="true">→</span>
-              <% end %>
-            </button>
-          </fieldset>
-        </.form>
+              <fieldset class="fieldset">
+                <legend class="fieldset-legend sr-only">Magic Link Authentication</legend>
 
-        <div :if={@sent} class="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
-          <div class="flex">
-            <.icon name="hero-check-circle" class="h-5 w-5 text-green-400" />
-            <div class="ml-3">
-              <h3 class="text-sm font-medium text-green-800">
-                Magic link sent!
-              </h3>
-              <p class="mt-1 text-sm text-green-700">
-                Check your email for a secure login link. The link will expire in 15 minutes.
-              </p>
+                <div :if={@error} class="alert alert-error text-sm mb-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
+                  <span>{@error}</span>
+                </div>
+
+                <label class="label" for="magic_link_email">
+                  <span class="label-text flex items-center">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
+                  </span>
+                </label>
+                <input
+                  id="magic_link_email"
+                  name="magic_link[email]"
+                  type="email"
+                  class="input input-bordered w-full transition-colors focus:input-primary"
+                  placeholder="you@example.com"
+                  value={@form.params["email"] || ""}
+                  required
+                />
+
+                <button
+                  type="submit"
+                  phx-disable-with="Sending magic link..."
+                  class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  disabled={@loading || @sent}
+                >
+                  <%= if @loading do %>
+                    <span class="loading loading-spinner loading-sm mr-2"></span>
+                    Sending magic link...
+                  <% else %>
+                    <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
+                    Send Magic Link <span aria-hidden="true">→</span>
+                  <% end %>
+                </button>
+              </fieldset>
+            </.form>
+
+            <div :if={@sent} class="alert alert-success mt-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_check_circle_filled class="stroke-current shrink-0 h-6 w-6" />
+              <div>
+                <h3 class="font-bold">Magic link sent!</h3>
+                <div class="text-xs">
+                  Check your email for a secure login link. The link will expire in 15 minutes.
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-        
+            
     <!-- Development Mode Notice -->
-        <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-6">
-          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
-          <span>
-            Development mode: Check
-            <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
-            for confirmation emails
-          </span>
-        </div>
-
-        <div class="mt-6">
-          <div class="relative">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-gray-300" />
+            <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
+              <span>
+                Development mode: Check
+                <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
+                for confirmation emails
+              </span>
             </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-gray-500">Or continue with</span>
+
+            <div class="mt-6">
+              <div class="relative">
+                <div class="absolute inset-0 flex items-center">
+                  <div class="w-full border-t border-base-300" />
+                </div>
+                <div class="relative flex justify-center text-sm">
+                  <span class="px-2 bg-base-100 text-base-content/60">Or continue with</span>
+                </div>
+              </div>
+
+              <div class="mt-4 text-center">
+                <.link
+                  navigate={Routes.path("/users/log-in")}
+                  class="font-semibold text-primary hover:underline"
+                >
+                  Sign in with password
+                </.link>
+              </div>
+
+              <div class="text-center mt-4 text-sm">
+                <span>Don't have an account? </span>
+                <.link
+                  navigate={Routes.path("/users/register")}
+                  class="font-semibold text-primary hover:underline"
+                >
+                  Sign up
+                </.link>
+              </div>
             </div>
-          </div>
-
-          <div class="mt-6 text-center">
-            <.link navigate={Routes.path("/users/log-in")} class="text-sm text-brand hover:underline">
-              Sign in with password
-            </.link>
-          </div>
-
-          <div class="mt-3 text-center">
-            <.link
-              navigate={Routes.path("/users/register")}
-              class="text-sm text-gray-600 hover:text-gray-500"
-            >
-              Don't have an account? Sign up
-            </.link>
           </div>
         </div>
       </div>
