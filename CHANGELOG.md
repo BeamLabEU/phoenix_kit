@@ -2,6 +2,7 @@
 
 ### Improved
 - **Icon System Centralization** - Consolidated all inline SVG icons across the codebase into centralized PhoenixKitWeb.Components.Core.Icons module for better maintainability and consistency
+- **Authentication Pages Icons** - Migrated 10 inline SVG icons from login, registration, and magic link pages to centralized icon components (email, lock, user profile, user add, login icons)
 - **Component Reusability** - Migrated 50+ SVG icons from 20+ template files to reusable component functions with configurable CSS classes
 - **Code Quality** - Eliminated duplicate SVG code and standardized icon usage patterns throughout admin interfaces, forms, and user authentication flows
 - **LiveView Module Organization** - Reorganized LiveView modules into logical subfolders for better structure
@@ -21,10 +22,12 @@
   - `/admin/email-blocklist` → `/admin/emails/blocklist`
 
 ### Added
+- **icon_login Component** - Added new login icon component (arrow entering door) to Icons module for authentication pages
 - **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage
 - **Icon Documentation** - Enhanced Icons module with detailed component documentation and usage examples
 
 ### Fixed
+- **Icon Reference** - Fixed incorrect icon_check_circle reference to icon_check_circle_filled in magic_link_live.ex
 - **Code Readability** - Removed unnecessary alias expansion braces for single module imports
 
 ## 1.2.8 - 2025-09-17
