@@ -33,19 +33,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 <legend class="fieldset-legend sr-only">Account Information</legend>
 
                 <div :if={@check_errors} class="alert alert-error text-sm mb-4">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="stroke-current shrink-0 h-6 w-6"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
                   <span>Oops, something went wrong! Please check the errors below.</span>
                 </div>
 
@@ -119,7 +107,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 </button>
               </fieldset>
             </.form>
-            
+
     <!-- Login link -->
             <div class="text-center mt-4 text-sm">
               <span>Already have an account? </span>
@@ -130,23 +118,10 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
                 Sign in
               </.link>
             </div>
-            
+
     <!-- Development Mode Notice -->
             <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-current shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                >
-                </path>
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
               <span>
                 Development mode: Check
                 <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
@@ -210,6 +185,16 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
+    else
+      socket =
+        socket
+        |> put_flash(
+          :error,
+          "User registration is currently disabled. Please contact an administrator."
+        )
+        |> redirect(to: Routes.path("/users/log-in"))
+
+      {:ok, socket}
     end
   end
 

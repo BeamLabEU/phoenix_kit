@@ -1,3 +1,14 @@
+## 1.2.9 - 2025-09-18
+
+### Improved
+- **Icon System Centralization** - Consolidated all inline SVG icons across the codebase into centralized PhoenixKitWeb.Components.Core.Icons module for better maintainability and consistency
+- **Component Reusability** - Migrated 50+ SVG icons from 20+ template files to reusable component functions with configurable CSS classes
+- **Code Quality** - Eliminated duplicate SVG code and standardized icon usage patterns throughout admin interfaces, forms, and user authentication flows
+
+### Added
+- **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage
+- **Icon Documentation** - Enhanced Icons module with detailed component documentation and usage examples
+
 ## 1.2.8 - 2025-09-17
 
 ### Improved

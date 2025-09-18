@@ -59,15 +59,7 @@
                 class="btn btn-outline btn-secondary"
                 phx-click="generate_code"
               >
-                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Generate
+                <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-1" /> Generate
               </button>
             </div>
             <%= if form[:code].errors != [] do %>
@@ -121,14 +113,7 @@
                   phx-click="clear_beneficiary"
                   title="Clear selection"
                 >
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" />
                 </button>
               </div>
               <%!-- Hidden field to store the beneficiary ID --%>
@@ -245,14 +230,7 @@
               class="btn btn-primary"
               disabled={!@changeset.valid?}
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 mr-2" />
               {if @mode == :edit, do: "Update Code", else: "Create Code"}
             </button>
             <button
@@ -260,15 +238,7 @@
               class="btn btn-ghost"
               phx-click="cancel"
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-              Cancel
+              <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4 mr-2" /> Cancel
             </button>
           </div>
         </.form>

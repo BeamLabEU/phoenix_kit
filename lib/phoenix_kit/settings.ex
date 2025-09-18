@@ -47,6 +47,8 @@ defmodule PhoenixKit.Settings do
 
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm
+  alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
   # Gets the configured repository for database operations.
@@ -298,7 +300,7 @@ defmodule PhoenixKit.Settings do
 
       iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", false)
       false
-      
+
       iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", true)
       true
   """
@@ -358,7 +360,7 @@ defmodule PhoenixKit.Settings do
 
       iex> PhoenixKit.Settings.update_boolean_setting("feature_enabled", true)
       {:ok, %Setting{key: "feature_enabled", value: "true"}}
-      
+
       iex> PhoenixKit.Settings.update_boolean_setting("feature_enabled", false)
       {:ok, %Setting{key: "feature_enabled", value: "false"}}
   """
@@ -503,10 +505,10 @@ defmodule PhoenixKit.Settings do
       [{"User", "User"}, {"Admin", "Admin"}, {"Manager", "Manager"}]
   """
   def get_role_options do
-    owner_role = PhoenixKit.Users.Role.system_roles().owner
+    owner_role = Role.system_roles().owner
 
     # Get all roles from database except Owner role
-    all_roles = PhoenixKit.Users.Roles.list_roles()
+    all_roles = Roles.list_roles()
 
     # Filter out Owner role and convert to {label, value} format
     all_roles

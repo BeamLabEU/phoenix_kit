@@ -32,9 +32,7 @@
             <div class="text-blue-100">Active Sessions</div>
           </div>
           <div class="p-2 bg-white/20 rounded-lg">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.88 9.88l-4.24 4.24c-.78.78-2.05.78-2.83 0-.78-.78-.78-2.05 0-2.83L12.05 10l-3.24-3.29c-.78-.78-.78-2.05 0-2.83.78-.78 2.05-.78 2.83 0l4.24 4.24c.39.39.39 1.02 0 1.41z" />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_activity class="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -46,9 +44,7 @@
             <div class="text-green-100">Unique Users</div>
           </div>
           <div class="p-2 bg-white/20 rounded-lg">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -60,10 +56,7 @@
             <div class="text-yellow-100">Today's Sessions</div>
           </div>
           <div class="p-2 bg-white/20 rounded-lg">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z" />
-              <path d="M12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z" />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_clock class="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -75,9 +68,7 @@
             <div class="text-red-100">Expired Sessions</div>
           </div>
           <div class="p-2 bg-white/20 rounded-lg">
-            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_check_circle_filled class="w-6 h-6" />
           </div>
         </div>
       </div>
@@ -113,19 +104,7 @@
               for user <strong>{@selected_user.email}</strong>?
             </p>
             <div class="alert alert-warning">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-current shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_warning class="stroke-current shrink-0 h-6 w-6" />
               <span>This will log out the user from all devices and sessions.</span>
             </div>
           <% end %>
@@ -192,15 +171,7 @@
           phx-click="refresh_sessions"
           class="btn btn-primary"
         >
-          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-          Refresh
+          <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-2" /> Refresh
         </button>
       </div>
     </div>
@@ -296,14 +267,7 @@
                         class="btn btn-error btn-xs"
                         title="Revoke this session"
                       >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M6 18L18 6M6 6l12 12"
-                          />
-                        </svg>
+                        <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-3 h-3" />
                       </button>
 
                       <%!-- Revoke All User Sessions --%>
@@ -313,14 +277,7 @@
                         class="btn btn-warning btn-xs"
                         title="Revoke all sessions for this user"
                       >
-                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-                          />
-                        </svg>
+                        <PhoenixKitWeb.Components.Core.Icons.icon_warning class="w-3 h-3" />
                       </button>
                     </div>
                   </td>

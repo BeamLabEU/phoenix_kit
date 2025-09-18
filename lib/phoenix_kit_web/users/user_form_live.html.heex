@@ -136,13 +136,7 @@
                   required
                 />
                 <div class="text-xs text-base-content/60 mt-2">
-                  <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                    <path
-                      fill-rule="evenodd"
-                      d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_info_filled class="w-4 h-4 inline mr-1" />
                   <strong>Note:</strong>
                   This will immediately invalidate all current sessions for this user.
                 </div>
@@ -155,14 +149,7 @@
 
             <div class="bg-base-200 p-4 rounded-lg">
               <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 mt-0.5 text-info" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-                    clip-rule="evenodd"
-                  >
-                  </path>
-                </svg>
+                <PhoenixKitWeb.Components.Core.Icons.icon_info_filled class="w-5 h-5 mt-0.5 text-info" />
                 <div class="text-sm">
                   <p class="font-medium">Default Settings:</p>
                   <ul class="mt-1 text-base-content/70">
@@ -206,17 +193,7 @@
       <%= if @mode == :edit do %>
         <div class="bg-yellow-50 border border-yellow-200 dark:bg-warning/10 dark:border-warning/30 rounded-lg p-6 mt-6">
           <div class="flex items-start gap-3">
-            <svg
-              class="w-6 h-6 text-yellow-600 dark:text-warning mt-0.5"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_warning_filled />
             <div class="flex-1">
               <h3 class="font-semibold text-yellow-800 dark:text-warning mb-2">
                 Password Reset via Email
@@ -233,14 +210,7 @@
                 phx-click="show_reset_password_modal"
                 class="btn btn-warning btn-sm mt-3"
               >
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                  />
-                </svg>
+                <PhoenixKitWeb.Components.Core.Icons.icon_sessions class="w-4 h-4 mr-2" />
                 Reset User Password
               </button>
             </div>
@@ -254,13 +224,7 @@
       <div class="modal modal-open">
         <div class="modal-box max-w-lg">
           <div class="flex items-center gap-3 mb-4">
-            <svg class="w-8 h-8 text-error" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <PhoenixKitWeb.Components.Core.Icons.icon_warning_filled class="w-8 h-8 text-error" />
             <h3 class="font-bold text-xl text-error">Confirm Password Reset</h3>
           </div>
 
@@ -288,13 +252,7 @@
 
             <div class="bg-info/10 border border-info/20 rounded-lg p-4">
               <p class="text-sm">
-                <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
-                  <path
-                    fill-rule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 0 100-2v-3a1 1 0 00-1-1H9z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                <PhoenixKitWeb.Components.Core.Icons.icon_info_filled class="w-4 h-4 inline mr-1" />
                 <strong>Note:</strong>
                 Make sure the user has access to their email account before proceeding.
               </p>
@@ -315,14 +273,7 @@
               class="btn btn-error"
               phx-disable-with="Sending email..."
             >
-              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
               Yes, Reset Password
             </button>
           </div>

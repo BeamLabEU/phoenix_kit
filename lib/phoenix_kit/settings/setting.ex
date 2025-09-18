@@ -36,6 +36,9 @@ defmodule PhoenixKit.Settings.Setting do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Users.Role
+  alias PhoenixKit.Users.Roles
+
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_settings" do
@@ -134,7 +137,7 @@ defmodule PhoenixKit.Settings.Setting do
         %PhoenixKit.Settings.Setting.SettingsForm{}
         |> PhoenixKit.Settings.Setting.SettingsForm.changeset(%{
           project_title: "My App",
-          time_zone: "0", 
+          time_zone: "0",
           date_format: "Y-m-d",
           time_format: "H:i"
         })
@@ -180,7 +183,7 @@ defmodule PhoenixKit.Settings.Setting do
         iex> valid_attrs = %{
         ...>   project_title: "My App",
         ...>   time_zone: "0",
-        ...>   date_format: "Y-m-d", 
+        ...>   date_format: "Y-m-d",
         ...>   time_format: "H:i"
         ...> }
         iex> PhoenixKit.Settings.Setting.SettingsForm.changeset(%PhoenixKit.Settings.Setting.SettingsForm{}, valid_attrs)
@@ -270,10 +273,10 @@ defmodule PhoenixKit.Settings.Setting do
 
     # Validates new_user_default_role is a valid non-Owner role
     defp validate_new_user_default_role(changeset) do
-      owner_role = PhoenixKit.Users.Role.system_roles().owner
+      owner_role = Role.system_roles().owner
 
       # Get all valid role names except Owner
-      all_roles = PhoenixKit.Users.Roles.list_roles()
+      all_roles = Roles.list_roles()
 
       valid_roles =
         all_roles

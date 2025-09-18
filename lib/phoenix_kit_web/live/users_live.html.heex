@@ -126,15 +126,7 @@
             navigate={PhoenixKit.Utils.Routes.path("/admin/users/new")}
             class="btn btn-primary w-full"
           >
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-              />
-            </svg>
-            Add New User
+            <PhoenixKitWeb.Components.Core.Icons.icon_user_add /> Add New User
           </.link>
         </div>
       </div>
@@ -268,20 +260,7 @@
                         navigate={PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.id}")}
                         class="btn btn-xs btn-outline btn-secondary"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          class="h-3 w-3 mr-1"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                          />
-                        </svg>
+                        <PhoenixKitWeb.Components.Core.Icons.icon_edit class="h-3 w-3 mr-1" />
                         Edit
                       </.link>
 
@@ -292,26 +271,7 @@
                           phx-click="show_role_management"
                           phx-value-user_id={user.id}
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-3 w-3 mr-1"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                            />
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                            />
-                          </svg>
+                          <PhoenixKitWeb.Components.Core.Icons.icon_settings class="h-3 w-3 mr-1" />
                           Manage Roles
                         </button>
                       <% end %>
@@ -325,36 +285,10 @@
                           data-confirm={"Are you sure you want to #{if user.is_active, do: "deactivate", else: "activate"} this user?"}
                         >
                           <%= if user.is_active do %>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-3 w-3 mr-1"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728"
-                              />
-                            </svg>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_ban class="h-3 w-3 mr-1" />
                             Deactivate
                           <% else %>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-3 w-3 mr-1"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_check_circle_outline class="h-3 w-3 mr-1" />
                             Activate
                           <% end %>
                         </button>
@@ -367,36 +301,10 @@
                           data-confirm={"Are you sure you want to #{if user.confirmed_at, do: "unconfirm", else: "confirm"} this user's email?"}
                         >
                           <%= if user.confirmed_at do %>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-3 w-3 mr-1"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                              />
-                            </svg>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_warning class="h-3 w-3 mr-1" />
                             Unconfirm
                           <% else %>
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              class="h-3 w-3 mr-1"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                              />
-                            </svg>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_shield class="h-3 w-3 mr-1" />
                             Confirm
                           <% end %>
                         </button>
@@ -434,20 +342,7 @@
       <% else %>
         <%!-- Empty state --%>
         <div class="text-center py-12">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-16 w-16 mx-auto text-base-content/40 mb-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0zM5 21v-1a6 6 0 0112 0v1z"
-            />
-          </svg>
+          <PhoenixKitWeb.Components.Core.Icons.icon_users_multiple class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
           <h3 class="text-lg font-medium text-base-content mb-2">
             No users found
           </h3>
@@ -533,12 +428,7 @@
         <div class="bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
           <div class="flex items-center justify-between mb-4">
             <div class="p-2 bg-white/20 rounded-lg">
-              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_check_circle_filled class="w-6 h-6" />
             </div>
           </div>
           <div class="text-3xl font-bold mb-2">{@active_users}</div>
@@ -550,12 +440,7 @@
         <div class="bg-gradient-to-br from-red-500 via-red-600 to-rose-600 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
           <div class="flex items-center justify-between mb-4">
             <div class="p-2 bg-white/20 rounded-lg">
-              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fill-rule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_x_circle_filled class="w-6 h-6" />
             </div>
           </div>
           <div class="text-3xl font-bold mb-2">{@inactive_users}</div>
@@ -567,14 +452,7 @@
         <div class="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
           <div class="flex items-center justify-between mb-4">
             <div class="p-2 bg-white/20 rounded-lg">
-              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-6 h-6" />
             </div>
           </div>
           <div class="text-3xl font-bold mb-2">{@confirmed_users}</div>
@@ -586,9 +464,7 @@
         <div class="bg-gradient-to-br from-yellow-500 via-orange-500 to-amber-600 text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
           <div class="flex items-center justify-between mb-4">
             <div class="p-2 bg-white/20 rounded-lg">
-              <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z" />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_info_circle_filled class="w-6 h-6" />
             </div>
           </div>
           <div class="text-3xl font-bold mb-2">{@pending_users}</div>

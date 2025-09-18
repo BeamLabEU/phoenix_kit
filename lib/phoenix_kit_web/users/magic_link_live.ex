@@ -154,19 +154,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkLive do
             <legend class="fieldset-legend sr-only">Magic Link Authentication</legend>
 
             <div :if={@error} class="alert alert-error text-sm mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="stroke-current shrink-0 h-6 w-6"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
               <span>{@error}</span>
             </div>
 
@@ -212,20 +200,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkLive do
         
     <!-- Development Mode Notice -->
         <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-6">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="stroke-current shrink-0 h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            >
-            </path>
-          </svg>
+          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
           <span>
             Development mode: Check
             <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>

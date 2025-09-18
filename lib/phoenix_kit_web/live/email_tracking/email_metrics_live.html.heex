@@ -1,0 +1,329 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Email Analytics"
+  current_path={@current_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon_arrow_left /> Back to Admin
+      </.link>
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">
+          Email Dashboard
+        </h1>
+        <p class="text-lg text-base-content/70">
+          Comprehensive email performance metrics and insights
+        </p>
+      </div>
+    </header>
+    <%!-- Controls Section --%>
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
+      <%!-- Period Selection --%>
+      <div class="flex flex-wrap gap-2">
+        <button
+          class={[
+            "btn btn-sm",
+            (@period == :last_24_hours && "btn-primary") || "btn-outline"
+          ]}
+          phx-click="change_period"
+          phx-value-period="last_24_hours"
+        >
+          24 Hours
+        </button>
+        <button
+          class={[
+            "btn btn-sm",
+            (@period == :last_7_days && "btn-primary") || "btn-outline"
+          ]}
+          phx-click="change_period"
+          phx-value-period="last_7_days"
+        >
+          7 Days
+        </button>
+        <button
+          class={[
+            "btn btn-sm",
+            (@period == :last_30_days && "btn-primary") || "btn-outline"
+          ]}
+          phx-click="change_period"
+          phx-value-period="last_30_days"
+        >
+          30 Days
+        </button>
+        <button
+          class={[
+            "btn btn-sm",
+            (@period == :last_90_days && "btn-primary") || "btn-outline"
+          ]}
+          phx-click="change_period"
+          phx-value-period="last_90_days"
+        >
+          90 Days
+        </button>
+        <button
+          class="btn btn-sm btn-outline"
+          phx-click="toggle_custom_range"
+        >
+          Custom Range
+        </button>
+      </div>
+      <%!-- Action Buttons --%>
+      <div class="flex gap-2">
+        <button
+          class="btn btn-sm btn-outline"
+          phx-click="refresh"
+          disabled={@loading}
+        >
+          <%= if @loading do %>
+            <span class="loading loading-spinner loading-xs"></span>
+          <% else %>
+            <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4" />
+          <% end %>
+          Refresh
+        </button>
+        <div class="dropdown dropdown-end">
+          <div tabindex="0" role="button" class="btn btn-sm btn-outline">
+            <PhoenixKitWeb.Components.Core.Icons.icon_download class="w-4 h-4" /> Export
+          </div>
+          <ul
+            tabindex="0"
+            class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+          >
+            <li>
+              <a phx-click="export_metrics" phx-value-format="csv">
+                Export as CSV
+              </a>
+            </li>
+            <li>
+              <a phx-click="export_metrics" phx-value-format="json">
+                Export as JSON
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <%!-- Custom Date Range Modal --%>
+    <%= if @custom_range do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg mb-4">Select Custom Date Range</h3>
+          <form phx-submit="apply_custom_range">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="label">
+                  <span class="label-text">Start Date</span>
+                </label>
+                <input
+                  type="date"
+                  name="start_date"
+                  class="input input-bordered w-full"
+                  max={Date.utc_today() |> Date.to_iso8601()}
+                  required
+                />
+              </div>
+              <div>
+                <label class="label">
+                  <span class="label-text">End Date</span>
+                </label>
+                <input
+                  type="date"
+                  name="end_date"
+                  class="input input-bordered w-full"
+                  max={Date.utc_today() |> Date.to_iso8601()}
+                  required
+                />
+              </div>
+            </div>
+            <div class="modal-action">
+              <button type="submit" class="btn btn-primary">Apply</button>
+              <button type="button" class="btn" phx-click="toggle_custom_range">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+    <%!-- Loading State --%>
+    <%= if @loading do %>
+      <div class="flex justify-center items-center h-32">
+        <span class="loading loading-spinner loading-lg"></span>
+        <span class="ml-3 text-lg">Loading analytics data...</span>
+      </div>
+    <% else %>
+      <%!-- KPI Cards --%>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <%!-- Total Sent --%>
+        <div class="card bg-primary text-primary-content shadow-sm">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-primary-content/70 text-sm">Total Sent</p>
+                <p class="text-2xl font-bold">{format_number(@metrics.total_sent || 0)}</p>
+              </div>
+              <div class="text-primary-content/70">
+                <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <%!-- Delivery Rate --%>
+        <div class="card bg-success text-success-content shadow-sm">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-success-content/70 text-sm">Delivery Rate</p>
+                <p class="text-2xl font-bold">{format_percentage(@metrics.delivery_rate || 0)}</p>
+              </div>
+              <div class="text-success-content/70">
+                <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <%!-- Bounce Rate --%>
+        <div class="card bg-warning text-warning-content shadow-sm">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-warning-content/70 text-sm">Bounce Rate</p>
+                <p class="text-2xl font-bold">{format_percentage(@metrics.bounce_rate || 0)}</p>
+              </div>
+              <div class="text-warning-content/70">
+                <PhoenixKitWeb.Components.Core.Icons.icon_warning_filled class="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <%!-- Open Rate --%>
+        <div class="card bg-info text-info-content shadow-sm">
+          <div class="card-body p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-info-content/70 text-sm">Open Rate</p>
+                <p class="text-2xl font-bold">{format_percentage(@metrics.open_rate || 0)}</p>
+              </div>
+              <div class="text-info-content/70">
+                <PhoenixKitWeb.Components.Core.Icons.icon_eye class="w-8 h-8" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <%!-- Charts Section --%>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <%!-- Delivery Trends Chart --%>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Delivery Trends</h2>
+            <div class="w-full h-64">
+              <canvas id="delivery-trend-chart" width="400" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+        <%!-- Engagement Chart --%>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Engagement Metrics</h2>
+            <div class="w-full h-64">
+              <canvas id="engagement-chart" width="400" height="200"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+      <%!-- Additional Analytics --%>
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <%!-- Provider Performance --%>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-4">Provider Performance</h2>
+            <%= if @metrics.by_provider && length(Map.keys(@metrics.by_provider)) > 0 do %>
+              <div class="overflow-x-auto">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Provider</th>
+                      <th>Sent</th>
+                      <th>Delivery Rate</th>
+                      <th>Bounce Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for {provider, stats} <- @metrics.by_provider do %>
+                      <tr>
+                        <td class="font-medium">{provider}</td>
+                        <td>{format_number(stats.total_sent || 0)}</td>
+                        <td>
+                          <span class={[
+                            "badge badge-sm",
+                            ((stats.delivery_rate || 0) >= 95 && "badge-success") ||
+                              ((stats.delivery_rate || 0) >= 85 && "badge-warning") ||
+                              "badge-error"
+                          ]}>
+                            {format_percentage(stats.delivery_rate || 0)}
+                          </span>
+                        </td>
+                        <td>{format_percentage(stats.bounce_rate || 0)}</td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% else %>
+              <div class="text-center text-base-content/50 py-8">
+                No provider data available
+              </div>
+            <% end %>
+          </div>
+        </div>
+        <%!-- Recent Activity --%>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body">
+            <h2 class="card-title text-lg mb-4">System Status</h2>
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-sm">Email</span>
+                <span class="badge badge-success">Active</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">Last Updated</span>
+                <span class="text-sm text-base-content/70">
+                  {UtilsDate.format_datetime_with_user_format(@last_updated)}
+                </span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">Total Emails Today</span>
+                <span class="text-sm font-medium">
+                  {format_number(@metrics.today_count || 0)}
+                </span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-sm">Data Retention</span>
+                <span class="text-sm text-base-content/70">
+                  {EmailTracking.get_retention_days()} days
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+  <%!-- JavaScript for Charts --%>
+  <script>
+    // Chart.js initialization will be handled by a hook
+    window.addEventListener("phx:page-loading-stop", () => {
+      if (window.initializeCharts) {
+        window.initializeCharts(<%= Jason.encode!(@charts_data) %>);
+      }
+    });
+  </script>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
