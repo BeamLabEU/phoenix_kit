@@ -39,13 +39,13 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
 - User module
   - User's timezone (mismatch detection)
   - Location of registration (ip, country, region, city)
-  - User's locale
   - OAuth (google, facebook, twitter, github, etc...)
+  - User's locale (needs global language settings, in works)
   - 2FA
   - Fail2ban
 - Backend admin
-  - Design / templates / themes
   - Modules manager
+  - Design / templates / themes
   - Settings
     - General
     - Languages
