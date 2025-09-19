@@ -1,3 +1,22 @@
+## 1.2.10 - 2025-09-19
+
+### Improved
+- **Authentication UI Consistency** - Unified design across all authentication pages (login, registration, magic link, account settings) with consistent card layouts, shadows, and spacing
+- **Icon Integration** - Added icon slot support to input component enabling consistent iconography throughout forms using PhoenixKit's centralized icon system
+- **User Experience** - Enhanced interaction feedback with hover scale animations and focus transitions on buttons and form elements
+- **Visual Cohesion** - Removed background color inconsistencies and standardized visual hierarchy across all authentication flows
+
+### Added
+- **Magic Link Integration** - Added Magic Link authentication option to login page with elegant divider and themed button
+- **Account Settings Redesign** - Complete visual overhaul of settings page to match authentication pages design language
+- **Flash Message Auto-dismiss** - Implemented automatic flash message dismissal after 10 seconds for improved user experience
+- **Form Field Icons** - Email, password, and profile fields now display contextual icons (email, lock, user profile) for better visual clarity
+
+### Changed
+- **Magic Link Page Layout** - Redesigned magic link page with card-based layout matching login and registration pages
+- **Settings Page Structure** - Restructured account settings with centered layout, improved typography, and consistent spacing
+- **Input Component Enhancement** - Extended core input component to support icon slots while maintaining backward compatibility
+
 ## 1.2.9 - 2025-09-18
 
 ### Improved

@@ -95,6 +95,7 @@ defmodule PhoenixKitWeb.CoreComponents do
                 multiple pattern placeholder readonly required rows size step)
 
   slot :inner_block
+  slot :icon, doc: "the icon to display next to the label"
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
@@ -173,14 +174,20 @@ defmodule PhoenixKitWeb.CoreComponents do
   def input(assigns) do
     ~H"""
     <div phx-feedback-for={@name}>
-      <.label :if={@label && @label != ""} for={@id} class="block mb-2">{@label}</.label>
+      <label :if={@label && @label != ""} class="label" for={@id}>
+        <span :if={@icon != []} class="label-text flex items-center">
+          {render_slot(@icon)}
+          {@label}
+        </span>
+        <span :if={@icon == []} class="label-text font-semibold">{@label}</span>
+      </label>
       <input
         type={@type}
         name={@name}
         id={@id}
         value={Phoenix.HTML.Form.normalize_value(@type, @value)}
         class={[
-          "input input-bordered w-full",
+          "input input-bordered w-full transition-colors focus:input-primary",
           @errors != [] && "input-error"
         ]}
         {@rest}
@@ -307,6 +314,8 @@ defmodule PhoenixKitWeb.CoreComponents do
       :if={msg = render_slot(@inner_block) || Phoenix.Flash.get(@flash, @kind)}
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide_flash("##{@id}")}
+      phx-hook="AutoHideFlash"
+      data-flash-kind={@kind}
       role="alert"
       class={[
         "fixed top-2 right-2 mr-2 w-80 sm:w-96 z-50 rounded-lg p-3 ring-1",

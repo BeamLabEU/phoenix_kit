@@ -11,21 +11,29 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title="Account Settings"
     >
-      <div class="min-h-[80vh] bg-base-200 py-8">
-        <div class="max-w-2xl mx-auto px-4">
+      <div class="flex items-center justify-center py-8 min-h-[80vh]">
+        <div class="w-full max-w-lg px-4">
           <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold mb-2">Account Settings</h1>
-            <p class="text-base-content/70">
+            <div class="flex items-center justify-center mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-12 h-12 text-primary" />
+            </div>
+            <h1 class="text-3xl font-bold mb-2">Account Settings</h1>
+            <p class="text-base-content/60 text-sm">
               Manage your account email address and password settings
             </p>
           </div>
 
           <div class="space-y-8">
             <!-- Email Settings Card -->
-            <div class="card bg-base-100 shadow-xl">
+            <div class="card bg-base-100 shadow-2xl">
               <div class="card-body">
-                <h2 class="card-title">Email Address</h2>
-                <p class="text-sm text-base-content/70 mb-4">Change your account email address</p>
+                <div class="flex items-center mb-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-6 h-6 text-primary mr-3" />
+                  <div>
+                    <h2 class="text-xl font-bold">Email Address</h2>
+                    <p class="text-sm text-base-content/60">Change your account email address</p>
+                  </div>
+                </div>
 
                 <.simple_form
                   for={@email_form}
@@ -33,7 +41,16 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
                   phx-submit="update_email"
                   phx-change="validate_email"
                 >
-                  <.input field={@email_form[:email]} type="email" label="Email" required />
+                  <.input
+                    field={@email_form[:email]}
+                    type="email"
+                    label="Email"
+                    required
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <.input
                     field={@email_form[:current_password]}
                     name="current_password"
@@ -42,19 +59,34 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
                     label="Current password"
                     value={@email_form_current_password}
                     required
-                  />
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <:actions>
-                    <.button phx-disable-with="Changing..." class="btn-primary">Change Email</.button>
+                    <.button
+                      phx-disable-with="Changing..."
+                      class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
+                      Change Email
+                    </.button>
                   </:actions>
                 </.simple_form>
               </div>
             </div>
             
     <!-- Profile Settings Card -->
-            <div class="card bg-base-100 shadow-xl">
+            <div class="card bg-base-100 shadow-2xl">
               <div class="card-body">
-                <h2 class="card-title">Profile Information</h2>
-                <p class="text-sm text-base-content/70 mb-4">Update your personal information</p>
+                <div class="flex items-center mb-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-6 h-6 text-primary mr-3" />
+                  <div>
+                    <h2 class="text-xl font-bold">Profile Information</h2>
+                    <p class="text-sm text-base-content/60">Update your personal information</p>
+                  </div>
+                </div>
 
                 <.simple_form
                   for={@profile_form}
@@ -62,10 +94,26 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
                   phx-submit="update_profile"
                   phx-change="validate_profile"
                 >
-                  <.input field={@profile_form[:first_name]} type="text" label="First Name" />
-                  <.input field={@profile_form[:last_name]} type="text" label="Last Name" />
+                  <.input
+                    field={@profile_form[:first_name]}
+                    type="text"
+                    label="First Name"
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
+                  <.input field={@profile_form[:last_name]} type="text" label="Last Name">
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <:actions>
-                    <.button phx-disable-with="Updating..." class="btn-primary">
+                    <.button
+                      phx-disable-with="Updating..."
+                      class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-5 h-5 mr-2" />
                       Update Profile
                     </.button>
                   </:actions>
@@ -74,10 +122,15 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
             </div>
             
     <!-- Password Settings Card -->
-            <div class="card bg-base-100 shadow-xl">
+            <div class="card bg-base-100 shadow-2xl">
               <div class="card-body">
-                <h2 class="card-title">Password</h2>
-                <p class="text-sm text-base-content/70 mb-4">Update your account password</p>
+                <div class="flex items-center mb-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-6 h-6 text-primary mr-3" />
+                  <div>
+                    <h2 class="text-xl font-bold">Password</h2>
+                    <p class="text-sm text-base-content/60">Update your account password</p>
+                  </div>
+                </div>
 
                 <.simple_form
                   for={@password_form}
@@ -99,12 +152,20 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
                     type="password"
                     label="New password"
                     required
-                  />
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <.input
                     field={@password_form[:password_confirmation]}
                     type="password"
                     label="Confirm new password"
-                  />
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <.input
                     field={@password_form[:current_password]}
                     name="current_password"
@@ -113,9 +174,17 @@ defmodule PhoenixKitWeb.Users.SettingsLive do
                     id="current_password_for_password"
                     value={@current_password}
                     required
-                  />
+                  >
+                    <:icon>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                    </:icon>
+                  </.input>
                   <:actions>
-                    <.button phx-disable-with="Changing..." class="btn-primary">
+                    <.button
+                      phx-disable-with="Changing..."
+                      class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-5 h-5 mr-2" />
                       Change Password
                     </.button>
                   </:actions>
