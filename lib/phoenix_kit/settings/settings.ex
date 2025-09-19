@@ -58,6 +58,34 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Gets default values for all settings.
+
+  Returns a map with setting keys and their default values.
+  These defaults match the ones defined in the V03 migration.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_defaults()
+      %{
+        "time_zone" => "0",
+        "date_format" => "Y-m-d",
+        "time_format" => "H:i"
+      }
+  """
+  def get_defaults do
+    %{
+      "project_title" => "PhoenixKit",
+      "site_url" => "",
+      "allow_registration" => "true",
+      "new_user_default_role" => "User",
+      "week_start_day" => "1",
+      "time_zone" => "0",
+      "date_format" => "Y-m-d",
+      "time_format" => "H:i"
+    }
+  end
+
+  @doc """
   Gets a setting value by key.
 
   Returns the setting value as a string, or nil if not found.
@@ -97,35 +125,75 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
-  Updates or creates a setting with the given key and value.
-
-  If the setting exists, updates its value and timestamp.
-  If the setting doesn't exist, creates a new one.
-
-  Returns `{:ok, setting}` on success, `{:error, changeset}` on failure.
+  Gets the display label for a setting option value.
 
   ## Examples
 
-      iex> PhoenixKit.Settings.update_setting("time_zone", "+1")
-      {:ok, %Setting{key: "time_zone", value: "+1"}}
-
-      iex> PhoenixKit.Settings.update_setting("", "invalid")
-      {:error, %Ecto.Changeset{}}
+      iex> options = [{"YYYY-MM-DD", "Y-m-d"}, {"MM/DD/YYYY", "m/d/Y"}]
+      iex> PhoenixKit.Settings.get_option_label("Y-m-d", options)
+      "YYYY-MM-DD"
   """
-  def update_setting(key, value) when is_binary(key) and (is_binary(value) or is_nil(value)) do
-    # Convert nil to empty string for storage
-    stored_value = value || ""
+  def get_option_label(value, options) do
+    case Enum.find(options, fn {_label, val} -> val == value end) do
+      {label, _value} -> label
+      nil -> value
+    end
+  end
 
-    case repo().get_by(Setting, key: key) do
-      %Setting{} = setting ->
-        setting
-        |> Setting.update_changeset(%{value: stored_value})
-        |> repo().update()
+  @doc """
+  Gets a boolean setting value by key with a default fallback.
 
+  Converts string values "true"/"false" to actual boolean values.
+  Returns the default if the setting is not found or has an invalid value.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", false)
+      false
+
+      iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", true)
+      true
+  """
+  def get_boolean_setting(key, default \\ false) when is_binary(key) and is_boolean(default) do
+    raw_value = get_setting(key)
+
+    case raw_value do
+      "true" -> true
+      "false" -> false
+      nil -> default
+      _ -> default
+    end
+  end
+
+  @doc """
+  Gets an integer setting value by key, with fallback to default.
+
+  Converts the stored string value to an integer. If the setting doesn't exist
+  or cannot be converted to an integer, returns the default value.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_integer_setting("max_items", 10)
+      10
+
+      iex> PhoenixKit.Settings.get_integer_setting("existing_number", 5)
+      25  # if "25" is stored in database
+  """
+  def get_integer_setting(key, default \\ 0) when is_binary(key) and is_integer(default) do
+    raw_value = get_setting(key)
+
+    case raw_value do
       nil ->
-        %Setting{}
-        |> Setting.changeset(%{key: key, value: stored_value})
-        |> repo().insert()
+        default
+
+      value when is_binary(value) ->
+        case Integer.parse(value) do
+          {integer_value, _} -> integer_value
+          :error -> default
+        end
+
+      _ ->
+        default
     end
   end
 
@@ -169,6 +237,28 @@ defmodule PhoenixKit.Settings do
     Setting
     |> order_by([s], s.key)
     |> repo().all()
+  end
+
+  @doc """
+  Gets the available role options for the new user default role setting.
+
+  Returns all roles from database except Owner, ordered by system roles first, then custom roles.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_role_options()
+      [{"User", "User"}, {"Admin", "Admin"}, {"Manager", "Manager"}]
+  """
+  def get_role_options do
+    owner_role = Role.system_roles().owner
+
+    # Get all roles from database except Owner role
+    all_roles = Roles.list_roles()
+
+    # Filter out Owner role and convert to {label, value} format
+    all_roles
+    |> Enum.reject(fn role -> role.name == owner_role end)
+    |> Enum.map(fn role -> {role.name, role.name} end)
   end
 
   @doc """
@@ -275,75 +365,35 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
-  Gets the display label for a setting option value.
+  Updates or creates a setting with the given key and value.
+
+  If the setting exists, updates its value and timestamp.
+  If the setting doesn't exist, creates a new one.
+
+  Returns `{:ok, setting}` on success, `{:error, changeset}` on failure.
 
   ## Examples
 
-      iex> options = [{"YYYY-MM-DD", "Y-m-d"}, {"MM/DD/YYYY", "m/d/Y"}]
-      iex> PhoenixKit.Settings.get_option_label("Y-m-d", options)
-      "YYYY-MM-DD"
+      iex> PhoenixKit.Settings.update_setting("time_zone", "+1")
+      {:ok, %Setting{key: "time_zone", value: "+1"}}
+
+      iex> PhoenixKit.Settings.update_setting("", "invalid")
+      {:error, %Ecto.Changeset{}}
   """
-  def get_option_label(value, options) do
-    case Enum.find(options, fn {_label, val} -> val == value end) do
-      {label, _value} -> label
-      nil -> value
-    end
-  end
+  def update_setting(key, value) when is_binary(key) and (is_binary(value) or is_nil(value)) do
+    # Convert nil to empty string for storage
+    stored_value = value || ""
 
-  @doc """
-  Gets a boolean setting value by key with a default fallback.
+    case repo().get_by(Setting, key: key) do
+      %Setting{} = setting ->
+        setting
+        |> Setting.update_changeset(%{value: stored_value})
+        |> repo().update()
 
-  Converts string values "true"/"false" to actual boolean values.
-  Returns the default if the setting is not found or has an invalid value.
-
-  ## Examples
-
-      iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", false)
-      false
-
-      iex> PhoenixKit.Settings.get_boolean_setting("feature_enabled", true)
-      true
-  """
-  def get_boolean_setting(key, default \\ false) when is_binary(key) and is_boolean(default) do
-    raw_value = get_setting(key)
-
-    case raw_value do
-      "true" -> true
-      "false" -> false
-      nil -> default
-      _ -> default
-    end
-  end
-
-  @doc """
-  Gets an integer setting value by key, with fallback to default.
-
-  Converts the stored string value to an integer. If the setting doesn't exist
-  or cannot be converted to an integer, returns the default value.
-
-  ## Examples
-
-      iex> PhoenixKit.Settings.get_integer_setting("max_items", 10)
-      10
-
-      iex> PhoenixKit.Settings.get_integer_setting("existing_number", 5)
-      25  # if "25" is stored in database
-  """
-  def get_integer_setting(key, default \\ 0) when is_binary(key) and is_integer(default) do
-    raw_value = get_setting(key)
-
-    case raw_value do
       nil ->
-        default
-
-      value when is_binary(value) ->
-        case Integer.parse(value) do
-          {integer_value, _} -> integer_value
-          :error -> default
-        end
-
-      _ ->
-        default
+        %Setting{}
+        |> Setting.changeset(%{key: key, value: stored_value})
+        |> repo().insert()
     end
   end
 
@@ -432,14 +482,7 @@ defmodule PhoenixKit.Settings do
       %Ecto.Changeset{data: %SettingsForm{}, valid?: false}
   """
   def change_settings(settings \\ %{}) do
-    # Convert string keys to atoms for the embedded schema
-    attrs = atomize_keys(settings)
-
-    # Create empty form struct to ensure validation runs properly
-    form_data = %SettingsForm{}
-
-    # Create changeset without validation action
-    SettingsForm.changeset(form_data, attrs)
+    SettingsForm.changeset(%SettingsForm{}, settings)
   end
 
   @doc """
@@ -492,33 +535,6 @@ defmodule PhoenixKit.Settings do
     else
       {:error, changeset}
     end
-  end
-
-  @doc """
-  Gets the available role options for the new user default role setting.
-
-  Returns all roles from database except Owner, ordered by system roles first, then custom roles.
-
-  ## Examples
-
-      iex> PhoenixKit.Settings.get_role_options()
-      [{"User", "User"}, {"Admin", "Admin"}, {"Manager", "Manager"}]
-  """
-  def get_role_options do
-    owner_role = Role.system_roles().owner
-
-    # Get all roles from database except Owner role
-    all_roles = Roles.list_roles()
-
-    # Filter out Owner role and convert to {label, value} format
-    all_roles
-    |> Enum.reject(fn role -> role.name == owner_role end)
-    |> Enum.map(fn role -> {role.name, role.name} end)
-  end
-
-  # Private helper to convert string keys to atoms for changeset
-  defp atomize_keys(map) when is_map(map) do
-    Map.new(map, fn {k, v} -> {String.to_atom(k), v} end)
   end
 
   # Private helper to update all settings from a valid changeset
