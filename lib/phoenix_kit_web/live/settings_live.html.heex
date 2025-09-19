@@ -457,10 +457,7 @@
               <button
                 type="button"
                 class="btn btn-outline"
-                phx-click={
-                  Phoenix.LiveView.JS.dispatch("phx:page-loading-start")
-                  |> Phoenix.LiveView.JS.patch(PhoenixKit.Utils.Routes.path("/admin/settings"))
-                }
+                phx-click="reset_to_defaults"
               >
                 <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-2" /> Reset
               </button>
