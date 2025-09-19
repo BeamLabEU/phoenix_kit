@@ -3,12 +3,8 @@ defmodule PhoenixKitWeb.Live.SettingsLive do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
-  alias PhoenixKit.Utils.Routes
 
-  def mount(_params, session, socket) do
-    # Get current path for navigation
-    current_path = get_current_path(socket, session)
-
+  def mount(_params, _session, socket) do
     # Load current settings from database
     current_settings = Settings.list_all_settings()
     defaults = Settings.get_defaults()
@@ -22,7 +18,6 @@ defmodule PhoenixKitWeb.Live.SettingsLive do
 
     socket =
       socket
-      |> assign(:current_path, current_path)
       |> assign(:page_title, "Settings")
       |> assign(:settings, merged_settings)
       # Track saved values separately
@@ -113,11 +108,6 @@ defmodule PhoenixKitWeb.Live.SettingsLive do
 
         {:noreply, socket}
     end
-  end
-
-  defp get_current_path(_socket, _session) do
-    # For SettingsLive, always return settings path
-    Routes.path("/admin/settings")
   end
 
   # Format error messages for display
