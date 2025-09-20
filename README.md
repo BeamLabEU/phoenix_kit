@@ -91,7 +91,7 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
     - Backups
     - Custom entities and fields
   - Customer service Module
-    - Chat 
+    - Chat
   - Feedback Module
   - Roadmap / Ideas Module
   - CRM Module
@@ -106,7 +106,7 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
   - FAQ
   - Forms Module
   - Cluster Module
-  
+
 💡 Send your ideas and suggestions about any existing modules and features our way. Start building your apps today!
 
 ## Installation
@@ -181,7 +181,7 @@ Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_ki
 ### Basic Setup
 ```elixir
 # config/config.exs (automatically added by installer)
-config :phoenix_kit, 
+config :phoenix_kit,
   repo: YourApp.Repo,
   from_email: "noreply@yourcompany.com",  # Required for email notifications
   from_name: "Your Company Name"          # Optional, defaults to "PhoenixKit"
@@ -240,7 +240,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
   adapter: Swoosh.Adapters.Sendgrid,
   api_key: System.get_env("SENDGRID_API_KEY")
 
-# Mailgun  
+# Mailgun
 config :phoenix_kit, PhoenixKit.Mailer,
   adapter: Swoosh.Adapters.Mailgun,
   api_key: System.get_env("MAILGUN_API_KEY"),
@@ -313,7 +313,7 @@ PhoenixKit creates these PostgreSQL tables:
 
 ### System Roles
 - **Owner** - Full system access (first user)
-- **Admin** - Management privileges  
+- **Admin** - Management privileges
 - **User** - Standard access (default)
 
 ### Role Management
@@ -344,10 +344,7 @@ PhoenixKit follows professional library patterns:
 
 ## Contributing
 
-1. Fork and create feature branch
-2. Add tests: `mix test`
-3. Run quality checks: `mix quality`
-4. Submit pull request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions on setting up a development environment and contributing to PhoenixKit.
 
 ## License
 

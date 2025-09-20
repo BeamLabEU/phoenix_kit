@@ -1,10 +1,11 @@
-## 1.2.10 - 2025-09-19
+## 1.2.10 - 2025-09-20
 
 ### Improved
 - **Authentication UI Consistency** - Unified design across all authentication pages (login, registration, magic link, account settings) with consistent card layouts, shadows, and spacing
 - **Icon Integration** - Added icon slot support to input component enabling consistent iconography throughout forms using PhoenixKit's centralized icon system
 - **User Experience** - Enhanced interaction feedback with hover scale animations and focus transitions on buttons and form elements
 - **Visual Cohesion** - Removed background color inconsistencies and standardized visual hierarchy across all authentication flows
+- **Development Documentation** - Comprehensive contributor guide with Phoenix built-in live reloading (primary method), custom FileWatcher fallback, GitHub workflow, and complete CONTRIBUTING.md documentation
 
 ### Added
 - **Magic Link Integration** - Added Magic Link authentication option to login page with elegant divider and themed button
@@ -83,7 +84,7 @@
 
 ### Improved
 - **Navigation Menu Structure** - Replaced custom JavaScript with native HTML5 details/summary for better reliability and performance
-- **Email Group Organization** - Email, Metrics, Queue, and Blocklist now properly grouped under Email section 
+- **Email Group Organization** - Email, Metrics, Queue, and Blocklist now properly grouped under Email section
 
 
 ## 1.2.6 - 2025-09-15
