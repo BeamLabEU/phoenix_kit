@@ -36,6 +36,10 @@ defmodule PhoenixKit.Users.Auth.User do
           last_name: String.t() | nil,
           is_active: boolean(),
           confirmed_at: NaiveDateTime.t() | nil,
+          registration_ip: String.t() | nil,
+          registration_country: String.t() | nil,
+          registration_region: String.t() | nil,
+          registration_city: String.t() | nil,
           inserted_at: NaiveDateTime.t(),
           updated_at: NaiveDateTime.t()
         }
@@ -50,6 +54,12 @@ defmodule PhoenixKit.Users.Auth.User do
     field :last_name, :string
     field :is_active, :boolean, default: true
     field :confirmed_at, :naive_datetime
+
+    # Registration analytics fields for user registration tracking
+    field :registration_ip, :string
+    field :registration_country, :string
+    field :registration_region, :string
+    field :registration_city, :string
 
     has_many :role_assignments, PhoenixKit.Users.RoleAssignment
     many_to_many :roles, PhoenixKit.Users.Role, join_through: PhoenixKit.Users.RoleAssignment
@@ -82,11 +92,22 @@ defmodule PhoenixKit.Users.Auth.User do
   """
   def registration_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:email, :username, :password, :first_name, :last_name])
+    |> cast(attrs, [
+      :email,
+      :username,
+      :password,
+      :first_name,
+      :last_name,
+      :registration_ip,
+      :registration_country,
+      :registration_region,
+      :registration_city
+    ])
     |> validate_email(opts)
     |> validate_username(opts)
     |> validate_password(opts)
     |> validate_names()
+    |> validate_registration_fields()
     |> maybe_generate_username_from_email()
   end
 
@@ -321,6 +342,14 @@ defmodule PhoenixKit.Users.Auth.User do
     changeset
     |> validate_length(:first_name, max: 100)
     |> validate_length(:last_name, max: 100)
+  end
+
+  defp validate_registration_fields(changeset) do
+    changeset
+    |> validate_length(:registration_ip, max: 45)
+    |> validate_length(:registration_country, max: 2)
+    |> validate_length(:registration_region, max: 100)
+    |> validate_length(:registration_city, max: 100)
   end
 
   defp validate_username(changeset, opts) do

@@ -139,8 +139,12 @@ defmodule PhoenixKitWeb.Users.LoginLive do
     email = Phoenix.Flash.get(socket.assigns.flash, :email)
     form = to_form(%{"email" => email}, as: "user")
 
-    {:ok, assign(socket, form: form, project_title: project_title, allow_registration: allow_registration),
-     temporary_assigns: [form: form]}
+    {:ok,
+     assign(socket,
+       form: form,
+       project_title: project_title,
+       allow_registration: allow_registration
+     ), temporary_assigns: [form: form]}
   end
 
   defp show_dev_notice? do

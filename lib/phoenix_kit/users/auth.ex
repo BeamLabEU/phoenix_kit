@@ -174,6 +174,59 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Registers a user with automatic IP geolocation lookup.
+
+  This function performs the same user registration as `register_user/1` but
+  automatically looks up and stores the user's geolocation data based on their IP address.
+
+  ## Parameters
+
+  - `attrs` - User registration attributes (email, password, etc.)
+  - `ip_address` - The user's IP address for geolocation lookup
+
+  ## Examples
+
+      iex> register_user_with_geolocation(%{email: "user@example.com", password: "secure123"}, "203.0.113.1")
+      {:ok, %User{registration_ip: "203.0.113.1", registration_country: "US"}}
+
+      iex> register_user_with_geolocation(%{email: "invalid"}, "8.8.8.8")
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def register_user_with_geolocation(attrs, ip_address) when is_binary(ip_address) do
+    # Perform IP geolocation lookup
+    geolocation_data =
+      case PhoenixKit.Utils.Geolocation.lookup_location(ip_address) do
+        {:ok, location} ->
+          %{
+            "registration_ip" => location.ip,
+            "registration_country" => location.country,
+            "registration_region" => location.region,
+            "registration_city" => location.city
+          }
+
+        {:error, reason} ->
+          # Log the geolocation failure but continue with registration
+          require Logger
+          Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
+
+          # Still store the IP address even if geolocation fails
+          %{"registration_ip" => ip_address}
+      end
+
+    # Merge geolocation data with user attributes
+    enhanced_attrs = Map.merge(attrs, geolocation_data)
+
+    # Use the standard registration function with enhanced attributes
+    register_user(enhanced_attrs)
+  end
+
+  def register_user_with_geolocation(attrs, _invalid_ip) do
+    # If IP is invalid, register without geolocation data
+    register_user(attrs)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples
@@ -951,5 +1004,72 @@ defmodule PhoenixKit.Users.Auth do
       }
     )
     |> Repo.one()
+  end
+
+  @doc """
+  Gets registration analytics statistics.
+
+  Returns aggregated data about user registrations including geographic distribution
+  and registration patterns for dashboard display.
+
+  ## Examples
+
+      iex> PhoenixKit.Users.Auth.get_registration_analytics()
+      %{
+        total_with_location: 150,
+        total_without_location: 10,
+        top_countries: [{"US", 45}, {"CA", 23}, {"GB", 18}],
+        top_regions: [{"California", 15}, {"Ontario", 12}, {"England", 8}],
+        top_cities: [{"San Francisco", 8}, {"Toronto", 7}, {"London", 6}]
+      }
+  """
+  def get_registration_analytics do
+    # Get basic counts
+    total_with_location =
+      from(u in User, where: not is_nil(u.registration_country), select: count()) |> Repo.one()
+
+    total_without_location =
+      from(u in User, where: is_nil(u.registration_country), select: count()) |> Repo.one()
+
+    # Get top countries (limited to top 10)
+    top_countries =
+      from(u in User,
+        where: not is_nil(u.registration_country),
+        group_by: u.registration_country,
+        order_by: [desc: count()],
+        limit: 10,
+        select: {u.registration_country, count()}
+      )
+      |> Repo.all()
+
+    # Get top regions (limited to top 10)
+    top_regions =
+      from(u in User,
+        where: not is_nil(u.registration_region),
+        group_by: u.registration_region,
+        order_by: [desc: count()],
+        limit: 10,
+        select: {u.registration_region, count()}
+      )
+      |> Repo.all()
+
+    # Get top cities (limited to top 10)
+    top_cities =
+      from(u in User,
+        where: not is_nil(u.registration_city),
+        group_by: u.registration_city,
+        order_by: [desc: count()],
+        limit: 10,
+        select: {u.registration_city, count()}
+      )
+      |> Repo.all()
+
+    %{
+      total_with_location: total_with_location,
+      total_without_location: total_without_location,
+      top_countries: top_countries,
+      top_regions: top_regions,
+      top_cities: top_cities
+    }
   end
 end

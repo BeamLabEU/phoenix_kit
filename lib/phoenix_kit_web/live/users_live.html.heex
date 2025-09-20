@@ -13,8 +13,7 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left />
-        Back to Dashboard
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Dashboard
       </.link>
 
       <%!-- Title Section --%>
@@ -152,6 +151,7 @@
                 <th>Role</th>
                 <th>Status</th>
                 <th>Registered</th>
+                <th>Registration Location</th>
                 <th>Last Confirmed</th>
                 <th>Actions</th>
               </tr>
@@ -212,6 +212,41 @@
                       <div class="text-xs text-base-content/70">
                         {UtilsDate.format_time_with_user_format(user.inserted_at)}
                       </div>
+                    </div>
+                  </td>
+                  <%!-- Registration Location --%>
+                  <td class="text-sm">
+                    <div class="flex flex-col gap-1">
+                      <%= if user.registration_country || user.registration_city do %>
+                        <div class="flex items-center gap-1">
+                          <%= if user.registration_country do %>
+                            <span class="badge badge-outline badge-xs">
+                              {user.registration_country}
+                            </span>
+                          <% end %>
+                          <%= if user.registration_city do %>
+                            <span class="text-xs">{user.registration_city}</span>
+                          <% end %>
+                        </div>
+                        <%= if user.registration_region && user.registration_region != user.registration_city do %>
+                          <div class="text-xs text-base-content/70">
+                            {user.registration_region}
+                          </div>
+                        <% end %>
+                        <%= if user.registration_ip do %>
+                          <div class="text-xs text-base-content/50 font-mono">
+                            {user.registration_ip}
+                          </div>
+                        <% end %>
+                      <% else %>
+                        <%= if user.registration_ip do %>
+                          <div class="text-xs text-base-content/50 font-mono">
+                            {user.registration_ip}
+                          </div>
+                        <% else %>
+                          <div class="text-xs text-base-content/50">Unknown</div>
+                        <% end %>
+                      <% end %>
                     </div>
                   </td>
                   <td class="text-sm">

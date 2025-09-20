@@ -163,22 +163,28 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
   def mount(_params, session, socket) do
     # Check if registration is allowed
     allow_registration = Settings.get_boolean_setting("allow_registration", true)
-    
+
     if not allow_registration do
       socket =
         socket
-        |> put_flash(:error, "User registration is currently disabled. Please contact an administrator.")
+        |> put_flash(
+          :error,
+          "User registration is currently disabled. Please contact an administrator."
+        )
         |> redirect(to: Routes.path("/users/log-in"))
-        
+
       {:ok, socket}
     else
+      # Extract IP address for registration analytics
+      ip_address = PhoenixKit.Utils.Geolocation.extract_ip_from_socket(socket)
+
       # Track anonymous visitor session
       if connected?(socket) do
         session_id = session["live_socket_id"] || generate_session_id()
 
         Presence.track_anonymous(session_id, %{
           connected_at: DateTime.utc_now(),
-          ip_address: get_connect_info(socket, :peer_data) |> extract_ip_address(),
+          ip_address: ip_address,
           user_agent: get_connect_info(socket, :user_agent),
           current_page: Routes.path("/users/register")
         })
@@ -200,6 +206,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
         |> assign(referral_codes_required: referral_codes_config.required)
         |> assign(referral_code: nil)
         |> assign(referral_code_error: nil)
+        |> assign(user_ip_address: ip_address)
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
@@ -212,7 +219,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
     # Validate referral code if system is enabled
     case validate_referral_code(referral_code, socket) do
       {:ok, validated_code} ->
-        case Auth.register_user(user_params) do
+        case Auth.register_user_with_geolocation(user_params, socket.assigns.user_ip_address) do
           {:ok, user} ->
             # Record referral code usage if provided and valid
             if validated_code do
@@ -340,9 +347,4 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64()
   end
-
-  defp extract_ip_address(nil), do: "unknown"
-  defp extract_ip_address(%{address: {a, b, c, d}}), do: "#{a}.#{b}.#{c}.#{d}"
-  defp extract_ip_address(%{address: address}), do: to_string(address)
-  defp extract_ip_address(_), do: "unknown"
 end
