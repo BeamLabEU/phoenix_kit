@@ -146,6 +146,75 @@
               </div>
             </div>
 
+            <%!-- Registration Geolocation Tracking Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Registration Tracking</span>
+              </label>
+              <div class="flex items-center gap-3">
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["track_registration_geolocation"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Track registration location (IP geolocation)</span>
+              </div>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["track_registration_geolocation"] != @saved_settings["track_registration_geolocation"] do %>
+                    <span class="text-warning">
+                      Selected: {if @settings["track_registration_geolocation"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {if @saved_settings["track_registration_geolocation"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"}
+                    </span>
+                  <% else %>
+                    Saved: {if @settings["track_registration_geolocation"] == "true",
+                      do: "Enabled",
+                      else: "Disabled"}
+                  <% end %>
+                </span>
+              </div>
+              <%!-- Information about the feature --%>
+              <%= if @settings["track_registration_geolocation"] == "true" do %>
+                <div class="alert alert-info text-sm mt-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <div class="font-semibold">
+                      Geolocation Tracking Enabled
+                    </div>
+                    <div class="text-xs">
+                      New user registrations will include IP address and location data (country, region, city).
+                      Uses free IP-API.com service (45 requests/minute). Data helps with analytics and security.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
             <%!-- New User Default Role Setting --%>
             <div class="form-control w-full">
               <label class="label">
@@ -430,6 +499,9 @@
                 <ul class="text-sm text-base-content/70 space-y-1">
                   <li>• Make changes to dropdowns and click "Save All Settings" to apply</li>
                   <li>• Changes show "Selected" vs "Saved" values until you click Save</li>
+                  <li>
+                    • Registration tracking collects IP geolocation data during user signup (disabled by default for privacy)
+                  </li>
                   <li>
                     • New user default role determines privileges for new registrations (first user always becomes Owner)
                   </li>

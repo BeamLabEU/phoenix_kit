@@ -248,6 +248,7 @@ defmodule PhoenixKit.Settings do
       "project_title" => "PhoenixKit",
       "site_url" => "",
       "allow_registration" => "true",
+      "track_registration_geolocation" => "false",
       "new_user_default_role" => "User",
       "week_start_day" => "1",
       "time_zone" => "0",

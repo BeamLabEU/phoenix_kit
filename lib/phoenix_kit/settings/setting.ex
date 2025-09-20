@@ -151,6 +151,7 @@ defmodule PhoenixKit.Settings.Setting do
       field :project_title, :string
       field :site_url, :string
       field :allow_registration, :string
+      field :track_registration_geolocation, :string
       field :new_user_default_role, :string
       field :week_start_day, :string
       field :time_zone, :string
@@ -191,6 +192,7 @@ defmodule PhoenixKit.Settings.Setting do
         :project_title,
         :site_url,
         :allow_registration,
+        :track_registration_geolocation,
         :new_user_default_role,
         :week_start_day,
         :time_zone,
@@ -208,6 +210,7 @@ defmodule PhoenixKit.Settings.Setting do
       |> validate_length(:project_title, min: 1, max: 100)
       |> validate_url()
       |> validate_allow_registration()
+      |> validate_track_registration_geolocation()
       |> validate_new_user_default_role()
       |> validate_week_start_day()
       |> validate_timezone()
@@ -254,6 +257,13 @@ defmodule PhoenixKit.Settings.Setting do
     # Validates allow_registration is a valid boolean string
     defp validate_allow_registration(changeset) do
       validate_inclusion(changeset, :allow_registration, ["true", "false"],
+        message: "must be either 'true' or 'false'"
+      )
+    end
+
+    # Validates track_registration_geolocation is a valid boolean string
+    defp validate_track_registration_geolocation(changeset) do
+      validate_inclusion(changeset, :track_registration_geolocation, ["true", "false"],
         message: "must be either 'true' or 'false'"
       )
     end

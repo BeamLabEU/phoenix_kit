@@ -219,7 +219,17 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
     # Validate referral code if system is enabled
     case validate_referral_code(referral_code, socket) do
       {:ok, validated_code} ->
-        case Auth.register_user_with_geolocation(user_params, socket.assigns.user_ip_address) do
+        # Check if geolocation tracking is enabled
+        track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
+
+        registration_result =
+          if track_geolocation do
+            Auth.register_user_with_geolocation(user_params, socket.assigns.user_ip_address)
+          else
+            Auth.register_user(user_params)
+          end
+
+        case registration_result do
           {:ok, user} ->
             # Record referral code usage if provided and valid
             if validated_code do
