@@ -174,6 +174,55 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Registers a user with IP geolocation data.
+
+  This function attempts to look up geographical location information
+  based on the provided IP address and includes it in the user registration.
+  If geolocation lookup fails, the user is still registered with just the IP address.
+
+  ## Examples
+
+      iex> register_user_with_geolocation(%{email: "user@example.com", password: "password"}, "192.168.1.1")
+      {:ok, %User{registration_ip: "192.168.1.1", registration_country: "United States"}}
+
+      iex> register_user_with_geolocation(%{email: "invalid"}, "192.168.1.1")
+      {:error, %Ecto.Changeset{}}
+  """
+  def register_user_with_geolocation(attrs, ip_address) when is_binary(ip_address) do
+    # Start with the IP address
+    enhanced_attrs = Map.put(attrs, "registration_ip", ip_address)
+
+    # Attempt geolocation lookup
+    case PhoenixKit.Utils.Geolocation.lookup_location(ip_address) do
+      {:ok, location} ->
+        # Add geolocation data to registration
+        enhanced_attrs =
+          enhanced_attrs
+          |> Map.put("registration_country", location["country"])
+          |> Map.put("registration_region", location["region"])
+          |> Map.put("registration_city", location["city"])
+
+        require Logger
+        Logger.info("PhoenixKit: Successful geolocation lookup for IP #{ip_address}")
+
+        register_user(enhanced_attrs)
+
+      {:error, reason} ->
+        # Log the error but continue with registration
+        require Logger
+        Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
+
+        # Register user with just IP address
+        register_user(enhanced_attrs)
+    end
+  end
+
+  def register_user_with_geolocation(attrs, _invalid_ip) do
+    # Invalid IP provided, register without geolocation data
+    register_user(attrs)
+  end
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

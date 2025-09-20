@@ -109,7 +109,7 @@
               <label class="label">
                 <span class="label-text text-base font-medium">Registration Settings</span>
               </label>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 mb-3">
                 <input
                   name="settings[allow_registration]"
                   type="hidden"
@@ -124,26 +124,54 @@
                 />
                 <span class="label-text">Anyone can register</span>
               </div>
+              <div class="flex items-center gap-3">
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["track_registration_geolocation"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Track user registration location</span>
+              </div>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">
-                  <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] do %>
+                  <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] or @settings["track_registration_geolocation"] != @saved_settings["track_registration_geolocation"] do %>
                     <span class="text-warning">
-                      Selected: {if @settings["allow_registration"] == "true",
-                        do: "Enabled",
-                        else: "Disabled"}
+                      Registration: {if @settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"} |
+                      Geolocation: {if @settings["track_registration_geolocation"] == "true", do: "Enabled", else: "Disabled"}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {if @saved_settings["allow_registration"] == "true",
-                        do: "Enabled",
-                        else: "Disabled"}
+                      | Saved: {if @saved_settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"} |
+                      {if @saved_settings["track_registration_geolocation"] == "true", do: "Enabled", else: "Disabled"}
                     </span>
                   <% else %>
-                    Saved: {if @settings["allow_registration"] == "true",
-                      do: "Enabled",
-                      else: "Disabled"}
+                    Registration: {if @settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"} |
+                    Geolocation: {if @settings["track_registration_geolocation"] == "true", do: "Enabled", else: "Disabled"}
                   <% end %>
                 </span>
               </div>
+
+              <%!-- Privacy Notice for Geolocation --%>
+              <%= if @settings["track_registration_geolocation"] == "true" do %>
+                <div class="alert alert-info text-sm mt-2">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-5 w-5" />
+                  <div>
+                    <div class="font-semibold">
+                      Privacy Notice: IP Geolocation Tracking
+                    </div>
+                    <div class="text-xs">
+                      When enabled, registration IP addresses and approximate location data (country, region, city) will be collected for analytics.
+                      Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
             </div>
 
             <%!-- New User Default Role Setting --%>

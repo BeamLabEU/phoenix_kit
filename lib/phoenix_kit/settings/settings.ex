@@ -23,6 +23,7 @@ defmodule PhoenixKit.Settings do
   - `time_zone`: System timezone offset
   - `date_format`: Date display format
   - `time_format`: Time display format
+  - `track_registration_geolocation`: Enable IP geolocation tracking during registration (default: false)
 
   ## Usage Examples
 
@@ -81,7 +82,8 @@ defmodule PhoenixKit.Settings do
       "week_start_day" => "1",
       "time_zone" => "0",
       "date_format" => "Y-m-d",
-      "time_format" => "H:i"
+      "time_format" => "H:i",
+      "track_registration_geolocation" => "false"
     }
   end
 

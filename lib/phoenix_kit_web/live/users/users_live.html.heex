@@ -143,6 +143,7 @@
                 <th>Role</th>
                 <th>Status</th>
                 <th>Registered</th>
+                <th>Location</th>
                 <th>Last Confirmed</th>
                 <th>Actions</th>
               </tr>
@@ -203,6 +204,36 @@
                       <div class="text-xs text-base-content/70">
                         {UtilsDate.format_time_with_user_format(user.inserted_at)}
                       </div>
+                    </div>
+                  </td>
+                  <td class="text-sm">
+                    <div class="flex flex-col gap-1">
+                      <%= if user.registration_country || user.registration_region || user.registration_city || user.registration_ip do %>
+                        <%!-- Location Data --%>
+                        <%= if user.registration_country do %>
+                          <div class="flex items-center gap-1">
+                            <span class="badge badge-outline badge-xs">
+                              {user.registration_country}
+                            </span>
+                          </div>
+                        <% end %>
+                        <%= if user.registration_region || user.registration_city do %>
+                          <div class="text-xs text-base-content/70">
+                            <%= if user.registration_region && user.registration_city do %>
+                              {user.registration_region}, {user.registration_city}
+                            <% else %>
+                              {user.registration_region || user.registration_city}
+                            <% end %>
+                          </div>
+                        <% end %>
+                        <%= if user.registration_ip do %>
+                          <div class="text-xs text-base-content/50 font-mono">
+                            {user.registration_ip}
+                          </div>
+                        <% end %>
+                      <% else %>
+                        <div class="text-xs text-base-content/50">No data</div>
+                      <% end %>
                     </div>
                   </td>
                   <td class="text-sm">

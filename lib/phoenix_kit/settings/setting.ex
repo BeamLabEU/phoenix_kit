@@ -130,6 +130,7 @@ defmodule PhoenixKit.Settings.Setting do
     - `time_zone`: System timezone offset (-12 to +12)
     - `date_format`: Date display format (Y-m-d, m/d/Y, etc.)
     - `time_format`: Time display format (H:i for 24-hour, h:i A for 12-hour)
+    - `track_registration_geolocation`: Enable IP geolocation tracking during registration (true/false)
 
     ## Usage Examples
 
@@ -159,6 +160,7 @@ defmodule PhoenixKit.Settings.Setting do
       field :time_zone, :string
       field :date_format, :string
       field :time_format, :string
+      field :track_registration_geolocation, :string
     end
 
     @doc """
@@ -198,7 +200,8 @@ defmodule PhoenixKit.Settings.Setting do
         :week_start_day,
         :time_zone,
         :date_format,
-        :time_format
+        :time_format,
+        :track_registration_geolocation
       ])
       |> validate_required([
         :project_title,
@@ -206,7 +209,8 @@ defmodule PhoenixKit.Settings.Setting do
         :week_start_day,
         :time_zone,
         :date_format,
-        :time_format
+        :time_format,
+        :track_registration_geolocation
       ])
       |> validate_length(:project_title, min: 1, max: 100)
       |> validate_url()
@@ -216,6 +220,7 @@ defmodule PhoenixKit.Settings.Setting do
       |> validate_timezone()
       |> validate_date_format()
       |> validate_time_format()
+      |> validate_track_registration_geolocation()
     end
 
     # Validates URL format (optional field - allows empty)
@@ -313,6 +318,13 @@ defmodule PhoenixKit.Settings.Setting do
 
       validate_inclusion(changeset, :time_format, supported_formats,
         message: "must be either 24-hour (H:i) or 12-hour (h:i A) format"
+      )
+    end
+
+    # Validates track_registration_geolocation is a valid boolean string
+    defp validate_track_registration_geolocation(changeset) do
+      validate_inclusion(changeset, :track_registration_geolocation, ["true", "false"],
+        message: "must be either 'true' or 'false'"
       )
     end
   end

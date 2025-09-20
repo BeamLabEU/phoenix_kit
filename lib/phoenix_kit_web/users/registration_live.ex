@@ -177,6 +177,9 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
 
       changeset = Auth.change_user_registration(%User{})
 
+      # Extract and store IP address during mount for later use
+      ip_address = extract_ip_address(get_connect_info(socket, :peer_data))
+
       socket =
         socket
         |> assign(trigger_submit: false, check_errors: false)
@@ -185,6 +188,7 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
         |> assign(referral_codes_required: referral_codes_config.required)
         |> assign(referral_code: nil)
         |> assign(referral_code_error: nil)
+        |> assign(user_ip_address: ip_address)
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
@@ -207,7 +211,19 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
     # Validate referral code if system is enabled
     case validate_referral_code(referral_code, socket) do
       {:ok, validated_code} ->
-        case Auth.register_user(user_params) do
+        # Check if geolocation tracking is enabled
+        track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
+
+        # Use appropriate registration function based on geolocation setting
+        registration_result =
+          if track_geolocation do
+            ip_address = socket.assigns.user_ip_address
+            Auth.register_user_with_geolocation(user_params, ip_address)
+          else
+            Auth.register_user(user_params)
+          end
+
+        case registration_result do
           {:ok, user} ->
             # Record referral code usage if provided and valid
             if validated_code do
