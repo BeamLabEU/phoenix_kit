@@ -537,6 +537,33 @@ defmodule PhoenixKit.Settings do
     end
   end
 
+  @doc """
+  Gets the available role options for the new user default role setting.
+
+  Returns all roles from database except Owner, ordered by system roles first, then custom roles.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_role_options()
+      [{"User", "User"}, {"Admin", "Admin"}, {"Manager", "Manager"}]
+  """
+  def get_role_options do
+    owner_role = PhoenixKit.Users.Role.system_roles().owner
+
+    # Get all roles from database except Owner role
+    all_roles = PhoenixKit.Users.Roles.list_roles()
+
+    # Filter out Owner role and convert to {label, value} format
+    all_roles
+    |> Enum.reject(fn role -> role.name == owner_role end)
+    |> Enum.map(fn role -> {role.name, role.name} end)
+  end
+
+  # Private helper to convert string keys to atoms for changeset
+  defp atomize_keys(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {String.to_atom(k), v} end)
+  end
+
   # Private helper to update all settings from a valid changeset
   defp update_all_settings_from_changeset(changeset) do
     # Extract all data from the changeset (not just changes)
