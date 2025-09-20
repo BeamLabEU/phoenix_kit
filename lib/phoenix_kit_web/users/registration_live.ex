@@ -169,7 +169,6 @@ defmodule PhoenixKitWeb.Users.RegistrationLive do
     else
       # Extract IP address for registration analytics
       ip_address = PhoenixKit.Utils.Geolocation.extract_ip_from_socket(socket)
-
       # Track anonymous visitor session
       if connected?(socket) do
         session_id = session["live_socket_id"] || generate_session_id()
