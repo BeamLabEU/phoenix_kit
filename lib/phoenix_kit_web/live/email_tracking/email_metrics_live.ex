@@ -537,11 +537,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailMetricsLive do
                 <h2 class="card-title text-lg mb-4">System Status</h2>
                 <div class="space-y-3">
                   <div class="flex items-center justify-between">
-    <<<<<<< HEAD
                     <span class="text-sm">Email</span>
-    =======
-                    <span class="text-sm">Email Tracking</span>
-    >>>>>>> 971dcb9 (Mix formatting)
                     <span class="badge badge-success">Active</span>
                   </div>
                   <div class="flex items-center justify-between">
