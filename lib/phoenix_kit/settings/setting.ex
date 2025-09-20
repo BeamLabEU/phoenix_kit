@@ -96,7 +96,7 @@ defmodule PhoenixKit.Settings.Setting do
   defp validate_setting_value(changeset) do
     key = get_field(changeset, :key)
     value = get_field(changeset, :value)
-    
+
     case key do
       "site_url" ->
         # site_url can be empty, but max 1000 characters
@@ -105,6 +105,7 @@ defmodule PhoenixKit.Settings.Setting do
           nil -> put_change(changeset, :value, "")
           _ -> validate_length(changeset, :value, max: 1000)
         end
+
       _ ->
         # All other settings require non-empty values
         validate_length(changeset, :value, min: 1, max: 1000)
@@ -186,8 +187,24 @@ defmodule PhoenixKit.Settings.Setting do
     """
     def changeset(form, attrs) do
       form
-      |> cast(attrs, [:project_title, :site_url, :allow_registration, :new_user_default_role, :week_start_day, :time_zone, :date_format, :time_format])
-      |> validate_required([:project_title, :new_user_default_role, :week_start_day, :time_zone, :date_format, :time_format])
+      |> cast(attrs, [
+        :project_title,
+        :site_url,
+        :allow_registration,
+        :new_user_default_role,
+        :week_start_day,
+        :time_zone,
+        :date_format,
+        :time_format
+      ])
+      |> validate_required([
+        :project_title,
+        :new_user_default_role,
+        :week_start_day,
+        :time_zone,
+        :date_format,
+        :time_format
+      ])
       |> validate_length(:project_title, min: 1, max: 100)
       |> validate_url()
       |> validate_allow_registration()
@@ -201,23 +218,35 @@ defmodule PhoenixKit.Settings.Setting do
     # Validates URL format (optional field - allows empty)
     defp validate_url(changeset) do
       site_url = get_field(changeset, :site_url)
-      
+
       case site_url do
-        nil -> changeset
-        "" -> changeset
+        nil ->
+          changeset
+
+        "" ->
+          changeset
+
         url when is_binary(url) ->
           trimmed_url = String.trim(url)
+
           if trimmed_url == "" do
             changeset
           else
             case URI.parse(trimmed_url) do
-              %URI{scheme: scheme, host: host} when scheme in ["http", "https"] and not is_nil(host) ->
+              %URI{scheme: scheme, host: host}
+              when scheme in ["http", "https"] and not is_nil(host) ->
                 put_change(changeset, :site_url, trimmed_url)
+
               _ ->
-                add_error(changeset, :site_url, "must be a valid URL starting with http:// or https://")
+                add_error(
+                  changeset,
+                  :site_url,
+                  "must be a valid URL starting with http:// or https://"
+                )
             end
           end
-        _ -> 
+
+        _ ->
           add_error(changeset, :site_url, "must be a valid URL")
       end
     end
@@ -232,14 +261,15 @@ defmodule PhoenixKit.Settings.Setting do
     # Validates new_user_default_role is a valid non-Owner role
     defp validate_new_user_default_role(changeset) do
       owner_role = PhoenixKit.Users.Role.system_roles().owner
-      
+
       # Get all valid role names except Owner
       all_roles = PhoenixKit.Users.Roles.list_roles()
-      valid_roles = 
+
+      valid_roles =
         all_roles
         |> Enum.reject(fn role -> role.name == owner_role end)
         |> Enum.map(fn role -> role.name end)
-      
+
       validate_inclusion(changeset, :new_user_default_role, valid_roles,
         message: "must be a valid role (Owner is reserved for first user)"
       )

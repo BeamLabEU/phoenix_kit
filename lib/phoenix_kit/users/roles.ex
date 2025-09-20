@@ -731,9 +731,13 @@ defmodule PhoenixKit.Users.Roles do
 
       # Get configurable default role with safe fallback
       default_role_name = get_safe_default_role()
-      
+
       role_name = if is_nil(existing_owner), do: roles.owner, else: default_role_name
-      role_type = if is_nil(existing_owner), do: :owner, else: String.to_atom(String.downcase(default_role_name))
+
+      role_type =
+        if is_nil(existing_owner),
+          do: :owner,
+          else: String.to_atom(String.downcase(default_role_name))
 
       case assign_role_internal(user, role_name) do
         {:ok, _assignment} -> role_type
@@ -1013,17 +1017,18 @@ defmodule PhoenixKit.Users.Roles do
   # Allows any valid role except Owner (which is reserved for first user)
   defp get_safe_default_role do
     roles = Role.system_roles()
-    
+
     # Get configured role with fallback to "User"
     configured_role = PhoenixKit.Settings.get_setting("new_user_default_role", roles.user)
-    
+
     # Validate the setting value against all non-Owner roles for security
     all_roles = list_roles()
-    allowed_roles = 
+
+    allowed_roles =
       all_roles
       |> Enum.reject(fn role -> role.name == roles.owner end)
       |> Enum.map(fn role -> role.name end)
-    
+
     if configured_role in allowed_roles do
       configured_role
     else

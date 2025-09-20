@@ -13,8 +13,7 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left />
-        Back to Dashboard
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Dashboard
       </.link>
 
       <%!-- Title Section --%>
@@ -87,13 +86,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["site_url"] != @saved_settings["site_url"] do %>
                     <span class="text-warning">
-                      Selected: {if @settings["site_url"] != "", do: @settings["site_url"], else: "(empty)"}
+                      Selected: {if @settings["site_url"] != "",
+                        do: @settings["site_url"],
+                        else: "(empty)"}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {if @saved_settings["site_url"] != "", do: @saved_settings["site_url"], else: "(empty)"}
+                      | Saved: {if @saved_settings["site_url"] != "",
+                        do: @saved_settings["site_url"],
+                        else: "(empty)"}
                     </span>
                   <% else %>
-                    Saved: {if @settings["site_url"] != "", do: @settings["site_url"], else: "(empty)"}
+                    Saved: {if @settings["site_url"] != "",
+                      do: @settings["site_url"],
+                      else: "(empty)"}
                   <% end %>
                 </span>
               </div>
@@ -123,13 +128,19 @@
                 <span class="label-text-alt text-xs text-base-content/50">
                   <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] do %>
                     <span class="text-warning">
-                      Selected: {if @settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"}
+                      Selected: {if @settings["allow_registration"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"}
                     </span>
                     <span class="text-base-content/40">
-                      | Saved: {if @saved_settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"}
+                      | Saved: {if @saved_settings["allow_registration"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"}
                     </span>
                   <% else %>
-                    Saved: {if @settings["allow_registration"] == "true", do: "Enabled", else: "Disabled"}
+                    Saved: {if @settings["allow_registration"] == "true",
+                      do: "Enabled",
+                      else: "Disabled"}
                   <% end %>
                 </span>
               </div>
@@ -176,12 +187,22 @@
                   <% end %>
                 </span>
               </div>
-              
+
               <%!-- Security Warning for Admin Role --%>
               <%= if @settings["new_user_default_role"] == "Admin" do %>
                 <div class="alert alert-warning text-sm mt-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-5 w-5" fill="none" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="stroke-current shrink-0 h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
                   </svg>
                   <div>
                     <div class="font-semibold">
@@ -409,8 +430,12 @@
                 <ul class="text-sm text-base-content/70 space-y-1">
                   <li>• Make changes to dropdowns and click "Save All Settings" to apply</li>
                   <li>• Changes show "Selected" vs "Saved" values until you click Save</li>
-                  <li>• New user default role determines privileges for new registrations (first user always becomes Owner)</li>
-                  <li>• Week start day controls which day begins the week (useful for calendar features)</li>
+                  <li>
+                    • New user default role determines privileges for new registrations (first user always becomes Owner)
+                  </li>
+                  <li>
+                    • Week start day controls which day begins the week (useful for calendar features)
+                  </li>
                   <li>• Time zone affects date/time display throughout the system</li>
                   <li>
                     • Date formats control how dates appear (e.g. Users dashboard "Registered" field)

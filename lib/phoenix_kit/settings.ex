@@ -113,6 +113,7 @@ defmodule PhoenixKit.Settings do
   def update_setting(key, value) when is_binary(key) and (is_binary(value) or is_nil(value)) do
     # Convert nil to empty string for storage
     stored_value = value || ""
+
     case repo().get_by(Setting, key: key) do
       %Setting{} = setting ->
         setting
@@ -502,10 +503,10 @@ defmodule PhoenixKit.Settings do
   """
   def get_role_options do
     owner_role = PhoenixKit.Users.Role.system_roles().owner
-    
+
     # Get all roles from database except Owner role
     all_roles = PhoenixKit.Users.Roles.list_roles()
-    
+
     # Filter out Owner role and convert to {label, value} format
     all_roles
     |> Enum.reject(fn role -> role.name == owner_role end)
@@ -522,7 +523,7 @@ defmodule PhoenixKit.Settings do
     # Extract all data from the changeset (not just changes)
     # This ensures all form fields are saved, even if unchanged
     changeset_data = Ecto.Changeset.apply_changes(changeset)
-    
+
     settings_to_update =
       changeset_data
       |> Map.from_struct()

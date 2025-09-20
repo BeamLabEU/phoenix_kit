@@ -350,8 +350,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailBlocklistLive do
             navigate="/phoenix_kit/admin"
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon_arrow_left />
-            Back to Admin
+            <.icon_arrow_left /> Back to Admin
           </.link>
 
           <%!-- Title Section --%>
