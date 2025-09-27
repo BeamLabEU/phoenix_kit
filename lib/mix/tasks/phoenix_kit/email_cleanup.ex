@@ -1,8 +1,8 @@
 defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
-  @shortdoc "Clean up old email tracking logs"
+  @shortdoc "Clean up old email system logs"
 
   @moduledoc """
-  Mix task to clean up old email tracking logs and optimize storage.
+  Mix task to clean up old email system logs and optimize storage.
 
   ## Usage
 
@@ -42,14 +42,14 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailTracking
+  alias PhoenixKit.EmailSystem
 
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    # Note: EmailTracking.enabled?() check omitted as Dialyzer determines it's always true
+    # Note: EmailSystem.enabled?() check omitted as Dialyzer determines it's always true
 
     days_old = parse_days(options[:older_than])
 
@@ -88,7 +88,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
   defp parse_days(nil) do
     # Use system retention setting or default to 90 days
-    EmailTracking.get_retention_days()
+    EmailSystem.get_retention_days()
   end
 
   defp parse_days(period_string) do
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
       count = count_compressible_logs(days_old)
       Mix.shell().info("Would compress #{count} email log bodies")
     else
-      {compressed_count, _} = EmailTracking.compress_old_bodies(days_old)
+      {compressed_count, _} = EmailSystem.compress_old_bodies(days_old)
 
       if compressed_count > 0 do
         Mix.shell().info("✅ Compressed #{compressed_count} email log bodies")
@@ -121,15 +121,15 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   end
 
   defp run_cleanup(days_old, options) do
-    Mix.shell().info("🗑️  Cleaning up email logs older than #{days_old} days...")
+    Mix.shell().info("🗑️  Cleaning up emails older than #{days_old} days...")
 
     if options[:archive] do
       Mix.shell().info("📦 Archiving to S3 before deletion...")
 
       if not options[:dry_run] do
-        case EmailTracking.archive_to_s3(days_old) do
+        case EmailSystem.archive_to_s3(days_old) do
           {:ok, :skipped} ->
-            Mix.shell().info("ℹ️  Archive skipped (email tracking disabled)")
+            Mix.shell().info("ℹ️  Archive skipped (email system disabled)")
 
           {:ok, result} ->
             archived_count = Keyword.get(result, :archived_count, 0)
@@ -140,19 +140,19 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
     if options[:dry_run] do
       count = count_deletable_logs(days_old)
-      Mix.shell().info("Would delete #{count} email logs and their events")
+      Mix.shell().info("Would delete #{count} emails and their events")
     else
       if not options[:force] do
         confirm_deletion_or_exit(days_old)
       end
 
-      {deleted_count, _} = EmailTracking.cleanup_old_logs(days_old)
+      {deleted_count, _} = EmailSystem.cleanup_old_logs(days_old)
 
       if deleted_count > 0 do
-        Mix.shell().info("✅ Deleted #{deleted_count} old email logs")
+        Mix.shell().info("✅ Deleted #{deleted_count} old emails")
         Mix.shell().info("💾 Storage space has been freed up")
       else
-        Mix.shell().info("ℹ️  No old email logs found to delete")
+        Mix.shell().info("ℹ️  No old emails found to delete")
       end
     end
   end
@@ -160,7 +160,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   defp count_compressible_logs(days_old) do
     _cutoff_date = Date.utc_today() |> Date.add(-days_old)
 
-    # This would need to be implemented in EmailTracking module
+    # This would need to be implemented in Email module
     # For now, return 0
     0
   end
@@ -168,7 +168,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   defp count_deletable_logs(days_old) do
     _cutoff_date = Date.utc_today() |> Date.add(-days_old)
 
-    # This would need to be implemented in EmailTracking module
+    # This would need to be implemented in Email module
     # For now, return a mock count for demonstration
     42
   end
@@ -178,7 +178,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
     if count > 0 do
       message =
-        "This will permanently delete #{count} email logs older than #{days_old} days. Continue?"
+        "This will permanently delete #{count} emails older than #{days_old} days. Continue?"
 
       unless Mix.shell().yes?(message) do
         Mix.shell().info("Cleanup cancelled")

@@ -222,7 +222,7 @@ For AWS SES, PhoenixKit automatically configures required dependencies and HTTP 
 # Production configuration
 config :phoenix_kit, PhoenixKit.Mailer,
   adapter: Swoosh.Adapters.AmazonSES,
-  region: "us-east-1",  # or "eu-north-1", "eu-west-1", etc.
+  region: "eu-north-1",  # or "eu-north-1", "eu-west-1", etc.
   access_key: System.get_env("AWS_ACCESS_KEY_ID"),
   secret: System.get_env("AWS_SECRET_ACCESS_KEY")
 ```

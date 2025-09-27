@@ -308,7 +308,7 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm">Data Retention</span>
                 <span class="text-sm text-base-content/70">
-                  {EmailTracking.get_retention_days()} days
+                  {PhoenixKit.EmailSystem.get_retention_days()} days
                 </span>
               </div>
             </div>
@@ -317,13 +317,104 @@
       </div>
     <% end %>
   </div>
-  <%!-- JavaScript for Charts --%>
+  <%!-- Chart.js CDN and initialization --%>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js">
+  </script>
   <script>
-    // Chart.js initialization will be handled by a hook
-    window.addEventListener("phx:page-loading-stop", () => {
-      if (window.initializeCharts) {
-        window.initializeCharts(<%= Jason.encode!(@charts_data) %>);
+    let deliveryChart = null;
+    let engagementChart = null;
+
+    function initializeCharts(chartsData) {
+      // Destroy existing charts if they exist
+      if (deliveryChart) {
+        deliveryChart.destroy();
+        deliveryChart = null;
       }
+      if (engagementChart) {
+        engagementChart.destroy();
+        engagementChart = null;
+      }
+
+      // Initialize Delivery Trends Chart
+      const deliveryCtx = document.getElementById('delivery-trend-chart');
+      if (deliveryCtx) {
+        deliveryChart = new Chart(deliveryCtx, {
+          type: 'line',
+          data: chartsData.delivery_trend,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.1)'
+                }
+              },
+              x: {
+                grid: {
+                  color: 'rgba(0, 0, 0, 0.1)'
+                }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'top',
+              },
+              tooltip: {
+                mode: 'index',
+                intersect: false,
+              }
+            },
+            interaction: {
+              mode: 'nearest',
+              axis: 'x',
+              intersect: false
+            }
+          }
+        });
+      }
+
+      // Initialize Engagement Chart
+      const engagementCtx = document.getElementById('engagement-chart');
+      if (engagementCtx) {
+        engagementChart = new Chart(engagementCtx, {
+          type: 'doughnut',
+          data: chartsData.engagement,
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+              },
+              tooltip: {
+                callbacks: {
+                  label: function(context) {
+                    const label = context.label || '';
+                    const value = context.parsed || 0;
+                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                    return `${label}: ${value} (${percentage}%)`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    }
+
+    // Initialize charts when page loads
+    window.addEventListener("phx:page-loading-stop", () => {
+      const chartsData = <%= Jason.encode!(@charts_data) %>;
+      initializeCharts(chartsData);
+    });
+
+    // Handle LiveView updates
+    window.addEventListener("phx:update", () => {
+      const chartsData = <%= Jason.encode!(@charts_data) %>;
+      initializeCharts(chartsData);
     });
   </script>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

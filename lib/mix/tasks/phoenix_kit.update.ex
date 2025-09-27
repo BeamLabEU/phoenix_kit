@@ -13,6 +13,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
       $ mix phoenix_kit.update --prefix=myapp
       $ mix phoenix_kit.update --status
       $ mix phoenix_kit.update --skip-assets
+      $ mix phoenix_kit.update -y
 
   ## Options
 
@@ -20,6 +21,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
     * `--status` - Show current installation status and available updates
     * `--force` - Force update even if already up to date
     * `--skip-assets` - Skip automatic asset rebuild check
+    * `--yes` / `-y` - Skip confirmation prompts and run migrations automatically
 
   ## Examples
 
@@ -31,6 +33,12 @@ defmodule Mix.Tasks.PhoenixKit.Update do
 
       # Update with custom schema prefix
       mix phoenix_kit.update --prefix=auth
+
+      # Update without prompts (useful for CI/CD)
+      mix phoenix_kit.update -y
+
+      # Force update with automatic migration
+      mix phoenix_kit.update --force -y
 
   ## Version Management
 
@@ -60,13 +68,15 @@ defmodule Mix.Tasks.PhoenixKit.Update do
     prefix: :string,
     status: :boolean,
     force: :boolean,
-    skip_assets: :boolean
+    skip_assets: :boolean,
+    yes: :boolean
   ]
 
   @aliases [
     p: :prefix,
     s: :status,
-    f: :force
+    f: :force,
+    y: :yes
   ]
 
   @impl Mix.Task
@@ -103,7 +113,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Handle update check logic
-  defp handle_update_check(prefix, current_version, force, skip_assets) do
+  defp handle_update_check(prefix, current_version, force, skip_assets, yes) do
     target_version = Common.current_version()
 
     cond do
@@ -111,7 +121,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
         handle_already_up_to_date(current_version)
 
       current_version < target_version || force ->
-        handle_update_needed(prefix, current_version, target_version, force, skip_assets)
+        handle_update_needed(prefix, current_version, target_version, force, skip_assets, yes)
 
       true ->
         Mix.shell().info("No update needed.")
@@ -129,7 +139,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Handle update needed scenario
-  defp handle_update_needed(prefix, current_version, target_version, force, skip_assets) do
+  defp handle_update_needed(prefix, current_version, target_version, force, skip_assets, yes) do
     migration_file = create_update_migration(prefix, current_version, target_version, force)
 
     # Always rebuild assets unless explicitly skipped
@@ -138,7 +148,7 @@ defmodule Mix.Tasks.PhoenixKit.Update do
     end
 
     # Run interactive migration execution
-    run_update_migration_interactive(migration_file)
+    run_update_migration_interactive(migration_file, yes)
   end
 
   # Perform the actual update
@@ -146,13 +156,14 @@ defmodule Mix.Tasks.PhoenixKit.Update do
     prefix = opts[:prefix] || "public"
     force = opts[:force] || false
     skip_assets = opts[:skip_assets] || false
+    yes = opts[:yes] || false
 
     case Common.check_installation_status(prefix) do
       {:not_installed} ->
         handle_not_installed()
 
       {:current_version, current_version} ->
-        handle_update_check(prefix, current_version, force, skip_assets)
+        handle_update_check(prefix, current_version, force, skip_assets, yes)
     end
   end
 
@@ -217,19 +228,28 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Run interactive migration execution (similar to install command)
-  defp run_update_migration_interactive(migration_file) do
+  defp run_update_migration_interactive(migration_file, yes) do
     # Check if we can run migrations safely
     case check_migration_conditions() do
       :ok ->
-        run_interactive_migration_prompt(migration_file)
+        run_interactive_migration_prompt(migration_file, yes)
 
       {:error, reason} ->
-        Mix.shell().info("""
+        if yes do
+          # If -y flag is used but conditions aren't met, try to run migration anyway
+          Mix.shell().info(
+            "\n⚠️  Migration conditions not optimal (#{reason}), but running due to -y flag..."
+          )
 
-        💡 Migration not run automatically (#{reason}).
-        To run migration manually:
-          mix ecto.migrate
-        """)
+          run_migration_with_feedback()
+        else
+          Mix.shell().info("""
+
+          💡 Migration not run automatically (#{reason}).
+          To run migration manually:
+            mix ecto.migrate
+          """)
+        end
     end
   end
 
@@ -253,29 +273,35 @@ defmodule Mix.Tasks.PhoenixKit.Update do
   end
 
   # Prompt user for migration execution
-  defp run_interactive_migration_prompt(_migration_file) do
-    Mix.shell().info("""
+  defp run_interactive_migration_prompt(_migration_file, yes) do
+    if yes do
+      # Skip prompt and run migration directly
+      Mix.shell().info("\n🚀 Running database migration automatically (--yes flag)...")
+      run_migration_with_feedback()
+    else
+      Mix.shell().info("""
 
-    🚀 Would you like to run the database migration now?
-    This will update your PhoenixKit installation.
+      🚀 Would you like to run the database migration now?
+      This will update your PhoenixKit installation.
 
-    Options:
-    - y/yes: Run 'mix ecto.migrate' now
-    - n/no:  Skip migration (you can run it manually later)
-    """)
+      Options:
+      - y/yes: Run 'mix ecto.migrate' now
+      - n/no:  Skip migration (you can run it manually later)
+      """)
 
-    case Mix.shell().prompt("Run migration? [Y/n]")
-         |> String.trim()
-         |> String.downcase() do
-      response when response in ["", "y", "yes"] ->
-        run_migration_with_feedback()
+      case Mix.shell().prompt("Run migration? [Y/n]")
+           |> String.trim()
+           |> String.downcase() do
+        response when response in ["", "y", "yes"] ->
+          run_migration_with_feedback()
 
-      _ ->
-        Mix.shell().info("""
+        _ ->
+          Mix.shell().info("""
 
-        ⚠️  Migration skipped. To run it manually later:
-          mix ecto.migrate
-        """)
+          ⚠️  Migration skipped. To run it manually later:
+            mix ecto.migrate
+          """)
+      end
     end
   end
 

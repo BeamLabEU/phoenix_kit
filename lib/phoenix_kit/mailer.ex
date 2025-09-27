@@ -24,7 +24,7 @@ defmodule PhoenixKit.Mailer do
 
   import Swoosh.Email
 
-  alias PhoenixKit.EmailTracking.EmailInterceptor
+  alias PhoenixKit.EmailSystem.EmailInterceptor
 
   alias PhoenixKit.Users.Auth.User
 
@@ -147,6 +147,7 @@ defmodule PhoenixKit.Mailer do
           <p><a href="#{magic_link_url}">#{magic_link_url}</a></p>
         </div>
       </div>
+
     </body>
     </html>
     """
@@ -174,14 +175,14 @@ defmodule PhoenixKit.Mailer do
   # Handle delivery result for email tracking updates
   defp handle_delivery_result(email, result, opts) do
     # Only process if email tracking is enabled
-    if PhoenixKit.EmailTracking.enabled?() do
+    if PhoenixKit.EmailSystem.enabled?() do
       case extract_log_id_from_email(email) do
         nil ->
           # No log ID found, skip tracking
           :ok
 
         log_id ->
-          case PhoenixKit.EmailTracking.get_log!(log_id) do
+          case PhoenixKit.EmailSystem.get_log!(log_id) do
             nil -> :ok
             log -> update_log_after_delivery(log, result, opts)
           end
@@ -261,6 +262,173 @@ defmodule PhoenixKit.Mailer do
       Swoosh.Adapters.Local -> "local"
       _ -> default_name
     end
+  end
+
+  @doc """
+  Send a test tracking email to verify email delivery and tracking functionality.
+
+  This function sends a test email with test links
+  to verify that the email tracking system is working correctly.
+
+  ## Parameters
+
+  - `recipient_email` - The email address to send the test email to
+  - `user_id` - Optional user ID to associate with the test email (default: nil)
+
+  ## Returns
+
+  - `{:ok, %Swoosh.Email{}}` - Email sent successfully
+  - `{:error, reason}` - Email failed to send
+
+  ## Examples
+
+      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com")
+      {:ok, %Swoosh.Email{}}
+
+      iex> PhoenixKit.Mailer.send_test_tracking_email("admin@example.com", 123)
+      {:ok, %Swoosh.Email{}}
+
+  """
+  def send_test_tracking_email(recipient_email, user_id \\ nil) when is_binary(recipient_email) do
+    timestamp = DateTime.utc_now() |> DateTime.to_string()
+
+    email =
+      new()
+      |> to(recipient_email)
+      |> from({"PhoenixKit Test", get_from_email()})
+      |> subject("Test Tracking Email - #{timestamp}")
+      |> html_body(test_email_html_body(recipient_email, timestamp))
+      |> text_body(test_email_text_body(recipient_email, timestamp))
+
+    deliver_email(email,
+      user_id: user_id,
+      template_name: "test_email",
+      campaign_id: "test",
+      provider: detect_provider()
+    )
+  end
+
+  # HTML version of the test tracking email
+  defp test_email_html_body(recipient_email, timestamp) do
+    base_url = PhoenixKit.Config.get_dynamic_base_url()
+    test_link_url = "#{base_url}/phoenix_kit/admin/emails"
+
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Test Tracking Email</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { padding: 30px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin: 10px 5px; }
+        .button:hover { background-color: #2563eb; }
+        .info-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 16px; margin: 20px 0; }
+        .success-box { background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0; }
+        .footer { background-color: #f8f9fa; padding: 20px; border-radius: 0 0 8px 8px; font-size: 14px; color: #6b7280; }
+        .test-links { margin: 20px 0; }
+        .test-links a { margin-right: 15px; }
+        .tracking-info { font-family: monospace; background: #f3f4f6; padding: 10px; border-radius: 4px; margin: 10px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>📧 Test Tracking Email</h1>
+          <p>Email Tracking System Verification</p>
+        </div>
+
+        <div class="content">
+          <div class="success-box">
+            <strong>✅ Success!</strong> This test email was sent successfully through the PhoenixKit email tracking system.
+          </div>
+
+          <p>Hello,</p>
+
+          <p>This is a test email to verify that your email tracking system is working correctly. If you received this email, it means:</p>
+
+          <ul>
+            <li>✅ Email delivery is working</li>
+            <li>✅ AWS SES configuration is correct (if using SES)</li>
+            <li>✅ Email tracking is enabled and logging</li>
+            <li>✅ Configuration set is properly configured</li>
+          </ul>
+
+          <div class="info-box">
+            <strong>📊 Tracking Information:</strong>
+            <div class="tracking-info">
+              Recipient: #{recipient_email}<br>
+              Sent at: #{timestamp}<br>
+              Campaign: test<br>
+              Template: test_email
+            </div>
+          </div>
+
+          <div class="test-links">
+            <p><strong>Test these tracking features:</strong></p>
+            <a href="#{test_link_url}?test=link1" class="button">Test Link 1</a>
+            <a href="#{test_link_url}?test=link2" class="button">Test Link 2</a>
+            <a href="#{test_link_url}?test=link3" class="button">Test Link 3</a>
+          </div>
+
+          <p>Click any of the buttons above to test link tracking. Then check your emails in the admin panel to see the tracking data.</p>
+
+        </div>
+
+        <div class="footer">
+          <p>This is an automated test email from PhoenixKit Email Tracking System.</p>
+          <p>Check your admin panel at: <a href="#{test_link_url}">#{test_link_url}</a></p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  # Text version of the test tracking email
+  defp test_email_text_body(recipient_email, timestamp) do
+    base_url = PhoenixKit.Config.get_dynamic_base_url()
+    test_link_url = "#{base_url}/phoenix_kit/admin/emails"
+
+    """
+    TEST TRACKING EMAIL - EMAIL SYSTEM VERIFICATION
+
+    Success! This test email was sent successfully through the PhoenixKit email tracking system.
+
+    Hello,
+
+    This is a test email to verify that your email tracking system is working correctly. If you received this email, it means:
+
+    ✅ Email delivery is working
+    ✅ AWS SES configuration is correct (if using SES)
+    ✅ Email tracking is enabled and logging
+    ✅ Configuration set is properly configured
+
+    TRACKING INFORMATION:
+    ---------------------
+    Recipient: #{recipient_email}
+    Sent at: #{timestamp}
+    Campaign: test
+    Template: test_email
+
+    TEST LINKS:
+    -----------
+    Test these tracking features by visiting:
+
+    Test Link 1: #{test_link_url}?test=link1
+    Test Link 2: #{test_link_url}?test=link2
+    Test Link 3: #{test_link_url}?test=link3
+
+    Click any of the links above to test link tracking. Then check your emails in the admin panel to see the tracking data.
+
+    ---
+    This is an automated test email from PhoenixKit Email Tracking System.
+    Check your admin panel at: #{test_link_url}
+    """
   end
 
   # Get the from email address from configuration or use a default

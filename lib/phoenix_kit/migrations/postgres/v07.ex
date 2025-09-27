@@ -30,7 +30,7 @@ defmodule PhoenixKit.Migrations.Postgres.V07 do
   Run the V07 migration to add email tracking system.
   """
   def up(%{prefix: prefix} = _opts) do
-    # Create email logs table
+    # Create emails table
     create_if_not_exists table(:phoenix_kit_email_logs, prefix: prefix) do
       # Unique ID from email provider
       add :message_id, :string, null: false
@@ -238,7 +238,7 @@ defmodule PhoenixKit.Migrations.Postgres.V07 do
     # Drop email events table (foreign key will be dropped automatically)
     drop_if_exists table(:phoenix_kit_email_events, prefix: prefix)
 
-    # Drop email logs table
+    # Drop emails table
     drop_if_exists table(:phoenix_kit_email_logs, prefix: prefix)
 
     # Set version comment back to V06

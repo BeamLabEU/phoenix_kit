@@ -103,7 +103,30 @@ defmodule PhoenixKit.Settings do
       "time_zone" => "0",
       "date_format" => "Y-m-d",
       "time_format" => "H:i",
-      "track_registration_geolocation" => "false"
+      "track_registration_geolocation" => "false",
+      # Email Settings
+      "email_enabled" => "false",
+      "email_save_body" => "false",
+      "email_ses_events" => "false",
+      "email_retention_days" => "90",
+      "email_sampling_rate" => "100",
+      "email_compress_body" => "30",
+      "email_archive_to_s3" => "false",
+      "email_cloudwatch_metrics" => "false",
+      # AWS Configuration for SQS Integration
+      "aws_access_key_id" => "",
+      "aws_secret_access_key" => "",
+      "aws_region" => "eu-north-1",
+      "aws_sns_topic_arn" => "",
+      "aws_sqs_queue_url" => "",
+      "aws_sqs_queue_arn" => "",
+      "aws_sqs_dlq_url" => "",
+      "aws_ses_configuration_set" => "phoenixkit-tracking",
+      # SQS Worker Configuration
+      "sqs_polling_enabled" => "false",
+      "sqs_polling_interval_ms" => "5000",
+      "sqs_max_messages_per_poll" => "10",
+      "sqs_visibility_timeout" => "300"
     }
   end
 

@@ -1,8 +1,8 @@
 defmodule Mix.Tasks.PhoenixKit.Email.Stats do
-  @shortdoc "Display email tracking statistics"
+  @shortdoc "Display email system statistics"
 
   @moduledoc """
-  Mix task to display comprehensive email tracking statistics.
+  Mix task to display comprehensive email system statistics.
 
   ## Usage
 
@@ -39,16 +39,16 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailTracking
+  alias PhoenixKit.EmailSystem
 
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailTracking.enabled?() do
+    unless EmailSystem.enabled?() do
       Mix.shell().error("Email is not enabled. Enable it first with:")
-      Mix.shell().info("  PhoenixKit.EmailTracking.enable_system()")
+      Mix.shell().info("  PhoenixKit.EmailSystem.enable_system()")
       exit({:shutdown, 1})
     end
 
@@ -174,12 +174,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   defp get_stats_data(options) do
     period = determine_period(options)
 
-    base_stats = EmailTracking.get_system_stats(period)
+    base_stats = EmailSystem.get_system_stats(period)
 
     stats =
       if options[:detailed] do
         Map.merge(base_stats, %{
-          by_provider: EmailTracking.get_provider_performance(period),
+          by_provider: EmailSystem.get_provider_performance(period),
           by_template: get_template_stats(period)
         })
       else
@@ -187,7 +187,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
       end
 
     if options[:campaign] do
-      EmailTracking.get_campaign_stats(options[:campaign])
+      EmailSystem.get_campaign_stats(options[:campaign])
     else
       stats
     end
@@ -206,10 +206,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
     end
   end
 
-  defp get_template_stats(_period) do
-    # This would be implemented in the EmailTracking module
-    # For now, return empty list
-    []
+  defp get_template_stats(period) do
+    PhoenixKit.EmailSystem.get_template_stats(period)
   end
 
   defp format_number(number) when is_integer(number) do

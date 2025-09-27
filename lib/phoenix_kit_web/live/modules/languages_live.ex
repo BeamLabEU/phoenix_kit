@@ -25,7 +25,10 @@ defmodule PhoenixKitWeb.Live.Modules.LanguagesLive do
       |> assign(:language_count, ml_config.language_count)
       |> assign(:enabled_count, ml_config.enabled_count)
       |> assign(:default_language, ml_config.default_language)
-      |> assign(:available_languages_for_selection, Languages.get_available_languages_for_selection())
+      |> assign(
+        :available_languages_for_selection,
+        Languages.get_available_languages_for_selection()
+      )
 
     {:ok, socket}
   end
@@ -147,14 +150,17 @@ defmodule PhoenixKitWeb.Live.Modules.LanguagesLive do
 
         # Get language name for flash message
         predefined_lang = Languages.get_predefined_language(language_code)
-        language_name = predefined_lang && predefined_lang.name || language_code
+        language_name = (predefined_lang && predefined_lang.name) || language_code
 
         socket =
           socket
           |> assign(:languages, ml_config.languages)
           |> assign(:language_count, ml_config.language_count)
           |> assign(:enabled_count, ml_config.enabled_count)
-          |> assign(:available_languages_for_selection, Languages.get_available_languages_for_selection())
+          |> assign(
+            :available_languages_for_selection,
+            Languages.get_available_languages_for_selection()
+          )
           |> put_flash(:info, "Language #{language_name} added successfully")
 
         {:noreply, socket}
@@ -184,7 +190,10 @@ defmodule PhoenixKitWeb.Live.Modules.LanguagesLive do
             |> assign(:language_count, ml_config.language_count)
             |> assign(:enabled_count, ml_config.enabled_count)
             |> assign(:default_language, ml_config.default_language)
-            |> assign(:available_languages_for_selection, Languages.get_available_languages_for_selection())
+            |> assign(
+              :available_languages_for_selection,
+              Languages.get_available_languages_for_selection()
+            )
             |> put_flash(:info, "Language #{language["name"]} removed successfully")
 
           {:noreply, socket}
@@ -262,7 +271,6 @@ defmodule PhoenixKitWeb.Live.Modules.LanguagesLive do
       {:noreply, socket}
     end
   end
-
 
   defp get_current_path(_socket, _session) do
     # For LanguagesLive, return the settings path

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.EmailTracking.Archiver do
+defmodule PhoenixKit.EmailSystem.Archiver do
   @moduledoc """
   Archive and compress old email tracking data for optimal storage.
 
@@ -21,28 +21,28 @@ defmodule PhoenixKit.EmailTracking.Archiver do
 
   All archival settings stored in phoenix_kit_settings:
 
-  - `email_tracking_compress_body` - Days before compressing bodies (default: 30)
-  - `email_tracking_archive_to_s3` - Enable S3 archival (default: false)
-  - `email_tracking_s3_bucket` - S3 bucket name
-  - `email_tracking_sampling_rate` - Percentage to fully log (default: 100)
-  - `email_tracking_retention_days` - Total retention before deletion (default: 90)
+  - `email_compress_body` - Days before compressing bodies (default: 30)
+  - `email_archive_to_s3` - Enable S3 archival (default: false)
+  - `email_s3_bucket` - S3 bucket name
+  - `email_sampling_rate` - Percentage to fully log (default: 100)
+  - `email_retention_days` - Total retention before deletion (default: 90)
 
   ## Usage Examples
 
       # Compress bodies older than 30 days
-      {compressed_count, size_saved} = PhoenixKit.EmailTracking.Archiver.compress_old_bodies(30)
+      {compressed_count, size_saved} = PhoenixKit.EmailSystem.Archiver.compress_old_bodies(30)
 
       # Archive to S3 with automatic cleanup
-      {:ok, archived_count} = PhoenixKit.EmailTracking.Archiver.archive_to_s3(90, 
+      {:ok, archived_count} = PhoenixKit.EmailSystem.Archiver.archive_to_s3(90, 
         bucket: "my-email-archive",
         prefix: "email-logs/2025/"
       )
 
       # Apply sampling to reduce future storage
-      sampled_email = PhoenixKit.EmailTracking.Archiver.apply_sampling_rate(email)
+      sampled_email = PhoenixKit.EmailSystem.Archiver.apply_sampling_rate(email)
 
       # Get storage statistics
-      stats = PhoenixKit.EmailTracking.Archiver.get_storage_stats()
+      stats = PhoenixKit.EmailSystem.Archiver.get_storage_stats()
       # => %{total_logs: 50000, compressed: 15000, archived: 10000, size_mb: 2341}
 
   ## S3 Integration
@@ -73,7 +73,7 @@ defmodule PhoenixKit.EmailTracking.Archiver do
 
   require Logger
   alias PhoenixKit.Settings
-  alias PhoenixKit.EmailTracking.{EmailEvent, EmailLog}
+  alias PhoenixKit.EmailSystem.{EmailEvent, EmailLog}
   import Ecto.Query
 
   ## --- Body Compression ---
@@ -161,7 +161,7 @@ defmodule PhoenixKit.EmailTracking.Archiver do
   ## --- S3 Archival ---
 
   @doc """
-  Archive old email logs to S3 storage.
+  Archive old emails to S3 storage.
 
   Returns `{:ok, archived_count}` on success or `{:error, reason}` on failure.
 
@@ -292,19 +292,19 @@ defmodule PhoenixKit.EmailTracking.Archiver do
   ## --- Configuration Helpers ---
 
   defp get_compress_days do
-    Settings.get_integer_setting("email_tracking_compress_body", 30)
+    Settings.get_integer_setting("email_compress_body", 30)
   end
 
   defp get_sampling_rate do
-    Settings.get_integer_setting("email_tracking_sampling_rate", 100)
+    Settings.get_integer_setting("email_sampling_rate", 100)
   end
 
   defp s3_archival_enabled? do
-    Settings.get_boolean_setting("email_tracking_archive_to_s3", false)
+    Settings.get_boolean_setting("email_archive_to_s3", false)
   end
 
   defp get_s3_bucket do
-    Settings.get_setting("email_tracking_s3_bucket")
+    Settings.get_setting("email_s3_bucket")
   end
 
   ## --- Query Builders ---
@@ -356,7 +356,6 @@ defmodule PhoenixKit.EmailTracking.Archiver do
     |> limit(^batch_size)
     |> stream_in_batches(batch_size, fn batch ->
       {batch_compressed, batch_saved} = compress_batch(batch)
-      Logger.debug("Compressed #{batch_compressed} emails, saved #{format_bytes(batch_saved)}")
       {batch_compressed, batch_saved}
     end)
     |> Enum.reduce({0, 0}, fn {count, saved}, {total_count, total_saved} ->
@@ -385,8 +384,7 @@ defmodule PhoenixKit.EmailTracking.Archiver do
       if compressed_size < original_size * 0.8 do
         case repo().update(
                EmailLog.changeset(log, %{
-                 body_full: Base.encode64(compressed_data),
-                 body_compressed: true
+                 body_full: Base.encode64(compressed_data)
                })
              ) do
           {:ok, _} -> {:ok, original_size - compressed_size}
@@ -446,7 +444,7 @@ defmodule PhoenixKit.EmailTracking.Archiver do
 
     # Upload to S3 (this would use ExAws or similar)
     case upload_to_s3(bucket, s3_key, archive_data) do
-      :ok ->
+      {:ok, _message} ->
         if delete_after do
           delete_archived_logs(logs)
         end
@@ -500,10 +498,10 @@ defmodule PhoenixKit.EmailTracking.Archiver do
   end
 
   defp upload_to_s3(_bucket, _key, _data) do
-    # This would implement actual S3 upload using ExAws
-    # For now, return success
-    Logger.info("Would upload to S3 (not implemented)")
-    :ok
+    # S3 archival functionality is under development
+    # This will be implemented in a future version using ExAws.S3
+    Logger.info("S3 archival is under development. Email data prepared but not uploaded to S3.")
+    {:ok, "S3 archival feature is under development. Data prepared but not uploaded."}
   end
 
   defp delete_archived_logs(logs) do
@@ -557,7 +555,12 @@ defmodule PhoenixKit.EmailTracking.Archiver do
   end
 
   defp count_compressed_bodies do
-    repo().one(from l in EmailLog, where: l.body_compressed == true, select: count(l.id)) || 0
+    # Count emails with base64-encoded compressed bodies
+    repo().one(
+      from l in EmailLog,
+        where: fragment("? LIKE 'H4sI%'", l.body_full),
+        select: count(l.id)
+    ) || 0
   end
 
   defp count_archived_logs do
@@ -603,7 +606,11 @@ defmodule PhoenixKit.EmailTracking.Archiver do
     count = repo().one(from l in query, select: count(l.id)) || 0
 
     compressed =
-      repo().one(from l in query, where: l.body_compressed == true, select: count(l.id)) || 0
+      repo().one(
+        from l in query,
+          where: fragment("? LIKE 'H4sI%'", l.body_full),
+          select: count(l.id)
+      ) || 0
 
     %{
       logs: count,

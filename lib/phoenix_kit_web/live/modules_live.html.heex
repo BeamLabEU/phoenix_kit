@@ -32,7 +32,7 @@
             <div class="flex-1">
               <h3 class="card-title text-xl">Referral Codes System</h3>
               <p class="text-base-content/70">
-                Manage referral codes for user registration and tracking
+                Manage referral codes for user registration and monitoring
               </p>
             </div>
             <div class="form-control">
@@ -110,13 +110,13 @@
         </div>
       </div>
 
-      <%!-- Email Tracking Module --%>
+      <%!-- Email Module --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex items-center mb-4">
             <div class="text-3xl mr-4">📧</div>
             <div class="flex-1">
-              <h3 class="card-title text-xl">Email Tracking System</h3>
+              <h3 class="card-title text-xl">Emails</h3>
               <p class="text-base-content/70">
                 Track and analyze all outgoing emails with delivery events
               </p>
@@ -126,8 +126,8 @@
                 <input
                   type="checkbox"
                   class="toggle toggle-primary"
-                  checked={@email_tracking_enabled}
-                  phx-click="toggle_email_tracking"
+                  checked={@email_enabled}
+                  phx-click="toggle_emails"
                 />
               </label>
             </div>
@@ -138,20 +138,20 @@
           <%!-- Status and Configuration --%>
           <div class="flex items-center justify-between">
             <div>
-              <span class={"badge #{if @email_tracking_enabled, do: "badge-success", else: "badge-neutral"}"}>
-                {if @email_tracking_enabled, do: "Enabled", else: "Disabled"}
+              <span class={"badge #{if @email_enabled, do: "badge-success", else: "badge-neutral"}"}>
+                {if @email_enabled, do: "Enabled", else: "Disabled"}
               </span>
-              <%= if @email_tracking_enabled do %>
+              <%= if @email_enabled do %>
                 <span class="badge badge-outline ml-2">
-                  {if @email_tracking_save_body, do: "Body Saved", else: "Headers Only"}
+                  {if @email_save_body, do: "Body Saved", else: "Headers Only"}
                 </span>
               <% end %>
             </div>
 
             <div class="card-actions">
-              <%= if @email_tracking_enabled do %>
+              <%= if @email_enabled do %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/email-tracking")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/emails")}
                   class="btn btn-primary btn-sm"
                 >
                   <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-4 h-4 mr-1" />
@@ -166,7 +166,7 @@
                 </.link>
               <% else %>
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/email-tracking")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/emails")}
                   class="btn btn-outline btn-sm"
                 >
                   <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-4 h-4 mr-1" />
@@ -176,7 +176,7 @@
             </div>
           </div>
 
-          <%= if @email_tracking_enabled do %>
+          <%= if @email_enabled do %>
             <%!-- Quick Stats --%>
             <div class="bg-base-200 rounded-lg p-3 mt-4">
               <h4 class="text-sm font-medium text-base-content mb-2">Current Configuration</h4>
@@ -184,12 +184,12 @@
                 <div>
                   <span class="text-base-content/70">SES Events:</span>
                   <span class="font-medium">
-                    {if @email_tracking_ses_events, do: "On", else: "Off"}
+                    {if @email_ses_events, do: "On", else: "Off"}
                   </span>
                 </div>
                 <div>
                   <span class="text-base-content/70">Retention:</span>
-                  <span class="font-medium">{@email_tracking_retention_days} days</span>
+                  <span class="font-medium">{@email_retention_days} days</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
   @moduledoc """
-  Secure webhook controller for AWS SNS email tracking events.
+  Secure webhook controller for AWS SNS email events.
 
   Handles incoming webhook notifications from AWS Simple Notification Service (SNS)
   for email events like bounces, complaints, deliveries, opens, and clicks.
@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
   - **Complaint**: Spam complaints and feedback loops
   - **Delivery**: Successful delivery confirmations
   - **Send**: Send confirmations from SES
-  - **Open**: Email open tracking (pixel-based)
+  - **Open**: Email open detection (AWS SES)
   - **Click**: Link click tracking
 
   ## Configuration
@@ -68,8 +68,6 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
   import Bitwise
 
   require Logger
-
-  alias PhoenixKit.EmailTracking
 
   # Rate limiting configuration (commented out for future use)
   # @default_rate_limit %{max_requests: 100, window_seconds: 60}
@@ -340,8 +338,8 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
 
   # Process individual email event
   defp process_email_event(event_data) do
-    if EmailTracking.enabled?() and EmailTracking.ses_events_enabled?() do
-      case EmailTracking.process_webhook_event(event_data) do
+    if PhoenixKit.EmailSystem.enabled?() and PhoenixKit.EmailSystem.ses_events_enabled?() do
+      case PhoenixKit.EmailSystem.process_webhook_event(event_data) do
         {:ok, :skipped} ->
           {:ok, :event_skipped}
 
@@ -383,7 +381,7 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
           {:error, :processing_failed}
       end
     else
-      Logger.debug("Email tracking disabled, skipping event")
+      Logger.debug("Email system disabled, skipping event")
       {:ok, :tracking_disabled}
     end
   end

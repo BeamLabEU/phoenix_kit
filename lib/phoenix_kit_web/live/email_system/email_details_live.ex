@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
+defmodule PhoenixKitWeb.Live.EmailSystem.EmailDetailsLive do
   @moduledoc """
   LiveView for displaying detailed information about a specific email log.
 
@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
   ## Usage
 
       # In your Phoenix router
-      live "/email-logs/:id", PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive, :show
+      live "/email-logs/:id", PhoenixKitWeb.Live.EmailSystem.EmailDetailsLive, :show
 
   ## Permissions
 
@@ -36,8 +36,8 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
 
   require Logger
 
-  alias PhoenixKit.EmailTracking
-  alias PhoenixKit.EmailTracking.EmailLog
+  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.EmailSystem.EmailLog
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
@@ -48,8 +48,8 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
-    # Check if email tracking is enabled
-    if EmailTracking.enabled?() do
+    # Check if email is enabled
+    if EmailSystem.enabled?() do
       case Integer.parse(id) do
         {email_id, _} ->
           # Get project title from settings
@@ -63,6 +63,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
             |> assign(:events, [])
             |> assign(:related_emails, [])
             |> assign(:loading, true)
+            |> assign(:syncing, false)
             |> load_email_data()
 
           {:ok, socket}
@@ -76,7 +77,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Email tracking is not enabled")
+       |> put_flash(:error, "Email is not enabled")
        |> push_navigate(to: Routes.path("/admin/emails"))}
     end
   end
@@ -92,6 +93,47 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
   end
 
   @impl true
+  def handle_event("sync_status", _params, socket) do
+    if socket.assigns.email_log do
+      # Determine which message ID to use for sync (prefer AWS message ID)
+      {message_id, id_type} =
+        if socket.assigns.email_log.aws_message_id do
+          {socket.assigns.email_log.aws_message_id, "AWS SES message ID"}
+        else
+          {socket.assigns.email_log.message_id, "internal message ID"}
+        end
+
+      socket = assign(socket, :syncing, true)
+
+      case EmailSystem.sync_email_status(message_id) do
+        {:ok, result} ->
+          flash_message = build_sync_flash_message(result, id_type)
+          flash_type = determine_flash_type(result)
+
+          socket =
+            socket
+            |> assign(:syncing, false)
+            |> put_flash(flash_type, flash_message)
+            |> load_email_data()
+
+          {:noreply, socket}
+
+        {:error, reason} ->
+          flash_message = build_error_flash_message(reason, message_id, socket, id_type)
+
+          socket =
+            socket
+            |> assign(:syncing, false)
+            |> put_flash(:error, flash_message)
+
+          {:noreply, socket}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "❌ Email log not found")}
+    end
+  end
+
+  @impl true
   def handle_event("toggle_headers", _params, socket) do
     {:noreply,
      socket
@@ -103,27 +145,6 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
     {:noreply,
      socket
      |> assign(:show_body, !Map.get(socket.assigns, :show_body, false))}
-  end
-
-  @impl true
-  def handle_event("export_details", _params, socket) do
-    # Export email details as JSON
-    email_data = %{
-      email_log: socket.assigns.email_log,
-      events: socket.assigns.events,
-      exported_at: DateTime.utc_now()
-    }
-
-    filename = "email_#{socket.assigns.email_id}_details.json"
-    json_content = Jason.encode!(email_data, pretty: true)
-
-    {:noreply,
-     socket
-     |> push_event("download", %{
-       filename: filename,
-       content: json_content,
-       mime_type: "application/json"
-     })}
   end
 
   @impl true
@@ -160,7 +181,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
             navigate={Routes.path("/admin/emails")}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon_arrow_left /> Back to Email Logs
+            <.icon_arrow_left /> Back to Emails
           </.link>
 
           <%!-- Title Section --%>
@@ -204,12 +225,36 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
                 </div>
 
                 <div class="flex gap-2 mt-4 lg:mt-0">
-                  <button phx-click="export_details" class="btn btn-outline btn-sm">
-                    <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Export
+                  <.link
+                    href={Routes.path("/admin/emails/#{@email_id}/export")}
+                    target="_blank"
+                    class="btn btn-outline btn-sm"
+                  >
+                    <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Export CSV
+                  </.link>
+
+                  <button
+                    phx-click="sync_status"
+                    class="btn btn-outline btn-sm"
+                    disabled={assigns[:syncing]}
+                  >
+                    <%= if assigns[:syncing] do %>
+                      <span class="loading loading-spinner loading-xs mr-1"></span> Syncing...
+                    <% else %>
+                      <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4 mr-1" /> Sync Status
+                    <% end %>
                   </button>
 
-                  <button phx-click="refresh" class="btn btn-outline btn-sm">
-                    <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+                  <button
+                    phx-click="refresh"
+                    class="btn btn-outline btn-sm"
+                    disabled={assigns[:loading]}
+                  >
+                    <%= if assigns[:loading] do %>
+                      <span class="loading loading-spinner loading-xs mr-1"></span> Loading...
+                    <% else %>
+                      <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+                    <% end %>
                   </button>
                 </div>
               </div>
@@ -283,6 +328,29 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
                             <p class="text-sm">{@email_log.attachments_count}</p>
                           </div>
                         </div>
+                      </div>
+
+                      <%!-- Message IDs Section --%>
+                      <div class="border-t pt-4 mt-4 space-y-3">
+                        <div>
+                          <label class="text-sm font-medium text-base-content/70">
+                            Message ID (Internal)
+                          </label>
+                          <p class="text-xs font-mono text-base-content/90 break-all">
+                            {@email_log.message_id}
+                          </p>
+                        </div>
+
+                        <%= if @email_log.aws_message_id do %>
+                          <div>
+                            <label class="text-sm font-medium text-base-content/70">
+                              AWS Message ID
+                            </label>
+                            <p class="text-xs font-mono text-base-content/90 break-all">
+                              {@email_log.aws_message_id}
+                            </p>
+                          </div>
+                        <% end %>
                       </div>
 
                       <%= if @email_log.campaign_id do %>
@@ -462,6 +530,15 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
                           </div>
                         </div>
 
+                        <%= if @email_log.aws_message_id do %>
+                          <div class="stat px-0 py-2">
+                            <div class="stat-title text-xs">AWS Message ID</div>
+                            <div class="stat-value text-xs font-mono break-all">
+                              {@email_log.aws_message_id}
+                            </div>
+                          </div>
+                        <% end %>
+
                         <div class="stat px-0 py-2">
                           <div class="stat-title text-xs">Sent At</div>
                           <div class="stat-value text-sm">
@@ -565,7 +642,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
                   The email with ID {@email_id} could not be found.
                 </p>
                 <.link navigate={Routes.path("/admin/emails")} class="btn btn-primary">
-                  Back to Email Logs
+                  Back to Emails
                 </.link>
               </div>
             <% end %>
@@ -583,8 +660,8 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
     email_id = socket.assigns.email_id
 
     try do
-      email_log = EmailTracking.get_log!(email_id)
-      events = EmailTracking.list_events_for_log(email_id)
+      email_log = EmailSystem.get_log!(email_id)
+      events = EmailSystem.list_events_for_log(email_id)
       related_emails = get_related_emails(email_log)
 
       socket
@@ -627,7 +704,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
         true -> filters
       end
 
-    EmailTracking.list_logs(filters)
+    EmailSystem.list_logs(filters)
     |> Enum.reject(fn log -> log.id == current_id end)
   end
 
@@ -776,6 +853,88 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailDetailsLive do
       diff_seconds < 60 -> "#{diff_seconds}s"
       diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m #{rem(diff_seconds, 60)}s"
       true -> "#{div(diff_seconds, 3600)}h #{div(rem(diff_seconds, 3600), 60)}m"
+    end
+  end
+
+  # Build event details list for success message
+  defp build_event_details(sqs_events, dlq_events, events_failed) do
+    details = []
+
+    details =
+      if sqs_events > 0, do: ["#{sqs_events} from SQS" | details], else: details
+
+    details =
+      if dlq_events > 0, do: ["#{dlq_events} from DLQ" | details], else: details
+
+    if events_failed > 0, do: ["#{events_failed} failed" | details], else: details
+  end
+
+  # Build success flash message
+  defp build_sync_flash_message(result, id_type) do
+    events_processed = Map.get(result, :events_processed, 0)
+    total_events_found = Map.get(result, :total_events_found, 0)
+    sqs_events = Map.get(result, :sqs_events_found, 0)
+    dlq_events = Map.get(result, :dlq_events_found, 0)
+    events_failed = Map.get(result, :events_failed, 0)
+    existing_log_found = Map.get(result, :existing_log_found, false)
+    log_updated = Map.get(result, :log_updated, false)
+    message = Map.get(result, :message, nil)
+
+    cond do
+      total_events_found > 0 and events_processed > 0 ->
+        details = build_event_details(sqs_events, dlq_events, events_failed)
+        source_info = if length(details) > 0, do: " (#{Enum.join(details, ", ")})", else: ""
+        status_info = if log_updated, do: " - Email status updated", else: ""
+
+        "✅ Processed #{events_processed}/#{total_events_found} events#{source_info}#{status_info} using #{id_type}"
+
+      total_events_found > 0 and events_processed == 0 ->
+        "⚠️ Found #{total_events_found} events but none could be processed successfully using #{id_type}"
+
+      not existing_log_found ->
+        "ℹ️ No email log found in database for #{id_type}. Events may be for a different email."
+
+      true ->
+        search_info = " (searched using #{id_type})"
+        (message || "No new events found in SQS or DLQ queues") <> search_info
+    end
+  end
+
+  # Determine flash type based on sync results
+  defp determine_flash_type(result) do
+    events_processed = Map.get(result, :events_processed, 0)
+    total_events_found = Map.get(result, :total_events_found, 0)
+    existing_log_found = Map.get(result, :existing_log_found, false)
+
+    cond do
+      events_processed > 0 -> :info
+      total_events_found > 0 and events_processed == 0 -> :warning
+      not existing_log_found -> :warning
+      true -> :info
+    end
+  end
+
+  # Build ID info string for error messages
+  defp build_id_info(message_id, email_log, id_type) do
+    if message_id == email_log.message_id do
+      " (using #{id_type})"
+    else
+      " (using #{id_type}: #{String.slice(message_id, 0, 20)}...)"
+    end
+  end
+
+  # Build error flash message
+  defp build_error_flash_message(reason, message_id, socket, id_type) do
+    case reason do
+      "AWS credentials not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables." ->
+        "❌ AWS credentials not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables."
+
+      "Email is disabled. Please enable it in settings." ->
+        "❌ Email is disabled. Please enable it in admin settings."
+
+      reason ->
+        id_info = build_id_info(message_id, socket.assigns.email_log, id_type)
+        "❌ Sync failed: #{reason}#{id_info}"
     end
   end
 end

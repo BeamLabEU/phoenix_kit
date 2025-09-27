@@ -12,6 +12,8 @@
 /docs/
 /test/
 /test_projects/
+/scripts/
+/scripts_backup/
 
 # Ignore .fetch files in case you like to edit your project deps locally.
 /.fetch
@@ -29,6 +31,10 @@ phoenix_module_template-*.tar
 /tmp/
 /temp/
 *.temp
+
+# Backup files
+*.bak
+*.backup
 
 # OS-specific files
 .DS_Store

@@ -1,9 +1,9 @@
-defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
+defmodule PhoenixKitWeb.Live.EmailSystem.EmailQueueLive do
   @moduledoc """
   LiveView for email queue monitoring and rate limit management.
 
   Provides real-time monitoring of email sending activity, rate limiting status,
-  and queue management functionality for the email tracking system.
+  and queue management functionality for the email system.
 
   ## Features
 
@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
   ## Usage
 
       # In your Phoenix router
-      live "/email-queue", PhoenixKitWeb.Live.EmailTracking.EmailQueueLive, :index
+      live "/email-queue", PhoenixKitWeb.Live.EmailSystem.EmailQueueLive, :index
 
   ## Permissions
 
@@ -35,8 +35,8 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
 
   require Logger
 
-  alias PhoenixKit.EmailTracking
-  alias PhoenixKit.EmailTracking.{EmailLog, RateLimiter}
+  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.EmailSystem.{EmailLog, RateLimiter}
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
@@ -50,8 +50,8 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Check if email tracking is enabled
-    if EmailTracking.enabled?() do
+    # Check if email is enabled
+    if EmailSystem.enabled?() do
       # Get project title from settings
       project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -77,7 +77,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Email tracking is not enabled")
+       |> put_flash(:error, "Email is not enabled")
        |> push_navigate(to: Routes.path("/admin"))}
     end
   end
@@ -214,12 +214,12 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
 
   defp load_recent_activity do
     # Get last 20 emails
-    EmailTracking.list_logs(%{limit: 20, order_by: :sent_at, order_dir: :desc})
+    EmailSystem.list_logs(%{limit: 20, order_by: :sent_at, order_dir: :desc})
   end
 
   defp load_failed_emails do
     # Get failed emails from last 24 hours
-    EmailTracking.list_logs(%{
+    EmailSystem.list_logs(%{
       status: "failed",
       since: DateTime.add(DateTime.utc_now(), -24, :hour),
       limit: 50
@@ -228,9 +228,9 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
 
   defp load_system_status do
     %{
-      tracking_enabled: EmailTracking.enabled?(),
+      system_enabled: EmailSystem.enabled?(),
       total_sent_today: get_today_count(),
-      retention_days: EmailTracking.get_retention_days()
+      retention_days: EmailSystem.get_retention_days()
     }
   end
 
@@ -238,7 +238,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
     today_start = DateTime.utc_now() |> DateTime.to_date() |> DateTime.new!(~T[00:00:00])
     now = DateTime.utc_now()
 
-    case EmailTracking.get_system_stats(
+    case EmailSystem.get_system_stats(
            {:date_range, DateTime.to_date(today_start), DateTime.to_date(now)}
          ) do
       %{total_sent: count} -> count
@@ -249,7 +249,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
   defp retry_failed_email(email_id) do
     # This would implement the retry logic
     # For now, just update the status to "sent" and increment retry_count
-    log = EmailTracking.get_log!(email_id)
+    log = EmailSystem.get_log!(email_id)
 
     EmailLog.update_log(log, %{
       status: "sent",
@@ -288,7 +288,7 @@ defmodule PhoenixKitWeb.Live.EmailTracking.EmailQueueLive do
     success_count =
       Enum.reduce(selected_ids, 0, fn id, acc ->
         try do
-          log = EmailTracking.get_log!(id)
+          log = EmailSystem.get_log!(id)
 
           case EmailLog.delete_log(log) do
             {:ok, _} -> acc + 1

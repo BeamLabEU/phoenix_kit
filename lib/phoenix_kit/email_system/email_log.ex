@@ -1,9 +1,9 @@
-defmodule PhoenixKit.EmailTracking.EmailLog do
+defmodule PhoenixKit.EmailSystem.EmailLog do
   @moduledoc """
-  Email logging system for PhoenixKit - comprehensive tracking in a single module.
+  Email logging system for PhoenixKit - comprehensive logging in a single module.
 
   This module provides both the Ecto schema definition and business logic for
-  managing email logs. It includes email creation tracking, status updates,
+  managing emails. It includes email creation tracking, status updates,
   event relationships, and analytics functions.
 
   ## Schema Fields
@@ -32,7 +32,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   ## Core Functions
 
   ### Email Log Management
-  - `list_logs/1` - Get email logs with optional filters
+  - `list_logs/1` - Get emails with optional filters
   - `get_log!/1` - Get an email log by ID (raises if not found)
   - `get_log_by_message_id/1` - Get log by message ID from provider
   - `create_log/1` - Create a new email log
@@ -61,7 +61,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   ## Usage Examples
 
       # Create a new email log
-      {:ok, log} = PhoenixKit.EmailTracking.EmailLog.create_log(%{
+      {:ok, log} = PhoenixKit.EmailSystem.EmailLog.create_log(%{
         message_id: "msg-abc123",
         to: "user@example.com",
         from: "noreply@myapp.com",
@@ -72,12 +72,12 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
       })
 
       # Update status when delivered
-      {:ok, updated_log} = PhoenixKit.EmailTracking.EmailLog.mark_as_delivered(
+      {:ok, updated_log} = PhoenixKit.EmailSystem.EmailLog.mark_as_delivered(
         log, DateTime.utc_now()
       )
 
       # Get campaign statistics
-      stats = PhoenixKit.EmailTracking.EmailLog.get_campaign_stats("newsletter_2024")
+      stats = PhoenixKit.EmailSystem.EmailLog.get_campaign_stats("newsletter_2024")
   """
 
   use Ecto.Schema
@@ -86,12 +86,13 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   @derive {Jason.Encoder, except: [:__meta__, :user, :events]}
 
-  alias PhoenixKit.EmailTracking.EmailEvent
+  alias PhoenixKit.EmailSystem.EmailEvent
 
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_email_logs" do
     field :message_id, :string
+    field :aws_message_id, :string
     field :to, :string
     field :from, :string
     field :subject, :string
@@ -107,6 +108,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
     field :status, :string, default: "sent"
     field :sent_at, :utc_datetime_usec
     field :delivered_at, :utc_datetime_usec
+    field :bounced_at, :utc_datetime_usec
+    field :complained_at, :utc_datetime_usec
+    field :opened_at, :utc_datetime_usec
+    field :clicked_at, :utc_datetime_usec
     field :configuration_set, :string
     field :message_tags, :map, default: %{}
     field :provider, :string, default: "unknown"
@@ -131,6 +136,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
     email_log
     |> cast(attrs, [
       :message_id,
+      :aws_message_id,
       :to,
       :from,
       :subject,
@@ -146,6 +152,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
       :status,
       :sent_at,
       :delivered_at,
+      :bounced_at,
+      :complained_at,
+      :opened_at,
+      :clicked_at,
       :configuration_set,
       :message_tags,
       :provider,
@@ -159,9 +169,22 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
     |> validate_number(:attachments_count, greater_than_or_equal_to: 0)
     |> validate_number(:size_bytes, greater_than_or_equal_to: 0)
     |> validate_number(:retry_count, greater_than_or_equal_to: 0)
-    |> validate_inclusion(:status, ["sent", "delivered", "bounced", "opened", "clicked", "failed"])
+    |> validate_inclusion(:status, [
+      "sent",
+      "delivered",
+      "bounced",
+      "hard_bounced",
+      "soft_bounced",
+      "opened",
+      "clicked",
+      "failed",
+      "rejected",
+      "delayed",
+      "complaint"
+    ])
     |> validate_message_id_uniqueness()
     |> unique_constraint(:message_id)
+    |> unique_constraint(:aws_message_id)
     |> maybe_set_sent_at()
     |> validate_body_size()
   end
@@ -174,8 +197,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   ## Examples
 
       iex> email = new() |> to("user@example.com") |> from("app@example.com")
-      iex> PhoenixKit.EmailTracking.EmailLog.create_from_swoosh_email(email, provider: "aws_ses")
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.create_from_swoosh_email(email, provider: "aws_ses")
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def create_from_swoosh_email(%Swoosh.Email{} = email, opts \\ []) do
     attrs = extract_swoosh_data(email, opts)
@@ -194,7 +217,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   ## --- Business Logic Functions ---
 
   @doc """
-  Returns a list of email logs with optional filters.
+  Returns a list of emails with optional filters.
 
   ## Filters
 
@@ -210,8 +233,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.list_logs(%{status: "bounced", limit: 10})
-      [%PhoenixKit.EmailTracking.EmailLog{}, ...]
+      iex> PhoenixKit.EmailSystem.EmailLog.list_logs(%{status: "bounced", limit: 10})
+      [%PhoenixKit.EmailSystem.EmailLog{}, ...]
   """
   def list_logs(filters \\ %{}) do
     base_query()
@@ -223,7 +246,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   end
 
   @doc """
-  Counts email logs with optional filtering (without loading all records).
+  Counts emails with optional filtering (without loading all records).
 
   ## Parameters
 
@@ -231,7 +254,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.count_logs(%{status: "bounced"})
+      iex> PhoenixKit.EmailSystem.EmailLog.count_logs(%{status: "bounced"})
       42
   """
   def count_logs(filters \\ %{}) do
@@ -247,10 +270,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_log!(123)
-      %PhoenixKit.EmailTracking.EmailLog{}
+      iex> PhoenixKit.EmailSystem.EmailLog.get_log!(123)
+      %PhoenixKit.EmailSystem.EmailLog{}
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_log!(999)
+      iex> PhoenixKit.EmailSystem.EmailLog.get_log!(999)
       ** (Ecto.NoResultsError)
   """
   def get_log!(id) do
@@ -266,17 +289,77 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_log_by_message_id("msg-abc123")
-      %PhoenixKit.EmailTracking.EmailLog{}
+      iex> PhoenixKit.EmailSystem.EmailLog.get_log_by_message_id("msg-abc123")
+      %PhoenixKit.EmailSystem.EmailLog{}
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_log_by_message_id("nonexistent")
+      iex> PhoenixKit.EmailSystem.EmailLog.get_log_by_message_id("nonexistent")
       nil
   """
   def get_log_by_message_id(message_id) when is_binary(message_id) do
-    __MODULE__
-    |> where([l], l.message_id == ^message_id)
-    |> preload([:user, :events])
-    |> repo().one()
+    # First try to find by internal message_id (pk_ prefix)
+    log =
+      __MODULE__
+      |> where([l], l.message_id == ^message_id)
+      |> preload([:user, :events])
+      |> repo().one()
+
+    # If not found and message_id looks like AWS format, try aws_message_id field
+    if is_nil(log) and not String.starts_with?(message_id, "pk_") do
+      __MODULE__
+      |> where([l], l.aws_message_id == ^message_id)
+      |> preload([:user, :events])
+      |> repo().one()
+    else
+      log
+    end
+  end
+
+  @doc """
+  Finds an email log by AWS message ID.
+
+  This function looks for logs where the AWS SES message ID might be stored
+  in the message_id field after sending.
+
+  ## Examples
+
+      iex> PhoenixKit.EmailSystem.EmailLog.find_by_aws_message_id("abc123-aws")
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
+
+      iex> PhoenixKit.EmailSystem.EmailLog.find_by_aws_message_id("nonexistent")
+      {:error, :not_found}
+  """
+  def find_by_aws_message_id(aws_message_id) when is_binary(aws_message_id) do
+    # Try multiple search strategies for AWS message ID
+    case find_by_direct_aws_id(aws_message_id) do
+      {:ok, log} -> {:ok, log}
+      {:error, :not_found} -> find_by_metadata_search(aws_message_id)
+    end
+  end
+
+  # Direct search using dedicated aws_message_id field
+  defp find_by_direct_aws_id(aws_message_id) do
+    case __MODULE__
+         |> where([l], l.aws_message_id == ^aws_message_id)
+         |> or_where([l], l.message_id == ^aws_message_id)
+         |> preload([:user, :events])
+         |> repo().one() do
+      nil -> {:error, :not_found}
+      log -> {:ok, log}
+    end
+  end
+
+  # Search in metadata/headers for AWS message ID
+  defp find_by_metadata_search(aws_message_id) do
+    # Look for AWS message ID in headers or other metadata
+    case __MODULE__
+         |> where([l], fragment("?->>'aws_message_id' = ?", l.headers, ^aws_message_id))
+         |> or_where([l], fragment("?->>'X-AWS-Message-Id' = ?", l.headers, ^aws_message_id))
+         |> or_where([l], fragment("?->>'MessageId' = ?", l.headers, ^aws_message_id))
+         |> preload([:user, :events])
+         |> repo().one() do
+      nil -> {:error, :not_found}
+      log -> {:ok, log}
+    end
   end
 
   @doc """
@@ -284,10 +367,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.create_log(%{message_id: "abc", to: "user@test.com"})
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.create_log(%{message_id: "abc", to: "user@test.com"})
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
 
-      iex> PhoenixKit.EmailTracking.EmailLog.create_log(%{message_id: ""})
+      iex> PhoenixKit.EmailSystem.EmailLog.create_log(%{message_id: ""})
       {:error, %Ecto.Changeset{}}
   """
   def create_log(attrs \\ %{}) do
@@ -301,10 +384,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.update_log(log, %{status: "delivered"})
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.update_log(log, %{status: "delivered"})
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
 
-      iex> PhoenixKit.EmailTracking.EmailLog.update_log(log, %{to: ""})
+      iex> PhoenixKit.EmailSystem.EmailLog.update_log(log, %{to: ""})
       {:error, %Ecto.Changeset{}}
   """
   def update_log(%__MODULE__{} = email_log, attrs) do
@@ -318,8 +401,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.update_status(log, "delivered")
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.update_status(log, "delivered")
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def update_status(%__MODULE__{} = email_log, status) when is_binary(status) do
     update_log(email_log, %{status: status})
@@ -330,8 +413,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.mark_as_delivered(log, DateTime.utc_now())
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.mark_as_delivered(log, DateTime.utc_now())
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def mark_as_delivered(%__MODULE__{} = email_log, delivered_at \\ nil) do
     delivered_at = delivered_at || DateTime.utc_now()
@@ -347,8 +430,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.mark_as_bounced(log, "hard", "No such user")
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.mark_as_bounced(log, "hard", "No such user")
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def mark_as_bounced(%__MODULE__{} = email_log, bounce_type, reason \\ nil) do
     repo().transaction(fn ->
@@ -375,8 +458,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.mark_as_opened(log, DateTime.utc_now())
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.mark_as_opened(log, DateTime.utc_now())
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def mark_as_opened(%__MODULE__{} = email_log, opened_at \\ nil) do
     repo().transaction(fn ->
@@ -402,8 +485,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.mark_as_clicked(log, "https://example.com", DateTime.utc_now())
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.mark_as_clicked(log, "https://example.com", DateTime.utc_now())
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def mark_as_clicked(%__MODULE__{} = email_log, link_url, clicked_at \\ nil) do
     repo().transaction(fn ->
@@ -427,10 +510,10 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.delete_log(log)
-      {:ok, %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.delete_log(log)
+      {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
 
-      iex> PhoenixKit.EmailTracking.EmailLog.delete_log(log)
+      iex> PhoenixKit.EmailSystem.EmailLog.delete_log(log)
       {:error, %Ecto.Changeset{}}
   """
   def delete_log(%__MODULE__{} = email_log) do
@@ -442,8 +525,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.change_log(log)
-      %Ecto.Changeset{data: %PhoenixKit.EmailTracking.EmailLog{}}
+      iex> PhoenixKit.EmailSystem.EmailLog.change_log(log)
+      %Ecto.Changeset{data: %PhoenixKit.EmailSystem.EmailLog{}}
   """
   def change_log(%__MODULE__{} = email_log, attrs \\ %{}) do
     changeset(email_log, attrs)
@@ -456,7 +539,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_stats_for_period(~U[2024-01-01 00:00:00Z], ~U[2024-01-31 23:59:59Z])
+      iex> PhoenixKit.EmailSystem.EmailLog.get_stats_for_period(~U[2024-01-01 00:00:00Z], ~U[2024-01-31 23:59:59Z])
       %{total_sent: 1500, delivered: 1450, bounced: 30, opened: 800, clicked: 200}
   """
   def get_stats_for_period(start_date, end_date) do
@@ -490,7 +573,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_campaign_stats("newsletter_2024")
+      iex> PhoenixKit.EmailSystem.EmailLog.get_campaign_stats("newsletter_2024")
       %{total_sent: 500, delivery_rate: 96.0, open_rate: 25.0, click_rate: 5.0}
   """
   def get_campaign_stats(campaign_id) when is_binary(campaign_id) do
@@ -528,7 +611,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_engagement_metrics(:last_30_days)
+      iex> PhoenixKit.EmailSystem.EmailLog.get_engagement_metrics(:last_30_days)
       %{avg_open_rate: 24.5, avg_click_rate: 4.2, engagement_trend: :increasing}
   """
   def get_engagement_metrics(period \\ :last_30_days) do
@@ -549,11 +632,51 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   end
 
   @doc """
+  Gets daily delivery trend data for charts.
+
+  Returns daily statistics optimized for chart visualization including
+  delivery trends and bounce patterns over the specified period.
+
+  ## Examples
+
+      iex> PhoenixKit.EmailSystem.EmailLog.get_daily_delivery_trends(:last_7_days)
+      %{
+        labels: ["2024-09-01", "2024-09-02", ...],
+        delivered: [120, 190, 300, ...],
+        bounced: [5, 10, 15, ...]
+      }
+  """
+  def get_daily_delivery_trends(period \\ :last_7_days) do
+    {start_date, end_date} = get_period_dates(period)
+
+    daily_stats = get_daily_engagement_stats(start_date, end_date)
+
+    %{
+      labels:
+        Enum.map(daily_stats, fn stat ->
+          Date.to_iso8601(stat.date)
+        end),
+      delivered:
+        Enum.map(daily_stats, fn stat ->
+          stat.delivered
+        end),
+      bounced:
+        Enum.map(daily_stats, fn stat ->
+          stat.total_sent - stat.delivered
+        end),
+      total_sent:
+        Enum.map(daily_stats, fn stat ->
+          stat.total_sent
+        end)
+    }
+  end
+
+  @doc """
   Gets provider-specific performance metrics.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_provider_performance(:last_7_days)
+      iex> PhoenixKit.EmailSystem.EmailLog.get_provider_performance(:last_7_days)
       %{"aws_ses" => %{delivered: 98.5, bounced: 1.5}, "smtp" => %{delivered: 95.0, bounced: 5.0}}
   """
   def get_provider_performance(period \\ :last_7_days) do
@@ -588,11 +711,11 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
   ## --- System Maintenance Functions ---
 
   @doc """
-  Removes email logs older than specified number of days.
+  Removes emails older than specified number of days.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.cleanup_old_logs(90)
+      iex> PhoenixKit.EmailSystem.EmailLog.cleanup_old_logs(90)
       {5, nil}  # Deleted 5 records
   """
   def cleanup_old_logs(days_old \\ 90) when is_integer(days_old) and days_old > 0 do
@@ -608,7 +731,7 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.compress_old_bodies(30)
+      iex> PhoenixKit.EmailSystem.EmailLog.compress_old_bodies(30)
       {12, nil}  # Compressed 12 records
   """
   def compress_old_bodies(days_old \\ 30) when is_integer(days_old) and days_old > 0 do
@@ -626,8 +749,8 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailLog.get_logs_for_archival(90)
-      [%PhoenixKit.EmailTracking.EmailLog{}, ...]
+      iex> PhoenixKit.EmailSystem.EmailLog.get_logs_for_archival(90)
+      [%PhoenixKit.EmailSystem.EmailLog{}, ...]
   """
   def get_logs_for_archival(days_old \\ 90) when is_integer(days_old) and days_old > 0 do
     cutoff_date = DateTime.utc_now() |> DateTime.add(-days_old, :day)
@@ -783,10 +906,21 @@ defmodule PhoenixKit.EmailTracking.EmailLog do
         changeset
 
       message_id ->
-        if get_log_by_message_id(message_id) do
-          add_error(changeset, :message_id, "has already been taken")
-        else
-          changeset
+        existing_log = get_log_by_message_id(message_id)
+        current_id = get_field(changeset, :id)
+
+        case {existing_log, current_id} do
+          # No existing log, valid
+          {nil, _} ->
+            changeset
+
+          # Existing log is the same as current record, valid
+          {%__MODULE__{id: id}, id} ->
+            changeset
+
+          # Different existing log, invalid
+          {%__MODULE__{}, _} ->
+            add_error(changeset, :message_id, "has already been taken")
         end
     end
   end

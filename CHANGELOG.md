@@ -1,3 +1,59 @@
+## 1.2.12 - 2025-09-27
+
+### Added
+- **Complete Email System Architecture** - New email_system module replacing legacy email_tracking with enhanced AWS SES integration and comprehensive event management
+- **AWS SES Configuration Task** - New `mix phoenix_kit.configure_aws_ses` task for automated AWS infrastructure setup with configuration sets, SNS topics, and SQS queues
+- **Enhanced SQS Processing** - New Mix tasks for queue processing and Dead Letter Queue management:
+  - `mix phoenix_kit.process_sqs_queue` - Real-time SQS message processing for email events
+  - `mix phoenix_kit.process_dlq` - Dead Letter Queue processing for failed messages
+  - `mix phoenix_kit.sync_email_status` - Manual email status synchronization
+- **V12 Migration** - Enhanced email tracking with AWS SES message ID correlation and specific event timestamps (bounced_at, complained_at, opened_at, clicked_at)
+- **Email System LiveView Interfaces** - Reorganized email management interfaces with improved navigation and functionality
+- **Extended Event Support** - Support for new AWS SES event types: reject, delivery_delay, subscription, and rendering_failure
+- **Enhanced Status Management** - Expanded email status types including rejected, delayed, hard_bounced, soft_bounced, and complaint
+
+### Changed
+- **Email Architecture Refactoring** - Complete transition from email_tracking to email_system module for better organization and AWS SES integration
+- **Email Event Processing** - Enhanced event handling with provider-specific data extraction and improved error recovery patterns
+- **Database Schema** - Updated email logging with aws_message_id field and specific timestamp tracking for different event types
+- **LiveView Organization** - Reorganized email-related LiveView modules under email_system namespace for better structure
+
+### Removed
+- **Legacy Email Tracking Module** - Removed entire email_tracking module and all associated files in favor of new email_system architecture
+- **Old Email LiveView Interfaces** - Removed legacy email_tracking LiveView components and templates
+- **Deprecated Email Processing** - Removed outdated email event processing and archiver implementations
+
+### Fixed
+- **Email System Integration** - Improved integration patterns for better performance and reliability
+- **SQS Message Processing** - Enhanced message processing with proper error recovery and retry mechanisms
+- **Email Event Handling** - Better handling of AWS SES events with improved message parsing and validation
+
+## 1.2.11 - 2025-09-24
+
+### Added
+- **AWS SQS Integration** - Complete SQS worker and processor for real-time email event processing from AWS SES through SNS
+- **Manual Email Sync** - New `sync_email_status/1` function to manually fetch and process SES events for specific messages
+- **DLQ Processing** - Dead Letter Queue support for handling failed messages with comprehensive retry mechanisms
+- **Mix Tasks for Email System**:
+  - `mix phoenix_kit.email.send_test` - Test email sending functionality with system options
+  - `mix phoenix_kit.email.debug_sqs` - Debug SQS messages and email system with detailed diagnostics
+  - `mix phoenix_kit.email.process_dlq` - Process Dead Letter Queue messages and handle stuck events
+- **Email System Supervisor** - OTP supervision tree for SQS worker management with graceful startup/shutdown
+- **Application Integration Module** - Enhanced integration patterns for email system initialization
+
+### Improved
+- **Email Interceptor** - Enhanced with provider-specific data extraction for multiple email services (SendGrid, Mailgun, AWS SES)
+- **Email System API** - Added manual synchronization and event fetching capabilities for both main queue and DLQ
+- **Mailer Module** - Improved integration with email system and enhanced error handling patterns
+- **Email Event Processing** - Better handling of AWS SES events with improved message parsing and validation
+
+### Fixed
+- **Email Status Processing** - Improved handling of delivery confirmations, bounce events, and open management
+- **SQS Message Handling** - Enhanced message processing with proper error recovery and retry logic
+
+### Added
+- **Update Task Enhancement** - Added `--yes/-y` flag for skipping confirmation prompts and automatic migration execution
+
 ## 1.2.10 - 2025-09-21
 
 ### Improved
@@ -72,13 +128,13 @@
 
 ### Added
 - **Email Navigation** - Added Email Metrics, Email Queue, and Email Blocklist pages to admin navigation menu
-- **Email Blocklist System (V09 Migration)** - Complete email blocklist functionality with temporary/permanent blocks, reason tracking, and audit trail
+- **Email Blocklist System (V09 Migration)** - Complete email blocklist functionality with temporary/permanent blocks, reason management, and audit trail
 - **Email Routes** - Added routes for all Email LiveView pages in admin integration
 - **Users Menu Grouping** - Reorganized admin navigation with expandable Users and Email groups using HTML5 details/summary
 - **Migration Documentation** - Comprehensive migration system documentation with all version paths and rollback options
 
 ### Fixed
-- **Email Cleanup Task Pattern Matching** - Fixed Dialyzer warning about EmailTracking.enabled?() pattern matching
+- **Email Cleanup Task Pattern Matching** - Fixed Dialyzer warning about EmailSystem.enabled?() pattern matching
 - **Dashboard Add User Button** - Corrected navigation from dashboard Add User button to proper /admin/users/new route
 - **Migration V09 Primary Key** - Fixed duplicate column 'id' error in phoenix_kit_email_blocklist table creation
 
@@ -106,13 +162,13 @@
 ## 1.2.5 - 2025-09-12
 
 ### Added
-- **Email System Foundation** with email logging and event tracking schemas
+- **Email System Foundation** with email logging and event management schemas
 - **Email Rate Limiting Core** with basic rate limiting functionality and blocklist management
 - **Email Database Schema (V07)** with optimized tables and proper indexing
 - **Email Interceptor System** for pre-send filtering and validation capabilities
 - **Webhook Processing Foundation** for AWS SES event handling (bounces, complaints, opens, clicks)
 - **get_mailer/0 function** in PhoenixKit.Config for improved mailer integration
-- **RepoHelper Integration** for proper database access patterns in email tracking modules
+- **RepoHelper Integration** for proper database access patterns in email system modules
 
 ### Fixed
 - **All compilation warnings (40 → 0)** - 100% improvement in code cleanliness
@@ -133,7 +189,7 @@
 
 ### Technical Improvements
 - **Memory-efficient patterns** preparation for future batch processing
-- **Comprehensive input validation** for email tracking data
+- **Comprehensive input validation** for email system data
 - **SQL injection protection** with parameterized queries
 - **Professional code structure** following PhoenixKit conventions
 - **Enhanced error handling** with proper rescue clauses and pattern matching
@@ -142,7 +198,7 @@
 
 ### Added
 - Complete referral codes system with comprehensive management interface
-- Referral code creation, validation, and usage tracking functionality
+- Referral code creation, validation, and usage management functionality
 - Admin modules page for system-wide module management and configuration
 - Flexible expiration system with optional "no expiration" support for referral codes
 - Advanced admin settings for referral code limits with real-time validation:
@@ -249,7 +305,7 @@
 
 ### Added
 - User settings system with customizable time zone, date format, and time format preferences
-- Comprehensive session management system for admin interface with real-time tracking
+- Comprehensive session management system for admin interface with real-time monitoring
 - Live data updates system for admin panels with automatic refresh capabilities
 - Automatic user logout functionality when role changes occur for enhanced security
 - DateTime formatting functions with Timex library integration for better date/time handling

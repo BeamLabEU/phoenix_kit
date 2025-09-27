@@ -107,6 +107,16 @@ defmodule PhoenixKitWeb.Integration do
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
       end
 
+      # Email export routes (require admin authentication)
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
+
+        get "/admin/emails/export", Controllers.EmailExportController, :export_logs
+        get "/admin/emails/metrics/export", Controllers.EmailExportController, :export_metrics
+        get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
+        get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
+      end
+
       # LiveView routes with proper authentication
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup]
@@ -146,16 +156,16 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.SettingsLive, :index
           live "/admin/modules", Live.ModulesLive, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodesLive, :index
-          live "/admin/settings/email-tracking", Live.Modules.EmailTrackingLive, :index
+          live "/admin/settings/emails", Live.Modules.EmailSystemLive, :index
           live "/admin/settings/languages", Live.Modules.LanguagesLive, :index
           live "/admin/users/referral-codes", Live.Users.ReferralCodesLive, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeFormLive, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeFormLive, :edit
-          live "/admin/emails/dashboard", Live.EmailTracking.EmailMetricsLive, :index
-          live "/admin/emails", Live.EmailTracking.EmailLogsLive, :index
-          live "/admin/emails/email/:id", Live.EmailTracking.EmailDetailsLive, :show
-          live "/admin/emails/queue", Live.EmailTracking.EmailQueueLive, :index
-          live "/admin/emails/blocklist", Live.EmailTracking.EmailBlocklistLive, :index
+          live "/admin/emails/dashboard", Live.EmailSystem.EmailMetricsLive, :index
+          live "/admin/emails", Live.EmailSystem.EmailLogsLive, :index
+          live "/admin/emails/email/:id", Live.EmailSystem.EmailDetailsLive, :show
+          live "/admin/emails/queue", Live.EmailSystem.EmailQueueLive, :index
+          live "/admin/emails/blocklist", Live.EmailSystem.EmailBlocklistLive, :index
         end
       end
     end

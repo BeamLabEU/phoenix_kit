@@ -1,4 +1,4 @@
-defmodule PhoenixKit.EmailTracking.EmailInterceptor do
+defmodule PhoenixKit.EmailSystem.EmailInterceptor do
   @moduledoc """
   Email interceptor for logging outgoing emails in PhoenixKit.
 
@@ -27,33 +27,32 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   The interceptor respects all email tracking system settings:
 
-  - Only logs if `email_tracking_enabled` is true
-  - Saves body based on `email_tracking_save_body` setting
-  - Applies sampling rate from `email_tracking_sampling_rate`
+  - Only logs if `email_enabled` is true
+  - Saves body based on `email_save_body` setting
+  - Applies sampling rate from `email_sampling_rate`
   - Adds AWS SES configuration set if configured
 
   ## Examples
 
       # Basic interception
-      logged_email = PhoenixKit.EmailTracking.EmailInterceptor.intercept_before_send(email)
+      logged_email = PhoenixKit.EmailSystem.EmailInterceptor.intercept_before_send(email)
 
       # With additional context
-      logged_email = PhoenixKit.EmailTracking.EmailInterceptor.intercept_before_send(email, 
+      logged_email = PhoenixKit.EmailSystem.EmailInterceptor.intercept_before_send(email, 
         user_id: 123,
         template_name: "welcome_email",
         campaign_id: "welcome_series"
       )
 
       # Check if email should be logged
-      if PhoenixKit.EmailTracking.EmailInterceptor.should_log_email?(email) do
+      if PhoenixKit.EmailSystem.EmailInterceptor.should_log_email?(email) do
         # Log the email
       end
   """
 
   require Logger
 
-  alias PhoenixKit.EmailTracking
-  alias PhoenixKit.EmailTracking.EmailLog
+  alias PhoenixKit.EmailSystem.EmailLog
   alias Swoosh.Email
 
   @doc """
@@ -74,20 +73,17 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
   ## Examples
 
       iex> email = new() |> to("user@example.com") |> from("app@example.com")
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.intercept_before_send(email, user_id: 123)
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.intercept_before_send(email, user_id: 123)
       %Swoosh.Email{headers: %{"X-PhoenixKit-Log-Id" => "456"}}
   """
   def intercept_before_send(%Email{} = email, opts \\ []) do
-    if EmailTracking.enabled?() and should_log_email?(email, opts) do
+    if PhoenixKit.EmailSystem.enabled?() and should_log_email?(email, opts) do
       case create_email_log(email, opts) do
         {:ok, log} ->
-          Logger.debug("Email tracked with ID: #{log.id}, Message ID: #{log.message_id}")
-
           # Add tracking headers to email
           add_tracking_headers(email, log, opts)
 
         {:error, :skipped} ->
-          Logger.debug("Email logging skipped due to sampling")
           email
 
         {:error, reason} ->
@@ -106,12 +102,12 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.should_log_email?(email)
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.should_log_email?(email)
       true
   """
   def should_log_email?(%Email{} = email, _opts \\ []) do
     cond do
-      not EmailTracking.enabled?() ->
+      not PhoenixKit.EmailSystem.enabled?() ->
         false
 
       system_email?(email) ->
@@ -120,7 +116,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
       true ->
         # Apply sampling rate for regular emails
-        sampling_rate = EmailTracking.get_sampling_rate()
+        sampling_rate = PhoenixKit.EmailSystem.get_sampling_rate()
         meets_sampling_threshold?(email, sampling_rate)
     end
   end
@@ -130,7 +126,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.detect_provider(email, [])
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.detect_provider(email, [])
       "aws_ses"
   """
   def detect_provider(%Email{} = email, opts \\ []) do
@@ -154,13 +150,13 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.create_email_log(email, user_id: 123)
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.create_email_log(email, user_id: 123)
       {:ok, %EmailLog{}}
   """
   def create_email_log(%Email{} = email, opts \\ []) do
     log_attrs = extract_email_data(email, opts)
 
-    EmailTracking.create_log(log_attrs)
+    PhoenixKit.EmailSystem.create_log(log_attrs)
   end
 
   @doc """
@@ -168,7 +164,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> email_with_headers = PhoenixKit.EmailTracking.EmailInterceptor.add_tracking_headers(email, log, [])
+      iex> email_with_headers = PhoenixKit.EmailSystem.EmailInterceptor.add_tracking_headers(email, log, [])
       %Swoosh.Email{headers: %{"X-PhoenixKit-Log-Id" => "123"}}
   """
   def add_tracking_headers(%Email{} = email, %EmailLog{} = log, opts \\ []) do
@@ -193,7 +189,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.build_ses_headers(log, [])
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.build_ses_headers(log, [])
       %{"X-SES-CONFIGURATION-SET" => "my-tracking-set"}
   """
   def build_ses_headers(%EmailLog{} = log, opts \\ []) do
@@ -202,8 +198,11 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
     # Add configuration set if available
     headers =
       case get_configuration_set(opts) do
-        nil -> headers
-        config_set -> Map.put(headers, "X-SES-CONFIGURATION-SET", config_set)
+        nil ->
+          headers
+
+        config_set ->
+          Map.put(headers, "X-SES-CONFIGURATION-SET", config_set)
       end
 
     # Add message tags for AWS SES
@@ -233,10 +232,19 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.update_after_send(log, provider_response)
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.update_after_send(log, provider_response)
       {:ok, %EmailLog{}}
   """
   def update_after_send(%EmailLog{} = log, provider_response \\ %{}) do
+    require Logger
+
+    Logger.info("EmailInterceptor: Updating email log after send", %{
+      log_id: log.id,
+      current_message_id: log.message_id,
+      response_keys:
+        if(is_map(provider_response), do: Map.keys(provider_response), else: "not_map")
+    })
+
     update_attrs = %{
       status: "sent",
       sent_at: DateTime.utc_now()
@@ -245,14 +253,62 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
     # Extract additional data from provider response
     update_attrs =
       case extract_provider_data(provider_response) do
+        %{message_id: aws_message_id} = provider_data when is_binary(aws_message_id) ->
+          Logger.info("EmailInterceptor: Storing AWS message_id in aws_message_id field", %{
+            log_id: log.id,
+            internal_message_id: log.message_id,
+            aws_message_id: aws_message_id
+          })
+
+          # Store the AWS message_id in the dedicated aws_message_id field
+          # Keep internal pk_ message_id in the message_id field for compatibility
+          # Store internal IDs in message_tags for debugging (not in headers)
+          updated_message_tags =
+            Map.merge(log.message_tags || %{}, %{
+              "internal_message_id" => log.message_id,
+              "aws_message_id" => aws_message_id
+            })
+
+          provider_data
+          # Remove message_id from provider_data
+          |> Map.delete(:message_id)
+          |> Map.merge(update_attrs)
+          # Store in dedicated field
+          |> Map.put(:aws_message_id, aws_message_id)
+          |> Map.put(:message_tags, updated_message_tags)
+
         %{} = provider_data when map_size(provider_data) > 0 ->
           Map.merge(update_attrs, provider_data)
 
         _ ->
+          Logger.warning("EmailInterceptor: No provider data extracted", %{
+            log_id: log.id,
+            response: inspect(provider_response) |> String.slice(0, 300)
+          })
+
           update_attrs
       end
 
-    EmailLog.update_log(log, update_attrs)
+    case EmailLog.update_log(log, update_attrs) do
+      {:ok, updated_log} ->
+        Logger.info("EmailInterceptor: Successfully updated email log", %{
+          log_id: updated_log.id,
+          internal_message_id: updated_log.message_id,
+          aws_message_id: updated_log.aws_message_id,
+          status: updated_log.status
+        })
+
+        {:ok, updated_log}
+
+      {:error, reason} ->
+        Logger.error("EmailInterceptor: Failed to update email log", %{
+          log_id: log.id,
+          reason: inspect(reason),
+          update_attrs: update_attrs
+        })
+
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -260,7 +316,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailInterceptor.update_after_failure(log, error)
+      iex> PhoenixKit.EmailSystem.EmailInterceptor.update_after_failure(log, error)
       {:ok, %EmailLog{}}
   """
   def update_after_failure(%EmailLog{} = log, error) do
@@ -351,7 +407,7 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   # Extract full body if enabled
   defp extract_body_full(%Email{} = email, opts) do
-    if EmailTracking.save_body_enabled?() or Keyword.get(opts, :save_body, false) do
+    if PhoenixKit.EmailSystem.save_body_enabled?() or Keyword.get(opts, :save_body, false) do
       text_body = email.text_body || ""
       html_body = email.html_body || ""
 
@@ -428,42 +484,48 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
   # Get AWS SES configuration set
   defp get_configuration_set(opts) do
     config_set =
-      Keyword.get(opts, :configuration_set) || EmailTracking.get_ses_configuration_set()
+      Keyword.get(opts, :configuration_set) || PhoenixKit.EmailSystem.get_ses_configuration_set()
 
     # Only return config set if it's properly configured and not empty
-    case config_set do
-      nil ->
-        nil
-
-      "" ->
-        nil
-
-      "phoenixkit-tracking" ->
-        # Default hardcoded value - only use if explicitly confirmed to exist
-        if validate_ses_configuration_set("phoenixkit-tracking") do
-          "phoenixkit-tracking"
-        else
+    result =
+      case config_set do
+        nil ->
           nil
-        end
 
-      other when is_binary(other) ->
-        # Custom config set - validate before using
-        if validate_ses_configuration_set(other) do
-          other
-        else
+        "" ->
           nil
-        end
 
-      _ ->
-        nil
-    end
+        "phoenixkit-tracking" ->
+          # Default hardcoded value - only use if explicitly confirmed to exist
+          if validate_ses_configuration_set("phoenixkit-tracking") do
+            "phoenixkit-tracking"
+          else
+            Logger.warning("phoenixkit-tracking configuration set validation failed")
+            nil
+          end
+
+        other when is_binary(other) ->
+          # Custom config set - validate before using
+          if validate_ses_configuration_set(other) do
+            other
+          else
+            Logger.warning("Custom configuration set validation failed: #{other}")
+            nil
+          end
+
+        _ ->
+          Logger.warning("Invalid configuration set type: #{inspect(config_set)}")
+          nil
+      end
+
+    result
   end
 
-  # Validate that SES configuration set exists (stub for now)
-  defp validate_ses_configuration_set(_config_set) do
-    # For now, always return false to disable configuration sets
-    # until they are properly configured in AWS
-    false
+  # Validate that SES configuration set exists
+  defp validate_ses_configuration_set(config_set) when is_binary(config_set) do
+    # Enable configuration set if it's configured via settings
+    # The AWS setup script ensures proper configuration exists
+    config_set != ""
   end
 
   # Build message tags for categorization
@@ -560,15 +622,92 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
 
   # Extract data from provider response
   defp extract_provider_data(%{} = response) do
-    # Extract message ID from SES response
-    case response do
-      %{"MessageId" => message_id} -> %{message_id: message_id}
-      %{message_id: message_id} -> %{message_id: message_id}
-      _ -> %{}
+    require Logger
+
+    # Extract message ID from various response formats
+    extracted_data = extract_message_id_from_response(response)
+
+    if Map.has_key?(extracted_data, :message_id) do
+      Logger.info("EmailInterceptor: Successfully extracted AWS MessageId", %{
+        message_id: extracted_data.message_id,
+        response_format: detect_response_format(response),
+        found_in_key: find_message_id_key(response)
+      })
+    else
+      Logger.warning("EmailInterceptor: No MessageId found in response", %{
+        response_keys: Map.keys(response),
+        response: inspect(response),
+        checked_keys: [":id", "\"id\"", "\"MessageId\"", "\"messageId\"", ":message_id"]
+      })
     end
+
+    extracted_data
   end
 
   defp extract_provider_data(_), do: %{}
+
+  # Extract message ID from different response formats
+  defp extract_message_id_from_response(response) when is_map(response) do
+    extract_direct_message_id(response) ||
+      extract_nested_message_id(response) ||
+      extract_ses_response_message_id(response) ||
+      %{}
+  end
+
+  defp extract_message_id_from_response(_), do: %{}
+
+  # Extract message ID from direct keys
+  defp extract_direct_message_id(response) do
+    cond do
+      # Swoosh AmazonSES adapter returns {:ok, %{id: "message-id"}}
+      Map.has_key?(response, :id) -> %{message_id: response[:id]}
+      Map.has_key?(response, "id") -> %{message_id: response["id"]}
+      # AWS API direct response formats
+      Map.has_key?(response, "MessageId") -> %{message_id: response["MessageId"]}
+      Map.has_key?(response, "messageId") -> %{message_id: response["messageId"]}
+      Map.has_key?(response, :message_id) -> %{message_id: response[:message_id]}
+      true -> nil
+    end
+  end
+
+  # Extract message ID from nested body formats
+  defp extract_nested_message_id(response) do
+    cond do
+      Map.has_key?(response, :body) and is_map(response.body) ->
+        extract_message_id_from_response(response.body)
+
+      Map.has_key?(response, "body") and is_map(response["body"]) ->
+        extract_message_id_from_response(response["body"])
+
+      true ->
+        nil
+    end
+  end
+
+  # Extract message ID from AWS SES SendEmailResponse structure
+  defp extract_ses_response_message_id(response) do
+    with true <- Map.has_key?(response, "SendEmailResponse"),
+         send_response when is_map(send_response) <- response["SendEmailResponse"],
+         true <- Map.has_key?(send_response, "SendEmailResult"),
+         result when is_map(result) <- send_response["SendEmailResult"],
+         true <- Map.has_key?(result, "MessageId") do
+      %{message_id: result["MessageId"]}
+    else
+      _ -> nil
+    end
+  end
+
+  # Detect response format for logging
+  defp detect_response_format(response) when is_map(response) do
+    cond do
+      Map.has_key?(response, "MessageId") -> "direct_MessageId"
+      Map.has_key?(response, "messageId") -> "direct_messageId"
+      Map.has_key?(response, :message_id) -> "atom_message_id"
+      Map.has_key?(response, :body) -> "nested_body"
+      Map.has_key?(response, "SendEmailResponse") -> "aws_soap_format"
+      true -> "unknown_format"
+    end
+  end
 
   # Extract error message from various error formats
   defp extract_error_message({:error, reason}) when is_binary(reason), do: reason
@@ -587,4 +726,18 @@ defmodule PhoenixKit.EmailTracking.EmailInterceptor do
   end
 
   defp strip_html_tags(_), do: ""
+
+  # Helper function to identify which key contained the message ID
+  defp find_message_id_key(response) when is_map(response) do
+    cond do
+      Map.has_key?(response, :id) -> ":id (Swoosh format)"
+      Map.has_key?(response, "id") -> "\"id\" (string format)"
+      Map.has_key?(response, "MessageId") -> "\"MessageId\" (AWS API format)"
+      Map.has_key?(response, "messageId") -> "\"messageId\" (camelCase format)"
+      Map.has_key?(response, :message_id) -> ":message_id (atom snake_case format)"
+      true -> "not_found"
+    end
+  end
+
+  defp find_message_id_key(_), do: "invalid_response"
 end

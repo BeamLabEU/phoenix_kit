@@ -67,7 +67,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Fallback system: user timezone → system timezone → UTC
   - Enhanced date formatting with per-user timezone support
 
-  ### V12 - JSON Settings Support ⚡ LATEST
+  ### V12 - JSON Settings Support
   - JSONB column (value_json) in phoenix_kit_settings table
   - Support for complex structured data storage
   - Removes NOT NULL constraint from value column
@@ -76,19 +76,29 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Dual storage model: string OR JSON values
   - Enhanced cache system for JSON data
 
+  ### V13 - Enhanced Email Tracking with AWS SES Integration ⚡ LATEST
+  - AWS message ID correlation (aws_message_id column)
+  - Specific timestamp tracking (bounced_at, complained_at, opened_at, clicked_at)
+  - Extended event types (reject, delivery_delay, subscription, rendering_failure)
+  - Enhanced status management (rejected, delayed, hard_bounced, soft_bounced, complaint)
+  - Unique constraint on aws_message_id for duplicate prevention
+  - Additional event fields (reject_reason, delay_type, subscription_type, failure_reason)
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V12 in sequence.
+  Runs all migrations V01 through V13 in sequence.
 
   ### Incremental Updates
-  - V01 → V12: Runs V02, V03, V04, V05, V06, V07, V08, V09, V10, V11, V12
-  - V11 → V12: Runs V12 only (adds JSON settings support)
-  - V10 → V12: Runs V11, V12 (adds timezones and JSON settings)
-  - V09 → V12: Runs V10, V11, V12 (adds analytics, timezones, and JSON settings)
-  - V08 → V12: Runs V09, V10, V11, V12 (adds blocklist, analytics, timezones, and JSON)
+  - V01 → V13: Runs V02, V03, V04, V05, V06, V07, V08, V09, V10, V11, V12, V13
+  - V12 → V13: Runs V13 only (adds enhanced email tracking with AWS SES)
+  - V11 → V13: Runs V12, V13 (adds JSON settings and enhanced email tracking)
+  - V10 → V13: Runs V11, V12, V13 (adds timezones, JSON settings, and email tracking)
+  - V09 → V13: Runs V10, V11, V12, V13 (adds analytics, timezones, JSON, and email tracking)
+  - V08 → V13: Runs V09, V10, V11, V12, V13 (adds blocklist, analytics, timezones, JSON, and email tracking)
 
   ### Rollback Support
+  - V13 → V12: Removes enhanced email tracking and AWS SES integration
   - V12 → V11: Removes JSON settings support and restores NOT NULL constraint
   - V11 → V10: Removes per-user timezone settings
   - V10 → V09: Removes registration analytics system
@@ -124,7 +134,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 12
+  @current_version 14
   @default_prefix "public"
 
   @doc false

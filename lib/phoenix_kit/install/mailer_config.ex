@@ -230,13 +230,14 @@ defmodule PhoenixKit.Install.MailerConfig do
     # □ Set environment variables:
     #   - AWS_ACCESS_KEY_ID
     #   - AWS_SECRET_ACCESS_KEY
-    #   - AWS_REGION (optional, defaults to us-east-1)
+    #   - AWS_REGION (optional, defaults to eu-north-1)
 
     # Common AWS SES regions:
+    # - eu-west-1 (Ireland)
     # - us-east-1 (N. Virginia)
     # - us-west-2 (Oregon)  
     # - eu-north-1 (Stockholm)
-    # - eu-west-1 (Ireland)
+
 
     # TROUBLESHOOTING:
     # If you see "function false.post/4 is undefined":

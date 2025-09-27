@@ -1,6 +1,6 @@
-defmodule PhoenixKit.EmailTracking.EmailEvent do
+defmodule PhoenixKit.EmailSystem.EmailEvent do
   @moduledoc """
-  Email event schema for tracking delivery events in PhoenixKit.
+  Email event schema for managing delivery events in PhoenixKit.
 
   This schema records events that occur after email sending, such as delivery,
   bounce, complaint, open, and click events. These events are typically received
@@ -25,7 +25,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
   - **delivery**: Email was successfully delivered to recipient's inbox
   - **bounce**: Email bounced (permanent or temporary failure)
   - **complaint**: Recipient marked email as spam
-  - **open**: Recipient opened the email (pixel tracking)
+  - **open**: Recipient opened the email (AWS SES tracking)
   - **click**: Recipient clicked a link in the email
 
   ## Associations
@@ -35,7 +35,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
   ## Usage Examples
 
       # Create a delivery event
-      {:ok, event} = PhoenixKit.EmailTracking.EmailEvent.create_event(%{
+      {:ok, event} = PhoenixKit.EmailSystem.EmailEvent.create_event(%{
         email_log_id: log.id,
         event_type: "delivery",
         event_data: %{
@@ -44,8 +44,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
         }
       })
 
-      # Create an open event with tracking data
-      {:ok, event} = PhoenixKit.EmailTracking.EmailEvent.create_event(%{
+      # Create an open event with managing data
+      {:ok, event} = PhoenixKit.EmailSystem.EmailEvent.create_event(%{
         email_log_id: log.id,
         event_type: "open",
         ip_address: "192.168.1.1",
@@ -54,7 +54,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
       })
 
       # Get all events for an email
-      events = PhoenixKit.EmailTracking.EmailEvent.for_email_log(log_id)
+      events = PhoenixKit.EmailSystem.EmailEvent.for_email_log(log_id)
   """
 
   use Ecto.Schema
@@ -63,7 +63,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   @derive {Jason.Encoder, except: [:__meta__, :email_log]}
 
-  alias PhoenixKit.EmailTracking.EmailLog
+  alias PhoenixKit.EmailSystem.EmailLog
 
   @primary_key {:id, :id, autogenerate: true}
 
@@ -77,6 +77,10 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
     field :link_url, :string
     field :bounce_type, :string
     field :complaint_type, :string
+    field :reject_reason, :string
+    field :delay_type, :string
+    field :subscription_type, :string
+    field :failure_reason, :string
 
     # Associations
     belongs_to :email_log, EmailLog, foreign_key: :email_log_id
@@ -104,7 +108,11 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
       :geo_location,
       :link_url,
       :bounce_type,
-      :complaint_type
+      :complaint_type,
+      :reject_reason,
+      :delay_type,
+      :subscription_type,
+      :failure_reason
     ])
     |> validate_required([:email_log_id, :event_type])
     |> validate_inclusion(:event_type, [
@@ -113,7 +121,11 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
       "bounce",
       "complaint",
       "open",
-      "click"
+      "click",
+      "reject",
+      "delivery_delay",
+      "subscription",
+      "rendering_failure"
     ])
     |> validate_inclusion(:bounce_type, ["hard", "soft"], message: "must be hard or soft")
     |> validate_bounce_type_consistency()
@@ -131,13 +143,13 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_event(%{
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_event(%{
         email_log_id: 1,
         event_type: "delivery"
       })
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_event(%{event_type: "invalid"})
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_event(%{event_type: "invalid"})
       {:error, %Ecto.Changeset{}}
   """
   def create_event(attrs \\ %{}) do
@@ -151,8 +163,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.update_event(event, %{event_data: %{updated: true}})
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.update_event(event, %{event_data: %{updated: true}})
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def update_event(%__MODULE__{} = email_event, attrs) do
     email_event
@@ -167,8 +179,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.get_event!(123)
-      %PhoenixKit.EmailTracking.EmailEvent{}
+      iex> PhoenixKit.EmailSystem.EmailEvent.get_event!(123)
+      %PhoenixKit.EmailSystem.EmailEvent{}
   """
   def get_event!(id) do
     __MODULE__
@@ -183,8 +195,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.for_email_log(log_id)
-      [%PhoenixKit.EmailTracking.EmailEvent{}, ...]
+      iex> PhoenixKit.EmailSystem.EmailEvent.for_email_log(log_id)
+      [%PhoenixKit.EmailSystem.EmailEvent{}, ...]
   """
   def for_email_log(email_log_id) when is_integer(email_log_id) do
     from(e in __MODULE__,
@@ -199,8 +211,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.for_email_log_by_type(log_id, "open")
-      [%PhoenixKit.EmailTracking.EmailEvent{}, ...]
+      iex> PhoenixKit.EmailSystem.EmailEvent.for_email_log_by_type(log_id, "open")
+      [%PhoenixKit.EmailSystem.EmailEvent{}, ...]
   """
   def for_email_log_by_type(email_log_id, event_type)
       when is_integer(email_log_id) and is_binary(event_type) do
@@ -212,12 +224,35 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
   end
 
   @doc """
+  Checks if an event already exists for a specific email log and type.
+
+  Returns true if an event of the given type already exists for the email log,
+  false otherwise. This is used to prevent duplicate event creation.
+
+  ## Examples
+
+      iex> PhoenixKit.EmailSystem.EmailEvent.event_exists?(log_id, "delivery")
+      true
+
+      iex> PhoenixKit.EmailSystem.EmailEvent.event_exists?(log_id, "open")
+      false
+  """
+  def event_exists?(email_log_id, event_type)
+      when is_integer(email_log_id) and is_binary(event_type) do
+    from(e in __MODULE__,
+      where: e.email_log_id == ^email_log_id and e.event_type == ^event_type,
+      limit: 1
+    )
+    |> repo().exists?()
+  end
+
+  @doc """
   Gets events of a specific type within a time range.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.for_period_by_type(start_date, end_date, "click")
-      [%PhoenixKit.EmailTracking.EmailEvent{}, ...]
+      iex> PhoenixKit.EmailSystem.EmailEvent.for_period_by_type(start_date, end_date, "click")
+      [%PhoenixKit.EmailSystem.EmailEvent{}, ...]
   """
   def for_period_by_type(start_date, end_date, event_type) do
     from(e in __MODULE__,
@@ -235,7 +270,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.has_event_type?(log_id, "open")
+      iex> PhoenixKit.EmailSystem.EmailEvent.has_event_type?(log_id, "open")
       true
   """
   def has_event_type?(email_log_id, event_type)
@@ -254,8 +289,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.get_latest_event_by_type(log_id, "open")
-      %PhoenixKit.EmailTracking.EmailEvent{}
+      iex> PhoenixKit.EmailSystem.EmailEvent.get_latest_event_by_type(log_id, "open")
+      %PhoenixKit.EmailSystem.EmailEvent{}
   """
   def get_latest_event_by_type(email_log_id, event_type)
       when is_integer(email_log_id) and is_binary(event_type) do
@@ -277,8 +312,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
         "mail" => %{"messageId" => "abc123"},
         "delivery" => %{"timestamp" => "2024-01-15T10:30:00.000Z"}
       }
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_from_ses_webhook(log, data)
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_from_ses_webhook(log, data)
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def create_from_ses_webhook(%EmailLog{} = email_log, webhook_data) when is_map(webhook_data) do
     event_attrs = parse_ses_webhook_data(webhook_data)
@@ -291,8 +326,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_bounce_event(log_id, "hard", "No such user")
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_bounce_event(log_id, "hard", "No such user")
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def create_bounce_event(email_log_id, bounce_type, reason \\ nil)
       when is_integer(email_log_id) do
@@ -313,8 +348,8 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_complaint_event(log_id, "abuse")
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_complaint_event(log_id, "abuse")
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def create_complaint_event(email_log_id, complaint_type \\ "abuse", feedback_id \\ nil)
       when is_integer(email_log_id) do
@@ -331,12 +366,12 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
   end
 
   @doc """
-  Creates an open event with tracking data.
+  Creates an open event with managing data.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_open_event(log_id, "192.168.1.1", "Mozilla/5.0...")
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_open_event(log_id, "192.168.1.1", "Mozilla/5.0...")
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def create_open_event(email_log_id, ip_address \\ nil, user_agent \\ nil, geo_data \\ %{})
       when is_integer(email_log_id) do
@@ -355,12 +390,12 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
   end
 
   @doc """
-  Creates a click event with link and tracking data.
+  Creates a click event with link and managing data.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.create_click_event(log_id, "https://example.com/link", "192.168.1.1")
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.create_click_event(log_id, "https://example.com/link", "192.168.1.1")
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def create_click_event(
         email_log_id,
@@ -391,7 +426,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.get_event_stats(start_date, end_date)
+      iex> PhoenixKit.EmailSystem.EmailEvent.get_event_stats(start_date, end_date)
       %{delivery: 1450, bounce: 30, open: 800, click: 200, complaint: 5}
   """
   def get_event_stats(start_date, end_date) do
@@ -409,7 +444,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.get_geo_distribution("open", start_date, end_date)
+      iex> PhoenixKit.EmailSystem.EmailEvent.get_geo_distribution("open", start_date, end_date)
       %{"US" => 500, "CA" => 200, "UK" => 150}
   """
   def get_geo_distribution(event_type, start_date, end_date) do
@@ -434,7 +469,7 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.get_top_clicked_links(start_date, end_date, 10)
+      iex> PhoenixKit.EmailSystem.EmailEvent.get_top_clicked_links(start_date, end_date, 10)
       [%{url: "https://example.com/product", clicks: 150}, ...]
   """
   def get_top_clicked_links(start_date, end_date, limit \\ 10) do
@@ -455,20 +490,20 @@ defmodule PhoenixKit.EmailTracking.EmailEvent do
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.delete_event(event)
-      {:ok, %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.delete_event(event)
+      {:ok, %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def delete_event(%__MODULE__{} = email_event) do
     repo().delete(email_event)
   end
 
   @doc """
-  Returns an `%Ecto.Changeset{}` for tracking email event changes.
+  Returns an `%Ecto.Changeset{}` for managing email event changes.
 
   ## Examples
 
-      iex> PhoenixKit.EmailTracking.EmailEvent.change_event(event)
-      %Ecto.Changeset{data: %PhoenixKit.EmailTracking.EmailEvent{}}
+      iex> PhoenixKit.EmailSystem.EmailEvent.change_event(event)
+      %Ecto.Changeset{data: %PhoenixKit.EmailSystem.EmailEvent{}}
   """
   def change_event(%__MODULE__{} = email_event, attrs \\ %{}) do
     changeset(email_event, attrs)

@@ -32,7 +32,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
       delivery     - Successful delivery
       bounce       - Hard/soft bounce
       complaint    - Spam complaint
-      open         - Email opened (tracking pixel)
+      open         - Email opened (AWS SES)
       click        - Link clicked
 
   ## Examples
@@ -50,14 +50,14 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailTracking
+  alias PhoenixKit.EmailSystem
 
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailTracking.enabled?() do
+    unless EmailSystem.enabled?() do
       Mix.shell().error("Email is not enabled.")
       exit({:shutdown, 1})
     end
@@ -144,11 +144,11 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   end
 
   defp ensure_test_log(message_id) do
-    case EmailTracking.get_log_by_message_id(message_id) do
-      nil ->
+    case EmailSystem.get_log_by_message_id(message_id) do
+      {:error, :not_found} ->
         # Create a test log
         {:ok, log} =
-          EmailTracking.create_log(%{
+          EmailSystem.create_log(%{
             message_id: message_id,
             to: "test@example.com",
             from: "noreply@phoenixkit.dev",
@@ -161,9 +161,13 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
         Mix.shell().info("📧 Created test email log: #{message_id}")
         log
 
-      log ->
+      {:ok, log} ->
         Mix.shell().info("📧 Using existing email log: #{message_id}")
         log
+
+      {:error, reason} ->
+        Mix.shell().error("❌ Error getting email log: #{inspect(reason)}")
+        nil
     end
   end
 
@@ -297,7 +301,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
 
   defp test_webhook_processing(webhook_data, _options) do
     # Process the webhook event using EmailTracking
-    case EmailTracking.process_webhook_event(webhook_data) do
+    case EmailSystem.process_webhook_event(webhook_data) do
       {:ok, _event} ->
         :ok
 

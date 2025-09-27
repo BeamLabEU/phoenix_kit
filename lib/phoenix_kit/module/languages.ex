@@ -465,12 +465,13 @@ defmodule PhoenixKit.Module.Languages do
       [%{code: "es", name: "Spanish", native: "Español", flag: "🇪🇸"}, ...]
   """
   def get_available_languages_for_selection do
-    if not enabled?() do
-      @available_languages
-    else
+    if enabled?() do
       current_codes = get_languages() |> Enum.map(& &1["code"])
+
       @available_languages
       |> Enum.reject(fn lang -> lang.code in current_codes end)
+    else
+      @available_languages
     end
   end
 
@@ -691,8 +692,12 @@ defmodule PhoenixKit.Module.Languages do
         # Swap with the previous element in the array
         updated_languages =
           current_languages
-          |> List.update_at(current_index, fn _ -> Enum.at(current_languages, current_index - 1) end)
-          |> List.update_at(current_index - 1, fn _ -> Enum.at(current_languages, current_index) end)
+          |> List.update_at(current_index, fn _ ->
+            Enum.at(current_languages, current_index - 1)
+          end)
+          |> List.update_at(current_index - 1, fn _ ->
+            Enum.at(current_languages, current_index)
+          end)
 
         updated_config = Map.put(current_config, "languages", updated_languages)
 
@@ -736,8 +741,12 @@ defmodule PhoenixKit.Module.Languages do
         # Swap with the next element in the array
         updated_languages =
           current_languages
-          |> List.update_at(current_index, fn _ -> Enum.at(current_languages, current_index + 1) end)
-          |> List.update_at(current_index + 1, fn _ -> Enum.at(current_languages, current_index) end)
+          |> List.update_at(current_index, fn _ ->
+            Enum.at(current_languages, current_index + 1)
+          end)
+          |> List.update_at(current_index + 1, fn _ ->
+            Enum.at(current_languages, current_index)
+          end)
 
         updated_config = Map.put(current_config, "languages", updated_languages)
 

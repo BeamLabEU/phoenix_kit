@@ -1,5 +1,5 @@
 # Define the EmailBlocklist schema first
-defmodule PhoenixKit.EmailTracking.EmailBlocklist do
+defmodule PhoenixKit.EmailSystem.EmailBlocklist do
   @moduledoc """
   Email blocklist schema for storing blocked email addresses.
 
@@ -29,7 +29,7 @@ defmodule PhoenixKit.EmailTracking.EmailBlocklist do
   end
 end
 
-defmodule PhoenixKit.EmailTracking.RateLimiter do
+defmodule PhoenixKit.EmailSystem.RateLimiter do
   @moduledoc """
   Rate limiting and spam protection for the email tracking system.
 
@@ -45,14 +45,14 @@ defmodule PhoenixKit.EmailTracking.RateLimiter do
 
   All rate limiting settings are stored in phoenix_kit_settings:
 
-  - `email_tracking_rate_limit_per_recipient` - Max emails per recipient per hour (default: 100)
-  - `email_tracking_rate_limit_global` - Global max emails per hour (default: 10_000)
-  - `email_tracking_blocklist_enabled` - Enable automatic blocklisting (default: true)
+  - `email_rate_limit_per_recipient` - Max emails per recipient per hour (default: 100)
+  - `email_rate_limit_global` - Global max emails per hour (default: 10_000)
+  - `email_blocklist_enabled` - Enable automatic blocklisting (default: true)
 
   ## Usage Examples
 
       # Check if sending is allowed
-      case PhoenixKit.EmailTracking.RateLimiter.check_limits(email) do
+      case PhoenixKit.EmailSystem.RateLimiter.check_limits(email) do
         :ok -> 
           # Send email
           
@@ -67,14 +67,14 @@ defmodule PhoenixKit.EmailTracking.RateLimiter do
       end
 
       # Add suspicious email to blocklist
-      PhoenixKit.EmailTracking.RateLimiter.add_to_blocklist(
+      PhoenixKit.EmailSystem.RateLimiter.add_to_blocklist(
         "spam@example.com",
         "suspicious_pattern",
         expires_at: DateTime.add(DateTime.utc_now(), 86_400)
       )
 
       # Check current rate limit status
-      status = PhoenixKit.EmailTracking.RateLimiter.get_rate_limit_status()
+      status = PhoenixKit.EmailSystem.RateLimiter.get_rate_limit_status()
       # => %{recipient_count: 45, global_count: 2341, blocked_count: 12}
 
   ## Rate Limiting Strategy
@@ -97,14 +97,14 @@ defmodule PhoenixKit.EmailTracking.RateLimiter do
   ## Integration Points
 
   Integrates with:
-  - `PhoenixKit.EmailTracking` - Main tracking system
-  - `PhoenixKit.EmailTracking.EmailInterceptor` - Pre-send filtering
+  - `PhoenixKit.EmailSystem` - Main tracking system
+  - `PhoenixKit.EmailSystem.EmailInterceptor` - Pre-send filtering
   - `PhoenixKit.Settings` - Configuration management
   - `PhoenixKit.Users.Auth` - User-based limits
   """
 
   alias PhoenixKit.Settings
-  alias PhoenixKit.EmailTracking.{EmailBlocklist, EmailLog}
+  alias PhoenixKit.EmailSystem.{EmailBlocklist, EmailLog}
   import Ecto.Query
 
   ## --- Rate Limit Checks ---
@@ -409,23 +409,23 @@ defmodule PhoenixKit.EmailTracking.RateLimiter do
   ## --- Configuration Helpers ---
 
   defp get_recipient_limit do
-    Settings.get_integer_setting("email_tracking_rate_limit_per_recipient", 100)
+    Settings.get_integer_setting("email_rate_limit_per_recipient", 100)
   end
 
   defp get_sender_limit do
     # Default to 10x recipient limit for senders
     Settings.get_integer_setting(
-      "email_tracking_rate_limit_per_sender",
+      "email_rate_limit_per_sender",
       get_recipient_limit() * 10
     )
   end
 
   defp get_global_limit do
-    Settings.get_integer_setting("email_tracking_rate_limit_global", 10_000)
+    Settings.get_integer_setting("email_rate_limit_global", 10_000)
   end
 
   defp blocklist_enabled? do
-    Settings.get_boolean_setting("email_tracking_blocklist_enabled", true)
+    Settings.get_boolean_setting("email_blocklist_enabled", true)
   end
 
   ## --- Count Helpers ---
