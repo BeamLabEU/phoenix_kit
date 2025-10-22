@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
   import PhoenixKitWeb.Components.AdminNav
+  import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
 
   alias Phoenix.HTML
   alias PhoenixKit.Module.Languages
@@ -68,6 +69,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_locale, :string, default: "en"
 
   slot :inner_block, required: false
+  slot :admin_popup, required: false
 
   def app_layout(assigns) do
     # Ensure content_language is available in assigns
@@ -127,6 +129,29 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
+  defp render_admin_popup_debug(assigns) do
+    admin_popup_slots = length(assigns[:admin_popup] || [])
+    inner_block_slots = length(assigns[:inner_block] || [])
+    original_inner_block_slots = length(assigns[:original_inner_block] || [])
+
+    debug_assigns =
+      assigns
+      |> Map.drop([:__changed__])
+      |> Map.put(:admin_popup_slots, admin_popup_slots)
+      |> Map.put(:inner_block_slots, inner_block_slots)
+      |> Map.put(:original_inner_block_slots, original_inner_block_slots)
+      |> Map.delete(:admin_popup)
+      |> Map.delete(:inner_block)
+      |> Map.delete(:original_inner_block)
+      |> inspect(pretty: true, printable_limit: :infinity, limit: :infinity)
+
+    assigns = %{debug_dump: debug_assigns}
+
+    ~H"""
+    <pre class="rounded-xl border border-base-300 bg-base-200/60 p-4 font-mono text-[11px] leading-relaxed text-base-content/80 shadow-inner whitespace-pre w-fit"><%= @debug_dump %></pre>
+    """
+  end
+
   # Wrap inner_block with admin navigation if needed
   defp wrap_inner_block_with_admin_nav_if_needed(assigns) do
     if admin_page?(assigns) do
@@ -142,7 +167,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               current_path: assigns[:current_path],
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
-              current_locale: assigns[:current_locale] || "en"
+              current_locale: assigns[:current_locale] || "en",
+              admin_popup: assigns[:admin_popup] || []
             }
 
             assigns = template_assigns
@@ -205,6 +231,70 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 <%!-- Page content from parent layout --%>
                 <div class="flex-1">
                   {render_slot(@original_inner_block)}
+                </div>
+
+                <div
+                  id="admin-generic-popup"
+                  class="hidden fixed inset-0 z-[70] pointer-events-none"
+                  aria-hidden="true"
+                >
+                  <section
+                    data-popup-panel
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Popup"
+                    tabindex="-1"
+                    class="absolute flex flex-col rounded-2xl border border-base-300 bg-base-100 shadow-2xl pointer-events-auto"
+                  >
+                    <header
+                      data-popup-handle
+                      class="cursor-grab select-none rounded-t-2xl border-b border-base-200 bg-gradient-to-r from-primary/10 to-primary/5 px-6 py-4 text-base-content flex-shrink-0"
+                    >
+                      <div class="flex w-full justify-center">
+                        <span class="h-2 w-16 rounded-full bg-primary/30"></span>
+                      </div>
+                    </header>
+
+                    <div
+                      id="admin-popup-content"
+                      data-popup-content
+                      class="px-6 py-5 space-y-4 text-sm text-base-content/80 min-h-0 flex-1 overflow-auto"
+                    >
+                      <%= if @admin_popup == [] do %>
+                        <%= render_admin_popup_debug(assigns) %>
+                      <% else %>
+                        <%= render_slot(@admin_popup) %>
+                      <% end %>
+                    </div>
+
+                    <footer class="flex items-center justify-end border-t border-base-200 px-6 py-4 gap-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        data-popup-close
+                        class="btn btn-ghost btn-sm"
+                      >
+                        Close
+                      </button>
+                    </footer>
+
+                    <div
+                      data-popup-resize-handle
+                      class="absolute -bottom-2 -right-2 flex h-8 w-8 cursor-se-resize items-center justify-center rounded-full border border-base-200 bg-base-100/90 text-primary/70 shadow-md transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                      aria-hidden="true"
+                    >
+                      <svg class="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                        <circle cx="3" cy="3" r="1.5"/>
+                        <circle cx="8" cy="3" r="1.5"/>
+                        <circle cx="13" cy="3" r="1.5"/>
+                        <circle cx="3" cy="8" r="1.5"/>
+                        <circle cx="8" cy="8" r="1.5"/>
+                        <circle cx="13" cy="8" r="1.5"/>
+                        <circle cx="3" cy="13" r="1.5"/>
+                        <circle cx="8" cy="13" r="1.5"/>
+                        <circle cx="13" cy="13" r="1.5"/>
+                      </svg>
+                    </div>
+                  </section>
                 </div>
               </div>
 
@@ -390,6 +480,28 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       current_path={@current_path || ""}
                     />
 
+                    <div class="mt-6 pt-6 border-t border-base-300">
+                      <button
+                        id="admin-generic-popup-button"
+                        type="button"
+                        aria-controls="admin-generic-popup"
+                        aria-expanded="false"
+                        class="group relative flex w-full items-center gap-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-primary/15 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                      >
+                        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm transition group-hover:scale-105">
+                          <.icon name="hero-sparkles" class="w-5 h-5" />
+                        </span>
+
+                        <span class="text-base-content text-sm font-semibold tracking-wide">
+                          Open Popup
+                        </span>
+
+                        <span class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-primary/70 transition group-hover:text-primary">
+                          <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+                        </span>
+                      </button>
+                    </div>
+
                     <%!-- Settings section with direct link and conditional submenu --%>
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/settings")}
@@ -476,6 +588,329 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
             <%!-- Auto-close mobile drawer on navigation --%>
             <script>
+              function initAdminPopup() {
+                const container = document.getElementById('admin-generic-popup');
+                const openButton = document.getElementById('admin-generic-popup-button');
+
+                if (!container || !openButton || openButton.dataset.popupEnhanced === 'true') {
+                  console.warn('[Popup] Skipping init', { container: !!container, openButton: !!openButton, enhanced: openButton?.dataset?.popupEnhanced });
+                  return;
+                }
+
+                const panel = container.querySelector('[data-popup-panel]');
+                const handle = container.querySelector('[data-popup-handle]');
+                const closeButtons = container.querySelectorAll('[data-popup-close]');
+                const resizeHandle = container.querySelector('[data-popup-resize-handle]');
+                const content = container.querySelector('[data-popup-content]');
+
+                if (!panel || !handle) {
+                  console.warn('[Popup] Missing panel or handle', { hasPanel: !!panel, hasHandle: !!handle });
+                  return;
+                }
+                console.log('[Popup] Initialized');
+
+                let isOpen = false;
+                let isDragging = false;
+                let dragPointerId = null;
+                let dragOffsetX = 0;
+                let dragOffsetY = 0;
+                let isResizing = false;
+                let resizePointerId = null;
+                let startWidth = 0;
+                let startHeight = 0;
+                let startX = 0;
+                let startY = 0;
+
+                const centerPanel = () => {
+                  console.log('[Popup] Center panel - start');
+                  panel.style.width = '';
+                  panel.style.height = '';
+
+                  const containerRect = container.getBoundingClientRect();
+                  const panelRect = panel.getBoundingClientRect();
+
+                  const containerWidth = containerRect.width || window.innerWidth || panelRect.width || 448;
+                  const containerHeight = containerRect.height || window.innerHeight || panelRect.height || 320;
+                  const width = panelRect.width || 448;
+                  const height = panelRect.height || 320;
+
+                  const left = Math.max(0, Math.round((containerWidth - width) / 2));
+                  const top = Math.max(0, Math.round(containerHeight * 0.2));
+
+                  console.log('[Popup] Center panel - calculated', {
+                    containerRect: { width: containerRect.width, height: containerRect.height, left: containerRect.left, top: containerRect.top },
+                    panelRect: { width: panelRect.width, height: panelRect.height, left: panelRect.left, top: panelRect.top },
+                    calculated: { containerWidth, containerHeight, panelWidth: width, panelHeight: height },
+                    finalPosition: { left, top },
+                    calculation: `(${containerWidth} - ${width}) / 2 = ${left}`
+                  });
+
+                  panel.style.transform = '';
+                  panel.style.left = `${left}px`;
+                  panel.style.top = `${top}px`;
+                };
+
+                const clampPosition = (left, top) => {
+                  const containerRect = container.getBoundingClientRect();
+                  const panelRect = panel.getBoundingClientRect();
+                  const maxLeft = Math.max(0, containerRect.width - panelRect.width);
+                  const maxTop = Math.max(0, containerRect.height - panelRect.height);
+
+                  const clamped = {
+                    left: Math.min(Math.max(0, left), maxLeft),
+                    top: Math.min(Math.max(0, top), maxTop)
+                  };
+                  console.log('[Popup] Clamp position', { left, top, clamped, maxLeft, maxTop });
+                  return clamped;
+                };
+
+                const stopDragging = () => {
+                  if (!isDragging) {
+                    return;
+                  }
+
+                  console.log('[Popup] Stop dragging');
+
+                  if (handle.releasePointerCapture && dragPointerId !== null) {
+                    try {
+                      handle.releasePointerCapture(dragPointerId);
+                    } catch (_error) {}
+                  }
+
+                  isDragging = false;
+                  dragPointerId = null;
+                  window.removeEventListener('pointermove', handleDragMove);
+                  window.removeEventListener('pointerup', endDrag);
+                  window.removeEventListener('pointercancel', endDrag);
+                };
+
+                const stopResizing = () => {
+                  if (!isResizing) {
+                    return;
+                  }
+
+                  console.log('[Popup] Stop resizing');
+
+                  if (resizeHandle && resizeHandle.releasePointerCapture && resizePointerId !== null) {
+                    try {
+                      resizeHandle.releasePointerCapture(resizePointerId);
+                    } catch (_error) {}
+                  }
+
+                  isResizing = false;
+                  resizePointerId = null;
+                  window.removeEventListener('pointermove', handleResizeMove);
+                  window.removeEventListener('pointerup', endResize);
+                  window.removeEventListener('pointercancel', endResize);
+                };
+
+                const showPopup = () => {
+                  centerPanel();
+                  console.log('[Popup] Show');
+                  container.classList.remove('hidden');
+                  container.setAttribute('aria-hidden', 'false');
+                  openButton.setAttribute('aria-expanded', 'true');
+                  isOpen = true;
+                  panel.focus({ preventScroll: true });
+                  document.addEventListener('keydown', handleKeydown);
+                };
+
+                const hidePopup = () => {
+                  if (!isOpen) {
+                    return;
+                  }
+
+                  console.log('[Popup] Hide');
+
+                  stopDragging();
+                  stopResizing();
+
+                  container.setAttribute('aria-hidden', 'true');
+                  openButton.setAttribute('aria-expanded', 'false');
+                  container.classList.add('hidden');
+                  isOpen = false;
+
+                  document.removeEventListener('keydown', handleKeydown);
+                };
+
+                const handleKeydown = (event) => {
+                  console.log('[Popup] Keydown', event.key);
+                  if (!isOpen) {
+                    return;
+                  }
+
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    hidePopup();
+                  }
+                };
+
+                const endDrag = (event) => {
+                  console.log('[Popup] End drag');
+                  if (!isDragging || (dragPointerId !== null && event.pointerId !== dragPointerId)) {
+                    return;
+                  }
+
+                  stopDragging();
+                };
+
+                const handleDragMove = (event) => {
+                  if (!isDragging) {
+                    return;
+                  }
+
+                  const containerRect = container.getBoundingClientRect();
+                  const mouseXInContainer = event.clientX - containerRect.left;
+                  const mouseYInContainer = event.clientY - containerRect.top;
+                  const nextLeft = mouseXInContainer - dragOffsetX;
+                  const nextTop = mouseYInContainer - dragOffsetY;
+                  const clamped = clampPosition(nextLeft, nextTop);
+
+                  console.log('[Popup] Drag move', {
+                    pointer: { x: event.clientX, y: event.clientY },
+                    mouseInContainer: { x: mouseXInContainer, y: mouseYInContainer },
+                    containerLeft: containerRect.left,
+                    containerTop: containerRect.top,
+                    dragOffsetX,
+                    dragOffsetY,
+                    nextLeft,
+                    nextTop,
+                    clamped
+                  });
+
+                  panel.style.left = `${clamped.left}px`;
+                  panel.style.top = `${clamped.top}px`;
+                };
+
+                const startDrag = (event) => {
+                  if (event.button !== undefined && event.button !== 0) {
+                    return;
+                  }
+
+                  console.log('[Popup] Start drag', { pointer: { x: event.clientX, y: event.clientY } });
+
+                  event.preventDefault();
+
+                  const containerRect = container.getBoundingClientRect();
+
+                  panel.style.transform = '';
+                  const panelRect = panel.getBoundingClientRect();
+                  const handleRect = handle.getBoundingClientRect();
+
+                  const currentLeft = panelRect.left - containerRect.left;
+                  const currentTop = panelRect.top - containerRect.top;
+                  panel.style.left = `${currentLeft}px`;
+                  panel.style.top = `${currentTop}px`;
+
+                  isDragging = true;
+                  dragPointerId = event.pointerId;
+
+                  const mouseXInContainer = event.clientX - containerRect.left;
+                  const mouseYInContainer = event.clientY - containerRect.top;
+                  dragOffsetX = mouseXInContainer - currentLeft;
+                  dragOffsetY = mouseYInContainer - currentTop;
+
+                  console.log('[Popup] Start drag - Initial state', {
+                    mouse: { clientX: event.clientX, clientY: event.clientY },
+                    mouseInContainer: { x: mouseXInContainer, y: mouseYInContainer },
+                    panelPosition: { left: currentLeft, top: currentTop },
+                    container: { left: containerRect.left, top: containerRect.top },
+                    calculatedOffset: { x: dragOffsetX, y: dragOffsetY },
+                    verification: {
+                      shouldEqual_mouseX: `${mouseXInContainer} should equal ${currentLeft} + ${dragOffsetX} = ${currentLeft + dragOffsetX}`,
+                      matches: mouseXInContainer === currentLeft + dragOffsetX
+                    }
+                  });
+
+                  if (handle.setPointerCapture) {
+                    try {
+                      handle.setPointerCapture(event.pointerId);
+                    } catch (_error) {}
+                  }
+
+                  window.addEventListener('pointermove', handleDragMove);
+                  window.addEventListener('pointerup', endDrag);
+                  window.addEventListener('pointercancel', endDrag);
+                };
+
+                const endResize = (event) => {
+                  if (!isResizing || (resizePointerId !== null && event.pointerId !== resizePointerId)) {
+                    return;
+                  }
+
+                  stopResizing();
+                };
+
+                const handleResizeMove = (event) => {
+                  if (!isResizing) {
+                    return;
+                  }
+
+                  const nextWidth = startWidth + (event.clientX - startX);
+                  const nextHeight = startHeight + (event.clientY - startY);
+
+                  console.log('[Popup] Resize move', { nextWidth, nextHeight });
+
+                  panel.style.width = `${nextWidth}px`;
+                  panel.style.height = `${nextHeight}px`;
+                };
+
+                const startResize = (event) => {
+                  if (!resizeHandle || (event.button !== undefined && event.button !== 0)) {
+                    return;
+                  }
+
+                  console.log('[Popup] Start resize', { x: event.clientX, y: event.clientY });
+
+                  event.preventDefault();
+
+                  const containerRect = container.getBoundingClientRect();
+
+                  panel.style.transform = '';
+                  const panelRect = panel.getBoundingClientRect();
+                  panel.style.left = `${panelRect.left - containerRect.left}px`;
+                  panel.style.top = `${panelRect.top - containerRect.top}px`;
+
+                  isResizing = true;
+                  resizePointerId = event.pointerId;
+                  startWidth = panelRect.width;
+                  startHeight = panelRect.height;
+                  startX = event.clientX;
+                  startY = event.clientY;
+
+                  if (resizeHandle.setPointerCapture) {
+                    try {
+                      resizeHandle.setPointerCapture(event.pointerId);
+                    } catch (_error) {}
+                  }
+
+                  window.addEventListener('pointermove', handleResizeMove);
+                  window.addEventListener('pointerup', endResize);
+                  window.addEventListener('pointercancel', endResize);
+                };
+
+                handle.addEventListener('pointerdown', startDrag);
+
+                closeButtons.forEach((button) => {
+                  button.addEventListener('click', hidePopup);
+                });
+
+                if (resizeHandle) {
+                  resizeHandle.addEventListener('pointerdown', startResize);
+                }
+
+                openButton.addEventListener('click', () => {
+                  console.log('[Popup] Toggle button clicked');
+                  if (isOpen) {
+                    hidePopup();
+                  } else {
+                    showPopup();
+                  }
+                });
+
+                openButton.dataset.popupEnhanced = 'true';
+              }
+
               // Mobile drawer and burger menu navigation
               document.addEventListener('DOMContentLoaded', function() {
                 const drawerToggle = document.getElementById('admin-mobile-menu');
@@ -503,6 +938,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     // On mobile, default checkbox behavior handles it
                   });
                 }
+
+                initAdminPopup();
+              });
+
+              window.addEventListener('phx:page-loading-stop', function() {
+                initAdminPopup();
               });
 
               // Theme configuration and controller
