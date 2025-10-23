@@ -133,7 +133,7 @@ This will automatically:
   - Booking Module (Calendar based)
   - Popups Module
   - Contact Us Module
-  - SEO Module
+  - SEO Module (sitemap, open graph)
   - AI Module
     - OpenRouter Integration
     - Integration with other AI providers
