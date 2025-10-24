@@ -500,7 +500,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.icon name="hero-sparkles" class="w-5 h-5" />
                         </span>
 
-                        <span class="text-base-content text-sm font-semibold tracking-wide">
+                        <span class="text-base-content text-sm font-semibold tracking-wide" data-popup-button-text>
                           Open Popup
                         </span>
 
@@ -922,6 +922,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         currentContainer.setAttribute('aria-hidden', 'false');
                         currentOpenButton.setAttribute('aria-expanded', 'true');
 
+                        // Update button text to "Close Popup"
+                        const buttonText = currentOpenButton.querySelector('[data-popup-button-text]');
+                        if (buttonText) {
+                          buttonText.textContent = 'Close Popup';
+                        }
+
                         shouldAnimate = false;
                         currentPanel.style.removeProperty('visibility');
                         currentPanel.style.removeProperty('opacity');
@@ -930,6 +936,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       } else {
                         // Popup was closed - keep it closed
                         currentContainer.style.display = 'none';
+
+                        // Update button text to "Open Popup"
+                        const buttonText = currentOpenButton.querySelector('[data-popup-button-text]');
+                        if (buttonText) {
+                          buttonText.textContent = 'Open Popup';
+                        }
+
                         console.log('[Popup] Restoring popup as closed (skip path)');
                       }
 
@@ -1121,6 +1134,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     openButton.setAttribute('aria-expanded', 'true');
                     window.__popupState.isOpen = true;
 
+                    // Update button text to "Close Popup"
+                    const buttonText = openButton.querySelector('[data-popup-button-text]');
+                    if (buttonText) {
+                      buttonText.textContent = 'Close Popup';
+                    }
+
                     // ANTI-FLICKER: No animation on page refresh - popup should appear
                     // instantly in its saved state
                     shouldAnimate = false;
@@ -1131,6 +1150,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   } else {
                     // Popup was closed - keep it closed
                     container.style.display = 'none';
+
+                    // Update button text to "Open Popup"
+                    const buttonText = openButton.querySelector('[data-popup-button-text]');
+                    if (buttonText) {
+                      buttonText.textContent = 'Open Popup';
+                    }
+
                     console.log('[Popup] Restoring popup as closed (init path)');
                   }
 
@@ -1312,6 +1338,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 // and are used after navigation
                 const showPopup = () => {
                   centerPanel();
+
+                  // Reset scroll position when opening popup
+                  const content = container?.querySelector('[data-popup-content]');
+                  if (content) {
+                    content.scrollTop = 0;
+                    content.scrollLeft = 0;
+                  }
+
                   console.log('[Popup] Show');
                   container.style.display = 'block';
                   container.setAttribute('aria-hidden', 'false');
@@ -1319,6 +1353,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   window.__popupState.isOpen = true;
                   panel.focus({ preventScroll: true });
                   document.addEventListener('keydown', handleKeydown);
+
+                  // Update button text to "Close Popup"
+                  const buttonText = openButton.querySelector('[data-popup-button-text]');
+                  if (buttonText) {
+                    buttonText.textContent = 'Close Popup';
+                  }
 
                   savePopupState(popupId, { isOpen: true });
                 };
@@ -1341,6 +1381,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   window.__popupState.isOpen = false;
 
                   document.removeEventListener('keydown', handleKeydown);
+
+                  // Update button text to "Open Popup"
+                  const buttonText = openButton.querySelector('[data-popup-button-text]');
+                  if (buttonText) {
+                    buttonText.textContent = 'Open Popup';
+                  }
 
                   savePopupState(popupId, { isOpen: false });
                 };
@@ -1387,14 +1433,28 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   openButton.setAttribute('aria-expanded', 'true');
                   panel.focus({ preventScroll: true });
 
-                  // Save the clean centered state
+                  // Update button text to "Close Popup"
+                  const buttonText = openButton.querySelector('[data-popup-button-text]');
+                  if (buttonText) {
+                    buttonText.textContent = 'Close Popup';
+                  }
+
+                  // Save the clean centered state with reset scroll
                   savePopupState('admin-generic-popup', {
                     isOpen: true,
                     position: { left, top },
-                    size: { width, height }
+                    size: { width, height },
+                    scroll: { scrollTop: 0, scrollLeft: 0 }
                   });
 
-                  queueScrollRestore(content, 'admin-generic-popup');
+                  // Reset scroll position AFTER saving state
+                  // Use setTimeout to ensure this runs after any scroll restoration
+                  if (content) {
+                    setTimeout(() => {
+                      content.scrollTop = 0;
+                      content.scrollLeft = 0;
+                    }, 0);
+                  }
                 };
 
                 window.__popupHidePopup = function() {
@@ -1406,6 +1466,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   container.setAttribute('aria-hidden', 'true');
                   openButton.setAttribute('aria-expanded', 'false');
                   container.style.display = 'none';
+
+                  // Update button text to "Open Popup"
+                  const buttonText = openButton.querySelector('[data-popup-button-text]');
+                  if (buttonText) {
+                    buttonText.textContent = 'Open Popup';
+                  }
 
                   savePopupState('admin-generic-popup', { isOpen: false });
                 };
@@ -1865,11 +1931,25 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             container.style.display = 'block';
                             container.setAttribute('aria-hidden', 'false');
                             openButton.setAttribute('aria-expanded', 'true');
+
+                            // Update button text to "Close Popup"
+                            const buttonText = openButton.querySelector('[data-popup-button-text]');
+                            if (buttonText) {
+                              buttonText.textContent = 'Close Popup';
+                            }
+
                             console.log(`[${timestamp}] [Popup] Restored as OPEN`);
                           } else {
                             container.style.display = 'none';
                             container.setAttribute('aria-hidden', 'true');
                             openButton.setAttribute('aria-expanded', 'false');
+
+                            // Update button text to "Open Popup"
+                            const buttonText = openButton.querySelector('[data-popup-button-text]');
+                            if (buttonText) {
+                              buttonText.textContent = 'Open Popup';
+                            }
+
                             console.log(`[${timestamp}] [Popup] Restored as CLOSED`);
                           }
 
@@ -1989,6 +2069,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     currentOpenButton.setAttribute('aria-expanded', 'true');
                     window.__popupState.isOpen = true;
 
+                    // Update button text to "Close Popup"
+                    const buttonText = currentOpenButton.querySelector('[data-popup-button-text]');
+                    if (buttonText) {
+                      buttonText.textContent = 'Close Popup';
+                    }
+
                     // Never animate during global restore - popup state should persist without flicker
                     shouldAnimate = false;
                     currentPanel.style.removeProperty('visibility');
@@ -1997,6 +2083,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     console.log('[Popup] Global restore: keeping popup open without animation');
                   } else {
                     currentContainer.style.display = 'none';
+
+                    // Update button text to "Open Popup"
+                    const buttonText = currentOpenButton.querySelector('[data-popup-button-text]');
+                    if (buttonText) {
+                      buttonText.textContent = 'Open Popup';
+                    }
                   }
 
                   lockContentOverflow(currentContent);
