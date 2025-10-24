@@ -597,10 +597,19 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             <%!-- Auto-close mobile drawer on navigation --%>
             <script>
               // Popup state persistence (designed for multiple popups)
+              // ============================================================================
+              // POPUP STATE MANAGEMENT
+              // ============================================================================
+              // The popup system uses sessionStorage to persist state across LiveView
+              // navigation and page refreshes. This allows the popup to maintain its
+              // position, size, scroll, and open/closed state seamlessly.
+
               const POPUP_STORAGE_KEY = 'phoenix_kit_popups';
               const POPUP_PLACEHOLDER_ID = 'admin-generic-popup-placeholder';
               const DEFAULT_POPUP_ID = 'admin-generic-popup';
 
+              // Debounce helper to limit how often we save state during drag/resize
+              // This prevents excessive writes to sessionStorage
               function debounce(func, wait) {
                 let timeout;
                 return function executedFunction(...args) {
@@ -613,6 +622,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 };
               }
 
+              // Load popup state from sessionStorage
+              // Returns: { isOpen, position: {left, top}, size: {width, height}, scroll }
               function getPopupState(popupId) {
                 try {
                   const allPopups = JSON.parse(sessionStorage.getItem(POPUP_STORAGE_KEY) || '{}');
@@ -623,6 +634,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
+              // Save popup state to sessionStorage and apply CSS variables
+              // This is called during drag, resize, open/close, and scroll
               function savePopupState(popupId, state) {
                 try {
                   const allPopups = JSON.parse(sessionStorage.getItem(POPUP_STORAGE_KEY) || '{}');
@@ -635,6 +648,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
+              // Apply popup state to CSS custom properties on document root
+              // These CSS vars allow the template to access popup state for styling
               function applyPopupCssVars(state) {
                 if (!state) return;
 
@@ -655,7 +670,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
+              // ============================================================================
+              // PLACEHOLDER SYSTEM
+              // ============================================================================
+              // During LiveView navigation, the popup DOM gets replaced. To prevent
+              // the popup from disappearing during navigation (causing flicker), we
+              // create a visual clone (placeholder) that stays visible while the real
+              // popup is being updated. Once navigation completes, we fade out the
+              // placeholder and show the restored real popup.
+
               function createPopupPlaceholder() {
+                // Don't create duplicate placeholders
                 const existing = document.getElementById(POPUP_PLACEHOLDER_ID);
                 if (existing) {
                   console.log('[Popup] Placeholder already present, skipping clone');
@@ -665,6 +690,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 const container = document.getElementById('admin-generic-popup');
                 const panel = container?.querySelector('[data-popup-panel]');
 
+                // Can't create placeholder without popup elements
                 if (!container || !panel) {
                   console.log('[Popup] Skipping placeholder creation - container or panel missing', {
                     hasContainer: !!container,
@@ -673,6 +699,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   return null;
                 }
 
+                // Don't create placeholder for hidden popups (would be invisible anyway)
                 if (container.getAttribute('aria-hidden') === 'true' || container.style.display === 'none') {
                   console.log('[Popup] Skipping placeholder creation - popup hidden', {
                     ariaHidden: container.getAttribute('aria-hidden'),
@@ -681,16 +708,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   return null;
                 }
 
+                // Clone the entire popup container
                 const clone = container.cloneNode(true);
+
+                // Remove all IDs to avoid conflicts (placeholder shouldn't be interactive)
                 clone.removeAttribute('id');
                 clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
                 clone.id = POPUP_PLACEHOLDER_ID;
+
+                // Make placeholder non-interactive (visual only)
                 clone.classList.add('pointer-events-none');
                 clone.style.pointerEvents = 'none';
                 clone.style.position = 'fixed';
                 clone.style.inset = '0';
                 clone.style.zIndex = '70';
 
+                // Position the cloned panel exactly where the real one is
                 const clonedPanel = clone.querySelector('[data-popup-panel]');
                 const clonedContent = clone.querySelector('[data-popup-content]');
                 const rect = panel.getBoundingClientRect();
@@ -703,36 +736,48 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   clonedPanel.style.position = 'fixed';
                 }
 
-                clone.querySelectorAll('[data-popup-close]').forEach((btn) => btn.remove());
+                // Keep close buttons visible but make them non-interactive
+                // This makes the placeholder look identical to the real popup
+                clone.querySelectorAll('[data-popup-close]').forEach((btn) => {
+                  btn.style.pointerEvents = 'none';
+                });
 
-                const savedState = getPopupState(DEFAULT_POPUP_ID);
-                if (savedState?.scroll && clonedContent) {
-                  clonedContent.style.overflow = 'hidden';
-                  clonedContent.scrollTop = savedState.scroll.scrollTop || 0;
-                  clonedContent.scrollLeft = savedState.scroll.scrollLeft || 0;
-                }
+                // Get current scroll position (will apply AFTER appending to DOM)
+                const originalContent = panel.querySelector('[data-popup-content]');
+                const scrollTop = originalContent?.scrollTop || 0;
+                const scrollLeft = originalContent?.scrollLeft || 0;
 
+                // Append clone to DOM first
                 document.body.appendChild(clone);
+
+                // THEN apply scroll position (must be after DOM insertion for browser to honor it)
+                if (clonedContent) {
+                  clonedContent.style.overflow = 'hidden';
+                  clonedContent.scrollTop = scrollTop;
+                  clonedContent.scrollLeft = scrollLeft;
+                }
 
                 container.dataset.popupPlaceholderActive = 'true';
 
-                // Fix 2: Don't hide container if popup is open - it should stay visible
-                if (!savedState?.isOpen) {
-                  container.style.visibility = 'hidden';
-                } else {
-                  console.log('[Popup] Keeping container visible - popup is open');
-                }
+                // ANTI-FLICKER: Hide the real container during navigation
+                // The placeholder shows a visual clone in the exact same position
+                // After navigation completes and state is restored, we'll fade out the placeholder
+                // This prevents any flicker from LiveView's DOM replacement
+                container.style.visibility = 'hidden';
+                console.log('[Popup] Hiding real container - placeholder is now visible');
 
-                const originalContent = panel.querySelector('[data-popup-content]');
-                console.log('[Popup] Placeholder created', {
+                console.log('[Popup] Placeholder created', JSON.stringify({
                   position: { left: rect.left, top: rect.top },
                   size: { width: rect.width, height: rect.height },
-                  hasOriginalContent: !!originalContent
-                });
+                  hasOriginalContent: !!originalContent,
+                  scrollPosition: { top: originalContent?.scrollTop || 0, left: originalContent?.scrollLeft || 0 }
+                }));
 
                 return clone;
               }
 
+              // Remove placeholder clone and restore real popup visibility
+              // Called after navigation completes and real popup is restored
               function removePopupPlaceholder() {
                 const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
                 if (placeholder) {
@@ -748,6 +793,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
+              // ============================================================================
+              // SCROLL RESTORATION HELPERS
+              // ============================================================================
+              // These functions manage scroll position and overflow locking during
+              // state restoration to prevent content from jumping or shifting
+
+              // Lock content overflow during state restore to prevent layout shifts
               function lockContentOverflow(content) {
                 if (!content) return;
 
@@ -759,6 +811,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 console.log('[Popup] Locked overflow on popup content during restore');
               }
 
+              // Restore original overflow after state restore completes
               function unlockContentOverflow(content) {
                 if (!content) return;
 
@@ -773,6 +826,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 console.log('[Popup] Restored overflow on popup content after animation');
               }
 
+              // Smoothly fade out placeholder before removing it from DOM
+              // This prevents jarring visual changes when transitioning to real popup
               function fadeOutPlaceholder() {
                 const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
 
@@ -786,7 +841,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
+              // Apply saved popup state to CSS vars immediately on page load
               applyPopupCssVars(getPopupState('admin-generic-popup'));
+
+              // Queue scroll restoration with retry logic
+              // LiveView DOM updates can take multiple frames to settle, so we retry
+              // until scroll position is stable for 2 consecutive frames
               function queueScrollRestore(target, popupId = DEFAULT_POPUP_ID, onComplete) {
                 if (!target) {
                   console.log('[Popup] Scroll restore skipped - missing content target');
@@ -815,8 +875,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                 const applyScroll = () => {
                   const savedState = getPopupState(popupId);
+
                   if (!savedState || !savedState.scroll) {
-                    console.log('[Popup] Scroll restore aborted - no scroll data', { popupId, savedState });
+                    console.log('[Popup] Scroll restore aborted - no scroll data');
                     finish();
                     return;
                   }
@@ -824,8 +885,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   const desiredTop = savedState.scroll.scrollTop || 0;
                   const desiredLeft = savedState.scroll.scrollLeft || 0;
 
+                  console.log('[Popup] Applying scroll:', JSON.stringify({
+                    desired: { top: desiredTop, left: desiredLeft },
+                    before: { top: target.scrollTop, left: target.scrollLeft }
+                  }));
+
                   target.scrollTop = desiredTop;
                   target.scrollLeft = desiredLeft;
+
+                  console.log('[Popup] After setting scroll:', JSON.stringify({
+                    actual: { top: target.scrollTop, left: target.scrollLeft }
+                  }));
 
                   attempts += 1;
 
@@ -854,18 +924,40 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 applyScroll();
               }
 
-              // Global flags to track popup state (persists across DOM replacements)
+              // ============================================================================
+              // GLOBAL STATE FLAGS
+              // ============================================================================
+              // These window-level flags persist across LiveView DOM replacements
+              // allowing us to maintain popup state during navigation
+
               window.__popupIsInitialized = window.__popupIsInitialized || false;
-              window.__popupIsInteracting = false; // Flag to prevent restore during drag/resize
+              window.__popupIsInteracting = false; // Prevents restore during drag/resize
               window.__popupFullInitObserver = window.__popupFullInitObserver || null;
               window.__popupSkipReinitObserver = window.__popupSkipReinitObserver || null;
+
+              // ============================================================================
+              // MAIN INITIALIZATION FUNCTION
+              // ============================================================================
+              // This function runs on initial page load AND after each LiveView navigation
+              // It handles two paths:
+              // 1. First-time init: Sets up all event listeners and observers
+              // 2. Re-init after navigation: Updates DOM references and event listeners
 
               function initAdminPopup() {
                 const container = document.getElementById('admin-generic-popup');
                 const openButton = document.getElementById('admin-generic-popup-button');
 
+                // Can't initialize without required elements
+                // This happens when navigating to pages without a popup (e.g., Emails page)
+                // We mark as not initialized and exit gracefully - the popup state is preserved
+                // in sessionStorage so when user navigates back to a page with popup, it reopens
                 if (!container || !openButton) {
-                  console.warn('[Popup] Skipping init - missing elements', { container: !!container, openButton: !!openButton });
+                  console.warn('[Popup] Skipping init - missing elements (popup state preserved)', {
+                    container: !!container,
+                    openButton: !!openButton,
+                    preservedState: getPopupState('admin-generic-popup')
+                  });
+                  window.__popupIsInitialized = false;
                   return;
                 }
 
@@ -874,14 +966,23 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 const closeButtons = container.querySelectorAll('[data-popup-close]');
                 const resizeHandle = container.querySelector('[data-popup-resize-handle]');
                 const content = container.querySelector('[data-popup-content]');
-                const popupId = container.id; // Define early so it's available in both paths
+                const popupId = container.id;
 
+                // Apply saved state immediately to prevent flash of unstyled content
                 applyPopupCssVars(getPopupState(popupId));
 
-                // Check if already initialized globally (not just on this DOM element)
-                if (window.__popupIsInitialized) {
-                  console.log('[Popup] Already initialized globally, skipping re-initialization');
+                // ========================================================================
+                // RE-INITIALIZATION PATH (after navigation)
+                // ========================================================================
+                // When LiveView navigates, phx:page-loading-stop calls initAdminPopup()
+                // The DOM is replaced but our global flags remain
+                // We need to re-attach event listeners to the new DOM elements
 
+                const wasAlreadyInitialized = window.__popupIsInitialized;
+                if (wasAlreadyInitialized) {
+                  console.log('[Popup] Re-running initialization for new DOM elements after navigation');
+
+                  // Clean up old observers that are watching the old (removed) DOM
                   if (window.__popupFullInitObserver) {
                     window.__popupFullInitObserver.disconnect();
                     window.__popupFullInitObserver = null;
@@ -893,36 +994,35 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     window.__popupSkipReinitObserver = null;
                   }
 
-                  // But still need to set up observers for the NEW panel
                   if (panel) {
-                    // Attach close button handlers for this new instance
-                    closeButtons.forEach((button) => {
-                      // Remove old listener if exists (prevent duplicates)
-                      button.removeEventListener('click', window.__popupHidePopup);
-                      button.addEventListener('click', window.__popupHidePopup);
-                    });
-
-                    // Attach toggle button handler
-                    openButton.removeEventListener('click', window.__popupToggle);
-                    openButton.addEventListener('click', window.__popupToggle);
-
-                    // Add marker to the panel
+                    // Mark this panel as initialized
                     panel.style.setProperty('--popup-initialized', '1');
 
-                    // Store a global restore function that works with the current panel
+                    // Create a restore function that gets FRESH DOM references
+                    // This is critical because after navigation, the old DOM elements
+                    // are gone and we need to work with the new ones
                     window.__popupRestoreState = function() {
-                      console.log('[Popup] __popupRestoreState invoked', {
-                        interacting: window.__popupIsInteracting,
-                        containerInDom: document.body.contains(container),
-                        panelInDom: document.body.contains(panel)
-                      });
+                      // Don't interfere with active drag/resize operations
                       if (window.__popupIsInteracting) {
                         console.log('[Popup] Skipping restore - user is interacting');
                         return;
                       }
 
-                      if (!document.body.contains(container) || !document.body.contains(panel) || !document.body.contains(openButton)) {
-                        console.log('[Popup] Skipping restore - popup elements no longer exist on current page');
+                      // Get fresh references - the old ones are invalid after navigation
+                      const currentContainer = document.getElementById(popupId);
+                      const currentPanel = currentContainer?.querySelector('[data-popup-panel]');
+                      const currentOpenButton = document.getElementById(popupId + '-button');
+
+                      console.log('[Popup] __popupRestoreState invoked', {
+                        interacting: window.__popupIsInteracting,
+                        containerInDom: !!currentContainer,
+                        panelInDom: !!currentPanel,
+                        buttonInDom: !!currentOpenButton
+                      });
+
+                      // Bail if elements don't exist (we might be on a different page)
+                      if (!currentContainer || !currentPanel || !currentOpenButton) {
+                        console.log('[Popup] Skipping restore - popup elements not found in current DOM');
                         return;
                       }
 
@@ -934,75 +1034,91 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                       console.log('[Popup] Restoring state to new panel after navigation:', savedState);
 
+                      const currentContent = currentPanel.querySelector('[data-popup-content]');
+
                       applyPopupCssVars(savedState);
 
+                      // Restore position (where user dragged it to)
                       if (savedState.position) {
-                        panel.style.left = `${savedState.position.left}px`;
-                        panel.style.top = `${savedState.position.top}px`;
+                        currentPanel.style.left = `${savedState.position.left}px`;
+                        currentPanel.style.top = `${savedState.position.top}px`;
                       }
+
+                      // Restore size (what user resized it to)
                       if (savedState.size) {
-                        panel.style.width = `${savedState.size.width}px`;
-                        panel.style.height = `${savedState.size.height}px`;
+                        currentPanel.style.width = `${savedState.size.width}px`;
+                        currentPanel.style.height = `${savedState.size.height}px`;
                       }
+
                       let shouldAnimate = false;
 
                       if (savedState.isOpen) {
-                        // Set display and attributes without animations
-                        container.style.display = 'block';
-                        container.setAttribute('aria-hidden', 'false');
-                        openButton.setAttribute('aria-expanded', 'true');
+                        // Restore open state without animation
+                        // ANTI-FLICKER: Don't animate - popup should just stay where it was
+                        currentContainer.style.display = 'block';
+                        currentContainer.setAttribute('aria-hidden', 'false');
+                        currentOpenButton.setAttribute('aria-expanded', 'true');
 
-                        // Never animate during skip-reinit - popup is already supposed to be open
-                        // This is called after navigation when popup state should persist
                         shouldAnimate = false;
-                        panel.style.removeProperty('visibility');
-                        panel.style.removeProperty('opacity');
-                        panel.style.removeProperty('transform');
+                        currentPanel.style.removeProperty('visibility');
+                        currentPanel.style.removeProperty('opacity');
+                        currentPanel.style.removeProperty('transform');
                         console.log('[Popup] Skip-reinit: keeping popup open without animation');
                       } else {
-                        container.style.display = 'none';
+                        // Popup was closed - keep it closed
+                        currentContainer.style.display = 'none';
                         console.log('[Popup] Restoring popup as closed (skip path)');
                       }
 
-                      lockContentOverflow(content);
+                      // Lock overflow during scroll restore to prevent jumps
+                      lockContentOverflow(currentContent);
 
-                      queueScrollRestore(content, popupId, () => {
-                        panel.style.removeProperty('visibility');
+                      // Restore scroll position and complete the restore process
+                      queueScrollRestore(currentContent, popupId, () => {
+                        currentPanel.style.removeProperty('visibility');
 
                         if (savedState.isOpen) {
                           if (shouldAnimate) {
-                            panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
-                            panel.style.opacity = '1';
-                            panel.style.transform = 'translateY(0)';
+                            // Fade in animation (currently never used - shouldAnimate is always false)
+                            currentPanel.style.transition = 'opacity 120ms ease, transform 120ms ease';
+                            currentPanel.style.opacity = '1';
+                            currentPanel.style.transform = 'translateY(0)';
 
                             setTimeout(() => {
-                              panel.style.removeProperty('transition');
+                              currentPanel.style.removeProperty('transition');
                             }, 150);
                           } else {
-                            panel.style.removeProperty('opacity');
-                            panel.style.removeProperty('transform');
-                            panel.style.removeProperty('transition');
+                            // No animation - just ensure clean state
+                            currentPanel.style.removeProperty('opacity');
+                            currentPanel.style.removeProperty('transform');
+                            currentPanel.style.removeProperty('transition');
                           }
                         } else {
-                          panel.style.removeProperty('opacity');
-                          panel.style.removeProperty('transform');
-                          panel.style.removeProperty('transition');
+                          // Popup closed - clean up any animation styles
+                          currentPanel.style.removeProperty('opacity');
+                          currentPanel.style.removeProperty('transform');
+                          currentPanel.style.removeProperty('transition');
                         }
 
-                        unlockContentOverflow(content);
+                        unlockContentOverflow(currentContent);
                         requestAnimationFrame(() => fadeOutPlaceholder());
                         window.__popupRestoredDuringInit = false;
                       });
                     };
 
+                    // Run restore immediately if we have the function defined
                     if (typeof window.__popupRestoreState === 'function') {
                       window.__popupRestoreState();
                     }
 
-                    // Set up observer for this new panel instance
-                    const skipObserver = new MutationObserver((mutations) => {
-                      // Observer is always active - it's our safety net for catching DOM patches
+                    // ================================================================
+                    // MUTATION OBSERVER (Re-init path)
+                    // ================================================================
+                    // Watch for LiveView clearing our styles and restore them
+                    // This is a safety net for small DOM updates that don't trigger
+                    // full navigation (like phx-update patches)
 
+                    const skipObserver = new MutationObserver((mutations) => {
                       for (const mutation of mutations) {
                         if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
                           const timestamp = new Date().toISOString().split('T')[1];
@@ -1014,11 +1130,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             height: panel.style.height
                           };
 
-                          // Check if styles were cleared (set to empty strings by LiveView)
+                          // LiveView might clear inline styles during patches
                           const stylesCleared = !panel.style.left && !panel.style.top;
 
                           console.log(`[${timestamp}] [Popup] Observer (skip-reinit) detected style change, marker:`, !!hasMarker, 'styles cleared:', stylesCleared, 'styles:', currentStyles);
 
+                          // Restore if LiveView cleared our styles
                           if (!hasMarker || stylesCleared) {
                             console.log(`[${timestamp}] [Popup] LiveView cleared styles - RESTORING NOW`);
                             const savedState = getPopupState(popupId);
@@ -1036,7 +1153,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                               panel.style.setProperty('--popup-initialized', '1');
 
-                              // Reconnect immediately to catch any subsequent changes
+                              // Reconnect to catch future patches
                               skipObserver.observe(panel, {
                                 attributes: true,
                                 attributeFilter: ['style']
@@ -1054,29 +1171,62 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     window.__popupSkipReinitObserver = skipObserver;
                     console.log('[Popup] Skip-reinit observer started watching panel element:', panel);
                   }
-                  return;
+                  // IMPORTANT: Fall through to re-run full initialization
+                  // This re-attaches all event listeners to the new DOM elements
                 }
+
+                // ========================================================================
+                // FIRST-TIME INITIALIZATION PATH (and re-init continuation)
+                // ========================================================================
+                // Both first load and after navigation reach this point
+                // The difference: wasAlreadyInitialized determines if we skip animations
 
                 if (!panel || !handle) {
                   console.warn('[Popup] Missing panel or handle', { hasPanel: !!panel, hasHandle: !!handle });
                   return;
                 }
 
-                console.log('[Popup] First-time initialization:', popupId);
+                if (wasAlreadyInitialized) {
+                  console.log('[Popup] Re-initializing popup after navigation - will skip animations');
+                }
 
-                let isOpen = false;
-                let isDragging = false;
-                let dragPointerId = null;
-                let dragOffsetX = 0;
-                let dragOffsetY = 0;
-                let isResizing = false;
-                let resizePointerId = null;
-                let startWidth = 0;
-                let startHeight = 0;
-                let startX = 0;
-                let startY = 0;
+                console.log(wasAlreadyInitialized ? '[Popup] Re-initialization after navigation:' : '[Popup] First-time initialization:', popupId);
 
-                // Restore state from sessionStorage (ONLY on first initialization)
+                // ================================================================
+                // DRAG/RESIZE STATE VARIABLES
+                // ================================================================
+                // These are stored globally and ONLY initialized once
+                // During navigation, we keep these values so drag/resize state persists
+                // This prevents the popup from resetting during active drag operations
+
+                if (!window.__popupState) {
+                  window.__popupState = {
+                    isOpen: false,
+                    isDragging: false,
+                    dragPointerId: null,
+                    dragOffsetX: 0,
+                    dragOffsetY: 0,
+                    isResizing: false,
+                    resizePointerId: null,
+                    startWidth: 0,
+                    startHeight: 0,
+                    startX: 0,
+                    startY: 0
+                  };
+                }
+
+                // Destructure global state into local variables for initial reference
+                // NOTE: These are NOT used by event handlers - handlers read directly from window.__popupState
+                // This destructuring only provides initial values for logic below
+                // Event handlers MUST read window.__popupState to get current values (not stale copies)
+                let { isOpen, isDragging, dragPointerId, dragOffsetX, dragOffsetY, isResizing, resizePointerId, startWidth, startHeight, startX, startY } = window.__popupState;
+
+                // ================================================================
+                // STATE RESTORE FUNCTION (First initialization only)
+                // ================================================================
+                // Restores popup state from sessionStorage on initial page load
+                // This is NOT called on re-init after navigation (that uses window.__popupRestoreState)
+
                 const restoreState = () => {
                   const savedState = getPopupState(popupId);
                   console.log('[Popup] Restoring state from sessionStorage:', savedState);
@@ -1088,49 +1238,50 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   applyPopupCssVars(savedState);
 
-                  applyPopupCssVars(savedState);
-
-                  // Restore position
+                  // Restore position (where user dragged it to)
                   if (savedState.position) {
                     panel.style.left = `${savedState.position.left}px`;
                     panel.style.top = `${savedState.position.top}px`;
                   }
 
-                  // Restore size
+                  // Restore size (what user resized it to)
                   if (savedState.size) {
                     panel.style.width = `${savedState.size.width}px`;
                     panel.style.height = `${savedState.size.height}px`;
                   }
 
-                  // Restore scroll position
                   let shouldAnimate = false;
 
                   if (savedState.isOpen) {
-                    // Set display and attributes without animations
+                    // Restore open state
                     container.style.display = 'block';
                     container.setAttribute('aria-hidden', 'false');
                     openButton.setAttribute('aria-expanded', 'true');
-                    isOpen = true;
+                    window.__popupState.isOpen = true;
 
-                    // Never animate during full-init restore - just restore state directly
-                    // On refresh, the popup should appear in its saved state without animation
+                    // ANTI-FLICKER: No animation on page refresh - popup should appear
+                    // instantly in its saved state
                     shouldAnimate = false;
                     panel.style.removeProperty('visibility');
                     panel.style.removeProperty('opacity');
                     panel.style.removeProperty('transform');
                     console.log('[Popup] Full-init: restoring popup as open without animation');
                   } else {
+                    // Popup was closed - keep it closed
                     container.style.display = 'none';
                     console.log('[Popup] Restoring popup as closed (init path)');
                   }
 
+                  // Lock overflow during scroll restore
                   lockContentOverflow(content);
 
+                  // Restore scroll position
                   queueScrollRestore(content, popupId, () => {
                     panel.style.removeProperty('visibility');
 
                     if (savedState.isOpen) {
                       if (shouldAnimate) {
+                        // Fade in animation (currently never used - shouldAnimate is always false)
                         panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
                         panel.style.opacity = '1';
                         panel.style.transform = 'translateY(0)';
@@ -1139,11 +1290,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           panel.style.removeProperty('transition');
                         }, 150);
                       } else {
+                        // No animation - just ensure clean state
                         panel.style.removeProperty('opacity');
                         panel.style.removeProperty('transform');
                         panel.style.removeProperty('transition');
                       }
                     } else {
+                      // Popup closed - clean up any animation styles
                       panel.style.removeProperty('opacity');
                       panel.style.removeProperty('transform');
                       panel.style.removeProperty('transition');
@@ -1156,6 +1309,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   return savedState;
                 };
 
+                // ================================================================
+                // HELPER FUNCTIONS
+                // ================================================================
+
+                // Center the popup panel within the container
+                // Used when showing popup for the first time
                 const centerPanel = () => {
                   console.log('[Popup] Center panel - start');
                   panel.style.width = '';
@@ -1185,6 +1344,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   panel.style.top = `${top}px`;
                 };
 
+                // Ensure popup stays within container bounds
+                // Prevents dragging popup completely off-screen
                 const clampPosition = (left, top) => {
                   const containerRect = container.getBoundingClientRect();
                   const panelRect = panel.getBoundingClientRect();
@@ -1199,26 +1360,30 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   return clamped;
                 };
 
+                // Clean up drag operation - release pointer capture and remove event listeners
                 const stopDragging = () => {
-                  if (!isDragging) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isDragging) {
                     return;
                   }
 
                   console.log('[Popup] Stop dragging');
 
-                  if (handle.releasePointerCapture && dragPointerId !== null) {
+                  // Release pointer capture
+                  if (handle.releasePointerCapture && window.__popupState.dragPointerId !== null) {
                     try {
-                      handle.releasePointerCapture(dragPointerId);
+                      handle.releasePointerCapture(window.__popupState.dragPointerId);
                     } catch (_error) {}
                   }
 
-                  isDragging = false;
-                  dragPointerId = null;
+                  // Update global state
+                  window.__popupState.isDragging = false;
+                  window.__popupState.dragPointerId = null;
                   window.removeEventListener('pointermove', handleDragMove);
                   window.removeEventListener('pointerup', endDrag);
                   window.removeEventListener('pointercancel', endDrag);
 
-                  // Save position after drag
+                  // Save final position to sessionStorage
                   const currentPosition = {
                     left: parseInt(panel.style.left) || 0,
                     top: parseInt(panel.style.top) || 0
@@ -1238,38 +1403,42 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   });
                 };
 
+                // Clean up resize operation - release pointer capture and remove event listeners
                 const stopResizing = () => {
-                  if (!isResizing) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isResizing) {
                     return;
                   }
 
                   console.log('[Popup] Stop resizing');
 
-                  if (resizeHandle && resizeHandle.releasePointerCapture && resizePointerId !== null) {
+                  // Release pointer capture
+                  if (resizeHandle && resizeHandle.releasePointerCapture && window.__popupState.resizePointerId !== null) {
                     try {
-                      resizeHandle.releasePointerCapture(resizePointerId);
+                      resizeHandle.releasePointerCapture(window.__popupState.resizePointerId);
                     } catch (_error) {}
                   }
 
-                  isResizing = false;
-                  resizePointerId = null;
+                  // Update global state
+                  window.__popupState.isResizing = false;
+                  window.__popupState.resizePointerId = null;
                   window.removeEventListener('pointermove', handleResizeMove);
                   window.removeEventListener('pointerup', endResize);
                   window.removeEventListener('pointercancel', endResize);
 
-                  // Save size after resize
+                  // Save final size to sessionStorage
                   const currentSize = {
                     width: parseInt(panel.style.width) || panel.offsetWidth,
                     height: parseInt(panel.style.height) || panel.offsetHeight
                   };
                   savePopupState(popupId, { size: currentSize });
 
-                  // Clear interaction flag
+                  // Clear interaction flag to allow state restore
                   const timestamp = new Date().toISOString().split('T')[1];
                   console.log(`[${timestamp}] [Popup] Clearing interaction flag after resize`);
                   window.__popupIsInteracting = false;
 
-                  // Force restore size in case LiveView changed it during resize
+                  // Re-apply size to override any LiveView changes during resize
                   requestAnimationFrame(() => {
                     panel.style.width = `${currentSize.width}px`;
                     panel.style.height = `${currentSize.height}px`;
@@ -1277,56 +1446,94 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   });
                 };
 
+                // Local show/hide functions (used during first initialization)
+                // Note: Global versions (window.__popupShowPopup, etc.) are defined later
+                // and are used after navigation
                 const showPopup = () => {
                   centerPanel();
                   console.log('[Popup] Show');
                   container.style.display = 'block';
                   container.setAttribute('aria-hidden', 'false');
                   openButton.setAttribute('aria-expanded', 'true');
-                  isOpen = true;
+                  window.__popupState.isOpen = true;
                   panel.focus({ preventScroll: true });
                   document.addEventListener('keydown', handleKeydown);
 
-                  // Save open state
                   savePopupState(popupId, { isOpen: true });
                 };
 
                 const hidePopup = () => {
-                  if (!isOpen) {
+                  // Read from window.__popupState to get current value (not stale local copy)
+                  if (!window.__popupState.isOpen) {
                     return;
                   }
 
                   console.log('[Popup] Hide');
 
+                  // Stop any active drag/resize operations
                   stopDragging();
                   stopResizing();
 
                   container.setAttribute('aria-hidden', 'true');
                   openButton.setAttribute('aria-expanded', 'false');
                   container.style.display = 'none';
-                  isOpen = false;
+                  window.__popupState.isOpen = false;
 
                   document.removeEventListener('keydown', handleKeydown);
 
-                  // Save closed state
                   savePopupState(popupId, { isOpen: false });
                 };
 
                 // Store functions globally that work with current DOM elements
+                // ================================================================
+                // POPUP OPEN/CLOSE/TOGGLE FUNCTIONS
+                // ================================================================
+                // These global functions are called by the toggle button and close buttons
+                // They're global so they persist across navigation and can be called
+                // from anywhere (including onclick handlers in the template)
+
                 window.__popupShowPopup = function() {
                   const container = document.getElementById('admin-generic-popup');
                   const openButton = document.getElementById('admin-generic-popup-button');
                   const panel = container?.querySelector('[data-popup-panel]');
+                  const content = container?.querySelector('[data-popup-content]');
                   if (!container || !panel || !openButton) return;
 
-                  console.log('[Popup] Show');
+                  console.log('[Popup] Show - resetting to default size and centered position');
+
+                  // RESET FIX: Clear all custom size/position when manually opening
+                  // This prevents the "tiny popup" bug from bad saved state
+                  panel.style.removeProperty('left');
+                  panel.style.removeProperty('top');
+                  panel.style.removeProperty('width');
+                  panel.style.removeProperty('height');
+
+                  // Center the popup with default size
+                  const containerRect = container.getBoundingClientRect();
+                  const panelRect = panel.getBoundingClientRect();
+                  const containerWidth = containerRect.width || window.innerWidth || panelRect.width || 448;
+                  const containerHeight = containerRect.height || window.innerHeight || panelRect.height || 320;
+                  const width = panelRect.width || 448;
+                  const height = panelRect.height || 320;
+                  const left = Math.max(0, Math.round((containerWidth - width) / 2));
+                  const top = Math.max(0, Math.round(containerHeight * 0.2));
+
+                  panel.style.left = `${left}px`;
+                  panel.style.top = `${top}px`;
+
                   container.style.display = 'block';
                   container.setAttribute('aria-hidden', 'false');
                   openButton.setAttribute('aria-expanded', 'true');
                   panel.focus({ preventScroll: true });
 
-                  savePopupState('admin-generic-popup', { isOpen: true });
-                  queueScrollRestore(container.querySelector('[data-popup-content]'), 'admin-generic-popup');
+                  // Save the clean centered state
+                  savePopupState('admin-generic-popup', {
+                    isOpen: true,
+                    position: { left, top },
+                    size: { width, height }
+                  });
+
+                  queueScrollRestore(content, 'admin-generic-popup');
                 };
 
                 window.__popupHidePopup = function() {
@@ -1356,16 +1563,27 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   }
                 };
 
+                // ================================================================
+                // DRAG & RESIZE EVENT HANDLERS
+                // ================================================================
+                // These handlers use pointer events for smooth dragging/resizing
+                // with pointer capture to prevent losing the mouse during fast movements
+                // They save state periodically to sessionStorage during the operation
+                //
+                // CRITICAL: All handlers read state from window.__popupState directly
+                // to get current values (not stale local copies from destructuring)
+
                 const endDrag = (event) => {
                   console.log('[Popup] End drag');
-                  if (!isDragging || (dragPointerId !== null && event.pointerId !== dragPointerId)) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isDragging || (window.__popupState.dragPointerId !== null && event.pointerId !== window.__popupState.dragPointerId)) {
                     return;
                   }
 
                   stopDragging();
                 };
 
-                // Debounced save during drag to handle LiveView updates
+                // Debounced save during drag to avoid excessive writes to sessionStorage
                 let dragSaveTimeout = null;
                 const saveDragState = () => {
                   if (dragSaveTimeout) {
@@ -1382,15 +1600,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 };
 
                 const handleDragMove = (event) => {
-                  if (!isDragging) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isDragging) {
                     return;
                   }
 
                   const containerRect = container.getBoundingClientRect();
                   const mouseXInContainer = event.clientX - containerRect.left;
                   const mouseYInContainer = event.clientY - containerRect.top;
-                  const nextLeft = mouseXInContainer - dragOffsetX;
-                  const nextTop = mouseYInContainer - dragOffsetY;
+                  const nextLeft = mouseXInContainer - window.__popupState.dragOffsetX;
+                  const nextTop = mouseYInContainer - window.__popupState.dragOffsetY;
                   const clamped = clampPosition(nextLeft, nextTop);
 
                   console.log('[Popup] Drag move', {
@@ -1398,8 +1617,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     mouseInContainer: { x: mouseXInContainer, y: mouseYInContainer },
                     containerLeft: containerRect.left,
                     containerTop: containerRect.top,
-                    dragOffsetX,
-                    dragOffsetY,
+                    dragOffsetX: window.__popupState.dragOffsetX,
+                    dragOffsetY: window.__popupState.dragOffsetY,
                     nextLeft,
                     nextTop,
                     clamped
@@ -1412,7 +1631,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   saveDragState();
                 };
 
+                // Initialize drag operation when user grabs the handle
                 const startDrag = (event) => {
+                  // Only respond to left mouse button
                   if (event.button !== undefined && event.button !== 0) {
                     return;
                   }
@@ -1420,10 +1641,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   console.log('[Popup] Start drag', { pointer: { x: event.clientX, y: event.clientY } });
 
                   event.preventDefault();
-                  window.__popupIsInteracting = true;
+                  window.__popupIsInteracting = true; // Prevent state restore during drag
+
+                  // Get fresh DOM references (important after navigation)
+                  const container = document.getElementById('admin-generic-popup');
+                  const panel = container?.querySelector('[data-popup-panel]');
+                  const handle = container?.querySelector('[data-popup-handle]');
+                  if (!container || !panel || !handle) return;
 
                   const containerRect = container.getBoundingClientRect();
 
+                  // Clear any transform and get current position
                   panel.style.transform = '';
                   const panelRect = panel.getBoundingClientRect();
                   const handleRect = handle.getBoundingClientRect();
@@ -1433,39 +1661,46 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   panel.style.left = `${currentLeft}px`;
                   panel.style.top = `${currentTop}px`;
 
-                  isDragging = true;
-                  dragPointerId = event.pointerId;
+                  // Store drag state globally
+                  window.__popupState.isDragging = true;
+                  window.__popupState.dragPointerId = event.pointerId;
 
+                  // Calculate offset between mouse and panel corner
+                  // This keeps the panel from jumping when drag starts
                   const mouseXInContainer = event.clientX - containerRect.left;
                   const mouseYInContainer = event.clientY - containerRect.top;
-                  dragOffsetX = mouseXInContainer - currentLeft;
-                  dragOffsetY = mouseYInContainer - currentTop;
+                  window.__popupState.dragOffsetX = mouseXInContainer - currentLeft;
+                  window.__popupState.dragOffsetY = mouseYInContainer - currentTop;
 
                   console.log('[Popup] Start drag - Initial state', {
                     mouse: { clientX: event.clientX, clientY: event.clientY },
                     mouseInContainer: { x: mouseXInContainer, y: mouseYInContainer },
                     panelPosition: { left: currentLeft, top: currentTop },
                     container: { left: containerRect.left, top: containerRect.top },
-                    calculatedOffset: { x: dragOffsetX, y: dragOffsetY },
+                    calculatedOffset: { x: window.__popupState.dragOffsetX, y: window.__popupState.dragOffsetY },
                     verification: {
-                      shouldEqual_mouseX: `${mouseXInContainer} should equal ${currentLeft} + ${dragOffsetX} = ${currentLeft + dragOffsetX}`,
-                      matches: mouseXInContainer === currentLeft + dragOffsetX
+                      shouldEqual_mouseX: `${mouseXInContainer} should equal ${currentLeft} + ${window.__popupState.dragOffsetX} = ${currentLeft + window.__popupState.dragOffsetX}`,
+                      matches: mouseXInContainer === currentLeft + window.__popupState.dragOffsetX
                     }
                   });
 
+                  // Capture pointer to this element for smooth dragging
                   if (handle.setPointerCapture) {
                     try {
                       handle.setPointerCapture(event.pointerId);
                     } catch (_error) {}
                   }
 
+                  // Attach global event listeners for drag operation
                   window.addEventListener('pointermove', handleDragMove);
                   window.addEventListener('pointerup', endDrag);
                   window.addEventListener('pointercancel', endDrag);
                 };
 
+                // End resize operation (called on pointerup/pointercancel)
                 const endResize = (event) => {
-                  if (!isResizing || (resizePointerId !== null && event.pointerId !== resizePointerId)) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isResizing || (window.__popupState.resizePointerId !== null && event.pointerId !== window.__popupState.resizePointerId)) {
                     return;
                   }
 
@@ -1489,12 +1724,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 };
 
                 const handleResizeMove = (event) => {
-                  if (!isResizing) {
+                  // Read from window.__popupState to get current values (not stale local copies)
+                  if (!window.__popupState.isResizing) {
                     return;
                   }
 
-                  const nextWidth = startWidth + (event.clientX - startX);
-                  const nextHeight = startHeight + (event.clientY - startY);
+                  // MINIMUM SIZE CONSTRAINT: Prevent popup from being resized smaller than 200x200px
+                  // This prevents the "tiny popup" issue and ensures usability
+                  const nextWidth = Math.max(200, window.__popupState.startWidth + (event.clientX - window.__popupState.startX));
+                  const nextHeight = Math.max(200, window.__popupState.startHeight + (event.clientY - window.__popupState.startY));
 
                   console.log('[Popup] Resize move', { nextWidth, nextHeight });
 
@@ -1505,7 +1743,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   saveResizeState();
                 };
 
+                // Initialize resize operation when user grabs the resize handle
                 const startResize = (event) => {
+                  // Only respond to left mouse button
                   if (!resizeHandle || (event.button !== undefined && event.button !== 0)) {
                     return;
                   }
@@ -1513,36 +1753,42 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   console.log('[Popup] Start resize', { x: event.clientX, y: event.clientY });
 
                   event.preventDefault();
-                  window.__popupIsInteracting = true;
+                  window.__popupIsInteracting = true; // Prevent state restore during resize
 
                   const containerRect = container.getBoundingClientRect();
 
+                  // Clear any transform and lock position during resize
                   panel.style.transform = '';
                   const panelRect = panel.getBoundingClientRect();
                   panel.style.left = `${panelRect.left - containerRect.left}px`;
                   panel.style.top = `${panelRect.top - containerRect.top}px`;
 
-                  isResizing = true;
-                  resizePointerId = event.pointerId;
-                  startWidth = panelRect.width;
-                  startHeight = panelRect.height;
-                  startX = event.clientX;
-                  startY = event.clientY;
+                  // Store resize state globally
+                  window.__popupState.isResizing = true;
+                  window.__popupState.resizePointerId = event.pointerId;
+                  window.__popupState.startWidth = panelRect.width;
+                  window.__popupState.startHeight = panelRect.height;
+                  window.__popupState.startX = event.clientX;
+                  window.__popupState.startY = event.clientY;
 
+                  // Capture pointer for smooth resizing
                   if (resizeHandle.setPointerCapture) {
                     try {
                       resizeHandle.setPointerCapture(event.pointerId);
                     } catch (_error) {}
                   }
 
+                  // Attach global event listeners for resize operation
                   window.addEventListener('pointermove', handleResizeMove);
                   window.addEventListener('pointerup', endResize);
                   window.addEventListener('pointercancel', endResize);
                 };
 
+                // Handle Escape key to close popup
                 const handleKeydown = (event) => {
                   console.log('[Popup] Keydown', event.key);
-                  if (!isOpen) {
+                  // Read from window.__popupState to get current value (not stale local copy)
+                  if (!window.__popupState.isOpen) {
                     return;
                   }
 
@@ -1552,39 +1798,74 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   }
                 };
 
-                // Restore saved state or use defaults
+                // ================================================================
+                // STATE RESTORATION (Different behavior for first-init vs re-init)
+                // ================================================================
+                // First-time: Restore from sessionStorage and set display accordingly
+                // Re-init: Skip restore (already handled by skip-reinit path above)
+                //
+                // WHY: The skip-reinit path (window.__popupRestoreState) runs BEFORE
+                // this full-init code and already restored position/size/open state.
+                // Running restore logic again here would override that and close the popup.
+
                 console.log('[Popup] About to restore state, current panel styles:', {
                   left: panel.style.left,
                   top: panel.style.top,
                   width: panel.style.width,
                   height: panel.style.height
                 });
-                const restored = restoreState();
-                window.__popupRestoredDuringInit = !!restored; // Track that we restored globally
-                console.log('[Popup] restoreState result', {
-                  restored: !!restored,
-                  restoredDuringInit: window.__popupRestoredDuringInit
-                });
-                console.log('[Popup] After restore, panel styles:', {
-                  left: panel.style.left,
-                  top: panel.style.top,
-                  width: panel.style.width,
-                  height: panel.style.height,
-                  restored: !!restored
-                });
 
-                if (!restored) {
-                  // No saved state, popup starts closed at default position
-                  console.log('[Popup] No saved state, using defaults');
-                  container.style.display = 'none';
-                } else if (restored.isOpen) {
-                  // Popup was restored as open, add keydown listener
-                  console.log('[Popup] Popup restored as open, container display:', container.style.display);
-                  document.addEventListener('keydown', handleKeydown);
+                let restored = false;
+                if (!wasAlreadyInitialized) {
+                  // ============================================================
+                  // FIRST-TIME INITIALIZATION PATH
+                  // ============================================================
+                  // Restore from sessionStorage and set display/listeners
+
+                  restored = restoreState();
+                  window.__popupRestoredDuringInit = !!restored;
+                  console.log('[Popup] restoreState result (first init)', {
+                    restored: !!restored,
+                    restoredDuringInit: window.__popupRestoredDuringInit
+                  });
+
+                  console.log('[Popup] After restore, panel styles:', {
+                    left: panel.style.left,
+                    top: panel.style.top,
+                    width: panel.style.width,
+                    height: panel.style.height,
+                    restored: !!restored
+                  });
+
+                  // Set display and listeners based on restored state
+                  if (!restored) {
+                    // No saved state in sessionStorage, popup starts closed
+                    console.log('[Popup] No saved state, using defaults');
+                    container.style.display = 'none';
+                  } else if (restored.isOpen) {
+                    // Popup was previously open, restore as open and add keydown listener
+                    console.log('[Popup] Popup restored as open, container display:', container.style.display);
+                    document.addEventListener('keydown', handleKeydown);
+                  } else {
+                    // Saved state exists but popup was closed
+                    console.log('[Popup] Popup restored as closed');
+                    container.style.display = 'none';
+                  }
                 } else {
-                  // Saved state exists but popup is closed
-                  console.log('[Popup] Popup restored as closed');
-                  container.style.display = 'none';
+                  // ============================================================
+                  // RE-INITIALIZATION AFTER NAVIGATION PATH
+                  // ============================================================
+                  // Skip all restore logic - the skip-reinit path already restored state
+                  // We only need to re-attach the keydown listener if popup is open
+
+                  console.log('[Popup] Skipping restoreState on re-init - state already restored via skip-reinit');
+
+                  // Re-attach keydown listener if popup is currently open
+                  const savedState = getPopupState(popupId);
+                  if (savedState?.isOpen) {
+                    console.log('[Popup] Re-init: popup is open, re-attaching keydown listener');
+                    document.addEventListener('keydown', handleKeydown);
+                  }
                 }
 
                 // Add marker to detect when LiveView strips inline styles
@@ -1592,29 +1873,52 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 panel.style.setProperty('--popup-initialized', '1');
                 console.log('[Popup] Marker set, initialization about to complete');
 
+                // ================================================================
+                // EVENT LISTENER ATTACHMENT
+                // ================================================================
+                // Attach all event listeners to the current DOM elements
+                // On re-init after navigation, we remove old listeners first to avoid duplicates
+
+                // Store handlers globally for reattachment after navigation
+                window.__popupStartDrag = startDrag;
+                window.__popupStartResize = startResize;
+
+                // Drag handle - remove old listener first (for re-init)
+                handle.removeEventListener('pointerdown', window.__popupStartDrag);
                 handle.addEventListener('pointerdown', startDrag);
 
+                // Close buttons - remove old listeners first (for re-init)
                 closeButtons.forEach((button) => {
+                  button.removeEventListener('click', window.__popupHidePopup);
                   button.addEventListener('click', window.__popupHidePopup);
                 });
 
+                // Resize handle - remove old listener first (for re-init)
                 if (resizeHandle) {
+                  resizeHandle.removeEventListener('pointerdown', window.__popupStartResize);
                   resizeHandle.addEventListener('pointerdown', startResize);
                 }
 
+                // Toggle button - remove old listener first (for re-init)
+                openButton.removeEventListener('click', window.__popupToggle);
                 openButton.addEventListener('click', window.__popupToggle);
 
-                // Save scroll position (debounced) with re-attachment on content change
+                // ================================================================
+                // SCROLL POSITION SAVING
+                // ================================================================
+                // Save scroll position to sessionStorage as user scrolls
+                // Re-attach listener when LiveView updates content (to handle fresh DOM)
+
                 if (content) {
                   let scrollListener = null;
 
                   const attachScrollListener = () => {
-                    // Remove old listener if it exists
+                    // Remove old listener if it exists (cleanup for re-attachment)
                     if (scrollListener) {
                       content.removeEventListener('scroll', scrollListener);
                     }
 
-                    // Create new debounced scroll handler
+                    // Create new debounced scroll handler (prevents excessive saves)
                     scrollListener = debounce(() => {
                       savePopupState(popupId, {
                         scroll: {
@@ -1628,10 +1932,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     console.log('[Popup] Scroll listener attached/re-attached');
                   };
 
+                  // Store globally for reattachment after navigation
+                  window.__popupAttachScrollListener = attachScrollListener;
+
                   // Initial attachment
                   attachScrollListener();
 
                   // Re-attach scroll listener when LiveView updates content
+                  // This ensures scroll saving works even after LiveView patches
                   const contentObserver = new MutationObserver(() => {
                     console.log('[Popup] Content changed, re-attaching scroll listener');
                     attachScrollListener();
@@ -1645,11 +1953,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   });
                 }
 
-                // Watch for LiveView stripping our marker (indicates full style reset)
-                // This is smarter than watching every style change - only triggers on LiveView DOM replacement
+                // ================================================================
+                // MUTATION OBSERVER (Full-init path)
+                // ================================================================
+                // Watch for LiveView stripping our --popup-initialized marker
+                // This indicates LiveView did a full style reset and we need to restore
+                // More efficient than watching every style change
+
                 const panelObserver = new MutationObserver((mutations) => {
-                  // Don't skip during initial load - we need to catch LiveView mount breaking the popup
-                  // The observer is the safety net that catches any DOM patching that breaks our styles
+                  // This observer is our safety net for catching any LiveView patches
+                  // that strip our position/size styles
 
                   for (const mutation of mutations) {
                     if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
@@ -1686,6 +1999,20 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             panel.style.height = `${savedState.size.height}px`;
                           }
 
+                          // CRITICAL: Also restore open/closed state
+                          // Without this, popup gets position/size back but stays closed
+                          if (savedState.isOpen) {
+                            container.style.display = 'block';
+                            container.setAttribute('aria-hidden', 'false');
+                            openButton.setAttribute('aria-expanded', 'true');
+                            console.log(`[${timestamp}] [Popup] Restored as OPEN`);
+                          } else {
+                            container.style.display = 'none';
+                            container.setAttribute('aria-hidden', 'true');
+                            openButton.setAttribute('aria-expanded', 'false');
+                            console.log(`[${timestamp}] [Popup] Restored as CLOSED`);
+                          }
+
                           // Re-add marker
                           panel.style.setProperty('--popup-initialized', '1');
 
@@ -1708,26 +2035,31 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 window.__popupFullInitObserver = panelObserver;
                 console.log('[Popup] Full-init observer started watching panel element:', panel);
 
-                // Watch for panel being removed from DOM during interaction (LiveView replacement)
-                // This handles the case where LiveView updates while user is dragging/resizing
+                // ================================================================
+                // CONTAINER OBSERVER (Watch for DOM removal during drag/resize)
+                // ================================================================
+                // If LiveView replaces the popup while user is interacting with it,
+                // we need to stop the drag/resize operation to avoid errors
+
                 const containerObserver = new MutationObserver((mutations) => {
                   for (const mutation of mutations) {
                     if (mutation.type === 'childList') {
-                      // Check if our panel was removed
+                      // Check if our panel was removed from the DOM
                       for (const removedNode of mutation.removedNodes) {
                         if (removedNode === panel || removedNode.contains(panel)) {
                           console.log('[Popup] Panel removed from DOM during interaction, stopping drag/resize');
 
-                          // Force stop any active interaction
-                          if (isDragging) {
+                          // Force stop any active interaction since the old panel is gone
+                          // Read from window.__popupState to get current values (not stale local copies)
+                          if (window.__popupState.isDragging) {
                             stopDragging();
                           }
-                          if (isResizing) {
+                          if (window.__popupState.isResizing) {
                             stopResizing();
                           }
 
-                          // The new panel will be in mutation.addedNodes, but we let the init code handle it
-                          // on next page load or via phx:page-loading-stop
+                          // Re-initialization will handle the new panel
+                          // (triggered by phx:page-loading-stop)
                           break;
                         }
                       }
@@ -1740,16 +2072,29 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   subtree: false // Only watch direct children
                 });
 
-                // Store restore function globally so the hook can call it
+                // ================================================================
+                // GLOBAL RESTORE FUNCTION (Full-init path)
+                // ================================================================
+                // This function is called by initAdminPopup() during first load
+                // After navigation, it's recreated in the re-init path above (line ~979)
+                // Gets fresh DOM references to work with new elements after LiveView patches
+                // Same pattern used in both init and re-init paths
+
                 window.__popupRestoreState = function() {
-                  // Don't restore while user is actively dragging/resizing
+                  // Don't interfere with active drag/resize operations
                   if (window.__popupIsInteracting) {
                     console.log('[Popup] Skipping restore - user is interacting');
                     return;
                   }
 
-                  // Check if elements still exist (they might not on other pages)
-                  if (!document.body.contains(container) || !document.body.contains(panel) || !document.body.contains(openButton)) {
+                  // Get fresh references - old ones are invalid after LiveView replaces DOM
+                  const currentContainer = document.getElementById(popupId);
+                  const currentPanel = currentContainer?.querySelector('[data-popup-panel]');
+                  const currentOpenButton = document.getElementById(popupId + '-button');
+                  const currentContent = currentPanel?.querySelector('[data-popup-content]');
+
+                  // Bail if elements don't exist (might be on a different page)
+                  if (!currentContainer || !currentPanel || !currentOpenButton) {
                     console.log('[Popup] Skipping restore - popup elements no longer exist on current page');
                     return;
                   }
@@ -1764,119 +2109,165 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   applyPopupCssVars(savedState);
 
-                  // Restore position
+                  // Restore position (where user dragged it to)
                   if (savedState.position) {
-                    panel.style.left = `${savedState.position.left}px`;
-                    panel.style.top = `${savedState.position.top}px`;
+                    currentPanel.style.left = `${savedState.position.left}px`;
+                    currentPanel.style.top = `${savedState.position.top}px`;
                   }
 
-                  // Restore size
+                  // Restore size (what user resized it to)
                   if (savedState.size) {
-                    panel.style.width = `${savedState.size.width}px`;
-                    panel.style.height = `${savedState.size.height}px`;
+                    currentPanel.style.width = `${savedState.size.width}px`;
+                    currentPanel.style.height = `${savedState.size.height}px`;
                   }
 
                   let shouldAnimate = false;
 
                   if (savedState.isOpen) {
-                    container.style.display = 'block';
-                    container.setAttribute('aria-hidden', 'false');
-                    openButton.setAttribute('aria-expanded', 'true');
-                    isOpen = true;
+                    // Restore open state without animation
+                    currentContainer.style.display = 'block';
+                    currentContainer.setAttribute('aria-hidden', 'false');
+                    currentOpenButton.setAttribute('aria-expanded', 'true');
+                    window.__popupState.isOpen = true;
 
                     // Never animate during global restore - popup state should persist without flicker
                     shouldAnimate = false;
-                    panel.style.removeProperty('visibility');
-                    panel.style.removeProperty('opacity');
-                    panel.style.removeProperty('transform');
+                    currentPanel.style.removeProperty('visibility');
+                    currentPanel.style.removeProperty('opacity');
+                    currentPanel.style.removeProperty('transform');
                     console.log('[Popup] Global restore: keeping popup open without animation');
                   } else {
-                    container.style.display = 'none';
+                    currentContainer.style.display = 'none';
                   }
 
-                  lockContentOverflow(content);
+                  lockContentOverflow(currentContent);
 
-                  queueScrollRestore(content, popupId, () => {
-                    panel.style.removeProperty('visibility');
+                  queueScrollRestore(currentContent, popupId, () => {
+                    currentPanel.style.removeProperty('visibility');
 
                     if (savedState.isOpen) {
                       if (shouldAnimate) {
-                        panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
-                        panel.style.opacity = '1';
-                        panel.style.transform = 'translateY(0)';
+                        currentPanel.style.transition = 'opacity 120ms ease, transform 120ms ease';
+                        currentPanel.style.opacity = '1';
+                        currentPanel.style.transform = 'translateY(0)';
 
                         setTimeout(() => {
-                          panel.style.removeProperty('transition');
+                          currentPanel.style.removeProperty('transition');
                         }, 150);
                       } else {
-                        panel.style.removeProperty('opacity');
-                        panel.style.removeProperty('transform');
-                        panel.style.removeProperty('transition');
+                        currentPanel.style.removeProperty('opacity');
+                        currentPanel.style.removeProperty('transform');
+                        currentPanel.style.removeProperty('transition');
                       }
                     } else {
-                      panel.style.removeProperty('opacity');
-                      panel.style.removeProperty('transform');
-                      panel.style.removeProperty('transition');
+                      currentPanel.style.removeProperty('opacity');
+                      currentPanel.style.removeProperty('transform');
+                      currentPanel.style.removeProperty('transition');
                     }
 
-                    unlockContentOverflow(content);
+                    unlockContentOverflow(currentContent);
                     requestAnimationFrame(() => fadeOutPlaceholder());
                   });
                 };
 
+                // Mark initialization complete
+                // This flag prevents duplicate initialization and enables navigation handling
                 openButton.dataset.popupEnhanced = 'true';
                 window.__popupIsInitialized = true;
                 console.log('[Popup] Initialization complete, global flag set');
               }
+              // END OF initAdminPopup FUNCTION
+
+              // ============================================================================
+              // LIVEVIEW NAVIGATION EVENT LISTENERS
+              // ============================================================================
+              // These listeners handle popup persistence across LiveView navigation
+              //
+              // NAVIGATION FLOW (when popup elements exist on new page):
+              // 1. phx:page-loading-start fires → create visual placeholder (if popup was open)
+              // 2. LiveView replaces DOM with new elements
+              // 3. phx:page-loading-stop fires → call initAdminPopup()
+              // 4. initAdminPopup() checks for elements:
+              //    - If found: detects wasAlreadyInitialized = true, continues to step 5
+              //    - If not found: sets window.__popupIsInitialized = false, exits
+              // 5. Re-init path: recreate window.__popupRestoreState with fresh DOM refs
+              // 6. Call window.__popupRestoreState() immediately to restore state
+              // 7. Fall through to full init: re-attach all event listeners to new DOM
+              // 8. Popup works perfectly with drag/resize/scroll on new page
+              //
+              // Key events:
+              // - phx:page-loading-start: Create placeholder to prevent flicker during nav
+              // - phx:page-loading-stop: Re-run initAdminPopup() to reattach event listeners
+              // - phx:update: Minor DOM updates (we ignore these for popup restore)
 
               let restoreTimeout = null;
 
-              // Track initial page load globally so panelObserver can access it
+              // Track initial page load completion
+              // This prevents restore logic from running before first initialization
               if (window.__popupInitialLoadComplete === undefined) {
                 window.__popupInitialLoadComplete = false;
               }
 
-              // Track if we restored during init globally (to prevent double-restore)
+              // Track if we already restored during init (prevents double-restore)
               if (window.__popupRestoredDuringInit === undefined) {
                 window.__popupRestoredDuringInit = false;
               }
 
-              // Debug: Log LiveView updates with timestamps
+              // Debug logging for LiveView updates (not used for restore)
               window.addEventListener('phx:update', function(e) {
                 const timestamp = new Date().toISOString().split('T')[1];
                 console.log(`[${timestamp}] [LiveView Update] Interacting: ${window.__popupIsInteracting}`, e.detail);
 
-                // DO NOT restore on every update - only on navigation (phx:page-loading-stop)
-                // These updates happen constantly (timers, presence, etc.) and would reset the popup
+                // DO NOT restore on phx:update - these fire constantly for timers, presence, etc.
+                // Only restore on phx:page-loading-stop (actual navigation)
               });
 
-              // Listen for LiveView page loading start to reset navigation flags
+              // NAVIGATION START: Create visual placeholder to prevent popup from disappearing
               window.addEventListener('phx:page-loading-start', function(event) {
                 const kind = event?.detail?.kind || 'unknown';
                 const isInitialKind = kind === 'initial';
                 const isErrorKind = kind === 'error';
                 const readyForNavigation = window.__popupIsInitialized && window.__popupInitialLoadComplete;
 
+                // Ignore if not ready yet or if this is initial page load
                 if (!readyForNavigation || isInitialKind || isErrorKind) {
                   console.log('[Popup] Page loading start ignored (kind:', kind, ') - initial load not finished yet or error state');
                   return;
                 }
 
-                console.log('[Popup] Navigation started (kind:', kind, '), resetting flags');
+                console.log('[Popup] Navigation started (kind:', kind, ')');
 
-                // Fix 1: Skip placeholder entirely if popup is open - prevents first close flash
-                const popupState = getPopupState(DEFAULT_POPUP_ID);
-                if (!popupState?.isOpen) {
-                  createPopupPlaceholder();
-                } else {
-                  console.log('[Popup] Skipping placeholder - popup is open and should stay visible');
+                // Save current scroll position BEFORE navigation
+                // Scroll persists across all pages - position/size/scroll all maintained globally
+                const container = document.getElementById(DEFAULT_POPUP_ID);
+                const content = container?.querySelector('[data-popup-content]');
+                if (content) {
+                  const scrollState = {
+                    scrollTop: content.scrollTop || 0,
+                    scrollLeft: content.scrollLeft || 0
+                  };
+                  console.log('[Popup] Saving scroll before navigation:', JSON.stringify(scrollState));
+                  savePopupState(DEFAULT_POPUP_ID, {
+                    scroll: scrollState
+                  });
                 }
 
-                window.__popupInitialLoadComplete = false;
-                window.__popupRestoredDuringInit = false;
+                // ANTI-FLICKER: Create placeholder when popup is OPEN to prevent flicker
+                // The placeholder shows a visual clone while LiveView replaces the real DOM
+                // If popup is closed, no need for placeholder
+                const popupState = getPopupState(DEFAULT_POPUP_ID);
+                if (popupState?.isOpen) {
+                  console.log('[Popup] Creating placeholder - popup is open, preventing flicker during navigation');
+                  createPopupPlaceholder();
+                } else {
+                  console.log('[Popup] Skipping placeholder - popup is closed, no visual clone needed');
+                }
+
+                // CRITICAL: Don't reset __popupInitialLoadComplete or __popupRestoredDuringInit here!
+                // Resetting them breaks the restore logic on subsequent navigations
               });
 
-              // Listen for LiveView page loading stop to restore popup state
+              // NAVIGATION COMPLETE: Re-initialize popup and restore state
               window.addEventListener('phx:page-loading-stop', function(event) {
                 const kind = event?.detail?.kind || 'unknown';
                 const isInitialKind = kind === 'initial';
@@ -1894,7 +2285,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     console.log('[Popup] Initial load complete (kind: initial), no prior restore to replay');
                   }
 
-                  removePopupPlaceholder();
+                  // Don't remove placeholder here - it will be removed via fadeOutPlaceholder()
+                  // after the restore completes in the deferred initAdminPopup() call
+                  // Removing it here causes a flicker because restore hasn't happened yet
                   window.__popupRestoredDuringInit = false;
                   return;
                 }
@@ -1903,29 +2296,31 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                 window.__popupInitialLoadComplete = true;
 
-                // Restore if popup was already initialized (navigations or post-init updates)
-                if (window.__popupIsInitialized && window.__popupRestoreState) {
-                  console.log('[Popup] Scheduling state restore after page load/navigation');
-                  // Debounce to prevent multiple rapid calls
-                  restoreTimeout = setTimeout(() => {
-                    requestAnimationFrame(() => {
-                      window.__popupRestoreState();
-                      restoreTimeout = null;
-                    });
-                  }, 100);
-                } else {
-                  window.__popupRestoredDuringInit = false;
-                  removePopupPlaceholder();
-                }
+                // Always try to initialize after navigation
+                // setTimeout(0) defers execution until after LiveView completes DOM updates
+                // Without this defer, popup elements may not be in the DOM yet when we query them
+                // This is especially important for full page navigations where LiveView
+                // replaces large portions of the DOM
+                console.log('[Popup] Running initAdminPopup after navigation (deferred)');
+                setTimeout(() => {
+                  initAdminPopup();
+                }, 0);
               });
 
-              // Try to initialize popup immediately if elements exist
-              // This prevents flicker on initial page load
-              if (document.getElementById('admin-generic-popup')) {
+              // ============================================================================
+              // INITIALIZATION TRIGGERS
+              // ============================================================================
+              // Try immediate init if elements already exist (prevents flicker)
+              // Otherwise DOMContentLoaded will trigger init
+
+              if (document.getElementById('admin-generic-popup') && !window.__popupIsInitialized) {
                 console.log('[Popup] Elements available, initializing immediately');
                 initAdminPopup();
               }
 
+              // ============================================================================
+              // MOBILE DRAWER AUTO-CLOSE
+              // ============================================================================
               // Mobile drawer and burger menu navigation
               document.addEventListener('DOMContentLoaded', function() {
                 const drawerToggle = document.getElementById('admin-mobile-menu');
@@ -1959,10 +2354,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   console.log('[Popup] DOMContentLoaded - initializing popup');
                   initAdminPopup();
                 }
-              });
-
-              window.addEventListener('phx:page-loading-stop', function() {
-                initAdminPopup();
               });
 
               // Theme configuration and controller
