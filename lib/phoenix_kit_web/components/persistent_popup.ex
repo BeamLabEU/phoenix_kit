@@ -57,8 +57,16 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
   Renders a persistent popup container.
 
   The popup is hidden by default. Use `popup_button` to toggle it.
+
+  Set `persist={true}` to enable state persistence across page navigation.
   """
   attr :id, :string, required: true, doc: "Unique identifier for this popup"
+  attr :title, :string, default: "Popup", doc: "Display name for the popup (used in close button)"
+
+  attr :persist, :boolean,
+    default: false,
+    doc: "Enable state persistence (position, size, scroll, open/closed)"
+
   attr :class, :string, default: "", doc: "Additional CSS classes for the popup container"
   slot :inner_block, required: true, doc: "Popup content"
 
@@ -71,6 +79,8 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
       style="display: none;"
       data-popup-container
       data-popup-id={@id}
+      data-popup-title={@title}
+      data-popup-persist={@persist}
       data-popup-register={@id}
     >
       <section
@@ -80,7 +90,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
         aria-label="Popup"
         tabindex="-1"
         class="absolute flex flex-col rounded-2xl border border-base-300 bg-base-100 shadow-2xl pointer-events-auto opacity-0 transition-opacity duration-75"
-        style="left: 50%; top: 20%; transform: translateX(-50%); width: 448px; min-height: 320px;"
+        style="left: 50%; top: 20%; transform: translateX(-50%); width: 448px; height: 500px;"
       >
         <%!-- Drag Handle --%>
         <header
@@ -107,7 +117,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             data-popup-close
             class="btn btn-ghost btn-sm"
           >
-            Close
+            Close {@title}
           </button>
         </footer>
 
@@ -137,20 +147,19 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
   @doc """
   Renders a button that toggles a persistent popup.
 
-  The button text will automatically change between the slot content (when closed)
-  and "Close Popup" (when open).
-
   ## Examples
 
       <.popup_button target_id="my-popup" class="btn btn-primary">
         Open Debug
       </.popup_button>
 
-  This will show "Open Debug" when closed and "Close Popup" when open.
+      <.popup_button target_id="my-popup" class="btn btn-icon">
+        <.icon name="hero-bug-ant" />
+      </.popup_button>
   """
   attr :target_id, :string, required: true, doc: "ID of the popup to control"
   attr :class, :string, default: "", doc: "CSS classes for the button"
-  slot :inner_block, required: true, doc: "Button text (when closed)"
+  slot :inner_block, required: true, doc: "Button content"
 
   def popup_button(assigns) do
     ~H"""
@@ -162,9 +171,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
       data-popup-toggle={@target_id}
       class={@class}
     >
-      <span data-popup-button-text>
-        {render_slot(@inner_block)}
-      </span>
+      {render_slot(@inner_block)}
     </button>
     """
   end
@@ -251,6 +258,8 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.resizeHandle = null;   // The <div data-popup-resize-handle> resize grip
             this.openButton = null;     // The <button id="popup-id-button"> toggle button
             this.closeButtons = [];     // Array of <button data-popup-close> inside popup
+            this.title = 'Popup';       // Display title for the popup (from data-popup-title)
+            this.persist = false;       // Enable state persistence (from data-popup-persist)
 
             // Popup state flags
             this.isOpen = false;        // Is popup currently visible?
@@ -303,7 +312,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //       It will cleanup old listeners and create fresh ones with new DOM references.
           // ====================================================================================
           init() {
-            console.log(`[Popup:${this.id}] Initializing`);
+            // console.log(`[Popup:${this.id}] Initializing`);
 
             // Find the main popup container and toggle button
             // These are the minimum required elements - without them we can't do anything
@@ -311,9 +320,13 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.openButton = document.getElementById(`${this.id}-button`);
 
             if (!this.container || !this.openButton) {
-              console.warn(`[Popup:${this.id}] Missing elements, skipping init`);
+              // console.warn(`[Popup:${this.id}] Missing elements, skipping init`);
               return false;
             }
+
+            // Extract popup title and persistence setting from data attributes
+            this.title = this.container.dataset.popupTitle || 'Popup';
+            this.persist = this.container.dataset.popupPersist === 'true';
 
             // Find internal popup elements using data attributes
             // data-popup-* attributes make it easy to query elements regardless of styling
@@ -325,7 +338,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
 
             // Verify we have the critical elements
             if (!this.panel || !this.handle || !this.content) {
-              console.warn(`[Popup:${this.id}] Missing required elements`);
+              // console.warn(`[Popup:${this.id}] Missing required elements`);
               return false;
             }
 
@@ -336,11 +349,13 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             // Attach all event listeners to DOM elements
             this.attachListeners();
 
-            // Restore saved state from sessionStorage (position, size, scroll, open/closed)
-            this.restore();
+            // Restore saved state from sessionStorage (only if persistence is enabled)
+            if (this.persist) {
+              this.restore();
+            }
 
             this.isInitialized = true;
-            console.log(`[Popup:${this.id}] Initialized successfully`);
+            // console.log(`[Popup:${this.id}] Initialized successfully`);
             return true;
           }
 
@@ -353,7 +368,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           // NOTE: Does NOT clear saved state from sessionStorage - that persists across cleanup.
           // ====================================================================================
           cleanup() {
-            console.log(`[Popup:${this.id}] Cleaning up`);
+            // console.log(`[Popup:${this.id}] Cleaning up`);
             this.detachListeners();
             this.isInitialized = false;
           }
@@ -498,7 +513,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //   - Clears any previous position/size from dragging/resizing
           //   - Centers the popup horizontally at 20% from top
           //   - Resets scroll position to 0,0
-          //   - Updates button text to "Close Popup"
+          //   - Updates button text to "Close [Popup Title]"
           //   - Attaches keyboard listener for Escape key
           //   - Saves the reset state to sessionStorage
           //
@@ -507,7 +522,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //            don't remember where they left it.
           // ====================================================================================
           open() {
-            console.log(`[Popup:${this.id}] Opening`);
+            // console.log(`[Popup:${this.id}] Opening`);
 
             // Clear any previous inline styles from dragging/resizing
             this.panel.style.removeProperty('left');
@@ -517,9 +532,9 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.panel.style.removeProperty('transform');
 
             // Calculate centered position
-            // Default size is 448x320 (from initial CSS)
+            // Default size is 448x500 (from initial CSS)
             const width = 448;
-            const height = 320;
+            const height = 500;
 
             // Center horizontally: 50% - half width
             // Position vertically: 20% from top
@@ -533,9 +548,9 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.panel.style.left = `${left}px`;
             this.panel.style.top = `${top}px`;
             this.panel.style.width = `${width}px`;
-            this.panel.style.minHeight = `${height}px`;
-            // Clear any fixed height from previous resize
-            this.panel.style.removeProperty('height');
+            this.panel.style.height = `${height}px`;
+            // Clear any min-height from previous state
+            this.panel.style.removeProperty('minHeight');
 
             // Show the popup
             this.container.style.display = 'block';
@@ -545,12 +560,6 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
 
             // Focus the panel for keyboard accessibility (without scrolling page)
             this.panel.focus({ preventScroll: true });
-
-            // Update button text to show popup is now open
-            const buttonText = this.openButton.querySelector('[data-popup-button-text]');
-            if (buttonText) {
-              buttonText.textContent = 'Close Popup';
-            }
 
             // Reset scroll position to top-left
             // setTimeout ensures this runs after any potential scroll restoration
@@ -566,14 +575,16 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
 
             this.isOpen = true;
 
-            // Save the reset state to sessionStorage
-            // Use minHeight for size so content can expand naturally
-            this.save({
-              isOpen: true,
-              position: { left, top },
-              size: { width, minHeight: height },
-              scroll: { scrollTop: 0, scrollLeft: 0 }
-            });
+            // Save the reset state to sessionStorage (only if persistence enabled)
+            // Use fixed height for default size, users can resize larger
+            if (this.persist) {
+              this.save({
+                isOpen: true,
+                position: { left, top },
+                size: { width, height },
+                scroll: { scrollTop: 0, scrollLeft: 0 }
+              });
+            }
           }
 
           // ====================================================================================
@@ -583,7 +594,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //
           // BEHAVIOR:
           //   - Hides the popup container
-          //   - Updates button text to "Open Popup"
+          //   - Restores original button HTML (icon + label)
           //   - Removes keyboard listener
           //   - Saves closed state to sessionStorage
           //
@@ -591,26 +602,22 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //       via state restoration (unless user manually opens it, which resets them).
           // ====================================================================================
           close() {
-            console.log(`[Popup:${this.id}] Closing`);
+            // console.log(`[Popup:${this.id}] Closing`);
 
             // Hide the popup
             this.container.style.display = 'none';
             this.container.setAttribute('aria-hidden', 'true');
             this.openButton.setAttribute('aria-expanded', 'false');
 
-            // Update button text to show popup is now closed
-            const buttonText = this.openButton.querySelector('[data-popup-button-text]');
-            if (buttonText) {
-              buttonText.textContent = 'Open Popup';
-            }
-
             // Remove keyboard listener - no need to listen when closed
             document.removeEventListener('keydown', this.handlers.keydown);
 
             this.isOpen = false;
 
-            // Save closed state to sessionStorage
-            this.save({ isOpen: false });
+            // Save closed state to sessionStorage (only if persistence enabled)
+            if (this.persist) {
+              this.save({ isOpen: false });
+            }
           }
 
           // ====================================================================================
@@ -651,7 +658,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             // Only respond to left mouse button (button 0)
             if (e.button !== undefined && e.button !== 0) return;
 
-            console.log(`[Popup:${this.id}] Start drag`);
+            // console.log(`[Popup:${this.id}] Start drag`);
             e.preventDefault();
 
             // Get container and panel positions
@@ -744,7 +751,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           endDrag(e) {
             if (!this.isDragging) return;
 
-            console.log(`[Popup:${this.id}] End drag`);
+            // console.log(`[Popup:${this.id}] End drag`);
 
             // Release pointer capture
             if (this.handle.releasePointerCapture && this.dragPointerId !== null) {
@@ -764,10 +771,12 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.isDragging = false;
             this.dragPointerId = null;
 
-            // Save final position to sessionStorage
-            const left = parseInt(this.panel.style.left) || 0;
-            const top = parseInt(this.panel.style.top) || 0;
-            this.save({ position: { left, top } });
+            // Save final position to sessionStorage (only if persistence enabled)
+            if (this.persist) {
+              const left = parseInt(this.panel.style.left) || 0;
+              const top = parseInt(this.panel.style.top) || 0;
+              this.save({ position: { left, top } });
+            }
           }
 
           // ====================================================================================
@@ -788,7 +797,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             // Only respond to left mouse button and if resize handle exists
             if (!this.resizeHandle || (e.button !== undefined && e.button !== 0)) return;
 
-            console.log(`[Popup:${this.id}] Start resize`);
+            // console.log(`[Popup:${this.id}] Start resize`);
             e.preventDefault();
 
             // Get current panel dimensions and position
@@ -870,7 +879,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           endResize(e) {
             if (!this.isResizing) return;
 
-            console.log(`[Popup:${this.id}] End resize`);
+            // console.log(`[Popup:${this.id}] End resize`);
 
             // Release pointer capture
             if (this.resizeHandle && this.resizeHandle.releasePointerCapture && this.resizePointerId !== null) {
@@ -888,10 +897,12 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             this.isResizing = false;
             this.resizePointerId = null;
 
-            // Save final size to sessionStorage
-            const width = parseInt(this.panel.style.width) || this.panel.offsetWidth;
-            const height = parseInt(this.panel.style.height) || this.panel.offsetHeight;
-            this.save({ size: { width, height } });
+            // Save final size to sessionStorage (only if persistence enabled)
+            if (this.persist) {
+              const width = parseInt(this.panel.style.width) || this.panel.offsetWidth;
+              const height = parseInt(this.panel.style.height) || this.panel.offsetHeight;
+              this.save({ size: { width, height } });
+            }
           }
 
           // ====================================================================================
@@ -904,6 +915,9 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           //             This reduces writes to sessionStorage and improves performance.
           // ====================================================================================
           saveScrollPosition() {
+            // Only save scroll if persistence is enabled
+            if (!this.persist) return;
+
             // Clear any existing timeout
             if (this._scrollTimeout) {
               clearTimeout(this._scrollTimeout);
@@ -955,7 +969,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             try {
               sessionStorage.setItem(STORAGE_KEY, JSON.stringify(allPopups));
             } catch (e) {
-              console.warn(`[Popup:${this.id}] Failed to save state:`, e);
+              // console.warn(`[Popup:${this.id}] Failed to save state:`, e);
             }
           }
 
@@ -981,11 +995,11 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             const state = this.manager.getState(this.id);
 
             if (!state) {
-              console.log(`[Popup:${this.id}] No saved state to restore`);
+              // console.log(`[Popup:${this.id}] No saved state to restore`);
               return;
             }
 
-            console.log(`[Popup:${this.id}] Restoring state:`, state);
+            // console.log(`[Popup:${this.id}] Restoring state:`, state);
 
             // Keep panel hidden while we apply styles
             this.panel.style.opacity = '0';
@@ -1025,12 +1039,6 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               this.container.style.display = 'block';
               this.container.setAttribute('aria-hidden', 'false');
               this.openButton.setAttribute('aria-expanded', 'true');
-
-              // Update button text
-              const buttonText = this.openButton.querySelector('[data-popup-button-text]');
-              if (buttonText) {
-                buttonText.textContent = 'Close Popup';
-              }
 
               // Attach keyboard listener
               document.addEventListener('keydown', this.handlers.keydown);
@@ -1091,13 +1099,13 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               return;
             }
 
-            console.log('[PopupManager] Initializing');
+            // console.log('[PopupManager] Initializing');
 
             // Attach LiveView navigation listeners
             this.attachNavigationListeners();
 
             this.isInitialized = true;
-            console.log('[PopupManager] Initialized');
+            // console.log('[PopupManager] Initialized');
           }
 
           // ====================================================================================
@@ -1128,7 +1136,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
 
               // Skip saving scroll when LiveView reports an error
               if (kind === 'error') {
-                console.log('[PopupManager] Navigation error detected; skipping scroll save');
+                // console.log('[PopupManager] Navigation error detected; skipping scroll save');
                 return;
               }
 
@@ -1137,9 +1145,9 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               if (!navigationInProgress) {
                 navigationInProgress = true;
                 handledStopKinds = new Set();
-                console.log('[PopupManager] Starting new navigation cycle (kind:', kind + ')');
+                // console.log('[PopupManager] Starting new navigation cycle (kind:', kind + ')');
               } else {
-                console.log('[PopupManager] Already in navigation cycle, additional start event (kind:', kind + ')');
+                // console.log('[PopupManager] Already in navigation cycle, additional start event (kind:', kind + ')');
               }
 
               // Save scroll position for all open popups
@@ -1155,12 +1163,12 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               const kind = e?.detail?.kind || 'unknown';
 
               if (!navigationInProgress) {
-                console.log('[PopupManager] Ignoring stop event with no active navigation (kind:', kind + ')');
+                // console.log('[PopupManager] Ignoring stop event with no active navigation (kind:', kind + ')');
                 return;
               }
 
               if (handledStopKinds.has(kind)) {
-                console.log('[PopupManager] Already handled stop event for kind:', kind);
+                // console.log('[PopupManager] Already handled stop event for kind:', kind);
                 return;
               }
 
@@ -1170,12 +1178,12 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               // followed by a second one with kind "initial" once the new view mounts.
               // Defer re-initialization until we receive the follow-up event.
               if (kind === 'redirect') {
-                console.log('[PopupManager] Deferring popup re-init until follow-up stop event (kind: redirect)');
+                // console.log('[PopupManager] Deferring popup re-init until follow-up stop event (kind: redirect)');
                 return;
               }
 
               navigationInProgress = false;
-              console.log('[PopupManager] Navigation complete, re-scanning for popups (kind:', kind + ')');
+              // console.log('[PopupManager] Navigation complete, re-scanning for popups (kind:', kind + ')');
 
               // Use requestAnimationFrame to restore state before next paint
               // This prevents visible flicker during state restoration
@@ -1203,7 +1211,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           register(id) {
             // If popup already registered, clean up and re-initialize
             if (this.popups.has(id)) {
-              console.log(`[PopupManager] Popup ${id} already registered, re-initializing`);
+              // console.log(`[PopupManager] Popup ${id} already registered, re-initializing`);
               const popup = this.popups.get(id);
               popup.cleanup();
               popup.init();
@@ -1211,7 +1219,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
             }
 
             // Create new popup instance
-            console.log(`[PopupManager] Registering popup: ${id}`);
+            // console.log(`[PopupManager] Registering popup: ${id}`);
             const popup = new Popup(id, this);
             this.popups.set(id, popup);
             popup.init();
@@ -1230,7 +1238,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           unregister(id) {
             const popup = this.popups.get(id);
             if (popup) {
-              console.log(`[PopupManager] Unregistering popup: ${id}`);
+              // console.log(`[PopupManager] Unregistering popup: ${id}`);
               popup.cleanup();
               this.popups.delete(id);
             }
@@ -1252,7 +1260,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
               const data = sessionStorage.getItem(STORAGE_KEY);
               return data ? JSON.parse(data) : {};
             } catch (e) {
-              console.warn('[PopupManager] Failed to load state:', e);
+              // console.warn('[PopupManager] Failed to load state:', e);
               return {};
             }
           }
@@ -1279,8 +1287,8 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
         // ======================================================================================
 
         // Create singleton manager instance
+        // NOTE: manager.init() is called conditionally in registerAll() only if persistent popups exist
         const manager = new PopupManager();
-        manager.init();
 
         // Expose public API on window object
         window.PersistentPopup = {
@@ -1292,15 +1300,24 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
 
           // Scan DOM and register all popups marked with data-popup-register
           // Also unregisters any popups that are no longer in the DOM
+          // Registers ALL popups (both persistent and non-persistent)
           registerAll: () => {
             const markers = document.querySelectorAll('[data-popup-register]');
             const currentIds = new Set(Array.from(markers).map(m => m.getAttribute('data-popup-register')));
+
+            // Check if any popups need persistence
+            const hasPersistentPopups = Array.from(markers).some(m => m.getAttribute('data-popup-persist') === 'true');
+
+            // Only initialize PopupManager (navigation tracking) if we have persistent popups
+            if (hasPersistentPopups && !manager.isInitialized) {
+              manager.init();
+            }
 
             // Unregister popups that are no longer in the DOM
             const registeredIds = Array.from(manager.popups.keys());
             registeredIds.forEach(id => {
               if (!currentIds.has(id)) {
-                console.log('[PersistentPopup] Unregistering stale popup:', id);
+                // console.log('[PersistentPopup] Unregistering stale popup:', id);
                 manager.unregister(id);
               }
             });
@@ -1318,19 +1335,13 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
                   container.style.display = 'block';
                   container.setAttribute('aria-hidden', 'false');
                   openButton.setAttribute('aria-expanded', 'true');
-
-                  // Update button text
-                  const buttonText = openButton.querySelector('[data-popup-button-text]');
-                  if (buttonText) {
-                    buttonText.textContent = 'Close Popup';
-                  }
                 }
               }
             });
 
             // Register/re-initialize popups that are in the DOM
             if (currentIds.size > 0) {
-              console.log('[PersistentPopup] Registering', currentIds.size, 'popup(s):', Array.from(currentIds).join(', '));
+              // console.log('[PersistentPopup] Registering', currentIds.size, 'popup(s):', Array.from(currentIds).join(', '));
               currentIds.forEach(id => manager.register(id));
             }
           }
@@ -1346,7 +1357,7 @@ defmodule PhoenixKitWeb.Components.PersistentPopup do
           window.PersistentPopup.registerAll();
         }
 
-        console.log('[PersistentPopup] Library loaded and ready');
+        // console.log('[PersistentPopup] Library loaded and ready');
 
       })();
     </script>

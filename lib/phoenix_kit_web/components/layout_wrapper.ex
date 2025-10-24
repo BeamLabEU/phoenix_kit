@@ -56,6 +56,23 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   - `phoenix_kit_current_scope` - Current authentication scope (optional)
   - `phoenix_kit_current_user` - Current user (optional, for backwards compatibility)
 
+  ## Debug Popup
+
+  Admin pages include a debug popup accessible from the sidebar. Pass custom debug content via the `admin_popup` slot:
+
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+      >
+        <:admin_popup>
+          <div>
+            <h3>Custom Debug Info</h3>
+            <pre><%= inspect(@my_data, pretty: true) %></pre>
+          </div>
+        </:admin_popup>
+
+        <!-- Page content -->
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+
   ## Inner Block
 
   - `inner_block` - Content to render within the layout
@@ -99,32 +116,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   ## Private Implementation
 
-  defp render_admin_popup_debug(assigns) do
-    admin_popup_slots = length(assigns[:admin_popup] || [])
-    inner_block_slots = length(assigns[:inner_block] || [])
-    original_inner_block_slots = length(assigns[:original_inner_block] || [])
-
-    debug_info =
-      assigns
-      |> Map.drop([:__changed__])
-      |> Map.put(:admin_popup_slots, admin_popup_slots)
-      |> Map.put(:inner_block_slots, inner_block_slots)
-      |> Map.put(:original_inner_block_slots, original_inner_block_slots)
-      |> Map.delete(:admin_popup)
-      |> Map.delete(:inner_block)
-      |> Map.delete(:original_inner_block)
-      |> inspect(pretty: true, printable_limit: :infinity, limit: :infinity)
-
-    assigns = Map.put(assigns, :debug_info, debug_info)
-
-    ~H"""
-    <div class="space-y-4">
-      <h3 class="text-lg font-semibold text-base-content">Debug Information</h3>
-      <pre class="text-xs bg-base-200 p-4 rounded-lg whitespace-pre" style="width: max-content; min-width: 100%;"><%= @debug_info %></pre>
-    </div>
-    """
-  end
-
   # Normalize content assigns to handle both inner_content and inner_block
   defp normalize_content_assigns(assigns) do
     # If we have inner_content but no inner_block, create inner_block from inner_content
@@ -165,15 +156,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       new_inner_block = [
         %{
           inner_block: fn _slot_assigns, _index ->
-            # Create template assigns with needed values
-            template_assigns = %{
-              original_inner_block: original_inner_block,
-              current_path: assigns[:current_path],
-              phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
-              project_title: assigns[:project_title] || "PhoenixKit",
-              current_locale: assigns[:current_locale] || "en",
-              admin_popup: assigns[:admin_popup] || []
-            }
+            # Pass through assigns for template rendering
+            template_assigns =
+              assigns
+              |> Map.put(:original_inner_block, original_inner_block)
+              |> Map.put_new(:project_title, "PhoenixKit")
+              |> Map.put_new(:current_locale, "en")
+              |> Map.put_new(:admin_popup, [])
 
             assigns = template_assigns
 
@@ -499,36 +488,63 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <% end %>
                       </div>
                     <% end %>
-
-                    <%!-- Popup Button --%>
-                    <div class="mt-6 pt-6 border-t border-base-300">
-                      <.popup_button
-                        target_id="admin-generic-popup"
-                        class="group relative flex w-full items-center gap-4 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-left transition hover:-translate-y-0.5 hover:bg-primary/15 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                      >
-                        <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-content shadow-sm transition group-hover:scale-105">
-                          <.icon name="hero-sparkles" class="w-5 h-5" />
-                        </span>
-                        <span class="text-base-content text-sm font-semibold tracking-wide">
-                          Open Popup
-                        </span>
-                      </.popup_button>
-                    </div>
                   </nav>
+
+                  <%!-- Debug Button (bottom of sidebar) --%>
+                  <div class="px-4 pb-6 border-t border-base-300">
+                    <.popup_button
+                      target_id="admin-debug-popup"
+                      class="group relative flex items-center justify-center rounded-lg border border-base-300 bg-base-200/50 p-2 transition hover:bg-base-200 hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 mt-4"
+                    >
+                      <.icon name="hero-bug-ant" class="w-4 h-4 text-base-content/60" />
+                    </.popup_button>
+                  </div>
                 </aside>
               </div>
             </div>
 
-            <%!-- Persistent Popup Component --%>
-            <.persistent_popup id="admin-generic-popup">
+            <%!-- Debug Popup --%>
+            <.persistent_popup id="admin-debug-popup" title="Debug">
               <%= if @admin_popup == [] do %>
-                {render_admin_popup_debug(assigns)}
+                <div class="space-y-4">
+                  <h3 class="text-lg font-semibold text-base-content">Debug Inspector</h3>
+                  <p class="text-sm text-base-content/70">View LiveView assigns and component data</p>
+
+                  <div class="alert alert-info">
+                    <.icon name="hero-information-circle" class="w-5 h-5" />
+                    <span>
+                      To display custom debug data here, pass content via the admin_popup slot in your LiveView template.
+                    </span>
+                  </div>
+
+                  <div class="bg-base-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-sm mb-2">Usage Example:</h4>
+                    <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto font-mono">
+                    &lt;PhoenixKitWeb.Components.LayoutWrapper.app_layout&gt;
+                      &lt;:admin_popup&gt;
+                        &lt;div&gt;
+                          &lt;h3&gt;My Custom Debug Info&lt;/h3&gt;
+                          &lt;pre&gt;&lt;%= inspect(@my_data, pretty: true) %&gt;&lt;/pre&gt;
+                        &lt;/div&gt;
+                      &lt;/:admin_popup&gt;
+
+                    &lt;!-- Your page content --&gt;
+                    &lt;/PhoenixKitWeb.Components.LayoutWrapper.app_layout&gt;
+                    </pre>
+                  </div>
+
+                  <div class="text-xs text-base-content/60">
+                    <strong>Tip:</strong>
+                    Use the <code class="bg-base-300 px-1 rounded">admin_popup</code>
+                    slot to pass any custom content you want to debug.
+                  </div>
+                </div>
               <% else %>
                 {render_slot(@admin_popup)}
               <% end %>
             </.persistent_popup>
 
-            <%!-- Load PersistentPopup JavaScript Library --%>
+            <%!-- Load PersistentPopup JavaScript (inline with popup HTML) --%>
             <.popup_script />
 
             <%!-- Auto-close mobile drawer on navigation --%>
