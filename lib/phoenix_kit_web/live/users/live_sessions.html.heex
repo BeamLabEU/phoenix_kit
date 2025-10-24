@@ -22,25 +22,11 @@
 
         <%!-- Controls --%>
         <div class="flex items-center gap-2">
-          <%!-- Auto-refresh toggle --%>
-          <button
-            phx-click="toggle_auto_refresh"
-            class={[
-              "btn btn-sm",
-              if(@auto_refresh, do: "btn-success", else: "btn-outline")
-            ]}
-          >
-            <%= if @auto_refresh do %>
-              <.icon name="hero-pause-circle" class="w-5 h-5" /> Auto-refresh ON
-            <% else %>
-              <.icon name="hero-play-circle" class="w-5 h-5" /> Auto-refresh OFF
-            <% end %>
-          </button>
-
           <%!-- Manual refresh --%>
           <button
             phx-click="refresh_now"
             class="btn btn-sm btn-outline"
+            title="Manually refresh session data (updates automatically via real-time events)"
           >
             <.icon name="hero-arrow-path" class="w-5 h-5" /> Refresh
           </button>
@@ -48,8 +34,7 @@
       </div>
 
       <p class="text-base-content/70 mt-2">
-        Real-time monitoring of all active sessions with live updates.
-        Last updated: {Calendar.strftime(@last_updated, "%H:%M:%S")}
+        Real-time monitoring of all active sessions with automatic live updates via WebSocket events.
       </p>
     </div>
 

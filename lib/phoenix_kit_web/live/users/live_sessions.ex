@@ -20,8 +20,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
 
-  # Refresh every 5 seconds
-  @refresh_interval 5_000
   @per_page 20
 
   def mount(_params, session, socket) do
@@ -29,9 +27,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     if connected?(socket) do
       Events.subscribe_to_presence()
       Events.subscribe_to_stats()
-
-      # Start auto-refresh timer
-      schedule_refresh()
 
       # Track authenticated user session if logged in
       track_authenticated_session(socket, session)
@@ -51,8 +46,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
       |> assign(:project_title, project_title)
       |> assign(:sort_by, :connected_at)
       |> assign(:sort_order, :desc)
-      |> assign(:auto_refresh, true)
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -102,47 +95,27 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     {:noreply, socket}
   end
 
-  def handle_event("toggle_auto_refresh", _params, socket) do
-    auto_refresh = !socket.assigns.auto_refresh
-
-    if auto_refresh do
-      schedule_refresh()
-    end
-
-    socket = assign(socket, :auto_refresh, auto_refresh)
-    {:noreply, socket}
-  end
+  # Auto-refresh toggle removed - page now uses real-time PubSub events only
+  # def handle_event("toggle_auto_refresh", _params, socket) do
+  #   {:noreply, socket}
+  # end
 
   def handle_event("refresh_now", _params, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
     {:noreply, socket}
   end
 
-  def handle_info(:refresh, socket) do
-    if socket.assigns.auto_refresh do
-      socket =
-        socket
-        |> assign(:last_updated, DateTime.utc_now())
-        |> load_sessions()
-        |> load_stats()
-
-      schedule_refresh()
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
+  # Timer removed - relying on real-time PubSub events instead
+  # (Events.subscribe_to_presence/0 and Events.subscribe_to_stats/0)
 
   # Handle real-time presence events
   def handle_info({:anonymous_session_connected, _session_id, _metadata}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -152,7 +125,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:anonymous_session_disconnected, _session_id}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -162,7 +134,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:user_session_connected, _user_id, _metadata}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -172,7 +143,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   def handle_info({:user_session_disconnected, _user_id, _session_id}, socket) do
     socket =
       socket
-      |> assign(:last_updated, DateTime.utc_now())
       |> load_sessions()
       |> load_stats()
 
@@ -180,12 +150,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   end
 
   def handle_info({:presence_stats_updated, stats}, socket) do
-    socket =
-      socket
-      |> assign(:presence_stats, stats)
-      |> assign(:last_updated, DateTime.utc_now())
-
-    {:noreply, socket}
+    {:noreply, assign(socket, :presence_stats, stats)}
   end
 
   # Ignore other messages
@@ -252,10 +217,6 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
 
   defp toggle_sort_order(:asc), do: :desc
   defp toggle_sort_order(:desc), do: :asc
-
-  defp schedule_refresh do
-    Process.send_after(self(), :refresh, @refresh_interval)
-  end
 
   defp track_authenticated_session(socket, session) do
     scope = socket.assigns[:phoenix_kit_current_scope]
