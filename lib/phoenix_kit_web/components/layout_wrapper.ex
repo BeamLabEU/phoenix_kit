@@ -605,7 +605,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               // position, size, scroll, and open/closed state seamlessly.
 
               const POPUP_STORAGE_KEY = 'phoenix_kit_popups';
-              const POPUP_PLACEHOLDER_ID = 'admin-generic-popup-placeholder';
               const DEFAULT_POPUP_ID = 'admin-generic-popup';
 
               // Debounce helper to limit how often we save state during drag/resize
@@ -670,128 +669,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 }
               }
 
-              // ============================================================================
-              // PLACEHOLDER SYSTEM
-              // ============================================================================
-              // During LiveView navigation, the popup DOM gets replaced. To prevent
-              // the popup from disappearing during navigation (causing flicker), we
-              // create a visual clone (placeholder) that stays visible while the real
-              // popup is being updated. Once navigation completes, we fade out the
-              // placeholder and show the restored real popup.
-
-              function createPopupPlaceholder() {
-                // Don't create duplicate placeholders
-                const existing = document.getElementById(POPUP_PLACEHOLDER_ID);
-                if (existing) {
-                  console.log('[Popup] Placeholder already present, skipping clone');
-                  return existing;
-                }
-
-                const container = document.getElementById('admin-generic-popup');
-                const panel = container?.querySelector('[data-popup-panel]');
-
-                // Can't create placeholder without popup elements
-                if (!container || !panel) {
-                  console.log('[Popup] Skipping placeholder creation - container or panel missing', {
-                    hasContainer: !!container,
-                    hasPanel: !!panel
-                  });
-                  return null;
-                }
-
-                // Don't create placeholder for hidden popups (would be invisible anyway)
-                if (container.getAttribute('aria-hidden') === 'true' || container.style.display === 'none') {
-                  console.log('[Popup] Skipping placeholder creation - popup hidden', {
-                    ariaHidden: container.getAttribute('aria-hidden'),
-                    display: container.style.display
-                  });
-                  return null;
-                }
-
-                // Clone the entire popup container
-                const clone = container.cloneNode(true);
-
-                // Remove all IDs to avoid conflicts (placeholder shouldn't be interactive)
-                clone.removeAttribute('id');
-                clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
-                clone.id = POPUP_PLACEHOLDER_ID;
-
-                // Make placeholder non-interactive (visual only)
-                clone.classList.add('pointer-events-none');
-                clone.style.pointerEvents = 'none';
-                clone.style.position = 'fixed';
-                clone.style.inset = '0';
-                clone.style.zIndex = '70';
-
-                // Position the cloned panel exactly where the real one is
-                const clonedPanel = clone.querySelector('[data-popup-panel]');
-                const clonedContent = clone.querySelector('[data-popup-content]');
-                const rect = panel.getBoundingClientRect();
-
-                if (clonedPanel) {
-                  clonedPanel.style.left = `${rect.left}px`;
-                  clonedPanel.style.top = `${rect.top}px`;
-                  clonedPanel.style.width = `${rect.width}px`;
-                  clonedPanel.style.height = `${rect.height}px`;
-                  clonedPanel.style.position = 'fixed';
-                }
-
-                // Keep close buttons visible but make them non-interactive
-                // This makes the placeholder look identical to the real popup
-                clone.querySelectorAll('[data-popup-close]').forEach((btn) => {
-                  btn.style.pointerEvents = 'none';
-                });
-
-                // Get current scroll position (will apply AFTER appending to DOM)
-                const originalContent = panel.querySelector('[data-popup-content]');
-                const scrollTop = originalContent?.scrollTop || 0;
-                const scrollLeft = originalContent?.scrollLeft || 0;
-
-                // Append clone to DOM first
-                document.body.appendChild(clone);
-
-                // THEN apply scroll position (must be after DOM insertion for browser to honor it)
-                if (clonedContent) {
-                  clonedContent.style.overflow = 'hidden';
-                  clonedContent.scrollTop = scrollTop;
-                  clonedContent.scrollLeft = scrollLeft;
-                }
-
-                container.dataset.popupPlaceholderActive = 'true';
-
-                // ANTI-FLICKER: Hide the real container during navigation
-                // The placeholder shows a visual clone in the exact same position
-                // After navigation completes and state is restored, we'll fade out the placeholder
-                // This prevents any flicker from LiveView's DOM replacement
-                container.style.visibility = 'hidden';
-                console.log('[Popup] Hiding real container - placeholder is now visible');
-
-                console.log('[Popup] Placeholder created', JSON.stringify({
-                  position: { left: rect.left, top: rect.top },
-                  size: { width: rect.width, height: rect.height },
-                  hasOriginalContent: !!originalContent,
-                  scrollPosition: { top: originalContent?.scrollTop || 0, left: originalContent?.scrollLeft || 0 }
-                }));
-
-                return clone;
-              }
-
-              // Remove placeholder clone and restore real popup visibility
-              // Called after navigation completes and real popup is restored
-              function removePopupPlaceholder() {
-                const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
-                if (placeholder) {
-                  console.log('[Popup] Removing placeholder clone');
-                  placeholder.remove();
-                }
-
-                const container = document.getElementById('admin-generic-popup');
-                if (container) {
-                  container.style.removeProperty('visibility');
-                  delete container.dataset.popupPlaceholderActive;
-                  console.log('[Popup] Cleared placeholder state on container');
-                }
-              }
 
               // ============================================================================
               // SCROLL RESTORATION HELPERS
@@ -826,20 +703,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 console.log('[Popup] Restored overflow on popup content after animation');
               }
 
-              // Smoothly fade out placeholder before removing it from DOM
-              // This prevents jarring visual changes when transitioning to real popup
-              function fadeOutPlaceholder() {
-                const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
-
-                if (placeholder) {
-                  placeholder.style.transition = 'opacity 120ms ease';
-                  placeholder.style.opacity = '0';
-                  setTimeout(() => removePopupPlaceholder(), 150);
-                  console.log('[Popup] Fading placeholder out before removal');
-                } else {
-                  removePopupPlaceholder();
-                }
-              }
 
               // Apply saved popup state to CSS vars immediately on page load
               applyPopupCssVars(getPopupState('admin-generic-popup'));
@@ -1101,7 +964,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         }
 
                         unlockContentOverflow(currentContent);
-                        requestAnimationFrame(() => fadeOutPlaceholder());
                         window.__popupRestoredDuringInit = false;
                       });
                     };
@@ -1303,7 +1165,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     }
 
                     unlockContentOverflow(content);
-                    requestAnimationFrame(() => fadeOutPlaceholder());
                   });
 
                   return savedState;
@@ -1547,7 +1408,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   container.style.display = 'none';
 
                   savePopupState('admin-generic-popup', { isOpen: false });
-                  removePopupPlaceholder();
                 };
 
                 window.__popupToggle = function() {
@@ -2101,7 +1961,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   const savedState = getPopupState(popupId);
                   if (!savedState) {
-                    removePopupPlaceholder();
                     return;
                   }
 
@@ -2166,7 +2025,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     }
 
                     unlockContentOverflow(currentContent);
-                    requestAnimationFrame(() => fadeOutPlaceholder());
                   });
                 };
 
@@ -2184,20 +2042,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               // These listeners handle popup persistence across LiveView navigation
               //
               // NAVIGATION FLOW (when popup elements exist on new page):
-              // 1. phx:page-loading-start fires → create visual placeholder (if popup was open)
-              // 2. LiveView replaces DOM with new elements
-              // 3. phx:page-loading-stop fires → call initAdminPopup()
-              // 4. initAdminPopup() checks for elements:
-              //    - If found: detects wasAlreadyInitialized = true, continues to step 5
+              // 1. phx:page-loading-start fires → save scroll position
+              // 2. LiveView replaces DOM with new elements (popup appears with default attrs)
+              // 3. phx:page-loading-stop fires → call initAdminPopup() via requestAnimationFrame
+              // 4. requestAnimationFrame runs BEFORE next paint → restores state (no flicker)
+              // 5. initAdminPopup() checks for elements:
+              //    - If found: detects wasAlreadyInitialized = true, continues to step 6
               //    - If not found: sets window.__popupIsInitialized = false, exits
-              // 5. Re-init path: recreate window.__popupRestoreState with fresh DOM refs
-              // 6. Call window.__popupRestoreState() immediately to restore state
-              // 7. Fall through to full init: re-attach all event listeners to new DOM
-              // 8. Popup works perfectly with drag/resize/scroll on new page
+              // 6. Re-init path: recreate window.__popupRestoreState with fresh DOM refs
+              // 7. Call window.__popupRestoreState() immediately to restore state
+              // 8. Fall through to full init: re-attach all event listeners to new DOM
+              // 9. Popup works perfectly with drag/resize/scroll on new page
               //
               // Key events:
-              // - phx:page-loading-start: Create placeholder to prevent flicker during nav
-              // - phx:page-loading-stop: Re-run initAdminPopup() to reattach event listeners
+              // - phx:page-loading-start: Save scroll position before navigation
+              // - phx:page-loading-stop: Re-run initAdminPopup() before next paint (via rAF)
               // - phx:update: Minor DOM updates (we ignore these for popup restore)
 
               let restoreTimeout = null;
@@ -2222,7 +2081,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 // Only restore on phx:page-loading-stop (actual navigation)
               });
 
-              // NAVIGATION START: Create visual placeholder to prevent popup from disappearing
+              // NAVIGATION START: Save scroll position before LiveView replaces DOM
               window.addEventListener('phx:page-loading-start', function(event) {
                 const kind = event?.detail?.kind || 'unknown';
                 const isInitialKind = kind === 'initial';
@@ -2252,16 +2111,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   });
                 }
 
-                // ANTI-FLICKER: Create placeholder when popup is OPEN to prevent flicker
-                // The placeholder shows a visual clone while LiveView replaces the real DOM
-                // If popup is closed, no need for placeholder
-                const popupState = getPopupState(DEFAULT_POPUP_ID);
-                if (popupState?.isOpen) {
-                  console.log('[Popup] Creating placeholder - popup is open, preventing flicker during navigation');
-                  createPopupPlaceholder();
-                } else {
-                  console.log('[Popup] Skipping placeholder - popup is closed, no visual clone needed');
-                }
 
                 // CRITICAL: Don't reset __popupInitialLoadComplete or __popupRestoredDuringInit here!
                 // Resetting them breaks the restore logic on subsequent navigations
@@ -2285,9 +2134,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     console.log('[Popup] Initial load complete (kind: initial), no prior restore to replay');
                   }
 
-                  // Don't remove placeholder here - it will be removed via fadeOutPlaceholder()
-                  // after the restore completes in the deferred initAdminPopup() call
-                  // Removing it here causes a flicker because restore hasn't happened yet
                   window.__popupRestoredDuringInit = false;
                   return;
                 }
@@ -2297,14 +2143,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 window.__popupInitialLoadComplete = true;
 
                 // Always try to initialize after navigation
-                // setTimeout(0) defers execution until after LiveView completes DOM updates
-                // Without this defer, popup elements may not be in the DOM yet when we query them
-                // This is especially important for full page navigations where LiveView
-                // replaces large portions of the DOM
-                console.log('[Popup] Running initAdminPopup after navigation (deferred)');
-                setTimeout(() => {
+                // Use requestAnimationFrame to restore state before next paint (prevents flicker)
+                // This runs after LiveView DOM updates but before browser renders the frame
+                console.log('[Popup] Running initAdminPopup after navigation (before next paint)');
+                requestAnimationFrame(() => {
                   initAdminPopup();
-                }, 0);
+                });
               });
 
               // ============================================================================
