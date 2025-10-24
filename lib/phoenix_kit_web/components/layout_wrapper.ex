@@ -190,6 +190,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   transition: transform 300ms ease-in-out;
                 }
               }
+
+              #admin-generic-popup [data-popup-panel] {
+                left: var(--phoenix-kit-popup-left, auto);
+                top: var(--phoenix-kit-popup-top, auto);
+                width: var(--phoenix-kit-popup-width, auto);
+                height: var(--phoenix-kit-popup-height, auto);
+              }
             </style>
             <%!-- Top Bar Navbar (always visible, spans full width) --%>
             <header class="bg-base-100 shadow-sm border-b border-base-300 fixed top-0 left-0 right-0 z-50">
@@ -235,8 +242,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                 <div
                   id="admin-generic-popup"
-                  class="hidden fixed inset-0 z-[70] pointer-events-none"
+                  class="fixed inset-0 z-[70] pointer-events-none"
                   aria-hidden="true"
+                  style="display: none;"
                 >
                   <section
                     data-popup-panel
@@ -588,12 +596,276 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
             <%!-- Auto-close mobile drawer on navigation --%>
             <script>
+              // Popup state persistence (designed for multiple popups)
+              const POPUP_STORAGE_KEY = 'phoenix_kit_popups';
+              const POPUP_PLACEHOLDER_ID = 'admin-generic-popup-placeholder';
+              const DEFAULT_POPUP_ID = 'admin-generic-popup';
+
+              function debounce(func, wait) {
+                let timeout;
+                return function executedFunction(...args) {
+                  const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                  };
+                  clearTimeout(timeout);
+                  timeout = setTimeout(later, wait);
+                };
+              }
+
+              function getPopupState(popupId) {
+                try {
+                  const allPopups = JSON.parse(sessionStorage.getItem(POPUP_STORAGE_KEY) || '{}');
+                  return allPopups[popupId] || null;
+                } catch (e) {
+                  console.warn('[Popup] Failed to load state:', e);
+                  return null;
+                }
+              }
+
+              function savePopupState(popupId, state) {
+                try {
+                  const allPopups = JSON.parse(sessionStorage.getItem(POPUP_STORAGE_KEY) || '{}');
+                  allPopups[popupId] = { ...allPopups[popupId], ...state };
+                  sessionStorage.setItem(POPUP_STORAGE_KEY, JSON.stringify(allPopups));
+                  console.log('[Popup] Saved state:', popupId, state);
+                  applyPopupCssVars(allPopups[popupId]);
+                } catch (e) {
+                  console.warn('[Popup] Failed to save state:', e);
+                }
+              }
+
+              function applyPopupCssVars(state) {
+                if (!state) return;
+
+                const root = document.documentElement;
+
+                if (state.position) {
+                  root.style.setProperty('--phoenix-kit-popup-left', `${state.position.left}px`);
+                  root.style.setProperty('--phoenix-kit-popup-top', `${state.position.top}px`);
+                }
+
+                if (state.size) {
+                  root.style.setProperty('--phoenix-kit-popup-width', `${state.size.width}px`);
+                  root.style.setProperty('--phoenix-kit-popup-height', `${state.size.height}px`);
+                }
+
+                if (state.isOpen !== undefined) {
+                  root.style.setProperty('--phoenix-kit-popup-open', state.isOpen ? '1' : '0');
+                }
+              }
+
+              function createPopupPlaceholder() {
+                const existing = document.getElementById(POPUP_PLACEHOLDER_ID);
+                if (existing) {
+                  console.log('[Popup] Placeholder already present, skipping clone');
+                  return existing;
+                }
+
+                const container = document.getElementById('admin-generic-popup');
+                const panel = container?.querySelector('[data-popup-panel]');
+
+                if (!container || !panel) {
+                  console.log('[Popup] Skipping placeholder creation - container or panel missing', {
+                    hasContainer: !!container,
+                    hasPanel: !!panel
+                  });
+                  return null;
+                }
+
+                if (container.getAttribute('aria-hidden') === 'true' || container.style.display === 'none') {
+                  console.log('[Popup] Skipping placeholder creation - popup hidden', {
+                    ariaHidden: container.getAttribute('aria-hidden'),
+                    display: container.style.display
+                  });
+                  return null;
+                }
+
+                const clone = container.cloneNode(true);
+                clone.removeAttribute('id');
+                clone.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+                clone.id = POPUP_PLACEHOLDER_ID;
+                clone.classList.add('pointer-events-none');
+                clone.style.pointerEvents = 'none';
+                clone.style.position = 'fixed';
+                clone.style.inset = '0';
+                clone.style.zIndex = '70';
+
+                const clonedPanel = clone.querySelector('[data-popup-panel]');
+                const clonedContent = clone.querySelector('[data-popup-content]');
+                const rect = panel.getBoundingClientRect();
+
+                if (clonedPanel) {
+                  clonedPanel.style.left = `${rect.left}px`;
+                  clonedPanel.style.top = `${rect.top}px`;
+                  clonedPanel.style.width = `${rect.width}px`;
+                  clonedPanel.style.height = `${rect.height}px`;
+                  clonedPanel.style.position = 'fixed';
+                }
+
+                clone.querySelectorAll('[data-popup-close]').forEach((btn) => btn.remove());
+
+                const savedState = getPopupState(DEFAULT_POPUP_ID);
+                if (savedState?.scroll && clonedContent) {
+                  clonedContent.style.overflow = 'hidden';
+                  clonedContent.scrollTop = savedState.scroll.scrollTop || 0;
+                  clonedContent.scrollLeft = savedState.scroll.scrollLeft || 0;
+                }
+
+                document.body.appendChild(clone);
+
+                container.dataset.popupPlaceholderActive = 'true';
+
+                // Fix 2: Don't hide container if popup is open - it should stay visible
+                if (!savedState?.isOpen) {
+                  container.style.visibility = 'hidden';
+                } else {
+                  console.log('[Popup] Keeping container visible - popup is open');
+                }
+
+                const originalContent = panel.querySelector('[data-popup-content]');
+                console.log('[Popup] Placeholder created', {
+                  position: { left: rect.left, top: rect.top },
+                  size: { width: rect.width, height: rect.height },
+                  hasOriginalContent: !!originalContent
+                });
+
+                return clone;
+              }
+
+              function removePopupPlaceholder() {
+                const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
+                if (placeholder) {
+                  console.log('[Popup] Removing placeholder clone');
+                  placeholder.remove();
+                }
+
+                const container = document.getElementById('admin-generic-popup');
+                if (container) {
+                  container.style.removeProperty('visibility');
+                  delete container.dataset.popupPlaceholderActive;
+                  console.log('[Popup] Cleared placeholder state on container');
+                }
+              }
+
+              function lockContentOverflow(content) {
+                if (!content) return;
+
+                if (!content.dataset.originalOverflow) {
+                  content.dataset.originalOverflow = content.style.overflow || '';
+                }
+
+                content.style.overflow = 'hidden';
+                console.log('[Popup] Locked overflow on popup content during restore');
+              }
+
+              function unlockContentOverflow(content) {
+                if (!content) return;
+
+                const original = content.dataset.originalOverflow;
+
+                if (original !== undefined) {
+                  content.style.overflow = original;
+                  delete content.dataset.originalOverflow;
+                } else {
+                  content.style.removeProperty('overflow');
+                }
+                console.log('[Popup] Restored overflow on popup content after animation');
+              }
+
+              function fadeOutPlaceholder() {
+                const placeholder = document.getElementById(POPUP_PLACEHOLDER_ID);
+
+                if (placeholder) {
+                  placeholder.style.transition = 'opacity 120ms ease';
+                  placeholder.style.opacity = '0';
+                  setTimeout(() => removePopupPlaceholder(), 150);
+                  console.log('[Popup] Fading placeholder out before removal');
+                } else {
+                  removePopupPlaceholder();
+                }
+              }
+
+              applyPopupCssVars(getPopupState('admin-generic-popup'));
+              function queueScrollRestore(target, popupId = DEFAULT_POPUP_ID, onComplete) {
+                if (!target) {
+                  console.log('[Popup] Scroll restore skipped - missing content target');
+                  if (typeof onComplete === 'function') {
+                    onComplete();
+                  }
+                  return;
+                }
+
+                const maxAttempts = 10;
+                const minStableFrames = 2;
+                let attempts = 0;
+                let completed = false;
+                let stableFrames = 0;
+                console.log('[Popup] Scroll restore started', { popupId, maxAttempts, minStableFrames });
+
+                const finish = () => {
+                  if (!completed) {
+                    completed = true;
+                    console.log('[Popup] Scroll restore finished', { popupId, attempts, stableFrames });
+                    if (typeof onComplete === 'function') {
+                      onComplete();
+                    }
+                  }
+                };
+
+                const applyScroll = () => {
+                  const savedState = getPopupState(popupId);
+                  if (!savedState || !savedState.scroll) {
+                    console.log('[Popup] Scroll restore aborted - no scroll data', { popupId, savedState });
+                    finish();
+                    return;
+                  }
+
+                  const desiredTop = savedState.scroll.scrollTop || 0;
+                  const desiredLeft = savedState.scroll.scrollLeft || 0;
+
+                  target.scrollTop = desiredTop;
+                  target.scrollLeft = desiredLeft;
+
+                  attempts += 1;
+
+                  const withinTolerance =
+                    Math.abs(target.scrollTop - desiredTop) <= 1 &&
+                    Math.abs(target.scrollLeft - desiredLeft) <= 1;
+
+                  if (withinTolerance) {
+                    stableFrames += 1;
+
+                    if (stableFrames >= minStableFrames || attempts >= maxAttempts) {
+                      finish();
+                      return;
+                    }
+                  } else {
+                    stableFrames = 0;
+                  }
+
+                  if (!completed && attempts < maxAttempts) {
+                    requestAnimationFrame(applyScroll);
+                  } else {
+                    finish();
+                  }
+                };
+
+                applyScroll();
+              }
+
+              // Global flags to track popup state (persists across DOM replacements)
+              window.__popupIsInitialized = window.__popupIsInitialized || false;
+              window.__popupIsInteracting = false; // Flag to prevent restore during drag/resize
+              window.__popupFullInitObserver = window.__popupFullInitObserver || null;
+              window.__popupSkipReinitObserver = window.__popupSkipReinitObserver || null;
+
               function initAdminPopup() {
                 const container = document.getElementById('admin-generic-popup');
                 const openButton = document.getElementById('admin-generic-popup-button');
 
-                if (!container || !openButton || openButton.dataset.popupEnhanced === 'true') {
-                  console.warn('[Popup] Skipping init', { container: !!container, openButton: !!openButton, enhanced: openButton?.dataset?.popupEnhanced });
+                if (!container || !openButton) {
+                  console.warn('[Popup] Skipping init - missing elements', { container: !!container, openButton: !!openButton });
                   return;
                 }
 
@@ -602,12 +874,195 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 const closeButtons = container.querySelectorAll('[data-popup-close]');
                 const resizeHandle = container.querySelector('[data-popup-resize-handle]');
                 const content = container.querySelector('[data-popup-content]');
+                const popupId = container.id; // Define early so it's available in both paths
+
+                applyPopupCssVars(getPopupState(popupId));
+
+                // Check if already initialized globally (not just on this DOM element)
+                if (window.__popupIsInitialized) {
+                  console.log('[Popup] Already initialized globally, skipping re-initialization');
+
+                  if (window.__popupFullInitObserver) {
+                    window.__popupFullInitObserver.disconnect();
+                    window.__popupFullInitObserver = null;
+                    console.log('[Popup] Disconnected full-init observer after DOM replace');
+                  }
+
+                  if (window.__popupSkipReinitObserver) {
+                    window.__popupSkipReinitObserver.disconnect();
+                    window.__popupSkipReinitObserver = null;
+                  }
+
+                  // But still need to set up observers for the NEW panel
+                  if (panel) {
+                    // Attach close button handlers for this new instance
+                    closeButtons.forEach((button) => {
+                      // Remove old listener if exists (prevent duplicates)
+                      button.removeEventListener('click', window.__popupHidePopup);
+                      button.addEventListener('click', window.__popupHidePopup);
+                    });
+
+                    // Attach toggle button handler
+                    openButton.removeEventListener('click', window.__popupToggle);
+                    openButton.addEventListener('click', window.__popupToggle);
+
+                    // Add marker to the panel
+                    panel.style.setProperty('--popup-initialized', '1');
+
+                    // Store a global restore function that works with the current panel
+                    window.__popupRestoreState = function() {
+                      console.log('[Popup] __popupRestoreState invoked', {
+                        interacting: window.__popupIsInteracting,
+                        containerInDom: document.body.contains(container),
+                        panelInDom: document.body.contains(panel)
+                      });
+                      if (window.__popupIsInteracting) {
+                        console.log('[Popup] Skipping restore - user is interacting');
+                        return;
+                      }
+
+                      if (!document.body.contains(container) || !document.body.contains(panel) || !document.body.contains(openButton)) {
+                        console.log('[Popup] Skipping restore - popup elements no longer exist on current page');
+                        return;
+                      }
+
+                      const savedState = getPopupState(popupId);
+                      if (!savedState) {
+                        console.log('[Popup] No saved state available for restore; skipping');
+                        return;
+                      }
+
+                      console.log('[Popup] Restoring state to new panel after navigation:', savedState);
+
+                      applyPopupCssVars(savedState);
+
+                      if (savedState.position) {
+                        panel.style.left = `${savedState.position.left}px`;
+                        panel.style.top = `${savedState.position.top}px`;
+                      }
+                      if (savedState.size) {
+                        panel.style.width = `${savedState.size.width}px`;
+                        panel.style.height = `${savedState.size.height}px`;
+                      }
+                      let shouldAnimate = false;
+
+                      if (savedState.isOpen) {
+                        // Set display and attributes without animations
+                        container.style.display = 'block';
+                        container.setAttribute('aria-hidden', 'false');
+                        openButton.setAttribute('aria-expanded', 'true');
+
+                        // Never animate during skip-reinit - popup is already supposed to be open
+                        // This is called after navigation when popup state should persist
+                        shouldAnimate = false;
+                        panel.style.removeProperty('visibility');
+                        panel.style.removeProperty('opacity');
+                        panel.style.removeProperty('transform');
+                        console.log('[Popup] Skip-reinit: keeping popup open without animation');
+                      } else {
+                        container.style.display = 'none';
+                        console.log('[Popup] Restoring popup as closed (skip path)');
+                      }
+
+                      lockContentOverflow(content);
+
+                      queueScrollRestore(content, popupId, () => {
+                        panel.style.removeProperty('visibility');
+
+                        if (savedState.isOpen) {
+                          if (shouldAnimate) {
+                            panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
+                            panel.style.opacity = '1';
+                            panel.style.transform = 'translateY(0)';
+
+                            setTimeout(() => {
+                              panel.style.removeProperty('transition');
+                            }, 150);
+                          } else {
+                            panel.style.removeProperty('opacity');
+                            panel.style.removeProperty('transform');
+                            panel.style.removeProperty('transition');
+                          }
+                        } else {
+                          panel.style.removeProperty('opacity');
+                          panel.style.removeProperty('transform');
+                          panel.style.removeProperty('transition');
+                        }
+
+                        unlockContentOverflow(content);
+                        requestAnimationFrame(() => fadeOutPlaceholder());
+                        window.__popupRestoredDuringInit = false;
+                      });
+                    };
+
+                    if (typeof window.__popupRestoreState === 'function') {
+                      window.__popupRestoreState();
+                    }
+
+                    // Set up observer for this new panel instance
+                    const skipObserver = new MutationObserver((mutations) => {
+                      // Observer is always active - it's our safety net for catching DOM patches
+
+                      for (const mutation of mutations) {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                          const timestamp = new Date().toISOString().split('T')[1];
+                          const hasMarker = panel.style.getPropertyValue('--popup-initialized');
+                          const currentStyles = {
+                            left: panel.style.left,
+                            top: panel.style.top,
+                            width: panel.style.width,
+                            height: panel.style.height
+                          };
+
+                          // Check if styles were cleared (set to empty strings by LiveView)
+                          const stylesCleared = !panel.style.left && !panel.style.top;
+
+                          console.log(`[${timestamp}] [Popup] Observer (skip-reinit) detected style change, marker:`, !!hasMarker, 'styles cleared:', stylesCleared, 'styles:', currentStyles);
+
+                          if (!hasMarker || stylesCleared) {
+                            console.log(`[${timestamp}] [Popup] LiveView cleared styles - RESTORING NOW`);
+                            const savedState = getPopupState(popupId);
+                            if (savedState) {
+                              skipObserver.disconnect();
+
+                              if (savedState.position) {
+                                panel.style.left = `${savedState.position.left}px`;
+                                panel.style.top = `${savedState.position.top}px`;
+                              }
+                              if (savedState.size) {
+                                panel.style.width = `${savedState.size.width}px`;
+                                panel.style.height = `${savedState.size.height}px`;
+                              }
+
+                              panel.style.setProperty('--popup-initialized', '1');
+
+                              // Reconnect immediately to catch any subsequent changes
+                              skipObserver.observe(panel, {
+                                attributes: true,
+                                attributeFilter: ['style']
+                              });
+                            }
+                          }
+                        }
+                      }
+                    });
+
+                    skipObserver.observe(panel, {
+                      attributes: true,
+                      attributeFilter: ['style']
+                    });
+                    window.__popupSkipReinitObserver = skipObserver;
+                    console.log('[Popup] Skip-reinit observer started watching panel element:', panel);
+                  }
+                  return;
+                }
 
                 if (!panel || !handle) {
                   console.warn('[Popup] Missing panel or handle', { hasPanel: !!panel, hasHandle: !!handle });
                   return;
                 }
-                console.log('[Popup] Initialized');
+
+                console.log('[Popup] First-time initialization:', popupId);
 
                 let isOpen = false;
                 let isDragging = false;
@@ -620,6 +1075,86 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                 let startHeight = 0;
                 let startX = 0;
                 let startY = 0;
+
+                // Restore state from sessionStorage (ONLY on first initialization)
+                const restoreState = () => {
+                  const savedState = getPopupState(popupId);
+                  console.log('[Popup] Restoring state from sessionStorage:', savedState);
+
+                  if (!savedState) {
+                    console.log('[Popup] No saved state found on initial load; leaving popup closed');
+                    return false;
+                  }
+
+                  applyPopupCssVars(savedState);
+
+                  applyPopupCssVars(savedState);
+
+                  // Restore position
+                  if (savedState.position) {
+                    panel.style.left = `${savedState.position.left}px`;
+                    panel.style.top = `${savedState.position.top}px`;
+                  }
+
+                  // Restore size
+                  if (savedState.size) {
+                    panel.style.width = `${savedState.size.width}px`;
+                    panel.style.height = `${savedState.size.height}px`;
+                  }
+
+                  // Restore scroll position
+                  let shouldAnimate = false;
+
+                  if (savedState.isOpen) {
+                    // Set display and attributes without animations
+                    container.style.display = 'block';
+                    container.setAttribute('aria-hidden', 'false');
+                    openButton.setAttribute('aria-expanded', 'true');
+                    isOpen = true;
+
+                    // Never animate during full-init restore - just restore state directly
+                    // On refresh, the popup should appear in its saved state without animation
+                    shouldAnimate = false;
+                    panel.style.removeProperty('visibility');
+                    panel.style.removeProperty('opacity');
+                    panel.style.removeProperty('transform');
+                    console.log('[Popup] Full-init: restoring popup as open without animation');
+                  } else {
+                    container.style.display = 'none';
+                    console.log('[Popup] Restoring popup as closed (init path)');
+                  }
+
+                  lockContentOverflow(content);
+
+                  queueScrollRestore(content, popupId, () => {
+                    panel.style.removeProperty('visibility');
+
+                    if (savedState.isOpen) {
+                      if (shouldAnimate) {
+                        panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
+                        panel.style.opacity = '1';
+                        panel.style.transform = 'translateY(0)';
+
+                        setTimeout(() => {
+                          panel.style.removeProperty('transition');
+                        }, 150);
+                      } else {
+                        panel.style.removeProperty('opacity');
+                        panel.style.removeProperty('transform');
+                        panel.style.removeProperty('transition');
+                      }
+                    } else {
+                      panel.style.removeProperty('opacity');
+                      panel.style.removeProperty('transform');
+                      panel.style.removeProperty('transition');
+                    }
+
+                    unlockContentOverflow(content);
+                    requestAnimationFrame(() => fadeOutPlaceholder());
+                  });
+
+                  return savedState;
+                };
 
                 const centerPanel = () => {
                   console.log('[Popup] Center panel - start');
@@ -682,6 +1217,25 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   window.removeEventListener('pointermove', handleDragMove);
                   window.removeEventListener('pointerup', endDrag);
                   window.removeEventListener('pointercancel', endDrag);
+
+                  // Save position after drag
+                  const currentPosition = {
+                    left: parseInt(panel.style.left) || 0,
+                    top: parseInt(panel.style.top) || 0
+                  };
+                  savePopupState(popupId, { position: currentPosition });
+
+                  // Clear interaction flag
+                  const timestamp = new Date().toISOString().split('T')[1];
+                  console.log(`[${timestamp}] [Popup] Clearing interaction flag after drag`);
+                  window.__popupIsInteracting = false;
+
+                  // Force restore position in case LiveView changed it during drag
+                  requestAnimationFrame(() => {
+                    panel.style.left = `${currentPosition.left}px`;
+                    panel.style.top = `${currentPosition.top}px`;
+                    console.log('[Popup] Re-applied position after drag to override any LiveView changes');
+                  });
                 };
 
                 const stopResizing = () => {
@@ -702,17 +1256,39 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   window.removeEventListener('pointermove', handleResizeMove);
                   window.removeEventListener('pointerup', endResize);
                   window.removeEventListener('pointercancel', endResize);
+
+                  // Save size after resize
+                  const currentSize = {
+                    width: parseInt(panel.style.width) || panel.offsetWidth,
+                    height: parseInt(panel.style.height) || panel.offsetHeight
+                  };
+                  savePopupState(popupId, { size: currentSize });
+
+                  // Clear interaction flag
+                  const timestamp = new Date().toISOString().split('T')[1];
+                  console.log(`[${timestamp}] [Popup] Clearing interaction flag after resize`);
+                  window.__popupIsInteracting = false;
+
+                  // Force restore size in case LiveView changed it during resize
+                  requestAnimationFrame(() => {
+                    panel.style.width = `${currentSize.width}px`;
+                    panel.style.height = `${currentSize.height}px`;
+                    console.log('[Popup] Re-applied size after resize to override any LiveView changes');
+                  });
                 };
 
                 const showPopup = () => {
                   centerPanel();
                   console.log('[Popup] Show');
-                  container.classList.remove('hidden');
+                  container.style.display = 'block';
                   container.setAttribute('aria-hidden', 'false');
                   openButton.setAttribute('aria-expanded', 'true');
                   isOpen = true;
                   panel.focus({ preventScroll: true });
                   document.addEventListener('keydown', handleKeydown);
+
+                  // Save open state
+                  savePopupState(popupId, { isOpen: true });
                 };
 
                 const hidePopup = () => {
@@ -727,21 +1303,56 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   container.setAttribute('aria-hidden', 'true');
                   openButton.setAttribute('aria-expanded', 'false');
-                  container.classList.add('hidden');
+                  container.style.display = 'none';
                   isOpen = false;
 
                   document.removeEventListener('keydown', handleKeydown);
+
+                  // Save closed state
+                  savePopupState(popupId, { isOpen: false });
                 };
 
-                const handleKeydown = (event) => {
-                  console.log('[Popup] Keydown', event.key);
-                  if (!isOpen) {
-                    return;
-                  }
+                // Store functions globally that work with current DOM elements
+                window.__popupShowPopup = function() {
+                  const container = document.getElementById('admin-generic-popup');
+                  const openButton = document.getElementById('admin-generic-popup-button');
+                  const panel = container?.querySelector('[data-popup-panel]');
+                  if (!container || !panel || !openButton) return;
 
-                  if (event.key === 'Escape') {
-                    event.preventDefault();
-                    hidePopup();
+                  console.log('[Popup] Show');
+                  container.style.display = 'block';
+                  container.setAttribute('aria-hidden', 'false');
+                  openButton.setAttribute('aria-expanded', 'true');
+                  panel.focus({ preventScroll: true });
+
+                  savePopupState('admin-generic-popup', { isOpen: true });
+                  queueScrollRestore(container.querySelector('[data-popup-content]'), 'admin-generic-popup');
+                };
+
+                window.__popupHidePopup = function() {
+                  const container = document.getElementById('admin-generic-popup');
+                  const openButton = document.getElementById('admin-generic-popup-button');
+                  if (!container || !openButton) return;
+
+                  console.log('[Popup] Hide');
+                  container.setAttribute('aria-hidden', 'true');
+                  openButton.setAttribute('aria-expanded', 'false');
+                  container.style.display = 'none';
+
+                  savePopupState('admin-generic-popup', { isOpen: false });
+                  removePopupPlaceholder();
+                };
+
+                window.__popupToggle = function() {
+                  console.log('[Popup] Toggle button clicked');
+                  const container = document.getElementById('admin-generic-popup');
+                  if (!container) return;
+
+                  const isCurrentlyOpen = container.style.display !== 'none';
+                  if (isCurrentlyOpen) {
+                    window.__popupHidePopup();
+                  } else {
+                    window.__popupShowPopup();
                   }
                 };
 
@@ -752,6 +1363,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   }
 
                   stopDragging();
+                };
+
+                // Debounced save during drag to handle LiveView updates
+                let dragSaveTimeout = null;
+                const saveDragState = () => {
+                  if (dragSaveTimeout) {
+                    clearTimeout(dragSaveTimeout);
+                  }
+                  dragSaveTimeout = setTimeout(() => {
+                    savePopupState(popupId, {
+                      position: {
+                        left: parseInt(panel.style.left) || 0,
+                        top: parseInt(panel.style.top) || 0
+                      }
+                    });
+                  }, 100); // Save every 100ms during drag
                 };
 
                 const handleDragMove = (event) => {
@@ -780,6 +1407,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   panel.style.left = `${clamped.left}px`;
                   panel.style.top = `${clamped.top}px`;
+
+                  // Save state periodically during drag (debounced)
+                  saveDragState();
                 };
 
                 const startDrag = (event) => {
@@ -790,6 +1420,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   console.log('[Popup] Start drag', { pointer: { x: event.clientX, y: event.clientY } });
 
                   event.preventDefault();
+                  window.__popupIsInteracting = true;
 
                   const containerRect = container.getBoundingClientRect();
 
@@ -841,6 +1472,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   stopResizing();
                 };
 
+                // Debounced save during resize to handle LiveView updates
+                let resizeSaveTimeout = null;
+                const saveResizeState = () => {
+                  if (resizeSaveTimeout) {
+                    clearTimeout(resizeSaveTimeout);
+                  }
+                  resizeSaveTimeout = setTimeout(() => {
+                    savePopupState(popupId, {
+                      size: {
+                        width: parseInt(panel.style.width) || panel.offsetWidth,
+                        height: parseInt(panel.style.height) || panel.offsetHeight
+                      }
+                    });
+                  }, 100); // Save every 100ms during resize
+                };
+
                 const handleResizeMove = (event) => {
                   if (!isResizing) {
                     return;
@@ -853,6 +1500,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                   panel.style.width = `${nextWidth}px`;
                   panel.style.height = `${nextHeight}px`;
+
+                  // Save state periodically during resize (debounced)
+                  saveResizeState();
                 };
 
                 const startResize = (event) => {
@@ -863,6 +1513,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   console.log('[Popup] Start resize', { x: event.clientX, y: event.clientY });
 
                   event.preventDefault();
+                  window.__popupIsInteracting = true;
 
                   const containerRect = container.getBoundingClientRect();
 
@@ -889,26 +1540,390 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   window.addEventListener('pointercancel', endResize);
                 };
 
+                const handleKeydown = (event) => {
+                  console.log('[Popup] Keydown', event.key);
+                  if (!isOpen) {
+                    return;
+                  }
+
+                  if (event.key === 'Escape') {
+                    event.preventDefault();
+                    hidePopup();
+                  }
+                };
+
+                // Restore saved state or use defaults
+                console.log('[Popup] About to restore state, current panel styles:', {
+                  left: panel.style.left,
+                  top: panel.style.top,
+                  width: panel.style.width,
+                  height: panel.style.height
+                });
+                const restored = restoreState();
+                window.__popupRestoredDuringInit = !!restored; // Track that we restored globally
+                console.log('[Popup] restoreState result', {
+                  restored: !!restored,
+                  restoredDuringInit: window.__popupRestoredDuringInit
+                });
+                console.log('[Popup] After restore, panel styles:', {
+                  left: panel.style.left,
+                  top: panel.style.top,
+                  width: panel.style.width,
+                  height: panel.style.height,
+                  restored: !!restored
+                });
+
+                if (!restored) {
+                  // No saved state, popup starts closed at default position
+                  console.log('[Popup] No saved state, using defaults');
+                  container.style.display = 'none';
+                } else if (restored.isOpen) {
+                  // Popup was restored as open, add keydown listener
+                  console.log('[Popup] Popup restored as open, container display:', container.style.display);
+                  document.addEventListener('keydown', handleKeydown);
+                } else {
+                  // Saved state exists but popup is closed
+                  console.log('[Popup] Popup restored as closed');
+                  container.style.display = 'none';
+                }
+
+                // Add marker to detect when LiveView strips inline styles
+                // This custom property will disappear when LiveView resets the panel
+                panel.style.setProperty('--popup-initialized', '1');
+                console.log('[Popup] Marker set, initialization about to complete');
+
                 handle.addEventListener('pointerdown', startDrag);
 
                 closeButtons.forEach((button) => {
-                  button.addEventListener('click', hidePopup);
+                  button.addEventListener('click', window.__popupHidePopup);
                 });
 
                 if (resizeHandle) {
                   resizeHandle.addEventListener('pointerdown', startResize);
                 }
 
-                openButton.addEventListener('click', () => {
-                  console.log('[Popup] Toggle button clicked');
-                  if (isOpen) {
-                    hidePopup();
-                  } else {
-                    showPopup();
+                openButton.addEventListener('click', window.__popupToggle);
+
+                // Save scroll position (debounced) with re-attachment on content change
+                if (content) {
+                  let scrollListener = null;
+
+                  const attachScrollListener = () => {
+                    // Remove old listener if it exists
+                    if (scrollListener) {
+                      content.removeEventListener('scroll', scrollListener);
+                    }
+
+                    // Create new debounced scroll handler
+                    scrollListener = debounce(() => {
+                      savePopupState(popupId, {
+                        scroll: {
+                          scrollTop: content.scrollTop,
+                          scrollLeft: content.scrollLeft
+                        }
+                      });
+                    }, 250);
+
+                    content.addEventListener('scroll', scrollListener);
+                    console.log('[Popup] Scroll listener attached/re-attached');
+                  };
+
+                  // Initial attachment
+                  attachScrollListener();
+
+                  // Re-attach scroll listener when LiveView updates content
+                  const contentObserver = new MutationObserver(() => {
+                    console.log('[Popup] Content changed, re-attaching scroll listener');
+                    attachScrollListener();
+
+                    queueScrollRestore(content, popupId);
+                  });
+
+                  contentObserver.observe(content, {
+                    childList: true,
+                    subtree: true
+                  });
+                }
+
+                // Watch for LiveView stripping our marker (indicates full style reset)
+                // This is smarter than watching every style change - only triggers on LiveView DOM replacement
+                const panelObserver = new MutationObserver((mutations) => {
+                  // Don't skip during initial load - we need to catch LiveView mount breaking the popup
+                  // The observer is the safety net that catches any DOM patching that breaks our styles
+
+                  for (const mutation of mutations) {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
+                      const timestamp = new Date().toISOString().split('T')[1];
+                      // Check if our marker disappeared (LiveView stripped all inline styles)
+                      const hasMarker = panel.style.getPropertyValue('--popup-initialized');
+                      const currentStyles = {
+                        left: panel.style.left,
+                        top: panel.style.top,
+                        width: panel.style.width,
+                        height: panel.style.height
+                      };
+
+                      // Check if styles were cleared (set to empty strings by LiveView)
+                      const stylesCleared = !panel.style.left && !panel.style.top;
+
+                      console.log(`[${timestamp}] [Popup] Observer (full-init) detected style change, marker:`, !!hasMarker, 'styles cleared:', stylesCleared, 'styles:', currentStyles);
+
+                      if (!hasMarker || stylesCleared) {
+                        console.log(`[${timestamp}] [Popup] LiveView cleared styles - RESTORING NOW`);
+                        const savedState = getPopupState(popupId);
+                        if (savedState) {
+                          // Temporarily disconnect to prevent loop
+                          panelObserver.disconnect();
+
+                          // Restore position
+                          if (savedState.position) {
+                            panel.style.left = `${savedState.position.left}px`;
+                            panel.style.top = `${savedState.position.top}px`;
+                          }
+                          // Restore size
+                          if (savedState.size) {
+                            panel.style.width = `${savedState.size.width}px`;
+                            panel.style.height = `${savedState.size.height}px`;
+                          }
+
+                          // Re-add marker
+                          panel.style.setProperty('--popup-initialized', '1');
+
+                          // Reconnect observer immediately to catch any subsequent changes
+                          panelObserver.observe(panel, {
+                            attributes: true,
+                            attributeFilter: ['style']
+                          });
+                        }
+                      }
+                      // If marker exists, this is just our own drag/resize code - ignore it
+                    }
                   }
                 });
 
+                panelObserver.observe(panel, {
+                  attributes: true,
+                  attributeFilter: ['style']
+                });
+                window.__popupFullInitObserver = panelObserver;
+                console.log('[Popup] Full-init observer started watching panel element:', panel);
+
+                // Watch for panel being removed from DOM during interaction (LiveView replacement)
+                // This handles the case where LiveView updates while user is dragging/resizing
+                const containerObserver = new MutationObserver((mutations) => {
+                  for (const mutation of mutations) {
+                    if (mutation.type === 'childList') {
+                      // Check if our panel was removed
+                      for (const removedNode of mutation.removedNodes) {
+                        if (removedNode === panel || removedNode.contains(panel)) {
+                          console.log('[Popup] Panel removed from DOM during interaction, stopping drag/resize');
+
+                          // Force stop any active interaction
+                          if (isDragging) {
+                            stopDragging();
+                          }
+                          if (isResizing) {
+                            stopResizing();
+                          }
+
+                          // The new panel will be in mutation.addedNodes, but we let the init code handle it
+                          // on next page load or via phx:page-loading-stop
+                          break;
+                        }
+                      }
+                    }
+                  }
+                });
+
+                containerObserver.observe(container, {
+                  childList: true,
+                  subtree: false // Only watch direct children
+                });
+
+                // Store restore function globally so the hook can call it
+                window.__popupRestoreState = function() {
+                  // Don't restore while user is actively dragging/resizing
+                  if (window.__popupIsInteracting) {
+                    console.log('[Popup] Skipping restore - user is interacting');
+                    return;
+                  }
+
+                  // Check if elements still exist (they might not on other pages)
+                  if (!document.body.contains(container) || !document.body.contains(panel) || !document.body.contains(openButton)) {
+                    console.log('[Popup] Skipping restore - popup elements no longer exist on current page');
+                    return;
+                  }
+
+                  const savedState = getPopupState(popupId);
+                  if (!savedState) {
+                    removePopupPlaceholder();
+                    return;
+                  }
+
+                  console.log('[Popup Hook] Restoring state after LiveView update:', savedState);
+
+                  applyPopupCssVars(savedState);
+
+                  // Restore position
+                  if (savedState.position) {
+                    panel.style.left = `${savedState.position.left}px`;
+                    panel.style.top = `${savedState.position.top}px`;
+                  }
+
+                  // Restore size
+                  if (savedState.size) {
+                    panel.style.width = `${savedState.size.width}px`;
+                    panel.style.height = `${savedState.size.height}px`;
+                  }
+
+                  let shouldAnimate = false;
+
+                  if (savedState.isOpen) {
+                    container.style.display = 'block';
+                    container.setAttribute('aria-hidden', 'false');
+                    openButton.setAttribute('aria-expanded', 'true');
+                    isOpen = true;
+
+                    // Never animate during global restore - popup state should persist without flicker
+                    shouldAnimate = false;
+                    panel.style.removeProperty('visibility');
+                    panel.style.removeProperty('opacity');
+                    panel.style.removeProperty('transform');
+                    console.log('[Popup] Global restore: keeping popup open without animation');
+                  } else {
+                    container.style.display = 'none';
+                  }
+
+                  lockContentOverflow(content);
+
+                  queueScrollRestore(content, popupId, () => {
+                    panel.style.removeProperty('visibility');
+
+                    if (savedState.isOpen) {
+                      if (shouldAnimate) {
+                        panel.style.transition = 'opacity 120ms ease, transform 120ms ease';
+                        panel.style.opacity = '1';
+                        panel.style.transform = 'translateY(0)';
+
+                        setTimeout(() => {
+                          panel.style.removeProperty('transition');
+                        }, 150);
+                      } else {
+                        panel.style.removeProperty('opacity');
+                        panel.style.removeProperty('transform');
+                        panel.style.removeProperty('transition');
+                      }
+                    } else {
+                      panel.style.removeProperty('opacity');
+                      panel.style.removeProperty('transform');
+                      panel.style.removeProperty('transition');
+                    }
+
+                    unlockContentOverflow(content);
+                    requestAnimationFrame(() => fadeOutPlaceholder());
+                  });
+                };
+
                 openButton.dataset.popupEnhanced = 'true';
+                window.__popupIsInitialized = true;
+                console.log('[Popup] Initialization complete, global flag set');
+              }
+
+              let restoreTimeout = null;
+
+              // Track initial page load globally so panelObserver can access it
+              if (window.__popupInitialLoadComplete === undefined) {
+                window.__popupInitialLoadComplete = false;
+              }
+
+              // Track if we restored during init globally (to prevent double-restore)
+              if (window.__popupRestoredDuringInit === undefined) {
+                window.__popupRestoredDuringInit = false;
+              }
+
+              // Debug: Log LiveView updates with timestamps
+              window.addEventListener('phx:update', function(e) {
+                const timestamp = new Date().toISOString().split('T')[1];
+                console.log(`[${timestamp}] [LiveView Update] Interacting: ${window.__popupIsInteracting}`, e.detail);
+
+                // DO NOT restore on every update - only on navigation (phx:page-loading-stop)
+                // These updates happen constantly (timers, presence, etc.) and would reset the popup
+              });
+
+              // Listen for LiveView page loading start to reset navigation flags
+              window.addEventListener('phx:page-loading-start', function(event) {
+                const kind = event?.detail?.kind || 'unknown';
+                const isInitialKind = kind === 'initial';
+                const isErrorKind = kind === 'error';
+                const readyForNavigation = window.__popupIsInitialized && window.__popupInitialLoadComplete;
+
+                if (!readyForNavigation || isInitialKind || isErrorKind) {
+                  console.log('[Popup] Page loading start ignored (kind:', kind, ') - initial load not finished yet or error state');
+                  return;
+                }
+
+                console.log('[Popup] Navigation started (kind:', kind, '), resetting flags');
+
+                // Fix 1: Skip placeholder entirely if popup is open - prevents first close flash
+                const popupState = getPopupState(DEFAULT_POPUP_ID);
+                if (!popupState?.isOpen) {
+                  createPopupPlaceholder();
+                } else {
+                  console.log('[Popup] Skipping placeholder - popup is open and should stay visible');
+                }
+
+                window.__popupInitialLoadComplete = false;
+                window.__popupRestoredDuringInit = false;
+              });
+
+              // Listen for LiveView page loading stop to restore popup state
+              window.addEventListener('phx:page-loading-stop', function(event) {
+                const kind = event?.detail?.kind || 'unknown';
+                const isInitialKind = kind === 'initial';
+
+                if (restoreTimeout) {
+                  clearTimeout(restoreTimeout);
+                }
+
+                if (isInitialKind) {
+                  window.__popupInitialLoadComplete = true;
+
+                  if (window.__popupRestoredDuringInit) {
+                    console.log('[Popup] Initial load complete (kind: initial), skipping extra restore');
+                  } else {
+                    console.log('[Popup] Initial load complete (kind: initial), no prior restore to replay');
+                  }
+
+                  removePopupPlaceholder();
+                  window.__popupRestoredDuringInit = false;
+                  return;
+                }
+
+                console.log('[Popup] Page loading stopped (kind:', kind, '), initialized:', window.__popupIsInitialized, 'restored during init:', window.__popupRestoredDuringInit);
+
+                window.__popupInitialLoadComplete = true;
+
+                // Restore if popup was already initialized (navigations or post-init updates)
+                if (window.__popupIsInitialized && window.__popupRestoreState) {
+                  console.log('[Popup] Scheduling state restore after page load/navigation');
+                  // Debounce to prevent multiple rapid calls
+                  restoreTimeout = setTimeout(() => {
+                    requestAnimationFrame(() => {
+                      window.__popupRestoreState();
+                      restoreTimeout = null;
+                    });
+                  }, 100);
+                } else {
+                  window.__popupRestoredDuringInit = false;
+                  removePopupPlaceholder();
+                }
+              });
+
+              // Try to initialize popup immediately if elements exist
+              // This prevents flicker on initial page load
+              if (document.getElementById('admin-generic-popup')) {
+                console.log('[Popup] Elements available, initializing immediately');
+                initAdminPopup();
               }
 
               // Mobile drawer and burger menu navigation
@@ -939,7 +1954,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   });
                 }
 
-                initAdminPopup();
+                // Initialize popup if not already done
+                if (!window.__popupIsInitialized) {
+                  console.log('[Popup] DOMContentLoaded - initializing popup');
+                  initAdminPopup();
+                }
               });
 
               window.addEventListener('phx:page-loading-stop', function() {
