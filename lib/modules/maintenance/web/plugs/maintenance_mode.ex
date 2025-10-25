@@ -102,7 +102,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content="#{get_csrf_token()}" />
         <title>#{config.header}</title>
-        <link rel="stylesheet" href="/assets/app.css" />
+        <link rel="stylesheet" href="/assets/css/app.css" />
       </head>
       <body class="h-full bg-base-200">
         <div class="flex items-center justify-center min-h-screen p-4">

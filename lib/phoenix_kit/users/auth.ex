@@ -838,6 +838,130 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Updates both schema and custom fields in a single call.
+
+  This is a unified update function that automatically splits the provided
+  attributes into schema fields and custom fields, updating both appropriately.
+
+  ## Schema Fields
+  - first_name, last_name, email, username, user_timezone
+
+  ## Custom Fields
+  - Any other keys are treated as custom fields
+
+  ## Examples
+
+      iex> update_user_fields(user, %{
+      ...>   "first_name" => "John",
+      ...>   "email" => "john@example.com",
+      ...>   "phone" => "555-1234",
+      ...>   "department" => "Engineering"
+      ...> })
+      {:ok, %User{}}
+
+      iex> update_user_fields(user, %{email: "invalid"})
+      {:error, %Ecto.Changeset{}}
+  """
+  def update_user_fields(%User{} = user, attrs) when is_map(attrs) do
+    # Fields that can be updated via profile_changeset
+    updatable_profile_fields = [:first_name, :last_name, :email, :username, :user_timezone]
+
+    # Split attrs into schema fields and custom fields using Map.has_key? pattern
+    {schema_attrs, custom_attrs} =
+      Enum.reduce(attrs, {%{}, %{}}, fn {key, value}, {schema_acc, custom_acc} ->
+        # Convert key to atom if needed to check Map.has_key?
+        case safe_string_to_existing_atom(to_string(key)) do
+          {:ok, field_atom} ->
+            # Check if this is an updatable schema field
+            if field_atom in updatable_profile_fields and Map.has_key?(user, field_atom) do
+              {Map.put(schema_acc, field_atom, value), custom_acc}
+            else
+              # Not updatable or not in schema - treat as custom field
+              {schema_acc, Map.put(custom_acc, to_string(key), value)}
+            end
+
+          :error ->
+            # Not a known atom - must be custom field
+            {schema_acc, Map.put(custom_acc, to_string(key), value)}
+        end
+      end)
+
+    # Update in sequence: profile first, then custom fields
+    with {:ok, updated_user} <- maybe_update_profile(user, schema_attrs),
+         {:ok, final_user} <- maybe_update_custom_fields(updated_user, custom_attrs) do
+      {:ok, final_user}
+    end
+  end
+
+  # Helper to update profile fields only if there are any
+  defp maybe_update_profile(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
+
+  defp maybe_update_profile(user, attrs) do
+    update_user_profile(user, attrs)
+  end
+
+  # Helper to update custom fields only if there are any
+  defp maybe_update_custom_fields(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
+
+  defp maybe_update_custom_fields(user, attrs) do
+    # Merge new custom fields with existing ones (don't replace entirely)
+    existing_custom_fields = user.custom_fields || %{}
+    merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+
+    update_user_custom_fields(user, merged_custom_fields)
+  end
+
+  @doc """
+  Bulk update multiple users with the same field values.
+
+  This function updates multiple users at once with the same set of fields.
+  Each user is updated independently, and the function returns a list of results
+  showing which updates succeeded and which failed.
+
+  Both schema fields and custom fields can be updated in the same call.
+
+  ## Parameters
+  - `users` - List of User structs to update
+  - `attrs` - Map of field names to values (can include both schema and custom fields)
+
+  ## Returns
+  Returns `{:ok, results}` where results is a list of tuples:
+  - `{:ok, user}` - Successfully updated user
+  - `{:error, changeset}` - Failed update with error details
+
+  ## Examples
+
+      # Update multiple users with the same fields
+      iex> users = [user1, user2, user3]
+      iex> bulk_update_user_fields(users, %{status: "active", department: "Engineering"})
+      {:ok, [
+        {:ok, %User{status: "active", custom_fields: %{"department" => "Engineering"}}},
+        {:ok, %User{status: "active", custom_fields: %{"department" => "Engineering"}}},
+        {:error, %Ecto.Changeset{}}
+      ]}
+
+      # Update both schema and custom fields
+      iex> bulk_update_user_fields(users, %{
+      ...>   first_name: "John",           # Schema field
+      ...>   last_name: "Doe",             # Schema field
+      ...>   custom_field_1: "value1",     # Custom field
+      ...>   custom_field_2: "value2"      # Custom field
+      ...> })
+      {:ok, [results...]}
+  """
+  def bulk_update_user_fields(users, attrs) when is_list(users) and is_map(attrs) do
+    results =
+      Enum.map(users, fn user ->
+        case update_user_fields(user, attrs) do
+          {:ok, updated_user} -> {:ok, updated_user}
+          {:error, changeset} -> {:error, changeset}
+        end
+      end)
+
+    {:ok, results}
+  end
+
+  @doc """
   Gets a user field value from either schema fields or custom fields.
 
   This unified accessor provides O(1) performance by checking struct fields

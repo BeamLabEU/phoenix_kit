@@ -42,26 +42,129 @@
             class="space-y-6"
           >
             <%!-- Hidden fields for required settings from General page --%>
+            <%!-- Use @saved_settings to preserve database values, not @settings which may have incorrect form state --%>
+
+            <%!-- General Settings --%>
             <input
               type="hidden"
               name="settings[project_title]"
-              value={@settings["project_title"]}
+              value={@saved_settings["project_title"]}
+            />
+            <input
+              type="hidden"
+              name="settings[site_url]"
+              value={@saved_settings["site_url"]}
             />
             <input
               type="hidden"
               name="settings[week_start_day]"
-              value={@settings["week_start_day"]}
+              value={@saved_settings["week_start_day"]}
             />
-            <input type="hidden" name="settings[time_zone]" value={@settings["time_zone"]} />
+            <input
+              type="hidden"
+              name="settings[time_zone]"
+              value={@saved_settings["time_zone"]}
+            />
             <input
               type="hidden"
               name="settings[date_format]"
-              value={@settings["date_format"]}
+              value={@saved_settings["date_format"]}
             />
             <input
               type="hidden"
               name="settings[time_format]"
-              value={@settings["time_format"]}
+              value={@saved_settings["time_format"]}
+            />
+
+            <%!-- OAuth Settings --%>
+            <input
+              type="hidden"
+              name="settings[oauth_enabled]"
+              value={@saved_settings["oauth_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_google_enabled]"
+              value={@saved_settings["oauth_google_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_enabled]"
+              value={@saved_settings["oauth_apple_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_enabled]"
+              value={@saved_settings["oauth_github_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_enabled]"
+              value={@saved_settings["oauth_facebook_enabled"]}
+            />
+
+            <%!-- Magic Link Settings --%>
+            <input
+              type="hidden"
+              name="settings[magic_link_login_enabled]"
+              value={@saved_settings["magic_link_login_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[magic_link_registration_enabled]"
+              value={@saved_settings["magic_link_registration_enabled"]}
+            />
+
+            <%!-- OAuth Credentials --%>
+            <input
+              type="hidden"
+              name="settings[oauth_google_client_id]"
+              value={@saved_settings["oauth_google_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_google_client_secret]"
+              value={@saved_settings["oauth_google_client_secret"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_client_id]"
+              value={@saved_settings["oauth_apple_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_team_id]"
+              value={@saved_settings["oauth_apple_team_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_key_id]"
+              value={@saved_settings["oauth_apple_key_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_private_key]"
+              value={@saved_settings["oauth_apple_private_key"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_client_id]"
+              value={@saved_settings["oauth_github_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_client_secret]"
+              value={@saved_settings["oauth_github_client_secret"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_app_id]"
+              value={@saved_settings["oauth_facebook_app_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_app_secret]"
+              value={@saved_settings["oauth_facebook_app_secret"]}
             />
 
             <%!-- Registration Control Setting --%>

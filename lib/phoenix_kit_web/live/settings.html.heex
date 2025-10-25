@@ -39,20 +39,26 @@
             class="space-y-6"
           >
             <%!-- Hidden fields for required settings from Users page --%>
+            <%!-- Use @saved_settings to preserve database values, not @settings which may have incorrect form state --%>
+            <input
+              type="hidden"
+              name="settings[allow_registration]"
+              value={@saved_settings["allow_registration"]}
+            />
             <input
               type="hidden"
               name="settings[new_user_default_role]"
-              value={@settings["new_user_default_role"]}
+              value={@saved_settings["new_user_default_role"]}
             />
             <input
               type="hidden"
               name="settings[new_user_default_status]"
-              value={@settings["new_user_default_status"]}
+              value={@saved_settings["new_user_default_status"]}
             />
             <input
               type="hidden"
               name="settings[track_registration_geolocation]"
-              value={@settings["track_registration_geolocation"]}
+              value={@saved_settings["track_registration_geolocation"]}
             />
 
             <%!-- Project Title Setting --%>
