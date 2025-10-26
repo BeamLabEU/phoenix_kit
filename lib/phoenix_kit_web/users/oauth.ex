@@ -18,6 +18,7 @@ if Code.ensure_loaded?(Ueberauth) do
 
     alias PhoenixKit.Settings
     alias PhoenixKit.Users.OAuth
+    alias PhoenixKit.Utils.IpAddress
     alias PhoenixKit.Utils.Routes
     alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
@@ -99,7 +100,10 @@ if Code.ensure_loaded?(Ueberauth) do
         end
 
       # Ueberauth will handle the request and redirect to provider
-      conn
+      # CRITICAL: halt() must be called to stop Phoenix from attempting to render a view
+      # after Ueberauth plug processes the connection. Without halt(), Phoenix will try
+      # to render a non-existent template and raise a 500 error.
+      halt(conn)
     end
 
     defp get_ueberauth_providers do
@@ -122,7 +126,7 @@ if Code.ensure_loaded?(Ueberauth) do
     """
     def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
       track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
-      ip_address = extract_ip_address(conn)
+      ip_address = IpAddress.extract_from_conn(conn)
       referral_code = get_session(conn, :oauth_referral_code)
       return_to = get_session(conn, :oauth_return_to)
 
@@ -190,17 +194,6 @@ if Code.ensure_loaded?(Ueberauth) do
     end
 
     # Private helper functions
-
-    defp extract_ip_address(conn) do
-      case Plug.Conn.get_peer_data(conn) do
-        %{address: {a, b, c, d}}
-        when is_integer(a) and is_integer(b) and is_integer(c) and is_integer(d) ->
-          "#{a}.#{b}.#{c}.#{d}"
-
-        %{address: {a, b, c, d, e, f, g, h}} ->
-          "#{a}:#{b}:#{c}:#{d}:#{e}:#{f}:#{g}:#{h}"
-      end
-    end
 
     defp format_provider_name(provider) when is_atom(provider) do
       provider |> to_string() |> format_provider_name()

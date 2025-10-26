@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Admin.{Events, Presence}
   alias PhoenixKit.Settings
@@ -140,7 +141,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       Presence.track_user(user, %{
         connected_at: DateTime.utc_now(),
         session_id: session_id,
-        ip_address: get_connect_info(socket, :peer_data) |> extract_ip_address(),
+        ip_address: IpAddress.extract_from_socket(socket),
         user_agent: get_connect_info(socket, :user_agent),
         current_page: Routes.path("/admin/dashboard")
       })
@@ -150,9 +151,4 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   defp generate_session_id do
     :crypto.strong_rand_bytes(16) |> Base.encode64()
   end
-
-  defp extract_ip_address(nil), do: "unknown"
-  defp extract_ip_address(%{address: {a, b, c, d}}), do: "#{a}.#{b}.#{c}.#{d}"
-  defp extract_ip_address(%{address: address}), do: to_string(address)
-  defp extract_ip_address(_), do: "unknown"
 end
