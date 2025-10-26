@@ -1,6 +1,37 @@
-## 1.4.5 - 2025-10-24
+## 1.4.5 - 2025-10-26
 
 ### Fixed
+- **CRITICAL: OAuth halt() missing in request handler** - Fixed 500 errors when clicking OAuth sign-in buttons
+  - Added missing `halt(conn)` in `handle_oauth_request()` to prevent Phoenix from attempting to render non-existent template
+  - OAuth redirects to provider now work correctly without server errors
+  - Ueberauth plug properly halts connection after processing
+  - Fixed in lib/phoenix_kit_web/users/oauth.ex:106
+- **HIGH PRIORITY: IPv6 Protocol.UndefinedError** - Fixed crashes when extracting IPv6 addresses
+  - Created centralized `PhoenixKit.Utils.IpAddress` module with proper pattern matching
+  - IPv4 addresses: `{a, b, c, d}` pattern with is_integer guards
+  - IPv6 addresses: `{a, b, c, d, e, f, g, h}` pattern with is_integer guards
+  - Invalid/nil handling: returns "unknown" safely
+  - Removed 7 duplicate implementations across codebase (dashboard, login, registration, magic_link, live_sessions, geolocation, oauth modules)
+- **Google OAuth credentials test not working after save** - Fixed credentials validation after update
+  - Auto-reload OAuth configuration immediately after credentials save via `OAuthConfig.configure_providers()`
+  - Test Credentials button now works immediately without manual reload
+  - Runtime Ueberauth configuration updates with new database values
+  - Fixed in lib/phoenix_kit_web/live/settings.ex with provider configuration reload
+- **OAuth credentials error messages unclear** - Improved user-friendly error reporting
+  - Changed field names in error messages: 'client_id' → 'Client ID', 'client_secret' → 'Client Secret', etc.
+  - Google: Shows 'Missing Google OAuth credentials: Client ID, Client Secret'
+  - Apple: Shows team_id, key_id, private_key with proper names
+  - GitHub and Facebook: Clear field names for all required credentials
+  - Fixed in lib/phoenix_kit/users/oauth_config.ex
+- **AWS credentials verification issues** - Simplified verification process
+  - Removed misleading permission checks from AWS credentials validator
+  - Focus on essential credential validation without speculative permission testing
+  - Cleaner error feedback for AWS SES/SNS/SQS setup
+- **Settings save error diagnostics** - Improved error collection on batch updates
+  - Detailed error information for each failed setting
+  - Clear field-specific error messages: 'Failed to save settings: field_name (reason)'
+  - Better troubleshooting information in logs
+  - Fixed in lib/phoenix_kit/settings/settings.ex
 - **CRITICAL: AWS Infrastructure Setup** - Email sending now works in containerized environments
   - Removed AWS CLI dependency for SES configuration (steps 8-9)
   - Fixed sweet_xml compatibility when library is installed
@@ -8,6 +39,19 @@
   - Infrastructure setup now works reliably in Docker, Kubernetes, and all environments
 
 ### Changed
+- **IPv6/IPv4 Extraction** - Centralized IP extraction utility
+  - `IpAddress.extract_from_socket/1` - Extract from LiveView socket
+  - `IpAddress.extract_from_conn/1` - Extract from Plug.Conn
+  - `IpAddress.extract_ip_address/1` - Extract from peer_data directly
+  - Updated 7 files to use centralized module instead of duplicate implementations
+- **OAuth Configuration Management** - Automatic runtime reload on credential updates
+  - Credentials now updated immediately after save without manual intervention
+  - Ueberauth providers reconfigured from database values
+  - Settings integration with live configuration updates
+- **AWS Credentials Validation** - Streamlined verification process
+  - Focus on credential format and basic validation
+  - No speculative AWS API calls during validation
+  - Clearer feedback for users configuring AWS services
 - **AWS Integration** - Improved reliability and idempotency
   - SES configuration set creation now uses SES v2 REST API
   - SES event destination setup now uses SES v2 REST API
@@ -15,6 +59,19 @@
   - Queue creation properly handles existing resources
 
 ### Added
+- **IpAddress Utility Module** - `PhoenixKit.Utils.IpAddress`
+  - Proper IPv4 and IPv6 address parsing with guard clauses
+  - Comprehensive documentation with usage examples
+  - Full test coverage (17 tests: 4 doctests + 13 unit tests)
+  - Support for LiveView sockets and Plug.Conn connections
+- **OAuth Auto-Configuration** - Automatic provider setup on credential save
+  - `OAuthConfig.configure_providers()` called after settings update
+  - Ensures Ueberauth runtime config matches database configuration
+  - No restart required for credential changes
+- **Improved Error Messages** - User-friendly OAuth field names
+  - Human-readable field names in validation errors
+  - Clear guidance on missing required credentials
+  - Supports all OAuth providers (Google, Apple, GitHub, Facebook)
 - **SES v2 API Module** - `PhoenixKit.AWS.SESv2`
   - `create_configuration_set/2` - Creates SES configuration set via API
   - `create_configuration_set_event_destination/4` - Configures event tracking
@@ -22,18 +79,59 @@
   - Production-ready error messages
 
 ### Technical Details
-- **Issue #1 (sweet_xml):** ExAws + sweet_xml returns flat maps with atom keys
+- **OAuth Request Handling:** Missing halt(conn) in handle_oauth_request() caused Phoenix to attempt rendering non-existent template
+  - Fixed: Added halt(conn) with detailed explanation (lib/phoenix_kit_web/users/oauth.ex:106)
+- **IPv6 Address Extraction:** Calling to_string() on IPv6 tuples caused Protocol.UndefinedError
+  - Root cause: Seven files had duplicate extract_ip_address() implementations without proper guards
+  - Fixed: Centralized to IpAddress module with is_integer guard clauses
+  - Impact: Users with IPv6 addresses no longer get crashes when IPs are extracted
+- **Google OAuth Credentials:** Test button showed "missing credentials" after save
+  - Root cause: OAuth runtime configuration not reloaded after database update
+  - Fixed: Added OAuthConfig.configure_providers() call in settings save handler
+  - Impact: Credentials work immediately after save without manual reload
+- **OAuth Error Messages:** Field names were cryptic (client_id, client_secret, etc.)
+  - Fixed: Map field names to user-friendly equivalents (Client ID, Client Secret)
+  - Improves user experience for credential configuration
+- **AWS Credentials Validation:** Permission checks were speculative and misleading
+  - Fixed: Remove AWS API calls from validator, focus on format validation
+  - Cleaner error feedback without false negatives
+- **AWS Issue #1 (sweet_xml):** ExAws + sweet_xml returns flat maps with atom keys
   - Fixed: Account ID, SNS Topic ARN, Subscription ARN parsing
-- **Issue #2 (SQS attributes):** ExAws.SQS requires keyword lists with atom keys
+- **AWS Issue #2 (SQS attributes):** ExAws.SQS requires keyword lists with atom keys
   - Fixed: Queue creation and policy setting across all steps
-- **Issue #3 (AWS CLI):** Email sending failed silently in Docker/Kubernetes
+- **AWS Issue #3 (AWS CLI):** Email sending failed silently in Docker/Kubernetes
   - Fixed: Complete SES v2 API implementation without external dependencies
+
+### Files Changed
+- **New:** lib/phoenix_kit/utils/ip_address.ex (102 lines)
+- **Updated:**
+  - lib/phoenix_kit_web/live/settings.ex - Add OAuth config reload on credential save
+  - lib/phoenix_kit_web/users/login.ex - Use centralized IpAddress module
+  - lib/phoenix_kit_web/users/registration.ex - Use centralized IpAddress module
+  - lib/phoenix_kit_web/users/magic_link.ex - Use centralized IpAddress module
+  - lib/phoenix_kit_web/live/dashboard.ex - Use centralized IpAddress module
+  - lib/phoenix_kit_web/live/users/live_sessions.ex - Use centralized IpAddress module
+  - lib/phoenix_kit_web/users/oauth.ex - Add halt(conn) + use centralized IpAddress module
+  - lib/phoenix_kit/utils/geolocation.ex - Use centralized IpAddress module
+  - lib/phoenix_kit/users/oauth_config.ex - Improve OAuth credential error messages
+  - lib/phoenix_kit/settings/settings.ex - Improve error collection on batch updates
+
+### Commits Included
+- bfe808f - Fix critical OAuth and IPv6 handling issues
+- 9aeb5ca - Fix Google OAuth credentials test and improve OAuth configuration
+- 25df3a7 - Simplify AWS credentials verification to remove misleading permission checks
+- b29de2d - Add AWS credentials verification with permission checks
+- bf2dd73 - Fix critical AWS infrastructure setup for containerized environments
 
 ### Upgrade Notes
 - **No action required** - All changes are backward compatible
+- OAuth sign-in buttons now work reliably without 500 errors
+- Google OAuth credentials save immediately without manual reload
+- Users with IPv6 addresses no longer experience crashes
+- AWS SES email delivery works in containerized environments
 - Existing AWS infrastructure continues to work
 - Docker/Kubernetes deployments now work without manual intervention
-- Re-run setup if previous attempts failed: `PhoenixKit.AWS.InfrastructureSetup.run(project_name: "yourapp")`
+- Re-run setup if previous AWS attempts failed: `PhoenixKit.AWS.InfrastructureSetup.run(project_name: "yourapp")`
 
 ## 1.4.4 - 2025-10-23
 
