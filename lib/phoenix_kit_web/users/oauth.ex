@@ -14,6 +14,9 @@ if Code.ensure_loaded?(Ueberauth) do
     use PhoenixKitWeb, :controller
 
     plug PhoenixKitWeb.Plugs.EnsureOAuthScheme
+    # Ensure OAuth config is loaded before Ueberauth plug runs
+    # This prevents MatchError if configuration is missing
+    plug PhoenixKitWeb.Plugs.EnsureOAuthConfig
     plug Ueberauth
 
     alias PhoenixKit.Settings
@@ -99,11 +102,25 @@ if Code.ensure_loaded?(Ueberauth) do
           conn
         end
 
-      # Ueberauth will handle the request and redirect to provider
-      # CRITICAL: halt() must be called to stop Phoenix from attempting to render a view
-      # after Ueberauth plug processes the connection. Without halt(), Phoenix will try
-      # to render a non-existent template and raise a 500 error.
-      halt(conn)
+      # Check if Ueberauth plug has already sent a response (e.g., a redirect)
+      # If response was already sent by Ueberauth, halt() to stop further processing
+      if conn.state != :unset do
+        # Response already sent by Ueberauth (e.g., redirect to OAuth provider)
+        halt(conn)
+      else
+        # No response sent - Ueberauth couldn't process the request
+        # This can happen if provider configuration is missing or invalid
+        Logger.error(
+          "PhoenixKit OAuth: Ueberauth plugin did not process request for provider. Check if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are set correctly."
+        )
+
+        conn
+        |> put_flash(
+          :error,
+          "OAuth authentication unavailable. The provider credentials are not configured. Please contact your administrator or use another sign-in method."
+        )
+        |> redirect(to: Routes.path("/users/log-in"))
+      end
     end
 
     defp get_ueberauth_providers do

@@ -1,3 +1,43 @@
+## 1.4.6 - 2025-10-26
+
+### Fixed
+- **CRITICAL: Ueberauth MatchError timing issue** - Fixed OAuth provider initialization race condition
+  - MatchError occurred when accessing `/phoenix_kit/users/auth/google`: `Ueberauth.get_providers/2 no match of right hand side value: :error`
+  - Root cause: PhoenixKit.Supervisor often starts AFTER parent application's Endpoint
+  - When Endpoint starts, router compiles and Ueberauth.init() requires :providers in config
+  - But OAuth configuration wasn't loaded yet, causing :providers key to be missing
+  - **Solution**: Created OAuthConfigLoader GenServer worker in PhoenixKit.Supervisor
+    - Loads OAuth configuration SYNCHRONOUSLY during supervisor startup
+    - Runs as FIRST child (before PubSub, Cache, etc.)
+    - Waits up to 1 second for Settings cache to be ready with automatic retry
+  - **Fallback**: Added EnsureOAuthConfig plug before Ueberauth plug
+    - Detects missing :providers configuration at request time
+    - Loads configuration synchronously if missing
+    - Provides 503 error page if configuration cannot be loaded
+    - Ensures OAuth always works even if supervisor ordering is incorrect
+  - Files: lib/phoenix_kit/workers/oauth_config_loader.ex (new), lib/phoenix_kit_web/plugs/ensure_oauth_config.ex (new)
+  - **Impact**: OAuth authentication now works reliably regardless of application startup order
+  - **Auto-enable providers**: When OAuth credentials are saved, oauth_X_enabled auto-set to "true"
+
+### Added
+- **OAuthConfigLoader Worker** - `PhoenixKit.Workers.OAuthConfigLoader`
+  - GenServer worker that loads OAuth configuration synchronously during startup
+  - Runs as first child in PhoenixKit.Supervisor
+  - Automatic retry with 100ms intervals (up to 10 attempts) if Settings cache not ready
+  - Ensures OAuth providers are configured before any requests are processed
+  - Prevents Ueberauth MatchError timing issues
+- **EnsureOAuthConfig Plug** - `PhoenixKitWeb.Plugs.EnsureOAuthConfig`
+  - Fallback plug that ensures OAuth configuration is loaded before Ueberauth plug
+  - Detects missing :providers key in Ueberauth config
+  - Loads configuration synchronously if missing
+  - Returns 503 Service Unavailable if configuration cannot be loaded
+  - Provides safety net for applications where PhoenixKit.Supervisor starts after Endpoint
+
+### Upgrade Notes
+- **No action required** - All changes are backward compatible
+- OAuth authentication now works reliably regardless of supervisor ordering
+- Existing OAuth credentials will auto-enable their providers on next settings save
+
 ## 1.4.5 - 2025-10-26
 
 ### Fixed

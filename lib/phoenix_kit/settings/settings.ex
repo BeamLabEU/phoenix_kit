@@ -1143,6 +1143,8 @@ defmodule PhoenixKit.Settings do
       # Convert nil to empty string for storage (optional fields are allowed to be empty)
       |> Enum.map(fn {k, v} -> {Atom.to_string(k), v || ""} end)
       |> Map.new()
+      # Auto-enable OAuth providers when credentials are saved
+      |> auto_enable_oauth_providers()
 
     # Update each setting in the database and collect errors
     {updated_settings, failed_settings} =
@@ -1180,6 +1182,67 @@ defmodule PhoenixKit.Settings do
     |> List.flatten()
     |> Enum.join(", ")
   end
+
+  # Auto-enable OAuth providers when credentials are saved
+  defp auto_enable_oauth_providers(settings_map) do
+    settings_map
+    # Auto-enable Google if credentials are being saved
+    |> auto_enable_if_has_credentials("google")
+    # Auto-enable Apple if credentials are being saved
+    |> auto_enable_if_has_credentials("apple")
+    # Auto-enable GitHub if credentials are being saved
+    |> auto_enable_if_has_credentials("github")
+    # Auto-enable Facebook if credentials are being saved
+    |> auto_enable_if_has_credentials("facebook")
+  end
+
+  # Helper to auto-enable a provider if it has credentials
+  defp auto_enable_if_has_credentials(settings_map, provider) do
+    enable_key = "oauth_#{provider}_enabled"
+    cred_keys = oauth_credential_keys(provider)
+
+    # Check if any credential field for this provider is non-empty
+    has_credentials? =
+      Enum.any?(cred_keys, fn key ->
+        value = Map.get(settings_map, key, "")
+        value && value != ""
+      end)
+
+    # Auto-enable if it has credentials and isn't already set to something else
+    if has_credentials? && Map.get(settings_map, enable_key, "false") != "false" do
+      settings_map
+    else
+      if has_credentials? do
+        Map.put(settings_map, enable_key, "true")
+      else
+        settings_map
+      end
+    end
+  end
+
+  # Get credential keys for a given OAuth provider
+  defp oauth_credential_keys("google") do
+    ["oauth_google_client_id", "oauth_google_client_secret"]
+  end
+
+  defp oauth_credential_keys("apple") do
+    [
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key"
+    ]
+  end
+
+  defp oauth_credential_keys("github") do
+    ["oauth_github_client_id", "oauth_github_client_secret"]
+  end
+
+  defp oauth_credential_keys("facebook") do
+    ["oauth_facebook_app_id", "oauth_facebook_app_secret"]
+  end
+
+  defp oauth_credential_keys(_), do: []
 
   @doc """
   Warms the cache by loading all settings from database.

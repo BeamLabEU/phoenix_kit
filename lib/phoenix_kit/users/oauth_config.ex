@@ -26,14 +26,14 @@ defmodule PhoenixKit.Users.OAuthConfig do
       :ok
   """
   def configure_providers do
-    # Skip configuration if OAuth is globally disabled
-    if Settings.get_boolean_setting("oauth_enabled", false) do
-      configure_ueberauth_base()
-      configure_google()
-      configure_apple()
-      configure_github()
-      configure_facebook()
-    end
+    # Always configure Ueberauth base with available providers
+    # This ensures Ueberauth has providers configured even if oauth_enabled is false
+    # The oauth_enabled flag controls UI visibility, not the underlying OAuth infrastructure
+    configure_ueberauth_base()
+    configure_google()
+    configure_apple()
+    configure_github()
+    configure_facebook()
 
     :ok
   end
@@ -59,14 +59,18 @@ defmodule PhoenixKit.Users.OAuthConfig do
   defp configure_ueberauth_base do
     providers = build_provider_list()
 
-    # Only configure and log if there are providers to configure
-    if providers != %{} do
-      config = [
-        providers: providers
-      ]
+    config = [
+      providers: providers
+    ]
 
-      Application.put_env(:ueberauth, Ueberauth, config)
+    # Always update Ueberauth configuration, even if providers list is empty
+    # This ensures Ueberauth has a valid configuration at all times
+    Application.put_env(:ueberauth, Ueberauth, config)
+
+    if providers != %{} do
       Logger.debug("OAuth: Configured Ueberauth with providers: #{inspect(Map.keys(providers))}")
+    else
+      Logger.debug("OAuth: Configured Ueberauth with no active providers")
     end
   end
 

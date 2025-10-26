@@ -481,7 +481,7 @@ defmodule PhoenixKitWeb.Integration do
   defmacro phoenix_kit_routes do
     # Initialize OAuth configuration from database on router setup
     # This ensures OAuth providers are configured before any requests
-    # Only runs if OAuth is enabled in settings
+    # Runs regardless of oauth_enabled setting to ensure Ueberauth always has valid configuration
     if Code.ensure_loaded?(PhoenixKit.Users.OAuthConfig) and
          Code.ensure_loaded?(PhoenixKit.Settings) do
       spawn(fn ->
@@ -489,15 +489,14 @@ defmodule PhoenixKitWeb.Integration do
         Process.sleep(100)
 
         try do
-          # Only configure if OAuth is enabled in settings
-          if PhoenixKit.Settings.get_boolean_setting("oauth_enabled", false) do
-            alias PhoenixKit.Users.OAuthConfig
-            OAuthConfig.configure_providers()
-          end
+          # Always configure providers to ensure Ueberauth has valid configuration
+          # The oauth_enabled flag controls UI visibility, not provider initialization
+          alias PhoenixKit.Users.OAuthConfig
+          OAuthConfig.configure_providers()
         rescue
           error ->
             require Logger
-            Logger.debug("OAuth config initialization skipped: #{inspect(error)}")
+            Logger.debug("OAuth config initialization error: #{inspect(error)}")
         end
       end)
     end

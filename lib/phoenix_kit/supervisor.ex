@@ -11,6 +11,9 @@ defmodule PhoenixKit.Supervisor do
   @impl true
   def init(_init_arg) do
     children = [
+      # OAuth config loader MUST be first to ensure configuration
+      # is available before any OAuth requests are processed
+      PhoenixKit.Workers.OAuthConfigLoader,
       PhoenixKit.PubSub.Manager,
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
