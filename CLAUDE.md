@@ -58,6 +58,7 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 - `mix phoenix_kit.gen.migration` - Generate custom migration files
 
 **Key Features:**
+
 - **Professional versioned migrations** - Oban-style migration system with version tracking
 - **Prefix support** - Isolate PhoenixKit tables using PostgreSQL schemas
 - **Idempotent operations** - Safe to run migrations multiple times
@@ -68,18 +69,20 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 - **Built-in Help System** - Comprehensive help documentation accessible via `--help` flag
 
 **Installation Help:**
+
 ```bash
 # Show detailed installation options and examples
 mix phoenix_kit.install --help
 
 # Quick examples from help:
-mix phoenix_kit.install                                    # Basic installation with auto-detection
+mix phoenix_kit.install                                   # Basic installation with auto-detection
 mix phoenix_kit.install --repo MyApp.Repo                 # Specify repository
 mix phoenix_kit.install --prefix auth                     # Custom schema prefix
 mix phoenix_kit.install --theme-enabled                   # Enable daisyUI 5 theme system
 ```
 
 **Update Help:**
+
 ```bash
 # Show detailed update options and examples
 mix phoenix_kit.update --help
@@ -94,6 +97,7 @@ mix phoenix_kit.update --force -y                         # Force update with au
 
 ### Testing & Code Quality
 
+- `mix compile` - Run to confirm the project is working after changes
 - `mix test` - Run all tests (52 tests, no database required)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
@@ -165,18 +169,20 @@ This ensures consistent code formatting across the project.
 #### 3. Update Process Checklist
 
 **Step 1: Update mix.exs**
+
 ```elixir
 @version "1.0.1"  # Increment from current version
 ```
 
 **Step 2: Update CHANGELOG.md**
+
 ```markdown
 ## [1.0.1] - 2025-08-20
 
 ### Added
 - Description of new features
 
-### Changed  
+### Changed
 - Description of modifications
 
 ### Fixed
@@ -187,6 +193,7 @@ This ensures consistent code formatting across the project.
 ```
 
 **Step 3: Commit Version Changes**
+
 ```bash
 git add mix.exs CHANGELOG.md README.md
 git commit -m "Update version to 1.0.1 with comprehensive changelog"
@@ -195,6 +202,7 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 #### 4. Version Validation
 
 **Before committing version changes:**
+
 - ✅ Mix compiles without errors: `mix compile`
 - ✅ Tests pass: `mix test`
 - ✅ Code formatted: `mix format`
@@ -202,8 +210,9 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 - ✅ Version number incremented correctly
 
 **⚠️ Critical Notes:**
+
 - **NEVER ship without updating CHANGELOG.md**
-- **ALWAYS validate version number increments**  
+- **ALWAYS validate version number increments**
 - **NEVER reference old version in new documentation**
 
 ### Publishing
@@ -451,6 +460,7 @@ defp format_time_ago(datetime), do: # logic...
 - **PhoenixKit.Users.Auth.register_user/1** - User registration with integrated role assignment
 
 **Key Features:**
+
 - **Three System Roles** - Owner, Admin, User with automatic assignment
 - **Elixir Logic** - First user automatically becomes Owner
 - **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
@@ -466,11 +476,13 @@ defp format_time_ago(datetime), do: # logic...
 - **PhoenixKitWeb.Live.Settings** - Settings management interface at `{prefix}/admin/settings`
 
 **Core Settings:**
+
 - **time_zone** - System timezone offset (UTC-12 to UTC+12)
 - **date_format** - Date display format (Y-m-d, m/d/Y, d/m/Y, d.m.Y, d-m-Y, F j, Y)
 - **time_format** - Time display format (H:i for 24-hour, h:i A for 12-hour)
 
 **Email Settings:**
+
 - **email_enabled** - Enable/disable email system (default: false)
 - **email_save_body** - Save full email content vs preview only (default: false)
 - **email_ses_events** - Enable AWS SES event processing (default: false)
@@ -478,6 +490,7 @@ defp format_time_ago(datetime), do: # logic...
 - **email_sampling_rate** - Percentage of emails to fully track (default: 100%)
 
 **Key Features:**
+
 - **Database Storage** - Settings persisted in phoenix_kit_settings table
 - **Admin Interface** - Complete settings management at `{prefix}/admin/settings`
 - **Default Values** - Fallback defaults for all settings (UTC+0, Y-m-d, H:i)
@@ -492,6 +505,7 @@ defp format_time_ago(datetime), do: # logic...
 - **Template Integration** - Direct usage in LiveView templates with UtilsDate alias
 
 **Core Functions:**
+
 - **format_date/2** - Format dates with PHP-style format codes
 - **format_time/2** - Format times with PHP-style format codes
 - **format_datetime/2** - Format datetime values with date formats
@@ -500,12 +514,14 @@ defp format_time_ago(datetime), do: # logic...
 - **format_time_with_user_format/1** - Auto-load user's time_format setting
 
 **Supported Formats:**
+
 - **Date Formats** - Y-m-d (ISO), m/d/Y (US), d/m/Y (European), d.m.Y (German), d-m-Y, F j, Y (Long)
 - **Time Formats** - H:i (24-hour), h:i A (12-hour with AM/PM)
 - **Examples** - Dynamic format preview with current date/time examples
 - **Timex Integration** - Robust internationalized formatting with extensive format support
 
 **Template Usage:**
+
 ```heex
 <!-- Settings-aware formatting (recommended) -->
 {UtilsDate.format_datetime_with_user_format(user.inserted_at)}
@@ -700,3 +716,4 @@ PhoenixKit supports a complete professional development workflow:
 3. **Quality** - Static analysis and type checking
 4. **Documentation** - Generated docs with usage examples
 5. **Publishing** - Ready for Hex.pm with proper versioning
+```
