@@ -1,0 +1,191 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Storage Settings"
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-6xl">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/modules")} class="btn btn-outline mb-4">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
+        Back to Modules
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-base-content mb-2">
+          Storage Settings
+        </h1>
+        <p class="text-base-content/70">
+          Configure distributed file storage with multi-location redundancy
+        </p>
+      </div>
+    </header>
+
+    <%!-- Module Status Alert --%>
+    <div class="alert alert-info mb-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Core System Module</h3>
+        <p class="text-sm">
+          Storage is a core system module that is always enabled and cannot be disabled.
+          It provides essential file management functionality across PhoenixKit.
+        </p>
+      </div>
+    </div>
+
+    <%!-- Default Path Configuration --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-folder" class="w-6 h-6 mr-2" />
+          Default Storage Path
+        </h2>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Local Storage Directory</span>
+          </label>
+          <div class="flex gap-2">
+            <input
+              type="text"
+              value={@storage_default_path}
+              class="input input-bordered flex-1 font-mono"
+              readonly
+            />
+          </div>
+          <label class="label">
+            <span class="label-text-alt">Default location for file uploads</span>
+          </label>
+        </div>
+
+        <div class="stats stats-vertical lg:stats-horizontal shadow mt-4">
+          <div class="stat">
+            <div class="stat-title">Storage Type</div>
+            <div class="stat-value text-2xl">Local</div>
+            <div class="stat-desc">File system storage</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-title">Redundancy</div>
+            <div class="stat-value text-2xl">Single</div>
+            <div class="stat-desc">Multi-location coming soon</div>
+          </div>
+
+          <div class="stat">
+            <div class="stat-title">Status</div>
+            <div class="stat-value text-2xl text-success">Active</div>
+            <div class="stat-desc">Always enabled</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Coming Soon Features --%>
+    <div class="card bg-base-100 shadow-xl border-2 border-dashed border-base-300">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-rocket-launch" class="w-6 h-6 mr-2" />
+          Advanced Features Coming Soon
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <%!-- Multi-Location Storage --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">🗂️</div>
+              <div>
+                <h3 class="font-bold mb-1">Multi-Location Storage</h3>
+                <p class="text-sm text-base-content/70">
+                  Store files across 1-5 redundant locations with automatic failover
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- S3 Integration --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">☁️</div>
+              <div>
+                <h3 class="font-bold mb-1">AWS S3 Integration</h3>
+                <p class="text-sm text-base-content/70">
+                  Store files in Amazon S3 buckets for cloud redundancy
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Remote Servers --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">🖥️</div>
+              <div>
+                <h3 class="font-bold mb-1">Remote Servers</h3>
+                <p class="text-sm text-base-content/70">
+                  Distribute files across multiple remote servers and datacenters
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Admin Dashboard --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">📊</div>
+              <div>
+                <h3 class="font-bold mb-1">Admin Dashboard</h3>
+                <p class="text-sm text-base-content/70">
+                  Monitor storage health, locations, and file distribution
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- File Tracking --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">📋</div>
+              <div>
+                <h3 class="font-bold mb-1">File Tracking</h3>
+                <p class="text-sm text-base-content/70">
+                  PostgreSQL-based file registry with location tracking
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Automatic Failover --%>
+          <div class="border border-base-300 rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <div class="text-3xl">🔄</div>
+              <div>
+                <h3 class="font-bold mb-1">Automatic Failover</h3>
+                <p class="text-sm text-base-content/70">
+                  Seamless file retrieval even when storage locations fail
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Help Section --%>
+    <div class="alert mt-6">
+      <.icon name="hero-light-bulb" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Storage System Architecture</h3>
+        <p class="text-sm">
+          The storage system is designed for distributed file management with automatic redundancy.
+          Files are tracked in PostgreSQL with support for multiple storage locations (local, S3, remote servers).
+          When a file is requested, the system automatically tries each location until it successfully retrieves the file.
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
