@@ -88,12 +88,9 @@ defmodule PhoenixKit.Pages do
 
     require Logger
 
-    if FileOperations.file_exists?(relative_path) do
-      Logger.debug("Pages 404 already exists at #{FileOperations.absolute_path(relative_path)}")
-    else
+    unless FileOperations.file_exists?(relative_path) do
       full_path = FileOperations.absolute_path(relative_path)
       Logger.info("Creating default Pages 404 at #{full_path}")
-
       metadata =
         Metadata.default_metadata()
         |> Map.put(:status, "published")
@@ -108,14 +105,12 @@ defmodule PhoenixKit.Pages do
       """
 
       content = Metadata.serialize(metadata) <> "\n\n" <> String.trim(body) <> "\n"
-
       case FileOperations.write_file(relative_path, content) do
-        :ok ->
-          Logger.info("Default Pages 404 created at #{full_path}")
-
-        {:error, reason} ->
-          Logger.error("Failed to create default Pages 404 at #{full_path}: #{inspect(reason)}")
+        :ok -> Logger.info("Default Pages 404 created at #{full_path}")
+        {:error, reason} -> Logger.error("Failed to create default Pages 404 at #{full_path}: #{inspect(reason)}")
       end
+    else
+      Logger.debug("Pages 404 already exists at #{FileOperations.absolute_path(relative_path)}")
     end
 
     relative_path

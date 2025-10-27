@@ -25,43 +25,6 @@
     </header>
 
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-      <%!-- Storage Module --%>
-      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="Storage"
-        description="Distributed file storage system with multi-location redundancy and automatic failover"
-        icon="💾"
-        enabled={@storage_enabled}
-        toggle_event="storage_always_enabled"
-        show_toggle={false}
-      >
-        <:status_badges>
-          <span class="badge badge-success">Always Enabled</span>
-          <span class="badge badge-info">Core System</span>
-        </:status_badges>
-
-        <:action_buttons>
-          <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
-            class="btn btn-primary btn-sm"
-          >
-            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
-          </.link>
-        </:action_buttons>
-
-        <:stats>
-          <div class="grid grid-cols-2 gap-2 text-xs">
-            <div>
-              <span class="text-base-content/70">Total Buckets:</span>
-              <span class="font-medium">{@storage_buckets_count}</span>
-            </div>
-            <div>
-              <span class="text-base-content/70">Active:</span>
-              <span class="font-medium">{@storage_active_buckets_count}</span>
-            </div>
-          </div>
-        </:stats>
-      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-
       <%!-- Referral Codes Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="Referral Codes"
@@ -78,7 +41,7 @@
             {if @referral_codes_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @referral_codes_enabled do %>
-            <span class="badge badge-outline ml-2 whitespace-nowrap">
+            <span class="badge badge-outline ml-2">
               {if @referral_codes_required, do: "Required", else: "Optional"}
             </span>
           <% end %>
@@ -138,7 +101,7 @@
             {if @email_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @email_enabled do %>
-            <span class="badge badge-outline ml-2 whitespace-nowrap">
+            <span class="badge badge-outline ml-2">
               {if @email_save_body, do: "Body Saved", else: "Headers Only"}
             </span>
           <% end %>
@@ -210,7 +173,7 @@
             {if @languages_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @languages_enabled do %>
-            <span class="badge badge-outline ml-2 whitespace-nowrap">
+            <span class="badge badge-outline ml-2">
               {if @languages_default,
                 do: @languages_default["name"],
                 else: "No Default"}
@@ -294,80 +257,48 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- Pages Module temporarily disabled --%>
+      <%!--
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="Blogging"
-        description="Publish date-based blog posts and company updates with multi-language support"
-        icon="📰"
-        enabled={@blogging_enabled}
-        toggle_event="toggle_blogging"
+        title="Pages"
+        description="File-based content management system for creating and organizing pages"
+        icon="📄"
+        enabled={@pages_enabled}
+        toggle_event="toggle_pages"
       >
-        <:info>
-          <% url_prefix =
-            PhoenixKit.Config.get_url_prefix()
-            |> case do
-              nil -> ""
-              "/" -> ""
-              prefix -> prefix
-            end %>
-
-          <div class="space-y-2">
-            <p class="text-xs font-medium text-base-content">
-              {gettext("Key paths & URLs")}
-            </p>
-            <ul class="list-disc ml-4 space-y-1">
-              <li>
-                <span class="font-medium text-base-content">
-                  {gettext("Post files on disk:")}
-                </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
-                  priv/static/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
-                </code>
-              </li>
-              <li>
-                <span class="font-medium text-base-content">
-                  {gettext("Public URL pattern:")}
-                </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
-                  {url_prefix}/:locale/:blog_slug/:post_slug
-                </code>
-              </li>
-            </ul>
-          </div>
-        </:info>
         <:status_badges>
           <span class={[
             "badge",
-            if(@blogging_enabled, do: "badge-success", else: "badge-neutral")
+            if(@pages_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @blogging_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+            {if @pages_enabled, do: "Enabled", else: "Disabled"}
           </span>
         </:status_badges>
 
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
             <.link
-              navigate={
-                PhoenixKit.Utils.Routes.path("/admin/blogging", locale: @current_locale || "en")
-              }
-              class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/pages")}
+              class={"btn btn-sm #{if @pages_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
-              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Blogging")}
+              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Manage Pages
             </.link>
             <.link
-              navigate={
-                PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
-                  locale: @current_locale || "en"
-                )
-              }
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/pages", locale: @current_locale || "en")}
               class="btn btn-sm btn-outline"
             >
-              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogs")}
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
             </.link>
           </div>
         </:action_buttons>
-      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- Pages module remains disabled but code retained for future use --%>
+        <:stats>
+          <div class="text-xs text-base-content/70">
+            Create and manage files and folders through web interface
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+      --%>
 
       <%!-- Under Construction (Maintenance Mode) Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
@@ -386,7 +317,7 @@
           </span>
           <%= if @under_construction_module_enabled do %>
             <span class={[
-              "badge badge-outline ml-2 whitespace-nowrap",
+              "badge badge-outline ml-2",
               if(@under_construction_enabled, do: "badge-warning", else: "badge-info")
             ]}>
               {if @under_construction_enabled, do: "Maintenance Active", else: "Maintenance Off"}

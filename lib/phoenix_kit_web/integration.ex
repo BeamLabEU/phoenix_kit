@@ -209,11 +209,6 @@ defmodule PhoenixKitWeb.Integration do
 
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
-
-        # Storage API routes (file upload and serving)
-        post "/api/upload", UploadController, :create
-        get "/file/:file_id/:variant/:token", FileController, :show
-        get "/api/files/:file_id/info", FileController, :info
       end
 
       # Email export routes (require admin or owner role)
@@ -296,17 +291,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
-          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
-          live "/admin/blogging", Live.Modules.Blogging.Index, :index
-          live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
-          live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
-          live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
-          live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
-          live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
-          live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -315,23 +302,6 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,
                :index
-
-          live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
-
-          live "/admin/settings/storage/dimensions/new/image",
-               Live.Settings.Storage.DimensionForm,
-               :new_image
-
-          live "/admin/settings/storage/dimensions/new/video",
-               Live.Settings.Storage.DimensionForm,
-               :new_video
-
-          live "/admin/settings/storage/dimensions/:id/edit",
-               Live.Settings.Storage.DimensionForm,
-               :edit
 
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
@@ -426,17 +396,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
-          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
-          live "/admin/blogging", Live.Modules.Blogging.Index, :index
-          live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
-          live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
-          live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
-          live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
-          live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
-          live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
@@ -446,23 +408,7 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
-          live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
-
-          live "/admin/settings/storage/dimensions/new/image",
-               Live.Settings.Storage.DimensionForm,
-               :new_image
-
-          live "/admin/settings/storage/dimensions/new/video",
-               Live.Settings.Storage.DimensionForm,
-               :new_video
-
-          live "/admin/settings/storage/dimensions/:id/edit",
-               Live.Settings.Storage.DimensionForm,
-               :edit
-
+          live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
           live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
@@ -512,46 +458,6 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
-  defp generate_blog_routes(url_prefix) do
-    quote do
-      # Determine if we're in single-language mode
-      enabled_locales =
-        try do
-          PhoenixKit.Module.Languages.enabled_locale_codes()
-        rescue
-          _ -> ["en"]
-        end
-
-      single_language_mode = length(enabled_locales) == 1
-
-      if single_language_mode do
-        # Single-language routes (without :language parameter)
-        blog_scope_single = unquote(url_prefix)
-
-        scope blog_scope_single, PhoenixKitWeb do
-          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-          get "/:blog", BlogController, :show
-          get "/:blog/*path", BlogController, :show
-        end
-      else
-        # Multi-language routes (with :language parameter)
-        blog_scope_multi =
-          case unquote(url_prefix) do
-            "/" -> "/:language"
-            prefix -> "#{prefix}/:language"
-          end
-
-        scope blog_scope_multi, PhoenixKitWeb do
-          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-          get "/:blog", BlogController, :show
-          get "/:blog/*path", BlogController, :show
-        end
-      end
-    end
-  end
-
   defmacro phoenix_kit_routes do
     # OAuth configuration is handled by PhoenixKit.Workers.OAuthConfigLoader
     # which runs synchronously during supervisor startup
@@ -596,9 +502,6 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
-
-      # Generate blog routes (after other routes to prevent conflicts)
-      unquote(generate_blog_routes(url_prefix))
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
