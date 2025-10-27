@@ -25,6 +25,37 @@
     </header>
 
     <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <%!-- Storage Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Storage"
+        description="Distributed file storage system with multi-location redundancy and automatic failover"
+        icon="💾"
+        enabled={@storage_enabled}
+        toggle_event="storage_always_enabled"
+        show_toggle={false}
+      >
+        <:status_badges>
+          <span class="badge badge-success">Always Enabled</span>
+          <span class="badge badge-info">Core System</span>
+        </:status_badges>
+
+        <:action_buttons>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+            class="btn btn-primary btn-sm"
+          >
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+          </.link>
+        </:action_buttons>
+
+        <:stats>
+          <div class="text-xs">
+            <div class="text-base-content/70 mb-1">Default Path:</div>
+            <div class="font-mono text-xs">{@storage_default_path}</div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- Referral Codes Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="Referral Codes"

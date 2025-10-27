@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Entities
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
@@ -29,6 +30,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     entities_config = Entities.get_config()
     pages_enabled = Pages.enabled?()
     under_construction_config = Maintenance.get_config()
+    storage_config = Storage.get_config()
 
     socket =
       socket
@@ -54,6 +56,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:under_construction_enabled, under_construction_config.enabled)
       |> assign(:under_construction_header, under_construction_config.header)
       |> assign(:under_construction_subtext, under_construction_config.subtext)
+      |> assign(:storage_enabled, storage_config.module_enabled)
+      |> assign(:storage_default_path, storage_config.default_path)
       |> assign(:current_locale, locale)
 
     {:ok, socket}

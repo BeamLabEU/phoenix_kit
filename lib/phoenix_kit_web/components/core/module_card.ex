@@ -51,6 +51,7 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
   attr :icon, :string, required: true, doc: "Emoji icon for the module"
   attr :enabled, :boolean, required: true, doc: "Whether the module is enabled"
   attr :toggle_event, :string, required: true, doc: "Phoenix event name for the toggle switch"
+  attr :show_toggle, :boolean, default: true, doc: "Whether to show the toggle switch"
 
   slot :status_badges, required: true, doc: "Status badges to display (left side of actions row)"
 
@@ -73,16 +74,18 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
               {@description}
             </p>
           </div>
-          <div class="form-control">
-            <label class="label cursor-pointer">
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@enabled}
-                phx-click={@toggle_event}
-              />
-            </label>
-          </div>
+          <%= if @show_toggle do %>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary"
+                  checked={@enabled}
+                  phx-click={@toggle_event}
+                />
+              </label>
+            </div>
+          <% end %>
         </div>
 
         <div class="divider my-2"></div>

@@ -284,6 +284,8 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
+          live "/admin/settings/storage", Live.Settings.Storage, :index
+
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
@@ -387,6 +389,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,
                :index
+
+          live "/admin/settings/storage", Live.Settings.Storage, :index
 
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
