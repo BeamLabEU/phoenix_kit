@@ -79,6 +79,13 @@ defmodule PhoenixKit.Pages.FileOperations do
   end
 
   @doc """
+  Returns the absolute filesystem path for a relative page path.
+  """
+  def absolute_path(relative_path) do
+    build_full_path(relative_path)
+  end
+
+  @doc """
   Writes content to a file.
 
   Creates parent directories if they don't exist.

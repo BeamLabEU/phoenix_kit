@@ -34,7 +34,7 @@ defmodule PhoenixKitWeb.Live.Settings do
     # Create form changeset
     changeset = Settings.change_settings(merged_settings)
 
-    # Load Languages module status
+    # Load module statuses
     languages_enabled = Languages.enabled?()
 
     # Load content language
@@ -255,4 +255,5 @@ defmodule PhoenixKitWeb.Live.Settings do
 
     "#{site_url}#{url_prefix}/users/auth/#{provider}/callback"
   end
+
 end

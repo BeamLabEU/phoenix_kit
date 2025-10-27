@@ -71,7 +71,10 @@
         toggle_event="toggle_referral_codes"
       >
         <:status_badges>
-          <span class={"badge #{if @referral_codes_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@referral_codes_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @referral_codes_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @referral_codes_enabled do %>
@@ -128,7 +131,10 @@
         toggle_event="toggle_emails"
       >
         <:status_badges>
-          <span class={"badge #{if @email_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@email_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @email_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @email_enabled do %>
@@ -197,7 +203,10 @@
         toggle_event="toggle_languages"
       >
         <:status_badges>
-          <span class={"badge #{if @languages_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@languages_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @languages_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @languages_enabled do %>
@@ -250,7 +259,10 @@
         toggle_event="toggle_entities"
       >
         <:status_badges>
-          <span class={"badge #{if @entities_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@entities_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @entities_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
           </span>
         </:status_badges>
@@ -258,7 +270,10 @@
         <:action_buttons>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/settings/entities")}
-            class={"btn btn-sm #{if @entities_enabled, do: "btn-primary", else: "btn-outline"}"}
+            class={[
+              "btn btn-sm",
+              if(@entities_enabled, do: "btn-primary", else: "btn-outline")
+            ]}
           >
             <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
             {gettext("Configure")}
@@ -279,7 +294,8 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- Pages Module --%>
+      <%!-- Pages Module temporarily disabled --%>
+      <%!--
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="Pages"
         description="File-based content management system for creating and organizing pages"
@@ -288,27 +304,29 @@
         toggle_event="toggle_pages"
       >
         <:status_badges>
-          <span class={"badge #{if @pages_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@pages_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @pages_enabled, do: "Enabled", else: "Disabled"}
           </span>
         </:status_badges>
 
         <:action_buttons>
-          <%= if @pages_enabled do %>
+          <div class="flex flex-col gap-2 w-full">
             <.link
               navigate={PhoenixKit.Utils.Routes.path("/admin/pages")}
-              class="btn btn-primary btn-sm"
+              class={"btn btn-sm #{if @pages_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
               <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Manage Pages
             </.link>
-          <% else %>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/pages")}
-              class="btn btn-outline btn-sm"
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/pages", locale: @current_locale || "en")}
+              class="btn btn-sm btn-outline"
             >
-              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Manage Pages
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
             </.link>
-          <% end %>
+          </div>
         </:action_buttons>
 
         <:stats>
@@ -317,6 +335,7 @@
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+      --%>
 
       <%!-- Under Construction (Maintenance Mode) Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
@@ -327,11 +346,17 @@
         toggle_event="toggle_under_construction"
       >
         <:status_badges>
-          <span class={"badge #{if @under_construction_module_enabled, do: "badge-success", else: "badge-neutral"}"}>
+          <span class={[
+            "badge",
+            if(@under_construction_module_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
             {if @under_construction_module_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @under_construction_module_enabled do %>
-            <span class={"badge badge-outline ml-2 #{if @under_construction_enabled, do: "badge-warning", else: "badge-info"}"}>
+            <span class={[
+              "badge badge-outline ml-2",
+              if(@under_construction_enabled, do: "badge-warning", else: "badge-info")
+            ]}>
               {if @under_construction_enabled, do: "Maintenance Active", else: "Maintenance Off"}
             </span>
           <% end %>

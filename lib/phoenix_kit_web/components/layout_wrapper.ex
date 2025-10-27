@@ -382,14 +382,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Pages.enabled?() do %>
-                      <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/pages")}
-                        icon="document"
-                        label="Pages"
-                        current_path={@current_path || ""}
-                      />
-                    <% end %>
+                    <%!-- Pages navigation temporarily disabled --%>
+                    <%# if PhoenixKit.Pages.enabled?() do %>
+                    <%#   <.admin_nav_item
+                    <%#     href={Routes.locale_aware_path(assigns, "/admin/pages")}
+                    <%#     icon="document"
+                    <%#     label="Pages"
+                    <%#     current_path={@current_path || ""}
+                    <%#   /> %>
+                    <%# end %>
 
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
@@ -435,6 +436,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             nested={true}
                           />
                         <% end %>
+
+                        <%# if PhoenixKit.Pages.enabled?() do %>
+                        <%#   <.admin_nav_item
+                        <%#     href={Routes.locale_aware_path(assigns, "/admin/settings/pages")}
+                        <%#     icon="document"
+                        <%#     label="Pages"
+                        <%#     current_path={@current_path || ""}
+                        <%#     nested={true}
+                        <%#   /> %>
+                        <%# end %>
 
                         <%= if PhoenixKit.Emails.enabled?() do %>
                           <.admin_nav_item

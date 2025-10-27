@@ -56,9 +56,11 @@ defmodule PhoenixKitWeb.Integration do
   - /admin/settings, /admin/modules
 
   Public pages routes (if Pages module enabled):
-  - /pages/* (explicit prefix)
-  - /* (catch-all at root level)
-  - Example: /test2 renders test2.md
+  - {prefix}/pages/* (explicit prefix - e.g., /phoenix_kit/pages/test)
+  - /* (catch-all at root level - e.g., /test, /blog/post)
+  - Both routes serve published pages from priv/static/pages/*.md
+  - The catch-all can optionally serve a custom 404 markdown file when enabled
+  - Example: /test or /phoenix_kit/pages/test renders test.md
 
   ## DaisyUI Setup
 
@@ -205,8 +207,8 @@ defmodule PhoenixKitWeb.Integration do
         # Email webhook endpoint (no authentication required)
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
 
-        # Public pages routes (no authentication required)
-        get "/pages/*path", PagesController, :show
+        # Pages routes temporarily disabled
+        # get "/pages/*path", PagesController, :show
 
         # Storage API routes (file upload and serving)
         post "/api/upload", UploadController, :create
@@ -223,6 +225,22 @@ defmodule PhoenixKitWeb.Integration do
         get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
         get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
       end
+    end
+  end
+
+  # Helper function to generate catch-all root route for pages
+  # This allows accessing pages from the root level (e.g., /test, /blog/post)
+  # Must be placed at the end of the router to not interfere with other routes
+  defp generate_pages_catch_all do
+    quote do
+      # Catch-all route for published pages at root level
+      # This route should be last to avoid conflicting with app routes
+      # scope "/", PhoenixKitWeb do
+      #   pipe_through [:browser, :phoenix_kit_auto_setup]
+      #
+      #   # Catch-all for root-level pages (must be last route)
+      #   get "/*path", PagesController, :show
+      # end
     end
   end
 
@@ -282,6 +300,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
+          # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
@@ -341,9 +360,9 @@ defmodule PhoenixKitWeb.Integration do
             as: :entities_settings
 
           # Pages Management
-          live "/admin/pages", Live.Modules.Pages.Pages, :index
-          live "/admin/pages/view", Live.Modules.Pages.View, :view
-          live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
+          # live "/admin/pages", Live.Modules.Pages.Pages, :index
+          # live "/admin/pages/view", Live.Modules.Pages.View, :view
+          # live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
         end
       end
     end
@@ -404,6 +423,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
+          # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
@@ -470,9 +490,9 @@ defmodule PhoenixKitWeb.Integration do
             as: :entities_settings
 
           # Pages Management
-          live "/admin/pages", Live.Modules.Pages.Pages, :index
-          live "/admin/pages/view", Live.Modules.Pages.View, :view
-          live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
+          # live "/admin/pages", Live.Modules.Pages.Pages, :index
+          # live "/admin/pages/view", Live.Modules.Pages.View, :view
+          # live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
         end
       end
     end
@@ -522,6 +542,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
+
+      # Generate catch-all route for pages at root level (must be last)
+      unquote(generate_pages_catch_all())
     end
   end
 
