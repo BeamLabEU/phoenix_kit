@@ -1,4 +1,4 @@
-## 1.4.6 - 2025-10-26
+## 1.4.6 - 2025-10-27
 
 ### Fixed
 - **CRITICAL: Ueberauth MatchError timing issue** - Fixed OAuth provider initialization race condition
