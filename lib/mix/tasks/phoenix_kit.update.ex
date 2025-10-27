@@ -239,7 +239,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       igniter
       |> Igniter.create_new_file(migration_path, migration_content)
       |> add_migration_created_notice(migration_name, current_version, target_version)
-      |> add_css_integration_update()
       |> add_post_igniter_instructions(opts)
     end
 
@@ -279,12 +278,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, notice)
-    end
-
-    defp add_css_integration_update(igniter) do
-      # Note: CSS integration is handled in post_igniter_tasks/1
-      # since it involves file system operations that should happen after igniter
-      igniter
     end
 
     defp add_post_igniter_instructions(igniter, opts) do
