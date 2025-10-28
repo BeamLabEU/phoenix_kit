@@ -57,7 +57,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:under_construction_header, under_construction_config.header)
       |> assign(:under_construction_subtext, under_construction_config.subtext)
       |> assign(:storage_enabled, storage_config.module_enabled)
-      |> assign(:storage_default_path, storage_config.default_path)
+      |> assign(:storage_buckets_count, storage_config.buckets_count)
+      |> assign(:storage_active_buckets_count, storage_config.active_buckets_count)
       |> assign(:current_locale, locale)
 
     {:ok, socket}

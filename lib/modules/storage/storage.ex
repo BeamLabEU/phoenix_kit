@@ -166,9 +166,13 @@ defmodule PhoenixKit.Modules.Storage do
       }
   """
   def get_config do
+    buckets = PhoenixKit.Storage.list_buckets()
+    active_count = Enum.count(buckets, & &1.enabled)
+
     %{
       module_enabled: true,
-      default_path: get_default_path()
+      buckets_count: length(buckets),
+      active_buckets_count: active_count
     }
   end
 
