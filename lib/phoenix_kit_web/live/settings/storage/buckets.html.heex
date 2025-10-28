@@ -82,11 +82,9 @@
                     <%!-- Name --%>
                     <td>
                       <div class="font-bold">{stat.bucket.name}</div>
-                      <%= if stat.bucket.bucket_name do %>
-                        <div class="text-xs text-base-content/60 font-mono">
-                          {stat.bucket.bucket_name}
-                        </div>
-                      <% end %>
+                      <div class="text-xs text-base-content/60 font-mono">
+                        {get_bucket_full_path(stat.bucket)}
+                      </div>
                     </td>
 
                     <%!-- Provider --%>

@@ -93,10 +93,15 @@
                     <td class="font-medium">
                       <div class="flex items-center gap-2">
                         <div class={"w-2 h-2 rounded-full #{if bucket.enabled, do: "bg-success", else: "bg-error"}"}></div>
-                        {bucket.name}
-                        <%= if bucket.id == @default_bucket_id do %>
-                          <span class="badge badge-primary badge-xs">Default</span>
-                        <% end %>
+                        <div>
+                          {bucket.name}
+                          <%= if bucket.id == @default_bucket_id do %>
+                            <span class="badge badge-primary badge-xs ml-2">Default</span>
+                          <% end %>
+                          <div class="text-xs text-base-content/60 font-mono mt-1">
+                            {get_bucket_full_path(bucket)}
+                          </div>
+                        </div>
                       </div>
                     </td>
                     <td>
