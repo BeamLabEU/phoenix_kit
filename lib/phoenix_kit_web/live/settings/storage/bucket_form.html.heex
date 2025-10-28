@@ -1,0 +1,282 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")} class="btn btn-outline mb-4">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
+        Back to Buckets
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-base-content mb-2">
+          {@page_title}
+        </h1>
+        <p class="text-base-content/70">
+          Configure storage provider settings and access credentials
+        </p>
+      </div>
+    </header>
+
+    <%!-- Form Section --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Basic Information --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Bucket Name *</span>
+              <span class="label-text-alt">Display name for this storage location</span>
+            </label>
+            <input
+              type="text"
+              name="bucket[name]"
+              value={input_value(@changeset, :name)}
+              class={"input input-bordered #{input_class(@changeset, :name)}"}
+              placeholder="e.g., Production S3, Local SSD, Backup B2"
+              required
+            />
+            
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Storage Provider *</span>
+              <span class="label-text-alt">Type of storage service</span>
+            </label>
+            <select
+              name="bucket[provider]"
+              class={"select select-bordered #{input_class(@changeset, :provider)}"}
+              required
+            >
+              <option value="">Select provider...</option>
+              <option value="local" selected={input_value(@changeset, :provider) == "local"}>
+                Local Filesystem
+              </option>
+              <option value="s3" selected={input_value(@changeset, :provider) == "s3"}>
+                AWS S3
+              </option>
+              <option value="b2" selected={input_value(@changeset, :provider) == "b2"}>
+                Backblaze B2
+              </option>
+              <option value="r2" selected={input_value(@changeset, :provider) == "r2"}>
+                Cloudflare R2
+              </option>
+            </select>
+            
+          </div>
+
+          <%!-- Cloud Provider Settings --%>
+          <div class="divider">Cloud Provider Settings</div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Region</span>
+                <span class="label-text-alt">AWS region or equivalent</span>
+              </label>
+              <input
+                type="text"
+                name="bucket[region]"
+                value={input_value(@changeset, :region)}
+                class={"input input-bordered #{input_class(@changeset, :region)}"}
+                placeholder="e.g., us-east-1"
+              />
+              
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Endpoint</span>
+                <span class="label-text-alt">S3-compatible endpoint</span>
+              </label>
+              <input
+                type="text"
+                name="bucket[endpoint]"
+                value={input_value(@changeset, :endpoint)}
+                class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
+                placeholder="e.g., s3.us-west-002.backblazeb2.com"
+              />
+              
+            </div>
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Bucket Name</span>
+              <span class="label-text-alt">S3 bucket name</span>
+            </label>
+            <input
+              type="text"
+              name="bucket[bucket_name]"
+              value={input_value(@changeset, :bucket_name)}
+              class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
+              placeholder="e.g., my-app-files"
+            />
+            
+          </div>
+
+          <%!-- Access Credentials --%>
+          <div class="divider">Access Credentials</div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Access Key ID</span>
+                <span class="label-text-alt">AWS access key or API key</span>
+              </label>
+              <input
+                type="text"
+                name="bucket[access_key_id]"
+                value={input_value(@changeset, :access_key_id)}
+                class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
+                placeholder="AKIA..."
+              />
+              
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Secret Access Key</span>
+                <span class="label-text-alt">AWS secret key or API secret</span>
+              </label>
+              <input
+                type="password"
+                name="bucket[secret_access_key]"
+                value={input_value(@changeset, :secret_access_key)}
+                class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
+                placeholder="•••••••••••••••••••••••••••••••••"
+              />
+              
+            </div>
+          </div>
+
+          <%!-- Additional Settings --%>
+          <div class="divider">Additional Settings</div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">CDN URL</span>
+                <span class="label-text-alt">CDN endpoint for file serving</span>
+              </label>
+              <input
+                type="url"
+                name="bucket[cdn_url]"
+                value={input_value(@changeset, :cdn_url)}
+                class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
+                placeholder="https://cdn.example.com"
+              />
+              
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Path Prefix</span>
+                <span class="label-text-alt">Base path within bucket</span>
+              </label>
+              <input
+                type="text"
+                name="bucket[path_prefix]"
+                value={input_value(@changeset, :path_prefix)}
+                class={"input input-bordered #{input_class(@changeset, :path_prefix)}"}
+                placeholder="uploads/"
+              />
+              
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Priority</span>
+                <span class="label-text-alt">Selection priority</span>
+              </label>
+              <input
+                type="number"
+                name="bucket[priority]"
+                value={input_value(@changeset, :priority)}
+                class={"input input-bordered #{input_class(@changeset, :priority)}"}
+                placeholder="0"
+                min="0"
+              />
+              <label class="label">
+                <span class="label-text-alt">0 = random/emptiest, 1+ = specific priority</span>
+              </label>
+              
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Max Size (MB)</span>
+                <span class="label-text-alt">Storage capacity limit</span>
+              </label>
+              <input
+                type="number"
+                name="bucket[max_size_mb]"
+                value={input_value(@changeset, :max_size_mb)}
+                class={"input input-bordered #{input_class(@changeset, :max_size_mb)}"}
+                placeholder="1024"
+                min="1"
+              />
+              <label class="label">
+                <span class="label-text-alt">Leave empty for unlimited</span>
+              </label>
+              
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Status</span>
+                <span class="label-text-alt">Enable/disable bucket</span>
+              </label>
+              <label class="label cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="bucket[enabled]"
+                  checked={input_value(@changeset, :enabled)}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text ml-2">Enable this bucket</span>
+              </label>
+              
+            </div>
+          </div>
+
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-2 pt-4">
+            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")} class="btn btn-outline">
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
+              <.icon name="hero-check" class="w-4 h-4 mr-1" />
+              {@form_action}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- Help Section --%>
+    <div class="alert mt-6">
+      <.icon name="hero-light-bulb" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Storage Provider Configuration</h3>
+        <p class="text-sm">
+          <strong>Local Filesystem:</strong> No additional configuration needed<br />
+          <strong>AWS S3:</strong> Requires region, bucket name, and access credentials<br />
+          <strong>Backblaze B2:</strong> Requires endpoint and access credentials<br />
+          <strong>Cloudflare R2:</strong> Requires account ID and access credentials
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

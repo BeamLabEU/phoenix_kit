@@ -1,0 +1,210 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")} class="btn btn-outline mb-4">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
+        Back to Dimensions
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-base-content mb-2">
+          {@page_title}
+        </h1>
+        <p class="text-base-content/70">
+          Configure dimension presets for automatic file variant generation
+        </p>
+      </div>
+    </header>
+
+    <%!-- Form Section --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Basic Information --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Dimension Name *</span>
+              <span class="label-text-alt">Unique name for this dimension preset</span>
+            </label>
+            <input
+              type="text"
+              name="dimension[name]"
+              value={input_value(@changeset, :name)}
+              class={"input input-bordered #{input_class(@changeset, :name)}"}
+              placeholder="e.g., thumbnail, medium, 720p"
+              required
+            />
+                      </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Width (px)</span>
+                <span class="label-text-alt">Target width in pixels</span>
+              </label>
+              <input
+                type="number"
+                name="dimension[width]"
+                value={input_value(@changeset, :width)}
+                class={"input input-bordered #{input_class(@changeset, :width)}"}
+                placeholder="800"
+                min="1"
+              />
+                          </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Height (px)</span>
+                <span class="label-text-alt">Target height in pixels</span>
+              </label>
+              <input
+                type="number"
+                name="dimension[height]"
+                value={input_value(@changeset, :height)}
+                class={"input input-bordered #{input_class(@changeset, :height)}"}
+                placeholder="600"
+                min="1"
+              />
+                          </div>
+          </div>
+
+          <%!-- Quality and Format --%>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Quality</span>
+                <span class="label-text-alt">Compression quality (1-100)</span>
+              </label>
+              <input
+                type="number"
+                name="dimension[quality]"
+                value={input_value(@changeset, :quality)}
+                class={"input input-bordered #{input_class(@changeset, :quality)}"}
+                placeholder="85"
+                min="1"
+                max="100"
+              />
+              <label class="label">
+                <span class="label-text-alt">Images use 1-100, Videos use CRF 0-51 (lower = higher quality)</span>
+              </label>
+                          </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Format Override</span>
+                <span class="label-text-alt">Leave empty to preserve original</span>
+              </label>
+              <select
+                name="dimension[format]"
+                class={"select select-bordered #{input_class(@changeset, :format)}"}
+              >
+                <option value="">Preserve original</option>
+                <option value="jpg" selected={input_value(@changeset, :format) == "jpg"}>
+                  JPEG
+                </option>
+                <option value="png" selected={input_value(@changeset, :format) == "png"}>
+                  PNG
+                </option>
+                <option value="webp" selected={input_value(@changeset, :format) == "webp"}>
+                  WebP
+                </option>
+                <option value="mp4" selected={input_value(@changeset, :format) == "mp4"}>
+                  MP4
+                </option>
+              </select>
+                          </div>
+          </div>
+
+          <%!-- Type and Order --%>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Applies To *</span>
+                <span class="label-text-alt">File types this dimension applies to</span>
+              </label>
+              <select
+                name="dimension[applies_to]"
+                class={"select select-bordered #{input_class(@changeset, :applies_to)}"}
+                required
+              >
+                <option value="">Select type...</option>
+                <option value="image" selected={input_value(@changeset, :applies_to) == "image"}>
+                  Images only
+                </option>
+                <option value="video" selected={input_value(@changeset, :applies_to) == "video"}>
+                  Videos only
+                </option>
+                <option value="both" selected={input_value(@changeset, :applies_to) == "both"}>
+                  Both images and videos
+                </option>
+              </select>
+                          </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Order</span>
+                <span class="label-text-alt">Display order in admin</span>
+              </label>
+              <input
+                type="number"
+                name="dimension[order]"
+                value={input_value(@changeset, :order)}
+                class={"input input-bordered #{input_class(@changeset, :order)}"}
+                placeholder="1"
+                min="0"
+              />
+                          </div>
+          </div>
+
+          <%!-- Status --%>
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <input
+                type="checkbox"
+                name="dimension[enabled]"
+                checked={input_value(@changeset, :enabled)}
+                class="checkbox checkbox-primary"
+              />
+              <span class="label-text ml-2">Enable this dimension</span>
+            </label>
+                      </div>
+
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-2 pt-4">
+            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")} class="btn btn-outline">
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
+              <.icon name="hero-check" class="w-4 h-4 mr-1" />
+              {@form_action}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- Help Section --%>
+    <div class="alert mt-6">
+      <.icon name="hero-light-bulb" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Dimension Configuration Guide</h3>
+        <p class="text-sm">
+          <strong>Size Settings:</strong> Width and height define the target dimensions<br />
+          <strong>Aspect Ratio:</strong> Leave one dimension empty to maintain aspect ratio<br />
+          <strong>Quality Settings:</strong> Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)<br />
+          <strong>Format Override:</strong> Use to convert files to a specific format, or leave empty to preserve original
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

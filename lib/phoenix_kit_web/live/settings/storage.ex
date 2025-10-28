@@ -27,6 +27,11 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     storage_config = Storage.get_config()
     absolute_path = Storage.get_absolute_path()
 
+    # Load storage settings from database
+    redundancy_copies = Settings.get_setting("storage_redundancy_copies", "2")
+    auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
+    default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
+
     socket =
       socket
       |> assign(:current_path, current_path)
@@ -37,6 +42,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:path_input, absolute_path)
       |> assign(:path_error, nil)
       |> assign(:confirm_create_path, nil)
+      |> assign(:redundancy_copies, String.to_integer(redundancy_copies))
+      |> assign(:auto_generate_variants, auto_generate_variants == "true")
+      |> assign(:default_bucket_id, default_bucket_id)
       |> assign(:current_locale, locale)
 
     {:ok, socket}
@@ -178,6 +186,61 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to reset storage path")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_redundancy", %{"redundancy_copies" => copies}, socket) do
+    case Settings.update_setting("storage_redundancy_copies", copies) do
+      {:ok, _setting} ->
+        socket =
+          socket
+          |> assign(:redundancy_copies, String.to_integer(copies))
+          |> put_flash(:info, "Redundancy settings updated")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update redundancy settings")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_variants", _params, socket) do
+    new_value = if socket.assigns.auto_generate_variants, do: "false", else: "true"
+
+    case Settings.update_setting("storage_auto_generate_variants", new_value) do
+      {:ok, _setting} ->
+        socket =
+          socket
+          |> assign(:auto_generate_variants, new_value == "true")
+          |> put_flash(
+            :info,
+            "Auto-variant generation #{if new_value == "true", do: "enabled", else: "disabled"}"
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update variant settings")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("update_default_bucket", %{"bucket_id" => bucket_id}, socket) do
+    new_value = if bucket_id == "", do: nil, else: bucket_id
+
+    case Settings.update_setting("storage_default_bucket_id", new_value) do
+      {:ok, _setting} ->
+        socket =
+          socket
+          |> assign(:default_bucket_id, new_value)
+          |> put_flash(:info, "Default bucket updated")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update default bucket")
         {:noreply, socket}
     end
   end

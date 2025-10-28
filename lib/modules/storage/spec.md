@@ -156,6 +156,134 @@ Admin-configurable dimension presets for variant generation
 **Unique Constraint:**
 - `unique_dimension_name` on `name`
 
+**Default Seeded Dimensions (8 total):**
+
+The V18 migration will seed the following default dimensions:
+
+```elixir
+# Image Dimensions (4)
+%{
+  name: "thumbnail",
+  width: 150,
+  height: 150,
+  quality: 85,
+  format: "jpg",
+  applies_to: "image",
+  enabled: true,
+  order: 1
+}
+
+%{
+  name: "small",
+  width: 300,
+  height: 300,
+  quality: 85,
+  format: "jpg",
+  applies_to: "image",
+  enabled: true,
+  order: 2
+}
+
+%{
+  name: "medium",
+  width: 800,
+  height: 600,
+  quality: 85,
+  format: "jpg",
+  applies_to: "image",
+  enabled: true,
+  order: 3
+}
+
+%{
+  name: "large",
+  width: 1920,
+  height: 1080,
+  quality: 85,
+  format: "jpg",
+  applies_to: "image",
+  enabled: true,
+  order: 4
+}
+
+# Video Quality Dimensions (3)
+%{
+  name: "360p",
+  width: 640,
+  height: 360,
+  quality: 28,  # CRF value for FFmpeg video encoding
+  format: "mp4",
+  applies_to: "video",
+  enabled: true,
+  order: 5
+}
+
+%{
+  name: "720p",
+  width: 1280,
+  height: 720,
+  quality: 28,
+  format: "mp4",
+  applies_to: "video",
+  enabled: true,
+  order: 6
+}
+
+%{
+  name: "1080p",
+  width: 1920,
+  height: 1080,
+  quality: 28,
+  format: "mp4",
+  applies_to: "video",
+  enabled: true,
+  order: 7
+}
+
+# Video Thumbnail (1)
+%{
+  name: "video_thumbnail",
+  width: 640,
+  height: 360,
+  quality: 85,
+  format: "jpg",
+  applies_to: "video",
+  enabled: true,
+  order: 8
+}
+```
+
+**Default Seeded Bucket:**
+
+The V18 migration will seed one default local storage bucket:
+
+```elixir
+%{
+  name: "Local Storage",
+  provider: "local",
+  region: nil,
+  endpoint: nil,
+  bucket_name: nil,
+  access_key_id: nil,
+  secret_access_key: nil,
+  cdn_url: nil,
+  path_prefix: nil,  # Uses storage_default_path setting from existing system
+  enabled: true,
+  priority: 0,       # Random selection, prefer emptiest drive
+  max_size_mb: nil   # Unlimited (will use all available disk space)
+}
+```
+
+**Default Seeded Settings:**
+
+The V18 migration will add 3 new settings:
+
+```elixir
+%{key: "storage_redundancy_copies", value: "2"}           # Store files on 2 buckets
+%{key: "storage_auto_generate_variants", value: "true"}  # Auto-generate thumbnails/resizes
+%{key: "storage_default_bucket_id", value: nil}          # No default bucket (use selection algorithm)
+```
+
 ---
 
 ## File Type Support
@@ -406,8 +534,8 @@ PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-...", "large")
 ### Phase 1: Database Foundation (Current Session)
 
 **Deliverables:**
-- ✅ Add `{:ecto_uuidv7, "~> 0.2"}` dependency to `mix.exs`
-- ✅ Create migration V18 with all 5 tables
+- ✅ Add `{:uuidv7, "~> 1.0"}` dependency to `mix.exs`
+- ✅ Create migration V19 with all 5 tables
 - ✅ Seed default dimensions (thumbnail, small, medium, large, 720p, 1080p)
 - ✅ Seed default local bucket (priority 0)
 - ✅ Add storage settings (redundancy_copies, auto_generate_variants)
@@ -422,7 +550,7 @@ PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-...", "large")
 - ✅ Test compilation
 
 **Files to Create:**
-1. `lib/phoenix_kit/migrations/postgres/v18.ex`
+1. `lib/phoenix_kit/migrations/postgres/v19.ex`
 2. `lib/phoenix_kit/storage.ex`
 3. `lib/phoenix_kit/storage/bucket.ex`
 4. `lib/phoenix_kit/storage/file.ex`
@@ -827,10 +955,10 @@ lib/
 
 ## Migration Path
 
-### From V17 to V18
+### From V18 to V19
 1. Run `mix phoenix_kit.update`
-2. System detects current version (V17)
-3. Applies V18 migration:
+2. System detects current version (V18)
+3. Applies V19 migration:
    - Creates 5 new tables
    - Adds 3 new settings
    - Seeds default dimensions
@@ -839,7 +967,7 @@ lib/
 5. Existing PhoenixKit features unaffected
 
 ### Rollback Strategy
-- V18 migration includes `down/1` function
+- V19 migration includes `down/1` function
 - Drops all 5 tables
 - Removes settings
 - No data loss for existing features
@@ -873,7 +1001,7 @@ All critical queries indexed:
 
 ### Phase 1 (Immediate)
 ```elixir
-{:ecto_uuidv7, "~> 0.2"}  # UUIDv7 generation
+{:uuidv7, "~> 1.0"}  # UUIDv7 generation with Ecto.Type support
 ```
 
 ### Phase 3 (Future)
@@ -929,10 +1057,10 @@ R2_BUCKET=...
 
 ## Changelog
 
-### V18 Migration - Storage System Foundation
+### V19 Migration - Storage System Foundation
 **Added:**
 - 5 new database tables (buckets, files, file_instances, file_locations, dimensions)
-- UUIDv7 support via ecto_uuidv7
+- UUIDv7 support via uuidv7 package
 - Smart bucket selection with priority system
 - Token-based URL security
 - Multi-location redundancy support
@@ -941,7 +1069,7 @@ R2_BUCKET=...
 - Seeded default local bucket
 
 **Files Created:**
-- `lib/phoenix_kit/migrations/postgres/v18.ex`
+- `lib/phoenix_kit/migrations/postgres/v19.ex`
 - `lib/phoenix_kit/storage.ex`
 - `lib/phoenix_kit/storage/bucket.ex`
 - `lib/phoenix_kit/storage/file.ex`

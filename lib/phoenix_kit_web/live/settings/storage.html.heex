@@ -10,9 +10,11 @@
     <%!-- Header Section --%>
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
-      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/modules")} class="btn btn-outline mb-4">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
-        Back to Modules
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
+        class="btn btn-outline mb-4"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Modules
       </.link>
 
       <%!-- Title Section --%>
@@ -42,8 +44,7 @@
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <h2 class="card-title text-2xl mb-4">
-          <.icon name="hero-folder" class="w-6 h-6 mr-2" />
-          Default Storage Path
+          <.icon name="hero-folder" class="w-6 h-6 mr-2" /> Default Storage Path
         </h2>
 
         <form phx-submit="save_path" phx-change="update_path_input">
@@ -60,12 +61,10 @@
                 placeholder="Enter absolute or relative path"
               />
               <button type="submit" class="btn btn-primary">
-                <.icon name="hero-check" class="w-4 h-4 mr-1" />
-                Save
+                <.icon name="hero-check" class="w-4 h-4 mr-1" /> Save
               </button>
               <button type="button" phx-click="reset_to_default" class="btn btn-outline">
-                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
-                Reset
+                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Reset
               </button>
             </div>
             <%= if @path_error && !@confirm_create_path do %>
@@ -75,8 +74,7 @@
             <% end %>
             <label class="label">
               <span class="label-text-alt">
-                Enter absolute or relative path. Relative paths are saved to database.
-                <br />
+                Enter absolute or relative path. Relative paths are saved to database. <br />
                 Stored as: <code class="text-xs font-mono">{@storage_relative_path}</code>
               </span>
             </label>
@@ -94,8 +92,7 @@
             </div>
             <div class="flex gap-2">
               <button phx-click="create_and_save_path" class="btn btn-sm btn-warning">
-                <.icon name="hero-folder-plus" class="w-4 h-4 mr-1" />
-                Create Directory
+                <.icon name="hero-folder-plus" class="w-4 h-4 mr-1" /> Create Directory
               </button>
               <button phx-click="cancel_create" class="btn btn-sm btn-ghost">
                 Cancel
@@ -126,12 +123,108 @@
       </div>
     </div>
 
+    <%!-- Storage Configuration --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-cog-6-tooth" class="w-6 h-6 mr-2" /> Storage Configuration
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- Redundancy Settings --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Redundancy Copies</span>
+              <span class="label-text-alt">Number of copies to store (1-5)</span>
+            </label>
+            <select
+              name="redundancy_copies"
+              class="select select-bordered"
+              phx-change="update_redundancy"
+            >
+              <option value="1" selected={@redundancy_copies == 1}>
+                1 Copy (Single location)
+              </option>
+              <option value="2" selected={@redundancy_copies == 2}>
+                2 Copies (Dual redundancy)
+              </option>
+              <option value="3" selected={@redundancy_copies == 3}>
+                3 Copies (Triple redundancy)
+              </option>
+              <option value="4" selected={@redundancy_copies == 4}>
+                4 Copies (Quad redundancy)
+              </option>
+              <option value="5" selected={@redundancy_copies == 5}>
+                5 Copies (Maximum redundancy)
+              </option>
+            </select>
+            <label class="label">
+              <span class="label-text-alt">
+                Higher redundancy provides better durability but uses more storage space
+              </span>
+            </label>
+          </div>
+
+          <%!-- Auto-Variant Generation --%>
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <input
+                type="checkbox"
+                checked={@auto_generate_variants}
+                phx-click="toggle_variants"
+                class="checkbox checkbox-primary"
+              />
+              <span class="label-text ml-2">
+                <span class="font-semibold">Auto-Generate Variants</span>
+                <span class="block text-xs opacity-70">
+                  Automatically create different sizes when files are uploaded
+                </span>
+              </span>
+            </label>
+            <label class="label">
+              <span class="label-text-alt">
+                When enabled, images and videos will automatically be resized to configured dimensions
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <%!-- Quick Actions --%>
+        <div class="divider">Quick Actions</div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-inbox-stack" class="w-4 h-4 mr-2" /> Manage Buckets
+          </.link>
+
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-photo" class="w-4 h-4 mr-2" /> Manage Dimensions
+          </.link>
+
+          <button class="btn btn-outline" disabled>
+            <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Storage Stats
+            <span class="badge badge-xs ml-1">Soon</span>
+          </button>
+
+          <button class="btn btn-outline" disabled>
+            <.icon name="hero-arrow-path" class="w-4 h-4 mr-2" /> Sync Files
+            <span class="badge badge-xs ml-1">Soon</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
     <%!-- Coming Soon Features --%>
     <div class="card bg-base-100 shadow-xl border-2 border-dashed border-base-300">
       <div class="card-body">
         <h2 class="card-title text-2xl mb-4">
-          <.icon name="hero-rocket-launch" class="w-6 h-6 mr-2" />
-          Advanced Features Coming Soon
+          <.icon name="hero-rocket-launch" class="w-6 h-6 mr-2" /> Advanced Features Coming Soon
         </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

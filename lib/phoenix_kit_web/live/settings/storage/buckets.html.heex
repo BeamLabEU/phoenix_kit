@@ -1,0 +1,193 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Storage Buckets"
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+        class="btn btn-outline mb-4"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Storage Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center mb-8">
+        <h1 class="text-4xl font-bold text-base-content mb-2">
+          Storage Buckets
+        </h1>
+        <p class="text-base-content/70">
+          Manage storage provider configurations and monitor usage
+        </p>
+      </div>
+    </header>
+
+    <%!-- Info Alert --%>
+    <div class="alert alert-info mb-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Storage Providers</h3>
+        <p class="text-sm">
+          Buckets represent storage locations where files can be stored. Configure multiple buckets for redundancy and use priority settings to control selection order.
+        </p>
+      </div>
+    </div>
+
+    <%!-- Buckets List --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="card-title text-2xl">
+            <.icon name="hero-server-stack" class="w-6 h-6 mr-2" /> Configured Buckets
+            <span class="badge badge-lg">{length(@bucket_stats)}</span>
+          </h2>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets/new")}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Bucket
+          </.link>
+        </div>
+
+        <%= if length(@bucket_stats) == 0 do %>
+          <div class="text-center py-12">
+            <.icon name="hero-server-stack" class="w-16 h-16 mx-auto mb-4 text-base-content/30" />
+            <p class="text-lg text-base-content/70 mb-2">No buckets configured</p>
+            <p class="text-sm text-base-content/50">
+              The default local bucket should be seeded by the migration.
+            </p>
+          </div>
+        <% else %>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Provider</th>
+                  <th>Priority</th>
+                  <th>Usage</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for stat <- @bucket_stats do %>
+                  <tr>
+                    <%!-- Name --%>
+                    <td>
+                      <div class="font-bold">{stat.bucket.name}</div>
+                      <%= if stat.bucket.bucket_name do %>
+                        <div class="text-xs text-base-content/60 font-mono">
+                          {stat.bucket.bucket_name}
+                        </div>
+                      <% end %>
+                    </td>
+
+                    <%!-- Provider --%>
+                    <td>
+                      <span class={"badge #{provider_badge_class(stat.bucket.provider)} badge-sm"}>
+                        {String.upcase(stat.bucket.provider)}
+                      </span>
+                    </td>
+
+                    <%!-- Priority --%>
+                    <td>
+                      <%= if stat.bucket.priority == 0 do %>
+                        <span class="text-xs text-base-content/60">Random (0)</span>
+                      <% else %>
+                        <span class="font-semibold">{stat.bucket.priority}</span>
+                      <% end %>
+                    </td>
+
+                    <%!-- Usage --%>
+                    <td>
+                      <div class="flex flex-col gap-1">
+                        <div class="text-sm">
+                          <span class="font-semibold">{format_size(stat.used_mb)}</span>
+                          <%= if stat.bucket.max_size_mb do %>
+                            <span class="text-base-content/60">
+                              / {format_size(stat.bucket.max_size_mb)}
+                            </span>
+                          <% end %>
+                        </div>
+                        <%= if stat.usage_percent do %>
+                          <progress
+                            class={"progress w-24 #{if stat.usage_percent > 90, do: "progress-error", else: if(stat.usage_percent > 75, do: "progress-warning", else: "progress-success")}"}
+                            value={stat.usage_percent}
+                            max="100"
+                          >
+                          </progress>
+                        <% end %>
+                      </div>
+                    </td>
+
+                    <%!-- Status --%>
+                    <td>
+                      <%= if stat.bucket.enabled do %>
+                        <span class="badge badge-success badge-sm">Enabled</span>
+                      <% else %>
+                        <span class="badge badge-error badge-sm">Disabled</span>
+                      <% end %>
+                    </td>
+
+                    <%!-- Actions --%>
+                    <td>
+                      <div class="flex justify-end gap-1">
+                        <%!-- Toggle Enable/Disable --%>
+                        <button
+                          phx-click="toggle_bucket"
+                          phx-value-id={stat.bucket.id}
+                          class="btn btn-xs btn-ghost"
+                          title={
+                            if stat.bucket.enabled, do: "Disable bucket", else: "Enable bucket"
+                          }
+                        >
+                          <%= if stat.bucket.enabled do %>
+                            <.icon name="hero-eye-slash" class="w-4 h-4" />
+                          <% else %>
+                            <.icon name="hero-eye" class="w-4 h-4" />
+                          <% end %>
+                        </button>
+
+                        <%!-- Delete Button --%>
+                        <button
+                          phx-click="delete_bucket"
+                          phx-value-id={stat.bucket.id}
+                          data-confirm="Are you sure you want to delete this bucket? This will remove all location records."
+                          class="btn btn-xs btn-ghost text-error"
+                          title="Delete bucket"
+                        >
+                          <.icon name="hero-trash" class="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Help Section --%>
+    <div class="alert mt-6">
+      <.icon name="hero-light-bulb" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Bucket Priority System</h3>
+        <p class="text-sm">
+          <strong>Priority = 0:</strong>
+          Random selection, prefers most empty drive (good for load balancing)<br />
+          <strong>Priority > 0:</strong>
+          Specific priority (1 = highest, 2 = second, etc.) for deterministic selection
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
