@@ -23,7 +23,7 @@
           Storage Settings
         </h1>
         <p class="text-base-content/70">
-          Configure distributed file storage with multi-location redundancy
+          Configure storage buckets and file processing settings for your application
         </p>
       </div>
     </header>
@@ -40,86 +40,131 @@
       </div>
     </div>
 
-    <%!-- Default Path Configuration --%>
+    <%!-- Storage Buckets --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
-        <h2 class="card-title text-2xl mb-4">
-          <.icon name="hero-folder" class="w-6 h-6 mr-2" /> Default Storage Path
-        </h2>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="card-title text-2xl">
+            <.icon name="hero-inbox-stack" class="w-6 h-6 mr-2" /> Storage Buckets
+          </h2>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+            class="btn btn-primary btn-sm"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Manage Buckets
+          </.link>
+        </div>
 
-        <form phx-submit="save_path" phx-change="update_path_input">
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Local Storage Directory</span>
-            </label>
-            <div class="flex gap-2">
-              <input
-                type="text"
-                name="path"
-                value={@path_input}
-                class={"input input-bordered flex-1 font-mono #{if @path_error, do: "input-error", else: ""}"}
-                placeholder="Enter absolute or relative path"
-              />
-              <button type="submit" class="btn btn-primary">
-                <.icon name="hero-check" class="w-4 h-4 mr-1" /> Save
-              </button>
-              <button type="button" phx-click="reset_to_default" class="btn btn-outline">
-                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Reset
-              </button>
-            </div>
-            <%= if @path_error && !@confirm_create_path do %>
-              <label class="label">
-                <span class="label-text-alt text-error">{@path_error}</span>
-              </label>
-            <% end %>
-            <label class="label">
-              <span class="label-text-alt">
-                Enter absolute or relative path. Relative paths are saved to database. <br />
-                Stored as: <code class="text-xs font-mono">{@storage_relative_path}</code>
-              </span>
-            </label>
-          </div>
-        </form>
-
-        <%!-- Directory Creation Confirmation --%>
-        <%= if @confirm_create_path do %>
-          <div class="alert alert-warning mt-4">
+        <%= if Enum.empty?(@buckets) do %>
+          <div class="alert alert-warning">
             <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
-            <div class="flex-1">
-              <h4 class="font-bold">Directory does not exist</h4>
-              <p class="text-sm font-mono">{@confirm_create_path}</p>
-              <p class="text-xs mt-1">Would you like to create this directory?</p>
+            <div>
+              <h3 class="font-bold">No Storage Buckets Configured</h3>
+              <p class="text-sm">
+                You need to create at least one storage bucket before files can be uploaded.
+                Buckets can be local directories or cloud storage providers (AWS S3, Backblaze B2, Cloudflare R2).
+              </p>
+              <div class="mt-3">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+                  class="btn btn-warning btn-sm"
+                >
+                  <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create Your First Bucket
+                </.link>
+              </div>
             </div>
-            <div class="flex gap-2">
-              <button phx-click="create_and_save_path" class="btn btn-sm btn-warning">
-                <.icon name="hero-folder-plus" class="w-4 h-4 mr-1" /> Create Directory
-              </button>
-              <button phx-click="cancel_create" class="btn btn-sm btn-ghost">
-                Cancel
-              </button>
+          </div>
+        <% else %>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Provider</th>
+                  <th>Status</th>
+                  <th>Priority</th>
+                  <th>Usage</th>
+                  <th>Capacity</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for bucket <- @buckets do %>
+                  <tr>
+                    <td class="font-medium">
+                      <div class="flex items-center gap-2">
+                        <div class={"w-2 h-2 rounded-full #{if bucket.enabled, do: "bg-success", else: "bg-error"}"}></div>
+                        {bucket.name}
+                        <%= if bucket.id == @default_bucket_id do %>
+                          <span class="badge badge-primary badge-xs">Default</span>
+                        <% end %>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge badge-ghost badge-sm">
+                        <%= String.upcase(bucket.provider) %>
+                      </span>
+                    </td>
+                    <td>
+                      <%= if bucket.enabled do %>
+                        <span class="badge badge-success badge-sm">Active</span>
+                      <% else %>
+                        <span class="badge badge-error badge-sm">Disabled</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      {bucket.priority}
+                      <%= if bucket.priority == 0 do %>
+                        <span class="text-xs text-base-content/50">(auto)</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      <span class="text-sm">
+                        Calculating...
+                      </span>
+                    </td>
+                    <td>
+                      <%= if bucket.max_size_mb do %>
+                        <span class="text-sm">
+                          {bucket.max_size_mb} MB
+                        </span>
+                      <% else %>
+                        <span class="text-xs text-base-content/50">Unlimited</span>
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="stats stats-vertical lg:stats-horizontal shadow mt-6">
+            <div class="stat">
+              <div class="stat-title">Total Buckets</div>
+              <div class="stat-value text-2xl">{length(@buckets)}</div>
+              <div class="stat-desc">Configured storage locations</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-title">Active Buckets</div>
+              <div class="stat-value text-2xl text-success">
+                {Enum.count(@buckets, & &1.enabled)}
+              </div>
+              <div class="stat-desc">Currently in use</div>
+            </div>
+
+            <div class="stat">
+              <div class="stat-title">Default Bucket</div>
+              <div class="stat-value text-2xl">
+                <%= if @default_bucket_id do %>
+                  <span class="text-success">Set</span>
+                <% else %>
+                  <span class="text-warning">None</span>
+                <% end %>
+              </div>
+              <div class="stat-desc">Primary storage location</div>
             </div>
           </div>
         <% end %>
-
-        <div class="stats stats-vertical lg:stats-horizontal shadow mt-4">
-          <div class="stat">
-            <div class="stat-title">Storage Type</div>
-            <div class="stat-value text-2xl">Local</div>
-            <div class="stat-desc">File system storage</div>
-          </div>
-
-          <div class="stat">
-            <div class="stat-title">Redundancy</div>
-            <div class="stat-value text-2xl">Single</div>
-            <div class="stat-desc">Multi-location coming soon</div>
-          </div>
-
-          <div class="stat">
-            <div class="stat-title">Status</div>
-            <div class="stat-value text-2xl text-success">Active</div>
-            <div class="stat-desc">Always enabled</div>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -192,14 +237,7 @@
         <%!-- Quick Actions --%>
         <div class="divider">Quick Actions</div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
-            class="btn btn-outline"
-          >
-            <.icon name="hero-inbox-stack" class="w-4 h-4 mr-2" /> Manage Buckets
-          </.link>
-
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")}
             class="btn btn-outline"
