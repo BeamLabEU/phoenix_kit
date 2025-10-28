@@ -46,22 +46,63 @@
           Default Storage Path
         </h2>
 
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text font-semibold">Local Storage Directory</span>
-          </label>
-          <div class="flex gap-2">
-            <input
-              type="text"
-              value={@storage_default_path}
-              class="input input-bordered flex-1 font-mono"
-              readonly
-            />
+        <form phx-submit="save_path" phx-change="update_path_input">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Local Storage Directory</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                name="path"
+                value={@path_input}
+                class={"input input-bordered flex-1 font-mono #{if @path_error, do: "input-error", else: ""}"}
+                placeholder="Enter absolute or relative path"
+              />
+              <button type="submit" class="btn btn-primary">
+                <.icon name="hero-check" class="w-4 h-4 mr-1" />
+                Save
+              </button>
+              <button type="button" phx-click="reset_to_default" class="btn btn-outline">
+                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                Reset
+              </button>
+            </div>
+            <%= if @path_error && !@confirm_create_path do %>
+              <label class="label">
+                <span class="label-text-alt text-error">{@path_error}</span>
+              </label>
+            <% end %>
+            <label class="label">
+              <span class="label-text-alt">
+                Enter absolute or relative path. Relative paths are saved to database.
+                <br />
+                Stored as: <code class="text-xs font-mono">{@storage_relative_path}</code>
+              </span>
+            </label>
           </div>
-          <label class="label">
-            <span class="label-text-alt">Default location for file uploads</span>
-          </label>
-        </div>
+        </form>
+
+        <%!-- Directory Creation Confirmation --%>
+        <%= if @confirm_create_path do %>
+          <div class="alert alert-warning mt-4">
+            <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+            <div class="flex-1">
+              <h4 class="font-bold">Directory does not exist</h4>
+              <p class="text-sm font-mono">{@confirm_create_path}</p>
+              <p class="text-xs mt-1">Would you like to create this directory?</p>
+            </div>
+            <div class="flex gap-2">
+              <button phx-click="create_and_save_path" class="btn btn-sm btn-warning">
+                <.icon name="hero-folder-plus" class="w-4 h-4 mr-1" />
+                Create Directory
+              </button>
+              <button phx-click="cancel_create" class="btn btn-sm btn-ghost">
+                Cancel
+              </button>
+            </div>
+          </div>
+        <% end %>
 
         <div class="stats stats-vertical lg:stats-horizontal shadow mt-4">
           <div class="stat">

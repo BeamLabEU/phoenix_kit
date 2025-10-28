@@ -52,9 +52,9 @@ defmodule PhoenixKit.Modules.Storage do
   def module_enabled?, do: true
 
   @doc """
-  Gets the default storage path for local file uploads.
+  Gets the default storage path for local file uploads (relative path).
 
-  Returns the configured path or the default "priv/uploads" if not set.
+  Returns the configured relative path or the default "priv/uploads" if not set.
 
   ## Examples
 
@@ -66,7 +66,80 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
-  Updates the default storage path.
+  Gets the absolute storage path for local file uploads.
+
+  Expands the relative path from settings to an absolute path.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Storage.get_absolute_path()
+      "/Users/don/Projects/pk/phoenix_kit/priv/uploads"
+  """
+  def get_absolute_path do
+    relative_path = get_default_path()
+    Path.expand(relative_path, File.cwd!())
+  end
+
+  @doc """
+  Validates and normalizes a storage path.
+
+  Takes a path (absolute or relative), validates it exists and is writable,
+  and returns the relative path for storage.
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Storage.validate_and_normalize_path("/full/path/to/storage")
+      {:ok, "relative/path/to/storage"}
+
+      iex> PhoenixKit.Modules.Storage.validate_and_normalize_path("/nonexistent")
+      {:error, "Directory does not exist: /nonexistent"}
+  """
+  def validate_and_normalize_path(path) when is_binary(path) do
+    # Expand to absolute path for validation
+    absolute_path = Path.expand(path, File.cwd!())
+
+    cond do
+      not File.exists?(absolute_path) ->
+        # Return special tuple to indicate directory can be created
+        {:error, :does_not_exist, absolute_path}
+
+      not File.dir?(absolute_path) ->
+        {:error, "Path is not a directory: #{absolute_path}"}
+
+      not writable?(absolute_path) ->
+        {:error, "Directory is not writable: #{absolute_path}"}
+
+      true ->
+        # Convert to relative path for storage
+        relative_path = Path.relative_to(absolute_path, File.cwd!())
+        {:ok, relative_path}
+    end
+  end
+
+  @doc """
+  Creates a directory at the specified path.
+
+  Creates all parent directories if they don't exist (mkdir -p behavior).
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Storage.create_directory("/path/to/new/dir")
+      {:ok, "/path/to/new/dir"}
+
+      iex> PhoenixKit.Modules.Storage.create_directory("/invalid/path")
+      {:error, "Failed to create directory: eacces"}
+  """
+  def create_directory(path) when is_binary(path) do
+    absolute_path = Path.expand(path, File.cwd!())
+
+    case File.mkdir_p(absolute_path) do
+      :ok -> {:ok, absolute_path}
+      {:error, reason} -> {:error, "Failed to create directory: #{reason}"}
+    end
+  end
+
+  @doc """
+  Updates the default storage path (stores relative path).
 
   ## Examples
 
@@ -97,5 +170,19 @@ defmodule PhoenixKit.Modules.Storage do
       module_enabled: true,
       default_path: get_default_path()
     }
+  end
+
+  # Private helper to check if directory is writable
+  defp writable?(path) do
+    test_file = Path.join(path, ".phoenix_kit_write_test")
+
+    case File.write(test_file, "test") do
+      :ok ->
+        File.rm(test_file)
+        true
+
+      {:error, _} ->
+        false
+    end
   end
 end
