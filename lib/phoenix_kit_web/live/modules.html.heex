@@ -49,9 +49,15 @@
         </:action_buttons>
 
         <:stats>
-          <div class="text-xs">
-            <div class="text-base-content/70 mb-1">Default Path:</div>
-            <div class="font-mono text-xs">{@storage_default_path}</div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Total Buckets:</span>
+              <span class="font-medium">{@storage_buckets_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Active:</span>
+              <span class="font-medium">{@storage_active_buckets_count}</span>
+            </div>
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
