@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     # Load buckets
     buckets = PhoenixKit.Storage.list_buckets()
 
-    # Load storage settings from database
+    # Load storage settings from database (using basic function to avoid cache issues)
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "2")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
     default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
@@ -34,9 +34,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     active_buckets = Enum.count(buckets, & &1.enabled)
     max_redundancy = if active_buckets > 0, do: active_buckets, else: 1
 
-    # Adjust current redundancy if it exceeds available buckets
+    # Keep user's current redundancy setting unchanged
     current_redundancy = String.to_integer(redundancy_copies)
-    adjusted_redundancy = if current_redundancy > max_redundancy, do: max_redundancy, else: current_redundancy
+
+    # Store form values for batch updates
+    form_redundancy = current_redundancy
+    form_auto_generate_variants = auto_generate_variants == "true"
 
     socket =
       socket
@@ -44,12 +47,14 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:page_title, "Storage Settings")
       |> assign(:project_title, project_title)
       |> assign(:buckets, buckets)
-      |> assign(:redundancy_copies, adjusted_redundancy)
+      |> assign(:redundancy_copies, current_redundancy)
       |> assign(:auto_generate_variants, auto_generate_variants == "true")
       |> assign(:default_bucket_id, default_bucket_id)
       |> assign(:current_locale, locale)
       |> assign(:active_buckets_count, active_buckets)
       |> assign(:max_redundancy, max_redundancy)
+      |> assign(:form_redundancy, form_redundancy)
+      |> assign(:form_auto_generate_variants, form_auto_generate_variants)
 
     {:ok, socket}
   end
@@ -68,6 +73,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     else
       case Settings.update_setting("storage_redundancy_copies", copies) do
         {:ok, _setting} ->
+          # Settings.update_setting already handles cache invalidation
           socket =
             socket
             |> assign(:redundancy_copies, requested_copies)
@@ -82,11 +88,117 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
+  def handle_event("update_form_redundancy", %{"form_redundancy" => copies}, socket) do
+    # Handle both string and integer inputs
+    form_redundancy = cond do
+      is_integer(copies) -> copies
+      is_binary(copies) -> String.to_integer(copies)
+      true -> 1  # fallback
+    end
+
+    socket =
+      socket
+      |> assign(:form_redundancy, form_redundancy)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_form_variants", %{"form_auto_generate_variants" => value}, socket) do
+    form_auto_generate_variants = value == "true"
+
+    socket =
+      socket
+      |> assign(:form_auto_generate_variants, form_auto_generate_variants)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("toggle_form_variants", _params, socket) do
+    new_value = not socket.assigns.form_auto_generate_variants
+
+    socket =
+      socket
+      |> assign(:form_auto_generate_variants, new_value)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_storage_form", %{"form_redundancy" => redundancy}, socket) do
+    # Handle both string and integer inputs
+    form_redundancy = cond do
+      is_integer(redundancy) -> redundancy
+      is_binary(redundancy) -> String.to_integer(redundancy)
+      true -> 1  # fallback
+    end
+
+    socket =
+      socket
+      |> assign(:form_redundancy, form_redundancy)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("update_storage_form", _params, socket) do
+    # Handle cases where form doesn't include redundancy field
+    {:noreply, socket}
+  end
+
+  def handle_event("apply_storage_settings", _params, socket) do
+    # Get current form values
+    new_redundancy = socket.assigns.form_redundancy
+    new_variants = if socket.assigns.form_auto_generate_variants, do: "true", else: "false"
+
+    # Validate redundancy doesn't exceed available buckets
+    max_redundancy = socket.assigns.max_redundancy
+
+    if new_redundancy > max_redundancy do
+      socket =
+        socket
+        |> put_flash(:error, "Cannot set redundancy to #{new_redundancy} copies. Only #{max_redundancy} active bucket(s) available.")
+
+      {:noreply, socket}
+    else
+      # Update both settings
+      redundancy_result = Settings.update_setting("storage_redundancy_copies", to_string(new_redundancy))
+      variants_result = Settings.update_setting("storage_auto_generate_variants", new_variants)
+
+      case {redundancy_result, variants_result} do
+        {{:ok, _}, {:ok, _}} ->
+          # Verify the settings were saved correctly by reading them back
+          saved_redundancy = Settings.get_setting("storage_redundancy_copies", "2")
+          saved_variants = Settings.get_setting("storage_auto_generate_variants", "true")
+
+          socket =
+            socket
+            |> assign(:redundancy_copies, String.to_integer(saved_redundancy))
+            |> assign(:auto_generate_variants, saved_variants == "true")
+            |> assign(:form_redundancy, String.to_integer(saved_redundancy))
+            |> assign(:form_auto_generate_variants, saved_variants == "true")
+            |> put_flash(:info, "Storage settings updated successfully")
+
+          {:noreply, socket}
+
+        {{:error, _}, {:ok, _}} ->
+          socket = put_flash(socket, :error, "Failed to update redundancy settings")
+          {:noreply, socket}
+
+        {{:ok, _}, {:error, _}} ->
+          socket = put_flash(socket, :error, "Failed to update variant settings")
+          {:noreply, socket}
+
+        {{:error, _}, {:error, _}} ->
+          socket = put_flash(socket, :error, "Failed to update storage settings")
+          {:noreply, socket}
+      end
+    end
+  end
+
   def handle_event("toggle_variants", _params, socket) do
     new_value = if socket.assigns.auto_generate_variants, do: "false", else: "true"
 
     case Settings.update_setting("storage_auto_generate_variants", new_value) do
       {:ok, _setting} ->
+        # Settings.update_setting already handles cache invalidation
         socket =
           socket
           |> assign(:auto_generate_variants, new_value == "true")

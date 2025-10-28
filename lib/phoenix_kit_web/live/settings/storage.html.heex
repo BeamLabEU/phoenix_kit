@@ -175,12 +175,12 @@
           <.icon name="hero-cog-6-tooth" class="w-6 h-6 mr-2" /> Storage Configuration
         </h2>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <.form for={%{"form_redundancy" => @form_redundancy}} phx-change="update_storage_form" class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <%!-- Redundancy Settings --%>
           <div class="form-control">
             <label class="label">
               <span class="label-text font-semibold">Redundancy Copies</span>
-              <span class="label-text-alt">Number of copies to store (max: #{@max_redundancy})</span>
+              <span class="label-text-alt">Number of copies to store</span>
             </label>
             <%= if @active_buckets_count == 0 do %>
               <div class="alert alert-warning">
@@ -188,31 +188,30 @@
                 <span class="text-sm">No active buckets available. Enable buckets to configure redundancy.</span>
               </div>
             <% else %>
-              <select
-                name="redundancy_copies"
-                class="select select-bordered"
-                phx-change="update_redundancy"
-              >
-                <%= for copies <- 1..@max_redundancy do %>
-                  <option value={copies} selected={@redundancy_copies == copies}>
-                    <%= copies %> <%=
-                      cond do
-                        copies == 1 -> "Copy (Single location)"
-                        copies == 2 -> "Copies (Dual redundancy)"
-                        copies == 3 -> "Copies (Triple redundancy)"
-                        copies == 4 -> "Copies (Quad redundancy)"
-                        true -> "Copies (Multi redundancy)"
-                      end
-                    %>
-                  </option>
-                <% end %>
-              </select>
+              <%= if @form_redundancy > @max_redundancy do %>
+                <div class="alert alert-warning">
+                  <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
+                  <span class="text-sm">
+                    Current setting (#{@form_redundancy} copies) exceeds available buckets (#{@max_rendancy}).
+                    Reduce redundancy or enable more buckets.
+                  </span>
+                </div>
+              <% end %>
+              <input
+                type="number"
+                name="form_redundancy"
+                value={@form_redundancy}
+                min="1"
+                max={@max_redundancy}
+                class={"input input-bordered #{if @form_redundancy > @max_redundancy, do: "input-warning", else: ""}"}
+              />
               <label class="label">
                 <span class="label-text-alt">
+                  Enter number of copies (1-#{@max_redundancy}).
                   <%= if @max_redundancy == 1 do %>
                     Only 1 active bucket available. Add more buckets to enable redundancy.
                   <% else %>
-                    Based on #{@active_buckets_count} active bucket(s). Higher redundancy provides better durability.
+                    Maximum #{@max_redundancy} copies based on #{@active_buckets_count} active bucket(s).
                   <% end %>
                 </span>
               </label>
@@ -224,8 +223,10 @@
             <label class="label cursor-pointer">
               <input
                 type="checkbox"
-                checked={@auto_generate_variants}
-                phx-click="toggle_variants"
+                name="form_auto_generate_variants"
+                checked={@form_auto_generate_variants}
+                phx-click="toggle_form_variants"
+                value="true"
                 class="checkbox checkbox-primary"
               />
               <span class="label-text ml-2">
@@ -241,6 +242,27 @@
               </span>
             </label>
           </div>
+        </.form>
+
+        <%!-- Apply Button --%>
+        <div class="form-control mt-4">
+          <button
+            type="button"
+            phx-click="apply_storage_settings"
+            disabled={@form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants}
+            phx-disable-with="Applying..."
+            class="btn btn-primary"
+          >
+            <.icon name="hero-check" class="w-4 h-4 mr-2" />
+            Apply Changes
+          </button>
+          <span class="label-text-alt text-xs ml-2">
+            <% if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants do %>
+              No changes to apply
+            <% else %>
+              Changes will be saved immediately
+            <% end %>
+          </span>
         </div>
 
         <%!-- Quick Actions --%>
