@@ -149,7 +149,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   # Helper function to render error messages
   defp render_error(changeset, field) do
     if Keyword.has_key?(changeset.errors, field) do
-      errors = Keyword.get_values(changeset.errors, field) |> Enum.map(&elem(&1, 0)) |> Enum.join(", ")
+      errors =
+        Keyword.get_values(changeset.errors, field) |> Enum.map(&elem(&1, 0)) |> Enum.join(", ")
+
       """
       <p class="mt-2 flex gap-2 text-sm text-error phx-no-feedback:hidden">
         <svg class="mt-0.5 h-4 w-4 flex-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

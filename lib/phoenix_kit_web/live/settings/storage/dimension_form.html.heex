@@ -10,9 +10,11 @@
     <%!-- Header Section --%>
     <header class="w-full relative mb-6">
       <%!-- Back Button --%>
-      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")} class="btn btn-outline mb-4">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
-        Back to Dimensions
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")}
+        class="btn btn-outline mb-4"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dimensions
       </.link>
 
       <%!-- Title Section --%>
@@ -44,7 +46,7 @@
               placeholder="e.g., thumbnail, medium, 720p"
               required
             />
-                      </div>
+          </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-control">
@@ -60,7 +62,7 @@
                 placeholder="800"
                 min="1"
               />
-                          </div>
+            </div>
 
             <div class="form-control">
               <label class="label">
@@ -75,7 +77,7 @@
                 placeholder="600"
                 min="1"
               />
-                          </div>
+            </div>
           </div>
 
           <%!-- Quality and Format --%>
@@ -95,9 +97,11 @@
                 max="100"
               />
               <label class="label">
-                <span class="label-text-alt">Images use 1-100, Videos use CRF 0-51 (lower = higher quality)</span>
+                <span class="label-text-alt">
+                  Images use 1-100, Videos use CRF 0-51 (lower = higher quality)
+                </span>
               </label>
-                          </div>
+            </div>
 
             <div class="form-control">
               <label class="label">
@@ -122,7 +126,7 @@
                   MP4
                 </option>
               </select>
-                          </div>
+            </div>
           </div>
 
           <%!-- Type and Order --%>
@@ -148,7 +152,7 @@
                   Both images and videos
                 </option>
               </select>
-                          </div>
+            </div>
 
             <div class="form-control">
               <label class="label">
@@ -163,7 +167,7 @@
                 placeholder="1"
                 min="0"
               />
-                          </div>
+            </div>
           </div>
 
           <%!-- Status --%>
@@ -177,11 +181,14 @@
               />
               <span class="label-text ml-2">Enable this dimension</span>
             </label>
-                      </div>
+          </div>
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
-            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")} class="btn btn-outline">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")}
+              class="btn btn-outline"
+            >
               Cancel
             </.link>
             <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
@@ -199,10 +206,14 @@
       <div>
         <h3 class="font-bold">Dimension Configuration Guide</h3>
         <p class="text-sm">
-          <strong>Size Settings:</strong> Width and height define the target dimensions<br />
-          <strong>Aspect Ratio:</strong> Leave one dimension empty to maintain aspect ratio<br />
-          <strong>Quality Settings:</strong> Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)<br />
-          <strong>Format Override:</strong> Use to convert files to a specific format, or leave empty to preserve original
+          <strong>Size Settings:</strong>
+          Width and height define the target dimensions<br />
+          <strong>Aspect Ratio:</strong>
+          Leave one dimension empty to maintain aspect ratio<br />
+          <strong>Quality Settings:</strong>
+          Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)<br />
+          <strong>Format Override:</strong>
+          Use to convert files to a specific format, or leave empty to preserve original
         </p>
       </div>
     </div>

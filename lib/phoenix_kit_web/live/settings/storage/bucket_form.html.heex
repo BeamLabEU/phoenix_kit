@@ -10,9 +10,11 @@
     <%!-- Header Section --%>
     <header class="w-full relative mb-6">
       <%!-- Back Button --%>
-      <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")} class="btn btn-outline mb-4">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" />
-        Back to Buckets
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+        class="btn btn-outline mb-4"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Buckets
       </.link>
 
       <%!-- Title Section --%>
@@ -44,7 +46,6 @@
               placeholder="e.g., Production S3, Local SSD, Backup B2"
               required
             />
-            
           </div>
 
           <div class="form-control">
@@ -71,7 +72,6 @@
                 Cloudflare R2
               </option>
             </select>
-            
           </div>
 
           <%!-- Cloud Provider Settings --%>
@@ -90,7 +90,6 @@
                 class={"input input-bordered #{input_class(@changeset, :region)}"}
                 placeholder="e.g., us-east-1"
               />
-              
             </div>
 
             <div class="form-control">
@@ -105,7 +104,6 @@
                 class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
                 placeholder="e.g., s3.us-west-002.backblazeb2.com"
               />
-              
             </div>
           </div>
 
@@ -121,7 +119,6 @@
               class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
               placeholder="e.g., my-app-files"
             />
-            
           </div>
 
           <%!-- Access Credentials --%>
@@ -140,7 +137,6 @@
                 class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
                 placeholder="AKIA..."
               />
-              
             </div>
 
             <div class="form-control">
@@ -155,7 +151,6 @@
                 class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
                 placeholder="•••••••••••••••••••••••••••••••••"
               />
-              
             </div>
           </div>
 
@@ -175,7 +170,6 @@
                 class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
                 placeholder="https://cdn.example.com"
               />
-              
             </div>
 
             <div class="form-control">
@@ -190,7 +184,6 @@
                 class={"input input-bordered #{input_class(@changeset, :path_prefix)}"}
                 placeholder="uploads/"
               />
-              
             </div>
           </div>
 
@@ -211,7 +204,6 @@
               <label class="label">
                 <span class="label-text-alt">0 = random/emptiest, 1+ = specific priority</span>
               </label>
-              
             </div>
 
             <div class="form-control">
@@ -230,7 +222,6 @@
               <label class="label">
                 <span class="label-text-alt">Leave empty for unlimited</span>
               </label>
-              
             </div>
 
             <div class="form-control">
@@ -247,13 +238,15 @@
                 />
                 <span class="label-text ml-2">Enable this bucket</span>
               </label>
-              
             </div>
           </div>
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
-            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")} class="btn btn-outline">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+              class="btn btn-outline"
+            >
               Cancel
             </.link>
             <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
