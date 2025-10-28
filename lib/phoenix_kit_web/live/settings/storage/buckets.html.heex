@@ -139,6 +139,15 @@
                     <%!-- Actions --%>
                     <td>
                       <div class="flex justify-end gap-1">
+                        <%!-- Edit Button --%>
+                        <.link
+                          navigate={Routes.path("/admin/settings/storage/buckets/#{stat.bucket.id}/edit")}
+                          class="btn btn-xs btn-ghost"
+                          title="Edit bucket"
+                        >
+                          <.icon name="hero-pencil" class="w-4 h-4" />
+                        </.link>
+
                         <%!-- Toggle Enable/Disable --%>
                         <button
                           phx-click="toggle_bucket"

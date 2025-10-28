@@ -287,11 +287,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/storage", Live.Settings.Storage, :index
           live "/admin/settings/storage/buckets", Live.Settings.Storage.Buckets, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/edit/:id", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
           live "/admin/settings/storage/dimensions/new", Live.Settings.Storage.DimensionForm, :new
 
-          live "/admin/settings/storage/dimensions/edit/:id",
+          live "/admin/settings/storage/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
                :edit
 
@@ -402,15 +402,13 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/storage", Live.Settings.Storage, :index
           live "/admin/settings/storage/buckets", Live.Settings.Storage.Buckets, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/edit/:id", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
           live "/admin/settings/storage/dimensions/new", Live.Settings.Storage.DimensionForm, :new
-
-          live "/admin/settings/storage/dimensions/edit/:id",
+          live "/admin/settings/storage/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
                :edit
 
-          live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
           live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index

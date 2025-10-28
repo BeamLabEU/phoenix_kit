@@ -11,9 +11,17 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
   alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, _session, socket) do
+  def mount(params, session, socket) do
     bucket_id = params["id"]
     mode = if bucket_id, do: :edit, else: :new
+
+    # Get current path for navigation
+    current_path = get_current_path(socket, session)
+
+    # Set locale for LiveView process
+    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
+    Process.put(:phoenix_kit_current_locale, locale)
 
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -25,7 +33,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       |> assign(:page_title, page_title(mode))
       |> assign(:project_title, project_title)
       |> assign(:form_action, page_title(mode))
-      |> assign(:current_locale, "en")
+      |> assign(:current_path, current_path)
+      |> assign(:current_locale, locale)
       |> assign(:bucket, load_bucket_data(mode, bucket_id))
       |> assign_form()
 
@@ -120,7 +129,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
 
   defp assign_form(%{assigns: %{mode: :edit, bucket: bucket}} = socket) do
     changeset =
-      Storage.create_bucket(%{
+      Storage.change_bucket(bucket, %{
         name: bucket.name,
         provider: bucket.provider,
         region: bucket.region,
@@ -140,6 +149,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
 
   defp page_title(:new), do: "Add Storage Bucket"
   defp page_title(:edit), do: "Edit Storage Bucket"
+
+  # Helper function to get current path for navigation
+  defp get_current_path(_socket, _session) do
+    # For Bucket form page
+    Routes.path("/admin/settings/storage/buckets")
+  end
 
   # Helper function for input validation styling
   defp input_class(changeset, field) do

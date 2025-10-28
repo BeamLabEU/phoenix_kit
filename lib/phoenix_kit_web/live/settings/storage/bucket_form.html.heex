@@ -41,7 +41,7 @@
             <input
               type="text"
               name="bucket[name]"
-              value={input_value(@changeset, :name)}
+              value={Ecto.Changeset.get_field(@changeset, :name) || @bucket.name}
               class={"input input-bordered #{input_class(@changeset, :name)}"}
               placeholder="e.g., Production S3, Local SSD, Backup B2"
               required
@@ -59,16 +59,16 @@
               required
             >
               <option value="">Select provider...</option>
-              <option value="local" selected={input_value(@changeset, :provider) == "local"}>
+              <option value="local" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "local"}>
                 Local Filesystem
               </option>
-              <option value="s3" selected={input_value(@changeset, :provider) == "s3"}>
+              <option value="s3" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "s3"}>
                 AWS S3
               </option>
-              <option value="b2" selected={input_value(@changeset, :provider) == "b2"}>
+              <option value="b2" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "b2"}>
                 Backblaze B2
               </option>
-              <option value="r2" selected={input_value(@changeset, :provider) == "r2"}>
+              <option value="r2" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "r2"}>
                 Cloudflare R2
               </option>
             </select>
@@ -86,7 +86,7 @@
               <input
                 type="text"
                 name="bucket[region]"
-                value={input_value(@changeset, :region)}
+                value={Ecto.Changeset.get_field(@changeset, :region) || @bucket.region}
                 class={"input input-bordered #{input_class(@changeset, :region)}"}
                 placeholder="e.g., us-east-1"
               />
@@ -100,7 +100,7 @@
               <input
                 type="text"
                 name="bucket[endpoint]"
-                value={input_value(@changeset, :endpoint)}
+                value={Ecto.Changeset.get_field(@changeset, :endpoint) || @bucket.endpoint}
                 class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
                 placeholder="e.g., s3.us-west-002.backblazeb2.com"
               />
@@ -115,7 +115,7 @@
             <input
               type="text"
               name="bucket[bucket_name]"
-              value={input_value(@changeset, :bucket_name)}
+              value={Ecto.Changeset.get_field(@changeset, :bucket_name) || @bucket.bucket_name}
               class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
               placeholder="e.g., my-app-files"
             />
@@ -133,7 +133,7 @@
               <input
                 type="text"
                 name="bucket[access_key_id]"
-                value={input_value(@changeset, :access_key_id)}
+                value={Ecto.Changeset.get_field(@changeset, :access_key_id) || @bucket.access_key_id}
                 class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
                 placeholder="AKIA..."
               />
@@ -147,7 +147,7 @@
               <input
                 type="password"
                 name="bucket[secret_access_key]"
-                value={input_value(@changeset, :secret_access_key)}
+                value={Ecto.Changeset.get_field(@changeset, :secret_access_key) || @bucket.secret_access_key}
                 class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
                 placeholder="•••••••••••••••••••••••••••••••••"
               />
@@ -166,7 +166,7 @@
               <input
                 type="url"
                 name="bucket[cdn_url]"
-                value={input_value(@changeset, :cdn_url)}
+                value={Ecto.Changeset.get_field(@changeset, :cdn_url) || @bucket.cdn_url}
                 class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
                 placeholder="https://cdn.example.com"
               />
@@ -180,7 +180,7 @@
               <input
                 type="text"
                 name="bucket[path_prefix]"
-                value={input_value(@changeset, :path_prefix)}
+                value={Ecto.Changeset.get_field(@changeset, :path_prefix) || @bucket.path_prefix}
                 class={"input input-bordered #{input_class(@changeset, :path_prefix)}"}
                 placeholder="uploads/"
               />
@@ -196,7 +196,7 @@
               <input
                 type="number"
                 name="bucket[priority]"
-                value={input_value(@changeset, :priority)}
+                value={Ecto.Changeset.get_field(@changeset, :priority) || @bucket.priority}
                 class={"input input-bordered #{input_class(@changeset, :priority)}"}
                 placeholder="0"
                 min="0"
@@ -214,7 +214,7 @@
               <input
                 type="number"
                 name="bucket[max_size_mb]"
-                value={input_value(@changeset, :max_size_mb)}
+                value={Ecto.Changeset.get_field(@changeset, :max_size_mb) || @bucket.max_size_mb}
                 class={"input input-bordered #{input_class(@changeset, :max_size_mb)}"}
                 placeholder="1024"
                 min="1"
@@ -233,7 +233,7 @@
                 <input
                   type="checkbox"
                   name="bucket[enabled]"
-                  checked={input_value(@changeset, :enabled)}
+                  checked={Ecto.Changeset.get_field(@changeset, :enabled) || @bucket.enabled}
                   class="checkbox checkbox-primary"
                 />
                 <span class="label-text ml-2">Enable this bucket</span>
