@@ -30,34 +30,55 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
     default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
 
+    # Calculate maximum redundancy based on available buckets
+    active_buckets = Enum.count(buckets, & &1.enabled)
+    max_redundancy = if active_buckets > 0, do: active_buckets, else: 1
+
+    # Adjust current redundancy if it exceeds available buckets
+    current_redundancy = String.to_integer(redundancy_copies)
+    adjusted_redundancy = if current_redundancy > max_redundancy, do: max_redundancy, else: current_redundancy
+
     socket =
       socket
       |> assign(:current_path, current_path)
       |> assign(:page_title, "Storage Settings")
       |> assign(:project_title, project_title)
       |> assign(:buckets, buckets)
-      |> assign(:redundancy_copies, String.to_integer(redundancy_copies))
+      |> assign(:redundancy_copies, adjusted_redundancy)
       |> assign(:auto_generate_variants, auto_generate_variants == "true")
       |> assign(:default_bucket_id, default_bucket_id)
       |> assign(:current_locale, locale)
+      |> assign(:active_buckets_count, active_buckets)
+      |> assign(:max_redundancy, max_redundancy)
 
     {:ok, socket}
   end
 
   
   def handle_event("update_redundancy", %{"redundancy_copies" => copies}, socket) do
-    case Settings.update_setting("storage_redundancy_copies", copies) do
-      {:ok, _setting} ->
-        socket =
-          socket
-          |> assign(:redundancy_copies, String.to_integer(copies))
-          |> put_flash(:info, "Redundancy settings updated")
+    requested_copies = String.to_integer(copies)
+    max_redundancy = socket.assigns.max_redundancy
 
-        {:noreply, socket}
+    if requested_copies > max_redundancy do
+      socket =
+        socket
+        |> put_flash(:error, "Cannot set redundancy to #{requested_copies} copies. Only #{max_redundancy} active bucket(s) available.")
 
-      {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update redundancy settings")
-        {:noreply, socket}
+      {:noreply, socket}
+    else
+      case Settings.update_setting("storage_redundancy_copies", copies) do
+        {:ok, _setting} ->
+          socket =
+            socket
+            |> assign(:redundancy_copies, requested_copies)
+            |> put_flash(:info, "Redundancy settings updated to #{requested_copies} #{if requested_copies == 1, do: "copy", else: "copies"}")
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          socket = put_flash(socket, :error, "Failed to update redundancy settings")
+          {:noreply, socket}
+      end
     end
   end
 

@@ -26,6 +26,25 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
+    bucket = load_bucket_data(mode, bucket_id)
+    changeset = case mode do
+      :new -> Storage.change_bucket(%Storage.Bucket{}, %{})
+      :edit -> Storage.change_bucket(bucket, %{
+        name: bucket.name,
+        provider: bucket.provider,
+        region: bucket.region,
+        endpoint: bucket.endpoint,
+        bucket_name: bucket.bucket_name,
+        access_key_id: bucket.access_key_id,
+        secret_access_key: bucket.secret_access_key,
+        cdn_url: bucket.cdn_url,
+        path_prefix: bucket.path_prefix,
+        enabled: bucket.enabled,
+        priority: bucket.priority,
+        max_size_mb: bucket.max_size_mb
+      })
+    end
+
     socket =
       socket
       |> assign(:mode, mode)
@@ -35,8 +54,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       |> assign(:form_action, page_title(mode))
       |> assign(:current_path, current_path)
       |> assign(:current_locale, locale)
-      |> assign(:bucket, load_bucket_data(mode, bucket_id))
-      |> assign_form()
+      |> assign(:bucket, bucket)
+      |> assign(:changeset, changeset)
+      |> assign(:current_provider, get_current_provider(changeset, bucket))
 
     {:ok, socket}
   end
@@ -45,24 +65,20 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     changeset =
       case socket.assigns.mode do
         :new ->
-          Storage.create_bucket(bucket_params)
+          Storage.change_bucket(%Storage.Bucket{}, bucket_params)
 
         :edit ->
           bucket = Storage.get_bucket(socket.assigns.bucket_id)
-          Storage.update_bucket(bucket, bucket_params)
+          Storage.change_bucket(bucket, bucket_params)
       end
-      |> case do
-        {:ok, bucket} ->
-          # For successful save, create a valid changeset for display
-          Storage.create_bucket(bucket_params)
 
-        {:error, changeset} ->
-          changeset
-      end
+    # Update current provider if it changed
+    current_provider = get_current_provider(changeset, socket.assigns.bucket)
 
     socket =
       socket
       |> assign(:changeset, changeset)
+      |> assign(:current_provider, current_provider)
 
     {:noreply, socket}
   end
@@ -122,31 +138,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     Storage.get_bucket(bucket_id)
   end
 
-  defp assign_form(%{assigns: %{mode: :new}} = socket) do
-    changeset = Storage.create_bucket(%{})
-    assign(socket, :changeset, changeset)
-  end
-
-  defp assign_form(%{assigns: %{mode: :edit, bucket: bucket}} = socket) do
-    changeset =
-      Storage.change_bucket(bucket, %{
-        name: bucket.name,
-        provider: bucket.provider,
-        region: bucket.region,
-        endpoint: bucket.endpoint,
-        bucket_name: bucket.bucket_name,
-        access_key_id: bucket.access_key_id,
-        secret_access_key: bucket.secret_access_key,
-        cdn_url: bucket.cdn_url,
-        path_prefix: bucket.path_prefix,
-        enabled: bucket.enabled,
-        priority: bucket.priority,
-        max_size_mb: bucket.max_size_mb
-      })
-
-    assign(socket, :changeset, changeset)
-  end
-
+  
   defp page_title(:new), do: "Add Storage Bucket"
   defp page_title(:edit), do: "Edit Storage Bucket"
 
@@ -162,6 +154,15 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       "input-error"
     else
       ""
+    end
+  end
+
+  # Helper function to get currently selected provider from changeset
+  defp get_current_provider(changeset, bucket) do
+    case changeset do
+      %Ecto.Changeset{changes: %{provider: provider}} -> provider
+      %Ecto.Changeset{} -> if bucket, do: bucket.provider, else: nil
+      _ -> nil
     end
   end
 end

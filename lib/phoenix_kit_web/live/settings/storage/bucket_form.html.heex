@@ -41,7 +41,7 @@
             <input
               type="text"
               name="bucket[name]"
-              value={Ecto.Changeset.get_field(@changeset, :name) || @bucket.name}
+              value={Ecto.Changeset.get_field(@changeset, :name)}
               class={"input input-bordered #{input_class(@changeset, :name)}"}
               placeholder="e.g., Production S3, Local SSD, Backup B2"
               required
@@ -59,118 +59,149 @@
               required
             >
               <option value="">Select provider...</option>
-              <option value="local" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "local"}>
+              <option value="local" selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}>
                 Local Filesystem
               </option>
-              <option value="s3" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "s3"}>
+              <option value="s3" selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}>
                 AWS S3
               </option>
-              <option value="b2" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "b2"}>
+              <option value="b2" selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}>
                 Backblaze B2
               </option>
-              <option value="r2" selected={Ecto.Changeset.get_field(@changeset, :provider) || @bucket.provider == "r2"}>
+              <option value="r2" selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}>
                 Cloudflare R2
               </option>
             </select>
           </div>
 
-          <%!-- Cloud Provider Settings --%>
-          <div class="divider">Cloud Provider Settings</div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <%!-- Local Provider Settings --%>
+          <%= if @current_provider == "local" do %>
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Region</span>
-                <span class="label-text-alt">AWS region or equivalent</span>
-              </label>
-              <input
-                type="text"
-                name="bucket[region]"
-                value={Ecto.Changeset.get_field(@changeset, :region) || @bucket.region}
-                class={"input input-bordered #{input_class(@changeset, :region)}"}
-                placeholder="e.g., us-east-1"
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Endpoint</span>
-                <span class="label-text-alt">S3-compatible endpoint</span>
+                <span class="label-text font-semibold">Storage Path *</span>
+                <span class="label-text-alt">Directory path for local file storage</span>
               </label>
               <input
                 type="text"
                 name="bucket[endpoint]"
-                value={Ecto.Changeset.get_field(@changeset, :endpoint) || @bucket.endpoint}
+                value={Ecto.Changeset.get_field(@changeset, :endpoint)}
                 class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
-                placeholder="e.g., s3.us-west-002.backblazeb2.com"
+                placeholder="/path/to/storage"
+                required
               />
-            </div>
-          </div>
-
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Bucket Name</span>
-              <span class="label-text-alt">S3 bucket name</span>
-            </label>
-            <input
-              type="text"
-              name="bucket[bucket_name]"
-              value={Ecto.Changeset.get_field(@changeset, :bucket_name) || @bucket.bucket_name}
-              class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
-              placeholder="e.g., my-app-files"
-            />
-          </div>
-
-          <%!-- Access Credentials --%>
-          <div class="divider">Access Credentials</div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Access Key ID</span>
-                <span class="label-text-alt">AWS access key or API key</span>
+                <span class="label-text-alt">Absolute path to directory where files will be stored</span>
               </label>
-              <input
-                type="text"
-                name="bucket[access_key_id]"
-                value={Ecto.Changeset.get_field(@changeset, :access_key_id) || @bucket.access_key_id}
-                class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
-                placeholder="AKIA..."
-              />
+            </div>
+          <% end %>
+
+          <%!-- Cloud Provider Settings --%>
+          <%= if @current_provider in ["s3", "b2", "r2"] do %>
+            <div class="divider">Cloud Provider Configuration</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Region</span>
+                  <span class="label-text-alt">AWS region or equivalent</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[region]"
+                  value={Ecto.Changeset.get_field(@changeset, :region)}
+                  class={"input input-bordered #{input_class(@changeset, :region)}"}
+                  placeholder="e.g., us-east-1"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Bucket Name *</span>
+                  <span class="label-text-alt">Cloud storage bucket name</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[bucket_name]"
+                  value={Ecto.Changeset.get_field(@changeset, :bucket_name)}
+                  class={"input input-bordered #{input_class(@changeset, :bucket_name)}"}
+                  placeholder="e.g., my-app-files"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
             </div>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Secret Access Key</span>
-                <span class="label-text-alt">AWS secret key or API secret</span>
-              </label>
-              <input
-                type="password"
-                name="bucket[secret_access_key]"
-                value={Ecto.Changeset.get_field(@changeset, :secret_access_key) || @bucket.secret_access_key}
-                class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
-                placeholder="•••••••••••••••••••••••••••••••••"
-              />
-            </div>
-          </div>
+            <%= if @current_provider in ["b2", "r2"] do %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Endpoint *</span>
+                  <span class="label-text-alt">S3-compatible endpoint URL</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[endpoint]"
+                  value={Ecto.Changeset.get_field(@changeset, :endpoint)}
+                  class={"input input-bordered #{input_class(@changeset, :endpoint)}"}
+                  placeholder="e.g., s3.us-west-002.backblazeb2.com"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+            <% end %>
 
-          <%!-- Additional Settings --%>
+            <%!-- Access Credentials --%>
+            <div class="divider">Access Credentials</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Access Key ID *</span>
+                  <span class="label-text-alt">AWS access key or API key</span>
+                </label>
+                <input
+                  type="text"
+                  name="bucket[access_key_id]"
+                  value={Ecto.Changeset.get_field(@changeset, :access_key_id)}
+                  class={"input input-bordered #{input_class(@changeset, :access_key_id)}"}
+                  placeholder="AKIA..."
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Secret Access Key *</span>
+                  <span class="label-text-alt">AWS secret key or API secret</span>
+                </label>
+                <input
+                  type="password"
+                  name="bucket[secret_access_key]"
+                  value={Ecto.Changeset.get_field(@changeset, :secret_access_key)}
+                  class={"input input-bordered #{input_class(@changeset, :secret_access_key)}"}
+                  placeholder="•••••••••••••••••••••••••••••••••"
+                  required={@current_provider in ["b2", "r2"]}
+                />
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Additional Settings (shown for all providers) --%>
           <div class="divider">Additional Settings</div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">CDN URL</span>
-                <span class="label-text-alt">CDN endpoint for file serving</span>
-              </label>
-              <input
-                type="url"
-                name="bucket[cdn_url]"
-                value={Ecto.Changeset.get_field(@changeset, :cdn_url) || @bucket.cdn_url}
-                class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
-                placeholder="https://cdn.example.com"
-              />
-            </div>
+            <%= if @current_provider in ["s3", "b2", "r2"] do %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">CDN URL</span>
+                  <span class="label-text-alt">CDN endpoint for file serving</span>
+                </label>
+                <input
+                  type="url"
+                  name="bucket[cdn_url]"
+                  value={Ecto.Changeset.get_field(@changeset, :cdn_url)}
+                  class={"input input-bordered #{input_class(@changeset, :cdn_url)}"}
+                  placeholder="https://cdn.example.com"
+                />
+              </div>
+            <% end %>
 
             <div class="form-control">
               <label class="label">
@@ -180,7 +211,7 @@
               <input
                 type="text"
                 name="bucket[path_prefix]"
-                value={Ecto.Changeset.get_field(@changeset, :path_prefix) || @bucket.path_prefix}
+                value={Ecto.Changeset.get_field(@changeset, :path_prefix)}
                 class={"input input-bordered #{input_class(@changeset, :path_prefix)}"}
                 placeholder="uploads/"
               />
@@ -196,7 +227,7 @@
               <input
                 type="number"
                 name="bucket[priority]"
-                value={Ecto.Changeset.get_field(@changeset, :priority) || @bucket.priority}
+                value={Ecto.Changeset.get_field(@changeset, :priority)}
                 class={"input input-bordered #{input_class(@changeset, :priority)}"}
                 placeholder="0"
                 min="0"
@@ -214,7 +245,7 @@
               <input
                 type="number"
                 name="bucket[max_size_mb]"
-                value={Ecto.Changeset.get_field(@changeset, :max_size_mb) || @bucket.max_size_mb}
+                value={Ecto.Changeset.get_field(@changeset, :max_size_mb)}
                 class={"input input-bordered #{input_class(@changeset, :max_size_mb)}"}
                 placeholder="1024"
                 min="1"
@@ -230,10 +261,12 @@
                 <span class="label-text-alt">Enable/disable bucket</span>
               </label>
               <label class="label cursor-pointer">
+                <input type="hidden" name="bucket[enabled]" value="false" />
                 <input
                   type="checkbox"
                   name="bucket[enabled]"
-                  checked={Ecto.Changeset.get_field(@changeset, :enabled) || @bucket.enabled}
+                  value="true"
+                  checked={Ecto.Changeset.get_field(@changeset, :enabled)}
                   class="checkbox checkbox-primary"
                 />
                 <span class="label-text ml-2">Enable this bucket</span>

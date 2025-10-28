@@ -180,34 +180,43 @@
           <div class="form-control">
             <label class="label">
               <span class="label-text font-semibold">Redundancy Copies</span>
-              <span class="label-text-alt">Number of copies to store (1-5)</span>
+              <span class="label-text-alt">Number of copies to store (max: #{@max_redundancy})</span>
             </label>
-            <select
-              name="redundancy_copies"
-              class="select select-bordered"
-              phx-change="update_redundancy"
-            >
-              <option value="1" selected={@redundancy_copies == 1}>
-                1 Copy (Single location)
-              </option>
-              <option value="2" selected={@redundancy_copies == 2}>
-                2 Copies (Dual redundancy)
-              </option>
-              <option value="3" selected={@redundancy_copies == 3}>
-                3 Copies (Triple redundancy)
-              </option>
-              <option value="4" selected={@redundancy_copies == 4}>
-                4 Copies (Quad redundancy)
-              </option>
-              <option value="5" selected={@redundancy_copies == 5}>
-                5 Copies (Maximum redundancy)
-              </option>
-            </select>
-            <label class="label">
-              <span class="label-text-alt">
-                Higher redundancy provides better durability but uses more storage space
-              </span>
-            </label>
+            <%= if @active_buckets_count == 0 do %>
+              <div class="alert alert-warning">
+                <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
+                <span class="text-sm">No active buckets available. Enable buckets to configure redundancy.</span>
+              </div>
+            <% else %>
+              <select
+                name="redundancy_copies"
+                class="select select-bordered"
+                phx-change="update_redundancy"
+              >
+                <%= for copies <- 1..@max_redundancy do %>
+                  <option value={copies} selected={@redundancy_copies == copies}>
+                    <%= copies %> <%=
+                      cond do
+                        copies == 1 -> "Copy (Single location)"
+                        copies == 2 -> "Copies (Dual redundancy)"
+                        copies == 3 -> "Copies (Triple redundancy)"
+                        copies == 4 -> "Copies (Quad redundancy)"
+                        true -> "Copies (Multi redundancy)"
+                      end
+                    %>
+                  </option>
+                <% end %>
+              </select>
+              <label class="label">
+                <span class="label-text-alt">
+                  <%= if @max_redundancy == 1 do %>
+                    Only 1 active bucket available. Add more buckets to enable redundancy.
+                  <% else %>
+                    Based on #{@active_buckets_count} active bucket(s). Higher redundancy provides better durability.
+                  <% end %>
+                </span>
+              </label>
+            <% end %>
           </div>
 
           <%!-- Auto-Variant Generation --%>
