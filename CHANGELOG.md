@@ -1,4 +1,26 @@
-## 1.4.6 - 2025-10-27
+## 1.4.7 - 2025-10-29
+
+### Fixed
+- **CRITICAL: OAuth base_path preservation** - Fixed Ueberauth base_path being lost during provider configuration
+  - Function `configure_ueberauth_base/0` now preserves existing base_path from configuration
+  - Added `get_oauth_base_path/0` helper to automatically determine base path from PhoenixKit URL prefix
+  - Prevents "Ueberauth plugin did not process request for provider" error
+  - Ensures OAuth routes like `/phoenix_kit/users/auth/google` work correctly
+  - File: lib/phoenix_kit/users/oauth_config.ex
+- **CRITICAL: OAuth struct field access** - Fixed UndefinedFunctionError when processing OAuth callbacks
+  - Replaced bracket notation `auth.credentials[:token]` with dot notation `auth.credentials.token`
+  - Replaced `auth.credentials[:refresh_token]` with `auth.credentials.refresh_token`
+  - Added safe `get_raw_info/1` helper for extracting raw_info with pattern matching
+  - Fixes "Ueberauth.Auth.Credentials does not implement Access behaviour" error
+  - OAuth callback processing now works correctly for all providers
+  - File: lib/phoenix_kit/users/oauth.ex
+
+### Impact
+- OAuth authentication with Google, GitHub, Apple, and Facebook now works correctly
+- Both bugs were critical and prevented OAuth from functioning entirely
+- All existing OAuth configurations will work without any changes required
+
+## 1.4.6 - 2025-10-26
 
 ### Fixed
 - **CRITICAL: Ueberauth MatchError timing issue** - Fixed OAuth provider initialization race condition
