@@ -49,10 +49,21 @@
             <span class="badge badge-lg">{length(@dimensions)}</span>
           </h2>
           <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new")}
-            class="btn btn-primary"
+            navigate={
+              PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/image")
+            }
+            class="btn btn-info"
           >
-            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Dimension
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Image Dimension
+          </.link>
+
+          <.link
+            navigate={
+              PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/video")
+            }
+            class="btn btn-warning"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Video Dimension
           </.link>
         </div>
 
