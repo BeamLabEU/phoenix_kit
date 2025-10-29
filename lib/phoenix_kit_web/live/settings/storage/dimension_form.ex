@@ -17,9 +17,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
 
     mode = if dimension_id, do: :edit, else: :new
 
-    type =
-      if action == :new_image, do: "image", else: if(action == :new_video, do: "video", else: nil)
-
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -27,13 +24,11 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       socket
       |> assign(:mode, mode)
       |> assign(:dimension_id, dimension_id)
-      |> assign(:page_title, page_title_with_type(mode, type))
-      |> assign(:project_title, project_title)
-      |> assign(:form_action, page_title_with_type(mode, type))
       |> assign(:current_locale, "en")
       |> assign(:current_path, Routes.path("/admin/settings/storage/dimensions"))
-      |> assign(:dimension_type, type)
+      |> assign(:project_title, project_title)
       |> assign(:dimension, load_dimension_data(mode, dimension_id))
+      |> assign(:dimension_type, nil)  # Will be set in assign_form
       |> assign_form()
 
     {:ok, socket}
@@ -112,22 +107,32 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
     Storage.get_dimension(dimension_id)
   end
 
-  defp assign_form(%{assigns: %{mode: :new}} = socket) do
+  defp assign_form(%{assigns: %{mode: :new, dimension_type: dimension_type}} = socket) do
     # Set applies_to based on dimension_type
     initial_attrs =
-      case socket.assigns.dimension_type do
+      case dimension_type do
         "image" -> %{applies_to: "image"}
         "video" -> %{applies_to: "video"}
         _ -> %{}
       end
 
     changeset = Storage.change_dimension(%Storage.Dimension{}, initial_attrs)
-    assign(socket, :changeset, changeset)
+
+    socket
+    |> assign(:changeset, changeset)
+    |> assign(:page_title, page_title_with_type(:new, dimension_type))
+    |> assign(:form_action, page_title_with_type(:new, dimension_type))
   end
 
   defp assign_form(%{assigns: %{mode: :edit, dimension: dimension}} = socket) do
     changeset = Storage.change_dimension(dimension, %{})
-    assign(socket, :changeset, changeset)
+    dimension_type = dimension.applies_to
+
+    socket
+    |> assign(:changeset, changeset)
+    |> assign(:dimension_type, dimension_type)
+    |> assign(:page_title, "Edit Storage Dimension")
+    |> assign(:form_action, "Update Dimension")
   end
 
   defp page_title(:new), do: "Add Storage Dimension"
