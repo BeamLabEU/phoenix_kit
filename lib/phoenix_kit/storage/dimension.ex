@@ -132,7 +132,7 @@ defmodule PhoenixKit.Storage.Dimension do
     |> validate_dimension_size()
     |> validate_quality()
     |> validate_format()
-    |> unique_constraint(:name, name: :phoenix_kit_dimensions_name_index)
+    |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
 
   # Validate that at least width or height is specified
