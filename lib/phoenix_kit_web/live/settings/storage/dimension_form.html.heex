@@ -134,33 +134,24 @@
                 </span>
                 <span class="label-text-alt">Leave empty to preserve original</span>
               </label>
+              <%!-- Get format value safely --%>
+              <% format_value = get_field_value(@changeset, :format) %>
+
               <select
                 name="dimension[format]"
                 class={"select select-bordered #{input_class(@changeset, :format)}"}
               >
                 <option value="">Preserve original</option>
-                <option
-                  value="jpg"
-                  selected={get_field_value(@changeset, :format) == "jpg"}
-                >
+                <option value="jpg" selected={format_value == "jpg"}>
                   JPEG
                 </option>
-                <option
-                  value="png"
-                  selected={get_field_value(@changeset, :format) == "png"}
-                >
+                <option value="png" selected={format_value == "png"}>
                   PNG
                 </option>
-                <option
-                  value="webp"
-                  selected={get_field_value(@changeset, :format) == "webp"}
-                >
+                <option value="webp" selected={format_value == "webp"}>
                   WebP
                 </option>
-                <option
-                  value="mp4"
-                  selected={get_field_value(@changeset, :format) == "mp4"}
-                >
+                <option value="mp4" selected={format_value == "mp4"}>
                   MP4
                 </option>
               </select>
@@ -168,6 +159,12 @@
             </div>
           </div>
 
+          <%!-- Hidden field for applies_to (auto-set based on dimension type) --%>
+          <input
+            type="hidden"
+            name="dimension[applies_to]"
+            value={@dimension_type}
+          />
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
