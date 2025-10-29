@@ -48,43 +48,71 @@
             />
           </div>
 
-          <div class="form-control">
-            <label class="label">
-              <span class="label-text font-semibold">Storage Provider *</span>
-              <span class="label-text-alt">Type of storage service</span>
-            </label>
-            <select
-              name="bucket[provider]"
-              class={"select select-bordered #{input_class(@changeset, :provider)}"}
-              required
-            >
-              <option value="">Select provider...</option>
-              <option
-                value="local"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+          <%= if @mode == :new do %>
+            <%!-- Provider Selection (only in new mode) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Storage Provider *</span>
+                <span class="label-text-alt">Type of storage service</span>
+              </label>
+              <select
+                name="bucket[provider]"
+                class={"select select-bordered #{input_class(@changeset, :provider)}"}
+                required
               >
-                Local Filesystem
-              </option>
-              <option
-                value="s3"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
-              >
-                AWS S3
-              </option>
-              <option
-                value="b2"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
-              >
-                Backblaze B2
-              </option>
-              <option
-                value="r2"
-                selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
-              >
-                Cloudflare R2
-              </option>
-            </select>
-          </div>
+                <option value="">Select provider...</option>
+                <option
+                  value="local"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+                >
+                  Local Filesystem
+                </option>
+                <option
+                  value="s3"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
+                >
+                  AWS S3
+                </option>
+                <option
+                  value="b2"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
+                >
+                  Backblaze B2
+                </option>
+                <option
+                  value="r2"
+                  selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
+                >
+                  Cloudflare R2
+                </option>
+              </select>
+            </div>
+          <% else %>
+            <%!-- Provider Display (read-only in edit mode) --%>
+            <input type="hidden" name="bucket[provider]" value={@current_provider} />
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Storage Provider</span>
+                <span class="label-text-alt">Cannot be changed after creation</span>
+              </label>
+              <div class="p-3 bg-base-200 rounded-lg">
+                <span class="badge badge-lg badge-ghost">
+                  <%= case @current_provider do %>
+                    <% "local" -> %>
+                      Local Filesystem
+                    <% "s3" -> %>
+                      AWS S3
+                    <% "b2" -> %>
+                      Backblaze B2
+                    <% "r2" -> %>
+                      Cloudflare R2
+                    <% _ -> %>
+                      {String.upcase(@current_provider || "Unknown")}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+          <% end %>
 
           <%!-- Local Provider Settings --%>
           <%= if @current_provider == "local" do %>
@@ -277,7 +305,7 @@
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
               class="btn btn-outline"
             >
               Cancel
