@@ -198,21 +198,6 @@
             </div>
           </div>
 
-          <%!-- Status --%>
-          <div class="form-control">
-            <label class="label cursor-pointer">
-              <input type="hidden" name="dimension[enabled]" value="false" />
-              <input
-                type="checkbox"
-                name="dimension[enabled]"
-                value="true"
-                checked={get_field_value(@changeset, :enabled)}
-                class="checkbox checkbox-primary"
-              />
-              <span class="label-text ml-2">Enable this dimension</span>
-            </label>
-          </div>
-
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
             <.link
