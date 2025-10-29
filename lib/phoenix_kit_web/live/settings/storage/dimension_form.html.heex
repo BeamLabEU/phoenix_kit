@@ -31,7 +31,7 @@
     <%!-- Form Section --%>
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
-        <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
+        <.form for={@changeset} phx-change="validate" phx-submit="save" phx-debounce="blur" class="space-y-6">
           <%!-- Basic Information --%>
           <div class="form-control">
             <label class="label">
