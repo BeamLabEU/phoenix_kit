@@ -107,7 +107,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   end
 
   defp assign_form(%{assigns: %{mode: :new}} = socket) do
-    changeset = Storage.create_dimension(%{})
+    changeset = Storage.change_dimension(%Storage.Dimension{}, %{})
     assign(socket, :changeset, changeset)
   end
 
@@ -145,7 +145,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       errors =
         Keyword.get_values(changeset.errors, field) |> Enum.map(&elem(&1, 0)) |> Enum.join(", ")
 
-      """
+      content = """
       <p class="mt-2 flex gap-2 text-sm text-error phx-no-feedback:hidden">
         <svg class="mt-0.5 h-4 w-4 flex-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -153,6 +153,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
         #{errors}
       </p>
       """
+
+      Phoenix.HTML.raw(content)
     else
       ""
     end
