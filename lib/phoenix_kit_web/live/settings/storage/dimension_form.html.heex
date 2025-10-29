@@ -41,11 +41,12 @@
             <input
               type="text"
               name="dimension[name]"
-              value={input_value(@changeset, :name)}
+              value={get_field_value(@changeset, :name)}
               class={"input input-bordered #{input_class(@changeset, :name)}"}
               placeholder="e.g., thumbnail, medium, 720p"
               required
             />
+            {render_error(@changeset, :name)}
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,11 +58,12 @@
               <input
                 type="number"
                 name="dimension[width]"
-                value={input_value(@changeset, :width)}
+                value={get_field_value(@changeset, :width)}
                 class={"input input-bordered #{input_class(@changeset, :width)}"}
                 placeholder="800"
                 min="1"
               />
+              {render_error(@changeset, :width)}
             </div>
 
             <div class="form-control">
@@ -72,11 +74,12 @@
               <input
                 type="number"
                 name="dimension[height]"
-                value={input_value(@changeset, :height)}
+                value={get_field_value(@changeset, :height)}
                 class={"input input-bordered #{input_class(@changeset, :height)}"}
                 placeholder="600"
                 min="1"
               />
+              {render_error(@changeset, :height)}
             </div>
           </div>
 
@@ -90,12 +93,13 @@
               <input
                 type="number"
                 name="dimension[quality]"
-                value={input_value(@changeset, :quality)}
+                value={get_field_value(@changeset, :quality)}
                 class={"input input-bordered #{input_class(@changeset, :quality)}"}
                 placeholder="85"
                 min="1"
                 max="100"
               />
+              {render_error(@changeset, :quality)}
               <label class="label">
                 <span class="label-text-alt">
                   Images use 1-100, Videos use CRF 0-51 (lower = higher quality)
@@ -113,19 +117,32 @@
                 class={"select select-bordered #{input_class(@changeset, :format)}"}
               >
                 <option value="">Preserve original</option>
-                <option value="jpg" selected={input_value(@changeset, :format) == "jpg"}>
+                <option
+                  value="jpg"
+                  selected={get_field_value(@changeset, :format) == "jpg"}
+                >
                   JPEG
                 </option>
-                <option value="png" selected={input_value(@changeset, :format) == "png"}>
+                <option
+                  value="png"
+                  selected={get_field_value(@changeset, :format) == "png"}
+                >
                   PNG
                 </option>
-                <option value="webp" selected={input_value(@changeset, :format) == "webp"}>
+                <option
+                  value="webp"
+                  selected={get_field_value(@changeset, :format) == "webp"}
+                >
                   WebP
                 </option>
-                <option value="mp4" selected={input_value(@changeset, :format) == "mp4"}>
+                <option
+                  value="mp4"
+                  selected={get_field_value(@changeset, :format) == "mp4"}
+                >
                   MP4
                 </option>
               </select>
+              {render_error(@changeset, :format)}
             </div>
           </div>
 
@@ -142,16 +159,26 @@
                 required
               >
                 <option value="">Select type...</option>
-                <option value="image" selected={input_value(@changeset, :applies_to) == "image"}>
+                <option
+                  value="image"
+                  selected={get_field_value(@changeset, :applies_to) == "image"}
+                >
                   Images only
                 </option>
-                <option value="video" selected={input_value(@changeset, :applies_to) == "video"}>
+                <option
+                  value="video"
+                  selected={get_field_value(@changeset, :applies_to) == "video"}
+                >
                   Videos only
                 </option>
-                <option value="both" selected={input_value(@changeset, :applies_to) == "both"}>
+                <option
+                  value="both"
+                  selected={get_field_value(@changeset, :applies_to) == "both"}
+                >
                   Both images and videos
                 </option>
               </select>
+              {render_error(@changeset, :applies_to)}
             </div>
 
             <div class="form-control">
@@ -162,21 +189,24 @@
               <input
                 type="number"
                 name="dimension[order]"
-                value={input_value(@changeset, :order)}
+                value={get_field_value(@changeset, :order)}
                 class={"input input-bordered #{input_class(@changeset, :order)}"}
                 placeholder="1"
                 min="0"
               />
+              {render_error(@changeset, :order)}
             </div>
           </div>
 
           <%!-- Status --%>
           <div class="form-control">
             <label class="label cursor-pointer">
+              <input type="hidden" name="dimension[enabled]" value="false" />
               <input
                 type="checkbox"
                 name="dimension[enabled]"
-                checked={input_value(@changeset, :enabled)}
+                value="true"
+                checked={get_field_value(@changeset, :enabled)}
                 class="checkbox checkbox-primary"
               />
               <span class="label-text ml-2">Enable this dimension</span>

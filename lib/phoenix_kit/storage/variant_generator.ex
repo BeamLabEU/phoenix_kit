@@ -64,7 +64,8 @@ defmodule PhoenixKit.Storage.VariantGenerator do
         else
           if async do
             task = Task.async(fn -> process_variants(file, dimensions) end)
-            Task.await(task, 30_000)  # 30 second timeout
+            # 30 second timeout
+            Task.await(task, 30_000)
           else
             process_variants(file, dimensions)
           end
@@ -94,10 +95,14 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       file_name: generate_variant_filename(file.file_name, variant_name, dimension.format),
       mime_type: determine_variant_mime_type(file.mime_type, dimension.format),
       ext: determine_variant_extension(file.ext, dimension.format),
-      checksum: "",  # Will be calculated after processing
-      size: 0,       # Will be calculated after processing
-      width: nil,    # Will be calculated after processing
-      height: nil,   # Will be calculated after processing
+      # Will be calculated after processing
+      checksum: "",
+      # Will be calculated after processing
+      size: 0,
+      # Will be calculated after processing
+      width: nil,
+      # Will be calculated after processing
+      height: nil,
       processing_status: "processing",
       file_id: file.id
     }
@@ -145,17 +150,18 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
   defp should_generate_variants?(file) do
     file.file_type in ["image", "video"] and
-    Storage.get_auto_generate_variants()
+      Storage.get_auto_generate_variants()
   end
 
   defp get_dimensions_for_generation(file_type, specific_dimensions) do
     base_query = Storage.list_dimensions_for_type(file_type)
 
-    dimensions = if Enum.empty?(specific_dimensions) do
-      base_query
-    else
-      Enum.filter(base_query, &(&1.name in specific_dimensions))
-    end
+    dimensions =
+      if Enum.empty?(specific_dimensions) do
+        base_query
+      else
+        Enum.filter(base_query, &(&1.name in specific_dimensions))
+      end
 
     # Filter out the "original" dimension as that's handled separately
     Enum.filter(dimensions, &(&1.name != "original"))
@@ -168,10 +174,11 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       |> Task.await_many(30_000)
 
     # Separate successful and failed results
-    {successful, failed} = Enum.split_with(results, fn
-      {:ok, _} -> true
-      _ -> false
-    end)
+    {successful, failed} =
+      Enum.split_with(results, fn
+        {:ok, _} -> true
+        _ -> false
+      end)
 
     if Enum.empty?(successful) and not Enum.empty?(failed) do
       {:error, "All variant generations failed"}
@@ -285,74 +292,80 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     args = [input_path]
 
     # Handle resizing
-    args = case {dimension.width, dimension.height} do
-      {width, height} when width != nil and height != nil ->
-        # Both dimensions specified
-        args ++ ["-resize", "#{width}x#{height}"]
+    args =
+      case {dimension.width, dimension.height} do
+        {width, height} when width != nil and height != nil ->
+          # Both dimensions specified
+          args ++ ["-resize", "#{width}x#{height}"]
 
-      {width, nil} when width != nil ->
-        # Only width specified, maintain aspect ratio
-        args ++ ["-resize", "#{width}"]
+        {width, nil} when width != nil ->
+          # Only width specified, maintain aspect ratio
+          args ++ ["-resize", "#{width}"]
 
-      {nil, height} when height != nil ->
-        # Only height specified, maintain aspect ratio
-        args ++ ["-resize", "x#{height}"]
+        {nil, height} when height != nil ->
+          # Only height specified, maintain aspect ratio
+          args ++ ["-resize", "x#{height}"]
 
-      _ ->
-        # No dimensions, use original size
-        args
-    end
+        _ ->
+          # No dimensions, use original size
+          args
+      end
 
     # Handle quality
-    args = if dimension.quality do
-      quality = convert_image_quality(dimension.quality)
-      args ++ ["-quality", quality]
-    else
-      args
-    end
+    args =
+      if dimension.quality do
+        quality = convert_image_quality(dimension.quality)
+        args ++ ["-quality", quality]
+      else
+        args
+      end
 
     # Handle thumbnail (square crop)
-    args = if dimension.name == "thumbnail" do
-      args ++ ["-thumbnail", "150x150^", "-gravity", "center", "-extent", "150x150"]
-    else
-      args
-    end
+    args =
+      if dimension.name == "thumbnail" do
+        args ++ ["-thumbnail", "150x150^", "-gravity", "center", "-extent", "150x150"]
+      else
+        args
+      end
 
     args ++ [output_path]
   end
 
   defp build_ffmpeg_args(input_path, output_path, dimension) do
-    args = ["-i", input_path, "-y"]  # -y to overwrite output file
+    # -y to overwrite output file
+    args = ["-i", input_path, "-y"]
 
     # Handle video quality variants
-    args = case dimension.name do
-      "360p" ->
-        args ++ ["-vf", "scale=640:360", "-crf", "28"]
+    args =
+      case dimension.name do
+        "360p" ->
+          args ++ ["-vf", "scale=640:360", "-crf", "28"]
 
-      "720p" ->
-        args ++ ["-vf", "scale=1280:720", "-crf", "25"]
+        "720p" ->
+          args ++ ["-vf", "scale=1280:720", "-crf", "25"]
 
-      "1080p" ->
-        args ++ ["-vf", "scale=1920:1080", "-crf", "23"]
+        "1080p" ->
+          args ++ ["-vf", "scale=1920:1080", "-crf", "23"]
 
-      "video_thumbnail" ->
-        args ++ ["-ss", "00:00:01.000", "-vframes", "1", "-vf", "scale=640:360"]
+        "video_thumbnail" ->
+          args ++ ["-ss", "00:00:01.000", "-vframes", "1", "-vf", "scale=640:360"]
 
-      _ ->
-        if dimension.width and dimension.height do
-          args ++ ["-vf", "scale=#{dimension.width}:#{dimension.height}"]
-        else
-          args
-        end
-    end
+        _ ->
+          if dimension.width and dimension.height do
+            args ++ ["-vf", "scale=#{dimension.width}:#{dimension.height}"]
+          else
+            args
+          end
+      end
 
     # Handle quality (override for specific variants)
-    args = if dimension.quality and dimension.name not in ["360p", "720p", "1080p"] do
-      quality = convert_video_quality(dimension.quality)
-      args ++ ["-crf", quality]
-    else
-      args
-    end
+    args =
+      if dimension.quality and dimension.name not in ["360p", "720p", "1080p"] do
+        quality = convert_video_quality(dimension.quality)
+        args ++ ["-crf", quality]
+      else
+        args
+      end
 
     args ++ [output_path]
   end
@@ -365,7 +378,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   defp convert_video_quality(quality) when is_integer(quality) do
     # FFmpeg CRF uses 0-51 (lower = higher quality)
     # Map image quality (1-100) to CRF (51-0)
-    crf = 51 - trunc((quality / 100) * 51)
+    crf = 51 - trunc(quality / 100 * 51)
     Integer.to_string(crf)
   end
 
@@ -375,6 +388,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
         case String.split(dimensions, "x") do
           [width, height] ->
             {String.to_integer(width), String.to_integer(String.trim(height))}
+
           _ ->
             {:error, "Invalid dimension format"}
         end
@@ -385,11 +399,22 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp get_video_dimensions(video_path) do
-    case System.cmd("ffprobe", ["-v", "quiet", "-print_format", "csv=p=0", "-select_streams", "v:0", "-show_entries", "stream=width,height", video_path]) do
+    case System.cmd("ffprobe", [
+           "-v",
+           "quiet",
+           "-print_format",
+           "csv=p=0",
+           "-select_streams",
+           "v:0",
+           "-show_entries",
+           "stream=width,height",
+           video_path
+         ]) do
       {dimensions, 0} ->
         case String.split(String.trim(dimensions), ",") do
           [width, height] ->
             {String.to_integer(width), String.to_integer(height)}
+
           _ ->
             {:error, "Invalid dimension format"}
         end

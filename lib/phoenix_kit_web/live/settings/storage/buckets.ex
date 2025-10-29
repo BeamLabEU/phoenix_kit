@@ -150,9 +150,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.Buckets do
       provider when provider in ["s3", "b2", "r2"] ->
         path_parts = [
           provider <> ":",
-          (if bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
-          (if bucket.endpoint, do: bucket.endpoint, else: "/")
+          if(bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
+          if(bucket.endpoint, do: bucket.endpoint, else: "/")
         ]
+
         Enum.join(path_parts, "")
 
       _ ->

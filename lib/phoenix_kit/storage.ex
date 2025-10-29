@@ -124,7 +124,8 @@ defmodule PhoenixKit.Storage do
   """
   def calculate_bucket_usage(bucket_id) do
     from(fl in PhoenixKit.Storage.FileLocation,
-      join: fi in PhoenixKit.Storage.FileInstance, on: fl.file_instance_id == fi.id,
+      join: fi in PhoenixKit.Storage.FileInstance,
+      on: fl.file_instance_id == fi.id,
       where: fl.bucket_id == ^bucket_id and fl.status == "active",
       select: fragment("SUM(? / (1024 * 1024))", fi.size)
     )
@@ -384,7 +385,8 @@ defmodule PhoenixKit.Storage do
   @doc """
   Updates a file instance's processing status.
   """
-  def update_instance_status(instance, status) when status in ["pending", "processing", "completed", "failed"] do
+  def update_instance_status(instance, status)
+      when status in ["pending", "processing", "completed", "failed"] do
     update_file_instance(instance, %{processing_status: status})
   end
 
@@ -401,13 +403,14 @@ defmodule PhoenixKit.Storage do
       size: size
     }
 
-    attrs = case dimensions do
-      {width, height} ->
-        Map.merge(attrs, %{width: width, height: height})
+    attrs =
+      case dimensions do
+        {width, height} ->
+          Map.merge(attrs, %{width: width, height: height})
 
-      _ ->
-        attrs
-    end
+        _ ->
+          attrs
+      end
 
     update_file_instance(instance, attrs)
   end
@@ -621,6 +624,7 @@ defmodule PhoenixKit.Storage do
       # :disksup module not available or other error
       UndefinedFunctionError ->
         bucket.max_size_mb || 1000
+
       _ ->
         bucket.max_size_mb || 1000
     end
@@ -689,8 +693,10 @@ defmodule PhoenixKit.Storage do
               ext: file.ext,
               checksum: file_hash,
               size: size_bytes,
-              width: nil,  # Will be populated if we can detect dimensions
-              height: nil, # Will be populated if we can detect dimensions
+              # Will be populated if we can detect dimensions
+              width: nil,
+              # Will be populated if we can detect dimensions
+              height: nil,
               processing_status: "completed",
               file_id: file.id
             }

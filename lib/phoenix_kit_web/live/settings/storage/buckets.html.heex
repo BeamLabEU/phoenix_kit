@@ -139,7 +139,9 @@
                       <div class="flex justify-end gap-1">
                         <%!-- Edit Button --%>
                         <.link
-                          navigate={Routes.path("/admin/settings/storage/buckets/#{stat.bucket.id}/edit")}
+                          navigate={
+                            Routes.path("/admin/settings/storage/buckets/#{stat.bucket.id}/edit")
+                          }
                           class="btn btn-xs btn-ghost"
                           title="Edit bucket"
                         >

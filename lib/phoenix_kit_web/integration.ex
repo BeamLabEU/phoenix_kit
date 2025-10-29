@@ -405,6 +405,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
           live "/admin/settings/storage/dimensions/new", Live.Settings.Storage.DimensionForm, :new
+
           live "/admin/settings/storage/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
                :edit

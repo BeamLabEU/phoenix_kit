@@ -59,16 +59,28 @@
               required
             >
               <option value="">Select provider...</option>
-              <option value="local" selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}>
+              <option
+                value="local"
+                selected={Ecto.Changeset.get_field(@changeset, :provider) == "local"}
+              >
                 Local Filesystem
               </option>
-              <option value="s3" selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}>
+              <option
+                value="s3"
+                selected={Ecto.Changeset.get_field(@changeset, :provider) == "s3"}
+              >
                 AWS S3
               </option>
-              <option value="b2" selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}>
+              <option
+                value="b2"
+                selected={Ecto.Changeset.get_field(@changeset, :provider) == "b2"}
+              >
                 Backblaze B2
               </option>
-              <option value="r2" selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}>
+              <option
+                value="r2"
+                selected={Ecto.Changeset.get_field(@changeset, :provider) == "r2"}
+              >
                 Cloudflare R2
               </option>
             </select>
@@ -90,7 +102,9 @@
                 required
               />
               <label class="label">
-                <span class="label-text-alt">Absolute path to directory where files will be stored</span>
+                <span class="label-text-alt">
+                  Absolute path to directory where files will be stored
+                </span>
               </label>
             </div>
           <% end %>

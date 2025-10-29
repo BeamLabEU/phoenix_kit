@@ -132,6 +132,19 @@
                     <%!-- Actions --%>
                     <td>
                       <div class="flex justify-end gap-1">
+                        <%!-- Edit Button --%>
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/settings/storage/dimensions/#{dimension.id}/edit"
+                            )
+                          }
+                          class="btn btn-xs btn-ghost"
+                          title="Edit dimension"
+                        >
+                          <.icon name="hero-pencil" class="w-4 h-4" />
+                        </.link>
+
                         <%!-- Toggle Enable/Disable --%>
                         <button
                           phx-click="toggle_dimension"

@@ -7,7 +7,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-    alias PhoenixKit.Settings
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
@@ -59,7 +59,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     {:ok, socket}
   end
 
-  
   def handle_event("update_redundancy", %{"redundancy_copies" => copies}, socket) do
     requested_copies = String.to_integer(copies)
     max_redundancy = socket.assigns.max_redundancy
@@ -67,7 +66,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     if requested_copies > max_redundancy do
       socket =
         socket
-        |> put_flash(:error, "Cannot set redundancy to #{requested_copies} copies. Only #{max_redundancy} active bucket(s) available.")
+        |> put_flash(
+          :error,
+          "Cannot set redundancy to #{requested_copies} copies. Only #{max_redundancy} active bucket(s) available."
+        )
 
       {:noreply, socket}
     else
@@ -77,7 +79,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
           socket =
             socket
             |> assign(:redundancy_copies, requested_copies)
-            |> put_flash(:info, "Redundancy settings updated to #{requested_copies} #{if requested_copies == 1, do: "copy", else: "copies"}")
+            |> put_flash(
+              :info,
+              "Redundancy settings updated to #{requested_copies} #{if requested_copies == 1, do: "copy", else: "copies"}"
+            )
 
           {:noreply, socket}
 
@@ -90,11 +95,13 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   def handle_event("update_form_redundancy", %{"form_redundancy" => copies}, socket) do
     # Handle both string and integer inputs
-    form_redundancy = cond do
-      is_integer(copies) -> copies
-      is_binary(copies) -> String.to_integer(copies)
-      true -> 1  # fallback
-    end
+    form_redundancy =
+      cond do
+        is_integer(copies) -> copies
+        is_binary(copies) -> String.to_integer(copies)
+        # fallback
+        true -> 1
+      end
 
     socket =
       socket
@@ -125,11 +132,13 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   def handle_event("update_storage_form", %{"form_redundancy" => redundancy}, socket) do
     # Handle both string and integer inputs
-    form_redundancy = cond do
-      is_integer(redundancy) -> redundancy
-      is_binary(redundancy) -> String.to_integer(redundancy)
-      true -> 1  # fallback
-    end
+    form_redundancy =
+      cond do
+        is_integer(redundancy) -> redundancy
+        is_binary(redundancy) -> String.to_integer(redundancy)
+        # fallback
+        true -> 1
+      end
 
     socket =
       socket
@@ -154,12 +163,17 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     if new_redundancy > max_redundancy do
       socket =
         socket
-        |> put_flash(:error, "Cannot set redundancy to #{new_redundancy} copies. Only #{max_redundancy} active bucket(s) available.")
+        |> put_flash(
+          :error,
+          "Cannot set redundancy to #{new_redundancy} copies. Only #{max_redundancy} active bucket(s) available."
+        )
 
       {:noreply, socket}
     else
       # Update both settings
-      redundancy_result = Settings.update_setting("storage_redundancy_copies", to_string(new_redundancy))
+      redundancy_result =
+        Settings.update_setting("storage_redundancy_copies", to_string(new_redundancy))
+
       variants_result = Settings.update_setting("storage_auto_generate_variants", new_variants)
 
       case {redundancy_result, variants_result} do
@@ -247,9 +261,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       provider when provider in ["s3", "b2", "r2"] ->
         path_parts = [
           provider <> ":",
-          (if bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
-          (if bucket.endpoint, do: bucket.endpoint, else: "/")
+          if(bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
+          if(bucket.endpoint, do: bucket.endpoint, else: "/")
         ]
+
         Enum.join(path_parts, "")
 
       _ ->

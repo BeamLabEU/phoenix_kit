@@ -26,6 +26,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       |> assign(:project_title, project_title)
       |> assign(:form_action, page_title(mode))
       |> assign(:current_locale, "en")
+      |> assign(:current_path, Routes.path("/admin/settings/storage/dimensions"))
       |> assign(:dimension, load_dimension_data(mode, dimension_id))
       |> assign_form()
 
@@ -36,19 +37,11 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
     changeset =
       case socket.assigns.mode do
         :new ->
-          Storage.create_dimension(dimension_params)
+          Storage.change_dimension(%Storage.Dimension{}, dimension_params)
 
         :edit ->
           dimension = Storage.get_dimension(socket.assigns.dimension_id)
-          Storage.update_dimension(dimension, dimension_params)
-      end
-      |> case do
-        {:ok, dimension} ->
-          # For successful save, create a valid changeset for display
-          Storage.create_dimension(dimension_params)
-
-        {:error, changeset} ->
-          changeset
+          Storage.change_dimension(dimension, dimension_params)
       end
 
     socket =
@@ -119,18 +112,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   end
 
   defp assign_form(%{assigns: %{mode: :edit, dimension: dimension}} = socket) do
-    changeset =
-      Storage.create_dimension(%{
-        name: dimension.name,
-        width: dimension.width,
-        height: dimension.height,
-        quality: dimension.quality,
-        format: dimension.format,
-        applies_to: dimension.applies_to,
-        enabled: dimension.enabled,
-        order: dimension.order
-      })
-
+    changeset = Storage.change_dimension(dimension, %{})
     assign(socket, :changeset, changeset)
   end
 
@@ -143,6 +125,17 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       "input-error"
     else
       ""
+    end
+  end
+
+  # Helper function to get field value from changeset or data
+  defp get_field_value(changeset, field) do
+    case changeset do
+      %Ecto.Changeset{changes: changes, data: data} ->
+        Map.get(changes, field) || Map.get(data, field)
+
+      _ ->
+        nil
     end
   end
 

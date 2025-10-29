@@ -92,7 +92,8 @@
                   <tr>
                     <td class="font-medium">
                       <div class="flex items-center gap-2">
-                        <div class={"w-2 h-2 rounded-full #{if bucket.enabled, do: "bg-success", else: "bg-error"}"}></div>
+                        <div class={"w-2 h-2 rounded-full #{if bucket.enabled, do: "bg-success", else: "bg-error"}"}>
+                        </div>
                         <div>
                           {bucket.name}
                           <%= if bucket.id == @default_bucket_id do %>
@@ -106,7 +107,7 @@
                     </td>
                     <td>
                       <span class="badge badge-ghost badge-sm">
-                        <%= String.upcase(bucket.provider) %>
+                        {String.upcase(bucket.provider)}
                       </span>
                     </td>
                     <td>
@@ -180,7 +181,11 @@
           <.icon name="hero-cog-6-tooth" class="w-6 h-6 mr-2" /> Storage Configuration
         </h2>
 
-        <.form for={%{"form_redundancy" => @form_redundancy}} phx-change="update_storage_form" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <.form
+          for={%{"form_redundancy" => @form_redundancy}}
+          phx-change="update_storage_form"
+          class="grid grid-cols-1 md:grid-cols-2 gap-6"
+        >
           <%!-- Redundancy Settings --%>
           <div class="form-control">
             <label class="label">
@@ -190,7 +195,9 @@
             <%= if @active_buckets_count == 0 do %>
               <div class="alert alert-warning">
                 <.icon name="hero-exclamation-triangle" class="w-4 h-4" />
-                <span class="text-sm">No active buckets available. Enable buckets to configure redundancy.</span>
+                <span class="text-sm">
+                  No active buckets available. Enable buckets to configure redundancy.
+                </span>
               </div>
             <% else %>
               <%= if @form_redundancy > @max_redundancy do %>
@@ -254,12 +261,14 @@
           <button
             type="button"
             phx-click="apply_storage_settings"
-            disabled={@form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants}
+            disabled={
+              @form_redundancy == @redundancy_copies and
+                @form_auto_generate_variants == @auto_generate_variants
+            }
             phx-disable-with="Applying..."
             class="btn btn-primary"
           >
-            <.icon name="hero-check" class="w-4 h-4 mr-2" />
-            Apply Changes
+            <.icon name="hero-check" class="w-4 h-4 mr-2" /> Apply Changes
           </button>
           <span class="label-text-alt text-xs ml-2">
             <% if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants do %>

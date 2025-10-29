@@ -27,22 +27,27 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     bucket = load_bucket_data(mode, bucket_id)
-    changeset = case mode do
-      :new -> Storage.change_bucket(%Storage.Bucket{}, %{})
-      :edit -> Storage.change_bucket(bucket, %{
-        name: bucket.name,
-        provider: bucket.provider,
-        region: bucket.region,
-        endpoint: bucket.endpoint,
-        bucket_name: bucket.bucket_name,
-        access_key_id: bucket.access_key_id,
-        secret_access_key: bucket.secret_access_key,
-        cdn_url: bucket.cdn_url,
-        enabled: bucket.enabled,
-        priority: bucket.priority,
-        max_size_mb: bucket.max_size_mb
-      })
-    end
+
+    changeset =
+      case mode do
+        :new ->
+          Storage.change_bucket(%Storage.Bucket{}, %{})
+
+        :edit ->
+          Storage.change_bucket(bucket, %{
+            name: bucket.name,
+            provider: bucket.provider,
+            region: bucket.region,
+            endpoint: bucket.endpoint,
+            bucket_name: bucket.bucket_name,
+            access_key_id: bucket.access_key_id,
+            secret_access_key: bucket.secret_access_key,
+            cdn_url: bucket.cdn_url,
+            enabled: bucket.enabled,
+            priority: bucket.priority,
+            max_size_mb: bucket.max_size_mb
+          })
+      end
 
     socket =
       socket
@@ -137,7 +142,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     Storage.get_bucket(bucket_id)
   end
 
-  
   defp page_title(:new), do: "Add Storage Bucket"
   defp page_title(:edit), do: "Edit Storage Bucket"
 
