@@ -31,7 +31,7 @@
     <%!-- Form Section --%>
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">
-        <.form for={@changeset} phx-change="validate" phx-submit="save" phx-debounce="blur" class="space-y-6">
+        <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
           <%!-- Basic Information --%>
           <div class="form-control">
             <label class="label">
@@ -41,6 +41,7 @@
             <input
               type="text"
               name="dimension[name]"
+              phx-debounce="blur"
               value={get_field_value(@changeset, :name)}
               class={"input input-bordered #{input_class(@changeset, :name)}"}
               placeholder="e.g., thumbnail, medium, 720p"
@@ -58,6 +59,7 @@
               <input
                 type="number"
                 name="dimension[width]"
+                phx-debounce="blur"
                 value={get_field_value(@changeset, :width)}
                 class={"input input-bordered #{input_class(@changeset, :width)}"}
                 placeholder="800"
@@ -74,6 +76,7 @@
               <input
                 type="number"
                 name="dimension[height]"
+                phx-debounce="blur"
                 value={get_field_value(@changeset, :height)}
                 class={"input input-bordered #{input_class(@changeset, :height)}"}
                 placeholder="600"
@@ -105,6 +108,7 @@
               <input
                 type="number"
                 name="dimension[quality]"
+                phx-debounce="blur"
                 value={get_field_value(@changeset, :quality)}
                 class={"input input-bordered #{input_class(@changeset, :quality)}"}
                 placeholder={if @dimension_type == "video", do: "23", else: "85"}
