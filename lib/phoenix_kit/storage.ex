@@ -394,7 +394,7 @@ defmodule PhoenixKit.Storage do
   Updates a file instance with file information after processing.
   """
   def update_instance_with_file_info(instance, file_path, dimensions \\ nil) do
-    {:ok, stat} = File.stat(file_path)
+    {:ok, stat} = Elixir.File.stat(file_path)
     size = stat.size
     checksum = calculate_file_hash(file_path)
 
@@ -434,7 +434,7 @@ defmodule PhoenixKit.Storage do
   """
   def get_absolute_path do
     default_path = get_default_path()
-    Path.expand(default_path, File.cwd!())
+    Path.expand(default_path, Elixir.File.cwd!())
   end
 
   @doc """
@@ -443,10 +443,10 @@ defmodule PhoenixKit.Storage do
   Returns `{:ok, relative_path}` if valid, or error tuple if invalid.
   """
   def validate_and_normalize_path(path) when is_binary(path) do
-    expanded_path = Path.expand(path, File.cwd!())
+    expanded_path = Path.expand(path, Elixir.File.cwd!())
 
-    if File.exists?(expanded_path) do
-      relative_path = Path.relative_to(expanded_path, File.cwd!())
+    if Elixir.File.exists?(expanded_path) do
+      relative_path = Path.relative_to(expanded_path, Elixir.File.cwd!())
       {:ok, relative_path}
     else
       {:error, :does_not_exist, expanded_path}
@@ -466,7 +466,7 @@ defmodule PhoenixKit.Storage do
   Creates a directory if it doesn't exist.
   """
   def create_directory(path) when is_binary(path) do
-    case File.mkdir_p(path) do
+    case Elixir.File.mkdir_p(path) do
       :ok -> {:ok, path}
       {:error, reason} -> {:error, reason}
     end
@@ -501,7 +501,7 @@ defmodule PhoenixKit.Storage do
     metadata = Keyword.get(opts, :metadata, %{})
 
     # Validate required fields
-    if !File.exists?(source_path) do
+    if !Elixir.File.exists?(source_path) do
       {:error, "Source file does not exist"}
     else
       # Calculate file hash
@@ -733,7 +733,7 @@ defmodule PhoenixKit.Storage do
 
   defp calculate_file_hash(file_path) do
     file_path
-    |> File.read!()
+    |> Elixir.File.read!()
     |> :crypto.hash(:sha256)
     |> Base.encode16(case: :lower)
   end

@@ -285,7 +285,6 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets", Live.Settings.Storage.Buckets, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
@@ -400,7 +399,6 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets", Live.Settings.Storage.Buckets, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index

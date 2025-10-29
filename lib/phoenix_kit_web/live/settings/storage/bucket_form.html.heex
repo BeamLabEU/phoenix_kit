@@ -11,10 +11,10 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
         class="btn btn-outline mb-4"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Buckets
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Storage Settings
       </.link>
 
       <%!-- Title Section --%>
@@ -305,4 +305,34 @@
       </div>
     </div>
   </div>
+
+  <%!-- Create Path Confirmation Modal --%>
+  <%= if @show_create_path_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Create Storage Path</h3>
+        <p class="py-4">
+          The storage path <code class="badge badge-ghost">{@missing_path}</code> does not exist.
+        </p>
+        <p class="mb-6">
+          Would you like to create it now?
+        </p>
+        <div class="modal-action">
+          <button
+            phx-click="cancel_create_path"
+            class="btn btn-ghost"
+          >
+            Cancel
+          </button>
+          <button
+            phx-click="confirm_create_path"
+            phx-value-path={@missing_path}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create Path
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
