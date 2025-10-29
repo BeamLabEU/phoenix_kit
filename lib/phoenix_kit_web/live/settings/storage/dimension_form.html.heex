@@ -146,18 +146,22 @@
                 class={"select select-bordered #{input_class(@changeset, :format)}"}
               >
                 <option value="">Preserve original</option>
-                <option value="jpg" selected={format_value == "jpg"}>
-                  JPEG
-                </option>
-                <option value="png" selected={format_value == "png"}>
-                  PNG
-                </option>
-                <option value="webp" selected={format_value == "webp"}>
-                  WebP
-                </option>
-                <option value="mp4" selected={format_value == "mp4"}>
-                  MP4
-                </option>
+                <%= if @dimension_type != "video" do %>
+                  <option value="jpg" selected={format_value == "jpg"}>
+                    JPEG
+                  </option>
+                  <option value="png" selected={format_value == "png"}>
+                    PNG
+                  </option>
+                  <option value="webp" selected={format_value == "webp"}>
+                    WebP
+                  </option>
+                <% end %>
+                <%= if @dimension_type == "video" do %>
+                  <option value="mp4" selected={format_value == "mp4"}>
+                    MP4
+                  </option>
+                <% end %>
               </select>
               {render_error(@changeset, :format)}
             </div>
