@@ -109,12 +109,17 @@ if Code.ensure_loaded?(Ueberauth) do
         first_name: auth.info.first_name,
         last_name: auth.info.last_name,
         image: auth.info.image,
-        access_token: auth.credentials[:token],
-        refresh_token: auth.credentials[:refresh_token],
+        # FIXED: Use dot notation for struct fields (structs don't implement Access behaviour)
+        access_token: auth.credentials.token,
+        refresh_token: auth.credentials.refresh_token,
         token_expires_at: get_token_expires_at(auth.credentials),
-        raw_info: auth.extra[:raw_info]
+        raw_info: get_raw_info(auth.extra)
       }
     end
+
+    # Helper to safely extract raw_info from extra struct
+    defp get_raw_info(%{raw_info: raw_info}), do: raw_info
+    defp get_raw_info(_), do: %{}
 
     defp get_token_expires_at(%{expires_at: expires_at}) when is_integer(expires_at) do
       DateTime.from_unix!(expires_at)
