@@ -26,7 +26,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     * `--router-path` - Specify custom path to router.ex file
     * `--prefix` - Specify PostgreSQL schema prefix (defaults to "public")
     * `--create-schema` - Create schema if using custom prefix (default: true for non-public prefixes)
-    
+
     ## Auto-detection
 
     The installer will automatically:

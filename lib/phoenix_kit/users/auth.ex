@@ -887,9 +887,8 @@ defmodule PhoenixKit.Users.Auth do
       end)
 
     # Update in sequence: profile first, then custom fields
-    with {:ok, updated_user} <- maybe_update_profile(user, schema_attrs),
-         {:ok, final_user} <- maybe_update_custom_fields(updated_user, custom_attrs) do
-      {:ok, final_user}
+    with {:ok, updated_user} <- maybe_update_profile(user, schema_attrs) do
+      maybe_update_custom_fields(updated_user, custom_attrs)
     end
   end
 

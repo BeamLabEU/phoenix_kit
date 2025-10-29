@@ -1,3 +1,4 @@
+# dialyzer: no_missing_calls
 if Code.ensure_loaded?(Igniter.Mix.Task) do
   defmodule Mix.Tasks.PhoenixKit.Update do
     @moduledoc """
@@ -610,6 +611,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
   # Fallback module for when Igniter is not available
 else
   defmodule Mix.Tasks.PhoenixKit.Update do
+    @dialyzer {:no_behaviours, [Mix.Task]}
     @moduledoc """
     PhoenixKit update task.
 

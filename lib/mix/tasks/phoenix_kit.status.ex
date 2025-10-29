@@ -419,7 +419,6 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     layout_config = Application.get_env(:phoenix_kit, :layout)
     IO.puts("  Layout integration: #{if layout_config, do: "Configured", else: "Using defaults"}")
 
-    
     # Check mailer configuration
     mailer_config = Application.get_env(:phoenix_kit, PhoenixKit.Mailer)
     IO.puts("  Mailer: #{if mailer_config, do: "Configured", else: "Not configured"}")

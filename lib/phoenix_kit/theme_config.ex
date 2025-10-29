@@ -236,7 +236,6 @@ defmodule PhoenixKit.ThemeConfig do
     "dark" => "phoenix-dark"
   }
 
-  
   @doc """
   Returns the logical default theme name stored in the user's preferences.
   """

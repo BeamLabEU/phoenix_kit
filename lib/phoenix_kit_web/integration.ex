@@ -479,27 +479,9 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   defmacro phoenix_kit_routes do
-    # Initialize OAuth configuration from database on router setup
-    # This ensures OAuth providers are configured before any requests
-    # Runs regardless of oauth_enabled setting to ensure Ueberauth always has valid configuration
-    if Code.ensure_loaded?(PhoenixKit.Users.OAuthConfig) and
-         Code.ensure_loaded?(PhoenixKit.Settings) do
-      spawn(fn ->
-        # Small delay to ensure database is ready
-        Process.sleep(100)
-
-        try do
-          # Always configure providers to ensure Ueberauth has valid configuration
-          # The oauth_enabled flag controls UI visibility, not provider initialization
-          alias PhoenixKit.Users.OAuthConfig
-          OAuthConfig.configure_providers()
-        rescue
-          error ->
-            require Logger
-            Logger.debug("OAuth config initialization error: #{inspect(error)}")
-        end
-      end)
-    end
+    # OAuth configuration is handled by PhoenixKit.Workers.OAuthConfigLoader
+    # which runs synchronously during supervisor startup
+    # No need for async spawn() here anymore
 
     # Get URL prefix at compile time and handle empty string case for router compatibility
     raw_prefix =

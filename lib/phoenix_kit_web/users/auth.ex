@@ -527,7 +527,7 @@ defmodule PhoenixKitWeb.Users.Auth do
       scope = socket.assigns[:phoenix_kit_current_scope]
 
       # Check if this is an authentication route that should bypass maintenance
-      is_auth_route = is_auth_route?(socket)
+      is_auth_route = auth_route?(socket)
 
       cond do
         # Authentication routes (login, reset-password, etc.) always bypass maintenance
@@ -549,7 +549,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   # Check if the current socket is for an authentication route
-  defp is_auth_route?(socket) do
+  defp auth_route?(socket) do
     case socket.view do
       PhoenixKitWeb.Users.Login -> true
       PhoenixKitWeb.Users.ForgotPassword -> true

@@ -13,7 +13,7 @@ defmodule PhoenixKit.Install.ApplicationSupervisor do
 
     igniter
     |> Application.add_new_child(PhoenixKit.Supervisor,
-      after: [endpoint]
+      before: [endpoint]
     )
   end
 end

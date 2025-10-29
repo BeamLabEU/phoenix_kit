@@ -49,7 +49,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
     else
       # Check if this is a LiveView route (Phoenix LiveView handles maintenance in-place)
       # Regular controller routes get the maintenance page response
-      if is_live_view_route?(conn) do
+      if live_view_route?(conn) do
         # Let LiveView handle maintenance mode rendering in-place
         # This allows users to stay on their current page when maintenance is disabled
         conn
@@ -69,7 +69,7 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
   end
 
   # Check if the request is for a LiveView route
-  defp is_live_view_route?(conn) do
+  defp live_view_route?(conn) do
     # Get the configured URL prefix
     url_prefix = PhoenixKit.Config.get_url_prefix()
 
@@ -119,6 +119,20 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
 
   # Skip maintenance mode for these paths
   defp should_skip_maintenance?(path) do
+    # Static assets
+    # Authentication routes
+    static_asset?(path) or
+      authentication_route?(path)
+  end
+
+  defp static_asset?(path) do
+    String.starts_with?(path, "/assets/") or
+      String.starts_with?(path, "/images/") or
+      String.starts_with?(path, "/fonts/") or
+      String.contains?(path, "/favicon")
+  end
+
+  defp authentication_route?(path) do
     # Get the configured URL prefix
     url_prefix = PhoenixKit.Config.get_url_prefix()
 
@@ -131,23 +145,20 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
       end
     end
 
-    # Authentication routes (for existing users only - no registration)
+    # Authentication routes that bypass maintenance
+    auth_routes = [
+      "/users/log-in",
+      "/users/reset-password",
+      "/users/confirm",
+      "/users/magic-link",
+      "/users/auth/"
+    ]
+
     # Check both with and without prefix for compatibility
-    # Static assets
-    String.contains?(path, prefix_path.("/users/log-in")) ||
-      String.contains?(path, "/users/log-in") ||
-      String.contains?(path, prefix_path.("/users/reset-password")) ||
-      String.contains?(path, "/users/reset-password") ||
-      String.contains?(path, prefix_path.("/users/confirm")) ||
-      String.contains?(path, "/users/confirm") ||
-      String.contains?(path, prefix_path.("/users/magic-link")) ||
-      String.contains?(path, "/users/magic-link") ||
-      String.contains?(path, prefix_path.("/users/auth/")) ||
-      String.contains?(path, "/users/auth/") ||
-      String.starts_with?(path, "/assets/") ||
-      String.starts_with?(path, "/images/") ||
-      String.starts_with?(path, "/fonts/") ||
-      String.contains?(path, "/favicon")
+    Enum.any?(auth_routes, fn route ->
+      String.contains?(path, prefix_path.(route)) or
+        String.contains?(path, route)
+    end)
   end
 
   defp get_user_from_session(conn) do
