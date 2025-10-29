@@ -26,8 +26,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     * `--router-path` - Specify custom path to router.ex file
     * `--prefix` - Specify PostgreSQL schema prefix (defaults to "public")
     * `--create-schema` - Create schema if using custom prefix (default: true for non-public prefixes)
-    * `--theme-enabled` - Enable modern daisyUI 5 + Tailwind CSS 4 theme system with 35+ themes
-
+    
     ## Auto-detection
 
     The installer will automatically:
@@ -73,7 +72,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           repo: :string,
           prefix: :string,
           create_schema: :boolean,
-          theme_enabled: :boolean,
           skip_assets: :boolean
         ],
         aliases: [
@@ -116,7 +114,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               repo: :string,
               prefix: :string,
               create_schema: :boolean,
-              theme_enabled: :boolean,
               skip_assets: :boolean
             ],
             aliases: [
@@ -173,8 +170,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         --create-schema         Create schema if using custom prefix
                                 Default: true for non-public prefixes
 
-        --theme-enabled         Enable modern daisyUI 5 theme system
-                                Adds 35+ themes support with theme controller
+                                        Adds 35+ themes support with theme controller
                                 Default: false
 
         --skip-assets           Skip automatic asset rebuild check
@@ -192,14 +188,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         # Install with custom PostgreSQL schema prefix for table isolation
         mix phoenix_kit.install --prefix "auth" --create-schema
 
-        # Install with theme system enabled
-        mix phoenix_kit.install --theme-enabled
-
+        
         # Install with custom router path
         mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 
         # Install with all options
-        mix phoenix_kit.install --repo MyApp.Repo --prefix "auth" --theme-enabled
+        mix phoenix_kit.install --repo MyApp.Repo --prefix "auth"
 
       AUTO-DETECTION
         The installer automatically:

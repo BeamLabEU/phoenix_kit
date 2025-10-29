@@ -251,7 +251,7 @@ defmodule PhoenixKitWeb.Live.Settings do
   # Helper function to generate OAuth callback URL
   def get_oauth_callback_url(settings, provider) do
     site_url = settings["site_url"] || "https://example.com"
-    url_prefix = Application.get_env(:phoenix_kit, :url_prefix, "/phoenix_kit")
+    url_prefix = PhoenixKit.Config.get_url_prefix()
 
     "#{site_url}#{url_prefix}/users/auth/#{provider}/callback"
   end
