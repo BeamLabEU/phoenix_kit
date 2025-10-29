@@ -78,7 +78,6 @@ mix phoenix_kit.install --help
 mix phoenix_kit.install                                   # Basic installation with auto-detection
 mix phoenix_kit.install --repo MyApp.Repo                 # Specify repository
 mix phoenix_kit.install --prefix auth                     # Custom schema prefix
-mix phoenix_kit.install --theme-enabled                   # Enable daisyUI 5 theme system
 ```
 
 **Update Help:**
@@ -442,32 +441,10 @@ defp format_time_ago(datetime), do: # logic...
 
 ## Architecture
 
-### Authentication Structure
+### Config Architecture
 
-- **PhoenixKit.Users.Auth** - Main authentication context with public interface
-- **PhoenixKit.Users.Auth.User** - User schema with validations, authentication, and role helpers
-- **PhoenixKit.Users.Auth.UserToken** - Token management for email confirmation and password reset
-- **PhoenixKit.Users.MagicLink** - Magic link authentication system
-- **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
-
-### Role System Architecture
-
-- **PhoenixKit.Users.Role** - Role schema with system role protection
-- **PhoenixKit.Users.RoleAssignment** - Many-to-many role assignments with audit trail
-- **PhoenixKit.Users.Roles** - Role management API and business logic
-- **PhoenixKitWeb.Live.Dashboard** - Admin dashboard with system statistics
-- **PhoenixKitWeb.Live.Users** - User management interface with role controls
-- **PhoenixKit.Users.Auth.register_user/1** - User registration with integrated role assignment
-
-**Key Features:**
-
-- **Three System Roles** - Owner, Admin, User with automatic assignment
-- **Elixir Logic** - First user automatically becomes Owner
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
-- **User Management** - Complete user management interface at `{prefix}/admin/users`
-- **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
-- **Security Features** - Owner protection, audit trail, self-modification prevention
-- **Scope Integration** - Role checks via `PhoenixKit.Users.Auth.Scope`
+- PhoenixKit basic configuration via default Config module in a parent project
+- **PhoenixKit.Config** - Used to work with static configuration instead of `Application.get_env/3`
 
 ### Settings System Architecture
 
@@ -497,6 +474,33 @@ defp format_time_ago(datetime), do: # logic...
 - **Validation** - Form validation with real-time preview examples
 - **Integration** - Automatic integration with date formatting utilities
 - **Email System UI** - Dedicated section for email system configuration
+
+### Authentication Structure
+
+- **PhoenixKit.Users.Auth** - Main authentication context with public interface
+- **PhoenixKit.Users.Auth.User** - User schema with validations, authentication, and role helpers
+- **PhoenixKit.Users.Auth.UserToken** - Token management for email confirmation and password reset
+- **PhoenixKit.Users.MagicLink** - Magic link authentication system
+- **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
+
+### Role System Architecture
+
+- **PhoenixKit.Users.Role** - Role schema with system role protection
+- **PhoenixKit.Users.RoleAssignment** - Many-to-many role assignments with audit trail
+- **PhoenixKit.Users.Roles** - Role management API and business logic
+- **PhoenixKitWeb.Live.Dashboard** - Admin dashboard with system statistics
+- **PhoenixKitWeb.Live.Users** - User management interface with role controls
+- **PhoenixKit.Users.Auth.register_user/1** - User registration with integrated role assignment
+
+**Key Features:**
+
+- **Three System Roles** - Owner, Admin, User with automatic assignment
+- **Elixir Logic** - First user automatically becomes Owner
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
+- **User Management** - Complete user management interface at `{prefix}/admin/users`
+- **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
+- **Security Features** - Owner protection, audit trail, self-modification prevention
+- **Scope Integration** - Role checks via `PhoenixKit.Users.Auth.Scope`
 
 ### Date Formatting Architecture
 
@@ -582,7 +586,7 @@ defp format_time_ago(datetime), do: # logic...
 3. **Add Routes**: Use `phoenix_kit_routes()` macro in your router
 4. **Configure Mailer**: PhoenixKit auto-detects and uses your app's mailer, or set up email delivery in `config/config.exs`
 5. **Configure Layout** (Optional): Set custom layouts in `config/config.exs`
-6. **Theme Support** (Optional): Enable with `--theme-enabled` flag during installation
+6. **Theme Support**: DaisyUI 5 theme system with 35+ themes is automatically enabled
 7. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
 8. **Email System** (Optional): Enable email system and AWS SES integration
 
@@ -611,7 +615,6 @@ config :phoenix_kit,
 
 # Configure DaisyUI 5 Theme System (optional)
 config :phoenix_kit,
-  theme_enabled: true,
   theme: %{
     theme: "auto",                   # Any of 35+ daisyUI themes or "auto"
     primary_color: "#3b82f6",       # Primary brand color (OKLCH format supported)
