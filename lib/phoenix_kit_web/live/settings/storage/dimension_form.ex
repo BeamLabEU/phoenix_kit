@@ -13,7 +13,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
 
   def mount(params, _session, socket) do
     dimension_id = params["id"]
+    action = socket.assigns[:live_action]
+
     mode = if dimension_id, do: :edit, else: :new
+
+    type =
+      if action == :new_image, do: "image", else: if(action == :new_video, do: "video", else: nil)
 
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -22,11 +27,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       socket
       |> assign(:mode, mode)
       |> assign(:dimension_id, dimension_id)
-      |> assign(:page_title, page_title(mode))
+      |> assign(:page_title, page_title_with_type(mode, type))
       |> assign(:project_title, project_title)
-      |> assign(:form_action, page_title(mode))
+      |> assign(:form_action, page_title_with_type(mode, type))
       |> assign(:current_locale, "en")
       |> assign(:current_path, Routes.path("/admin/settings/storage/dimensions"))
+      |> assign(:dimension_type, type)
       |> assign(:dimension, load_dimension_data(mode, dimension_id))
       |> assign_form()
 
@@ -107,7 +113,15 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   end
 
   defp assign_form(%{assigns: %{mode: :new}} = socket) do
-    changeset = Storage.change_dimension(%Storage.Dimension{}, %{})
+    # Set applies_to based on dimension_type
+    initial_attrs =
+      case socket.assigns.dimension_type do
+        "image" -> %{applies_to: "image"}
+        "video" -> %{applies_to: "video"}
+        _ -> %{}
+      end
+
+    changeset = Storage.change_dimension(%Storage.Dimension{}, initial_attrs)
     assign(socket, :changeset, changeset)
   end
 
@@ -118,6 +132,11 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
 
   defp page_title(:new), do: "Add Storage Dimension"
   defp page_title(:edit), do: "Edit Storage Dimension"
+
+  defp page_title_with_type(:new, "image"), do: "Add Image Dimension"
+  defp page_title_with_type(:new, "video"), do: "Add Video Dimension"
+  defp page_title_with_type(:edit, _), do: "Edit Storage Dimension"
+  defp page_title_with_type(:new, _), do: "Add Storage Dimension"
 
   # Helper function for input validation styling
   defp input_class(changeset, field) do

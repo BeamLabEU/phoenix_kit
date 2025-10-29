@@ -288,7 +288,14 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
-          live "/admin/settings/storage/dimensions/new", Live.Settings.Storage.DimensionForm, :new
+
+          live "/admin/settings/storage/dimensions/new/image",
+               Live.Settings.Storage.DimensionForm,
+               :new_image
+
+          live "/admin/settings/storage/dimensions/new/video",
+               Live.Settings.Storage.DimensionForm,
+               :new_video
 
           live "/admin/settings/storage/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
@@ -402,7 +409,14 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
           live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
-          live "/admin/settings/storage/dimensions/new", Live.Settings.Storage.DimensionForm, :new
+
+          live "/admin/settings/storage/dimensions/new/image",
+               Live.Settings.Storage.DimensionForm,
+               :new_image
+
+          live "/admin/settings/storage/dimensions/new/video",
+               Live.Settings.Storage.DimensionForm,
+               :new_video
 
           live "/admin/settings/storage/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
