@@ -202,20 +202,6 @@
                 />
               </div>
             <% end %>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Path Prefix</span>
-                <span class="label-text-alt">Base path within bucket</span>
-              </label>
-              <input
-                type="text"
-                name="bucket[path_prefix]"
-                value={Ecto.Changeset.get_field(@changeset, :path_prefix)}
-                class={"input input-bordered #{input_class(@changeset, :path_prefix)}"}
-                placeholder="uploads/"
-              />
-            </div>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

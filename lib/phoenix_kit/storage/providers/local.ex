@@ -2,7 +2,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   @moduledoc """
   Local filesystem storage provider.
 
-  Stores files on the local filesystem using the configured path prefix.
+  Stores files on the local filesystem using the configured endpoint path.
   Suitable for development, testing, and single-server deployments.
   """
 
@@ -12,7 +12,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   def store_file(bucket, source_path, destination_path, _opts \\ []) do
     try do
       # Build the full destination path
-      full_destination = Path.join(bucket.path_prefix || "priv/uploads", destination_path)
+      full_destination = Path.join(bucket.endpoint || "priv/uploads", destination_path)
 
       # Ensure directory exists
       destination_dir = Path.dirname(full_destination)
@@ -38,7 +38,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   @impl true
   def retrieve_file(bucket, file_path, destination_path) do
     try do
-      full_source = Path.join(bucket.path_prefix || "priv/uploads", file_path)
+      full_source = Path.join(bucket.endpoint || "priv/uploads", file_path)
 
       # Ensure destination directory exists
       destination_dir = Path.dirname(destination_path)
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   @impl true
   def delete_file(bucket, file_path) do
     try do
-      full_path = Path.join(bucket.path_prefix || "priv/uploads", file_path)
+      full_path = Path.join(bucket.endpoint || "priv/uploads", file_path)
 
       case File.rm(full_path) do
         :ok -> :ok
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
 
   @impl true
   def file_exists?(bucket, file_path) do
-    full_path = Path.join(bucket.path_prefix || "priv/uploads", file_path)
+    full_path = Path.join(bucket.endpoint || "priv/uploads", file_path)
     File.exists?(full_path)
   end
 
@@ -90,7 +90,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   @impl true
   def test_connection(bucket) do
     try do
-      base_path = bucket.path_prefix || "priv/uploads"
+      base_path = bucket.endpoint || "priv/uploads"
 
       # Test if we can create the directory
       case File.mkdir_p(base_path) do

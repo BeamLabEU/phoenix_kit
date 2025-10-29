@@ -23,7 +23,6 @@ defmodule PhoenixKit.Storage.Bucket do
   - `access_key_id` - Encrypted credentials (nullable)
   - `secret_access_key` - Encrypted credentials (nullable)
   - `cdn_url` - CDN endpoint for file serving (nullable)
-  - `path_prefix` - Base path for files in bucket (nullable)
   - `enabled` - Whether bucket is active
   - `priority` - Selection priority (0 = random/emptiest)
   - `max_size_mb` - Maximum storage capacity in MB (nullable = unlimited)
@@ -79,7 +78,6 @@ defmodule PhoenixKit.Storage.Bucket do
     field :access_key_id, :string
     field :secret_access_key, :string
     field :cdn_url, :string
-    field :path_prefix, :string
     field :enabled, :boolean, default: true
     field :priority, :integer, default: 0
     field :max_size_mb, :integer
@@ -115,7 +113,6 @@ defmodule PhoenixKit.Storage.Bucket do
       :access_key_id,
       :secret_access_key,
       :cdn_url,
-      :path_prefix,
       :enabled,
       :priority,
       :max_size_mb

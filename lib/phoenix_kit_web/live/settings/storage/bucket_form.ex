@@ -38,7 +38,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
         access_key_id: bucket.access_key_id,
         secret_access_key: bucket.secret_access_key,
         cdn_url: bucket.cdn_url,
-        path_prefix: bucket.path_prefix,
         enabled: bucket.enabled,
         priority: bucket.priority,
         max_size_mb: bucket.max_size_mb

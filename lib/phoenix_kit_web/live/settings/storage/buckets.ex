@@ -145,28 +145,13 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.Buckets do
   defp get_bucket_full_path(bucket) do
     case bucket.provider do
       "local" ->
-        base_path = bucket.endpoint || "No path configured"
-        prefix = bucket.path_prefix || ""
-
-        if base_path == "No path configured" do
-          base_path
-        else
-          # Combine base path with path prefix
-          if String.length(prefix) > 0 do
-            # Ensure no double slashes and proper path joining
-            base_path = String.trim_trailing(base_path, "/")
-            prefix = String.trim_leading(prefix, "/")
-            base_path <> "/" <> prefix
-          else
-            base_path
-          end
-        end
+        bucket.endpoint || "No path configured"
 
       provider when provider in ["s3", "b2", "r2"] ->
         path_parts = [
           provider <> ":",
           (if bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
-          (if bucket.path_prefix, do: "/" <> bucket.path_prefix, else: "/")
+          (if bucket.endpoint, do: bucket.endpoint, else: "/")
         ]
         Enum.join(path_parts, "")
 
