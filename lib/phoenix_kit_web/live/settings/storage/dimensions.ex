@@ -76,8 +76,16 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.Dimensions do
     end
   end
 
-  defp format_dimension_size(width, height) when width and height do
+  defp format_dimension_size(width, height) when is_integer(width) and is_integer(height) do
     "#{width}×#{height}"
+  end
+
+  defp format_dimension_size(width, nil) when is_integer(width) do
+    "#{width}px wide"
+  end
+
+  defp format_dimension_size(nil, height) when is_integer(height) do
+    "#{height}px tall"
   end
 
   defp format_dimension_size(_, _), do: "Auto"
