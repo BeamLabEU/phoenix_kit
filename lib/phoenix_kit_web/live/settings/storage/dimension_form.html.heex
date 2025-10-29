@@ -168,29 +168,6 @@
             </div>
           </div>
 
-          <%!-- Order --%>
-          <div class="form-control max-w-xs">
-            <label class="label">
-              <span class="label-text font-semibold">Order</span>
-              <span class="label-text-alt">Display order in admin</span>
-            </label>
-            <input
-              type="number"
-              name="dimension[order]"
-              value={get_field_value(@changeset, :order)}
-              class={"input input-bordered #{input_class(@changeset, :order)}"}
-              placeholder="1"
-              min="0"
-            />
-            {render_error(@changeset, :order)}
-          </div>
-
-          <%!-- Hidden field for applies_to (auto-set based on dimension type) --%>
-          <input
-            type="hidden"
-            name="dimension[applies_to]"
-            value={@dimension_type}
-          />
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">

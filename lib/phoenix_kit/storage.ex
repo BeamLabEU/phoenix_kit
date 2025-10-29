@@ -163,11 +163,11 @@ defmodule PhoenixKit.Storage do
   # ===== DIMENSIONS =====
 
   @doc """
-  Returns a list of all dimensions, ordered by their order field.
+  Returns a list of all dimensions, ordered by size (width x height).
   """
   def list_dimensions do
     Dimension
-    |> order_by(asc: :order)
+    |> order_by(asc: :width, asc: :height)
     |> repo().all()
   end
 
@@ -177,7 +177,7 @@ defmodule PhoenixKit.Storage do
   def list_dimensions_for_type(file_type) when file_type in ["image", "video"] do
     Dimension
     |> where([d], d.enabled == true and (d.applies_to == ^file_type or d.applies_to == "both"))
-    |> order_by(asc: :order)
+    |> order_by(asc: :width, asc: :height)
     |> repo().all()
   end
 
