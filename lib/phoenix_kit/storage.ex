@@ -196,6 +196,128 @@ defmodule PhoenixKit.Storage do
   end
 
   @doc """
+  Resets all dimensions to default seeded values.
+  Deletes all current dimensions and recreates the 8 default ones.
+  """
+  def reset_dimensions_to_defaults do
+    repo().transaction(fn ->
+      # Delete all existing dimensions
+      repo().delete_all(Dimension)
+
+      # Insert default dimensions
+      now = NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+
+      default_dimensions = [
+        # Image dimensions
+        %{
+          name: "thumbnail",
+          width: 150,
+          height: 150,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          enabled: true,
+          order: 1,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "small",
+          width: 300,
+          height: 300,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          enabled: true,
+          order: 2,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "medium",
+          width: 800,
+          height: 600,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          enabled: true,
+          order: 3,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "large",
+          width: 1920,
+          height: 1080,
+          quality: 85,
+          format: "jpg",
+          applies_to: "image",
+          enabled: true,
+          order: 4,
+          inserted_at: now,
+          updated_at: now
+        },
+        # Video dimensions
+        %{
+          name: "360p",
+          width: 640,
+          height: 360,
+          quality: 28,
+          format: "mp4",
+          applies_to: "video",
+          enabled: true,
+          order: 5,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "720p",
+          width: 1280,
+          height: 720,
+          quality: 28,
+          format: "mp4",
+          applies_to: "video",
+          enabled: true,
+          order: 6,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "1080p",
+          width: 1920,
+          height: 1080,
+          quality: 28,
+          format: "mp4",
+          applies_to: "video",
+          enabled: true,
+          order: 7,
+          inserted_at: now,
+          updated_at: now
+        },
+        %{
+          name: "video_thumbnail",
+          width: 640,
+          height: 360,
+          quality: 85,
+          format: "jpg",
+          applies_to: "video",
+          enabled: true,
+          order: 8,
+          inserted_at: now,
+          updated_at: now
+        }
+      ]
+
+      # Insert all default dimensions
+      Enum.each(default_dimensions, fn dim ->
+        %Dimension{}
+        |> Dimension.changeset(dim)
+        |> repo().insert!()
+      end)
+    end)
+  end
+
+  @doc """
   Creates a new dimension.
 
   ## Examples

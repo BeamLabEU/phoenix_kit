@@ -32,11 +32,22 @@
     <div class="alert alert-info mb-6">
       <.icon name="hero-information-circle" class="w-5 h-5" />
       <div>
-        <h3 class="font-bold">Dimension Presets</h3>
-        <p class="text-sm">
-          Dimensions define the target sizes for automatic variant generation. Images are resized and videos are transcoded to these preset sizes.
-          The migration seeds 8 default dimensions: 4 image sizes (thumbnail, small, medium, large) and 4 video variants (360p, 720p, 1080p, video_thumbnail).
-        </p>
+        <div class="flex justify-between items-start">
+          <div>
+            <h3 class="font-bold">Dimension Presets</h3>
+            <p class="text-sm">
+              Dimensions define the target sizes for automatic variant generation. Images are resized and videos are transcoded to these preset sizes.
+              The migration seeds 8 default dimensions: 4 image sizes (thumbnail, small, medium, large) and 4 video variants (360p, 720p, 1080p, video_thumbnail).
+            </p>
+          </div>
+          <button
+            phx-click="reset_dimensions_to_defaults"
+            data-confirm="Are you sure? This will delete all current dimensions and restore the default 8 dimensions. This action cannot be undone."
+            class="btn btn-error btn-sm"
+          >
+            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Reset to Defaults
+          </button>
+        </div>
       </div>
     </div>
 

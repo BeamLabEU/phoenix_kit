@@ -82,6 +82,25 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.Dimensions do
     end
   end
 
+  def handle_event("reset_dimensions_to_defaults", _params, socket) do
+    case Storage.reset_dimensions_to_defaults() do
+      {:ok, _} ->
+        # Reload dimensions
+        dimensions = Storage.list_dimensions()
+
+        socket =
+          socket
+          |> assign(:dimensions, dimensions)
+          |> put_flash(:info, "Dimensions reset to defaults successfully")
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        socket = put_flash(socket, :error, "Failed to reset dimensions: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
   defp format_dimension_size(width, height) when is_integer(width) and is_integer(height) do
     "#{width}×#{height}"
   end

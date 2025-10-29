@@ -151,10 +151,19 @@ defmodule PhoenixKit.Storage.Dimension do
   defp validate_quality(changeset) do
     quality = get_field(changeset, :quality)
     applies_to = get_field(changeset, :applies_to)
+    name = get_field(changeset, :name)
+    format = get_field(changeset, :format)
 
     cond do
       is_nil(quality) ->
         changeset
+
+      # video_thumbnail outputs images, so it uses image quality scale (1-100)
+      name == "video_thumbnail" and format in ["jpg", "jpeg", "png", "webp", "gif"] ->
+        validate_number(changeset, :quality,
+          greater_than_or_equal_to: 1,
+          less_than_or_equal_to: 100
+        )
 
       applies_to in ["image", "both"] ->
         validate_number(changeset, :quality,
@@ -192,7 +201,8 @@ defmodule PhoenixKit.Storage.Dimension do
   end
 
   defp get_valid_formats("image"), do: ["jpg", "jpeg", "png", "webp", "gif"]
-  defp get_valid_formats("video"), do: ["mp4", "webm", "avi", "mov"]
+  # Videos can output video formats, but video_thumbnail outputs JPG images
+  defp get_valid_formats("video"), do: ["mp4", "webm", "avi", "mov", "jpg", "jpeg", "png", "webp"]
 
   defp get_valid_formats("both"),
     do: ["jpg", "jpeg", "png", "webp", "gif", "mp4", "webm", "avi", "mov"]
