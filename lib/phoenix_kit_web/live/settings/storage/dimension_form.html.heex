@@ -87,29 +87,51 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Quality</span>
-                <span class="label-text-alt">Compression quality (1-100)</span>
+                <span class="label-text font-semibold">
+                  <%= if @dimension_type == "video" do %>
+                    Quality (CRF)
+                  <% else %>
+                    Quality
+                  <% end %>
+                </span>
+                <span class="label-text-alt">
+                  <%= if @dimension_type == "video" do %>
+                    Compression quality (0-51, lower = higher quality)
+                  <% else %>
+                    Compression quality (1-100)
+                  <% end %>
+                </span>
               </label>
               <input
                 type="number"
                 name="dimension[quality]"
                 value={get_field_value(@changeset, :quality)}
                 class={"input input-bordered #{input_class(@changeset, :quality)}"}
-                placeholder="85"
-                min="1"
-                max="100"
+                placeholder={if @dimension_type == "video", do: "23", else: "85"}
+                min={if @dimension_type == "video", do: "0", else: "1"}
+                max={if @dimension_type == "video", do: "51", else: "100"}
               />
               {render_error(@changeset, :quality)}
               <label class="label">
                 <span class="label-text-alt">
-                  Images use 1-100, Videos use CRF 0-51 (lower = higher quality)
+                  <%= if @dimension_type == "video" do %>
+                    Videos use CRF 0-51 (lower = higher quality, 18-28 recommended)
+                  <% else %>
+                    Images use 1-100 (higher = better quality, 80-90 recommended)
+                  <% end %>
                 </span>
               </label>
             </div>
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Format Override</span>
+                <span class="label-text font-semibold">
+                  <%= if @dimension_type == "video" do %>
+                    Codec Override
+                  <% else %>
+                    Format Override
+                  <% end %>
+                </span>
                 <span class="label-text-alt">Leave empty to preserve original</span>
               </label>
               <select
@@ -146,57 +168,29 @@
             </div>
           </div>
 
-          <%!-- Type and Order --%>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Applies To *</span>
-                <span class="label-text-alt">File types this dimension applies to</span>
-              </label>
-              <select
-                name="dimension[applies_to]"
-                class={"select select-bordered #{input_class(@changeset, :applies_to)}"}
-                required
-              >
-                <option value="">Select type...</option>
-                <option
-                  value="image"
-                  selected={get_field_value(@changeset, :applies_to) == "image"}
-                >
-                  Images only
-                </option>
-                <option
-                  value="video"
-                  selected={get_field_value(@changeset, :applies_to) == "video"}
-                >
-                  Videos only
-                </option>
-                <option
-                  value="both"
-                  selected={get_field_value(@changeset, :applies_to) == "both"}
-                >
-                  Both images and videos
-                </option>
-              </select>
-              {render_error(@changeset, :applies_to)}
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Order</span>
-                <span class="label-text-alt">Display order in admin</span>
-              </label>
-              <input
-                type="number"
-                name="dimension[order]"
-                value={get_field_value(@changeset, :order)}
-                class={"input input-bordered #{input_class(@changeset, :order)}"}
-                placeholder="1"
-                min="0"
-              />
-              {render_error(@changeset, :order)}
-            </div>
+          <%!-- Order --%>
+          <div class="form-control max-w-xs">
+            <label class="label">
+              <span class="label-text font-semibold">Order</span>
+              <span class="label-text-alt">Display order in admin</span>
+            </label>
+            <input
+              type="number"
+              name="dimension[order]"
+              value={get_field_value(@changeset, :order)}
+              class={"input input-bordered #{input_class(@changeset, :order)}"}
+              placeholder="1"
+              min="0"
+            />
+            {render_error(@changeset, :order)}
           </div>
+
+          <%!-- Hidden field for applies_to (auto-set based on dimension type) --%>
+          <input
+            type="hidden"
+            name="dimension[applies_to]"
+            value={@dimension_type}
+          />
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
