@@ -207,6 +207,11 @@ defmodule PhoenixKitWeb.Integration do
 
         # Public pages routes (no authentication required)
         get "/pages/*path", PagesController, :show
+
+        # Storage API routes (file upload and serving)
+        post "/api/upload", UploadController, :create
+        get "/file/:file_id/:variant/:token", FileController, :show
+        get "/api/files/:file_id/info", FileController, :info
       end
 
       # Email export routes (require admin or owner role)

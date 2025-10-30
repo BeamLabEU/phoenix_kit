@@ -709,7 +709,119 @@ defmodule PhoenixKit.Storage do
     PhoenixKit.Storage.Manager.file_exists?(file.file_name)
   end
 
+  @doc """
+  Stores a file in buckets with hierarchical path structure.
+
+  ## Path Structure
+
+  Files are stored using the pattern:
+  `{user_id[0..1]}/{hash[0..1]}/{full_hash}/{full_hash}_{variant}.{format}`
+
+  ## Examples
+
+  User ID: "12345678"
+  File hash: "a1b2c3d4e5f6..."
+  Original: "12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_original.jpg"
+  Thumbnail: "12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
+  """
+  def store_file_in_buckets(source_path, file_type, user_id, file_hash, ext) do
+    # Calculate MD5 hash for path structure
+    md5_hash =
+      source_path
+      |> File.read!()
+      |> :crypto.hash(:md5)
+      |> Base.encode16(case: :lower)
+
+    # Generate UUIDv7 for file ID
+    file_id = generate_uuidv7()
+
+    # Build hierarchical path
+    user_prefix = String.slice(user_id, 0, 2)
+    hash_prefix = String.slice(md5_hash, 0, 2)
+    hierarchical_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
+
+    # Create file record
+    file_attrs = %{
+      id: file_id,
+      original_file_name: Path.basename(source_path),
+      file_path: hierarchical_path,
+      mime_type: determine_mime_type(ext),
+      file_type: file_type,
+      ext: ext,
+      checksum: file_hash,
+      size: get_file_size(source_path),
+      status: "processing",
+      user_id: user_id
+    }
+
+    case create_file(file_attrs) do
+      {:ok, file} ->
+        # Store in buckets with redundancy
+        variant_path = "#{hierarchical_path}/#{md5_hash}_original.#{ext}"
+
+        case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: variant_path) do
+          {:ok, storage_info} ->
+            # Create file instance for original
+            original_instance_attrs = %{
+              variant_name: "original",
+              file_name: variant_path,
+              mime_type: file.mime_type,
+              ext: ext,
+              checksum: file_hash,
+              size: get_file_size(source_path),
+              processing_status: "completed",
+              file_id: file.id
+            }
+
+            case create_file_instance(original_instance_attrs) do
+              {:ok, _instance} ->
+                {:ok, file}
+
+              {:error, changeset} ->
+                # Clean up if instance creation fails
+                PhoenixKit.Storage.Manager.delete_file(variant_path)
+                {:error, changeset}
+            end
+
+          {:error, reason} ->
+            # Clean up file record if storage fails
+            repo().delete(file)
+            {:error, reason}
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
   # ===== HELPER FUNCTIONS =====
+
+  defp generate_uuidv7 do
+    UUIDv7.generate()
+  end
+
+  defp get_file_size(source_path) do
+    case File.stat(source_path) do
+      {:ok, stat} -> stat.size
+      _ -> 0
+    end
+  end
+
+  defp determine_mime_type(ext) do
+    case String.downcase(ext) do
+      "jpg" -> "image/jpeg"
+      "jpeg" -> "image/jpeg"
+      "png" -> "image/png"
+      "gif" -> "image/gif"
+      "webp" -> "image/webp"
+      "mp4" -> "video/mp4"
+      "webm" -> "video/webm"
+      "mov" -> "video/quicktime"
+      "avi" -> "video/x-msvideo"
+      "pdf" -> "application/pdf"
+      _ -> "application/octet-stream"
+    end
+  end
 
   defp get_default_path do
     PhoenixKit.Settings.get_setting("storage_default_path", "priv/uploads")

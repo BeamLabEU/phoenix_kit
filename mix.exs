@@ -110,6 +110,13 @@ defmodule PhoenixKit.MixProject do
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
 
+      # Background job processing
+      {:oban, "~> 2.17"},
+
+      # File processing
+      {:vix, "~> 0.5"},
+      {:ffmpex, "~> 0.10"},
+
       # Code generation and project patching
       {:igniter, "~> 0.6.30", optional: true}
     ]

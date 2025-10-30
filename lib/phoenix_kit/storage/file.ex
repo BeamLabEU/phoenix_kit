@@ -88,6 +88,7 @@ defmodule PhoenixKit.Storage.File do
   schema "phoenix_kit_files" do
     field :original_file_name, :string
     field :file_name, :string
+    field :file_path, :string
     field :mime_type, :string
     field :file_type, :string
     field :ext, :string
@@ -132,6 +133,7 @@ defmodule PhoenixKit.Storage.File do
     |> cast(attrs, [
       :original_file_name,
       :file_name,
+      :file_path,
       :mime_type,
       :file_type,
       :ext,

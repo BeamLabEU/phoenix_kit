@@ -141,7 +141,12 @@ defmodule PhoenixKit.Storage.Manager do
   end
 
   defp store_across_buckets(source_path, buckets, opts) do
-    destination_path = generate_destination_path(source_path, opts)
+    # Use path_prefix if provided, otherwise generate a path
+    destination_path =
+      case Keyword.get(opts, :path_prefix) do
+        nil -> generate_destination_path(source_path, opts)
+        path_prefix -> path_prefix
+      end
 
     results =
       buckets

@@ -86,6 +86,7 @@ defmodule PhoenixKit.Migrations.Postgres.V19 do
       add :id, :uuid, primary_key: true
       add :original_file_name, :string, null: false
       add :file_name, :string, null: false
+      add :file_path, :string
       add :mime_type, :string, null: false
       add :file_type, :string, null: false
       add :ext, :string, null: false
@@ -108,6 +109,7 @@ defmodule PhoenixKit.Migrations.Postgres.V19 do
     create_if_not_exists index(:phoenix_kit_files, [:file_type], prefix: prefix)
     create_if_not_exists index(:phoenix_kit_files, [:status], prefix: prefix)
     create_if_not_exists index(:phoenix_kit_files, [:inserted_at], prefix: prefix)
+    create_if_not_exists index(:phoenix_kit_files, [:file_path], prefix: prefix)
 
     execute """
     COMMENT ON TABLE #{prefix_table_name("phoenix_kit_files", prefix)} IS
