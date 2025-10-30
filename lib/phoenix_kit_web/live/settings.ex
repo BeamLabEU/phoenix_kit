@@ -255,5 +255,4 @@ defmodule PhoenixKitWeb.Live.Settings do
 
     "#{site_url}#{url_prefix}/users/auth/#{provider}/callback"
   end
-
 end

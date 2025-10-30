@@ -257,48 +257,47 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- Pages Module temporarily disabled --%>
-      <%!--
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="Pages"
-        description="File-based content management system for creating and organizing pages"
-        icon="📄"
-        enabled={@pages_enabled}
-        toggle_event="toggle_pages"
+        title="Blogging"
+        description="Publish date-based blog posts and company updates with multi-language support"
+        icon="📰"
+        enabled={@blogging_enabled}
+        toggle_event="toggle_blogging"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@pages_enabled, do: "badge-success", else: "badge-neutral")
+            if(@blogging_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @pages_enabled, do: "Enabled", else: "Disabled"}
+            {if @blogging_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
           </span>
         </:status_badges>
 
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/pages")}
-              class={"btn btn-sm #{if @pages_enabled, do: "btn-primary", else: "btn-outline"}"}
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/blogging", locale: @current_locale || "en")
+              }
+              class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
-              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Manage Pages
+              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Blogging")}
             </.link>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/pages", locale: @current_locale || "en")}
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
+                  locale: @current_locale || "en"
+                )
+              }
               class="btn btn-sm btn-outline"
             >
-              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogs")}
             </.link>
           </div>
         </:action_buttons>
-
-        <:stats>
-          <div class="text-xs text-base-content/70">
-            Create and manage files and folders through web interface
-          </div>
-        </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
-      --%>
+
+      <%!-- Pages module remains disabled but code retained for future use --%>
 
       <%!-- Under Construction (Maintenance Mode) Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
