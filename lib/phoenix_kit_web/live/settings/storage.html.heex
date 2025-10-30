@@ -430,25 +430,30 @@
     <%!-- Upload Test Section --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
-        <h2 class="card-title text-2xl mb-4">
-          <.icon name="hero-cloud-arrow-up" class="w-6 h-6 mr-2" /> Upload Test
-        </h2>
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="card-title text-2xl">
+            <.icon name="hero-cloud-arrow-up" class="w-6 h-6 mr-2" /> Upload Test
+          </h2>
+          <%!-- Connection Status --%>
+          <div class="flex items-center gap-2">
+            <div :if={assigns[:uploads] && @uploads.files != %Phoenix.LiveView.UploadConfig{}} class="flex items-center gap-1 text-success">
+              <.icon name="hero-check-circle" class="w-5 h-5" />
+              <span class="text-sm">Ready</span>
+            </div>
+          </div>
+        </div>
         <p class="text-sm text-base-content/70 mb-4">
           Upload a file to test the storage system. Supported formats: JPG, PNG, WebP, MP4, WebM, PDF
           <br />Maximum file size: 100MB
         </p>
 
-        <form id="upload-form" phx-submit="save" phx-change="validate">
-          <div id="upload-dropzone" class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
+        <div :if={assigns[:uploads]}>
+          <div id="upload-dropzone" class="relative border-2 border-dashed border-base-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
             <.icon name="hero-photo" class="w-12 h-12 mx-auto mb-4 text-base-content/30" />
             <p class="text-lg font-semibold mb-2">Drop files here or click to browse</p>
             <p class="text-sm text-base-content/60 mb-4">Images, videos, and PDFs up to 100MB</p>
 
-            <input type="file" id="file-upload" class="hidden" />
-            <.live_file_input upload={@uploads.files} />
-            <label for="file-upload" class="btn btn-primary cursor-pointer">
-              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Choose File
-            </label>
+            <.live_file_input upload={@uploads.files} class="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10" />
           </div>
 
           <%= for entry <- @uploads.files.entries do %>
@@ -458,9 +463,6 @@
                   <p class="font-semibold">{entry.client_name}</p>
                   <p class="text-sm text-base-content/60">
                     {format_bytes(entry.client_size)}
-                    <%= if entry.progress != 100 do %>
-                      - {entry.progress}% uploaded
-                    <% end %>
                   </p>
                 </div>
                 <button
@@ -472,31 +474,21 @@
                   <.icon name="hero-x-mark" class="w-4 h-4" />
                 </button>
               </div>
-
-              <%= if entry.progress > 0 do %>
-                <progress value={entry.progress} max="100" class="progress progress-primary w-full h-2"></progress>
-              <% end %>
-
-              <%= if entry.errors != [] do %>
-                <div class="mt-2 text-sm text-error">
-                  <%= for err <- entry.errors do %>
-                    <p>{error_to_string(err)}</p>
-                  <% end %>
-                </div>
-              <% end %>
             </div>
           <% end %>
 
           <div class="mt-6 flex justify-end gap-2">
             <button
-              type="submit"
+              type="button"
               class="btn btn-success"
               disabled={length(@uploads.files.entries) == 0}
+              phx-click="save"
             >
-              <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
+              <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Process Files
+              <span class="badge badge-xs ml-1">{length(@uploads.files.entries)}</span>
             </button>
           </div>
-        </form>
+        </div>
 
         <%= if length(@uploaded_files) > 0 do %>
           <div class="mt-6">

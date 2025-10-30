@@ -41,7 +41,15 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     form_redundancy = current_redundancy
     form_auto_generate_variants = auto_generate_variants == "true"
 
-    # Allow uploads for testing
+    # Allow uploads for testing - uploads only work in connected LiveViews
+    socket =
+      if connected?(socket) do
+        allow_upload(socket, :files, accept: ["image/*", "video/*", "application/pdf"], max_file_size: 100_000_000)
+      else
+        socket
+      end
+
+    # Now assign all other values
     socket =
       socket
       |> assign(:current_path, current_path)
@@ -56,7 +64,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_auto_generate_variants, form_auto_generate_variants)
-      |> allow_upload(:files, accept: ~w(image/* video/* application/pdf), max_file_size: 100_000_000)
       |> assign(:uploaded_files, [])
 
     {:ok, socket}
@@ -250,56 +257,14 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
+  def handle_event("validate", _params, socket) do
+    # Handle form validation - files are being validated on change
+    {:noreply, socket}
+  end
+
   def handle_event("save", _params, socket) do
-    # Get the current user from socket
-    current_user = socket.assigns.phoenix_kit_current_user
-    user_id = if current_user, do: current_user.id, else: 1  # Default to user 1
-
-    # Process uploaded files
-    case uploaded_files(socket) do
-      {:ok, uploaded_files, socket} ->
-        # Update the socket with new uploaded files
-        socket = assign(socket, :uploaded_files, uploaded_files)
-        {:noreply, socket}
-
-      {:error, reason, socket} ->
-        socket = put_flash(socket, :error, "Upload failed: #{inspect(reason)}")
-        {:noreply, socket}
-    end
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :files, ref)}
-  end
-
-  defp get_current_path(_socket, _session) do
-    # For Storage settings page
-    Routes.path("/admin/settings/storage")
-  end
-
-  # Helper function to get full path for a bucket
-  defp get_bucket_full_path(bucket) do
-    case bucket.provider do
-      "local" ->
-        bucket.endpoint || "No path configured"
-
-      provider when provider in ["s3", "b2", "r2"] ->
-        path_parts = [
-          provider <> ":",
-          if(bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
-          if(bucket.endpoint, do: bucket.endpoint, else: "/")
-        ]
-
-        Enum.join(path_parts, "")
-
-      _ ->
-        "#{bucket.provider}: unknown configuration"
-    end
-  end
-
-  # Upload handling
-  defp uploaded_files(socket) do
-    consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+    # Process uploaded files using consume_uploaded_entries
+    {uploaded_files, socket} = consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
       # Get file info
       ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
       mime_type = entry.client_type || MIME.from_path(entry.client_name)
@@ -336,9 +301,21 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
            }}
 
         {:error, reason} ->
+          IO.inspect(reason, label: "Storage Error")
           {:error, reason}
       end
     end)
+
+    socket =
+      socket
+      |> assign(:uploaded_files, uploaded_files)
+      |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
+
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :files, ref)}
   end
 
   defp calculate_file_hash(file_path) do
@@ -354,6 +331,31 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       String.starts_with?(mime_type, "video/") -> "video"
       mime_type == "application/pdf" -> "document"
       true -> "other"
+    end
+  end
+
+  defp get_current_path(_socket, _session) do
+    # For Storage settings page
+    Routes.path("/admin/settings/storage")
+  end
+
+  # Helper function to get full path for a bucket
+  defp get_bucket_full_path(bucket) do
+    case bucket.provider do
+      "local" ->
+        bucket.endpoint || "No path configured"
+
+      provider when provider in ["s3", "b2", "r2"] ->
+        path_parts = [
+          provider <> ":",
+          if(bucket.bucket_name, do: bucket.bucket_name, else: "no-bucket"),
+          if(bucket.endpoint, do: bucket.endpoint, else: "/")
+        ]
+
+        Enum.join(path_parts, "")
+
+      _ ->
+        "#{bucket.provider}: unknown configuration"
     end
   end
 
