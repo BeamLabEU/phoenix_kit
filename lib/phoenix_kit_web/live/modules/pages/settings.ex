@@ -57,7 +57,11 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Settings do
       {:noreply, socket}
     else
       {:noreply,
-       put_flash(socket, :error, gettext("Enable the Pages module before configuring 404 handling"))}
+       put_flash(
+         socket,
+         :error,
+         gettext("Enable the Pages module before configuring 404 handling")
+       )}
     end
   end
 

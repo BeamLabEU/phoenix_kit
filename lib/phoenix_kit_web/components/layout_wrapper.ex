@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Module.Languages
+  alias PhoenixKitWeb.Live.Modules.Publishing
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -75,6 +76,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       assigns
       |> assign_new(:content_language, fn ->
         PhoenixKit.Settings.get_content_language()
+      end)
+      |> assign_new(:publishing_types, fn ->
+        if Publishing.enabled?() do
+          Publishing.list_types()
+        else
+          []
+        end
       end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
@@ -142,7 +150,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               current_path: assigns[:current_path],
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
-              current_locale: assigns[:current_locale] || "en"
+              current_locale: assigns[:current_locale] || "en",
+              publishing_types: assigns[:publishing_types] || []
             }
 
             assigns = template_assigns
@@ -382,15 +391,35 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%!-- Pages navigation temporarily disabled --%>
-                    <%# if PhoenixKit.Pages.enabled?() do %>
-                    <%#   <.admin_nav_item
-                    <%#     href={Routes.locale_aware_path(assigns, "/admin/pages")}
-                    <%#     icon="document"
-                    <%#     label="Pages"
-                    <%#     current_path={@current_path || ""}
-                    <%#   /> %>
-                    <%# end %>
+                    <%= if Publishing.enabled?() do %>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/publishing")}
+                        icon="document"
+                        label="Publishing"
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                      />
+
+                      <div class="mt-1">
+                        <%= for type <- @publishing_types do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/publishing/#{type["slug"]}")}
+                            icon="hero-document-text"
+                            label={type["name"]}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
+                          icon="hero-cog-6-tooth"
+                          label="Manage Types"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+                      </div>
+                    <% end %>
 
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
@@ -408,7 +437,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/publishing", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -437,15 +466,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%# if PhoenixKit.Pages.enabled?() do %>
-                        <%#   <.admin_nav_item
-                        <%#     href={Routes.locale_aware_path(assigns, "/admin/settings/pages")}
-                        <%#     icon="document"
-                        <%#     label="Pages"
-                        <%#     current_path={@current_path || ""}
-                        <%#     nested={true}
-                        <%#   /> %>
-                        <%# end %>
+                        <%= if Publishing.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
+                            icon="document"
+                            label="Publishing"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%!-- Legacy Pages settings navigation retained for future use --%>
 
                         <%= if PhoenixKit.Emails.enabled?() do %>
                           <.admin_nav_item

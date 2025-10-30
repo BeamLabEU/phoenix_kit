@@ -1,0 +1,182 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <div class="space-y-4">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+        <div>
+          <p class="text-sm uppercase tracking-wide text-base-content/60">
+            {gettext("Publishing")}
+          </p>
+          <h1 class="text-3xl font-bold text-base-content">
+            {(@current_type && @current_type["name"]) || @type_slug}
+          </h1>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-primary btn-sm" phx-click="create_entry">
+            <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create %{type} Post",
+              type: (@current_type && @current_type["name"]) || @type_slug
+            )}
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1">
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
+          <span class="text-sm text-base-content/70">
+            {gettext("Showing %{count} entries", count: length(@entries))}
+          </span>
+          <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
+            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
+          </button>
+        </div>
+
+        <%= if @entries == [] do %>
+          <div class="card bg-base-100 shadow-sm border border-base-200">
+            <div class="card-body">
+              <h3 class="text-lg font-semibold text-base-content">{gettext("No entries yet")}</h3>
+              <p class="text-sm text-base-content/70">
+                {gettext("Create your first entry to start publishing content.")}
+              </p>
+            </div>
+          </div>
+        <% else %>
+          <div class="grid gap-4">
+            <%= for entry <- @entries do %>
+              <div class="card bg-base-100 shadow-sm border border-base-200">
+                <div class="card-body p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
+                      <span>
+                        {Calendar.strftime(entry.date, "%B %d, %Y")} at {Calendar.strftime(
+                          entry.time,
+                          "%I:%M %p"
+                        )}
+                      </span>
+                    </div>
+                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
+                      {entry.metadata.title || gettext("Untitled entry")}
+                    </h3>
+                  </div>
+                  <div class="flex gap-2 flex-wrap">
+                    <%!-- Show buttons for all languages (enabled and disabled) in consistent order --%>
+                    <% all_languages =
+                      (entry.available_languages ++ @enabled_languages)
+                      |> Enum.uniq()
+                      |> Enum.sort() %>
+                    <%= for lang_code <- all_languages do %>
+                      <% lang_path =
+                        Path.join([
+                          Path.dirname(entry.path),
+                          "#{lang_code}.phk"
+                        ])
+
+                      lang_info =
+                        PhoenixKitWeb.Live.Modules.Publishing.get_language_info(lang_code)
+
+                      flag = if lang_info, do: lang_info.flag, else: ""
+                      file_exists = lang_code in entry.available_languages
+                      is_enabled = lang_code in @enabled_languages
+
+                      # Read language-specific metadata for status
+                      lang_metadata =
+                        if file_exists do
+                          case PhoenixKitWeb.Live.Modules.Publishing.read_entry(
+                                 @type_slug,
+                                 lang_path
+                               ) do
+                            {:ok, lang_entry} -> lang_entry.metadata
+                            _ -> nil
+                          end
+                        else
+                          nil
+                        end %>
+                      <%= if file_exists do %>
+                        <%!-- Language card with status and edit button --%>
+                        <div class="flex flex-col gap-1 justify-between">
+                          <%!-- Status badge --%>
+                          <%= if lang_metadata do %>
+                            <button
+                              type="button"
+                              phx-click="toggle_status"
+                              phx-value-path={lang_path}
+                              phx-value-current-status={lang_metadata.status}
+                              class={[
+                                "badge badge-sm cursor-pointer hover:brightness-90 transition-all",
+                                case lang_metadata.status do
+                                  "published" -> "badge-success"
+                                  "archived" -> "badge-neutral"
+                                  _ -> "badge-warning"
+                                end
+                              ]}
+                              title={gettext("Click to change status")}
+                            >
+                              {lang_metadata.status}
+                            </button>
+                          <% end %>
+                          <%!-- Edit button --%>
+                          <.link
+                            navigate={
+                              PhoenixKit.Utils.Routes.path(
+                                "/admin/publishing/#{entry.type}/edit?path=#{URI.encode(lang_path)}",
+                                locale: @current_locale
+                              )
+                            }
+                            class={[
+                              "btn btn-sm shadow-none",
+                              if(is_enabled,
+                                do: "btn-outline",
+                                else: "bg-base-200 text-base-content/60 border-base-300"
+                              )
+                            ]}
+                            title={
+                              if lang_info,
+                                do: "Edit #{lang_info.name}",
+                                else: "Edit #{lang_code}"
+                            }
+                          >
+                            <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" />
+                            <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                          </.link>
+                        </div>
+                      <% else %>
+                        <%!-- Add button for missing files (only if language is enabled) --%>
+                        <%= if is_enabled do %>
+                          <div class="flex flex-col gap-1">
+                            <%!-- Empty space for alignment --%>
+                            <div class="h-5"></div>
+                            <%!-- Add button --%>
+                            <button
+                              type="button"
+                              phx-click="add_language"
+                              phx-value-path={entry.path}
+                              phx-value-language={lang_code}
+                              class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 shadow-none"
+                              title={
+                                if lang_info,
+                                  do: "Add #{lang_info.name}",
+                                  else: "Add #{lang_code}"
+                              }
+                            >
+                              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" />
+                              <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                            </button>
+                          </div>
+                        <% end %>
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

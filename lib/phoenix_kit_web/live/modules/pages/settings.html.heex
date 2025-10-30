@@ -22,10 +22,14 @@
     </div>
 
     <header class="text-center space-y-2">
-      <p class="text-sm uppercase tracking-wide text-base-content/60">{gettext("Pages Module")}</p>
+      <p class="text-sm uppercase tracking-wide text-base-content/60">
+        {gettext("Pages Module")}
+      </p>
       <h1 class="text-4xl font-bold text-base-content">{gettext("Pages Settings")}</h1>
       <p class="text-base text-base-content/70 max-w-2xl mx-auto">
-        {gettext("Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page.")}
+        {gettext(
+          "Control how unpublished routes are handled and manage the markdown file used for the public-facing 404 page."
+        )}
       </p>
     </header>
 
@@ -34,9 +38,13 @@
         <div class="card-body space-y-6">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 class="text-2xl font-semibold text-base-content">{gettext("Custom 404 Handling")}</h2>
+              <h2 class="text-2xl font-semibold text-base-content">
+                {gettext("Custom 404 Handling")}
+              </h2>
               <p class="text-sm text-base-content/70">
-                {gettext("Enable this to intercept unknown routes and render a published markdown file from the Pages module.")}
+                {gettext(
+                  "Enable this to intercept unknown routes and render a published markdown file from the Pages module."
+                )}
               </p>
               <%= unless @pages_enabled do %>
                 <p class="text-warning text-sm flex items-center gap-2 mt-2">
@@ -49,27 +57,43 @@
               type="button"
               class={[
                 "btn btn-sm",
-                if(@pages_handle_not_found and @pages_enabled, do: "btn-outline", else: "btn-primary"),
+                if(@pages_handle_not_found and @pages_enabled,
+                  do: "btn-outline",
+                  else: "btn-primary"
+                ),
                 unless(@pages_enabled, do: "btn-disabled")
               ]}
               phx-click="toggle_pages_handle_404"
               disabled={!@pages_enabled}
             >
-              <.icon name={if(@pages_handle_not_found, do: "hero-pause", else: "hero-play")} class="w-4 h-4 mr-1" />
-              {if @pages_handle_not_found, do: gettext("Disable Pages 404"), else: gettext("Enable Pages 404")}
+              <.icon
+                name={if(@pages_handle_not_found, do: "hero-pause", else: "hero-play")}
+                class="w-4 h-4 mr-1"
+              />
+              {if @pages_handle_not_found,
+                do: gettext("Disable Pages 404"),
+                else: gettext("Enable Pages 404")}
             </button>
           </div>
 
           <div class="grid md:grid-cols-2 gap-6">
             <div class="space-y-3">
               <div class="flex flex-wrap items-center gap-2">
-                <span class={["badge", if(@pages_handle_not_found, do: "badge-success", else: "badge-neutral")]}>
+                <span class={[
+                  "badge",
+                  if(@pages_handle_not_found, do: "badge-success", else: "badge-neutral")
+                ]}>
                   {if @pages_handle_not_found,
                     do: gettext("Pages 404 Active"),
                     else: gettext("Pages 404 Disabled")}
                 </span>
-                <span class={["badge", if(@pages_not_found_file_exists, do: "badge-info", else: "badge-warning")]}>
-                  {if @pages_not_found_file_exists, do: gettext("File Found"), else: gettext("File Missing")}
+                <span class={[
+                  "badge",
+                  if(@pages_not_found_file_exists, do: "badge-info", else: "badge-warning")
+                ]}>
+                  {if @pages_not_found_file_exists,
+                    do: gettext("File Found"),
+                    else: gettext("File Missing")}
                 </span>
               </div>
 
@@ -79,12 +103,23 @@
               </div>
 
               <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn btn-sm btn-outline" phx-click="pages_create_default_404">
-                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Generate Default File")}
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline"
+                  phx-click="pages_create_default_404"
+                >
+                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext(
+                    "Generate Default File"
+                  )}
                 </button>
                 <%= if @pages_not_found_file_exists do %>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/pages/edit?path=#{URI.encode_www_form(@pages_not_found_file_path)}", locale: @current_locale)}
+                    navigate={
+                      PhoenixKit.Utils.Routes.path(
+                        "/admin/pages/edit?path=#{URI.encode_www_form(@pages_not_found_file_path)}",
+                        locale: @current_locale
+                      )
+                    }
                     class="btn btn-sm btn-secondary"
                   >
                     <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" /> {gettext("Edit File")}
@@ -102,7 +137,9 @@
                   placeholder="/404"
                 />
                 <p class="text-xs text-base-content/70 mt-1">
-                  {gettext("Enter the slug without the .md extension. Files are stored under priv/static/pages.")}
+                  {gettext(
+                    "Enter the slug without the .md extension. Files are stored under priv/static/pages."
+                  )}
                 </p>
                 <div class="flex gap-2 mt-4">
                   <button class="btn btn-primary btn-sm">
@@ -119,10 +156,14 @@
         <div class="card-body space-y-4">
           <h3 class="text-xl font-semibold text-base-content">{gettext("Quick Actions")}</h3>
           <ul class="text-sm text-base-content/70 space-y-3">
-            <li>• {gettext("Duplicate the 404 file from the Pages list for testing variations.")}</li>
+            <li>
+              • {gettext("Duplicate the 404 file from the Pages list for testing variations.")}
+            </li>
             <li>• {gettext("Link to your help center so visitors can find assistance fast.")}</li>
             <li>• {gettext("Use metadata fields on the 404 page to track content changes.")}</li>
-            <li>• {gettext("Update the slug when launching new marketing campaigns or funnels.")}</li>
+            <li>
+              • {gettext("Update the slug when launching new marketing campaigns or funnels.")}
+            </li>
           </ul>
         </div>
       </aside>

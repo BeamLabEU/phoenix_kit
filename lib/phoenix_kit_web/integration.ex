@@ -300,6 +300,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
+          live "/admin/publishing", Live.Modules.Publishing.Index, :index
+          live "/admin/publishing/:type", Live.Modules.Publishing.Type, :type
+          live "/admin/publishing/:type/edit", Live.Modules.Publishing.Editor, :edit
+          live "/admin/publishing/:type/preview", Live.Modules.Publishing.Preview, :preview
+          live "/admin/settings/publishing", Live.Modules.Publishing.Settings, :index
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -423,6 +428,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
+          live "/admin/publishing", Live.Modules.Publishing.Index, :index
+          live "/admin/publishing/:type", Live.Modules.Publishing.Type, :type
+          live "/admin/publishing/:type/edit", Live.Modules.Publishing.Editor, :edit
+          live "/admin/publishing/:type/preview", Live.Modules.Publishing.Preview, :preview
+          live "/admin/settings/publishing", Live.Modules.Publishing.Settings, :index
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
