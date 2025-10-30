@@ -41,6 +41,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     form_redundancy = current_redundancy
     form_auto_generate_variants = auto_generate_variants == "true"
 
+    # Allow uploads for testing
     socket =
       socket
       |> assign(:current_path, current_path)
@@ -55,6 +56,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_auto_generate_variants, form_auto_generate_variants)
+      |> allow_upload(:files, accept: ~w(image/* video/* application/pdf), max_file_size: 100_000_000)
+      |> assign(:uploaded_files, [])
 
     {:ok, socket}
   end
@@ -247,6 +250,28 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
+  def handle_event("save", _params, socket) do
+    # Get the current user from socket
+    current_user = socket.assigns.phoenix_kit_current_user
+    user_id = if current_user, do: current_user.id, else: 1  # Default to user 1
+
+    # Process uploaded files
+    case uploaded_files(socket) do
+      {:ok, uploaded_files, socket} ->
+        # Update the socket with new uploaded files
+        socket = assign(socket, :uploaded_files, uploaded_files)
+        {:noreply, socket}
+
+      {:error, reason, socket} ->
+        socket = put_flash(socket, :error, "Upload failed: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :files, ref)}
+  end
+
   defp get_current_path(_socket, _session) do
     # For Storage settings page
     Routes.path("/admin/settings/storage")
@@ -271,4 +296,86 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
         "#{bucket.provider}: unknown configuration"
     end
   end
+
+  # Upload handling
+  defp uploaded_files(socket) do
+    consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+      # Get file info
+      ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+      mime_type = entry.client_type || MIME.from_path(entry.client_name)
+      file_type = determine_file_type(mime_type)
+
+      # Get current user
+      current_user = socket.assigns.phoenix_kit_current_user
+      user_id = if current_user, do: current_user.id, else: 1
+
+      # Get file size
+      {:ok, stat} = File.stat(path)
+      file_size = stat.size
+
+      # Calculate hash
+      file_hash = calculate_file_hash(path)
+
+      # Store file in storage
+      case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
+        {:ok, file} ->
+          # Queue background job for processing
+          %{file_id: file.id, user_id: user_id, filename: entry.client_name}
+          |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+          |> Oban.insert()
+
+          {:ok,
+           %{
+             file_id: file.id,
+             filename: entry.client_name,
+             file_type: file_type,
+             mime_type: mime_type,
+             size: file_size,
+             status: file.status,
+             url: nil  # Will be generated later
+           }}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end)
+  end
+
+  defp calculate_file_hash(file_path) do
+    file_path
+    |> File.read!()
+    |> :crypto.hash(:sha256)
+    |> Base.encode16(case: :lower)
+  end
+
+  defp determine_file_type(mime_type) do
+    cond do
+      String.starts_with?(mime_type, "image/") -> "image"
+      String.starts_with?(mime_type, "video/") -> "video"
+      mime_type == "application/pdf" -> "document"
+      true -> "other"
+    end
+  end
+
+  # Helper functions for template
+  defp format_bytes(bytes) when is_integer(bytes) do
+    if bytes < 1024 do
+      "#{bytes} B"
+    else
+      units = ["KB", "MB", "GB", "TB"]
+      {value, unit} = calculate_size(bytes, units)
+      "#{Float.round(value, 2)} #{unit}"
+    end
+  end
+
+  defp calculate_size(bytes, [unit | rest]) when bytes >= 1024 and rest != [] do
+    calculate_size(bytes / 1024, rest)
+  end
+
+  defp calculate_size(bytes, [unit | _]), do: {bytes, unit}
+
+  defp error_to_string(:too_large), do: "File is too large"
+  defp error_to_string(:not_accepted), do: "File type not accepted"
+  defp error_to_string({_, reason}), do: to_string(reason)
+  defp error_to_string(_), do: "Unknown error"
 end

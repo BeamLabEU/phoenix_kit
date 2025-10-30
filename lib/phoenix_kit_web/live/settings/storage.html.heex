@@ -427,6 +427,121 @@
       </div>
     </div>
 
+    <%!-- Upload Test Section --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-cloud-arrow-up" class="w-6 h-6 mr-2" /> Upload Test
+        </h2>
+        <p class="text-sm text-base-content/70 mb-4">
+          Upload a file to test the storage system. Supported formats: JPG, PNG, WebP, MP4, WebM, PDF
+          <br />Maximum file size: 100MB
+        </p>
+
+        <form id="upload-form" phx-submit="save" phx-change="validate">
+          <div id="upload-dropzone" class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center hover:border-primary transition-colors">
+            <.icon name="hero-photo" class="w-12 h-12 mx-auto mb-4 text-base-content/30" />
+            <p class="text-lg font-semibold mb-2">Drop files here or click to browse</p>
+            <p class="text-sm text-base-content/60 mb-4">Images, videos, and PDFs up to 100MB</p>
+
+            <input type="file" id="file-upload" class="hidden" />
+            <.live_file_input upload={@uploads.files} />
+            <label for="file-upload" class="btn btn-primary cursor-pointer">
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Choose File
+            </label>
+          </div>
+
+          <%= for entry <- @uploads.files.entries do %>
+            <div class="mt-4 p-4 border border-base-300 rounded-lg">
+              <div class="flex justify-between items-start mb-2">
+                <div>
+                  <p class="font-semibold">{entry.client_name}</p>
+                  <p class="text-sm text-base-content/60">
+                    {format_bytes(entry.client_size)}
+                    <%= if entry.progress != 100 do %>
+                      - {entry.progress}% uploaded
+                    <% end %>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  phx-click="cancel_upload"
+                  phx-value-ref={entry.ref}
+                  class="btn btn-xs btn-ghost"
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                </button>
+              </div>
+
+              <%= if entry.progress > 0 do %>
+                <progress value={entry.progress} max="100" class="progress progress-primary w-full h-2"></progress>
+              <% end %>
+
+              <%= if entry.errors != [] do %>
+                <div class="mt-2 text-sm text-error">
+                  <%= for err <- entry.errors do %>
+                    <p>{error_to_string(err)}</p>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <div class="mt-6 flex justify-end gap-2">
+            <button
+              type="submit"
+              class="btn btn-success"
+              disabled={length(@uploads.files.entries) == 0}
+            >
+              <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
+            </button>
+          </div>
+        </form>
+
+        <%= if length(@uploaded_files) > 0 do %>
+          <div class="mt-6">
+            <h3 class="font-bold mb-3">Uploaded Files</h3>
+            <div class="overflow-x-auto">
+              <table class="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>Filename</th>
+                    <th>Type</th>
+                    <th>Size</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for file <- @uploaded_files do %>
+                    <tr>
+                      <td>
+                        <div class="font-bold">{file.filename}</div>
+                      </td>
+                      <td>
+                        <span class="badge badge-ghost">{file.file_type}</span>
+                      </td>
+                      <td>{format_bytes(file.size)}</td>
+                      <td>
+                        <span class={"badge #{if file.status == "active", do: "badge-success", else: "badge-warning"}"}>
+                          {file.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button class="btn btn-xs btn-ghost" title="View file details">
+                          <.icon name="hero-eye" class="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
     <%!-- Help Section --%>
     <div class="alert mt-6">
       <.icon name="hero-light-bulb" class="w-5 h-5" />
@@ -441,3 +556,35 @@
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+
+<%!-- Add CSS for drag and drop --%>
+<style>
+  #upload-dropzone.dragover {
+    @apply border-primary bg-primary/5;
+  }
+</style>
+
+<script>
+  // Simple drag and drop styling
+  document.addEventListener('DOMContentLoaded', function() {
+    const dropzone = document.getElementById('upload-dropzone');
+    const fileInput = document.getElementById('file-upload');
+
+    if (dropzone && fileInput) {
+      dropzone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+
+      dropzone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+
+      dropzone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    }
+  });
+</script>
