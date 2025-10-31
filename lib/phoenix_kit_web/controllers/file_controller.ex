@@ -47,7 +47,10 @@ defmodule PhoenixKitWeb.FileController do
         conn
         |> put_resp_header("cache-control", "public, max-age=31536000, immutable")
         |> put_resp_header("etag", ~s("#{instance.checksum}"))
-        |> put_resp_header("content-disposition", ~s(inline; filename="#{file.original_file_name}"))
+        |> put_resp_header(
+          "content-disposition",
+          ~s(inline; filename="#{file.original_file_name}")
+        )
 
       # Set content type
       conn = put_resp_content_type(conn, instance.mime_type)
@@ -55,7 +58,6 @@ defmodule PhoenixKitWeb.FileController do
       # Stream file to client
       # Note: temp files in /tmp will be cleaned up by the OS
       send_file(conn, 200, temp_path)
-
     else
       {:error, :invalid_token} ->
         conn
@@ -170,8 +172,8 @@ defmodule PhoenixKitWeb.FileController do
 
     # Retrieve from storage
     case PhoenixKit.Storage.Manager.retrieve_file(instance.file_name,
-             destination_path: temp_path
-           ) do
+           destination_path: temp_path
+         ) do
       :ok ->
         {:ok, temp_path}
 

@@ -28,7 +28,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       |> assign(:current_path, Routes.path("/admin/settings/storage/dimensions"))
       |> assign(:project_title, project_title)
       |> assign(:dimension, load_dimension_data(mode, dimension_id))
-      |> assign(:dimension_type, nil)  # Will be set in assign_form
+      # Will be set in assign_form
+      |> assign(:dimension_type, nil)
       |> assign_form()
 
     {:ok, socket}

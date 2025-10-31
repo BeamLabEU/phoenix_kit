@@ -11,8 +11,10 @@ defmodule PhoenixKitWeb.UploadController do
   alias PhoenixKit.Storage.Workers.ProcessFileJob
 
   @upload_config %{
-    max_size: 100 * 1024 * 1024, # 100MB max file size
-    allowed_types: ~w(image/jpeg image/png image/webp image/gif video/mp4 video/webm video/quicktime application/pdf)
+    # 100MB max file size
+    max_size: 100 * 1024 * 1024,
+    allowed_types:
+      ~w(image/jpeg image/png image/webp image/gif video/mp4 video/webm video/quicktime application/pdf)
   }
 
   @doc """
@@ -85,7 +87,11 @@ defmodule PhoenixKitWeb.UploadController do
       {:error, {:validation, changeset}} ->
         conn
         |> put_status(:bad_request)
-        |> json(%{error: "VALIDATION_ERROR", message: "Invalid upload", details: changeset_errors(changeset)})
+        |> json(%{
+          error: "VALIDATION_ERROR",
+          message: "Invalid upload",
+          details: changeset_errors(changeset)
+        })
 
       {:error, reason} ->
         conn

@@ -728,21 +728,22 @@ defmodule PhoenixKit.Storage do
     # Calculate MD5 hash for path structure
     md5_hash =
       source_path
-      |> File.read!()
-      |> :crypto.hash(:md5)
+      |> Elixir.File.read!()
+      |> then(fn data -> :crypto.hash(:md5, data) end)
       |> Base.encode16(case: :lower)
 
     # Generate UUIDv7 for file ID
     file_id = generate_uuidv7()
 
     # Build hierarchical path
-    user_prefix = String.slice(user_id, 0, 2)
+    user_prefix = String.slice(to_string(user_id), 0, 2)
     hash_prefix = String.slice(md5_hash, 0, 2)
     hierarchical_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
 
     # Create file record
     file_attrs = %{
       id: file_id,
+      file_name: Path.basename(source_path),
       original_file_name: Path.basename(source_path),
       file_path: hierarchical_path,
       mime_type: determine_mime_type(ext),
@@ -801,7 +802,7 @@ defmodule PhoenixKit.Storage do
   end
 
   defp get_file_size(source_path) do
-    case File.stat(source_path) do
+    case Elixir.File.stat(source_path) do
       {:ok, stat} -> stat.size
       _ -> 0
     end
@@ -968,7 +969,7 @@ defmodule PhoenixKit.Storage do
   defp calculate_file_hash(file_path) do
     file_path
     |> Elixir.File.read!()
-    |> :crypto.hash(:sha256)
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end
 

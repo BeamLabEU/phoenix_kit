@@ -41,17 +41,15 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     form_redundancy = current_redundancy
     form_auto_generate_variants = auto_generate_variants == "true"
 
-    # Allow uploads for testing - uploads only work in connected LiveViews
-    socket =
-      if connected?(socket) do
-        allow_upload(socket, :files, accept: ["image/*", "video/*", "application/pdf"], max_file_size: 100_000_000)
-      else
-        socket
-      end
-
-    # Now assign all other values
+    # Allow uploads - SUPER SIMPLE!
     socket =
       socket
+      |> allow_upload(:files,
+        accept: ["image/*", "video/*", "application/pdf"],
+        max_entries: 10,
+        max_file_size: 100_000_000,
+        auto_upload: false  # Manually upload on submit
+      )
       |> assign(:current_path, current_path)
       |> assign(:page_title, "Storage Settings")
       |> assign(:project_title, project_title)
@@ -263,55 +261,61 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   end
 
   def handle_event("save", _params, socket) do
-    # Process uploaded files using consume_uploaded_entries
-    {uploaded_files, socket} = consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
-      # Get file info
-      ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-      mime_type = entry.client_type || MIME.from_path(entry.client_name)
-      file_type = determine_file_type(mime_type)
+    # Check if there are files selected in the browser
+    if socket.assigns.uploads.files.entries == [] do
+      {:noreply, put_flash(socket, :info, "No files selected")}
+    else
+      # consume_uploaded_entries will automatically upload the files first, then process them
+      {uploaded_files, socket} =
+        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
+          # Get file info
+          ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+          mime_type = entry.client_type || MIME.from_path(entry.client_name)
+          file_type = determine_file_type(mime_type)
 
-      # Get current user
-      current_user = socket.assigns.phoenix_kit_current_user
-      user_id = if current_user, do: current_user.id, else: 1
+          # Get current user
+          current_user = socket.assigns.phoenix_kit_current_user
+          user_id = if current_user, do: current_user.id, else: 1
 
-      # Get file size
-      {:ok, stat} = File.stat(path)
-      file_size = stat.size
+          # Get file size
+          {:ok, stat} = File.stat(path)
+          file_size = stat.size
 
-      # Calculate hash
-      file_hash = calculate_file_hash(path)
+          # Calculate hash
+          file_hash = calculate_file_hash(path)
 
-      # Store file in storage
-      case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
-        {:ok, file} ->
-          # Queue background job for processing
-          %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-          |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
-          |> Oban.insert()
+          # Store file in storage
+          case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
+            {:ok, file} ->
+              # Queue background job for processing
+              %{file_id: file.id, user_id: user_id, filename: entry.client_name}
+              |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+              |> Oban.insert()
 
-          {:ok,
-           %{
-             file_id: file.id,
-             filename: entry.client_name,
-             file_type: file_type,
-             mime_type: mime_type,
-             size: file_size,
-             status: file.status,
-             url: nil  # Will be generated later
-           }}
+              {:ok,
+               %{
+                 file_id: file.id,
+                 filename: entry.client_name,
+                 file_type: file_type,
+                 mime_type: mime_type,
+                 size: file_size,
+                 status: file.status,
+                 url: nil
+               }}
 
-        {:error, reason} ->
-          IO.inspect(reason, label: "Storage Error")
-          {:error, reason}
-      end
-    end)
+            {:error, reason} ->
+              IO.inspect(reason, label: "Storage Error")
+              {:error, reason}
+          end
+        end)
 
-    socket =
-      socket
-      |> assign(:uploaded_files, uploaded_files)
-      |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
+      socket =
+        socket
+        |> assign(:uploaded_files, uploaded_files)
+        |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
@@ -321,7 +325,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   defp calculate_file_hash(file_path) do
     file_path
     |> File.read!()
-    |> :crypto.hash(:sha256)
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end
 

@@ -445,7 +445,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   defp calculate_file_checksum(file_path) do
     file_path
     |> File.read!()
-    |> :crypto.hash(:sha256)
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end
 

@@ -17,22 +17,32 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   Process a file and generate variants.
   """
   @impl Oban.Worker
-  def perform(%Oban.Job{args: %{"file_id" => file_id, "user_id" => user_id, "filename" => filename} = args}) do
+  def perform(%Oban.Job{
+        args: %{"file_id" => file_id, "user_id" => user_id, "filename" => filename} = args
+      }) do
     file = Storage.get_file(file_id)
 
     if is_nil(file) do
       Logger.error("ProcessFileJob: File not found for file_id=#{file_id}")
       {:error, :file_not_found}
     else
-      Logger.info("ProcessFileJob: Starting processing for file_id=#{file_id}, type=#{file.file_type}")
+      Logger.info(
+        "ProcessFileJob: Starting processing for file_id=#{file_id}, type=#{file.file_type}"
+      )
 
       case process_file(file) do
         {:ok, variants} ->
-          Logger.info("ProcessFileJob: Successfully processed file_id=#{file_id}, generated=#{length(variants)} variants")
+          Logger.info(
+            "ProcessFileJob: Successfully processed file_id=#{file_id}, generated=#{length(variants)} variants"
+          )
+
           :ok
 
         {:error, reason} ->
-          Logger.error("ProcessFileJob: Failed to process file_id=#{file_id}, error=#{inspect(reason)}")
+          Logger.error(
+            "ProcessFileJob: Failed to process file_id=#{file_id}, error=#{inspect(reason)}"
+          )
+
           {:error, reason}
       end
     end
@@ -112,6 +122,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
     case System.cmd("identify", ["-format", "%w,%h,%m", file_path]) do
       {output, 0} ->
         [width, height, format] = String.split(output, ",")
+
         {
           :ok,
           %{
