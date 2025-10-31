@@ -68,6 +68,7 @@ When deploying behind a reverse proxy (nginx/apache) that terminates SSL, Phoeni
 detects HTTPS via `X-Forwarded-Proto` header. Configure your proxy:
 
 **Nginx:**
+
 ```nginx
 location / {
     proxy_pass http://localhost:4000;
@@ -78,6 +79,7 @@ location / {
 ```
 
 **Apache:**
+
 ```apache
 <VirtualHost *:443>
     ProxyPass / http://localhost:4000/
@@ -87,6 +89,7 @@ location / {
 ```
 
 **Manual override (if needed):**
+
 ```elixir
 # config/runtime.exs
 config :phoenix_kit,
@@ -100,8 +103,9 @@ Magic Link registration provides a two-step passwordless onboarding flow.
 1. Configure the expiry window in `config/config.exs`:
 
    ```elixir
-   config :phoenix_kit, PhoenixKit.Users.MagicLinkRegistration,
-     expiry_minutes: 30
+   config :phoenix_kit,
+     magic_link_for_login_expiry_minutes: 15,
+     magic_link_for_registration_expiry_minutes: 30
    ```
 
 2. Ensure email delivery is configured (see `lib/phoenix_kit_web/live/modules/emails/README.md`).

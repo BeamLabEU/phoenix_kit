@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   """
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.OAuth
@@ -329,10 +330,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   end
 
   defp show_dev_notice? do
-    case Application.get_env(:phoenix_kit, PhoenixKit.Mailer)[:adapter] do
-      Swoosh.Adapters.Local -> true
-      _ -> false
-    end
+    Config.mailer_local?()
   end
 
   # OAuth helper functions
