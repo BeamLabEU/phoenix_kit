@@ -785,8 +785,8 @@ defmodule PhoenixKit.Storage do
 
     case create_file(file_attrs) do
       {:ok, file} ->
-        # Store in buckets with redundancy - use file ID directory for organized structure
-        original_path = "#{file_path}/image-original.#{ext}"
+        # Store in buckets with redundancy - use MD5 hash for organized structure
+        original_path = "#{file_path}/#{md5_hash}_original.#{ext}"
 
         case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: original_path) do
           {:ok, storage_info} ->

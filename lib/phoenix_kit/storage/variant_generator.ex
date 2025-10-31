@@ -92,9 +92,11 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     variant_name = dimension.name
     Logger.info("Generating variant: #{variant_name} for file: #{file.id}")
 
-    # Generate variant filename
-    variant_filename = generate_variant_filename(file.file_name, variant_name, dimension.format)
+    # Generate variant filename using MD5 hash + variant name
     variant_ext = determine_variant_extension(file.ext, dimension.format)
+    # Extract MD5 hash from file_path for naming
+    [_, _, md5_hash | _] = String.split(file.file_path, "/")
+    variant_filename = "#{md5_hash}_#{variant_name}.#{variant_ext}"
     variant_mime_type = determine_variant_mime_type(file.mime_type, dimension.format)
 
     # Build the variant storage path - SAME directory structure as original!
