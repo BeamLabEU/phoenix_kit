@@ -297,10 +297,14 @@ defmodule PhoenixKit.Storage.VariantGenerator do
           resized_image =
             case {dimension.width, dimension.height} do
               {w, h} when w != nil and h != nil ->
-                # Both width and height specified - resize to exact dimensions
+                # Both width and height specified - resize to fit within bounds
                 Logger.info("Resizing to #{w}x#{h}")
                 current_width = Vix.Vips.Image.width(image)
-                scale = w / current_width
+                current_height = Vix.Vips.Image.height(image)
+                scale_by_width = w / current_width
+                scale_by_height = h / current_height
+                # Use smaller scale to fit both width and height (works for vertical and horizontal images)
+                scale = min(scale_by_width, scale_by_height)
                 {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
                 resized
 
