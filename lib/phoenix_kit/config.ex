@@ -34,7 +34,9 @@ defmodule PhoenixKit.Config do
     layouts_module: nil,
     phoenix_version_strategy: nil,
     from_email: nil,
-    from_name: "PhoenixKit"
+    from_name: "PhoenixKit",
+    magic_link_for_login_expiry_minutes: 15,
+    magic_link_for_registration_expiry_minutes: 30
   ]
 
   @doc """
@@ -94,6 +96,14 @@ defmodule PhoenixKit.Config do
     case get(:mailer) do
       {:ok, mailer} when is_atom(mailer) -> mailer
       _ -> PhoenixKit.Mailer
+    end
+  end
+
+  @spec is_mailer_local?() :: boolean()
+  def is_mailer_local?() do
+    case get(PhoenixKit.Mailer, nil)[:adapter] do
+      Swoosh.Adapters.Local -> true
+      _ -> false
     end
   end
 
