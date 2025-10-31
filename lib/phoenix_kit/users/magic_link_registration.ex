@@ -11,13 +11,13 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   import Ecto.Query, warn: false
   alias PhoenixKit.RepoHelper, as: Repo
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
   alias PhoenixKit.Utils.Routes
 
   @magic_link_registration_context "magic_link_registration"
-  @default_expiry_minutes 30
 
   @doc """
   Sends a registration magic link to the specified email address.
@@ -207,8 +207,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
     String.match?(email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
   end
 
-  defp get_expiry_minutes do
-    Application.get_env(:phoenix_kit, __MODULE__, [])
-    |> Keyword.get(:expiry_minutes, @default_expiry_minutes)
+  def get_expiry_minutes do
+    Config.get(:magic_link_for_registration_expiry_minutes, 30)
   end
 end
