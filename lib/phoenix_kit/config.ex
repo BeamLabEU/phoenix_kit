@@ -99,6 +99,22 @@ defmodule PhoenixKit.Config do
     end
   end
 
+  @doc """
+  Checks if the configured mailer adapter is the local adapter.
+
+  Returns true if the mailer is configured to use Swoosh.Adapters.Local,
+  which is typically used for development and testing environments where
+  emails are stored locally rather than being sent to actual recipients.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.is_mailer_local?()
+      true  # when using Swoosh.Adapters.Local
+
+      iex> PhoenixKit.Config.is_mailer_local?()
+      false  # when using a real mailer like SMTP or SendGrid
+
+  """
   @spec is_mailer_local?() :: boolean()
   def is_mailer_local?() do
     case get(PhoenixKit.Mailer, nil)[:adapter] do
