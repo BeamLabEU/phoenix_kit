@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
+  alias PhoenixKit.Config
   alias PhoenixKit.Mailer
   alias PhoenixKit.Users.MagicLink
   alias PhoenixKit.Utils.IpAddress
@@ -132,10 +133,7 @@ defmodule PhoenixKitWeb.Users.MagicLink do
   end
 
   defp show_dev_notice? do
-    case Application.get_env(:phoenix_kit, PhoenixKit.Mailer)[:adapter] do
-      Swoosh.Adapters.Local -> true
-      _ -> false
-    end
+    Config.mailer_local?()
   end
 
   defp generate_session_id do
