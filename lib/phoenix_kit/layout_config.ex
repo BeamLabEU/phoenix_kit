@@ -31,6 +31,8 @@ defmodule PhoenixKit.LayoutConfig do
       {PhoenixKitWeb.Layouts, :root}
   """
 
+  alias PhoenixKit.Config
+
   @default_layout {PhoenixKitWeb.Layouts, :app}
   @default_root_layout {PhoenixKitWeb.Layouts, :root}
 
@@ -51,7 +53,7 @@ defmodule PhoenixKit.LayoutConfig do
   """
   @spec get_layout() :: {module(), atom()}
   def get_layout do
-    case Application.get_env(:phoenix_kit, :layout) do
+    case Config.get(:layout, nil) do
       {module, template} when is_atom(module) and is_atom(template) ->
         validate_layout_module(module, template, @default_layout)
 
@@ -78,7 +80,7 @@ defmodule PhoenixKit.LayoutConfig do
   """
   @spec get_root_layout() :: {module(), atom()}
   def get_root_layout do
-    case Application.get_env(:phoenix_kit, :root_layout) do
+    case PhoenixKit.Config.get(:root_layout, nil) do
       {module, template} when is_atom(module) and is_atom(template) ->
         validate_layout_module(module, template, @default_root_layout)
 
@@ -107,8 +109,8 @@ defmodule PhoenixKit.LayoutConfig do
   """
   @spec get_page_title_prefix() :: String.t() | nil
   def get_page_title_prefix do
-    case Application.get_env(:phoenix_kit, :page_title_prefix) do
-      prefix when is_binary(prefix) -> prefix
+    case PhoenixKit.Config.get(:page_title_prefix) do
+      {:ok, prefix} when is_binary(prefix) -> prefix
       _ -> nil
     end
   end
@@ -164,7 +166,7 @@ defmodule PhoenixKit.LayoutConfig do
     # Skip logging for auto-generated test module names to reduce noise
     is_auto_generated_test =
       String.contains?(module_string, "Test") and
-        Application.get_env(:phoenix_kit, :layout) == nil
+        PhoenixKit.Config.get(:layout, nil) == nil
 
     unless is_auto_generated_test do
       Logger.warning(

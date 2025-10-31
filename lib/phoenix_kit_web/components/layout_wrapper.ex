@@ -33,6 +33,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   import PhoenixKitWeb.Components.AdminNav
 
   alias Phoenix.HTML
+  alias PhoenixKit.Config
   alias PhoenixKit.Module.Languages
   alias PhoenixKitWeb.Live.Modules.Publishing
   alias PhoenixKit.ThemeConfig
@@ -932,23 +933,23 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
-  # Get layout configuration from application environment with Phoenix version compatibility
+  # Get layout configuration from PhoenixKit.Config with Phoenix version compatibility
   defp get_layout_config do
-    case Application.get_env(:phoenix_kit, :phoenix_version_strategy) do
+    case Config.get(:phoenix_version_strategy, nil) do
       :modern ->
         # Phoenix v1.8+ - get layouts_module and assume :app function
-        case Application.get_env(:phoenix_kit, :layouts_module) do
+        case Config.get(:layouts_module, nil) do
           nil -> nil
           module -> {module, :app}
         end
 
       :legacy ->
         # Phoenix v1.7- - use legacy layout config
-        Application.get_env(:phoenix_kit, :layout)
+        Config.get(:layout, nil)
 
       nil ->
         # Fallback - check for legacy layout config first
-        Application.get_env(:phoenix_kit, :layout)
+        Config.get(:layout, nil)
     end
   end
 
