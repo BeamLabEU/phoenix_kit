@@ -287,14 +287,58 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp process_image_variant(input_path, output_path, _mime_type, dimension) do
-    Logger.info("process_image_variant: input=#{input_path} output=#{output_path}")
-    # For now, just copy the file without processing
-    # TODO: Implement Vix image processing
+    Logger.info("process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}")
+
     try do
-      # Copy file
-      Logger.info("Copying file from #{input_path} to #{output_path}")
-      File.cp!(input_path, output_path)
-      {:ok, output_path}
+      # Load image with Vix
+      case Vix.Vips.Image.new_from_file(input_path) do
+        {:ok, image} ->
+          # Resize image based on dimension settings
+          resized_image =
+            case {dimension.width, dimension.height} do
+              {w, h} when w != nil and h != nil ->
+                # Both width and height specified - resize to exact dimensions
+                Logger.info("Resizing to #{w}x#{h}")
+                current_width = Vix.Vips.Image.width(image)
+                scale = w / current_width
+                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
+                resized
+
+              {w, nil} when w != nil ->
+                # Only width specified - maintain aspect ratio
+                Logger.info("Resizing to width #{w}")
+                current_width = Vix.Vips.Image.width(image)
+                scale = w / current_width
+                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
+                resized
+
+              {nil, h} when h != nil ->
+                # Only height specified - maintain aspect ratio
+                Logger.info("Resizing to height #{h}")
+                current_height = Vix.Vips.Image.height(image)
+                scale = h / current_height
+                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
+                resized
+
+              _ ->
+                # No dimensions specified - use original size
+                Logger.info("No dimensions specified, using original size")
+                image
+            end
+
+          # Write resized image to output path
+          case Vix.Vips.Image.write_to_file(resized_image, output_path) do
+            :ok ->
+              Logger.info("Successfully saved resized image to #{output_path}")
+              {:ok, output_path}
+
+            {:error, reason} ->
+              {:error, "Failed to write resized image: #{inspect(reason)}"}
+          end
+
+        {:error, reason} ->
+          {:error, "Failed to load image: #{inspect(reason)}"}
+      end
     rescue
       e ->
         {:error, "Image processing failed: #{inspect(e)}"}
