@@ -330,7 +330,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   end
 
   defp show_dev_notice? do
-    Config.is_mailer_local?()
+    Config.mailer_local?()
   end
 
   # OAuth helper functions

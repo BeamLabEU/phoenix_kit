@@ -108,15 +108,15 @@ defmodule PhoenixKit.Config do
 
   ## Examples
 
-      iex> PhoenixKit.Config.is_mailer_local?()
+      iex> PhoenixKit.Config.mailer_local?()
       true  # when using Swoosh.Adapters.Local
 
-      iex> PhoenixKit.Config.is_mailer_local?()
+      iex> PhoenixKit.Config.mailer_local?()
       false  # when using a real mailer like SMTP or SendGrid
 
   """
-  @spec is_mailer_local?() :: boolean()
-  def is_mailer_local?() do
+  @spec mailer_local?() :: boolean()
+  def mailer_local?() do
     case get(PhoenixKit.Mailer, nil)[:adapter] do
       Swoosh.Adapters.Local -> true
       _ -> false
