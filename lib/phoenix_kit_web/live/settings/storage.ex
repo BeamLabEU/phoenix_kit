@@ -266,7 +266,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       {:noreply, put_flash(socket, :info, "No files selected")}
     else
       # consume_uploaded_entries will automatically upload the files first, then process them
-      {uploaded_files, socket} =
+      uploaded_files =
         consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
           # Get file info
           ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
@@ -288,9 +288,13 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
           case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
             {:ok, file} ->
               # Queue background job for processing
-              %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-              |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
-              |> Oban.insert()
+              job =
+                %{file_id: file.id, user_id: user_id, filename: entry.client_name}
+                |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+                |> Oban.insert()
+
+              # Debug logging
+              IO.inspect(job, label: "Oban Job Inserted")
 
               {:ok,
                %{

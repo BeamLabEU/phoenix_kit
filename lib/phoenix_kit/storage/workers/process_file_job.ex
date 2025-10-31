@@ -20,6 +20,8 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   def perform(%Oban.Job{
         args: %{"file_id" => file_id, "user_id" => user_id, "filename" => filename} = args
       }) do
+    Logger.info("ProcessFileJob: EXECUTING for file_id=#{file_id}, filename=#{filename}")
+
     file = Storage.get_file(file_id)
 
     if is_nil(file) do
@@ -69,22 +71,52 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   end
 
   defp process_image(file) do
-    with {:ok, temp_path} <- Storage.retrieve_file(file.id),
-         {:ok, metadata} <- extract_image_metadata(temp_path),
-         :ok <- update_file_with_metadata(file, metadata) do
-      # Get dimensions configured for images
-      dimensions = Storage.list_dimensions_for_type("image")
+    Logger.info("ProcessFileJob: process_image/1 called for file_id=#{file.id}")
 
-      # Generate variants
-      case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
-        {:ok, variants} ->
-          File.rm(temp_path)
-          {:ok, variants}
+    case Storage.retrieve_file(file.id) do
+      {:ok, temp_path} ->
+        Logger.info("ProcessFileJob: Retrieved file to temp_path=#{temp_path}")
 
-        {:error, reason} ->
-          File.rm(temp_path)
-          {:error, reason}
-      end
+        case extract_image_metadata(temp_path) do
+          {:ok, metadata} ->
+            Logger.info("ProcessFileJob: Extracted metadata=#{inspect(metadata)}")
+
+            case update_file_with_metadata(file, metadata) do
+              :ok ->
+                Logger.info("ProcessFileJob: Updated file with metadata")
+
+                # Get dimensions configured for images
+                dimensions = Storage.list_dimensions_for_type("image")
+                Logger.info("ProcessFileJob: Found #{length(dimensions)} dimensions for images")
+
+                # Generate variants
+                case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
+                  {:ok, variants} ->
+                    Logger.info("ProcessFileJob: Generated #{length(variants)} variants successfully")
+                    File.rm(temp_path)
+                    {:ok, variants}
+
+                  {:error, reason} ->
+                    Logger.error("ProcessFileJob: Variant generation failed: #{inspect(reason)}")
+                    File.rm(temp_path)
+                    {:error, reason}
+                end
+
+              {:error, reason} ->
+                Logger.error("ProcessFileJob: Failed to update file with metadata: #{inspect(reason)}")
+                File.rm(temp_path)
+                {:error, reason}
+            end
+
+          {:error, reason} ->
+            Logger.error("ProcessFileJob: Failed to extract image metadata: #{inspect(reason)}")
+            File.rm(temp_path)
+            {:error, reason}
+        end
+
+      {:error, reason} ->
+        Logger.error("ProcessFileJob: Failed to retrieve file: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -119,21 +151,29 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   end
 
   defp extract_image_metadata(file_path) do
-    case System.cmd("identify", ["-format", "%w,%h,%m", file_path]) do
-      {output, 0} ->
-        [width, height, format] = String.split(output, ",")
+    try do
+      case Vix.Vips.Image.new_from_file(file_path) do
+        {:ok, image} ->
+          width = Vix.Vips.Image.width(image)
+          height = Vix.Vips.Image.height(image)
+          format = "jpeg"  # Default format
 
-        {
-          :ok,
-          %{
-            width: String.to_integer(width),
-            height: String.to_integer(height),
-            format: String.downcase(format)
+          {
+            :ok,
+            %{
+              width: width,
+              height: height,
+              format: format
+            }
           }
-        }
 
-      {error, _} ->
-        Logger.warn("Failed to extract image metadata: #{error}")
+        {:error, reason} ->
+          Logger.warn("Failed to extract image metadata: #{inspect(reason)}")
+          {:ok, %{}}
+      end
+    rescue
+      e ->
+        Logger.warn("Failed to extract image metadata: #{inspect(e)}")
         {:ok, %{}}
     end
   end

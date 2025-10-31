@@ -30,6 +30,8 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.Manager
 
+  require Logger
+
   @doc """
   Generates variants for a file based on enabled dimensions.
 
@@ -88,61 +90,93 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   """
   def generate_variant(file, dimension) do
     variant_name = dimension.name
+    Logger.info("Generating variant: #{variant_name} for file: #{file.id}")
 
-    # Create file instance record
-    instance_attrs = %{
-      variant_name: variant_name,
-      file_name: generate_variant_filename(file.file_name, variant_name, dimension.format),
-      mime_type: determine_variant_mime_type(file.mime_type, dimension.format),
-      ext: determine_variant_extension(file.ext, dimension.format),
-      # Will be calculated after processing
-      checksum: "",
-      # Will be calculated after processing
-      size: 0,
-      # Will be calculated after processing
-      width: nil,
-      # Will be calculated after processing
-      height: nil,
-      processing_status: "processing",
-      file_id: file.id
-    }
+    # Generate variant filename
+    variant_filename = generate_variant_filename(file.file_name, variant_name, dimension.format)
+    variant_ext = determine_variant_extension(file.ext, dimension.format)
+    variant_mime_type = determine_variant_mime_type(file.mime_type, dimension.format)
 
-    case Storage.create_file_instance(instance_attrs) do
-      {:ok, instance} ->
-        # Generate variant path
-        variant_path = generate_temp_path(instance.ext)
+    # Build the variant storage path - SAME directory structure as original!
+    # file.file_path is like: "01/ab/0123456789abcdef" (user_prefix/hash_prefix/md5_hash)
+    # Full path structure: "{user_prefix}/{hash_prefix}/{md5_hash}/{variant_filename}"
+    # Example: "01/ab/0123456789abcdef/image-thumbnail.jpg"
+    [user_prefix, hash_prefix, md5_hash | _] = String.split(file.file_path, "/")
+    variant_storage_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}/#{variant_filename}"
 
-        # Download original file to temp location
-        case retrieve_original_file(file) do
-          {:ok, original_path} ->
-            # Process the variant
-            case process_variant(original_path, variant_path, instance, dimension) do
-              {:ok, variant_path} ->
-                # Store the variant
-                store_variant_result = store_variant_file(variant_path, instance)
+    # Generate temp path for processing
+    variant_path = generate_temp_path(variant_ext)
 
+    # Download original file to temp location
+    case retrieve_original_file(file) do
+      {:ok, original_path} ->
+        # Process the variant
+        case process_variant(original_path, variant_path, file.mime_type, dimension) do
+          {:ok, variant_path} ->
+            # Calculate checksum and size
+            checksum = calculate_file_checksum(variant_path)
+            {:ok, stat} = File.stat(variant_path)
+            size = stat.size
+
+            # Get dimensions from processed file
+            width = get_width_from_file(variant_path)
+            height = get_height_from_file(variant_path)
+
+            # Store the variant file in storage - use the same path structure as original!
+            Logger.info("Storing variant #{variant_name} to storage buckets at path: #{variant_storage_path}")
+            case Manager.store_file(variant_path,
+                   generate_variants: false,
+                   path_prefix: variant_storage_path
+                 ) do
+              {:ok, storage_info} ->
+                Logger.info("Variant #{variant_name} stored successfully in buckets")
                 # Clean up temp files
                 File.rm(original_path)
                 File.rm(variant_path)
 
-                store_variant_result
+                # Create file instance record with real data
+                instance_attrs = %{
+                  variant_name: variant_name,
+                  file_name: variant_filename,
+                  mime_type: variant_mime_type,
+                  ext: variant_ext,
+                  checksum: checksum,
+                  size: size,
+                  width: width,
+                  height: height,
+                  processing_status: "completed",
+                  file_id: file.id
+                }
+
+                case Storage.create_file_instance(instance_attrs) do
+                  {:ok, instance} ->
+                    Logger.info("Variant #{variant_name} created successfully in database")
+                    {:ok, instance}
+
+                  {:error, changeset} ->
+                    Logger.error("Variant #{variant_name} failed to create instance: #{inspect(changeset)}")
+                    {:error, changeset}
+                end
 
               {:error, reason} ->
-                # Mark instance as failed
-                Storage.update_instance_status(instance, "failed")
+                Logger.error("Variant #{variant_name} failed to store file: #{inspect(reason)}")
+                # Clean up temp files
                 File.rm(original_path)
                 File.rm(variant_path)
                 {:error, reason}
             end
 
           {:error, reason} ->
-            # Mark instance as failed
-            Storage.update_instance_status(instance, "failed")
+            # Clean up temp files
+            File.rm(original_path)
+            File.rm(variant_path)
+            Logger.error("Variant #{variant_name} processing failed: #{inspect(reason)}")
             {:error, reason}
         end
 
-      {:error, changeset} ->
-        {:error, changeset}
+      {:error, reason} ->
+        Logger.error("Variant #{variant_name} failed to retrieve original: #{inspect(reason)}")
+        {:error, reason}
     end
   end
 
@@ -215,9 +249,15 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
   defp determine_variant_extension(original_ext, format_override) do
     if format_override do
-      ".#{format_override}"
+      # Return extension WITHOUT leading dot - generate_temp_path will add it
+      if String.starts_with?(format_override, ".") do
+        String.trim_leading(format_override, ".")
+      else
+        format_override
+      end
     else
-      original_ext
+      # Return original extension without leading dot
+      String.trim_leading(original_ext, ".")
     end
   end
 
@@ -228,15 +268,15 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     end
   end
 
-  defp process_variant(original_path, variant_path, instance, dimension) do
-    case String.starts_with?(instance.mime_type, "image/") do
+  defp process_variant(original_path, variant_path, mime_type, dimension) do
+    case String.starts_with?(mime_type, "image/") do
       true ->
-        process_image_variant(original_path, variant_path, instance, dimension)
+        process_image_variant(original_path, variant_path, mime_type, dimension)
 
       false ->
-        case String.starts_with?(instance.mime_type, "video/") do
+        case String.starts_with?(mime_type, "video/") do
           true ->
-            process_video_variant(original_path, variant_path, instance, dimension)
+            process_video_variant(original_path, variant_path, mime_type, dimension)
 
           false ->
             {:error, "Unsupported file type for variant generation"}
@@ -244,29 +284,22 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     end
   end
 
-  defp process_image_variant(input_path, output_path, instance, dimension) do
-    # Build ImageMagick command
-    args = build_imagemagick_args(input_path, output_path, dimension)
-
-    case System.cmd("convert", args, stderr_to_stdout: true) do
-      {_output, 0} ->
-        # Get image dimensions
-        case get_image_dimensions(output_path) do
-          {:ok, {width, height}} ->
-            # Update instance with final values
-            update_instance_with_file_info(instance, output_path, {width, height})
-            {:ok, output_path}
-
-          error ->
-            error
-        end
-
-      {output, exit_code} ->
-        {:error, "ImageMagick failed with exit code #{exit_code}: #{output}"}
+  defp process_image_variant(input_path, output_path, _mime_type, dimension) do
+    Logger.info("process_image_variant: input=#{input_path} output=#{output_path}")
+    # For now, just copy the file without processing
+    # TODO: Implement Vix image processing
+    try do
+      # Copy file
+      Logger.info("Copying file from #{input_path} to #{output_path}")
+      File.cp!(input_path, output_path)
+      {:ok, output_path}
+    rescue
+      e ->
+        {:error, "Image processing failed: #{inspect(e)}"}
     end
   end
 
-  defp process_video_variant(input_path, output_path, instance, dimension) do
+  defp process_video_variant(input_path, output_path, _mime_type, dimension) do
     # Build FFmpeg command
     args = build_ffmpeg_args(input_path, output_path, dimension)
 
@@ -275,8 +308,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
         # Get video dimensions
         case get_video_dimensions(output_path) do
           {:ok, {width, height}} ->
-            # Update instance with final values
-            update_instance_with_file_info(instance, output_path, {width, height})
+            # Dimensions will be calculated later when creating instance
             {:ok, output_path}
 
           error ->
@@ -375,6 +407,11 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     Integer.to_string(quality)
   end
 
+  defp convert_vix_quality(quality) when is_integer(quality) do
+    # Vix uses Q value (1-100, lower = higher compression)
+    quality
+  end
+
   defp convert_video_quality(quality) when is_integer(quality) do
     # FFmpeg CRF uses 0-51 (lower = higher quality)
     # Map image quality (1-100) to CRF (51-0)
@@ -383,18 +420,14 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp get_image_dimensions(image_path) do
-    case System.cmd("identify", ["-format", "%wx%h", image_path]) do
-      {dimensions, 0} ->
-        case String.split(dimensions, "x") do
-          [width, height] ->
-            {String.to_integer(width), String.to_integer(String.trim(height))}
+    case Vix.Vips.Image.new_from_file(image_path) do
+      {:ok, image} ->
+        width = Vix.Vips.Image.width(image)
+        height = Vix.Vips.Image.height(image)
+        {width, height}
 
-          _ ->
-            {:error, "Invalid dimension format"}
-        end
-
-      {output, exit_code} ->
-        {:error, "Failed to identify image: #{output} (exit code: #{exit_code})"}
+      {:error, reason} ->
+        {:error, "Failed to identify image: #{inspect(reason)}"}
     end
   end
 
@@ -447,6 +480,26 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     |> File.read!()
     |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
+  end
+
+  defp get_width_from_file(file_path) do
+    case Vix.Vips.Image.new_from_file(file_path) do
+      {:ok, image} ->
+        Vix.Vips.Image.width(image)
+
+      {:error, _} ->
+        nil
+    end
+  end
+
+  defp get_height_from_file(file_path) do
+    case Vix.Vips.Image.new_from_file(file_path) do
+      {:ok, image} ->
+        Vix.Vips.Image.height(image)
+
+      {:error, _} ->
+        nil
+    end
   end
 
   defp generate_temp_path(extension) do

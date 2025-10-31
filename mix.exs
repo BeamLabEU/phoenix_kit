@@ -44,7 +44,7 @@ defmodule PhoenixKit.MixProject do
   # The parent Phoenix application will handle supervision
   def application do
     [
-      extra_applications: [:logger, :ecto, :postgrex, :crypto, :gettext]
+      extra_applications: [:logger, :ecto, :postgrex, :crypto, :gettext, :oban]
     ]
   end
 

@@ -658,13 +658,20 @@ defmodule PhoenixKit.Storage do
   def retrieve_file(file_id) do
     case get_file(file_id) do
       %PhoenixKit.Storage.File{} = file ->
-        destination_path = generate_temp_path()
+        # Look up the original variant path from file_instances table
+        case get_file_instance_by_name(file_id, "original") do
+          %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+            destination_path = generate_temp_path()
 
-        case PhoenixKit.Storage.Manager.retrieve_file(file.file_name,
-               destination_path: destination_path
-             ) do
-          :ok -> {:ok, destination_path, file}
-          error -> error
+            case PhoenixKit.Storage.Manager.retrieve_file(file_path,
+                   destination_path: destination_path
+                 ) do
+              :ok -> {:ok, destination_path, file}
+              error -> error
+            end
+
+          nil ->
+            {:error, "Original file instance not found"}
         end
 
       nil ->
@@ -689,9 +696,16 @@ defmodule PhoenixKit.Storage do
   Deletes file data from all storage buckets.
   """
   def delete_file_data(%PhoenixKit.Storage.File{} = file) do
-    case PhoenixKit.Storage.Manager.delete_file(file.file_name) do
-      :ok -> :ok
-      error -> error
+    # Look up the actual file path from file_instances where "original" variant is stored
+    case get_file_instance_by_name(file.id, "original") do
+      %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+        case PhoenixKit.Storage.Manager.delete_file(file_path) do
+          :ok -> :ok
+          error -> error
+        end
+
+      nil ->
+        {:error, "Original file instance not found"}
     end
   end
 
@@ -699,14 +713,28 @@ defmodule PhoenixKit.Storage do
   Gets a public URL for a file.
   """
   def get_public_url(%PhoenixKit.Storage.File{} = file) do
-    PhoenixKit.Storage.Manager.public_url(file.file_name)
+    # Look up the actual file path from file_instances where "original" variant is stored
+    case get_file_instance_by_name(file.id, "original") do
+      %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+        PhoenixKit.Storage.Manager.public_url(file_path)
+
+      nil ->
+        nil
+    end
   end
 
   @doc """
   Checks if a file exists in storage.
   """
   def file_exists?(%PhoenixKit.Storage.File{} = file) do
-    PhoenixKit.Storage.Manager.file_exists?(file.file_name)
+    # Look up the actual file path from file_instances where "original" variant is stored
+    case get_file_instance_by_name(file.id, "original") do
+      %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+        PhoenixKit.Storage.Manager.file_exists?(file_path)
+
+      nil ->
+        false
+    end
   end
 
   @doc """
@@ -735,17 +763,17 @@ defmodule PhoenixKit.Storage do
     # Generate UUIDv7 for file ID
     file_id = generate_uuidv7()
 
-    # Build hierarchical path
+    # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
     user_prefix = String.slice(to_string(user_id), 0, 2)
     hash_prefix = String.slice(md5_hash, 0, 2)
-    hierarchical_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
+    file_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
 
     # Create file record
     file_attrs = %{
       id: file_id,
       file_name: Path.basename(source_path),
       original_file_name: Path.basename(source_path),
-      file_path: hierarchical_path,
+      file_path: file_path,
       mime_type: determine_mime_type(ext),
       file_type: file_type,
       ext: ext,
@@ -757,15 +785,15 @@ defmodule PhoenixKit.Storage do
 
     case create_file(file_attrs) do
       {:ok, file} ->
-        # Store in buckets with redundancy
-        variant_path = "#{hierarchical_path}/#{md5_hash}_original.#{ext}"
+        # Store in buckets with redundancy - use file ID directory for organized structure
+        original_path = "#{file_path}/image-original.#{ext}"
 
-        case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: variant_path) do
+        case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: original_path) do
           {:ok, storage_info} ->
             # Create file instance for original
             original_instance_attrs = %{
               variant_name: "original",
-              file_name: variant_path,
+              file_name: original_path,
               mime_type: file.mime_type,
               ext: ext,
               checksum: file_hash,
@@ -780,7 +808,7 @@ defmodule PhoenixKit.Storage do
 
               {:error, changeset} ->
                 # Clean up if instance creation fails
-                PhoenixKit.Storage.Manager.delete_file(variant_path)
+                PhoenixKit.Storage.Manager.delete_file(original_path)
                 {:error, changeset}
             end
 
