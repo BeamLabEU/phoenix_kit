@@ -212,7 +212,7 @@ defmodule PhoenixKitWeb.Users.Registration do
   end
 
   defp show_dev_notice? do
-    Config.is_mailer_local?()
+    Config.mailer_local?()
   end
 
   defp generate_session_id do
