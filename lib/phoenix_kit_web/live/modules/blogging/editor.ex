@@ -30,45 +30,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   @impl true
   def handle_params(%{"new" => "true"}, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
+    blog_mode = Blogging.get_blog_mode(blog_slug)
     all_enabled_languages = Storage.enabled_language_codes()
     primary_language = hd(all_enabled_languages)
 
     now = DateTime.utc_now() |> DateTime.truncate(:second) |> floor_datetime_to_minute()
-    date = DateTime.to_date(now)
-    time = DateTime.to_time(now)
-
-    time_folder =
-      "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
-
-    virtual_path =
-      Path.join([blog_slug || "blog", Date.to_iso8601(date), time_folder, "#{primary_language}.phk"])
-
-    default_blog_slug = blog_slug || "blog"
-
-    virtual_post = %{
-      blog: default_blog_slug,
-      date: date,
-      time: time,
-      path: virtual_path,
-      full_path: nil,
-      metadata: %{
-        title: "",
-        status: "draft",
-        published_at: DateTime.to_iso8601(now)
-      },
-      content: "",
-      language: primary_language,
-      available_languages: []
-    }
+    virtual_post = build_virtual_post(blog_slug, blog_mode, primary_language, now)
 
     socket =
       socket
+      |> assign(:blog_mode, blog_mode)
       |> assign(:post, virtual_post)
       |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
       |> assign(:form, post_form(virtual_post))
       |> assign(:content, "")
       |> assign(:current_language, primary_language)
-      |> assign(:available_languages, [])
+      |> assign(:available_languages, virtual_post.available_languages)
       |> assign(:all_enabled_languages, all_enabled_languages)
       |> assign(
         :current_path,
@@ -83,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   def handle_params(%{"path" => path} = params, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
+    blog_mode = Blogging.get_blog_mode(blog_slug)
 
     case Blogging.read_post(blog_slug, path) do
       {:ok, post} ->
@@ -103,8 +81,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> Map.put(:blog, blog_slug || "blog")
               |> Map.put(:content, "")
               |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
+              |> Map.put(:mode, post.mode)
+              |> Map.put(:slug, post.slug)
 
             socket
+            |> assign(:blog_mode, blog_mode)
             |> assign(:post, virtual_post)
             |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
             |> assign(:form, post_form(virtual_post))
@@ -124,6 +105,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> push_event("changes-status", %{has_changes: false})
           else
             socket
+            |> assign(:blog_mode, blog_mode)
             |> assign(:post, %{post | blog: blog_slug || "blog"})
             |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
             |> assign(:form, post_form(post))
@@ -154,20 +136,28 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_event("update_meta", params, socket) do
-    params = Map.drop(params, ["_target"])
+    params =
+      params
+      |> Map.drop(["_target"])
+      |> maybe_autofill_slug(socket)
 
-    new_form =
-      socket.assigns.form
-      |> Map.merge(params)
-      |> normalize_form()
+    with :ok <- validate_slug(socket.assigns.blog_mode, params, socket) do
+      new_form =
+        socket.assigns.form
+        |> Map.merge(params)
+        |> normalize_form()
 
-    has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+      has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
-    {:noreply,
-     socket
-     |> assign(:form, new_form)
-     |> assign(:has_pending_changes, has_changes)
-     |> push_event("changes-status", %{has_changes: has_changes})}
+      {:noreply,
+       socket
+       |> assign(:form, new_form)
+       |> assign(:has_pending_changes, has_changes)
+       |> push_event("changes-status", %{has_changes: has_changes})}
+    else
+      {:error, message} ->
+        {:noreply, put_flash(socket, :error, message)}
+    end
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
@@ -188,8 +178,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_event("save", _params, socket) do
     params =
       socket.assigns.form
-      |> Map.take(["title", "status", "published_at"])
+      |> Map.take(["title", "status", "published_at", "slug"])
       |> Map.put("content", socket.assigns.content)
+
+    params =
+      case {socket.assigns.blog_mode, Map.get(params, "slug")} do
+        {"slug", slug} when is_binary(slug) and slug != "" ->
+          params
+
+        {"slug", _} ->
+          Map.delete(params, "slug")
+
+        _ ->
+          Map.delete(params, "slug")
+      end
 
     is_new_post = Map.get(socket.assigns, :is_new_post, false)
     is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
@@ -247,10 +249,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     post = socket.assigns.post
     blog_slug = socket.assigns.blog_slug
 
-    new_path =
-      post.path
-      |> Path.dirname()
-      |> Path.join("#{new_language}.phk")
+    base_dir = slug_base_dir(post, blog_slug)
+    new_path = Path.join(base_dir, "#{new_language}.phk")
 
     file_exists = new_language in post.available_languages
 
@@ -271,6 +271,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         |> Map.put(:blog, blog_slug || "blog")
         |> Map.put(:content, "")
         |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
+        |> Map.put(:mode, post.mode)
+        |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
 
       {:noreply,
        socket
@@ -280,13 +282,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        |> assign(:current_language, new_language)
        |> assign(:has_pending_changes, false)
        |> assign(:is_new_translation, true)
-       |> assign(:original_post_path, post.path)
+       |> assign(:original_post_path, post.path || post.slug)
        |> push_event("changes-status", %{has_changes: false})}
     end
   end
 
   defp create_new_post(socket, params) do
-    case Blogging.create_post(socket.assigns.blog_slug) do
+    create_opts =
+      if socket.assigns.blog_mode == "slug" do
+        %{
+          title: Map.get(params, "title"),
+          slug: Map.get(params, "slug")
+        }
+      else
+        %{}
+      end
+
+    case Blogging.create_post(socket.assigns.blog_slug, create_opts) do
       {:ok, new_post} ->
         case Blogging.update_post(socket.assigns.blog_slug, new_post, params) do
           {:ok, updated_post} ->
@@ -298,6 +310,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
              |> assign(:available_languages, updated_post.available_languages)
              |> assign(:has_pending_changes, false)
              |> assign(:is_new_post, false)
+             |> assign(:blog_mode, socket.assigns.blog_mode)
              |> push_event("changes-status", %{has_changes: false})
              |> put_flash(:info, gettext("Post created and saved"))
              |> push_patch(
@@ -318,11 +331,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp create_new_translation(socket, params) do
-    original_path = Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
+    original_identifier =
+      case socket.assigns.blog_mode do
+        "slug" ->
+          socket.assigns.post.slug ||
+            Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
+
+        _ ->
+          Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
+      end
 
     case Blogging.add_language_to_post(
            socket.assigns.blog_slug,
-           original_path,
+           original_identifier,
            socket.assigns.current_language
          ) do
       {:ok, new_post} ->
@@ -374,7 +395,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp post_form(post) do
-    %{
+    base = %{
       "title" => post.metadata.title || "",
       "status" => post.metadata.status || "draft",
       "published_at" =>
@@ -383,7 +404,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           |> floor_datetime_to_minute()
           |> DateTime.to_iso8601()
     }
-    |> normalize_form()
+
+    form =
+      cond do
+        Map.get(post, :mode) == :slug ->
+          Map.put(base, "slug", post.slug || Map.get(post.metadata, :slug) || "")
+
+        Map.get(post, "mode") == :slug ->
+          Map.put(
+            base,
+            "slug",
+            post["slug"] || Map.get(post, :slug) || Map.get(post.metadata, :slug) || ""
+          )
+
+        true ->
+          base
+      end
+
+    normalize_form(form)
   end
 
   defp floor_datetime_to_minute(%DateTime{} = datetime) do
@@ -396,14 +434,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_form(form) when is_map(form) do
-    %{
-      "title" => Map.get(form, "title", "") || "",
-      "status" => Map.get(form, "status", "draft") || "draft",
-      "published_at" => normalize_published_at(Map.get(form, "published_at"))
-    }
+    base =
+      %{
+        "title" => Map.get(form, "title", "") || "",
+        "status" => Map.get(form, "status", "draft") || "draft",
+        "published_at" => normalize_published_at(Map.get(form, "published_at"))
+      }
+
+    case Map.fetch(form, "slug") do
+      {:ok, slug} ->
+        Map.put(base, "slug", String.trim(slug || ""))
+
+      :error ->
+        base
+    end
   end
 
-  defp normalize_form(_), do: %{"title" => "", "status" => "draft", "published_at" => ""}
+  defp normalize_form(_),
+    do: %{"title" => "", "status" => "draft", "published_at" => "", "slug" => ""}
 
   defp datetime_local_value(nil), do: ""
 
@@ -446,4 +494,135 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_published_at(_), do: ""
+
+  defp build_virtual_post(blog_slug, "slug", primary_language, now) do
+    default_blog_slug = blog_slug || "blog"
+
+    %{
+      blog: default_blog_slug,
+      date: nil,
+      time: nil,
+      path: nil,
+      full_path: nil,
+      metadata: %{
+        title: "",
+        status: "draft",
+        published_at: DateTime.to_iso8601(now),
+        slug: ""
+      },
+      content: "",
+      language: primary_language,
+      available_languages: [],
+      mode: :slug,
+      slug: nil
+    }
+  end
+
+  defp build_virtual_post(blog_slug, _mode, primary_language, now) do
+    date = DateTime.to_date(now)
+    time = DateTime.to_time(now)
+
+    time_folder =
+      "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
+
+    default_blog_slug = blog_slug || "blog"
+
+    %{
+      blog: default_blog_slug,
+      date: date,
+      time: time,
+      path:
+        Path.join([
+          default_blog_slug,
+          Date.to_iso8601(date),
+          time_folder,
+          "#{primary_language}.phk"
+        ]),
+      full_path: nil,
+      metadata: %{
+        title: "",
+        status: "draft",
+        published_at: DateTime.to_iso8601(now)
+      },
+      content: "",
+      language: primary_language,
+      available_languages: [],
+      mode: :timestamp
+    }
+  end
+
+  defp maybe_autofill_slug(params, %{assigns: %{blog_mode: "slug"} = assigns}) do
+    trimmed_params =
+      case Map.fetch(params, "slug") do
+        {:ok, slug} when is_binary(slug) -> Map.put(params, "slug", String.trim(slug))
+        {:ok, _} -> Map.put(params, "slug", "")
+        :error -> params
+      end
+
+    slug_value = Map.get(trimmed_params, "slug")
+    current_slug = assigns.form |> Map.get("slug", "")
+
+    cond do
+      is_binary(slug_value) and slug_value != "" ->
+        trimmed_params
+
+      slug_value == "" ->
+        Map.put(trimmed_params, "slug", "")
+
+      current_slug not in [nil, ""] ->
+        Map.put(trimmed_params, "slug", current_slug)
+
+      true ->
+        title =
+          Map.get(trimmed_params, "title") ||
+            Map.get(assigns.form, "title") ||
+            ""
+
+        title = String.trim(to_string(title))
+
+        if title == "" do
+          Map.put(trimmed_params, "slug", "")
+        else
+          generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
+          Map.put(trimmed_params, "slug", generated)
+        end
+    end
+  end
+
+  defp maybe_autofill_slug(params, _socket) do
+    Map.delete(params, "slug")
+  end
+
+  defp validate_slug("slug", params, socket) do
+    slug =
+      Map.get(params, "slug") ||
+        Map.get(socket.assigns.form, "slug") ||
+        ""
+
+    cond do
+      slug == "" ->
+        :ok
+
+      Storage.valid_slug?(slug) ->
+        :ok
+
+      true ->
+        {:error, gettext("Slug must contain only lowercase letters, numbers, and hyphens")}
+    end
+  end
+
+  defp validate_slug(_mode, _params, _socket), do: :ok
+
+  defp slug_base_dir(post, blog_slug) do
+    cond do
+      Map.get(post, :mode) == :slug and Map.get(post, :slug) ->
+        Path.join([blog_slug || "blog", post.slug])
+
+      post.path ->
+        Path.dirname(post.path)
+
+      true ->
+        Path.join([blog_slug || "blog", post.slug || ""])
+    end
+  end
 end

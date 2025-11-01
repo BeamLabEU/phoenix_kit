@@ -45,23 +45,64 @@
             </p>
           </div>
 
-          <form
+          <.form
+            for={@new_blog_form}
+            id="blog-create-form"
+            class="space-y-4"
+            phx-change="update_new_blog"
             phx-submit="add_blog"
-            class="flex flex-col sm:flex-row gap-3 items-start sm:items-center"
           >
-            <input
+            <.input
+              field={@new_blog_form[:name]}
               type="text"
-              name="new_blog"
-              value={@new_blog}
+              label={gettext("Blog Name")}
               placeholder={gettext("e.g. Product Updates")}
-              class="input input-bordered flex-1 w-full sm:w-auto"
-              phx-change="update_new_blog"
-              phx-debounce="300"
+              required
             />
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text text-sm font-semibold text-base-content">
+                  {gettext("Storage Mode")}
+                </span>
+              </label>
+              <div class="flex flex-col gap-2">
+                <label class="cursor-pointer label gap-2 justify-start">
+                  <input
+                    type="radio"
+                    name={@new_blog_form[:mode].name}
+                    value="timestamp"
+                    class="radio radio-primary"
+                    checked={@new_blog_form[:mode].value == "timestamp"}
+                  />
+                  <span class="label-text">
+                    {gettext("Timestamp (date/time folders)")}
+                  </span>
+                </label>
+                <label class="cursor-pointer label gap-2 justify-start">
+                  <input
+                    type="radio"
+                    name={@new_blog_form[:mode].name}
+                    value="slug"
+                    class="radio radio-primary"
+                    checked={@new_blog_form[:mode].value == "slug"}
+                  />
+                  <span class="label-text">
+                    {gettext("Slug (semantic URLs)")}
+                  </span>
+                </label>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-xs text-base-content/60">
+                  {gettext("Cannot be changed after blog creation")}
+                </span>
+              </label>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-sm">
               <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Add Blog")}
             </button>
-          </form>
+          </.form>
 
           <%= if @blogs == [] do %>
             <div class="alert alert-info">
@@ -69,7 +110,7 @@
               <div>
                 <h3 class="font-bold">{gettext("No blogs yet")}</h3>
                 <p class="text-sm">
-                {gettext("Create your first blog to start publishing content.")}
+                  {gettext("Create your first blog to start publishing content.")}
                 </p>
               </div>
             </div>
@@ -77,8 +118,16 @@
             <div class="space-y-4">
               <%= for blog <- @blogs do %>
                 <div class="border border-base-200 rounded-lg p-4 flex items-center justify-between">
-                  <div>
-                    <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
+                      <span class={[
+                        "badge badge-sm uppercase",
+                        if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
+                      ]}>
+                        {blog["mode"] || "timestamp"}
+                      </span>
+                    </div>
                     <p class="text-xs text-base-content/60">
                       {gettext("Slug")}: <code class="font-mono">{blog["slug"]}</code>
                     </p>

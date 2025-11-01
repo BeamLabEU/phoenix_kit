@@ -56,16 +56,107 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     Enum.find(all_languages, fn lang -> lang.code == language_code end)
   end
 
+  @slug_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
+
+  @doc """
+  Validates whether the given string is a slug.
+  """
+  @spec valid_slug?(String.t()) :: boolean()
+  def valid_slug?(slug) when is_binary(slug) do
+    Regex.match?(@slug_pattern, slug)
+  end
+
+  @doc """
+  Checks if a slug already exists within the given blog.
+  """
+  @spec slug_exists?(String.t(), String.t()) :: boolean()
+  def slug_exists?(blog_slug, post_slug) do
+    Path.join([root_path(), blog_slug, post_slug])
+    |> File.dir?()
+  end
+
+  @doc """
+  Generates a unique slug based on title and optional preferred slug.
+  """
+  @spec generate_unique_slug(String.t(), String.t(), String.t() | nil) :: String.t()
+  def generate_unique_slug(blog_slug, title, preferred_slug \\ nil) do
+    base_slug =
+      case preferred_slug do
+        nil ->
+          generate_slug_from_title(title)
+
+        slug when is_binary(slug) ->
+          sanitized = sanitize_slug(slug)
+
+          cond do
+            sanitized == "" ->
+              generate_slug_from_title(title)
+
+            valid_slug?(sanitized) ->
+              sanitized
+
+            true ->
+              generate_slug_from_title(title)
+          end
+      end
+
+    ensure_unique_slug(blog_slug, base_slug)
+  end
+
+  defp generate_slug_from_title(title) when is_binary(title) do
+    title
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.replace(~r/-+/, "-")
+    |> String.trim("-")
+    |> case do
+      "" -> fallback_slug()
+      slug -> slug
+    end
+  end
+
+  defp sanitize_slug(slug) do
+    slug
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.replace(~r/-+/, "-")
+    |> String.trim("-")
+  end
+
+  defp ensure_unique_slug(blog_slug, base_slug) do
+    if slug_exists?(blog_slug, base_slug) do
+      find_available_slug(blog_slug, base_slug, 2)
+    else
+      base_slug
+    end
+  end
+
+  defp find_available_slug(blog_slug, base_slug, counter) do
+    candidate = "#{base_slug}-#{counter}"
+
+    if slug_exists?(blog_slug, candidate) do
+      find_available_slug(blog_slug, base_slug, counter + 1)
+    else
+      candidate
+    end
+  end
+
+  defp fallback_slug do
+    "post-#{System.unique_integer([:positive])}"
+  end
+
   @type post :: %{
           blog: String.t() | nil,
-          date: Date.t(),
-          time: Time.t(),
+          slug: String.t() | nil,
+          date: Date.t() | nil,
+          time: Time.t() | nil,
           path: String.t(),
           full_path: String.t(),
           metadata: map(),
           content: String.t(),
           language: String.t(),
-          available_languages: [String.t()]
+          available_languages: [String.t()],
+          mode: :slug | :timestamp | nil
         }
 
   @doc """
@@ -135,15 +226,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                available_languages <- detect_available_languages(time_path),
                false <- Enum.empty?(available_languages),
                display_language <-
-               select_display_language(available_languages, preferred_language),
+                 select_display_language(available_languages, preferred_language),
                post_path <- Path.join(time_path, language_filename(display_language)),
                {:ok, metadata, content} <-
-                post_path
-                |> File.read!()
-                |> Metadata.parse_with_content() do
+                 post_path
+                 |> File.read!()
+                 |> Metadata.parse_with_content() do
             [
               %{
                 blog: blog_slug,
+                slug: Map.get(metadata, :slug, format_time_folder(time)),
                 date: date,
                 time: time,
                 path: relative_path_with_language(blog_slug, date, time, display_language),
@@ -151,7 +243,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                 metadata: metadata,
                 content: content,
                 language: display_language,
-                available_languages: available_languages
+                available_languages: available_languages,
+                mode: :timestamp
               }
             ]
           else
@@ -181,6 +274,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     end
   end
 
+  defp resolve_language(available_languages, preferred_language) do
+    code =
+      if preferred_language && preferred_language in available_languages do
+        preferred_language
+      else
+        select_display_language(available_languages, preferred_language)
+      end
+
+    {:ok, code}
+  end
+
   defp detect_available_languages(time_path) do
     case File.ls(time_path) do
       {:ok, files} ->
@@ -191,6 +295,301 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
       {:error, _} ->
         []
+    end
+  end
+
+  @doc """
+  Creates a slug-mode post, returning metadata and paths for the primary language.
+  """
+  @spec create_post_slug_mode(String.t(), String.t() | nil, String.t() | nil) ::
+          {:ok, post()} | {:error, any()}
+  def create_post_slug_mode(blog_slug, title \\ nil, preferred_slug \\ nil) do
+    now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
+    post_slug = generate_unique_slug(blog_slug, title || "", preferred_slug)
+    primary_language = hd(enabled_language_codes())
+
+    post_dir = Path.join([root_path(), blog_slug, post_slug])
+    File.mkdir_p!(post_dir)
+
+    metadata = %{
+      slug: post_slug,
+      title: title || "",
+      status: "draft",
+      published_at: DateTime.to_iso8601(now),
+      created_at: DateTime.to_iso8601(now)
+    }
+
+    content = Metadata.serialize(metadata) <> "\n\n"
+    primary_lang_path = Path.join(post_dir, language_filename(primary_language))
+
+    case File.write(primary_lang_path, content) do
+      :ok ->
+        {:ok,
+         %{
+           blog: blog_slug,
+           slug: post_slug,
+           date: nil,
+           time: nil,
+           path: Path.join([blog_slug, post_slug, language_filename(primary_language)]),
+           full_path: primary_lang_path,
+           metadata: metadata,
+           content: "",
+           language: primary_language,
+           available_languages: [primary_language],
+           mode: :slug
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Lists slug-mode posts for the given blog.
+  """
+  @spec list_posts_slug_mode(String.t(), String.t() | nil) :: [post()]
+  def list_posts_slug_mode(blog_slug, preferred_language \\ nil) do
+    blog_root = Path.join(root_path(), blog_slug)
+
+    if File.dir?(blog_root) do
+      blog_root
+      |> File.ls!()
+      |> Enum.flat_map(
+        &posts_for_slug(blog_slug, &1, Path.join(blog_root, &1), preferred_language)
+      )
+      |> Enum.sort_by(&published_at_sort_key(&1.metadata), {:desc, DateTime})
+    else
+      []
+    end
+  end
+
+  defp posts_for_slug(blog_slug, post_slug, post_path, preferred_language) do
+    cond do
+      not File.dir?(post_path) ->
+        []
+
+      true ->
+        available_languages = detect_available_languages(post_path)
+
+        if Enum.empty?(available_languages) do
+          []
+        else
+          display_language = select_display_language(available_languages, preferred_language)
+          file_path = Path.join(post_path, language_filename(display_language))
+
+          with {:ok, metadata, content} <-
+                 file_path
+                 |> File.read!()
+                 |> Metadata.parse_with_content() do
+            [
+              %{
+                blog: blog_slug,
+                slug: post_slug,
+                date: nil,
+                time: nil,
+                path: Path.join([blog_slug, post_slug, language_filename(display_language)]),
+                full_path: file_path,
+                metadata: metadata,
+                content: content,
+                language: display_language,
+                available_languages: available_languages,
+                mode: :slug
+              }
+            ]
+          else
+            _ -> []
+          end
+        end
+    end
+  end
+
+  defp published_at_sort_key(%{published_at: nil}) do
+    DateTime.from_unix!(0)
+  end
+
+  defp published_at_sort_key(%{published_at: published_at}) do
+    case DateTime.from_iso8601(published_at) do
+      {:ok, dt, _offset} -> dt
+      _ -> DateTime.from_unix!(0)
+    end
+  end
+
+  @doc """
+  Reads a slug-mode post, optionally for a specific language.
+  """
+  @spec read_post_slug_mode(String.t(), String.t(), String.t() | nil) ::
+          {:ok, post()} | {:error, any()}
+  def read_post_slug_mode(blog_slug, post_slug, language \\ nil) do
+    post_dir = Path.join([root_path(), blog_slug, post_slug])
+
+    with true <- File.dir?(post_dir),
+         available_languages <- detect_available_languages(post_dir),
+         false <- Enum.empty?(available_languages),
+         {:ok, language_code} <- resolve_language(available_languages, language),
+         file_path <- Path.join(post_dir, language_filename(language_code)),
+         true <- File.exists?(file_path),
+         {:ok, metadata, content} <-
+           File.read!(file_path)
+           |> Metadata.parse_with_content() do
+      {:ok,
+       %{
+         blog: blog_slug,
+         slug: post_slug,
+         date: nil,
+         time: nil,
+         path: Path.join([blog_slug, post_slug, language_filename(language_code)]),
+         full_path: file_path,
+         metadata: metadata,
+         content: content,
+         language: language_code,
+         available_languages: available_languages,
+         mode: :slug
+       }}
+    else
+      false -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Updates slug-mode posts in-place or moves them when the slug changes.
+  """
+  @spec update_post_slug_mode(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
+  def update_post_slug_mode(blog_slug, post, params) do
+    desired_slug = Map.get(params, "slug", post.slug)
+
+    cond do
+      desired_slug == post.slug ->
+        update_post_slug_in_place(blog_slug, post, params)
+
+      not valid_slug?(desired_slug) ->
+        {:error, :invalid_slug}
+
+      slug_exists?(blog_slug, desired_slug) ->
+        {:error, :slug_already_exists}
+
+      true ->
+        move_post_to_new_slug(blog_slug, post, desired_slug, params)
+    end
+  end
+
+  @doc """
+  Updates slug-mode posts without moving them (slug unchanged).
+  """
+  @spec update_post_slug_in_place(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
+  def update_post_slug_in_place(_blog_slug, post, params) do
+    metadata =
+      post.metadata
+      |> Map.put(:title, Map.get(params, "title", post.metadata.title))
+      |> Map.put(:status, Map.get(params, "status", post.metadata.status))
+      |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
+      |> Map.put(:created_at, Map.get(post.metadata, :created_at))
+      |> Map.put(:slug, post.slug)
+
+    content = Map.get(params, "content", post.content)
+    serialized = Metadata.serialize(metadata) <> "\n\n" <> String.trim_leading(content)
+
+    case File.write(post.full_path, serialized <> "\n") do
+      :ok ->
+        {:ok, %{post | metadata: metadata, content: content}}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Moves slug-mode post files to a new slug directory.
+  """
+  @spec move_post_to_new_slug(String.t(), post(), String.t(), map()) ::
+          {:ok, post()} | {:error, any()}
+  def move_post_to_new_slug(blog_slug, post, new_slug, params) do
+    old_dir = Path.join([root_path(), blog_slug, post.slug])
+    new_dir = Path.join([root_path(), blog_slug, new_slug])
+
+    File.mkdir_p!(new_dir)
+
+    Enum.each(post.available_languages, fn lang_code ->
+      old_file = Path.join(old_dir, language_filename(lang_code))
+      new_file = Path.join(new_dir, language_filename(lang_code))
+
+      if File.exists?(old_file) do
+        {:ok, metadata, content} =
+          old_file
+          |> File.read!()
+          |> Metadata.parse_with_content()
+
+        base_metadata = Map.put(metadata, :slug, new_slug)
+
+        {final_metadata, final_content} =
+          if lang_code == post.language do
+            updated_metadata =
+              base_metadata
+              |> Map.put(:title, Map.get(params, "title", metadata.title))
+              |> Map.put(:status, Map.get(params, "status", metadata.status))
+              |> Map.put(:published_at, Map.get(params, "published_at", metadata.published_at))
+
+            {updated_metadata, Map.get(params, "content", content)}
+          else
+            {base_metadata, content}
+          end
+
+        serialized =
+          Metadata.serialize(final_metadata) <> "\n\n" <> String.trim_leading(final_content)
+
+        File.write!(new_file, serialized <> "\n")
+        File.rm!(old_file)
+      end
+    end)
+
+    File.rmdir!(old_dir)
+
+    new_path = Path.join([blog_slug, new_slug, language_filename(post.language)])
+    new_full_path = Path.join(new_dir, language_filename(post.language))
+
+    {:ok, metadata, content} =
+      new_full_path
+      |> File.read!()
+      |> Metadata.parse_with_content()
+
+    {:ok,
+     %{
+       post
+       | slug: new_slug,
+         path: new_path,
+         full_path: new_full_path,
+         metadata: metadata,
+         content: content,
+         available_languages: detect_available_languages(new_dir)
+     }}
+  end
+
+  @doc """
+  Adds a new language file to a slug-mode post.
+  """
+  @spec add_language_to_post_slug_mode(String.t(), String.t(), String.t()) ::
+          {:ok, post()} | {:error, any()}
+  def add_language_to_post_slug_mode(blog_slug, post_slug, language_code) do
+    with {:ok, original_post} <- read_post_slug_mode(blog_slug, post_slug),
+         post_dir <- Path.dirname(original_post.full_path),
+         target_path <- Path.join(post_dir, language_filename(language_code)),
+         false <- File.exists?(target_path) do
+      metadata =
+        original_post.metadata
+        |> Map.put(:title, "")
+
+      serialized = Metadata.serialize(metadata) <> "\n\n"
+
+      case File.write(target_path, serialized <> "\n") do
+        :ok ->
+          read_post_slug_mode(blog_slug, post_slug, language_code)
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      true -> {:error, :already_exists}
+      {:error, reason} -> {:error, reason}
     end
   end
 
@@ -237,12 +636,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     case File.write(primary_lang_path, content) do
       :ok ->
         blog_slug_for_path = blog_slug || slug
-        primary_path = relative_path_with_language(blog_slug_for_path, date, time, primary_language)
+
+        primary_path =
+          relative_path_with_language(blog_slug_for_path, date, time, primary_language)
+
         full_path = absolute_path(primary_path)
 
         {:ok,
          %{
            blog: blog_slug_for_path,
+           slug: metadata.slug,
            date: date,
            time: time,
            path: primary_path,
@@ -250,7 +653,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
            metadata: metadata,
            content: "",
            language: primary_language,
-           available_languages: [primary_language]
+           available_languages: [primary_language],
+           mode: :timestamp
          }}
 
       {:error, reason} ->
@@ -274,6 +678,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       {:ok,
        %{
          blog: blog_slug,
+         slug: Map.get(metadata, :slug, Path.basename(Path.dirname(relative_path))),
          date: date,
          time: time,
          path: relative_path,
@@ -281,7 +686,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          metadata: metadata,
          content: content,
          language: language,
-         available_languages: available_languages
+         available_languages: available_languages,
+         mode: :timestamp
        }}
     else
       false -> {:error, :not_found}
@@ -370,7 +776,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
              content: new_content,
              date: date,
              time: time,
-             available_languages: available_languages
+             available_languages: available_languages,
+             slug: metadata_for_file.slug,
+             mode: post.mode || :timestamp
          }}
 
       {:error, reason} ->
@@ -404,12 +812,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     with {:ok, dt, _} <- DateTime.from_iso8601(timestamp) do
       floored = floor_to_minute(dt)
 
-        relative_path_with_language(
-          blog_slug,
-          DateTime.to_date(floored),
-          DateTime.to_time(floored),
-          language_code
-        )
+      relative_path_with_language(
+        blog_slug,
+        DateTime.to_date(floored),
+        DateTime.to_time(floored),
+        language_code
+      )
     else
       _ ->
         now = DateTime.utc_now() |> floor_to_minute()

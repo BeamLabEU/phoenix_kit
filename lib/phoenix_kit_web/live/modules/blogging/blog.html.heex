@@ -52,12 +52,7 @@
                 <div class="card-body p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
-                      <span>
-                        {Calendar.strftime(post.date, "%B %d, %Y")} at {Calendar.strftime(
-                          post.time,
-                          "%I:%M %p"
-                        )}
-                      </span>
+                      <span>{format_datetime(post)}</span>
                     </div>
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
                       {post.metadata.title || gettext("Untitled post")}
@@ -86,7 +81,10 @@
                       # Read language-specific metadata for status
                       lang_metadata =
                         if file_exists do
-                          case PhoenixKitWeb.Live.Modules.Blogging.read_post(@blog_slug, lang_path) do
+                          case PhoenixKitWeb.Live.Modules.Blogging.read_post(
+                                 @blog_slug,
+                                 lang_path
+                               ) do
                             {:ok, lang_post} -> lang_post.metadata
                             _ -> nil
                           end
@@ -150,7 +148,7 @@
                             <%!-- Add button --%>
                             <button
                               type="button"
-                             phx-click="add_language"
+                              phx-click="add_language"
                               phx-value-path={post.path}
                               phx-value-language={lang_code}
                               class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 shadow-none"
