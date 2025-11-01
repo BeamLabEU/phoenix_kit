@@ -458,6 +458,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
+                        <%!-- Storage section with submenu --%>
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings/storage")}
                           icon="storage"
@@ -466,13 +467,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           nested={true}
                         />
 
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/settings/storage/dimensions")}
-                          icon="photo"
-                          label="Dimensions"
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
+                        <%= if submenu_open?(@current_path, ["/admin/settings/storage", "/admin/settings/storage/dimensions"]) do %>
+                          <%!-- Storage submenu items --%>
+                          <div class="mt-1 pl-4">
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/storage/dimensions")}
+                              icon="photo"
+                              label="Dimensions"
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          </div>
+                        <% end %>
 
                         <%= if PhoenixKit.Entities.enabled?() do %>
                           <.admin_nav_item
