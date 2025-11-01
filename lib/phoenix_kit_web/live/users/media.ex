@@ -21,11 +21,124 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     socket =
       socket
+      |> allow_upload(:media_files,
+        accept: ["image/*", "video/*", "application/pdf"],
+        max_entries: 10,
+        max_file_size: 100_000_000,
+        auto_upload: false
+      )
       |> assign(:page_title, "Media")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
+      |> assign(:uploaded_files, [])
 
     {:ok, socket}
   end
+
+  def handle_event("validate", _params, socket) do
+    # File validation event - called when files are selected
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :media_files, ref)}
+  end
+
+  def handle_event("upload", _params, socket) do
+    # Process uploaded files when user clicks upload button
+    process_uploads(socket)
+  end
+
+  defp process_uploads(socket) do
+    # Process uploaded files
+    uploaded_files =
+      consume_uploaded_entries(socket, :media_files, fn %{path: path}, entry ->
+        # Get file info
+        ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+        mime_type = entry.client_type || MIME.from_path(entry.client_name)
+        file_type = determine_file_type(mime_type)
+
+        # Get current user
+        current_user = socket.assigns.phoenix_kit_current_user
+        user_id = if current_user, do: current_user.id, else: 1
+
+        # Get file size
+        {:ok, stat} = File.stat(path)
+        file_size = stat.size
+
+        # Calculate hash
+        file_hash = calculate_file_hash(path)
+
+        # Store file in storage
+        case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
+          {:ok, file} ->
+            # Queue background job for processing
+            _job =
+              %{file_id: file.id, user_id: user_id, filename: entry.client_name}
+              |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+              |> Oban.insert()
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               file_type: file_type,
+               mime_type: mime_type,
+               size: file_size,
+               status: file.status,
+               url: nil
+             }}
+
+          {:error, reason} ->
+            IO.inspect(reason, label: "Storage Error")
+            {:error, reason}
+        end
+      end)
+
+    socket =
+      socket
+      |> assign(:uploaded_files, (socket.assigns.uploaded_files || []) ++ uploaded_files)
+      |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
+
+    {:noreply, socket}
+  end
+
+  defp calculate_file_hash(file_path) do
+    file_path
+    |> File.read!()
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
+    |> Base.encode16(case: :lower)
+  end
+
+  defp determine_file_type(mime_type) do
+    cond do
+      String.starts_with?(mime_type, "image/") -> "image"
+      String.starts_with?(mime_type, "video/") -> "video"
+      mime_type == "application/pdf" -> "pdf"
+      true -> "document"
+    end
+  end
+
+  # Format file size in human-readable format
+  defp format_file_size(bytes) when is_integer(bytes) do
+    cond do
+      bytes >= 1_000_000_000 -> "#{Float.round(bytes / 1_000_000_000, 2)} GB"
+      bytes >= 1_000_000 -> "#{Float.round(bytes / 1_000_000, 2)} MB"
+      bytes >= 1_000 -> "#{Float.round(bytes / 1_000, 2)} KB"
+      true -> "#{bytes} B"
+    end
+  end
+
+  # Get badge color for file type
+  defp file_type_badge("image"), do: "badge-info"
+  defp file_type_badge("video"), do: "badge-warning"
+  defp file_type_badge("pdf"), do: "badge-error"
+  defp file_type_badge(_), do: "badge-ghost"
+
+  # Get badge color for status
+  defp status_badge("active"), do: "badge-success"
+  defp status_badge("processing"), do: "badge-info"
+  defp status_badge("failed"), do: "badge-error"
+  defp status_badge(_), do: "badge-warning"
 end

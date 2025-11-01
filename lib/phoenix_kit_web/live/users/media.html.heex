@@ -7,14 +7,72 @@
   current_locale={@current_locale}
 >
   <div class="p-6">
-    <div class="mb-6">
+    <div class="mb-8">
       <h1 class="text-3xl font-bold text-base-content">Media</h1>
       <p class="text-base-content/70 mt-1">Manage user media and uploads</p>
     </div>
 
-    <%!-- Empty state --%>
-    <div class="bg-base-200 rounded-lg p-8 text-center">
-      <p class="text-base-content/70">Media management coming soon...</p>
+    <%!-- Upload Section --%>
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title text-xl mb-4">Upload Media</h2>
+        <p class="text-sm text-base-content/70 mb-4">
+          Upload images, videos, or PDFs. Files are automatically processed and optimized.
+        </p>
+
+        <form phx-submit="upload">
+          <.file_upload
+            upload={@uploads.media_files}
+            label="Upload Media Files"
+            icon="hero-cloud-arrow-up"
+            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+            max_size_description="100MB per file"
+          />
+
+          <button type="submit" class="btn btn-primary mt-4" disabled={length(@uploads.media_files.entries) == 0}>
+            <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
+          </button>
+        </form>
+      </div>
     </div>
+
+    <%!-- Uploaded Files --%>
+    <%= if length(@uploaded_files) > 0 do %>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-4">Uploaded Files ({length(@uploaded_files)})</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <%= for file <- @uploaded_files do %>
+              <div class="card bg-base-200 border border-base-300">
+                <div class="card-body p-4">
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1 min-w-0">
+                      <h3 class="font-semibold truncate">{file.filename}</h3>
+                      <p class="text-sm text-base-content/60 mt-1">
+                        {format_file_size(file.size)}
+                      </p>
+                    </div>
+                    <span class={"badge badge-sm #{file_type_badge(file.file_type)}"}>
+                      {String.upcase(file.file_type)}
+                    </span>
+                  </div>
+
+                  <div class="flex gap-2 mt-4">
+                    <span class={"badge badge-xs #{status_badge(file.status)}"}>
+                      {String.capitalize(file.status)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-base-200 rounded-lg p-8 text-center">
+        <p class="text-base-content/70">No media uploaded yet. Upload your first file above!</p>
+      </div>
+    <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
