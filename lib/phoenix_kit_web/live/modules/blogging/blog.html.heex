@@ -11,16 +11,16 @@
       <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
         <div>
           <p class="text-sm uppercase tracking-wide text-base-content/60">
-            {gettext("Publishing")}
+            {gettext("Blogging")}
           </p>
           <h1 class="text-3xl font-bold text-base-content">
-            {(@current_type && @current_type["name"]) || @type_slug}
+            {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
           </h1>
         </div>
         <div class="flex gap-2">
-          <button type="button" class="btn btn-primary btn-sm" phx-click="create_entry">
-            <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create %{type} Post",
-              type: (@current_type && @current_type["name"]) || @type_slug
+          <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
+            <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create %{blog} Post",
+              blog: (@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")
             )}
           </button>
         </div>
@@ -29,68 +29,65 @@
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
           <span class="text-sm text-base-content/70">
-            {gettext("Showing %{count} entries", count: length(@entries))}
+            {gettext("Showing %{count} posts", count: length(@posts))}
           </span>
           <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
             <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
           </button>
         </div>
 
-        <%= if @entries == [] do %>
+        <%= if @posts == [] do %>
           <div class="card bg-base-100 shadow-sm border border-base-200">
             <div class="card-body">
-              <h3 class="text-lg font-semibold text-base-content">{gettext("No entries yet")}</h3>
+              <h3 class="text-lg font-semibold text-base-content">{gettext("No posts yet")}</h3>
               <p class="text-sm text-base-content/70">
-                {gettext("Create your first entry to start publishing content.")}
+                {gettext("Create your first post to start sharing content.")}
               </p>
             </div>
           </div>
         <% else %>
           <div class="grid gap-4">
-            <%= for entry <- @entries do %>
+            <%= for post <- @posts do %>
               <div class="card bg-base-100 shadow-sm border border-base-200">
                 <div class="card-body p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
                       <span>
-                        {Calendar.strftime(entry.date, "%B %d, %Y")} at {Calendar.strftime(
-                          entry.time,
+                        {Calendar.strftime(post.date, "%B %d, %Y")} at {Calendar.strftime(
+                          post.time,
                           "%I:%M %p"
                         )}
                       </span>
                     </div>
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                      {entry.metadata.title || gettext("Untitled entry")}
+                      {post.metadata.title || gettext("Untitled post")}
                     </h3>
                   </div>
                   <div class="flex gap-2 flex-wrap">
                     <%!-- Show buttons for all languages (enabled and disabled) in consistent order --%>
                     <% all_languages =
-                      (entry.available_languages ++ @enabled_languages)
+                      (post.available_languages ++ @enabled_languages)
                       |> Enum.uniq()
                       |> Enum.sort() %>
                     <%= for lang_code <- all_languages do %>
                       <% lang_path =
                         Path.join([
-                          Path.dirname(entry.path),
+                          Path.dirname(post.path),
                           "#{lang_code}.phk"
                         ])
 
                       lang_info =
-                        PhoenixKitWeb.Live.Modules.Publishing.get_language_info(lang_code)
+                        PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
 
                       flag = if lang_info, do: lang_info.flag, else: ""
-                      file_exists = lang_code in entry.available_languages
+                      file_exists = lang_code in post.available_languages
                       is_enabled = lang_code in @enabled_languages
 
                       # Read language-specific metadata for status
                       lang_metadata =
                         if file_exists do
-                          case PhoenixKitWeb.Live.Modules.Publishing.read_entry(
-                                 @type_slug,
-                                 lang_path
-                               ) do
-                            {:ok, lang_entry} -> lang_entry.metadata
+                          case PhoenixKitWeb.Live.Modules.Blogging.read_post(@blog_slug, lang_path) do
+                            {:ok, lang_post} -> lang_post.metadata
                             _ -> nil
                           end
                         else
@@ -123,7 +120,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/publishing/#{entry.type}/edit?path=#{URI.encode(lang_path)}",
+                                "/admin/blogging/#{post.blog}/edit?path=#{URI.encode(lang_path)}",
                                 locale: @current_locale
                               )
                             }
@@ -153,8 +150,8 @@
                             <%!-- Add button --%>
                             <button
                               type="button"
-                              phx-click="add_language"
-                              phx-value-path={entry.path}
+                             phx-click="add_language"
+                              phx-value-path={post.path}
                               phx-value-language={lang_code}
                               class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 shadow-none"
                               title={

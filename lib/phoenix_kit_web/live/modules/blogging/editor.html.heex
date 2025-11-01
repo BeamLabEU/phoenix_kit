@@ -3,7 +3,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
   current_path={
-    PhoenixKit.Utils.Routes.path("/admin/publishing/#{@type_slug}/edit", locale: @current_locale)
+    PhoenixKit.Utils.Routes.path("/admin/blogging/#{@blog_slug}/edit", locale: @current_locale)
   }
   project_title={@project_title}
   current_locale={@current_locale}
@@ -64,8 +64,8 @@
   <div class="container mx-auto px-4 py-6 space-y-6">
     <div class="flex items-center justify-between">
       <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="back_to_list">
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> {gettext("Back to %{type}",
-          type: @type_name
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> {gettext("Back to %{blog}",
+          blog: @blog_name || gettext("Blog")
         )}
       </button>
       <div class="flex items-center gap-3">
@@ -75,7 +75,7 @@
             <span class="text-sm text-base-content/70">{gettext("Language")}:</span>
             <div class="join">
               <%= for lang_code <- @all_enabled_languages do %>
-                <% lang_info = PhoenixKitWeb.Live.Modules.Publishing.get_language_info(lang_code)
+                <% lang_info = PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
                 flag = if lang_info, do: lang_info.flag, else: ""
                 is_current = @current_language == lang_code
                 file_exists = lang_code in @available_languages %>
@@ -123,7 +123,7 @@
       <div class="card-body space-y-6">
         <div class="flex flex-col lg:flex-row gap-6">
           <div class="lg:w-80 space-y-4">
-            <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
+            <.form for={@form} id="blogging-meta" phx-change="update_meta" phx-submit="noop">
               <div class="space-y-4">
                 <div>
                   <label class="label">
@@ -136,7 +136,7 @@
                     name="title"
                     value={@form["title"]}
                     class="input input-bordered w-full"
-                    placeholder={gettext("Entry title")}
+                    placeholder={gettext("Post title")}
                   />
                 </div>
 
@@ -201,12 +201,12 @@
                   disabled={!@has_pending_changes}
                 >
                   <.icon name="hero-check" class="w-4 h-4" />
-                  <span class="whitespace-nowrap">{gettext("Save Entry")}</span>
+                  <span class="whitespace-nowrap">{gettext("Save Post")}</span>
                 </button>
               </div>
             </div>
 
-            <.form for={%{}} id="publishing-content" phx-change="update_content" phx-submit="noop">
+            <.form for={%{}} id="blogging-content" phx-change="update_content" phx-submit="noop">
               <textarea
                 name="content"
                 class="textarea textarea-bordered w-full h-[480px] font-mono text-sm leading-6"

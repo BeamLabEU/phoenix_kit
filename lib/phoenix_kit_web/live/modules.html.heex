@@ -258,18 +258,18 @@
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="Publishing"
-        description="Create date-based content like blogs and news articles with multi-language support"
+        title="Blogging"
+        description="Publish date-based blog posts and company updates with multi-language support"
         icon="📰"
-        enabled={@publishing_enabled}
-        toggle_event="toggle_publishing"
+        enabled={@blogging_enabled}
+        toggle_event="toggle_blogging"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@publishing_enabled, do: "badge-success", else: "badge-neutral")
+            if(@blogging_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @publishing_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+            {if @blogging_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
           </span>
         </:status_badges>
 
@@ -277,21 +277,21 @@
           <div class="flex flex-col gap-2 w-full">
             <.link
               navigate={
-                PhoenixKit.Utils.Routes.path("/admin/publishing", locale: @current_locale || "en")
+                PhoenixKit.Utils.Routes.path("/admin/blogging", locale: @current_locale || "en")
               }
-              class={"btn btn-sm #{if @publishing_enabled, do: "btn-primary", else: "btn-outline"}"}
+              class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
-              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Publishing")}
+              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Blogging")}
             </.link>
             <.link
               navigate={
-                PhoenixKit.Utils.Routes.path("/admin/settings/publishing",
+                PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
                   locale: @current_locale || "en"
                 )
               }
               class="btn btn-sm btn-outline"
             >
-              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure Types")}
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogs")}
             </.link>
           </div>
         </:action_buttons>

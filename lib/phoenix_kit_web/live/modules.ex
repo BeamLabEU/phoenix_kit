@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Pages
-  alias PhoenixKitWeb.Live.Modules.Publishing
+  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
 
@@ -29,7 +29,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     languages_config = Languages.get_config()
     entities_config = Entities.get_config()
     pages_enabled = Pages.enabled?()
-    publishing_enabled = Publishing.enabled?()
+    blogging_enabled = Blogging.enabled?()
     under_construction_config = Maintenance.get_config()
 
     socket =
@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:entities_count, entities_config.entity_count)
       |> assign(:entities_total_data, entities_config.total_data_count)
       |> assign(:pages_enabled, pages_enabled)
-      |> assign(:publishing_enabled, publishing_enabled)
+      |> assign(:blogging_enabled, blogging_enabled)
       |> assign(:under_construction_module_enabled, under_construction_config.module_enabled)
       |> assign(:under_construction_enabled, under_construction_config.enabled)
       |> assign(:under_construction_header, under_construction_config.header)
@@ -201,33 +201,33 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  def handle_event("toggle_publishing", _params, socket) do
-    new_enabled = !socket.assigns.publishing_enabled
+  def handle_event("toggle_blogging", _params, socket) do
+    new_enabled = !socket.assigns.blogging_enabled
 
     result =
       if new_enabled do
-        Publishing.enable_system()
+        Blogging.enable_system()
       else
-        Publishing.disable_system()
+        Blogging.disable_system()
       end
 
     case result do
       {:ok, _} ->
         socket =
           socket
-          |> assign(:publishing_enabled, new_enabled)
+          |> assign(:blogging_enabled, new_enabled)
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "Publishing module enabled",
-              else: "Publishing module disabled"
+              do: "Blogging module enabled",
+              else: "Blogging module disabled"
             )
           )
 
         {:noreply, socket}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to update publishing module")}
+        {:noreply, put_flash(socket, :error, "Failed to update blogging module")}
     end
   end
 

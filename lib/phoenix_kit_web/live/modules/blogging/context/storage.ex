@@ -1,17 +1,17 @@
-defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
+defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   @moduledoc """
-  Filesystem storage helpers for publishing entries.
+  Filesystem storage helpers for blogging posts.
 
   Content is stored under:
 
-      priv/static/publishing/<type>/<YYYY-MM-DD>/<HH:MM>/<language>.phk
+      priv/static/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/<language>.phk
 
   Where <language> is determined by the site's content language setting.
   Files use the .phk (PhoenixKit) format, which supports XML-style
   component markup for building pages with swappable design variants.
   """
 
-  alias PhoenixKitWeb.Live.Modules.Publishing.Metadata
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKit.Settings
   alias PhoenixKit.Module.Languages
 
@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Returns the filename for language-specific entries based on the site's
+  Returns the filename for language-specific posts based on the site's
   primary content language setting.
   """
   @spec language_filename() :: String.t()
@@ -56,8 +56,8 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
     Enum.find(all_languages, fn lang -> lang.code == language_code end)
   end
 
-  @type entry :: %{
-          type: String.t(),
+  @type post :: %{
+          blog: String.t() | nil,
           date: Date.t(),
           time: Time.t(),
           path: String.t(),
@@ -69,7 +69,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
         }
 
   @doc """
-  Returns the publishing root directory, creating it if needed.
+  Returns the blogging root directory, creating it if needed.
   Always uses the parent application's priv directory.
   """
   @spec root_path() :: String.t()
@@ -79,35 +79,35 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
     # Get the parent app's priv directory
     # This ensures files are always stored in the parent app, not in PhoenixKit's deps folder
     base_priv = Application.app_dir(parent_app, "priv")
-    base = Path.join(base_priv, "static/publishing")
+    base = Path.join(base_priv, "static/blogging")
 
     File.mkdir_p!(base)
     base
   end
 
   @doc """
-  Ensures the folder for a type exists.
+  Ensures the folder for a blog exists.
   """
-  @spec ensure_type_root(String.t()) :: :ok | {:error, term()}
-  def ensure_type_root(type_slug) do
-    Path.join(root_path(), type_slug)
+  @spec ensure_blog_root(String.t()) :: :ok | {:error, term()}
+  def ensure_blog_root(blog_slug) do
+    Path.join(root_path(), blog_slug)
     |> File.mkdir_p()
   end
 
   @doc """
-  Lists entries for the given type.
+  Lists posts for the given blog.
   Accepts optional preferred_language to show titles in user's language.
   Falls back to content language, then first available language.
   """
-  @spec list_entries(String.t(), String.t() | nil) :: [entry()]
-  def list_entries(type_slug, preferred_language \\ nil) do
-    type_root = Path.join(root_path(), type_slug)
+  @spec list_posts(String.t(), String.t() | nil) :: [post()]
+  def list_posts(blog_slug, preferred_language \\ nil) do
+    blog_root = Path.join(root_path(), blog_slug)
 
-    if File.dir?(type_root) do
-      type_root
+    if File.dir?(blog_root) do
+      blog_root
       |> File.ls!()
       |> Enum.flat_map(
-        &entries_for_date(type_slug, &1, Path.join(type_root, &1), preferred_language)
+        &posts_for_date(blog_slug, &1, Path.join(blog_root, &1), preferred_language)
       )
       |> Enum.sort_by(&{&1.date, &1.time}, :desc)
     else
@@ -115,17 +115,17 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
     end
   end
 
-  defp entries_for_date(type_slug, date_folder, date_path, preferred_language) do
+  defp posts_for_date(blog_slug, date_folder, date_path, preferred_language) do
     case Date.from_iso8601(date_folder) do
       {:ok, date} ->
-        list_times(type_slug, date, date_path, preferred_language)
+        list_times(blog_slug, date, date_path, preferred_language)
 
       _ ->
         []
     end
   end
 
-  defp list_times(type_slug, date, date_path, preferred_language) do
+  defp list_times(blog_slug, date, date_path, preferred_language) do
     case File.ls(date_path) do
       {:ok, time_folders} ->
         Enum.flat_map(time_folders, fn time_folder ->
@@ -135,19 +135,19 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
                available_languages <- detect_available_languages(time_path),
                false <- Enum.empty?(available_languages),
                display_language <-
-                 select_display_language(available_languages, preferred_language),
-               entry_path <- Path.join(time_path, language_filename(display_language)),
+               select_display_language(available_languages, preferred_language),
+               post_path <- Path.join(time_path, language_filename(display_language)),
                {:ok, metadata, content} <-
-                 entry_path
-                 |> File.read!()
-                 |> Metadata.parse_with_content() do
+                post_path
+                |> File.read!()
+                |> Metadata.parse_with_content() do
             [
               %{
-                type: type_slug,
+                blog: blog_slug,
                 date: date,
                 time: time,
-                path: relative_path_with_language(type_slug, date, time, display_language),
-                full_path: entry_path,
+                path: relative_path_with_language(blog_slug, date, time, display_language),
+                full_path: post_path,
                 metadata: metadata,
                 content: content,
                 language: display_language,
@@ -201,11 +201,11 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Creates a new entry, returning its metadata and content.
+  Creates a new post, returning its metadata and content.
   Creates only the primary language file. Additional languages can be added later.
   """
-  @spec create_entry(String.t()) :: {:ok, entry()} | {:error, any()}
-  def create_entry(type_slug) do
+  @spec create_post(String.t()) :: {:ok, post()} | {:error, any()}
+  def create_post(blog_slug) do
     now =
       DateTime.utc_now()
       |> DateTime.truncate(:second)
@@ -216,8 +216,10 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
     primary_language = hd(enabled_language_codes())
 
     # Create directory structure
+    slug = blog_slug || "blog"
+
     time_dir =
-      Path.join([root_path(), type_slug, Date.to_iso8601(date), format_time_folder(time)])
+      Path.join([root_path(), slug, Date.to_iso8601(date), format_time_folder(time)])
 
     File.mkdir_p!(time_dir)
 
@@ -234,12 +236,13 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
 
     case File.write(primary_lang_path, content) do
       :ok ->
-        primary_path = relative_path_with_language(type_slug, date, time, primary_language)
+        blog_slug_for_path = blog_slug || slug
+        primary_path = relative_path_with_language(blog_slug_for_path, date, time, primary_language)
         full_path = absolute_path(primary_path)
 
         {:ok,
          %{
-           type: type_slug,
+           blog: blog_slug_for_path,
            date: date,
            time: time,
            path: primary_path,
@@ -256,10 +259,10 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Reads an entry for a specific language.
+  Reads a post for a specific language.
   """
-  @spec read_entry(String.t(), String.t()) :: {:ok, entry()} | {:error, any()}
-  def read_entry(type_slug, relative_path) do
+  @spec read_post(String.t(), String.t()) :: {:ok, post()} | {:error, any()}
+  def read_post(blog_slug, relative_path) do
     full_path = absolute_path(relative_path)
     language = extract_language_from_path(relative_path)
 
@@ -270,7 +273,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
          available_languages <- detect_available_languages(time_dir) do
       {:ok,
        %{
-         type: type_slug,
+         blog: blog_slug,
          date: date,
          time: time,
          path: relative_path,
@@ -287,32 +290,32 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Adds a new language file to an existing entry by copying metadata from an existing language.
+  Adds a new language file to an existing post by copying metadata from an existing language.
   """
-  @spec add_language_to_entry(String.t(), String.t(), String.t()) ::
-          {:ok, entry()} | {:error, any()}
-  def add_language_to_entry(type_slug, entry_path, language_code) do
-    # Read the original entry to get its metadata and structure
-    with {:ok, original_entry} <- read_entry(type_slug, entry_path),
-         time_dir <- Path.dirname(original_entry.full_path),
+  @spec add_language_to_post(String.t(), String.t(), String.t()) ::
+          {:ok, post()} | {:error, any()}
+  def add_language_to_post(blog_slug, post_path, language_code) do
+    # Read the original post to get its metadata and structure
+    with {:ok, original_post} <- read_post(blog_slug, post_path),
+         time_dir <- Path.dirname(original_post.full_path),
          new_file_path <- Path.join(time_dir, language_filename(language_code)),
          false <- File.exists?(new_file_path) do
       # Create new file with same metadata but empty content
-      metadata = Map.put(original_entry.metadata, :title, "")
+      metadata = Map.put(original_post.metadata, :title, "")
       content = Metadata.serialize(metadata) <> "\n\n"
 
       case File.write(new_file_path, content) do
         :ok ->
-          # Return the newly created entry
+          # Return the newly created post
           new_relative_path =
             relative_path_with_language(
-              type_slug,
-              original_entry.date,
-              original_entry.time,
+              blog_slug,
+              original_post.date,
+              original_post.time,
               language_code
             )
 
-          read_entry(type_slug, new_relative_path)
+          read_post(blog_slug, new_relative_path)
 
         {:error, reason} ->
           {:error, reason}
@@ -324,19 +327,19 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Updates an entry's metadata/content, moving files if needed.
+  Updates a post's metadata/content, moving files if needed.
   Preserves language and detects available languages.
   """
-  @spec update_entry(String.t(), entry(), map()) :: {:ok, entry()} | {:error, any()}
-  def update_entry(_type_slug, entry, params) do
+  @spec update_post(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
+  def update_post(_blog_slug, post, params) do
     new_metadata =
-      entry.metadata
-      |> Map.put(:title, Map.get(params, "title", entry.metadata.title))
-      |> Map.put(:status, Map.get(params, "status", entry.metadata.status))
-      |> Map.put(:published_at, Map.get(params, "published_at", entry.metadata.published_at))
+      post.metadata
+      |> Map.put(:title, Map.get(params, "title", post.metadata.title))
+      |> Map.put(:status, Map.get(params, "status", post.metadata.status))
+      |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
 
-    new_content = Map.get(params, "content", entry.content)
-    new_path = new_path_for(entry, params)
+    new_content = Map.get(params, "content", post.content)
+    new_path = new_path_for(post, params)
     full_new_path = absolute_path(new_path)
 
     File.mkdir_p!(Path.dirname(full_new_path))
@@ -349,9 +352,9 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
 
     case File.write(full_new_path, serialized <> "\n") do
       :ok ->
-        if full_new_path != entry.full_path do
-          File.rm(entry.full_path)
-          cleanup_empty_dirs(entry.full_path)
+        if full_new_path != post.full_path do
+          File.rm(post.full_path)
+          cleanup_empty_dirs(post.full_path)
         end
 
         {date, time} = date_time_from_path!(new_path)
@@ -360,7 +363,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
 
         {:ok,
          %{
-           entry
+           post
            | path: new_path,
              full_path: full_new_path,
              metadata: metadata_for_file,
@@ -376,43 +379,43 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   end
 
   @doc """
-  Returns the absolute path for a relative publishing path.
+  Returns the absolute path for a relative blogging path.
   """
   @spec absolute_path(String.t()) :: String.t()
   def absolute_path(relative_path) do
     Path.join(root_path(), String.trim_leading(relative_path, "/"))
   end
 
-  defp relative_path_with_language(type_slug, date, time, language_code) do
+  defp relative_path_with_language(blog_slug, date, time, language_code) do
     date_part = Date.to_iso8601(date)
     time_part = format_time_folder(time)
 
-    Path.join([type_slug, date_part, time_part, language_filename(language_code)])
+    Path.join([blog_slug, date_part, time_part, language_filename(language_code)])
   end
 
-  defp new_path_for(entry, params) do
+  defp new_path_for(post, params) do
     case Map.get(params, "published_at") do
-      nil -> entry.path
-      value -> path_for_timestamp(entry.type, value, entry.language)
+      nil -> post.path
+      value -> path_for_timestamp(post.blog, value, post.language)
     end
   end
 
-  defp path_for_timestamp(type_slug, timestamp, language_code) do
+  defp path_for_timestamp(blog_slug, timestamp, language_code) do
     with {:ok, dt, _} <- DateTime.from_iso8601(timestamp) do
       floored = floor_to_minute(dt)
 
-      relative_path_with_language(
-        type_slug,
-        DateTime.to_date(floored),
-        DateTime.to_time(floored),
-        language_code
-      )
+        relative_path_with_language(
+          blog_slug,
+          DateTime.to_date(floored),
+          DateTime.to_time(floored),
+          language_code
+        )
     else
       _ ->
         now = DateTime.utc_now() |> floor_to_minute()
 
         relative_path_with_language(
-          type_slug,
+          blog_slug,
           DateTime.to_date(now),
           DateTime.to_time(now),
           language_code
@@ -436,7 +439,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Storage do
   defp date_time_from_path!(path) do
     case date_time_from_path(path) do
       {:ok, result} -> result
-      _ -> raise ArgumentError, "invalid publishing path #{inspect(path)}"
+      _ -> raise ArgumentError, "invalid blogging path #{inspect(path)}"
     end
   end
 

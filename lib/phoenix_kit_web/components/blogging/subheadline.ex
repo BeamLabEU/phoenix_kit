@@ -1,14 +1,14 @@
 # ============================================================================
-# COMMENTED OUT: Component-based rendering system - Headline Component
+# COMMENTED OUT: Component-based rendering system - Subheadline Component
 # ============================================================================
 # This module was part of an experimental component-based page building system
 # using XML-style markup (.phk files) with swappable design variants.
-# Related to: lib/phoenix_kit/publishing/page_builder.ex
+# Related to: lib/phoenix_kit/blogging/page_builder.ex
 # ============================================================================
 
-# defmodule PhoenixKitWeb.Components.Publishing.Headline do
+# defmodule PhoenixKitWeb.Components.Blogging.Subheadline do
 #   @moduledoc """
-#   Headline component for hero sections.
+#   Subheadline component for hero sections.
 #   """
 #   use Phoenix.Component
 #
@@ -18,9 +18,9 @@
 #
 #   def render(assigns) do
 #     ~H"""
-#     <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold text-base-content leading-tight">
+#     <p class="text-lg md:text-xl text-base-content/70 leading-relaxed">
 #       {@content}
-#     </h1>
+#     </p>
 #     """
 #   end
 # end

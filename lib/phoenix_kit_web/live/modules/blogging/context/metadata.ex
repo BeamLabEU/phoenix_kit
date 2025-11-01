@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
+defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   @moduledoc """
-  Metadata helpers for .phk (PhoenixKit) publishing entries.
+  Metadata helpers for .phk (PhoenixKit) blogging posts.
 
   Metadata is stored as a simple key-value format at the top of the file:
   ```
@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
   end
 
   @doc """
-  Returns default metadata for a new entry.
+  Returns default metadata for a new post.
   """
   @spec default_metadata() :: metadata()
   def default_metadata do
