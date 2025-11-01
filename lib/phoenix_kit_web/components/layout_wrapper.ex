@@ -230,7 +230,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes", "/admin/users/media"]) do %>
                       <%!-- Submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -261,6 +261,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           href={Routes.locale_aware_path(assigns, "/admin/users/roles")}
                           icon="roles"
                           label="Roles"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/users/media")}
+                          icon="photo"
+                          label="Media"
                           current_path={@current_path || ""}
                           nested={true}
                         />

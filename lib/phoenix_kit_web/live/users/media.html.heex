@@ -1,0 +1,20 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Media"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="p-6">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold text-base-content">Media</h1>
+      <p class="text-base-content/70 mt-1">Manage user media and uploads</p>
+    </div>
+
+    <%!-- Empty state --%>
+    <div class="bg-base-200 rounded-lg p-8 text-center">
+      <p class="text-base-content/70">Media management coming soon...</p>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

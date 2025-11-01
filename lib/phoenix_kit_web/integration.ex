@@ -278,6 +278,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
+          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -399,6 +400,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
+          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
