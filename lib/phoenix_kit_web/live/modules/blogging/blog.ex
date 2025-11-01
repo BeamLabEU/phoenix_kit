@@ -89,7 +89,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
      )}
   end
 
-  def handle_event("toggle_status", %{"path" => post_path, "current-status" => current_status}, socket) do
+  def handle_event(
+        "toggle_status",
+        %{"path" => post_path, "current-status" => current_status},
+        socket
+      ) do
     new_status =
       case current_status do
         "draft" -> "published"
@@ -134,4 +138,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   end
 
   defp redirect_if_missing(socket), do: socket
+
+  defp format_datetime(%{date: %Date{} = date, time: %Time{} = time}) do
+    date_str = Calendar.strftime(date, "%B %d, %Y")
+    time_str = Calendar.strftime(time, "%I:%M %p")
+    "#{date_str} #{gettext("at")} #{time_str}"
+  end
+
+  defp format_datetime(%{metadata: %{published_at: published_at}}) when is_binary(published_at) do
+    with {:ok, dt, _} <- DateTime.from_iso8601(published_at) do
+      date_str = Calendar.strftime(dt, "%B %d, %Y")
+      time_str = Calendar.strftime(dt, "%I:%M %p")
+      "#{date_str} #{gettext("at")} #{time_str}"
+    else
+      _ -> gettext("Unsaved draft")
+    end
+  end
+
+  defp format_datetime(_post), do: gettext("Unsaved draft")
 end

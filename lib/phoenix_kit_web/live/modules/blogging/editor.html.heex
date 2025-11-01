@@ -140,6 +140,26 @@
                   />
                 </div>
 
+                <%= if @blog_mode == "slug" do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Slug")}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      name="slug"
+                      value={@form["slug"] || ""}
+                      class="input input-bordered w-full lowercase"
+                      placeholder={gettext("auto-generated from title")}
+                    />
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext("Use lowercase letters, numbers, and hyphens only.")}
+                    </p>
+                  </div>
+                <% end %>
+
                 <div>
                   <label class="label">
                     <span class="label-text text-sm font-semibold text-base-content">
