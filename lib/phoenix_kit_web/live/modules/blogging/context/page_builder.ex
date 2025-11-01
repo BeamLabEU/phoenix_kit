@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Publishing.PageBuilder do
+defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder do
   @moduledoc """
   Rendering pipeline for .phk (PhoenixKit) page files.
 
@@ -17,14 +17,14 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.PageBuilder do
   # This module was part of an experimental component-based page building system
   # using XML-style markup (.phk files) with swappable design variants.
   # See related files:
-  # - lib/phoenix_kit/publishing/page_builder/parser.ex
-  # - lib/phoenix_kit/publishing/page_builder/renderer.ex
-  # - lib/phoenix_kit_web/components/publishing/*.ex
-  # - priv/static/pages/blog/*/en.phk (sample files)
+  # - lib/phoenix_kit/blogging/page_builder/parser.ex
+  # - lib/phoenix_kit/blogging/page_builder/renderer.ex
+  # - lib/phoenix_kit_web/components/blogging/*.ex
+  # - priv/static/blogging/blog/*/en.phk (sample files)
   # ============================================================================
 
-  # alias PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.Parser
-  # alias PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.Renderer
+  # alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser
+  # alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer
 
   # @type assigns :: map()
   # @type ast :: map()

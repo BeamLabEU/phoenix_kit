@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias Phoenix.HTML
   alias PhoenixKit.Config
   alias PhoenixKit.Module.Languages
-  alias PhoenixKitWeb.Live.Modules.Publishing
+  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -78,9 +78,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       |> assign_new(:content_language, fn ->
         PhoenixKit.Settings.get_content_language()
       end)
-      |> assign_new(:publishing_types, fn ->
-        if Publishing.enabled?() do
-          Publishing.list_types()
+      |> assign_new(:blogging_blogs, fn ->
+        if Blogging.enabled?() do
+          Blogging.list_blogs()
         else
           []
         end
@@ -152,7 +152,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
               current_locale: assigns[:current_locale] || "en",
-              publishing_types: assigns[:publishing_types] || []
+              blogging_blogs: assigns[:blogging_blogs] || []
             }
 
             assigns = template_assigns
@@ -392,30 +392,30 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if Publishing.enabled?() do %>
+                    <%= if Blogging.enabled?() do %>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/publishing")}
+                        href={Routes.locale_aware_path(assigns, "/admin/blogging")}
                         icon="document"
-                        label="Publishing"
+                        label="Blogs"
                         current_path={@current_path || ""}
                         disable_active={true}
                       />
 
                       <div class="mt-1">
-                        <%= for type <- @publishing_types do %>
+                        <%= for blog <- @blogging_blogs do %>
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/publishing/#{type["slug"]}")}
+                            href={Routes.locale_aware_path(assigns, "/admin/blogging/#{blog["slug"]}")}
                             icon="hero-document-text"
-                            label={type["name"]}
+                            label={blog["name"]}
                             current_path={@current_path || ""}
                             nested={true}
                           />
                         <% end %>
 
                         <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
                           icon="hero-cog-6-tooth"
-                          label="Manage Types"
+                          label="Manage Blogs"
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -438,7 +438,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/publishing", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/blogging", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -467,11 +467,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%= if Publishing.enabled?() do %>
+                        <%= if Blogging.enabled?() do %>
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
                             icon="document"
-                            label="Publishing"
+                          label="Blogs"
                             current_path={@current_path || ""}
                             nested={true}
                           />

@@ -3,10 +3,10 @@
 # ============================================================================
 # This module was part of an experimental component-based page building system
 # using XML-style markup (.phk files) with swappable design variants.
-# Related to: lib/phoenix_kit/publishing/page_builder.ex
+# Related to: lib/phoenix_kit/blogging/page_builder.ex
 # ============================================================================
 
-# defmodule PhoenixKitWeb.Components.Publishing.Image do
+# defmodule PhoenixKitWeb.Components.Blogging.Image do
 #   @moduledoc """
 #   Image component for hero sections and content.
 #   """
