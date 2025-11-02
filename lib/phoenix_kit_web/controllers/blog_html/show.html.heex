@@ -7,52 +7,37 @@
   <%!-- TODO: Add SEO meta tags (description, canonical) when layout system supports meta_tags slot --%>
   <article class="blog-post-container max-w-4xl mx-auto px-6 py-8">
     <%!-- Breadcrumb Navigation --%>
-    <nav class="breadcrumbs text-sm mb-6">
-      <ul class="flex items-center gap-2 text-base-content/70">
-        <%= for {breadcrumb, index} <- Enum.with_index(@breadcrumbs) do %>
-          <%= if index > 0 do %>
-            <li class="text-base-content/40">/</li>
-          <% end %>
+    <div class="breadcrumbs text-sm mb-6">
+      <ul>
+        <%= for breadcrumb <- @breadcrumbs do %>
           <li>
             <%= if breadcrumb.url do %>
-              <a href={breadcrumb.url} class="hover:text-primary">
-                {breadcrumb.label}
-              </a>
+              <a href={breadcrumb.url}>{breadcrumb.label}</a>
             <% else %>
-              <span class="font-medium text-base-content">
-                {breadcrumb.label}
-              </span>
+              {breadcrumb.label}
             <% end %>
           </li>
         <% end %>
       </ul>
-    </nav>
+    </div>
 
     <%!-- Post Header --%>
     <header class="mb-8 border-b pb-6">
       <h1 class="text-4xl font-bold mb-4">{@post.metadata.title}</h1>
 
-      <div class="flex flex-wrap gap-4 text-sm text-base-content/70">
+      <div class="flex items-center gap-2 text-sm text-base-content/70">
         <%!-- Publication Date --%>
-        <div class="flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
-          <time datetime={@post.metadata.published_at}>
-            {format_date(@post.metadata.published_at)}
-          </time>
-        </div>
-        <%!-- Blog Type Badge --%>
-        <span class="badge badge-outline">{String.capitalize(@blog_slug)}</span>
-        <%!-- Status Badge --%>
-        <%= if @post.metadata.status == "published" do %>
-          <span class="badge badge-success badge-sm">Published</span>
-        <% end %>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <time datetime={@post.metadata.published_at}>
+          {format_date(@post.metadata.published_at)}
+        </time>
       </div>
       <%!-- Language Switcher --%>
       <%= if length(@translations) > 1 do %>
@@ -167,20 +152,9 @@
     </div>
     <%!-- Post Footer --%>
     <footer class="mt-12 pt-6 border-t">
-      <div class="flex justify-between items-center">
-        <a href={"/#{@current_language}/blog/#{@blog_slug}"} class="btn btn-outline btn-sm">
-          ← Back to {String.capitalize(@blog_slug)}
-        </a>
-        <%!-- Share button (optional) --%>
-        <div class="flex gap-2">
-          <button
-            class="btn btn-sm btn-ghost"
-            onclick="if(navigator.share) navigator.share({title: '{@post.metadata.title}', url: window.location.href})"
-          >
-            Share
-          </button>
-        </div>
-      </div>
+      <a href={"/#{@current_language}/blog/#{@blog_slug}"} class="btn btn-outline btn-sm">
+        ← Back to {String.capitalize(@blog_slug)}
+      </a>
     </footer>
   </article>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

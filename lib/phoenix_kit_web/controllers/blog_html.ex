@@ -33,6 +33,18 @@ defmodule PhoenixKitWeb.BlogHTML do
     |> Calendar.strftime("%B %d, %Y")
   end
 
+  def format_date(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.to_date()
+        |> Calendar.strftime("%B %d, %Y")
+
+      _ ->
+        datetime_string
+    end
+  end
+
   def format_date(_), do: ""
 
   @doc """
