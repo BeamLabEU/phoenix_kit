@@ -18,6 +18,20 @@ config :phoenix_kit, Oban,
   plugins: [Oban.Plugins.Pruner, {Oban.Plugins.Cron, crontab: []}],
   verbose: true
 
+# Configure Logger metadata
+config :logger, :console,
+  metadata: [
+    :blog_slug,
+    :identifier,
+    :reason,
+    :language,
+    :user_agent,
+    :path,
+    :blog,
+    :pattern,
+    :content_size
+  ]
+
 # For development/testing with real SMTP (when available)
 # config :phoenix_kit, PhoenixKit.Mailer,
 #   adapter: Swoosh.Adapters.SMTP,

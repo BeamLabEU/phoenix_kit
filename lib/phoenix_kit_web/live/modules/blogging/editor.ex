@@ -5,10 +5,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def mount(params, _session, socket) do
@@ -79,7 +80,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               post
               |> Map.put(:path, new_path)
               |> Map.put(:language, switch_to_lang)
-              |> Map.put(:blog, blog_slug || "blog")
+              |> Map.put(:blog, blog_slug)
               |> Map.put(:content, "")
               |> Map.put(:metadata, Map.put(post.metadata, :title, ""))
               |> Map.put(:mode, post.mode)
@@ -108,7 +109,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           else
             socket
             |> assign(:blog_mode, blog_mode)
-            |> assign(:post, %{post | blog: blog_slug || "blog"})
+            |> assign(:post, %{post | blog: blog_slug})
             |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
             |> assign(:form, post_form(post))
             |> assign(:content, post.content)
@@ -145,29 +146,30 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> Map.drop(["_target"])
       |> maybe_autofill_slug(socket)
 
-    with :ok <- validate_slug(socket.assigns.blog_mode, params, socket) do
-      new_form =
-        socket.assigns.form
-        |> Map.merge(params)
-        |> normalize_form()
+    case validate_slug(socket.assigns.blog_mode, params, socket) do
+      :ok ->
+        new_form =
+          socket.assigns.form
+          |> Map.merge(params)
+          |> normalize_form()
 
-      has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+        has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
-      # Update public_url if status changed
-      updated_post = %{
-        socket.assigns.post
-        | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
-      }
+        # Update public_url if status changed
+        updated_post = %{
+          socket.assigns.post
+          | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
+        }
 
-      public_url = build_public_url(updated_post, socket.assigns.current_locale)
+        public_url = build_public_url(updated_post, socket.assigns.current_locale)
 
-      {:noreply,
-       socket
-       |> assign(:form, new_form)
-       |> assign(:has_pending_changes, has_changes)
-       |> assign(:public_url, public_url)
-       |> push_event("changes-status", %{has_changes: has_changes})}
-    else
+        {:noreply,
+         socket
+         |> assign(:form, new_form)
+         |> assign(:has_pending_changes, has_changes)
+         |> assign(:public_url, public_url)
+         |> push_event("changes-status", %{has_changes: has_changes})}
+
       {:error, message} ->
         {:noreply, put_flash(socket, :error, message)}
     end
@@ -518,10 +520,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp normalize_published_at(_), do: ""
 
   defp build_virtual_post(blog_slug, "slug", primary_language, now) do
-    default_blog_slug = blog_slug || "blog"
-
     %{
-      blog: default_blog_slug,
+      blog: blog_slug,
       date: nil,
       time: nil,
       path: nil,
@@ -547,15 +547,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     time_folder =
       "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
 
-    default_blog_slug = blog_slug || "blog"
-
     %{
-      blog: default_blog_slug,
+      blog: blog_slug,
       date: date,
       time: time,
       path:
         Path.join([
-          default_blog_slug,
+          blog_slug,
           Date.to_iso8601(date),
           time_folder,
           "#{primary_language}.phk"
@@ -655,28 +653,36 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
       case Map.get(post, :mode) do
         :slug ->
-          # Slug mode: /language/blog/blog-slug/post-slug
-          if post.slug do
-            "/#{language}/blog/#{blog_slug}/#{post.slug}"
-          else
-            nil
-          end
+          build_slug_url(post, language, blog_slug)
 
         :timestamp ->
-          # Timestamp mode: /language/blog/blog-slug/YYYY-MM-DD/HH:MM
-          if post.metadata.published_at do
-            case DateTime.from_iso8601(post.metadata.published_at) do
-              {:ok, datetime, _} ->
-                date = DateTime.to_date(datetime) |> Date.to_iso8601()
-                time = format_time_for_url(datetime)
-                "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
+          build_timestamp_url(post, language, blog_slug)
 
-              _ ->
-                nil
-            end
-          else
-            nil
-          end
+        _ ->
+          nil
+      end
+    else
+      nil
+    end
+  end
+
+  defp build_slug_url(post, language, blog_slug) do
+    # Slug mode: /language/blog/blog-slug/post-slug
+    if post.slug do
+      "/#{language}/blog/#{blog_slug}/#{post.slug}"
+    else
+      nil
+    end
+  end
+
+  defp build_timestamp_url(post, language, blog_slug) do
+    # Timestamp mode: /language/blog/blog-slug/YYYY-MM-DD/HH:MM
+    if post.metadata.published_at do
+      case DateTime.from_iso8601(post.metadata.published_at) do
+        {:ok, datetime, _} ->
+          date = DateTime.to_date(datetime) |> Date.to_iso8601()
+          time = format_time_for_url(datetime)
+          "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
 
         _ ->
           nil
@@ -707,7 +713,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Call the Renderer module's cache invalidation
     # Note: The Renderer uses content-hash keys, so this mainly logs the invalidation request
     # The actual cache will be automatically invalidated when content hash changes
-    PhoenixKit.Blogging.Renderer.invalidate_cache(blog_slug, identifier, post.language)
+    Renderer.invalidate_cache(blog_slug, identifier, post.language)
   end
 
   defp extract_identifier_from_path(path) when is_binary(path) do
@@ -721,6 +727,4 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     |> Enum.drop(1)
     |> Enum.join("/")
   end
-
-  defp extract_identifier_from_path(_), do: "unknown"
 end

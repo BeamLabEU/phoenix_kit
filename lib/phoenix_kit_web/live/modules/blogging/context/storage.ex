@@ -11,9 +11,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   component markup for building pages with swappable design variants.
   """
 
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
-  alias PhoenixKit.Settings
   alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Settings
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
 
   @doc """
   Returns the filename for a specific language code.
@@ -345,6 +345,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     metadata = %{
       slug: post_slug,
       title: title || "",
+      description: nil,
       status: "draft",
       published_at: DateTime.to_iso8601(now),
       created_at: DateTime.to_iso8601(now)
@@ -395,42 +396,38 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   defp posts_for_slug(blog_slug, post_slug, post_path, preferred_language) do
-    cond do
-      not File.dir?(post_path) ->
+    if File.dir?(post_path) do
+      available_languages = detect_available_languages(post_path)
+
+      if Enum.empty?(available_languages) do
         []
+      else
+        display_language = select_display_language(available_languages, preferred_language)
+        file_path = Path.join(post_path, language_filename(display_language))
 
-      true ->
-        available_languages = detect_available_languages(post_path)
+        {:ok, metadata, content} =
+          file_path
+          |> File.read!()
+          |> Metadata.parse_with_content()
 
-        if Enum.empty?(available_languages) do
-          []
-        else
-          display_language = select_display_language(available_languages, preferred_language)
-          file_path = Path.join(post_path, language_filename(display_language))
-
-          with {:ok, metadata, content} <-
-                 file_path
-                 |> File.read!()
-                 |> Metadata.parse_with_content() do
-            [
-              %{
-                blog: blog_slug,
-                slug: post_slug,
-                date: nil,
-                time: nil,
-                path: Path.join([blog_slug, post_slug, language_filename(display_language)]),
-                full_path: file_path,
-                metadata: metadata,
-                content: content,
-                language: display_language,
-                available_languages: available_languages,
-                mode: :slug
-              }
-            ]
-          else
-            _ -> []
-          end
-        end
+        [
+          %{
+            blog: blog_slug,
+            slug: post_slug,
+            date: nil,
+            time: nil,
+            path: Path.join([blog_slug, post_slug, language_filename(display_language)]),
+            full_path: file_path,
+            metadata: metadata,
+            content: content,
+            language: display_language,
+            available_languages: available_languages,
+            mode: :slug
+          }
+        ]
+      end
+    else
+      []
     end
   end
 
@@ -477,9 +474,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          mode: :slug
        }}
     else
-      false -> {:error, :not_found}
-      {:error, reason} -> {:error, reason}
-      _other -> {:error, :not_found}
+      _ -> {:error, :not_found}
     end
   end
 
@@ -841,16 +836,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   defp path_for_timestamp(blog_slug, timestamp, language_code) do
-    with {:ok, dt, _} <- DateTime.from_iso8601(timestamp) do
-      floored = floor_to_minute(dt)
+    case DateTime.from_iso8601(timestamp) do
+      {:ok, dt, _} ->
+        floored = floor_to_minute(dt)
 
-      relative_path_with_language(
-        blog_slug,
-        DateTime.to_date(floored),
-        DateTime.to_time(floored),
-        language_code
-      )
-    else
+        relative_path_with_language(
+          blog_slug,
+          DateTime.to_date(floored),
+          DateTime.to_time(floored),
+          language_code
+        )
+
       _ ->
         now = DateTime.utc_now() |> floor_to_minute()
 

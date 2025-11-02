@@ -14,10 +14,10 @@ defmodule PhoenixKitWeb.BlogController do
   use PhoenixKitWeb, :controller
   require Logger
 
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKit.Module.Languages
   alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
+  alias PhoenixKitWeb.Live.Modules.Blogging
 
   @doc """
   Displays a blog post, blog listing, or all blogs overview.
@@ -64,7 +64,7 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp parse_path([blog_slug, segment1, segment2]) do
     # Check if this is timestamp mode: segment1 matches date, segment2 matches time
-    if is_date?(segment1) and is_time?(segment2) do
+    if date?(segment1) and time?(segment2) do
       {:timestamp_post, blog_slug, segment1, segment2}
     else
       # Invalid format
@@ -79,18 +79,18 @@ defmodule PhoenixKitWeb.BlogController do
   defp parse_path(_), do: {:error, :invalid_path}
 
   # Date validation: YYYY-MM-DD
-  defp is_date?(str) when is_binary(str) do
+  defp date?(str) when is_binary(str) do
     String.match?(str, ~r/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/)
   end
 
-  defp is_date?(_), do: false
+  defp date?(_), do: false
 
   # Time validation: HH:MM (24-hour)
-  defp is_time?(str) when is_binary(str) do
+  defp time?(str) when is_binary(str) do
     String.match?(str, ~r/^([01]\d|2[0-3]):[0-5]\d$/)
   end
 
-  defp is_time?(_), do: false
+  defp time?(_), do: false
 
   # ============================================================================
   # Rendering Functions
@@ -216,7 +216,14 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_translation_links(blog_slug, post, current_language) do
-    Enum.map(post.available_languages || [current_language], fn lang ->
+    languages =
+      if Enum.empty?(post.available_languages) do
+        [current_language]
+      else
+        post.available_languages
+      end
+
+    Enum.map(languages, fn lang ->
       %{
         code: lang,
         name: get_language_name(lang),
@@ -240,10 +247,6 @@ defmodule PhoenixKitWeb.BlogController do
 
         time = format_time_for_url(post.metadata.published_at)
         "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
-
-      _ ->
-        # Fallback: try to determine from path
-        "/#{language}/blog/#{blog_slug}/#{post.slug}"
     end
   end
 
@@ -385,20 +388,12 @@ defmodule PhoenixKitWeb.BlogController do
       # Post not found or unpublished -> try blog listing
       {reason, [blog_slug, _post_identifier]}
       when reason in [:post_not_found, :unpublished] ->
-        if blog_exists?(blog_slug) do
-          {:ok, "/#{language}/blog/#{blog_slug}"}
-        else
-          {:ok, "/#{language}/blog"}
-        end
+        fallback_to_blog_or_overview(blog_slug, language)
 
       # Timestamp post not found -> try blog listing
       {reason, [blog_slug, _date, _time]}
       when reason in [:post_not_found, :unpublished] ->
-        if blog_exists?(blog_slug) do
-          {:ok, "/#{language}/blog/#{blog_slug}"}
-        else
-          {:ok, "/#{language}/blog"}
-        end
+        fallback_to_blog_or_overview(blog_slug, language)
 
       # Blog not found -> show all blogs overview
       {:blog_not_found, [_blog_slug]} ->
@@ -406,25 +401,37 @@ defmodule PhoenixKitWeb.BlogController do
 
       # Invalid language for post -> try default language
       {:post_not_found, [blog_slug, post_slug]} ->
-        default_lang = get_default_language()
-
-        if language != default_lang and blog_exists?(blog_slug) do
-          # Try the post in default language
-          case Blogging.read_post(blog_slug, post_slug, default_lang) do
-            {:ok, post} when post.metadata.status == "published" ->
-              {:ok, "/#{default_lang}/blog/#{blog_slug}/#{post_slug}"}
-
-            _ ->
-              # Post doesn't exist in default language either, go to blog listing
-              {:ok, "/#{default_lang}/blog/#{blog_slug}"}
-          end
-        else
-          :no_fallback
-        end
+        fallback_to_default_language(blog_slug, post_slug, language)
 
       # Other errors -> no fallback
       _ ->
         :no_fallback
+    end
+  end
+
+  defp fallback_to_blog_or_overview(blog_slug, language) do
+    if blog_exists?(blog_slug) do
+      {:ok, "/#{language}/blog/#{blog_slug}"}
+    else
+      {:ok, "/#{language}/blog"}
+    end
+  end
+
+  defp fallback_to_default_language(blog_slug, post_slug, language) do
+    default_lang = get_default_language()
+
+    if language != default_lang and blog_exists?(blog_slug) do
+      # Try the post in default language
+      case Blogging.read_post(blog_slug, post_slug, default_lang) do
+        {:ok, post} when post.metadata.status == "published" ->
+          {:ok, "/#{default_lang}/blog/#{blog_slug}/#{post_slug}"}
+
+        _ ->
+          # Post doesn't exist in default language either, go to blog listing
+          {:ok, "/#{default_lang}/blog/#{blog_slug}"}
+      end
+    else
+      :no_fallback
     end
   end
 

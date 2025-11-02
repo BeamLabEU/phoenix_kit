@@ -65,9 +65,17 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthScheme do
     endpoint = Phoenix.Controller.endpoint_module(conn)
 
     with endpoint when not is_nil(endpoint) <- endpoint,
-         url_config when is_list(url_config) <- get_endpoint_url_config(endpoint),
-         "https" <- Keyword.get(url_config, :scheme) do
-      %{conn | scheme: :https, port: 443}
+         url_config when is_list(url_config) <- get_endpoint_url_config(endpoint) do
+      # Extract scheme, host, and port from endpoint URL config
+      scheme = url_config[:scheme]
+      host = url_config[:host]
+      port = url_config[:port]
+
+      # Apply each config value if present
+      conn
+      |> maybe_set_scheme(scheme)
+      |> maybe_set_host(host)
+      |> maybe_set_port(port)
     else
       _ -> conn
     end
@@ -76,18 +84,24 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthScheme do
   end
 
   defp get_endpoint_url_config(endpoint_module) do
-    # Safely extract otp_app attribute
-    otp_app =
-      case endpoint_module.__info__(:attributes)[:otp_app] do
-        [app | _] when is_atom(app) -> app
-        _ -> nil
-      end
+    # Get otp_app from endpoint config (correct way)
+    otp_app = endpoint_module.config(:otp_app)
 
     case Application.get_env(otp_app, endpoint_module) do
       nil -> []
       config -> Keyword.get(config, :url, [])
     end
   end
+
+  # Helper functions to conditionally set conn fields
+  defp maybe_set_scheme(conn, nil), do: conn
+  defp maybe_set_scheme(conn, scheme), do: %{conn | scheme: parse_scheme(scheme)}
+
+  defp maybe_set_host(conn, nil), do: conn
+  defp maybe_set_host(conn, host), do: %{conn | host: host}
+
+  defp maybe_set_port(conn, nil), do: conn
+  defp maybe_set_port(conn, port), do: %{conn | port: port}
 
   defp parse_scheme("https"), do: :https
   defp parse_scheme("http"), do: :http
