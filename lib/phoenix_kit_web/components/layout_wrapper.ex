@@ -402,14 +402,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             nested={true}
                           />
                         <% end %>
-
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
-                          icon="hero-cog-6-tooth"
-                          label="Manage Blogs"
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
                       </div>
                     <% end %>
 

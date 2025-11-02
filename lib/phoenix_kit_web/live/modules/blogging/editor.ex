@@ -138,6 +138,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     end
   end
 
+  @impl true
   def handle_event("update_meta", params, socket) do
     params =
       params

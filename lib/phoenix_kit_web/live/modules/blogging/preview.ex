@@ -70,6 +70,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
     end
   end
 
+  @impl true
   def handle_event("back_to_editor", _params, socket) do
     path = URI.encode(socket.assigns.post.path)
 

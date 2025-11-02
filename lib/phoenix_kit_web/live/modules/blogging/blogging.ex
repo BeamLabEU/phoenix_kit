@@ -332,6 +332,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     end
   end
 
-  defp drop_blog_prefix([blog_slug | rest], blog_slug), do: rest
+  # Only drop blog prefix if there are more elements after it
+  # This prevents dropping the post slug when it matches the blog slug
+  defp drop_blog_prefix([blog_slug | rest], blog_slug) when rest != [], do: rest
   defp drop_blog_prefix(list, _), do: list
 end
