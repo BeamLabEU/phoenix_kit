@@ -39,7 +39,7 @@ defmodule PhoenixKitWeb.FileController do
   """
   def show(conn, %{"file_id" => file_id, "variant" => variant, "token" => token}) do
     with {:ok, file} <- get_file(file_id),
-         :ok <- verify_token(token, file_id, variant),
+         :ok <- verify_token(file_id, variant, token),
          {:ok, instance} <- get_file_instance(file_id, variant),
          {:ok, temp_path} <- retrieve_file_variant(instance) do
       # Set cache headers
@@ -156,8 +156,8 @@ defmodule PhoenixKitWeb.FileController do
     end
   end
 
-  defp verify_token(token, file_id, variant) do
-    if URLSigner.verify_token(token, file_id, variant) do
+  defp verify_token(file_id, variant, token) do
+    if URLSigner.verify_token(file_id, variant, token) do
       :ok
     else
       {:error, :invalid_token}
@@ -174,7 +174,11 @@ defmodule PhoenixKitWeb.FileController do
     case PhoenixKit.Storage.Manager.retrieve_file(instance.file_name,
            destination_path: temp_path
          ) do
+      {:ok, _} ->
+        {:ok, temp_path}
+
       :ok ->
+        # Fallback for functions that return :ok
         {:ok, temp_path}
 
       {:error, reason} ->

@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Storage.FileInstance
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
@@ -79,6 +81,9 @@ defmodule PhoenixKitWeb.Live.Users.Media do
               |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
               |> Oban.insert()
 
+            # Generate URLs for available variants (start with original)
+            urls = generate_file_urls(file.id)
+
             {:ok,
              %{
                file_id: file.id,
@@ -87,7 +92,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                mime_type: mime_type,
                size: file_size,
                status: file.status,
-               url: nil
+               urls: urls
              }}
 
           {:error, reason} ->
@@ -102,6 +107,24 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
 
     {:noreply, socket}
+  end
+
+  defp generate_file_urls(file_id) do
+    # Query all file instances for this file
+    import Ecto.Query
+
+    repo = Application.get_env(:phoenix_kit, :repo)
+
+    instances =
+      FileInstance
+      |> where([fi], fi.file_id == ^file_id)
+      |> repo.all()
+
+    # Generate signed URLs for each instance
+    Enum.reduce(instances, %{}, fn instance, acc ->
+      url = URLSigner.signed_url(file_id, instance.variant_name)
+      Map.put(acc, instance.variant_name, url)
+    end)
   end
 
   defp calculate_file_hash(file_path) do

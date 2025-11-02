@@ -48,7 +48,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
         accept: ["image/*", "video/*", "application/pdf"],
         max_entries: 10,
         max_file_size: 100_000_000,
-        auto_upload: false  # Manually upload on submit
+        # Manually upload on submit
+        auto_upload: false
       )
       |> assign(:current_path, current_path)
       |> assign(:page_title, "Storage Settings")

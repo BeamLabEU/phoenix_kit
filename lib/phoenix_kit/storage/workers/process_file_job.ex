@@ -92,7 +92,10 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
                 # Generate variants
                 case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
                   {:ok, variants} ->
-                    Logger.info("ProcessFileJob: Generated #{length(variants)} variants successfully")
+                    Logger.info(
+                      "ProcessFileJob: Generated #{length(variants)} variants successfully"
+                    )
+
                     File.rm(temp_path)
                     {:ok, variants}
 
@@ -103,7 +106,10 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
                 end
 
               {:error, reason} ->
-                Logger.error("ProcessFileJob: Failed to update file with metadata: #{inspect(reason)}")
+                Logger.error(
+                  "ProcessFileJob: Failed to update file with metadata: #{inspect(reason)}"
+                )
+
                 File.rm(temp_path)
                 {:error, reason}
             end
@@ -156,7 +162,8 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
         {:ok, image} ->
           width = Vix.Vips.Image.width(image)
           height = Vix.Vips.Image.height(image)
-          format = "jpeg"  # Default format
+          # Default format
+          format = "jpeg"
 
           {
             :ok,

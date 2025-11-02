@@ -125,7 +125,10 @@ defmodule PhoenixKit.Storage.VariantGenerator do
             height = get_height_from_file(variant_path)
 
             # Store the variant file in storage - use the same path structure as original!
-            Logger.info("Storing variant #{variant_name} to storage buckets at path: #{variant_storage_path}")
+            Logger.info(
+              "Storing variant #{variant_name} to storage buckets at path: #{variant_storage_path}"
+            )
+
             case Manager.store_file(variant_path,
                    generate_variants: false,
                    path_prefix: variant_storage_path
@@ -156,7 +159,10 @@ defmodule PhoenixKit.Storage.VariantGenerator do
                     {:ok, instance}
 
                   {:error, changeset} ->
-                    Logger.error("Variant #{variant_name} failed to create instance: #{inspect(changeset)}")
+                    Logger.error(
+                      "Variant #{variant_name} failed to create instance: #{inspect(changeset)}"
+                    )
+
                     {:error, changeset}
                 end
 
@@ -287,7 +293,9 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp process_image_variant(input_path, output_path, _mime_type, dimension) do
-    Logger.info("process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}")
+    Logger.info(
+      "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}"
+    )
 
     try do
       # Load image with Vix
@@ -303,6 +311,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
                 current_height = Vix.Vips.Image.height(image)
                 scale_by_width = w / current_width
                 scale_by_height = h / current_height
+
                 # Use smaller scale to fit both width and height (works for vertical and horizontal images)
                 scale = min(scale_by_width, scale_by_height)
                 {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
