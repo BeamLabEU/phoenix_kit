@@ -211,6 +211,14 @@ defmodule PhoenixKitWeb.Integration do
         # get "/pages/*path", PagesController, :show
       end
 
+      # Public blog routes
+      scope "/:language/blog", PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup]
+
+        # Catch-all route for blog posts and listings
+        get "/*path", BlogController, :show
+      end
+
       # Email export routes (require admin or owner role)
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
@@ -294,11 +302,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
-          live "/admin/publishing", Live.Modules.Publishing.Index, :index
-          live "/admin/publishing/:type", Live.Modules.Publishing.Type, :type
-          live "/admin/publishing/:type/edit", Live.Modules.Publishing.Editor, :edit
-          live "/admin/publishing/:type/preview", Live.Modules.Publishing.Preview, :preview
-          live "/admin/settings/publishing", Live.Modules.Publishing.Settings, :index
+          live "/admin/blogging", Live.Modules.Blogging.Index, :index
+          live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
+          live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
+          live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
+          live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -404,11 +412,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
-          live "/admin/publishing", Live.Modules.Publishing.Index, :index
-          live "/admin/publishing/:type", Live.Modules.Publishing.Type, :type
-          live "/admin/publishing/:type/edit", Live.Modules.Publishing.Editor, :edit
-          live "/admin/publishing/:type/preview", Live.Modules.Publishing.Preview, :preview
-          live "/admin/settings/publishing", Live.Modules.Publishing.Settings, :index
+          live "/admin/blogging", Live.Modules.Blogging.Index, :index
+          live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
+          live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
+          live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
+          live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index

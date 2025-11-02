@@ -1,0 +1,206 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@conn.request_path}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+>
+  <%!-- TODO: Add SEO meta tags (description, canonical) when layout system supports meta_tags slot --%>
+  <article class="blog-post-container max-w-4xl mx-auto px-6 py-8">
+    <%!-- Breadcrumb Navigation --%>
+    <div class="breadcrumbs text-sm mb-6">
+      <ul>
+        <%= for breadcrumb <- @breadcrumbs do %>
+          <li>
+            <%= if breadcrumb.url do %>
+              <a href={breadcrumb.url}>{breadcrumb.label}</a>
+            <% else %>
+              {breadcrumb.label}
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+    <%!-- Post Header --%>
+    <header class="mb-8 border-b pb-6">
+      <h1 class="text-4xl font-bold mb-4">{@post.metadata.title}</h1>
+
+      <div class="flex items-center gap-2 text-sm text-base-content/70">
+        <%!-- Publication Date --%>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
+        </svg>
+        <time datetime={@post.metadata.published_at}>
+          {format_date(@post.metadata.published_at)}
+        </time>
+      </div>
+      <%!-- Language Switcher --%>
+      <%= if length(@translations) > 1 do %>
+        <div class="mt-4 flex items-center gap-2">
+          <span class="text-sm font-medium">Available in:</span>
+          <div class="flex gap-2">
+            <%= for translation <- @translations do %>
+              <%= if translation.current do %>
+                <span class="badge badge-primary">{translation.name}</span>
+              <% else %>
+                <a href={translation.url} class="badge badge-outline hover:badge-primary">
+                  {translation.name}
+                </a>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </header>
+    <%!-- Post Content --%>
+    <div class="markdown-content prose prose-lg max-w-none">
+      <style>
+        /* GitHub-style markdown CSS */
+        .markdown-content {
+          color: oklch(var(--bc));
+          line-height: 1.6;
+        }
+        .markdown-content h1 {
+          font-size: 2.25rem;
+          font-weight: 700;
+          margin-top: 1.5rem;
+          margin-bottom: 1rem;
+          border-bottom: 1px solid oklch(var(--bc) / 0.1);
+          padding-bottom: 0.5rem;
+        }
+        .markdown-content h2 {
+          font-size: 1.875rem;
+          font-weight: 600;
+          margin-top: 1.5rem;
+          margin-bottom: 0.75rem;
+        }
+        .markdown-content h3 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          margin-top: 1.25rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content h4 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content h5 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content h6 {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content p {
+          margin: 1rem 0;
+          line-height: 1.7;
+        }
+        .markdown-content strong {
+          font-weight: 700;
+        }
+        .markdown-content em {
+          font-style: italic;
+        }
+        .markdown-content del,
+        .markdown-content s {
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
+        .markdown-content hr {
+          border: 0;
+          border-top: 2px solid oklch(var(--bc) / 0.1);
+          margin: 2rem 0;
+        }
+        .markdown-content code {
+          background-color: oklch(var(--b2));
+          padding: 0.2em 0.4em;
+          border-radius: 0.25rem;
+          font-size: 0.9em;
+          font-family: 'Monaco', 'Courier New', monospace;
+        }
+        .markdown-content pre {
+          background: oklch(var(--b3));
+          padding: 1rem;
+          border-radius: 0.5rem;
+          overflow-x: auto;
+          margin: 1rem 0;
+        }
+        .markdown-content pre code {
+          background: transparent;
+          padding: 0;
+        }
+        .markdown-content a {
+          color: oklch(var(--p));
+          text-decoration: underline;
+        }
+        .markdown-content a:hover {
+          color: oklch(var(--pf));
+        }
+        .markdown-content blockquote {
+          border-left: 4px solid oklch(var(--p));
+          padding-left: 1rem;
+          margin: 1rem 0;
+          color: oklch(var(--bc) / 0.7);
+          font-style: italic;
+        }
+        .markdown-content table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 1rem 0;
+        }
+        .markdown-content table th,
+        .markdown-content table td {
+          border: 1px solid oklch(var(--bc) / 0.2);
+          padding: 0.5rem;
+          text-align: left;
+        }
+        .markdown-content table th {
+          background: oklch(var(--b2));
+          font-weight: 600;
+        }
+        .markdown-content img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.5rem;
+          margin: 1rem 0;
+        }
+        .markdown-content ul,
+        .markdown-content ol {
+          margin: 1rem 0;
+          padding-left: 2rem;
+        }
+        .markdown-content li {
+          margin: 0.5rem 0;
+        }
+        .markdown-content input[type="checkbox"] {
+          margin-right: 0.5rem;
+          cursor: pointer;
+        }
+        .markdown-content li:has(input[type="checkbox"]) {
+          list-style: none;
+          margin-left: -1.5rem;
+        }
+      </style>
+
+      {raw(@html_content)}
+    </div>
+    <%!-- Post Footer --%>
+    <footer class="mt-12 pt-6 border-t">
+      <a href={"/#{@current_language}/blog/#{@blog_slug}"} class="btn btn-outline btn-sm">
+        ← Back to {String.capitalize(@blog_slug)}
+      </a>
+    </footer>
+  </article>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

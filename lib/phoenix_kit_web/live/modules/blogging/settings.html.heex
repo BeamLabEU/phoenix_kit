@@ -1,0 +1,178 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
+        class="btn btn-outline btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" />
+        {gettext("Back to Settings")}
+      </.link>
+      <div class="text-right">
+        <p class="text-sm text-base-content/70">{gettext("Project")}</p>
+        <p class="text-lg font-semibold">{@project_title}</p>
+      </div>
+    </div>
+
+    <header class="text-center space-y-2">
+      <p class="text-sm uppercase tracking-wide text-base-content/60">
+        {gettext("Blogging Module")}
+      </p>
+      <h1 class="text-4xl font-bold text-base-content">{gettext("Manage Blogs")}</h1>
+      <p class="text-base text-base-content/70 max-w-2xl mx-auto">
+        {gettext(
+          "Create dedicated blogs your team can publish to. Each blog appears as its own tab in the blogging workspace."
+        )}
+      </p>
+    </header>
+
+    <div class="grid gap-6 lg:grid-cols-3">
+      <div class="card bg-base-100 shadow-xl border border-base-200 lg:col-span-2">
+        <div class="card-body space-y-6">
+          <div class="space-y-2">
+            <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogs")}</h2>
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "Create dedicated blogs like Product Updates, Release Notes, or Company News. Each blog stores its content in structured folders on disk."
+              )}
+            </p>
+          </div>
+
+          <.form
+            for={@new_blog_form}
+            id="blog-create-form"
+            class="space-y-4"
+            phx-change="update_new_blog"
+            phx-submit="add_blog"
+          >
+            <.input
+              field={@new_blog_form[:name]}
+              type="text"
+              label={gettext("Blog Name")}
+              placeholder={gettext("e.g. Product Updates")}
+              required
+            />
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text text-sm font-semibold text-base-content">
+                  {gettext("Storage Mode")}
+                </span>
+              </label>
+              <div class="flex flex-col gap-2">
+                <label class="cursor-pointer label gap-2 justify-start">
+                  <input
+                    type="radio"
+                    name={@new_blog_form[:mode].name}
+                    value="timestamp"
+                    class="radio radio-primary"
+                    checked={@new_blog_form[:mode].value == "timestamp"}
+                  />
+                  <span class="label-text">
+                    {gettext("Timestamp (date/time folders)")}
+                  </span>
+                </label>
+                <label class="cursor-pointer label gap-2 justify-start">
+                  <input
+                    type="radio"
+                    name={@new_blog_form[:mode].name}
+                    value="slug"
+                    class="radio radio-primary"
+                    checked={@new_blog_form[:mode].value == "slug"}
+                  />
+                  <span class="label-text">
+                    {gettext("Slug (semantic URLs)")}
+                  </span>
+                </label>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-xs text-base-content/60">
+                  {gettext("Cannot be changed after blog creation")}
+                </span>
+              </label>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm">
+              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Add Blog")}
+            </button>
+          </.form>
+
+          <%= if @blogs == [] do %>
+            <div class="alert alert-info">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <div>
+                <h3 class="font-bold">{gettext("No blogs yet")}</h3>
+                <p class="text-sm">
+                  {gettext("Create your first blog to start publishing content.")}
+                </p>
+              </div>
+            </div>
+          <% else %>
+            <div class="space-y-4">
+              <%= for blog <- @blogs do %>
+                <div class="border border-base-200 rounded-lg p-4 flex items-center justify-between">
+                  <div class="space-y-1">
+                    <div class="flex items-center gap-2">
+                      <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
+                      <span class={[
+                        "badge badge-sm uppercase",
+                        if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
+                      ]}>
+                        {blog["mode"] || "timestamp"}
+                      </span>
+                    </div>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Slug")}: <code class="font-mono">{blog["slug"]}</code>
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    phx-click="remove_blog"
+                    phx-value-slug={blog["slug"]}
+                    class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                    data-confirm={
+                      gettext(
+                        "Move this blog to trash? The directory will be renamed with a timestamp."
+                      )
+                    }
+                  >
+                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
+                  </button>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <aside class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-4">
+          <h3 class="text-xl font-semibold text-base-content">{gettext("How it works")}</h3>
+          <ul class="text-sm text-base-content/70 space-y-3">
+            <li>• {gettext("Each blog becomes a dedicated publishing workspace.")}</li>
+            <li>
+              • {gettext("Posts are organized by date & time with multi-language support.")}
+            </li>
+            <li>
+              • {gettext(
+                "Files live under priv/static/blogging for easy versioning and deployment."
+              )}
+            </li>
+            <li>
+              • {gettext(
+                "Language variants are automatically created based on enabled languages."
+              )}
+            </li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

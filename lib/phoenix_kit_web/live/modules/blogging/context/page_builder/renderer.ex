@@ -3,10 +3,10 @@
 # ============================================================================
 # This module was part of an experimental component-based page building system
 # using XML-style markup (.phk files) with swappable design variants.
-# Related to: lib/phoenix_kit/publishing/page_builder.ex
+# Related to: lib/phoenix_kit/blogging/page_builder.ex
 # ============================================================================
 
-# defmodule PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.Renderer do
+# defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
 #   @moduledoc """
 #   Renders AST nodes to HTML by delegating to component modules.
 #   """
@@ -44,15 +44,15 @@
 #   end
 #
 #   # Resolve component type to module
-#   defp resolve_component(:page), do: {:ok, PhoenixKitWeb.Components.Publishing.Page}
-#   defp resolve_component(:hero), do: {:ok, PhoenixKitWeb.Components.Publishing.Hero}
-#   defp resolve_component(:headline), do: {:ok, PhoenixKitWeb.Components.Publishing.Headline}
+#   defp resolve_component(:page), do: {:ok, PhoenixKitWeb.Components.Blogging.Page}
+#   defp resolve_component(:hero), do: {:ok, PhoenixKitWeb.Components.Blogging.Hero}
+#   defp resolve_component(:headline), do: {:ok, PhoenixKitWeb.Components.Blogging.Headline}
 #
 #   defp resolve_component(:subheadline),
-#     do: {:ok, PhoenixKitWeb.Components.Publishing.Subheadline}
+#     do: {:ok, PhoenixKitWeb.Components.Blogging.Subheadline}
 #
-#   defp resolve_component(:cta), do: {:ok, PhoenixKitWeb.Components.Publishing.CTA}
-#   defp resolve_component(:image), do: {:ok, PhoenixKitWeb.Components.Publishing.Image}
+#   defp resolve_component(:cta), do: {:ok, PhoenixKitWeb.Components.Blogging.CTA}
+#   defp resolve_component(:image), do: {:ok, PhoenixKitWeb.Components.Blogging.Image}
 #   defp resolve_component(_), do: {:error, :not_found}
 #
 #   # Render using the component module

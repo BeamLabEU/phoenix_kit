@@ -1,35 +1,35 @@
-# .phk (PhoenixKit) Publishing Format Guide
+# .phk (PhoenixKit) Blogging Format Guide
 
 ## Overview
 
-The `.phk` format is PhoenixKit's component-based page markup language. It allows you to create pages with structured content that can be styled with different design variants **without changing the content**.
+The `.phk` format is PhoenixKit's component-based post markup language. It allows you to create blog posts with structured content that can be styled with different design variants **without changing the content**.
 
 ## File Location
 
-Publishing entries are stored at:
+Blog posts are stored at:
 ```
-priv/static/pages/<type>/<YYYY-MM-DD>/<HH:MM>/en.phk
+priv/static/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/en.phk
 ```
 
 Example:
 ```
-priv/static/pages/blog/2025-10-28/14:30/en.phk
+priv/static/blogging/blog/2025-10-28/14:30/en.phk
 ```
 
 ## Basic Structure
 
-Every `.phk` file starts with a root `<Page>` element containing metadata:
+Every `.phk` blog post starts with a root `<Post>` element containing metadata:
 
 ```xml
-<Page slug="home" title="Welcome" status="published" published_at="2025-10-28T14:00:00Z">
+<Post slug="home" title="Welcome" status="published" published_at="2025-10-28T14:00:00Z">
   <!-- Your content components go here -->
-</Page>
+</Post>
 ```
 
-### Page Attributes
+### Post Attributes
 
 - `slug` - URL-friendly identifier (e.g., "home", "about-us")
-- `title` - Page title for SEO and display
+- `title` - Post title for SEO and display
 - `status` - Publication status: `draft`, `published`, or `archived`
 - `published_at` - ISO8601 timestamp (changes folder location when updated)
 - `description` (optional) - Meta description for SEO
@@ -237,7 +237,7 @@ When a `.phk` file is rendered:
 
 1. **Parse XML** → Convert to AST (Abstract Syntax Tree)
 2. **Inject Data** → Replace `{{placeholders}}` with actual values
-3. **Resolve Components** → Map `<Hero>` → `PhoenixKitWeb.Components.Publishing.Hero`
+3. **Resolve Components** → Map `<Hero>` → `PhoenixKitWeb.Components.Blogging.Hero`
 4. **Apply Variant** → Select the correct rendering function based on `variant` attribute
 5. **Render HTML** → Generate final HTML output
 

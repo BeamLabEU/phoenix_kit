@@ -39,7 +39,7 @@
       <%= if @rendered_content do %>
         <div class="container mx-auto px-4 py-8 max-w-4xl">
           <style>
-            .publishing-markdown h1 {
+            .blogging-markdown h1 {
               font-size: 2.25rem;
               line-height: 2.5rem;
               font-weight: 700;
@@ -47,7 +47,7 @@
               margin-bottom: 1.5rem;
             }
 
-            .publishing-markdown h2 {
+            .blogging-markdown h2 {
               font-size: 1.875rem;
               line-height: 2.25rem;
               font-weight: 700;
@@ -55,7 +55,7 @@
               margin-bottom: 1rem;
             }
 
-            .publishing-markdown h3 {
+            .blogging-markdown h3 {
               font-size: 1.5rem;
               line-height: 2rem;
               font-weight: 600;
@@ -63,7 +63,7 @@
               margin-bottom: 0.75rem;
             }
 
-            .publishing-markdown h4 {
+            .blogging-markdown h4 {
               font-size: 1.25rem;
               line-height: 1.75rem;
               font-weight: 600;
@@ -71,25 +71,25 @@
               margin-bottom: 0.5rem;
             }
 
-            .publishing-markdown p {
+            .blogging-markdown p {
               margin-top: 1rem;
               margin-bottom: 1rem;
               line-height: 1.8;
             }
 
-            .publishing-markdown ul,
-            .publishing-markdown ol {
+            .blogging-markdown ul,
+            .blogging-markdown ol {
               margin-top: 1rem;
               margin-bottom: 1rem;
               padding-left: 1.5rem;
             }
 
-            .publishing-markdown li {
+            .blogging-markdown li {
               margin-top: 0.5rem;
               margin-bottom: 0.5rem;
             }
 
-            .publishing-markdown code {
+            .blogging-markdown code {
               background-color: rgba(15, 23, 42, 0.08);
               color: inherit;
               padding: 0.2rem 0.4rem;
@@ -97,7 +97,7 @@
               font-size: 0.95em;
             }
 
-            .publishing-markdown pre {
+            .blogging-markdown pre {
               background-color: rgba(15, 23, 42, 0.08);
               padding: 1rem;
               border-radius: 0.75rem;
@@ -106,7 +106,7 @@
               margin-bottom: 1.5rem;
             }
 
-            .publishing-markdown blockquote {
+            .blogging-markdown blockquote {
               border-left: 4px solid rgba(15, 23, 42, 0.15);
               padding-left: 1rem;
               margin-top: 1.5rem;
@@ -115,55 +115,55 @@
               color: rgba(15, 23, 42, 0.8);
             }
 
-            .publishing-markdown table {
+            .blogging-markdown table {
               width: 100%;
               border-collapse: collapse;
               margin-top: 1.5rem;
               margin-bottom: 1.5rem;
             }
 
-            .publishing-markdown th,
-            .publishing-markdown td {
+            .blogging-markdown th,
+            .blogging-markdown td {
               border: 1px solid rgba(15, 23, 42, 0.15);
               padding: 0.75rem;
               text-align: left;
             }
 
-            .publishing-markdown th {
+            .blogging-markdown th {
               background-color: rgba(15, 23, 42, 0.08);
               font-weight: 600;
             }
 
-            .publishing-markdown hr {
+            .blogging-markdown hr {
               border: none;
               border-top: 1px solid rgba(15, 23, 42, 0.15);
               margin-top: 2rem;
               margin-bottom: 2rem;
             }
 
-            [data-theme="dark"] .publishing-markdown code {
+            [data-theme="dark"] .blogging-markdown code {
               background-color: rgba(255, 255, 255, 0.12);
             }
 
-            [data-theme="dark"] .publishing-markdown pre {
+            [data-theme="dark"] .blogging-markdown pre {
               background-color: rgba(255, 255, 255, 0.1);
             }
 
-            [data-theme="dark"] .publishing-markdown blockquote {
+            [data-theme="dark"] .blogging-markdown blockquote {
               border-left-color: rgba(255, 255, 255, 0.25);
               color: rgba(255, 255, 255, 0.8);
             }
 
-            [data-theme="dark"] .publishing-markdown th,
-            [data-theme="dark"] .publishing-markdown td {
+            [data-theme="dark"] .blogging-markdown th,
+            [data-theme="dark"] .blogging-markdown td {
               border-color: rgba(255, 255, 255, 0.2);
             }
 
-            [data-theme="dark"] .publishing-markdown th {
+            [data-theme="dark"] .blogging-markdown th {
               background-color: rgba(255, 255, 255, 0.12);
             }
           </style>
-          <div class="publishing-markdown prose prose-lg max-w-none">
+          <div class="blogging-markdown prose prose-lg max-w-none">
             {@rendered_content}
           </div>
         </div>

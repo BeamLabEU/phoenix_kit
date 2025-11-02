@@ -3,10 +3,10 @@
 # ============================================================================
 # This module was part of an experimental component-based page building system
 # using XML-style markup (.phk files) with swappable design variants.
-# Related to: lib/phoenix_kit/publishing/page_builder.ex
+# Related to: lib/phoenix_kit/blogging/page_builder.ex
 # ============================================================================
 
-# defmodule PhoenixKitWeb.Components.Publishing.Page do
+# defmodule PhoenixKitWeb.Components.Blogging.Page do
 #   @moduledoc """
 #   Root page component wrapper.
 #   """
@@ -27,7 +27,7 @@
 #   end
 #
 #   defp render_child(child, assigns) do
-#     case PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.Renderer.render(child, assigns) do
+#     case PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer.render(child, assigns) do
 #       {:ok, html} -> html
 #       {:error, _} -> ""
 #     end

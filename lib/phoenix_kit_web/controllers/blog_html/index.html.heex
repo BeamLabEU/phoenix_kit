@@ -1,0 +1,102 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@conn.request_path}
+>
+  <div class="blog-index-container max-w-6xl mx-auto px-6 py-8">
+    <%!-- Breadcrumb Navigation --%>
+    <div class="breadcrumbs text-sm mb-6">
+      <ul>
+        <%= for breadcrumb <- @breadcrumbs do %>
+          <li>
+            <%= if breadcrumb.url do %>
+              <a href={breadcrumb.url}>{breadcrumb.label}</a>
+            <% else %>
+              {breadcrumb.label}
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+    <%!-- Blog Header --%>
+    <header class="mb-8">
+      <h1 class="text-4xl font-bold mb-2">{@blog["name"]}</h1>
+      <p class="text-base-content/70">
+        {pluralize(@total_count, "post", "posts")}
+      </p>
+    </header>
+    <%!-- Posts Grid --%>
+    <%= if @total_count > 0 do %>
+      <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <%= for post <- @posts do %>
+          <article class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+            <div class="card-body">
+              <h2 class="card-title text-xl">
+                <a
+                  href={build_post_url(@blog["slug"], post, @current_language)}
+                  class="hover:text-primary"
+                >
+                  {post.metadata.title}
+                </a>
+              </h2>
+
+              <%= if Map.get(post.metadata, :description) do %>
+                <p class="text-sm text-base-content/70 line-clamp-3">
+                  {post.metadata.description}
+                </p>
+              <% end %>
+
+              <div class="card-actions justify-between items-center mt-4">
+                <time class="text-xs text-base-content/60" datetime={post.metadata.published_at}>
+                  {format_date(post.metadata.published_at)}
+                </time>
+
+                <a
+                  href={build_post_url(@blog["slug"], post, @current_language)}
+                  class="btn btn-sm btn-primary"
+                >
+                  Read More →
+                </a>
+              </div>
+            </div>
+          </article>
+        <% end %>
+      </div>
+      <%!-- Pagination --%>
+      <%= if @total_pages > 1 do %>
+        <div class="join mt-8 flex justify-center">
+          <%= for page_num <- 1..@total_pages do %>
+            <%= if page_num == @page do %>
+              <button class="join-item btn btn-active">{page_num}</button>
+            <% else %>
+              <a
+                href={"/#{@current_language}/blog/#{@blog["slug"]}?page=#{page_num}"}
+                class="join-item btn"
+              >
+                {page_num}
+              </a>
+            <% end %>
+          <% end %>
+        </div>
+      <% end %>
+    <% else %>
+      <div class="alert alert-info">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          class="stroke-current shrink-0 w-6 h-6"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          >
+          </path>
+        </svg>
+        <span>No published posts yet.</span>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

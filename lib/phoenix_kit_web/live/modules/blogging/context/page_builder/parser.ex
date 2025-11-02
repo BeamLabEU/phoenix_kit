@@ -3,10 +3,10 @@
 # ============================================================================
 # This module was part of an experimental component-based page building system
 # using XML-style markup (.phk files) with swappable design variants.
-# Related to: lib/phoenix_kit/publishing/page_builder.ex
+# Related to: lib/phoenix_kit/blogging/page_builder.ex
 # ============================================================================
 
-# defmodule PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.Parser do
+# defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser do
 #   @moduledoc """
 #   Parses .phk (PhoenixKit) XML-style markup into an AST.
 #
@@ -48,7 +48,7 @@
 #   def parse(content) when is_binary(content) do
 #     content = String.trim(content)
 #
-#     case Saxy.parse_string(content, PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.SaxHandler, []) do
+#     case Saxy.parse_string(content, PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.SaxHandler, []) do
 #       {:ok, ast} -> {:ok, ast}
 #       {:error, reason} -> {:error, {:parse_error, reason}}
 #     end
@@ -59,7 +59,7 @@
 #   def parse(_), do: {:error, :invalid_content}
 # end
 #
-# defmodule PhoenixKitWeb.Live.Modules.Publishing.PageBuilder.SaxHandler do
+# defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.SaxHandler do
 #   @moduledoc false
 #   @behaviour Saxy.Handler
 #

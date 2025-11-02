@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
+defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   @moduledoc """
-  Metadata helpers for .phk (PhoenixKit) publishing entries.
+  Metadata helpers for .phk (PhoenixKit) blogging posts.
 
   Metadata is stored as a simple key-value format at the top of the file:
   ```
@@ -20,7 +20,8 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
           title: String.t(),
           description: String.t() | nil,
           slug: String.t(),
-          published_at: String.t()
+          published_at: String.t(),
+          created_at: String.t() | nil
         }
 
   @doc """
@@ -44,18 +45,32 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
   """
   @spec serialize(metadata()) :: String.t()
   def serialize(metadata) do
+    created_at =
+      case Map.get(metadata, :created_at) || Map.get(metadata, "created_at") do
+        nil -> nil
+        value -> "created_at: #{value}"
+      end
+
+    lines =
+      [
+        "slug: #{metadata.slug}",
+        "title: #{metadata.title || ""}",
+        "status: #{metadata.status}",
+        "published_at: #{metadata.published_at}",
+        created_at
+      ]
+      |> Enum.filter(& &1)
+      |> Enum.join("\n")
+
     """
     ---
-    slug: #{metadata.slug}
-    title: #{metadata.title || ""}
-    status: #{metadata.status}
-    published_at: #{metadata.published_at}
+    #{lines}
     ---
     """
   end
 
   @doc """
-  Returns default metadata for a new entry.
+  Returns default metadata for a new post.
   """
   @spec default_metadata() :: metadata()
   def default_metadata do
@@ -66,7 +81,8 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
       title: "",
       description: nil,
       slug: "",
-      published_at: DateTime.to_iso8601(now)
+      published_at: DateTime.to_iso8601(now),
+      created_at: nil
     }
   end
 
@@ -102,13 +118,16 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
         end
       end)
 
-    %{
+    metadata_map = %{
       title: Map.get(metadata, "title", default.title),
       status: Map.get(metadata, "status", default.status),
       slug: Map.get(metadata, "slug", default.slug),
       published_at: Map.get(metadata, "published_at", default.published_at),
-      description: Map.get(metadata, "description")
+      description: Map.get(metadata, "description"),
+      created_at: Map.get(metadata, "created_at", default.created_at)
     }
+
+    metadata_map
   end
 
   # Extract metadata from <Page> element attributes (legacy XML format)
@@ -127,7 +146,8 @@ defmodule PhoenixKitWeb.Live.Modules.Publishing.Metadata do
       status: status,
       slug: slug,
       published_at: published_at,
-      description: description
+      description: description,
+      created_at: nil
     }
   end
 

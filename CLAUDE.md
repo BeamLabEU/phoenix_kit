@@ -539,6 +539,8 @@ defp format_time_ago(datetime), do: # logic...
 
 **Emails module:** See `lib/phoenix_kit_web/live/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
 
+**Blogging module:** See `lib/phoenix_kit_web/live/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
+
 ### Migration Architecture
 
 - **PhoenixKit.Migrations.Postgres** - PostgreSQL-specific migrator with Oban-style versioning
