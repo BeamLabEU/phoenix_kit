@@ -34,11 +34,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Module.Languages
-  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
 
   @doc """
   Renders content with the appropriate layout based on configuration and Phoenix version.
