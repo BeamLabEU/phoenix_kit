@@ -61,15 +61,31 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
   end
 
   def handle_event("remove_blog", %{"slug" => slug}, socket) do
-    case Blogging.remove_blog(slug) do
-      {:ok, _} ->
+    case Blogging.trash_blog(slug) do
+      {:ok, trashed_name} ->
         {:noreply,
          socket
          |> assign(:blogs, Blogging.list_blogs())
-         |> put_flash(:info, gettext("Blog removed"))}
+         |> put_flash(
+           :info,
+           gettext("Blog moved to trash as: %{name}", name: trashed_name)
+         )}
+
+      {:error, :not_found} ->
+        # Blog directory doesn't exist, just remove from config
+        case Blogging.remove_blog(slug) do
+          {:ok, _} ->
+            {:noreply,
+             socket
+             |> assign(:blogs, Blogging.list_blogs())
+             |> put_flash(:info, gettext("Blog removed from configuration"))}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to remove blog"))}
+        end
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to remove blog"))}
+        {:noreply, put_flash(socket, :error, gettext("Failed to move blog to trash"))}
     end
   end
 

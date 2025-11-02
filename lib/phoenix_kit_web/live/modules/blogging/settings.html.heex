@@ -137,8 +137,13 @@
                     phx-click="remove_blog"
                     phx-value-slug={blog["slug"]}
                     class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                    data-confirm={
+                      gettext(
+                        "Move this blog to trash? The directory will be renamed with a timestamp."
+                      )
+                    }
                   >
-                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Remove")}
+                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
                   </button>
                 </div>
               <% end %>
