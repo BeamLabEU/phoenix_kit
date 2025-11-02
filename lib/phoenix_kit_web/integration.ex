@@ -216,6 +216,14 @@ defmodule PhoenixKitWeb.Integration do
         get "/api/files/:file_id/info", FileController, :info
       end
 
+      # Public blog routes
+      scope "/:language/blog", PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup]
+
+        # Catch-all route for blog posts and listings
+        get "/*path", BlogController, :show
+      end
+
       # Email export routes (require admin or owner role)
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
