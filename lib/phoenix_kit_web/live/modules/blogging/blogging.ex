@@ -117,6 +117,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   @doc """
+  Moves a blog to trash by renaming its directory with timestamp.
+  The blog is removed from the active blogs list and its directory is renamed to:
+  BLOGNAME-YYYY-MM-DD-HH-MM-SS
+  """
+  @spec trash_blog(String.t()) :: {:ok, String.t()} | {:error, any()}
+  def trash_blog(slug) when is_binary(slug) do
+    with {:ok, _} <- remove_blog(slug),
+         {:ok, trashed_name} <- Storage.move_blog_to_trash(slug) do
+      {:ok, trashed_name}
+    end
+  end
+
+  @doc """
   Looks up a blog name from its slug.
   """
   @spec blog_name(String.t()) :: String.t() | nil

@@ -186,6 +186,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   @doc """
+  Moves a blog directory to trash by renaming it with a timestamp.
+  The blog directory is moved to: trash/BLOGNAME-YYYY-MM-DD-HH-MM-SS
+
+  Returns {:ok, new_name} on success or {:error, reason} on failure.
+  """
+  @spec move_blog_to_trash(String.t()) :: {:ok, String.t()} | {:error, term()}
+  def move_blog_to_trash(blog_slug) do
+    source = Path.join(root_path(), blog_slug)
+
+    if File.dir?(source) do
+      # Ensure trash directory exists
+      trash_dir = Path.join(root_path(), "trash")
+      File.mkdir_p!(trash_dir)
+
+      timestamp =
+        DateTime.utc_now()
+        |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
+
+      new_name = "#{blog_slug}-#{timestamp}"
+      destination = Path.join(trash_dir, new_name)
+
+      case File.rename(source, destination) do
+        :ok -> {:ok, "trash/#{new_name}"}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  @doc """
   Lists posts for the given blog.
   Accepts optional preferred_language to show titles in user's language.
   Falls back to content language, then first available language.
