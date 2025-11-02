@@ -85,6 +85,44 @@
           margin-top: 1.25rem;
           margin-bottom: 0.5rem;
         }
+        .markdown-content h4 {
+          font-size: 1.25rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content h5 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content h6 {
+          font-size: 1rem;
+          font-weight: 600;
+          margin-top: 1rem;
+          margin-bottom: 0.5rem;
+        }
+        .markdown-content p {
+          margin: 1rem 0;
+          line-height: 1.7;
+        }
+        .markdown-content strong {
+          font-weight: 700;
+        }
+        .markdown-content em {
+          font-style: italic;
+        }
+        .markdown-content del,
+        .markdown-content s {
+          text-decoration: line-through;
+          opacity: 0.7;
+        }
+        .markdown-content hr {
+          border: 0;
+          border-top: 2px solid oklch(var(--bc) / 0.1);
+          margin: 2rem 0;
+        }
         .markdown-content code {
           background-color: oklch(var(--b2));
           padding: 0.2em 0.4em;
@@ -145,6 +183,14 @@
         }
         .markdown-content li {
           margin: 0.5rem 0;
+        }
+        .markdown-content input[type="checkbox"] {
+          margin-right: 0.5rem;
+          cursor: pointer;
+        }
+        .markdown-content li:has(input[type="checkbox"]) {
+          list-style: none;
+          margin-left: -1.5rem;
         }
       </style>
 
