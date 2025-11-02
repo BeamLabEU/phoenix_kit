@@ -5,10 +5,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def mount(params, _session, socket) do
@@ -146,12 +146,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   end
 
   defp format_datetime(%{metadata: %{published_at: published_at}}) when is_binary(published_at) do
-    with {:ok, dt, _} <- DateTime.from_iso8601(published_at) do
-      date_str = Calendar.strftime(dt, "%B %d, %Y")
-      time_str = Calendar.strftime(dt, "%I:%M %p")
-      "#{date_str} #{gettext("at")} #{time_str}"
-    else
-      _ -> gettext("Unsaved draft")
+    case DateTime.from_iso8601(published_at) do
+      {:ok, dt, _} ->
+        date_str = Calendar.strftime(dt, "%B %d, %Y")
+        time_str = Calendar.strftime(dt, "%I:%M %p")
+        "#{date_str} #{gettext("at")} #{time_str}"
+
+      _ ->
+        gettext("Unsaved draft")
     end
   end
 
