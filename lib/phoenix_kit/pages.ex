@@ -88,7 +88,9 @@ defmodule PhoenixKit.Pages do
 
     require Logger
 
-    unless FileOperations.file_exists?(relative_path) do
+    if FileOperations.file_exists?(relative_path) do
+      Logger.debug("Pages 404 already exists at #{FileOperations.absolute_path(relative_path)}")
+    else
       full_path = FileOperations.absolute_path(relative_path)
       Logger.info("Creating default Pages 404 at #{full_path}")
 
@@ -114,8 +116,6 @@ defmodule PhoenixKit.Pages do
         {:error, reason} ->
           Logger.error("Failed to create default Pages 404 at #{full_path}: #{inspect(reason)}")
       end
-    else
-      Logger.debug("Pages 404 already exists at #{FileOperations.absolute_path(relative_path)}")
     end
 
     relative_path

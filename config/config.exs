@@ -11,6 +11,20 @@ config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
 # Applications using PhoenixKit should configure their own providers
 config :ueberauth, Ueberauth, providers: []
 
+# Configure Logger metadata
+config :logger, :console,
+  metadata: [
+    :blog_slug,
+    :identifier,
+    :reason,
+    :language,
+    :user_agent,
+    :path,
+    :blog,
+    :pattern,
+    :content_size
+  ]
+
 # For development/testing with real SMTP (when available)
 # config :phoenix_kit, PhoenixKit.Mailer,
 #   adapter: Swoosh.Adapters.SMTP,

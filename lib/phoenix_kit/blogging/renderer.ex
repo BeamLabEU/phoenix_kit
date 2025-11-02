@@ -101,15 +101,13 @@ defmodule PhoenixKit.Blogging.Renderer do
   Useful for testing or when doing bulk updates.
   """
   def clear_all_cache do
-    try do
-      PhoenixKit.Cache.clear(@cache_name)
-      Logger.info("Cleared all blog post caches")
+    PhoenixKit.Cache.clear(@cache_name)
+    Logger.info("Cleared all blog post caches")
+    :ok
+  rescue
+    _ ->
+      Logger.warning("Blog cache not available for clearing")
       :ok
-    rescue
-      _ ->
-        Logger.warning("Blog cache not available for clearing")
-        :ok
-    end
   end
 
   # Private Functions

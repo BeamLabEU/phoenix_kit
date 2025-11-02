@@ -5,9 +5,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"

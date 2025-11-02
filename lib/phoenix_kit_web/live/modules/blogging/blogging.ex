@@ -123,9 +123,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   """
   @spec trash_blog(String.t()) :: {:ok, String.t()} | {:error, any()}
   def trash_blog(slug) when is_binary(slug) do
-    with {:ok, _} <- remove_blog(slug),
-         {:ok, trashed_name} <- Storage.move_blog_to_trash(slug) do
-      {:ok, trashed_name}
+    with {:ok, _} <- remove_blog(slug) do
+      Storage.move_blog_to_trash(slug)
     end
   end
 

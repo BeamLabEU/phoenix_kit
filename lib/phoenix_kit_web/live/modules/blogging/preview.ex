@@ -92,17 +92,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
   # ============================================================================
 
   defp render_markdown_content(content) do
-    trimmed = content || ""
-
-    case Earmark.as_html(trimmed) do
+    case Earmark.as_html(content) do
       {:ok, html, _warnings} ->
         {:ok, HTML.raw(html)}
 
       {:error, _html, errors} ->
         message =
           errors
-          |> Enum.map(&format_markdown_error/1)
-          |> Enum.join("; ")
+          |> Enum.map_join("; ", &format_markdown_error/1)
           |> case do
             "" -> gettext("An unknown error occurred while rendering markdown.")
             err -> gettext("Failed to render markdown: %{message}", message: err)
