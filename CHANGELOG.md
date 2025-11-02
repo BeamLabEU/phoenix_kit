@@ -1,3 +1,16 @@
+## 1.4.8 - 2025-11-02
+
+### Fixes and improvements
+- Improved and update project configuration files
+- Changes to publishing module
+  - Rrenamed to Blogs
+  - Better 404 handling
+  - Comprehensive markdown styling
+  - Support both slug-mode and timestamp-mode blog URLs
+  - Multi-language support with automatic fallback to default language
+  - Trash logic for safe blog deletion
+  - Various UI/UX enhancements to the blogging module in general
+
 ## 1.4.7 - 2025-10-30
 
 ### Fixed
