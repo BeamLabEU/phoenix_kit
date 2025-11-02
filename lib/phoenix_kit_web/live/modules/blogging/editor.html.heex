@@ -116,6 +116,16 @@
         >
           <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("Preview")}
         </button>
+        <%= if @form["status"] == "published" && @public_url do %>
+          <a
+            href={@public_url}
+            target="_blank"
+            class="btn btn-outline btn-sm btn-success shadow-none"
+            title="View this post on the public site"
+          >
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+          </a>
+        <% end %>
       </div>
     </div>
 

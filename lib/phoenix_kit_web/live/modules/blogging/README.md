@@ -2,6 +2,85 @@
 
 The PhoenixKit Blogging module provides a filesystem-based content management system with multi-language support and dual storage modes. Posts are stored as `.phk` files (YAML frontmatter + Markdown content) rather than in the database, giving content creators a familiar file-based workflow with version control integration.
 
+## Quick Links
+
+- **Admin Interface**: `/{prefix}/admin/blogging`
+- **Public Blog**: `/{language}/blog` (overview) or `/{language}/blog/{blog-slug}` (listing)
+- **Settings**: Configure via `blogging_public_enabled` and `blogging_posts_per_page` in Settings
+
+## Public Blog Display
+
+The blogging module includes public-facing routes for displaying published posts to site visitors.
+
+### Public URLs
+
+```
+/{language}/blog                              # All blogs overview
+/{language}/blog/{blog-slug}                  # Blog post listing
+/{language}/blog/{blog-slug}/{post-slug}      # Slug mode post
+/{language}/blog/{blog-slug}/{date}/{time}    # Timestamp mode post
+```
+
+**Examples:**
+- `/en/blog` - Shows all blogs (Docs, News, etc.)
+- `/en/blog/docs` - Lists all published posts in Docs blog
+- `/en/blog/docs/getting-started` - Shows specific post (slug mode)
+- `/en/blog/news/2025-11-02/14:30` - Shows specific post (timestamp mode)
+
+### Features
+
+- **Status-Based Access Control** - Only `status: published` posts are visible
+- **Markdown Rendering** - GitHub-style markdown CSS with syntax highlighting
+- **Language Support** - Multi-language posts with language switcher
+- **Pagination** - Configurable posts per page (default: 20)
+- **SEO Ready** - Clean URLs, breadcrumbs, responsive design
+- **Performance** - Content-hash-based caching with versioned keys (`v1:blog_post:...`)
+- **Beta Badge** - Blog listings include Beta badge during v1.5.0 launch
+
+### Configuration
+
+Enable/disable public blog display and set pagination:
+
+```elixir
+# In your Settings admin interface at /{prefix}/admin/settings
+blogging_public_enabled = true   # Enable public blog routes
+blogging_posts_per_page = 20     # Posts per page in listings
+```
+
+Or programmatically:
+
+```elixir
+PhoenixKit.Settings.update_setting("blogging_public_enabled", "true")
+PhoenixKit.Settings.update_setting("blogging_posts_per_page", "20")
+```
+
+### Templates
+
+Public blog templates are located in:
+
+- `lib/phoenix_kit_web/controllers/blog_html/show.html.heex` - Single post view
+- `lib/phoenix_kit_web/controllers/blog_html/index.html.heex` - Blog listing
+- `lib/phoenix_kit_web/controllers/blog_html/all_blogs.html.heex` - All blogs overview
+
+### Admin Integration
+
+When editing a post in the admin interface:
+
+- **View Public** button appears for published posts
+- Button links directly to the public URL
+- Automatically updates when status changes to "published"
+
+### Caching
+
+The `PhoenixKit.Blogging.Renderer` module provides:
+
+- **Content-hash-based cache keys** - Automatic invalidation when content changes
+- **Versioned cache** - Keys include `v1:` prefix for cache busting
+- **Published-only caching** - Draft and archived posts are not cached
+- **Performance logging** - Debug logs include render time and content size
+
+Example cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
+
 ## Architecture Overview
 
 - **PhoenixKitWeb.Live.Modules.Blogging** – Main context module with mode-aware routing
