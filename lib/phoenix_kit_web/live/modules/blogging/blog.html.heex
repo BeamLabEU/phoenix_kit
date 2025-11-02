@@ -57,6 +57,9 @@
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
                       {post.metadata.title || gettext("Untitled post")}
                     </h3>
+                    <p class="text-xs text-base-content/50 mt-1 font-mono truncate">
+                      {post.path}
+                    </p>
                   </div>
                   <div class="flex gap-2 flex-wrap">
                     <%!-- Show buttons for all languages (enabled and disabled) in consistent order --%>
@@ -92,28 +95,47 @@
                           nil
                         end %>
                       <%= if file_exists do %>
-                        <%!-- Language card with status and edit button --%>
+                        <%!-- Language card with status, edit, and view buttons --%>
                         <div class="flex flex-col gap-1 justify-between">
-                          <%!-- Status badge --%>
-                          <%= if lang_metadata do %>
-                            <button
-                              type="button"
-                              phx-click="toggle_status"
-                              phx-value-path={lang_path}
-                              phx-value-current-status={lang_metadata.status}
-                              class={[
-                                "badge badge-sm cursor-pointer hover:brightness-90 transition-all",
-                                case lang_metadata.status do
-                                  "published" -> "badge-success"
-                                  "archived" -> "badge-neutral"
-                                  _ -> "badge-warning"
-                                end
-                              ]}
-                              title={gettext("Click to change status")}
-                            >
-                              {lang_metadata.status}
-                            </button>
-                          <% end %>
+                          <div class="flex gap-1 items-center">
+                            <%!-- Status badge --%>
+                            <%= if lang_metadata do %>
+                              <button
+                                type="button"
+                                phx-click="toggle_status"
+                                phx-value-path={lang_path}
+                                phx-value-current-status={lang_metadata.status}
+                                class={[
+                                  "badge badge-sm cursor-pointer hover:brightness-90 transition-all",
+                                  case lang_metadata.status do
+                                    "published" -> "badge-success"
+                                    "archived" -> "badge-neutral"
+                                    _ -> "badge-warning"
+                                  end
+                                ]}
+                                title={gettext("Click to change status")}
+                              >
+                                {lang_metadata.status}
+                              </button>
+                              <%!-- View button for published posts --%>
+                              <%= if lang_metadata.status == "published" do %>
+                                <a
+                                  href={
+                                    PhoenixKitWeb.BlogHTML.build_post_url(
+                                      @blog_slug,
+                                      post,
+                                      lang_code
+                                    )
+                                  }
+                                  target="_blank"
+                                  class="badge badge-sm badge-ghost cursor-pointer hover:badge-primary"
+                                  title={gettext("View on public site")}
+                                >
+                                  <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
+                                </a>
+                              <% end %>
+                            <% end %>
+                          </div>
                           <%!-- Edit button --%>
                           <.link
                             navigate={
@@ -151,7 +173,7 @@
                               phx-click="add_language"
                               phx-value-path={post.path}
                               phx-value-language={lang_code}
-                              class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 shadow-none"
+                              class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 text-success shadow-none"
                               title={
                                 if lang_info,
                                   do: "Add #{lang_info.name}",

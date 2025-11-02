@@ -479,6 +479,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     else
       false -> {:error, :not_found}
       {:error, reason} -> {:error, reason}
+      _other -> {:error, :not_found}
     end
   end
 
