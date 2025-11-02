@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Users.Login do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Admin.Presence
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -46,10 +47,7 @@ defmodule PhoenixKitWeb.Users.Login do
   end
 
   defp show_dev_notice? do
-    case Application.get_env(:phoenix_kit, PhoenixKit.Mailer)[:adapter] do
-      Swoosh.Adapters.Local -> true
-      _ -> false
-    end
+    Config.mailer_local?()
   end
 
   defp generate_session_id do

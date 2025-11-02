@@ -34,7 +34,9 @@ defmodule PhoenixKit.Config do
     layouts_module: nil,
     phoenix_version_strategy: nil,
     from_email: nil,
-    from_name: "PhoenixKit"
+    from_name: "PhoenixKit",
+    magic_link_for_login_expiry_minutes: 15,
+    magic_link_for_registration_expiry_minutes: 30
   ]
 
   @doc """
@@ -94,6 +96,30 @@ defmodule PhoenixKit.Config do
     case get(:mailer) do
       {:ok, mailer} when is_atom(mailer) -> mailer
       _ -> PhoenixKit.Mailer
+    end
+  end
+
+  @doc """
+  Checks if the configured mailer adapter is the local adapter.
+
+  Returns true if the mailer is configured to use Swoosh.Adapters.Local,
+  which is typically used for development and testing environments where
+  emails are stored locally rather than being sent to actual recipients.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.mailer_local?()
+      true  # when using Swoosh.Adapters.Local
+
+      iex> PhoenixKit.Config.mailer_local?()
+      false  # when using a real mailer like SMTP or SendGrid
+
+  """
+  @spec mailer_local?() :: boolean()
+  def mailer_local?() do
+    case get(PhoenixKit.Mailer, nil)[:adapter] do
+      Swoosh.Adapters.Local -> true
+      _ -> false
     end
   end
 
