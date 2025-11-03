@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+  alias PhoenixKitWeb.BlogHTML
 
   @impl true
   def mount(params, _session, socket) do
@@ -303,6 +304,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp create_new_post(socket, params) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
     create_opts =
       if socket.assigns.blog_mode == "slug" do
         %{
@@ -312,10 +315,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       else
         %{}
       end
+      |> Map.put(:scope, scope)
 
     case Blogging.create_post(socket.assigns.blog_slug, create_opts) do
       {:ok, new_post} ->
-        case Blogging.update_post(socket.assigns.blog_slug, new_post, params) do
+        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
           {:ok, updated_post} ->
             # Invalidate cache for newly created post
             invalidate_post_cache(socket.assigns.blog_slug, updated_post)
@@ -349,6 +353,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp create_new_translation(socket, params) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
     original_identifier =
       case socket.assigns.blog_mode do
         "slug" ->
@@ -365,7 +371,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            socket.assigns.current_language
          ) do
       {:ok, new_post} ->
-        case Blogging.update_post(socket.assigns.blog_slug, new_post, params) do
+        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
           {:ok, updated_post} ->
             # Invalidate cache for newly created translation
             invalidate_post_cache(socket.assigns.blog_slug, updated_post)
@@ -399,7 +405,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp update_existing_post(socket, params) do
-    case Blogging.update_post(socket.assigns.blog_slug, socket.assigns.post, params) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    case Blogging.update_post(socket.assigns.blog_slug, socket.assigns.post, params, %{
+           scope: scope
+         }) do
       {:ok, post} ->
         # Invalidate cache for this post
         invalidate_post_cache(socket.assigns.blog_slug, post)
@@ -653,10 +663,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
       case Map.get(post, :mode) do
         :slug ->
-          build_slug_url(post, language, blog_slug)
+          # Slug mode: use centralized URL builder
+          if post.slug do
+            BlogHTML.build_post_url(blog_slug, post, language)
+          else
+            nil
+          end
 
         :timestamp ->
-          build_timestamp_url(post, language, blog_slug)
+          # Timestamp mode: use centralized URL builder
+          if post.metadata.published_at do
+            case DateTime.from_iso8601(post.metadata.published_at) do
+              {:ok, _datetime, _} ->
+                BlogHTML.build_post_url(blog_slug, post, language)
+
+              _ ->
+                nil
+            end
+          else
+            nil
+          end
 
         _ ->
           nil
@@ -664,41 +690,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     else
       nil
     end
-  end
-
-  defp build_slug_url(post, language, blog_slug) do
-    # Slug mode: /language/blog/blog-slug/post-slug
-    if post.slug do
-      "/#{language}/blog/#{blog_slug}/#{post.slug}"
-    else
-      nil
-    end
-  end
-
-  defp build_timestamp_url(post, language, blog_slug) do
-    # Timestamp mode: /language/blog/blog-slug/YYYY-MM-DD/HH:MM
-    if post.metadata.published_at do
-      case DateTime.from_iso8601(post.metadata.published_at) do
-        {:ok, datetime, _} ->
-          date = DateTime.to_date(datetime) |> Date.to_iso8601()
-          time = format_time_for_url(datetime)
-          "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
-
-        _ ->
-          nil
-      end
-    else
-      nil
-    end
-  end
-
-  defp format_time_for_url(%DateTime{} = datetime) do
-    datetime
-    |> DateTime.to_time()
-    |> Time.truncate(:second)
-    |> then(fn time ->
-      "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
-    end)
   end
 
   defp invalidate_post_cache(blog_slug, post) do

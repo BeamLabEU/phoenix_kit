@@ -1,0 +1,177 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-8">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+      <div class="space-y-2">
+        <p class="text-sm uppercase tracking-wide text-base-content/60">
+          {gettext("Blogging Module")}
+        </p>
+        <h1 class="text-3xl font-bold text-base-content">{gettext("Content Overview")}</h1>
+        <p class="text-base text-base-content/60 max-w-2xl">
+          {gettext(
+            "Monitor publishing activity, jump into blog workspaces, and guide your team toward new content opportunities."
+          )}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <.link
+          navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+          class="btn btn-primary btn-sm"
+        >
+          <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+        </.link>
+        <.link
+          navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+          class="btn btn-outline btn-sm"
+        >
+          <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogs")}
+        </.link>
+      </div>
+    </div>
+
+    <%= if @empty_state? do %>
+      <div class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
+        <div class="card-body items-center text-center space-y-4">
+          <div class="rounded-full bg-base-200 p-3 text-primary">
+            <.icon name="hero-document-text" class="w-8 h-8" />
+          </div>
+          <h2 class="text-2xl font-semibold text-base-content">{gettext("No blogs yet")}</h2>
+          <p class="text-base text-base-content/70 max-w-xl">
+            {gettext(
+              "Blogs let you organize content into themed workspaces with their own publishing flows. Set up your first blog to start drafting posts."
+            )}
+          </p>
+          <div class="flex flex-wrap justify-center gap-3">
+            <.link
+              navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+            </.link>
+            <.link
+              navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext("Learn More")}
+            </.link>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+          <div class="stat-title text-sm text-base-content/70">{gettext("Total Blogs")}</div>
+          <div class="stat-value text-3xl text-base-content">
+            {@dashboard_summary.total_blogs}
+          </div>
+        </div>
+        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+          <div class="stat-title text-sm text-base-content/70">{gettext("Total Posts")}</div>
+          <div class="stat-value text-3xl text-base-content">
+            {@dashboard_summary.total_posts}
+          </div>
+        </div>
+        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+          <div class="stat-title text-sm text-base-content/70">{gettext("Published")}</div>
+          <div class="stat-value text-3xl text-base-content">
+            {@dashboard_summary.published_posts}
+          </div>
+          <div class="stat-desc text-xs text-base-content/60">
+            {gettext("Drafts: %{count}", count: @dashboard_summary.draft_posts)}
+          </div>
+        </div>
+        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+          <div class="stat-title text-sm text-base-content/70">{gettext("Archived Posts")}</div>
+          <div class="stat-value text-3xl text-base-content">
+            {@dashboard_summary.archived_posts}
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <%= for insight <- @dashboard_insights do %>
+          <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition">
+            <div class="card-body space-y-4">
+              <div class="flex items-start justify-between gap-3">
+                <div class="space-y-2">
+                  <h3 class="text-xl font-semibold text-base-content">{insight.name}</h3>
+                  <p class="text-xs text-base-content/60">
+                    {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
+                  </p>
+                  <%= if insight.last_published_at_text do %>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Last published")} {insight.last_published_at_text}
+                    </p>
+                  <% end %>
+                </div>
+                <span class={[
+                  "badge badge-sm uppercase",
+                  if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
+                ]}>
+                  {insight.mode}
+                </span>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3">
+                <div class="rounded-lg bg-base-200/60 px-3 py-2 text-center">
+                  <p class="text-xs uppercase tracking-wide text-base-content/60">
+                    {gettext("Posts")}
+                  </p>
+                  <p class="font-semibold text-base-content">{insight.posts_count}</p>
+                </div>
+                <div class="rounded-lg bg-success/10 px-3 py-2 text-center">
+                  <p class="text-xs uppercase tracking-wide text-success">
+                    {gettext("Published")}
+                  </p>
+                  <p class="font-semibold text-success">{insight.published_count}</p>
+                </div>
+                <div class="rounded-lg bg-warning/10 px-3 py-2 text-center">
+                  <p class="text-xs uppercase tracking-wide text-warning">{gettext("Drafts")}</p>
+                  <p class="font-semibold text-warning">{insight.draft_count}</p>
+                </div>
+              </div>
+
+              <%= if insight.languages != [] do %>
+                <div class="flex flex-wrap gap-2">
+                  <span class="text-xs font-medium uppercase text-base-content/60">
+                    {gettext("Languages")}:
+                  </span>
+                  <%= for language <- insight.languages do %>
+                    <span class="badge badge-ghost badge-sm px-2 py-1">
+                      {String.upcase(language)}
+                    </span>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <div class="flex flex-wrap gap-3">
+                <.link
+                  navigate={
+                    Routes.path("/admin/blogging/#{insight.slug}", locale: @current_locale)
+                  }
+                  class="btn btn-outline btn-sm"
+                >
+                  <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                  {gettext("Open Admin")}
+                </.link>
+                <.link
+                  navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+                  class="btn btn-ghost btn-sm"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
+                  {gettext("Settings")}
+                </.link>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

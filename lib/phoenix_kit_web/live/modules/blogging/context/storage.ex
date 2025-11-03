@@ -186,6 +186,31 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   @doc """
+  Renames a blog directory on disk when the slug changes.
+  """
+  @spec rename_blog_directory(String.t(), String.t()) :: :ok | {:error, term()}
+  def rename_blog_directory(old_slug, new_slug) when old_slug == new_slug, do: :ok
+
+  def rename_blog_directory(old_slug, new_slug) do
+    source = Path.join(root_path(), old_slug)
+    destination = Path.join(root_path(), new_slug)
+
+    cond do
+      not File.dir?(source) ->
+        :ok
+
+      File.exists?(destination) ->
+        {:error, :destination_exists}
+
+      true ->
+        case File.rename(source, destination) do
+          :ok -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  @doc """
   Moves a blog directory to trash by renaming it with a timestamp.
   The blog directory is moved to: trash/BLOGNAME-YYYY-MM-DD-HH-MM-SS
 
@@ -332,9 +357,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   @doc """
   Creates a slug-mode post, returning metadata and paths for the primary language.
   """
-  @spec create_post_slug_mode(String.t(), String.t() | nil, String.t() | nil) ::
+  @spec create_post_slug_mode(String.t(), String.t() | nil, String.t() | nil, map() | keyword()) ::
           {:ok, post()} | {:error, any()}
-  def create_post_slug_mode(blog_slug, title \\ nil, preferred_slug \\ nil) do
+  def create_post_slug_mode(blog_slug, title \\ nil, preferred_slug \\ nil, audit_meta \\ %{})
+
+  def create_post_slug_mode(blog_slug, title, preferred_slug, audit_meta)
+      when is_list(audit_meta) do
+    create_post_slug_mode(blog_slug, title, preferred_slug, Map.new(audit_meta))
+  end
+
+  def create_post_slug_mode(blog_slug, title, preferred_slug, audit_meta) do
+    audit_meta = Map.new(audit_meta)
     now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
     post_slug = generate_unique_slug(blog_slug, title || "", preferred_slug)
     primary_language = hd(enabled_language_codes())
@@ -342,14 +375,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     post_dir = Path.join([root_path(), blog_slug, post_slug])
     File.mkdir_p!(post_dir)
 
-    metadata = %{
-      slug: post_slug,
-      title: title || "",
-      description: nil,
-      status: "draft",
-      published_at: DateTime.to_iso8601(now),
-      created_at: DateTime.to_iso8601(now)
-    }
+    metadata =
+      %{
+        slug: post_slug,
+        title: title || "",
+        description: nil,
+        status: "draft",
+        published_at: DateTime.to_iso8601(now),
+        created_at: DateTime.to_iso8601(now)
+      }
+      |> apply_creation_audit_metadata(audit_meta)
 
     content = Metadata.serialize(metadata) <> "\n\n"
     primary_lang_path = Path.join(post_dir, language_filename(primary_language))
@@ -481,13 +516,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   @doc """
   Updates slug-mode posts in-place or moves them when the slug changes.
   """
-  @spec update_post_slug_mode(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
-  def update_post_slug_mode(blog_slug, post, params) do
+  @spec update_post_slug_mode(String.t(), post(), map(), map() | keyword()) ::
+          {:ok, post()} | {:error, any()}
+  def update_post_slug_mode(blog_slug, post, params, audit_meta \\ %{})
+
+  def update_post_slug_mode(blog_slug, post, params, audit_meta) when is_list(audit_meta) do
+    update_post_slug_mode(blog_slug, post, params, Map.new(audit_meta))
+  end
+
+  def update_post_slug_mode(blog_slug, post, params, audit_meta) do
+    audit_meta = Map.new(audit_meta)
     desired_slug = Map.get(params, "slug", post.slug)
 
     cond do
       desired_slug == post.slug ->
-        update_post_slug_in_place(blog_slug, post, params)
+        update_post_slug_in_place(blog_slug, post, params, audit_meta)
 
       not valid_slug?(desired_slug) ->
         {:error, :invalid_slug}
@@ -496,15 +539,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
         {:error, :slug_already_exists}
 
       true ->
-        move_post_to_new_slug(blog_slug, post, desired_slug, params)
+        move_post_to_new_slug(blog_slug, post, desired_slug, params, audit_meta)
     end
   end
 
   @doc """
   Updates slug-mode posts without moving them (slug unchanged).
   """
-  @spec update_post_slug_in_place(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
-  def update_post_slug_in_place(_blog_slug, post, params) do
+  @spec update_post_slug_in_place(String.t(), post(), map(), map() | keyword()) ::
+          {:ok, post()} | {:error, any()}
+  def update_post_slug_in_place(_blog_slug, post, params, audit_meta \\ %{})
+
+  def update_post_slug_in_place(blog_slug, post, params, audit_meta) when is_list(audit_meta) do
+    update_post_slug_in_place(blog_slug, post, params, Map.new(audit_meta))
+  end
+
+  def update_post_slug_in_place(_blog_slug, post, params, audit_meta) do
+    audit_meta = Map.new(audit_meta)
+
     metadata =
       post.metadata
       |> Map.put(:title, Map.get(params, "title", post.metadata.title))
@@ -512,6 +564,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
       |> Map.put(:created_at, Map.get(post.metadata, :created_at))
       |> Map.put(:slug, post.slug)
+      |> apply_update_audit_metadata(audit_meta)
 
     content = Map.get(params, "content", post.content)
     serialized = Metadata.serialize(metadata) <> "\n\n" <> String.trim_leading(content)
@@ -528,9 +581,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   @doc """
   Moves slug-mode post files to a new slug directory.
   """
-  @spec move_post_to_new_slug(String.t(), post(), String.t(), map()) ::
+  @spec move_post_to_new_slug(String.t(), post(), String.t(), map(), map() | keyword()) ::
           {:ok, post()} | {:error, any()}
-  def move_post_to_new_slug(blog_slug, post, new_slug, params) do
+  def move_post_to_new_slug(blog_slug, post, new_slug, params, audit_meta \\ %{})
+
+  def move_post_to_new_slug(blog_slug, post, new_slug, params, audit_meta)
+      when is_list(audit_meta) do
+    move_post_to_new_slug(blog_slug, post, new_slug, params, Map.new(audit_meta))
+  end
+
+  def move_post_to_new_slug(blog_slug, post, new_slug, params, audit_meta) do
+    audit_meta = Map.new(audit_meta)
     old_dir = Path.join([root_path(), blog_slug, post.slug])
     new_dir = Path.join([root_path(), blog_slug, new_slug])
 
@@ -560,6 +621,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
           else
             {base_metadata, content}
           end
+
+        final_metadata = apply_update_audit_metadata(final_metadata, audit_meta)
 
         serialized =
           Metadata.serialize(final_metadata) <> "\n\n" <> String.trim_leading(final_content)
@@ -630,8 +693,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   Creates a new post, returning its metadata and content.
   Creates only the primary language file. Additional languages can be added later.
   """
-  @spec create_post(String.t()) :: {:ok, post()} | {:error, any()}
-  def create_post(blog_slug) do
+  @spec create_post(String.t(), map() | keyword()) :: {:ok, post()} | {:error, any()}
+  def create_post(blog_slug, audit_meta \\ %{})
+
+  def create_post(blog_slug, audit_meta) when is_list(audit_meta) do
+    create_post(blog_slug, Map.new(audit_meta))
+  end
+
+  def create_post(blog_slug, audit_meta) do
+    audit_meta = Map.new(audit_meta)
+
     now =
       DateTime.utc_now()
       |> DateTime.truncate(:second)
@@ -654,6 +725,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       |> Map.put(:status, "draft")
       |> Map.put(:published_at, DateTime.to_iso8601(now))
       |> Map.put(:slug, format_time_folder(time))
+      |> apply_creation_audit_metadata(audit_meta)
 
     content = Metadata.serialize(metadata) <> "\n\n"
 
@@ -763,13 +835,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   Updates a post's metadata/content, moving files if needed.
   Preserves language and detects available languages.
   """
-  @spec update_post(String.t(), post(), map()) :: {:ok, post()} | {:error, any()}
-  def update_post(_blog_slug, post, params) do
+  @spec update_post(String.t(), post(), map(), map() | keyword()) ::
+          {:ok, post()} | {:error, any()}
+  def update_post(_blog_slug, post, params, audit_meta \\ %{})
+
+  def update_post(blog_slug, post, params, audit_meta) when is_list(audit_meta) do
+    update_post(blog_slug, post, params, Map.new(audit_meta))
+  end
+
+  def update_post(_blog_slug, post, params, audit_meta) do
+    audit_meta = Map.new(audit_meta)
+
     new_metadata =
       post.metadata
       |> Map.put(:title, Map.get(params, "title", post.metadata.title))
       |> Map.put(:status, Map.get(params, "status", post.metadata.status))
       |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
+      |> apply_update_audit_metadata(audit_meta)
 
     new_content = Map.get(params, "content", post.content)
     new_path = new_path_for(post, params)
@@ -778,7 +860,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     File.mkdir_p!(Path.dirname(full_new_path))
 
     metadata_for_file =
-      Map.put(new_metadata, :slug, Path.basename(Path.dirname(new_path)))
+      new_metadata
+      |> Map.put(:slug, Path.basename(Path.dirname(new_path)))
 
     serialized =
       Metadata.serialize(metadata_for_file) <> "\n\n" <> String.trim_leading(new_content)
@@ -903,6 +986,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   defp pad(value) when value < 10, do: "0#{value}"
   defp pad(value), do: Integer.to_string(value)
+
+  defp apply_creation_audit_metadata(metadata, audit_meta) do
+    created_id = audit_value(audit_meta, :created_by_id)
+    created_email = audit_value(audit_meta, :created_by_email)
+    updated_id = audit_value(audit_meta, :updated_by_id) || created_id
+    updated_email = audit_value(audit_meta, :updated_by_email) || created_email
+
+    metadata
+    |> maybe_put_audit_field(:created_by_id, created_id)
+    |> maybe_put_audit_field(:created_by_email, created_email)
+    |> maybe_put_audit_field(:updated_by_id, updated_id)
+    |> maybe_put_audit_field(:updated_by_email, updated_email)
+  end
+
+  defp apply_update_audit_metadata(metadata, audit_meta) do
+    metadata
+    |> maybe_put_audit_field(:updated_by_id, audit_value(audit_meta, :updated_by_id))
+    |> maybe_put_audit_field(:updated_by_email, audit_value(audit_meta, :updated_by_email))
+  end
+
+  defp audit_value(audit_meta, key) do
+    audit_meta
+    |> Map.get(key)
+    |> case do
+      nil -> Map.get(audit_meta, Atom.to_string(key))
+      value -> value
+    end
+    |> normalize_audit_value()
+  end
+
+  defp maybe_put_audit_field(metadata, _key, nil), do: metadata
+
+  defp maybe_put_audit_field(metadata, key, value) do
+    Map.put(metadata, key, value)
+  end
+
+  defp normalize_audit_value(nil), do: nil
+
+  defp normalize_audit_value(value) when is_binary(value) do
+    trimmed = String.trim(value)
+    if trimmed == "", do: nil, else: trimmed
+  end
+
+  defp normalize_audit_value(value), do: to_string(value)
 
   defp cleanup_empty_dirs(path) do
     path
