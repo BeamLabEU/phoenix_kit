@@ -41,7 +41,7 @@
             {if @referral_codes_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @referral_codes_enabled do %>
-            <span class="badge badge-outline ml-2">
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
               {if @referral_codes_required, do: "Required", else: "Optional"}
             </span>
           <% end %>
@@ -101,7 +101,7 @@
             {if @email_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @email_enabled do %>
-            <span class="badge badge-outline ml-2">
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
               {if @email_save_body, do: "Body Saved", else: "Headers Only"}
             </span>
           <% end %>
@@ -173,7 +173,7 @@
             {if @languages_enabled, do: "Enabled", else: "Disabled"}
           </span>
           <%= if @languages_enabled do %>
-            <span class="badge badge-outline ml-2">
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
               {if @languages_default,
                 do: @languages_default["name"],
                 else: "No Default"}
@@ -316,7 +316,7 @@
           </span>
           <%= if @under_construction_module_enabled do %>
             <span class={[
-              "badge badge-outline ml-2",
+              "badge badge-outline ml-2 whitespace-nowrap",
               if(@under_construction_enabled, do: "badge-warning", else: "badge-info")
             ]}>
               {if @under_construction_enabled, do: "Maintenance Active", else: "Maintenance Off"}
