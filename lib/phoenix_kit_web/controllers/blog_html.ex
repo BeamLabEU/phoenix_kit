@@ -4,7 +4,21 @@ defmodule PhoenixKitWeb.BlogHTML do
   """
   use PhoenixKitWeb, :html
 
+  alias PhoenixKit.Config
+
   embed_templates "blog_html/*"
+
+  @doc """
+  Builds the public URL for a blog listing page.
+  """
+  def blog_listing_path(language, blog_slug, params \\ []) do
+    base_path = build_public_path([language, blog_slug])
+
+    case params do
+      [] -> base_path
+      _ -> base_path <> "?" <> URI.encode_query(params)
+    end
+  end
 
   @doc """
   Builds a post URL based on mode.
@@ -12,15 +26,15 @@ defmodule PhoenixKitWeb.BlogHTML do
   def build_post_url(blog_slug, post, language) do
     case post.mode do
       :slug ->
-        "/#{language}/blog/#{blog_slug}/#{post.slug}"
+        build_public_path([language, blog_slug, post.slug])
 
       :timestamp ->
         date = format_date_for_url(post.metadata.published_at)
         time = format_time_for_url(post.metadata.published_at)
-        "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
+        build_public_path([language, blog_slug, date, time])
 
       _ ->
-        "/#{language}/blog/#{blog_slug}/#{post.slug}"
+        build_public_path([language, blog_slug, post.slug])
     end
   end
 
@@ -76,4 +90,26 @@ defmodule PhoenixKitWeb.BlogHTML do
   """
   def pluralize(1, singular, _plural), do: "1 #{singular}"
   def pluralize(count, _singular, plural), do: "#{count} #{plural}"
+
+  defp build_public_path(segments) do
+    parts =
+      url_prefix_segments() ++
+        (segments
+         |> Enum.reject(&(&1 in [nil, ""]))
+         |> Enum.map(&to_string/1))
+
+    case parts do
+      [] -> "/"
+      _ -> "/" <> Enum.join(parts, "/")
+    end
+  end
+
+  defp url_prefix_segments do
+    Config.get_url_prefix()
+    |> case do
+      nil -> []
+      "/" -> []
+      prefix -> prefix |> String.trim("/") |> String.split("/", trim: true)
+    end
+  end
 end

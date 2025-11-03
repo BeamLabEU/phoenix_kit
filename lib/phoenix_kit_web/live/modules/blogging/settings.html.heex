@@ -45,64 +45,26 @@
             </p>
           </div>
 
-          <.form
-            for={@new_blog_form}
-            id="blog-create-form"
-            class="space-y-4"
-            phx-change="update_new_blog"
-            phx-submit="add_blog"
-          >
-            <.input
-              field={@new_blog_form[:name]}
-              type="text"
-              label={gettext("Blog Name")}
-              placeholder={gettext("e.g. Product Updates")}
-              required
-            />
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text text-sm font-semibold text-base-content">
-                  {gettext("Storage Mode")}
-                </span>
-              </label>
-              <div class="flex flex-col gap-2">
-                <label class="cursor-pointer label gap-2 justify-start">
-                  <input
-                    type="radio"
-                    name={@new_blog_form[:mode].name}
-                    value="timestamp"
-                    class="radio radio-primary"
-                    checked={@new_blog_form[:mode].value == "timestamp"}
-                  />
-                  <span class="label-text">
-                    {gettext("Timestamp (date/time folders)")}
-                  </span>
-                </label>
-                <label class="cursor-pointer label gap-2 justify-start">
-                  <input
-                    type="radio"
-                    name={@new_blog_form[:mode].name}
-                    value="slug"
-                    class="radio radio-primary"
-                    checked={@new_blog_form[:mode].value == "slug"}
-                  />
-                  <span class="label-text">
-                    {gettext("Slug (semantic URLs)")}
-                  </span>
-                </label>
+          <div class="rounded-lg border border-dashed border-base-300 bg-base-100/40 p-6">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div class="space-y-1">
+                <h3 class="text-lg font-semibold text-base-content">
+                  {gettext("Ready to add a new blog?")}
+                </h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext(
+                    "Pick a name, choose your storage mode, and configure details in the dedicated creation flow."
+                  )}
+                </p>
               </div>
-              <label class="label">
-                <span class="label-text-alt text-xs text-base-content/60">
-                  {gettext("Cannot be changed after blog creation")}
-                </span>
-              </label>
+              <.link
+                navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+                class="btn btn-primary btn-sm self-start sm:self-center"
+              >
+                <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+              </.link>
             </div>
-
-            <button type="submit" class="btn btn-primary btn-sm">
-              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Add Blog")}
-            </button>
-          </.form>
+          </div>
 
           <%= if @blogs == [] do %>
             <div class="alert alert-info">
@@ -117,7 +79,7 @@
           <% else %>
             <div class="space-y-4">
               <%= for blog <- @blogs do %>
-                <div class="border border-base-200 rounded-lg p-4 flex items-center justify-between">
+                <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
                     <div class="flex items-center gap-2">
                       <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
@@ -132,19 +94,42 @@
                       {gettext("Slug")}: <code class="font-mono">{blog["slug"]}</code>
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    phx-click="remove_blog"
-                    phx-value-slug={blog["slug"]}
-                    class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
-                    data-confirm={
-                      gettext(
-                        "Move this blog to trash? The directory will be renamed with a timestamp."
-                      )
-                    }
-                  >
-                    <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
-                  </button>
+                  <div class="flex flex-wrap gap-2">
+                    <.link
+                      navigate={
+                        Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
+                      }
+                      class="btn btn-outline btn-sm"
+                    >
+                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> {gettext(
+                        "Open Admin"
+                      )}
+                    </.link>
+                    <.link
+                      navigate={
+                        Routes.path(
+                          "/admin/settings/blogging/#{blog["slug"]}/edit",
+                          locale: @current_locale
+                        )
+                      }
+                      class="btn btn-ghost btn-sm"
+                    >
+                      <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" /> {gettext("Edit")}
+                    </.link>
+                    <button
+                      type="button"
+                      phx-click="remove_blog"
+                      phx-value-slug={blog["slug"]}
+                      class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                      data-confirm={
+                        gettext(
+                          "Move this blog to trash? The directory will be renamed with a timestamp."
+                        )
+                      }
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
+                    </button>
+                  </div>
                 </div>
               <% end %>
             </div>

@@ -70,7 +70,7 @@
               <button class="join-item btn btn-active">{page_num}</button>
             <% else %>
               <a
-                href={"/#{@current_language}/blog/#{@blog["slug"]}?page=#{page_num}"}
+                href={blog_listing_path(@current_language, @blog["slug"], page: page_num)}
                 class="join-item btn"
               >
                 {page_num}

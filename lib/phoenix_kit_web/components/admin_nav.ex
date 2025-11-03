@@ -451,7 +451,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     exact_match?(current_parts, href_parts) or
       tab_match?(current_parts, href_parts) or
       parent_match?(current_parts, href_parts) or
-      (!nested and hierarchical_match?(current_parts, href_parts))
+      hierarchical_match?(current_parts, href_parts)
   end
 
   defp hierarchical_match?(current_parts, href_parts) do

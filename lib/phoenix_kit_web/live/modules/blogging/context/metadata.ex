@@ -21,7 +21,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
           description: String.t() | nil,
           slug: String.t(),
           published_at: String.t(),
-          created_at: String.t() | nil
+          created_at: String.t() | nil,
+          created_by_id: String.t() | nil,
+          created_by_email: String.t() | nil,
+          updated_by_id: String.t() | nil,
+          updated_by_email: String.t() | nil
         }
 
   @doc """
@@ -45,21 +49,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   """
   @spec serialize(metadata()) :: String.t()
   def serialize(metadata) do
-    created_at =
-      case Map.get(metadata, :created_at) || Map.get(metadata, "created_at") do
-        nil -> nil
-        value -> "created_at: #{value}"
-      end
+    optional_lines =
+      [:created_at, :created_by_id, :created_by_email, :updated_by_id, :updated_by_email]
+      |> Enum.flat_map(fn key ->
+        case metadata_value(metadata, key) do
+          nil -> []
+          "" -> []
+          value -> ["#{Atom.to_string(key)}: #{value}"]
+        end
+      end)
 
     lines =
       [
         "slug: #{metadata.slug}",
         "title: #{metadata.title || ""}",
         "status: #{metadata.status}",
-        "published_at: #{metadata.published_at}",
-        created_at
+        "published_at: #{metadata.published_at}"
       ]
-      |> Enum.filter(& &1)
+      |> Enum.concat(optional_lines)
       |> Enum.join("\n")
 
     """
@@ -82,7 +89,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       description: nil,
       slug: "",
       published_at: DateTime.to_iso8601(now),
-      created_at: nil
+      created_at: nil,
+      created_by_id: nil,
+      created_by_email: nil,
+      updated_by_id: nil,
+      updated_by_email: nil
     }
   end
 
@@ -124,7 +135,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       slug: Map.get(metadata, "slug", default.slug),
       published_at: Map.get(metadata, "published_at", default.published_at),
       description: Map.get(metadata, "description"),
-      created_at: Map.get(metadata, "created_at", default.created_at)
+      created_at: Map.get(metadata, "created_at", default.created_at),
+      created_by_id: Map.get(metadata, "created_by_id", default.created_by_id),
+      created_by_email: Map.get(metadata, "created_by_email", default.created_by_email),
+      updated_by_id: Map.get(metadata, "updated_by_id", default.updated_by_id),
+      updated_by_email: Map.get(metadata, "updated_by_email", default.updated_by_email)
     }
 
     metadata_map
@@ -147,7 +162,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       slug: slug,
       published_at: published_at,
       description: description,
-      created_at: nil
+      created_at: nil,
+      created_by_id: nil,
+      created_by_email: nil,
+      updated_by_id: nil,
+      updated_by_email: nil
     }
   end
 
@@ -158,5 +177,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       [_, value] -> value
       _ -> nil
     end
+  end
+
+  defp metadata_value(metadata, key) do
+    Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
   end
 end

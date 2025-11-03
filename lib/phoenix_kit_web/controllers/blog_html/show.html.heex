@@ -198,7 +198,7 @@
     </div>
     <%!-- Post Footer --%>
     <footer class="mt-12 pt-6 border-t">
-      <a href={"/#{@current_language}/blog/#{@blog_slug}"} class="btn btn-outline btn-sm">
+      <a href={blog_listing_path(@current_language, @blog_slug)} class="btn btn-outline btn-sm">
         ← Back to {String.capitalize(@blog_slug)}
       </a>
     </footer>
