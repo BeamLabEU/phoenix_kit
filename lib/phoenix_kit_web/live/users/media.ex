@@ -21,6 +21,9 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
+    # Load existing files from database
+    existing_files = load_existing_files()
+
     socket =
       socket
       |> allow_upload(:media_files,
@@ -33,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
-      |> assign(:uploaded_files, [])
+      |> assign(:uploaded_files, existing_files)
 
     {:ok, socket}
   end
@@ -164,4 +167,35 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp status_badge("processing"), do: "badge-info"
   defp status_badge("failed"), do: "badge-error"
   defp status_badge(_), do: "badge-warning"
+
+  # Load existing files from database
+  defp load_existing_files do
+    import Ecto.Query
+
+    repo = Application.get_env(:phoenix_kit, :repo)
+
+    # Query files ordered by most recent first
+    files =
+      from(f in PhoenixKit.Storage.File,
+        order_by: [desc: f.inserted_at],
+        limit: 50
+      )
+      |> repo.all()
+
+    # Convert to same format as uploaded files
+    Enum.map(files, fn file ->
+      # Generate URLs for all variants
+      urls = generate_file_urls(file.id)
+
+      %{
+        file_id: file.id,
+        filename: file.original_file_name || "Unknown",
+        file_type: file.file_type,
+        mime_type: file.mime_type,
+        size: file.size || 0,
+        status: file.status,
+        urls: urls
+      }
+    end)
+  end
 end
