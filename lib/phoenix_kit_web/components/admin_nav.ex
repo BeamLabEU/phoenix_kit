@@ -446,7 +446,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to determine if navigation item is active
-  defp nav_item_active?(current_path, href, nested) do
+  defp nav_item_active?(current_path, href, _nested) do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 

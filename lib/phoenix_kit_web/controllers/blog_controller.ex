@@ -273,12 +273,6 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  defp count_published_posts(blog_slug, language) do
-    Blogging.list_posts(blog_slug, language)
-    |> filter_published()
-    |> length()
-  end
-
   defp default_blog_listing(language) do
     case Blogging.list_blogs() do
       [%{"slug" => slug} | _] -> BlogHTML.blog_listing_path(language, slug)
