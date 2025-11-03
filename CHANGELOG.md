@@ -1,3 +1,42 @@
+## 1.4.9 - 2025-11-03
+
+### Added
+- **Comprehensive OAuth module testing** - Added 43 tests covering all OAuth components
+  - OAuthConfigLoader worker: 7 tests for initialization, retry logic, and error handling
+  - OAuthConfig module: 23 tests for provider configuration and credential validation
+  - EnsureOAuthConfig plug: 13 tests for fallback mechanism and error responses
+  - Tests work without database access for library integration
+
+### Changed
+- **Improved OAuth error handling** - Enhanced error categorization and recovery
+  - Distinguish between retriable errors (cache not ready, DB connection) and non-retriable errors
+  - Added specific error handling for RuntimeError, UndefinedFunctionError, DBConnection errors
+  - OAuthConfigLoader now provides detailed status information through new APIs
+- **Enhanced OAuth configuration APIs** - Added new public methods for monitoring
+  - `OAuthConfigLoader.get_status/0` - Returns current configuration status with reason
+  - `OAuthConfigLoader.reload_config/0` - Allows manual configuration reload
+  - Better visibility into OAuth configuration state for debugging
+- **Optimized supervisor startup order** - Moved OAuth loader after cache initialization
+  - OAuthConfigLoader now starts after Settings cache is warmed
+  - Reduces startup errors related to cache availability
+  - More reliable OAuth configuration loading during application boot
+
+### Fixed
+- **Logging levels optimization** - Adjusted log levels for better observability
+  - Changed debug logs to info for important OAuth configuration events
+  - Added warning logs for missing credentials and configuration failures
+  - Better distinction between expected startup behavior and actual issues
+- **Code quality improvements**
+  - Fixed Credo warning: converted explicit try blocks to implicit try with rescue
+  - Fixed Dialyzer warning: removed unreachable pattern match in error handling
+  - All code passes strict quality checks (Credo, Dialyzer, formatted)
+
+### Impact
+- OAuth module is now thoroughly tested and more resilient to startup race conditions
+- Better error messages and logging help diagnose OAuth configuration issues
+- New APIs enable monitoring tools and admin interfaces to check OAuth health
+- Improved reliability when PhoenixKit is used as a library in parent applications
+
 ## 1.4.8 - 2025-11-02
 
 ### Fixes and improvements
