@@ -76,11 +76,11 @@ defmodule PhoenixKit.Users.OAuthConfig do
     Application.put_env(:ueberauth, Ueberauth, config)
 
     if providers != %{} do
-      Logger.debug(
+      Logger.info(
         "OAuth: Configured Ueberauth with providers: #{inspect(Map.keys(providers))} at base_path: #{base_path}"
       )
     else
-      Logger.debug(
+      Logger.info(
         "OAuth: Configured Ueberauth with no active providers at base_path: #{base_path}"
       )
     end
@@ -151,9 +151,9 @@ defmodule PhoenixKit.Users.OAuthConfig do
         ]
 
         Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
-        Logger.debug("OAuth: Configured Google OAuth provider")
+        Logger.info("OAuth: Configured Google OAuth provider")
       else
-        Logger.debug("OAuth: Google enabled but credentials not configured")
+        Logger.warning("OAuth: Google enabled but credentials not configured")
       end
     end
   end
@@ -175,9 +175,9 @@ defmodule PhoenixKit.Users.OAuthConfig do
         ]
 
         Application.put_env(:ueberauth, Ueberauth.Strategy.Apple.OAuth, config)
-        Logger.debug("OAuth: Configured Apple OAuth provider")
+        Logger.info("OAuth: Configured Apple OAuth provider")
       else
-        Logger.debug("OAuth: Apple enabled but credentials not fully configured")
+        Logger.warning("OAuth: Apple enabled but credentials not fully configured")
       end
     end
   end
@@ -194,9 +194,9 @@ defmodule PhoenixKit.Users.OAuthConfig do
         ]
 
         Application.put_env(:ueberauth, Ueberauth.Strategy.Github.OAuth, config)
-        Logger.debug("OAuth: Configured GitHub OAuth provider")
+        Logger.info("OAuth: Configured GitHub OAuth provider")
       else
-        Logger.debug("OAuth: GitHub enabled but credentials not configured")
+        Logger.warning("OAuth: GitHub enabled but credentials not configured")
       end
     end
   end
@@ -213,9 +213,9 @@ defmodule PhoenixKit.Users.OAuthConfig do
         ]
 
         Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, config)
-        Logger.debug("OAuth: Configured Facebook OAuth provider")
+        Logger.info("OAuth: Configured Facebook OAuth provider")
       else
-        Logger.debug("OAuth: Facebook enabled but credentials not configured")
+        Logger.warning("OAuth: Facebook enabled but credentials not configured")
       end
     end
   end
@@ -332,10 +332,15 @@ defmodule PhoenixKit.Users.OAuthConfig do
   def test_connection(provider) when provider in [:google, :apple, :github, :facebook] do
     case validate_credentials(provider) do
       {:ok, _provider} ->
+        Logger.info(
+          "OAuth: #{provider_name(provider)} connection test successful - credentials validated"
+        )
+
         {:ok,
          "#{provider_name(provider)} OAuth credentials are properly formatted. Initiate OAuth flow to test actual connection."}
 
       {:error, reason} ->
+        Logger.warning("OAuth: #{provider_name(provider)} connection test failed: #{reason}")
         {:error, reason}
     end
   end

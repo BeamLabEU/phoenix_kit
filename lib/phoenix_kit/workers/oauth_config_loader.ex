@@ -46,6 +46,58 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
   end
 
+  @doc """
+  Gets the current status of OAuth configuration.
+
+  Returns:
+  - `{:ok, :loaded}` - Configuration successfully loaded
+  - `{:ok, :not_loaded, reason}` - Configuration not loaded with reason
+  - `{:error, :not_running}` - OAuthConfigLoader is not running
+  """
+  def get_status do
+    case Process.whereis(__MODULE__) do
+      nil ->
+        {:error, :not_running}
+
+      pid ->
+        try do
+          state = GenServer.call(pid, :get_status, 5000)
+
+          case state do
+            %{status: :loaded} ->
+              {:ok, :loaded}
+
+            %{status: :not_loaded, reason: reason} ->
+              {:ok, :not_loaded, reason}
+
+            %{status: :error, error: error} ->
+              {:ok, :error, error}
+
+            _ ->
+              {:ok, :unknown}
+          end
+        catch
+          :exit, _ ->
+            {:error, :timeout}
+        end
+    end
+  end
+
+  @doc """
+  Attempts to reload OAuth configuration.
+
+  This can be called to retry loading configuration if it failed during startup.
+  """
+  def reload_config do
+    case Process.whereis(__MODULE__) do
+      nil ->
+        {:error, :not_running}
+
+      pid ->
+        GenServer.call(pid, :reload_config, 10_000)
+    end
+  end
+
   ## Server Callbacks
 
   @impl true
@@ -54,14 +106,51 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
     # This ensures configuration is ready before supervisor completes startup
     case load_oauth_config_with_retry() do
       :ok ->
-        Logger.debug("OAuth config loaded successfully during startup")
-        {:ok, %{}}
+        Logger.info("OAuth config loaded successfully during startup")
+        {:ok, %{status: :loaded}}
 
-      {:error, reason} ->
-        Logger.warning("OAuth config loading failed: #{inspect(reason)}")
-        # Don't fail supervisor startup if OAuth config fails
+      {:error, :cache_not_ready} ->
+        Logger.warning(
+          "OAuth config loading failed after #{@max_retries} attempts: cache not ready"
+        )
+
+        # Don't fail supervisor startup if cache is not ready
         # The fallback plug will handle this case
-        {:ok, %{}}
+        {:ok, %{status: :not_loaded, reason: :cache_not_ready}}
+
+      {:error, :modules_not_loaded} ->
+        Logger.info("OAuth modules not loaded, OAuth features will be unavailable")
+        {:ok, %{status: :not_loaded, reason: :modules_not_loaded}}
+    end
+  rescue
+    # Catch unexpected errors during initialization
+    error ->
+      Logger.error("""
+      Critical error during OAuth config loader initialization:
+      #{Exception.format(:error, error, __STACKTRACE__)}
+      OAuth features will be unavailable.
+      """)
+
+      # Still don't crash supervisor, but log the error prominently
+      {:ok, %{status: :error, error: error}}
+  end
+
+  @impl true
+  def handle_call(:get_status, _from, state) do
+    {:reply, state, state}
+  end
+
+  def handle_call(:reload_config, _from, state) do
+    case load_oauth_config() do
+      :ok ->
+        new_state = %{state | status: :loaded}
+        Logger.info("OAuth configuration reloaded successfully")
+        {:reply, :ok, new_state}
+
+      {:error, reason} = error ->
+        new_state = %{state | status: :not_loaded, reason: reason}
+        Logger.warning("OAuth configuration reload failed: #{inspect(reason)}")
+        {:reply, error, new_state}
     end
   end
 
@@ -104,9 +193,26 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
 
     :ok
   rescue
-    error ->
-      # Cache might not be ready yet
-      Logger.debug("Settings cache not ready: #{inspect(error)}")
+    # Specific error types that indicate cache not ready (retriable)
+    error in [RuntimeError, UndefinedFunctionError] ->
+      # These are expected during startup - Settings cache may not be ready
+      Logger.debug("Settings cache not ready: #{Exception.message(error)}")
       {:error, :cache_not_ready}
+
+    # Database connection errors (retriable)
+    error in [DBConnection.ConnectionError, Postgrex.Error] ->
+      Logger.warning("Database connection error: #{Exception.message(error)}")
+      {:error, :cache_not_ready}
+
+    # Any other unexpected error (non-retriable)
+    error ->
+      # Log full error with stacktrace for debugging
+      Logger.error("""
+      Unexpected error loading OAuth configuration:
+      #{Exception.format(:error, error, __STACKTRACE__)}
+      """)
+
+      # Re-raise to fail fast on unexpected errors
+      reraise error, __STACKTRACE__
   end
 end
