@@ -16,7 +16,7 @@ defmodule PhoenixKit.Mailer do
       config :phoenix_kit,
         mailer: MyApp.Mailer
 
-  When delegation is configured, all emails will be sent through your application's 
+  When delegation is configured, all emails will be sent through your application's
   mailer, allowing you to use a single mailer configuration across your entire application.
   """
 
@@ -26,6 +26,7 @@ defmodule PhoenixKit.Mailer do
 
   alias PhoenixKit.Emails.Interceptor
   alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Emails.Utils
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
@@ -39,7 +40,7 @@ defmodule PhoenixKit.Mailer do
 
       iex> PhoenixKit.Mailer.get_mailer()
       MyApp.Mailer  # if configured
-      
+
       iex> PhoenixKit.Mailer.get_mailer()
       PhoenixKit.Mailer  # default
   """
@@ -407,7 +408,7 @@ defmodule PhoenixKit.Mailer do
   defp detect_builtin_provider do
     config = Application.get_env(:phoenix_kit, __MODULE__, [])
     adapter = Keyword.get(config, :adapter)
-    adapter_to_provider_name(adapter, "phoenix_kit_builtin")
+    Utils.adapter_to_provider_name(adapter, "phoenix_kit_builtin")
   end
 
   # Detect provider for parent application mailer
@@ -415,22 +416,10 @@ defmodule PhoenixKit.Mailer do
     app = PhoenixKit.Config.get_parent_app()
     config = Application.get_env(app, mailer, [])
     adapter = Keyword.get(config, :adapter)
-    adapter_to_provider_name(adapter, "parent_app_mailer")
+    Utils.adapter_to_provider_name(adapter, "parent_app_mailer")
   end
 
   defp detect_parent_app_provider(_mailer), do: "unknown"
-
-  # Convert adapter module to provider name
-  defp adapter_to_provider_name(adapter, default_name) do
-    case adapter do
-      Swoosh.Adapters.AmazonSES -> "aws_ses"
-      Swoosh.Adapters.SMTP -> "smtp"
-      Swoosh.Adapters.Sendgrid -> "sendgrid"
-      Swoosh.Adapters.Mailgun -> "mailgun"
-      Swoosh.Adapters.Local -> "local"
-      _ -> default_name
-    end
-  end
 
   @doc """
   Send a test tracking email to verify email delivery and tracking functionality.
