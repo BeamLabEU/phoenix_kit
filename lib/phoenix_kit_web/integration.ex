@@ -216,14 +216,6 @@ defmodule PhoenixKitWeb.Integration do
         get "/api/files/:file_id/info", FileController, :info
       end
 
-      # Public blog routes
-      scope "/:language/blog", PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup]
-
-        # Catch-all route for blog posts and listings
-        get "/*path", BlogController, :show
-      end
-
       # Email export routes (require admin or owner role)
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
@@ -313,6 +305,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
           live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
           live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
+          live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
+          live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -441,6 +435,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
           live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
           live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
+          live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
+          live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
@@ -516,6 +512,32 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  defp generate_blog_routes(url_prefix) do
+    quote do
+      blog_scope =
+        case unquote(url_prefix) do
+          "/" -> "/:language"
+          prefix -> "#{prefix}/:language"
+        end
+
+      scope blog_scope, PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        get "/:blog", BlogController, :show
+        get "/:blog/*path", BlogController, :show
+      end
+
+      if unquote(url_prefix) != "/" do
+        scope "/:language", PhoenixKitWeb do
+          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+          get "/:blog", BlogController, :show
+          get "/:blog/*path", BlogController, :show
+        end
+      end
+    end
+  end
+
   defmacro phoenix_kit_routes do
     # OAuth configuration is handled by PhoenixKit.Workers.OAuthConfigLoader
     # which runs synchronously during supervisor startup
@@ -560,6 +582,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
+
+      # Generate blog routes (after other routes to prevent conflicts)
+      unquote(generate_blog_routes(url_prefix))
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())

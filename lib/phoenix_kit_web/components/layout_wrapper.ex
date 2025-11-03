@@ -398,20 +398,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="document"
                         label="Blogs"
                         current_path={@current_path || ""}
-                        disable_active={true}
                       />
 
-                      <div class="mt-1">
-                        <%= for blog <- @blogging_blogs do %>
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/blogging/#{blog["slug"]}")}
-                            icon="hero-document-text"
-                            label={blog["name"]}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
-                        <% end %>
-                      </div>
+                      <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
+                        <div class="mt-1">
+                          <%= for blog <- @blogging_blogs do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/blogging/#{blog["slug"]}")}
+                              icon="hero-document-text"
+                              label={blog["name"]}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          <% end %>
+                        </div>
+                      <% end %>
                     <% end %>
 
                     <.admin_nav_item

@@ -1,0 +1,125 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="space-y-1">
+        <p class="text-sm uppercase tracking-wide text-base-content/60">
+          {gettext("Blogging Module")}
+        </p>
+        <h1 class="text-3xl font-bold text-base-content">{gettext("Edit Blog")}</h1>
+        <p class="text-sm text-base-content/70 max-w-2xl">
+          {gettext(
+            "Update the blog’s display name and slug. The slug controls the folder structure used for storing posts, so changing it will rename the underlying directory."
+          )}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <.link
+          navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+          class="btn btn-outline btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> {gettext("Back to Blogs")}
+        </.link>
+      </div>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
+      <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-6">
+          <.form
+            for={@form}
+            id="blog-edit-form"
+            phx-change="validate"
+            phx-submit="save"
+            class="space-y-6"
+          >
+            <.input
+              field={@form[:name]}
+              type="text"
+              label={gettext("Blog Name")}
+              placeholder={gettext("e.g. Product Updates")}
+              required
+            />
+
+            <.input
+              field={@form[:slug]}
+              type="text"
+              label={gettext("Slug")}
+              placeholder={gettext("e.g. product-updates")}
+              required
+            />
+
+            <div class="rounded-lg border border-base-200 bg-base-200/40 px-4 py-3 text-sm text-base-content/70">
+              <p>
+                <span class="font-semibold">{gettext("Storage mode")}:</span>
+                <%= case @blog["mode"] do %>
+                  <% "slug" -> %>
+                    {gettext("Slug")} · {gettext("Semantic URLs ideal for evergreen content.")}
+                  <% _ -> %>
+                    {gettext("Timestamp")} · {gettext(
+                      "Chronological folders ideal for news and updates."
+                    )}
+                <% end %>
+              </p>
+            </div>
+
+            <div class="flex flex-wrap gap-3 justify-end">
+              <button type="button" class="btn btn-ghost btn-sm" phx-click="cancel">
+                <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> {gettext("Cancel")}
+              </button>
+              <button type="submit" class="btn btn-primary btn-sm">
+                <.icon name="hero-check" class="w-4 h-4 mr-1" /> {gettext("Save Changes")}
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+
+      <aside class="space-y-4">
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+          <div class="card-body space-y-3">
+            <h3 class="text-lg font-semibold text-base-content">{gettext("Renaming tips")}</h3>
+            <ul class="text-sm text-base-content/70 space-y-2">
+              <li>
+                • {gettext(
+                  "Renaming the slug will rename the underlying folder that stores posts."
+                )}
+              </li>
+              <li>
+                • {gettext("Ensure links or integrations referencing the old slug are updated.")}
+              </li>
+              <li>
+                • {gettext("Slug values should be lowercase and use hyphens instead of spaces.")}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="card bg-base-100 shadow-sm border border-base-200">
+          <div class="card-body space-y-3">
+            <h3 class="text-lg font-semibold text-base-content">
+              {gettext("Need to archive instead?")}
+            </h3>
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "Head back to the blog settings list to move a blog to the trash if it’s no longer needed."
+              )}
+            </p>
+            <.link
+              navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Go to Blog Settings")}
+            </.link>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

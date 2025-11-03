@@ -18,7 +18,10 @@
           <article class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
             <div class="card-body">
               <h2 class="card-title text-2xl">
-                <a href={"/#{@current_language}/blog/#{blog["slug"]}"} class="hover:text-primary">
+                <a
+                  href={blog_listing_path(@current_language, blog["slug"])}
+                  class="hover:text-primary"
+                >
                   {blog["name"]}
                 </a>
               </h2>
@@ -29,7 +32,7 @@
 
               <div class="card-actions justify-end mt-4">
                 <a
-                  href={"/#{@current_language}/blog/#{blog["slug"]}"}
+                  href={blog_listing_path(@current_language, blog["slug"])}
                   class="btn btn-sm btn-primary"
                 >
                   View Posts →

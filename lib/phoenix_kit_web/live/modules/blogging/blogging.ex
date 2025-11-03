@@ -6,6 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   for creating timestamped markdown blog posts.
   """
 
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   # Delegate language info function to Storage
@@ -73,8 +74,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   @doc """
   Adds a new blog.
   """
-  @spec add_blog(String.t(), String.t()) :: {:ok, blog()} | {:error, atom()}
-  def add_blog(name, mode \\ @default_blog_mode) when is_binary(name) do
+  @spec add_blog(String.t(), String.t(), String.t() | nil) :: {:ok, blog()} | {:error, atom()}
+  def add_blog(name, mode \\ @default_blog_mode, preferred_slug \\ nil) when is_binary(name) do
     trimmed = String.trim(name)
     mode = normalize_mode(mode)
 
@@ -87,19 +88,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
       true ->
         blogs = list_blogs()
-        slug = slugify(trimmed)
+        requested_slug = sanitize_requested_slug(preferred_slug, trimmed)
+        slug = ensure_unique_slug(requested_slug, blogs)
 
-        if Enum.any?(blogs, &(&1["slug"] == slug)) do
-          {:error, :already_exists}
-        else
-          blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
-          updated = blogs ++ [blog]
-          payload = %{"blogs" => updated}
+        blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
+        updated = blogs ++ [blog]
+        payload = %{"blogs" => updated}
 
-          with {:ok, _} <- settings_call(:update_json_setting, [@blogs_key, payload]),
-               :ok <- Storage.ensure_blog_root(slug) do
-            {:ok, blog}
-          end
+        with {:ok, _} <- settings_call(:update_json_setting, [@blogs_key, payload]),
+             :ok <- Storage.ensure_blog_root(slug) do
+          {:ok, blog}
         end
     end
   end
@@ -114,6 +112,65 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       |> Enum.reject(&(&1["slug"] == slug))
 
     settings_call(:update_json_setting, [@blogs_key, %{"blogs" => updated}])
+  end
+
+  @doc """
+  Updates a blog's display name and slug.
+  """
+  @spec update_blog(String.t(), map() | keyword()) :: {:ok, blog()} | {:error, atom()}
+  def update_blog(slug, params) when is_binary(slug) do
+    blogs = list_blogs()
+
+    case Enum.find(blogs, &(&1["slug"] == slug)) do
+      nil ->
+        {:error, :not_found}
+
+      blog ->
+        name =
+          params
+          |> fetch_option(:name)
+          |> case do
+            nil -> blog["name"]
+            value -> String.trim(to_string(value || ""))
+          end
+
+        if name == "" do
+          {:error, :invalid_name}
+        else
+          desired_slug =
+            params
+            |> fetch_option(:slug)
+            |> case do
+              nil -> blog["slug"]
+              value -> String.trim(to_string(value || ""))
+            end
+
+          sanitized_slug =
+            case slugify(desired_slug) do
+              "" -> slugify(name)
+              slug_value -> slug_value
+            end
+
+          if sanitized_slug == "" do
+            {:error, :invalid_slug}
+          else
+            if sanitized_slug != blog["slug"] and
+                 Enum.any?(blogs, &(&1["slug"] == sanitized_slug)) do
+              {:error, :already_exists}
+            else
+              updated_blog =
+                blog
+                |> Map.put("name", name)
+                |> Map.put("slug", sanitized_slug)
+
+              with :ok <- Storage.rename_blog_directory(blog["slug"], sanitized_slug),
+                   {:ok, _} <- persist_blog_update(blogs, blog["slug"], updated_blog) do
+                {:ok, updated_blog}
+              end
+            end
+          end
+        end
+    end
   end
 
   @doc """
@@ -165,14 +222,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   """
   @spec create_post(String.t(), map() | keyword()) :: {:ok, Storage.post()} | {:error, any()}
   def create_post(blog_slug, opts \\ %{}) do
+    scope = fetch_option(opts, :scope)
+    audit_meta = audit_metadata(scope, :create)
+
     case get_blog_mode(blog_slug) do
       "slug" ->
         title = fetch_option(opts, :title)
         slug = fetch_option(opts, :slug)
-        Storage.create_post_slug_mode(blog_slug, title, slug)
+        Storage.create_post_slug_mode(blog_slug, title, slug, audit_meta)
 
       _ ->
-        Storage.create_post(blog_slug)
+        Storage.create_post(blog_slug, audit_meta)
     end
   end
 
@@ -195,17 +255,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   @doc """
   Updates a blog post and moves the file if the publication timestamp changes.
   """
-  @spec update_post(String.t(), Storage.post(), map()) ::
+  @spec update_post(String.t(), Storage.post(), map(), map() | keyword()) ::
           {:ok, Storage.post()} | {:error, any()}
-  def update_post(blog_slug, post, params) do
+  def update_post(blog_slug, post, params, opts \\ %{}) do
+    audit_meta =
+      opts
+      |> fetch_option(:scope)
+      |> audit_metadata(:update)
+
     mode =
       Map.get(post, :mode) ||
         Map.get(post, "mode") ||
         mode_atom(get_blog_mode(blog_slug))
 
     case mode do
-      :slug -> Storage.update_post_slug_mode(blog_slug, post, params)
-      _ -> Storage.update_post(blog_slug, post, params)
+      :slug -> Storage.update_post_slug_mode(blog_slug, post, params, audit_meta)
+      _ -> Storage.update_post(blog_slug, post, params, audit_meta)
     end
   end
 
@@ -262,7 +327,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   defp normalize_blogs(blogs) do
-    Enum.map(blogs, fn
+    blogs
+    |> Enum.map(&normalize_blog_keys/1)
+    |> Enum.map(fn
       %{"mode" => mode} = blog when mode in ["timestamp", "slug"] ->
         blog
 
@@ -270,6 +337,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         Map.put(blog, "mode", @default_blog_mode)
     end)
   end
+
+  defp normalize_blog_keys(blog) when is_map(blog) do
+    Enum.reduce(blog, %{}, fn
+      {key, value}, acc when is_binary(key) ->
+        Map.put(acc, key, value)
+
+      {key, value}, acc when is_atom(key) ->
+        Map.put(acc, Atom.to_string(key), value)
+
+      {key, value}, acc ->
+        Map.put(acc, to_string(key), value)
+    end)
+  end
+
+  defp normalize_blog_keys(other), do: other
 
   defp normalize_mode(mode) when is_binary(mode) do
     mode
@@ -297,6 +379,76 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   defp fetch_option(_, _), do: nil
+
+  defp audit_metadata(nil, _action), do: %{}
+
+  defp audit_metadata(scope, action) do
+    user_id =
+      scope
+      |> Scope.user_id()
+      |> normalize_audit_value()
+
+    user_email =
+      scope
+      |> Scope.user_email()
+      |> normalize_audit_value()
+
+    base =
+      case action do
+        :create ->
+          %{
+            created_by_id: user_id,
+            created_by_email: user_email
+          }
+
+        _ ->
+          %{}
+      end
+
+    base
+    |> maybe_put_audit(:updated_by_id, user_id)
+    |> maybe_put_audit(:updated_by_email, user_email)
+  end
+
+  defp normalize_audit_value(nil), do: nil
+  defp normalize_audit_value(value) when is_binary(value), do: String.trim(value)
+  defp normalize_audit_value(value), do: to_string(value)
+
+  defp maybe_put_audit(map, _key, nil), do: map
+  defp maybe_put_audit(map, key, value), do: Map.put(map, key, value)
+
+  defp persist_blog_update(blogs, slug, updated_blog) do
+    updated =
+      Enum.map(blogs, fn
+        %{"slug" => ^slug} -> updated_blog
+        other -> other
+      end)
+
+    settings_call(:update_json_setting, [@blogs_key, %{"blogs" => updated}])
+  end
+
+  defp sanitize_requested_slug(nil, fallback_name), do: slugify(fallback_name)
+
+  defp sanitize_requested_slug(slug, fallback_name) when is_binary(slug) do
+    slug
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9]+/u, "-")
+    |> String.trim("-")
+    |> case do
+      "" -> slugify(fallback_name)
+      sanitized -> sanitized
+    end
+  end
+
+  defp ensure_unique_slug(slug, blogs), do: ensure_unique_slug(slug, blogs, 2)
+
+  defp ensure_unique_slug(slug, blogs, counter) do
+    if Enum.any?(blogs, &(&1["slug"] == slug)) do
+      ensure_unique_slug("#{slug}-#{counter}", blogs, counter + 1)
+    else
+      slug
+    end
+  end
 
   defp mode_atom("slug"), do: :slug
   defp mode_atom(_), do: :timestamp

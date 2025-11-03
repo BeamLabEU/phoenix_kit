@@ -5,10 +5,9 @@ defmodule PhoenixKitWeb.BlogController do
   Handles public-facing routes for viewing published blog posts with multi-language support.
 
   URL patterns:
-    /:language/blog/:blog_slug/:post_slug - Slug mode post
-    /:language/blog/:blog_slug/:date/:time - Timestamp mode post
-    /:language/blog/:blog_slug - Blog listing
-    /:language/blog - All blogs overview
+    /:language/:blog_slug/:post_slug - Slug mode post
+    /:language/:blog_slug/:date/:time - Timestamp mode post
+    /:language/:blog_slug - Blog listing
   """
 
   use PhoenixKitWeb, :controller
@@ -18,37 +17,40 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.BlogHTML
 
   @doc """
   Displays a blog post, blog listing, or all blogs overview.
 
   Path parsing determines which action to take:
-  - [] -> All blogs overview
+  - [] -> Invalid request (no blog specified)
   - [blog_slug] -> Blog listing
   - [blog_slug, post_slug] -> Slug mode post
   - [blog_slug, date, time] -> Timestamp mode post
   """
-  def show(conn, %{"path" => path, "language" => language}) do
-    # Validate language
+  def show(conn, %{"language" => language} = params) do
     language = validate_language(language)
     conn = assign(conn, :current_language, language)
 
     if Blogging.enabled?() and public_enabled?() do
-      case parse_path(path) do
-        {:overview} ->
-          render_all_blogs(conn, language)
+      case build_segments(params) do
+        [] ->
+          handle_not_found(conn, :invalid_path)
 
-        {:listing, blog_slug} ->
-          render_blog_listing(conn, blog_slug, language, conn.params)
+        segments ->
+          case parse_path(segments) do
+            {:listing, blog_slug} ->
+              render_blog_listing(conn, blog_slug, language, conn.params)
 
-        {:slug_post, blog_slug, post_slug} ->
-          render_post(conn, blog_slug, {:slug, post_slug}, language)
+            {:slug_post, blog_slug, post_slug} ->
+              render_post(conn, blog_slug, {:slug, post_slug}, language)
 
-        {:timestamp_post, blog_slug, date, time} ->
-          render_post(conn, blog_slug, {:timestamp, date, time}, language)
+            {:timestamp_post, blog_slug, date, time} ->
+              render_post(conn, blog_slug, {:timestamp, date, time}, language)
 
-        {:error, reason} ->
-          handle_not_found(conn, reason)
+            {:error, reason} ->
+              handle_not_found(conn, reason)
+          end
       end
     else
       handle_not_found(conn, :module_disabled)
@@ -59,7 +61,18 @@ defmodule PhoenixKitWeb.BlogController do
   # Path Parsing
   # ============================================================================
 
-  defp parse_path([]), do: {:overview}
+  defp build_segments(%{"blog" => blog} = params) when is_binary(blog) do
+    case Map.get(params, "path") do
+      nil -> [blog]
+      path when is_list(path) -> [blog | path]
+      path when is_binary(path) -> [blog, path]
+      _ -> [blog]
+    end
+  end
+
+  defp build_segments(_), do: []
+
+  defp parse_path([]), do: {:error, :invalid_path}
   defp parse_path([blog_slug]), do: {:listing, blog_slug}
 
   defp parse_path([blog_slug, segment1, segment2]) do
@@ -96,23 +109,6 @@ defmodule PhoenixKitWeb.BlogController do
   # Rendering Functions
   # ============================================================================
 
-  defp render_all_blogs(conn, language) do
-    blogs = Blogging.list_blogs()
-
-    # Get post counts per blog
-    blogs_with_counts =
-      Enum.map(blogs, fn blog ->
-        count = count_published_posts(blog["slug"], language)
-        Map.put(blog, "post_count", count)
-      end)
-
-    conn
-    |> assign(:page_title, "Blog")
-    |> assign(:blogs, blogs_with_counts)
-    |> assign(:current_language, language)
-    |> render(:all_blogs)
-  end
-
   defp render_blog_listing(conn, blog_slug, language, params) do
     case fetch_blog(blog_slug) do
       {:ok, blog} ->
@@ -128,7 +124,6 @@ defmodule PhoenixKitWeb.BlogController do
         posts = paginate(all_posts, page, per_page)
 
         breadcrumbs = [
-          %{label: "Blog", url: "/#{language}/blog"},
           %{label: blog["name"], url: nil}
         ]
 
@@ -188,7 +183,15 @@ defmodule PhoenixKitWeb.BlogController do
   # ============================================================================
 
   defp fetch_blog(blog_slug) do
-    case Enum.find(Blogging.list_blogs(), fn blog -> blog["slug"] == blog_slug end) do
+    blog_slug = blog_slug |> to_string() |> String.trim()
+
+    case Enum.find(Blogging.list_blogs(), fn blog ->
+           with slug when is_binary(slug) <- blog["slug"] do
+             String.downcase(slug) == String.downcase(blog_slug)
+           else
+             _ -> false
+           end
+         end) do
       nil -> {:error, :blog_not_found}
       blog -> {:ok, blog}
     end
@@ -227,46 +230,17 @@ defmodule PhoenixKitWeb.BlogController do
       %{
         code: lang,
         name: get_language_name(lang),
-        url: build_post_url(blog_slug, post, lang),
+        url: BlogHTML.build_post_url(blog_slug, post, lang),
         current: lang == current_language
       }
     end)
   end
 
-  defp build_post_url(blog_slug, post, language) do
-    case post.mode do
-      :slug ->
-        "/#{language}/blog/#{blog_slug}/#{post.slug}"
-
-      :timestamp ->
-        # Extract date and time from metadata or path
-        date =
-          post.metadata.published_at
-          |> DateTime.to_date()
-          |> Date.to_iso8601()
-
-        time = format_time_for_url(post.metadata.published_at)
-        "/#{language}/blog/#{blog_slug}/#{date}/#{time}"
-    end
-  end
-
-  defp format_time_for_url(datetime) when is_struct(datetime, DateTime) do
-    datetime
-    |> DateTime.to_time()
-    |> Time.truncate(:second)
-    |> Time.to_string()
-    # "14:30:00" → "14:30"
-    |> String.slice(0..4)
-  end
-
-  defp format_time_for_url(_), do: "00:00"
-
   defp build_breadcrumbs(blog_slug, post, language) do
     {:ok, blog} = fetch_blog(blog_slug)
 
     [
-      %{label: "Blog", url: "/#{language}/blog"},
-      %{label: blog["name"], url: "/#{language}/blog/#{blog_slug}"},
+      %{label: blog["name"], url: BlogHTML.blog_listing_path(language, blog_slug)},
       %{label: post.metadata.title, url: nil}
     ]
   end
@@ -303,6 +277,13 @@ defmodule PhoenixKitWeb.BlogController do
     Blogging.list_posts(blog_slug, language)
     |> filter_published()
     |> length()
+  end
+
+  defp default_blog_listing(language) do
+    case Blogging.list_blogs() do
+      [%{"slug" => slug} | _] -> BlogHTML.blog_listing_path(language, slug)
+      _ -> nil
+    end
   end
 
   defp paginate(posts, page, per_page) do
@@ -395,9 +376,18 @@ defmodule PhoenixKitWeb.BlogController do
       when reason in [:post_not_found, :unpublished] ->
         fallback_to_blog_or_overview(blog_slug, language)
 
-      # Blog not found -> show all blogs overview
+      # Blog not found -> redirect to first available blog when possible
       {:blog_not_found, [_blog_slug]} ->
-        {:ok, "/#{language}/blog"}
+        case default_blog_listing(language) do
+          nil -> :no_fallback
+          path -> {:ok, path}
+        end
+
+      {:blog_not_found, []} ->
+        case default_blog_listing(language) do
+          nil -> :no_fallback
+          path -> {:ok, path}
+        end
 
       # Invalid language for post -> try default language
       {:post_not_found, [blog_slug, post_slug]} ->
@@ -411,9 +401,12 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp fallback_to_blog_or_overview(blog_slug, language) do
     if blog_exists?(blog_slug) do
-      {:ok, "/#{language}/blog/#{blog_slug}"}
+      {:ok, BlogHTML.blog_listing_path(language, blog_slug)}
     else
-      {:ok, "/#{language}/blog"}
+      case default_blog_listing(language) do
+        nil -> :no_fallback
+        path -> {:ok, path}
+      end
     end
   end
 
@@ -424,11 +417,11 @@ defmodule PhoenixKitWeb.BlogController do
       # Try the post in default language
       case Blogging.read_post(blog_slug, post_slug, default_lang) do
         {:ok, post} when post.metadata.status == "published" ->
-          {:ok, "/#{default_lang}/blog/#{blog_slug}/#{post_slug}"}
+          {:ok, BlogHTML.build_post_url(blog_slug, post, default_lang)}
 
         _ ->
           # Post doesn't exist in default language either, go to blog listing
-          {:ok, "/#{default_lang}/blog/#{blog_slug}"}
+          {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
       end
     else
       :no_fallback

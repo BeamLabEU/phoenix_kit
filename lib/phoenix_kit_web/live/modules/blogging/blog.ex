@@ -94,6 +94,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         %{"path" => post_path, "current-status" => current_status},
         socket
       ) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
     new_status =
       case current_status do
         "draft" -> "published"
@@ -104,7 +106,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
     case Blogging.read_post(socket.assigns.blog_slug, post_path) do
       {:ok, post} ->
-        case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}) do
+        case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
+               scope: scope
+             }) do
           {:ok, _updated_post} ->
             {:noreply,
              socket
