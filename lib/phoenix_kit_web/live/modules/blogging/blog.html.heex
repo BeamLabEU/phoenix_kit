@@ -6,56 +6,60 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="space-y-4">
-      <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-        <div class="space-y-2">
-          <div>
-            <p class="text-sm uppercase tracking-wide text-base-content/60">
-              {gettext("Blogging Module")}
-            </p>
-            <h1 class="text-3xl font-bold text-base-content">
-              {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
-            </h1>
-          </div>
-          <div class="text-xs text-base-content/60 space-y-1">
-            <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
-            <% url_prefix =
-              PhoenixKit.Config.get_url_prefix()
-              |> case do
-                nil -> ""
-                "/" -> ""
-                prefix -> prefix
-              end %>
-            <% files_hint = "priv/static/blogging/" <> blog_slug <> "/…" %>
-            <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
-            <p>
-              <span class="font-medium text-base-content">{gettext("Files")}: </span>
-              <code class="font-mono break-all">{files_hint}</code>
-            </p>
-            <p>
-              <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-              <code class="font-mono break-all">{public_hint}</code>
-            </p>
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
-            <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create %{blog} Post",
-              blog: (@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")
-            )}
-          </button>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/blogging", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Content Overview
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">
+          {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
+        </h1>
+        <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
+        <% url_prefix =
+          PhoenixKit.Config.get_url_prefix()
+          |> case do
+            nil -> ""
+            "/" -> ""
+            prefix -> prefix
+          end %>
+        <% files_hint = "priv/static/blogging/" <> blog_slug <> "/…" %>
+        <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+        <div class="text-sm text-base-content/60 space-y-1">
+          <p>
+            <span class="font-medium text-base-content">{gettext("Files")}: </span>
+            <code class="font-mono break-all">{files_hint}</code>
+          </p>
+          <p>
+            <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+            <code class="font-mono break-all">{public_hint}</code>
+          </p>
         </div>
       </div>
+    </header>
+
+    <div class="space-y-6">
 
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
           <span class="text-sm text-base-content/70">
             {gettext("Showing %{count} posts", count: length(@posts))}
           </span>
-          <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
-            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
-          </button>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
+              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
+            </button>
+            <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
+              <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
+            </button>
+          </div>
         </div>
 
         <%= if @posts == [] do %>
