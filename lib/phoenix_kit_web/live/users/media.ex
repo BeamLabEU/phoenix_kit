@@ -37,6 +37,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
       |> assign(:uploaded_files, existing_files)
+      |> assign(:show_image_modal, false)
+      |> assign(:selected_file, nil)
 
     {:ok, socket}
   end
@@ -53,6 +55,27 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   def handle_event("upload", _params, socket) do
     # Process uploaded files when user clicks upload button
     process_uploads(socket)
+  end
+
+  def handle_event("show_image_modal", %{"file_id" => file_id}, socket) do
+    # Find the file in uploaded_files by file_id
+    selected_file = Enum.find(socket.assigns.uploaded_files, &(&1.file_id == file_id))
+
+    socket =
+      socket
+      |> assign(:selected_file, selected_file)
+      |> assign(:show_image_modal, true)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("hide_image_modal", _params, socket) do
+    socket =
+      socket
+      |> assign(:selected_file, nil)
+      |> assign(:show_image_modal, false)
+
+    {:noreply, socket}
   end
 
   defp process_uploads(socket) do
