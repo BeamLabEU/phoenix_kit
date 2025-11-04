@@ -266,12 +266,12 @@
       >
         <:info>
           <% url_prefix =
-               PhoenixKit.Config.get_url_prefix()
-               |> case do
-                 nil -> ""
-                 "/" -> ""
-                 prefix -> prefix
-               end %>
+            PhoenixKit.Config.get_url_prefix()
+            |> case do
+              nil -> ""
+              "/" -> ""
+              prefix -> prefix
+            end %>
 
           <div class="space-y-2">
             <p class="text-xs font-medium text-base-content">
@@ -279,12 +279,20 @@
             </p>
             <ul class="list-disc ml-4 space-y-1">
               <li>
-                <span class="font-medium text-base-content">{gettext("Post files on disk:")} </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">priv/static/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk</code>
+                <span class="font-medium text-base-content">
+                  {gettext("Post files on disk:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
+                  priv/static/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
+                </code>
               </li>
               <li>
-                <span class="font-medium text-base-content">{gettext("Public URL pattern:")} </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">{url_prefix}/:locale/:blog_slug/:post_slug</code>
+                <span class="font-medium text-base-content">
+                  {gettext("Public URL pattern:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
+                  {url_prefix}/:locale/:blog_slug/:post_slug
+                </code>
               </li>
             </ul>
           </div>

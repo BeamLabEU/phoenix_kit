@@ -14,7 +14,8 @@
           <.icon name="hero-eye" class="w-5 h-5" />
           <span class="font-semibold">{gettext("Preview Mode")}</span>
           <span class="text-sm opacity-80">
-            — <%= if @preview_source == :unsaved do %>
+            —
+            <%= if @preview_source == :unsaved do %>
               {gettext("Showing unsaved changes")}
             <% else %>
               {gettext("Showing saved content")}
