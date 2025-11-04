@@ -7,6 +7,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  import Ecto.Query
+
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Storage.URLSigner
@@ -214,17 +216,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     # Convert to same format as uploaded files
     Enum.map(files, fn file ->
-      # Generate URLs for all variants
-      urls = generate_file_urls(file.id)
-
       %{
         file_id: file.id,
         filename: file.original_file_name || "Unknown",
         file_type: file.file_type,
         mime_type: file.mime_type,
         size: file.size || 0,
-        status: file.status,
-        urls: urls
+        status: file.status
       }
     end)
   end
