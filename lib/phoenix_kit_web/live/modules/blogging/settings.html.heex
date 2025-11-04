@@ -81,53 +81,64 @@
               <%= for blog <- @blogs do %>
                 <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
-                    <div class="flex items-center gap-2">
-                      <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
+                    <p class="flex items-center gap-2 text-base font-semibold text-base-content">
+                      <span>{blog["name"]}</span>
                       <span class={[
                         "badge badge-sm uppercase",
                         if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
                       ]}>
                         {blog["mode"] || "timestamp"}
                       </span>
-                    </div>
+                    </p>
                     <p class="text-xs text-base-content/60">
-                      {gettext("Slug")}: <code class="font-mono">{blog["slug"]}</code>
+                      {gettext("Slug")}: <code class="font-mono break-all">{blog["slug"]}</code>
+                    </p>
+                    <% blog_mode = blog["mode"] || "timestamp" %>
+                    <% blog_path =
+                         if blog_mode == "slug" do
+                           "priv/static/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
+                         else
+                           "priv/static/blogging/" <> blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
+                         end %>
+                    <p class="text-xs text-base-content/50">
+                      {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
                     </p>
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="flex items-center gap-2">
                     <.link
+                      aria-label={gettext("Open Admin")}
                       navigate={
                         Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
                       }
-                      class="btn btn-outline btn-sm"
+                      class="btn btn-outline btn-sm btn-square"
                     >
-                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> {gettext(
-                        "Open Admin"
-                      )}
+                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
                     </.link>
                     <.link
+                      aria-label={gettext("Edit")}
                       navigate={
                         Routes.path(
                           "/admin/settings/blogging/#{blog["slug"]}/edit",
                           locale: @current_locale
                         )
                       }
-                      class="btn btn-ghost btn-sm"
+                      class="btn btn-outline btn-sm btn-square"
                     >
-                      <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" /> {gettext("Edit")}
+                      <.icon name="hero-pencil-square" class="w-4 h-4" />
                     </.link>
                     <button
                       type="button"
+                      aria-label={gettext("Delete")}
                       phx-click="remove_blog"
                       phx-value-slug={blog["slug"]}
-                      class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                      class="btn btn-sm btn-square btn-outline text-error hover:bg-error hover:text-error-content"
                       data-confirm={
                         gettext(
                           "Move this blog to trash? The directory will be renamed with a timestamp."
                         )
                       }
                     >
-                      <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
+                      <.icon name="hero-trash" class="w-4 h-4" />
                     </button>
                   </div>
                 </div>
