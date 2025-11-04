@@ -8,9 +8,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
-  alias PhoenixKitWeb.BlogHTML
 
   @impl true
   def mount(params, _session, socket) do
@@ -935,33 +935,35 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp build_public_url(post, language) do
     # Only show public URL for published posts
     if Map.get(post.metadata, :status) == "published" do
-      blog_slug = post.blog || "blog"
+      build_url_for_mode(post, language)
+    else
+      nil
+    end
+  end
 
-      case Map.get(post, :mode) do
-        :slug ->
-          # Slug mode: use centralized URL builder
-          if post.slug do
-            BlogHTML.build_post_url(blog_slug, post, language)
-          else
-            nil
-          end
+  defp build_url_for_mode(post, language) do
+    blog_slug = post.blog || "blog"
 
-        :timestamp ->
-          # Timestamp mode: use centralized URL builder
-          if post.metadata.published_at do
-            case DateTime.from_iso8601(post.metadata.published_at) do
-              {:ok, _datetime, _} ->
-                BlogHTML.build_post_url(blog_slug, post, language)
+    case Map.get(post, :mode) do
+      :slug -> build_slug_mode_url(blog_slug, post, language)
+      :timestamp -> build_timestamp_mode_url(blog_slug, post, language)
+      _ -> nil
+    end
+  end
 
-              _ ->
-                nil
-            end
-          else
-            nil
-          end
+  defp build_slug_mode_url(blog_slug, post, language) do
+    if post.slug do
+      BlogHTML.build_post_url(blog_slug, post, language)
+    else
+      nil
+    end
+  end
 
-        _ ->
-          nil
+  defp build_timestamp_mode_url(blog_slug, post, language) do
+    if post.metadata.published_at do
+      case DateTime.from_iso8601(post.metadata.published_at) do
+        {:ok, _datetime, _} -> BlogHTML.build_post_url(blog_slug, post, language)
+        _ -> nil
       end
     else
       nil

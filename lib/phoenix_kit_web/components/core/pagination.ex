@@ -88,6 +88,80 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
     """
   end
 
+  @doc """
+  Renders complete pagination controls with automatic URL building.
+
+  Simpler alternative to pagination_controls that handles URL building internally.
+  Preserves all query parameters while changing page number.
+
+  ## Attributes
+  - `current_page` - Current active page number (required)
+  - `total_pages` - Total number of pages available (required)
+  - `base_path` - Base URL path without query params (required)
+  - `params` - Map of query parameters to preserve (default: %{})
+
+  ## Examples
+
+      <.pagination
+        current_page={@page}
+        total_pages={@total_pages}
+        base_path="/admin/emails"
+        params={%{"search" => @filters.search, "status" => @filters.status}}
+      />
+
+      <%!-- Minimal usage --%>
+      <.pagination
+        current_page={1}
+        total_pages={10}
+        base_path="/admin/logs"
+      />
+  """
+  attr :current_page, :integer, required: true
+  attr :total_pages, :integer, required: true
+  attr :base_path, :string, required: true
+  attr :params, :map, default: %{}
+
+  def pagination(assigns) do
+    ~H"""
+    <%= if @total_pages > 1 do %>
+      <div class="flex justify-center p-4 border-t border-base-300">
+        <div class="join">
+          <%!-- Previous button --%>
+          <%= if @current_page > 1 do %>
+            <.link
+              patch={build_page_url(@base_path, @params, @current_page - 1)}
+              class="join-item btn btn-sm"
+            >
+              « Prev
+            </.link>
+          <% end %>
+          <%!-- Page numbers (show current ± 2 pages) --%>
+          <%= for page_num <- pagination_range(@current_page, @total_pages) do %>
+            <.link
+              patch={build_page_url(@base_path, @params, page_num)}
+              class={[
+                "join-item btn btn-sm",
+                page_num == @current_page && "btn-active"
+              ]}
+            >
+              {page_num}
+            </.link>
+          <% end %>
+          <%!-- Next button --%>
+          <%= if @current_page < @total_pages do %>
+            <.link
+              patch={build_page_url(@base_path, @params, @current_page + 1)}
+              class="join-item btn btn-sm"
+            >
+              Next »
+            </.link>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+    """
+  end
+
   # Private helper functions
 
   # Calculate visible page range (current page ± 2)
@@ -95,5 +169,25 @@ defmodule PhoenixKitWeb.Components.Core.Pagination do
     start_page = max(1, current_page - 2)
     end_page = min(total_pages, current_page + 2)
     start_page..end_page
+  end
+
+  # Build URL with query parameters and page number
+  defp build_page_url(base_path, params, page) do
+    # Add page to params and filter out nil/empty values
+    query_params =
+      params
+      |> Map.put("page", page)
+      |> Enum.filter(fn {_k, v} -> v != nil and v != "" end)
+      |> Enum.into(%{})
+
+    # Encode query parameters
+    query_string = URI.encode_query(query_params)
+
+    # Build final URL
+    if query_string == "" do
+      base_path
+    else
+      "#{base_path}?#{query_string}"
+    end
   end
 end

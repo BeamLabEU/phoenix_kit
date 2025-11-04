@@ -45,6 +45,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Metrics do
   alias PhoenixKit.Emails
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Number, as: UtilsNumber
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
@@ -320,27 +321,4 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Metrics do
 
     headers <> Enum.join(rows, "\n")
   end
-
-  defp format_number(number) when is_integer(number) do
-    number
-    |> to_string()
-    |> String.graphemes()
-    |> Enum.reverse()
-    |> Enum.chunk_every(3)
-    |> Enum.map(&Enum.reverse/1)
-    |> Enum.reverse()
-    |> Enum.map_join(",", &Enum.join/1)
-  end
-
-  defp format_number(number), do: to_string(number)
-
-  defp format_percentage(rate) when is_float(rate) do
-    "#{:erlang.float_to_binary(rate, decimals: 1)}%"
-  end
-
-  defp format_percentage(rate) when is_integer(rate) do
-    "#{rate}%"
-  end
-
-  defp format_percentage(_), do: "0%"
 end

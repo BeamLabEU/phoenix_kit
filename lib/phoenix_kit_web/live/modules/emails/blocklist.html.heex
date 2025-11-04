@@ -380,7 +380,7 @@
                   </button>
                 <% end %>
 
-                <%= for page_num <- pagination_range(@page, @total_pages) do %>
+                <%= for page_num <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
                   <button
                     phx-click="change_page"
                     phx-value-page={page_num}

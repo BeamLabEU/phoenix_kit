@@ -6,9 +6,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias Phoenix.Component
-  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
 
   def mount(%{"blog" => blog_slug} = params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"

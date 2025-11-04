@@ -183,15 +183,44 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   end
 
   defp do_load_oauth_config do
-    # Verify Settings cache is ready by attempting to read a setting
-    # Try to read any setting to verify cache is operational
-    _ = PhoenixKit.Settings.get_setting("oauth_enabled", "false")
+    # CRITICAL: Verify Settings cache is FULLY warmed before configuring OAuth
+    # The cache warming is asynchronous (via handle_info(:warm_cache))
+    # We must wait until ALL settings are loaded, not just one setting
 
-    # Configure OAuth providers from database
-    alias PhoenixKit.Users.OAuthConfig
-    OAuthConfig.configure_providers()
+    # Strategy 1: Check cache size (most reliable)
+    # Based on production data: cache should have ~50+ entries when fully warmed
+    cache_size = get_cache_size()
 
-    :ok
+    if cache_size < 40 do
+      Logger.debug(
+        "Settings cache not fully warmed yet (#{cache_size} entries, expected 40+), retrying..."
+      )
+
+      {:error, :cache_not_ready}
+    else
+      # Strategy 2: Verify OAuth-specific settings are present
+      # This ensures we have actual OAuth data, not just general settings
+      oauth_enabled = PhoenixKit.Settings.get_setting("oauth_enabled", "false")
+
+      # Check that at least one provider's credentials are accessible
+      # This confirms the cache contains OAuth-related data
+      has_any_oauth_data =
+        PhoenixKit.Settings.has_oauth_credentials?(:google) or
+          PhoenixKit.Settings.has_oauth_credentials?(:apple) or
+          PhoenixKit.Settings.has_oauth_credentials?(:github) or
+          PhoenixKit.Settings.has_oauth_credentials?(:facebook)
+
+      Logger.debug(
+        "Settings cache ready: size=#{cache_size}, oauth_enabled=#{oauth_enabled}, has_oauth_data=#{has_any_oauth_data}"
+      )
+
+      # Configure OAuth providers from database
+      # At this point, ALL providers' credentials should be in cache
+      alias PhoenixKit.Users.OAuthConfig
+      OAuthConfig.configure_providers()
+
+      :ok
+    end
   rescue
     # Specific error types that indicate cache not ready (retriable)
     error in [RuntimeError, UndefinedFunctionError] ->
@@ -204,6 +233,11 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
       Logger.warning("Database connection error: #{Exception.message(error)}")
       {:error, :cache_not_ready}
 
+    # ArgumentError when ETS table doesn't exist yet
+    error in [ArgumentError] ->
+      Logger.debug("Settings cache table not created yet: #{Exception.message(error)}")
+      {:error, :cache_not_ready}
+
     # Any other unexpected error (non-retriable)
     error ->
       # Log full error with stacktrace for debugging
@@ -214,5 +248,15 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
 
       # Re-raise to fail fast on unexpected errors
       reraise error, __STACKTRACE__
+  end
+
+  # Get the size of Settings cache ETS table
+  # Returns 0 if table doesn't exist yet
+  defp get_cache_size do
+    :ets.info(:cache_settings, :size)
+  rescue
+    ArgumentError ->
+      # Table doesn't exist yet
+      0
   end
 end
