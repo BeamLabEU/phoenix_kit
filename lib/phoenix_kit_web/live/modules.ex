@@ -207,7 +207,6 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-<<<<<<< HEAD
   def handle_event("toggle_blogging", _params, socket) do
     new_enabled = !socket.assigns.blogging_enabled
 
@@ -216,37 +215,18 @@ defmodule PhoenixKitWeb.Live.Modules do
         Blogging.enable_system()
       else
         Blogging.disable_system()
-=======
-  def handle_event("toggle_publishing", _params, socket) do
-    new_enabled = !socket.assigns.publishing_enabled
-
-    result =
-      if new_enabled do
-        Publishing.enable_system()
-      else
-        Publishing.disable_system()
->>>>>>> 0190178 (Add Publishing module for multi-language timestamped content)
       end
 
     case result do
       {:ok, _} ->
         socket =
           socket
-<<<<<<< HEAD
           |> assign(:blogging_enabled, new_enabled)
           |> put_flash(
             :info,
             if(new_enabled,
               do: "Blogging module enabled",
               else: "Blogging module disabled"
-=======
-          |> assign(:publishing_enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled,
-              do: "Publishing module enabled",
-              else: "Publishing module disabled"
->>>>>>> 0190178 (Add Publishing module for multi-language timestamped content)
             )
           )
 
