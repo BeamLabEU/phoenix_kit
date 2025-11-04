@@ -47,13 +47,42 @@
               required
             />
 
-            <.input
-              field={@form[:slug]}
-              type="text"
-              label={gettext("Slug")}
-              placeholder={gettext("e.g. product-updates")}
-              required
-            />
+            <div class="space-y-2">
+              <.input
+                field={@form[:slug]}
+                type="text"
+                label={gettext("Slug")}
+                placeholder={gettext("e.g. product-updates")}
+                required
+              />
+              <div class="space-y-1">
+                <p class="text-xs text-base-content/60">
+                  {gettext(
+                    "Controls the folder structure for storing posts. Changing this will rename the directory."
+                  )}
+                </p>
+                <p class="text-xs font-medium text-base-content/70">
+                  <span class="font-semibold">{gettext("Format")}:</span>
+                  {gettext(
+                    "Only lowercase letters (a-z), numbers (0-9), and hyphens (-) are allowed. Must not start or end with a hyphen."
+                  )}
+                </p>
+                <p class="text-xs text-success">
+                  ✓ {gettext("Valid examples")}: <code class="font-mono">blog</code>, <code class="font-mono">
+                    product-updates
+                  </code>,
+                  <code class="font-mono">news-2025</code>
+                </p>
+                <p class="text-xs text-error">
+                  ✗ {gettext("Invalid examples")}: <code class="font-mono">Blog</code>, <code class="font-mono">
+                    product_updates
+                  </code>, <code class="font-mono">-news</code>,
+                  <code class="font-mono">
+                    my blog
+                  </code>
+                </p>
+              </div>
+            </div>
 
             <div class="rounded-lg border border-base-200 bg-base-200/40 px-4 py-3 text-sm text-base-content/70">
               <p>

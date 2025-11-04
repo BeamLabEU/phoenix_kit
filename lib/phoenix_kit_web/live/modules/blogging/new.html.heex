@@ -62,22 +62,44 @@
                 phx-change="manual_slug"
                 phx-debounce="150"
               />
-              <p class="text-xs text-base-content/60">
-                {gettext(
-                  "Used for the URL and the directory where blog files are stored. Stick to lowercase letters, numbers, and hyphens."
-                )}
-              </p>
+              <div class="space-y-1">
+                <p class="text-xs text-base-content/60">
+                  {gettext("Used for the URL and the directory where blog files are stored.")}
+                </p>
+                <p class="text-xs font-medium text-base-content/70">
+                  <span class="font-semibold">{gettext("Format")}:</span>
+                  {gettext(
+                    "Only lowercase letters (a-z), numbers (0-9), and hyphens (-) are allowed. Must not start or end with a hyphen."
+                  )}
+                </p>
+                <p class="text-xs text-success">
+                  ✓ {gettext("Valid examples")}: <code class="font-mono">blog</code>, <code class="font-mono">
+                    product-updates
+                  </code>,
+                  <code class="font-mono">news-2025</code>
+                </p>
+                <p class="text-xs text-error">
+                  ✗ {gettext("Invalid examples")}: <code class="font-mono">Blog</code>, <code class="font-mono">
+                    product_updates
+                  </code>, <code class="font-mono">-news</code>,
+                  <code class="font-mono">
+                    my blog
+                  </code>
+                </p>
+              </div>
               <% slug_value = @form[:slug].value || "" %>
               <% slug_sample = if slug_value == "", do: gettext("your-blog"), else: slug_value %>
               <% url_prefix =
-                   PhoenixKit.Config.get_url_prefix()
-                   |> case do
-                     nil -> ""
-                     "/" -> ""
-                     prefix -> prefix
-                   end %>
-              <% timestamp_file_pattern = "priv/static/blogging/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>/<locale>.phk" %>
-              <% timestamp_url_pattern = "#{url_prefix}/:locale/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>" %>
+                PhoenixKit.Config.get_url_prefix()
+                |> case do
+                  nil -> ""
+                  "/" -> ""
+                  prefix -> prefix
+                end %>
+              <% timestamp_file_pattern =
+                "priv/static/blogging/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>/<locale>.phk" %>
+              <% timestamp_url_pattern =
+                "#{url_prefix}/:locale/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>" %>
               <% slug_file_pattern = "priv/static/blogging/#{slug_sample}/<slug>/<locale>.phk" %>
               <% slug_url_pattern = "#{url_prefix}/:locale/#{slug_sample}/:post_slug" %>
             </div>
@@ -110,7 +132,9 @@
                         <code class="font-mono break-all">{timestamp_file_pattern}</code>
                       </p>
                       <p>
-                        <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+                        <span class="font-medium text-base-content">
+                          {gettext("Public URL")}: 
+                        </span>
                         <code class="font-mono break-all">{timestamp_url_pattern}</code>
                       </p>
                     </div>
@@ -137,7 +161,9 @@
                         <code class="font-mono break-all">{slug_file_pattern}</code>
                       </p>
                       <p>
-                        <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+                        <span class="font-medium text-base-content">
+                          {gettext("Public URL")}: 
+                        </span>
                         <code class="font-mono break-all">{slug_url_pattern}</code>
                       </p>
                     </div>
@@ -178,7 +204,6 @@
             </ul>
           </div>
         </div>
-
       </aside>
     </div>
   </div>
