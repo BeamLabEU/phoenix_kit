@@ -12,7 +12,6 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
-  alias PhoenixKitWeb.Live.Modules.Publishing
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -233,11 +232,7 @@ defmodule PhoenixKitWeb.Live.Modules do
         {:noreply, socket}
 
       {:error, _reason} ->
-<<<<<<< HEAD
         {:noreply, put_flash(socket, :error, "Failed to update blogging module")}
-=======
-        {:noreply, put_flash(socket, :error, "Failed to update publishing module")}
->>>>>>> 0190178 (Add Publishing module for multi-language timestamped content)
     end
   end
 
