@@ -486,15 +486,6 @@ defmodule PhoenixKitWeb.Integration do
         get "/:blog", BlogController, :show
         get "/:blog/*path", BlogController, :show
       end
-
-      if unquote(url_prefix) != "/" do
-        scope "/:language", PhoenixKitWeb do
-          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-          get "/:blog", BlogController, :show
-          get "/:blog/*path", BlogController, :show
-        end
-      end
     end
   end
 
