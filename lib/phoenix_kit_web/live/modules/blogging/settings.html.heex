@@ -95,11 +95,12 @@
                     </p>
                     <% blog_mode = blog["mode"] || "timestamp" %>
                     <% blog_path =
-                         if blog_mode == "slug" do
-                           "priv/static/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
-                         else
-                           "priv/static/blogging/" <> blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
-                         end %>
+                      if blog_mode == "slug" do
+                        "priv/static/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
+                      else
+                        "priv/static/blogging/" <>
+                          blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
+                      end %>
                     <p class="text-xs text-base-content/50">
                       {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
                     </p>

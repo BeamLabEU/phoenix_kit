@@ -19,12 +19,12 @@
           )}
         </p>
         <% url_prefix =
-             PhoenixKit.Config.get_url_prefix()
-             |> case do
-               nil -> ""
-               "/" -> ""
-               prefix -> prefix
-             end %>
+          PhoenixKit.Config.get_url_prefix()
+          |> case do
+            nil -> ""
+            "/" -> ""
+            prefix -> prefix
+          end %>
         <div class="text-xs text-base-content/60 space-y-1">
           <p>
             <span class="font-medium text-base-content">{gettext("Blog files location")}: </span>
@@ -148,7 +148,9 @@
                   <p class="font-semibold text-success">{insight.published_count}</p>
                 </div>
                 <div class="rounded-lg bg-warning/10 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-warning min-h-[1.25rem] flex items-center justify-center">{gettext("Drafts")}</p>
+                  <p class="text-xs uppercase tracking-wide text-warning min-h-[1.25rem] flex items-center justify-center">
+                    {gettext("Drafts")}
+                  </p>
                   <p class="font-semibold text-warning">{insight.draft_count}</p>
                 </div>
               </div>
@@ -168,7 +170,9 @@
                 <% else %>
                   <p class="text-xs text-base-content/60">
                     {gettext("Languages")}:
-                    <span class="badge badge-ghost badge-sm px-2 py-1 uppercase">{gettext("N/A")}</span>
+                    <span class="badge badge-ghost badge-sm px-2 py-1 uppercase">
+                      {gettext("N/A")}
+                    </span>
                   </p>
                 <% end %>
               </div>
@@ -192,12 +196,12 @@
                 </.link>
                 <% blog_slug = insight.slug %>
                 <% url_prefix =
-                     PhoenixKit.Config.get_url_prefix()
-                     |> case do
-                       nil -> ""
-                       "/" -> ""
-                       prefix -> prefix
-                     end %>
+                  PhoenixKit.Config.get_url_prefix()
+                  |> case do
+                    nil -> ""
+                    "/" -> ""
+                    prefix -> prefix
+                  end %>
                 <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
                 <a
                   href={public_url}

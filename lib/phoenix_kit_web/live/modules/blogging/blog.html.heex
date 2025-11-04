@@ -19,14 +19,14 @@
             </h1>
           </div>
           <div class="text-xs text-base-content/60 space-y-1">
-            <% blog_slug = @current_blog && @current_blog["slug"] || @blog_slug || "your-blog" %>
+            <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
             <% url_prefix =
-                 PhoenixKit.Config.get_url_prefix()
-                 |> case do
-                   nil -> ""
-                   "/" -> ""
-                   prefix -> prefix
-                 end %>
+              PhoenixKit.Config.get_url_prefix()
+              |> case do
+                nil -> ""
+                "/" -> ""
+                prefix -> prefix
+              end %>
             <% files_hint = "priv/static/blogging/" <> blog_slug <> "/…" %>
             <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
             <p>
@@ -79,9 +79,12 @@
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
                       {post.metadata.title || gettext("Untitled post")}
                     </h3>
-                    <% blog_slug = post.blog || @current_blog && @current_blog["slug"] || @blog_slug || "blog" %>
+                    <% blog_slug =
+                      post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
+                        "blog" %>
                     <% files_path = "priv/static/blogging/" <> post.path %>
-                    <% public_url = BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
+                    <% public_url =
+                      BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
                     <p class="text-xs text-base-content/50 mt-1">
                       <span class="font-medium text-base-content">{gettext("Files")}: </span>
                       <code class="font-mono break-all">{files_path}</code>
