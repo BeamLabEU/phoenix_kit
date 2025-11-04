@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   @blogs_key "blogging_blogs"
   @legacy_categories_key "blogging_categories"
   @default_blog_mode "timestamp"
+  @slug_regex ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
   @type blog :: map()
 
@@ -88,16 +89,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
       true ->
         blogs = list_blogs()
-        requested_slug = sanitize_requested_slug(preferred_slug, trimmed)
-        slug = ensure_unique_slug(requested_slug, blogs)
 
-        blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
-        updated = blogs ++ [blog]
-        payload = %{"blogs" => updated}
+        with {:ok, requested_slug} <- derive_requested_slug(preferred_slug, trimmed) do
+          slug = ensure_unique_slug(requested_slug, blogs)
 
-        with {:ok, _} <- settings_call(:update_json_setting, [@blogs_key, payload]),
-             :ok <- Storage.ensure_blog_root(slug) do
-          {:ok, blog}
+          blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
+          updated = blogs ++ [blog]
+          payload = %{"blogs" => updated}
+
+          with {:ok, _} <- settings_call(:update_json_setting, [@blogs_key, payload]),
+               :ok <- Storage.ensure_blog_root(slug) do
+            {:ok, blog}
+          end
         end
     end
   end
@@ -137,37 +140,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         if name == "" do
           {:error, :invalid_name}
         else
-          desired_slug =
-            params
-            |> fetch_option(:slug)
-            |> case do
-              nil -> blog["slug"]
-              value -> String.trim(to_string(value || ""))
-            end
-
-          sanitized_slug =
-            case slugify(desired_slug) do
-              "" -> slugify(name)
-              slug_value -> slug_value
-            end
-
-          if sanitized_slug == "" do
-            {:error, :invalid_slug}
-          else
-            if sanitized_slug != blog["slug"] and
-                 Enum.any?(blogs, &(&1["slug"] == sanitized_slug)) do
-              {:error, :already_exists}
-            else
-              updated_blog =
-                blog
-                |> Map.put("name", name)
-                |> Map.put("slug", sanitized_slug)
-
-              with :ok <- Storage.rename_blog_directory(blog["slug"], sanitized_slug),
-                   {:ok, _} <- persist_blog_update(blogs, blog["slug"], updated_blog) do
-                {:ok, updated_blog}
-              end
-            end
+          with {:ok, desired_slug} <- resolve_desired_slug(params, blog),
+               :ok <- ensure_slug_available?(desired_slug, blog, blogs),
+               :ok <- Storage.rename_blog_directory(blog["slug"], desired_slug),
+               {:ok, _} <-
+                 persist_blog_update(
+                   blogs,
+                   blog["slug"],
+                   Map.merge(blog, %{"name" => name, "slug" => desired_slug})
+                 ) do
+            {:ok, Map.merge(blog, %{"name" => name, "slug" => desired_slug})}
           end
         end
     end
@@ -305,6 +287,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
   @doc """
   Generates a slug from a user-provided blog name.
+  Returns empty string if the name contains only invalid characters.
   """
   @spec slugify(String.t()) :: String.t()
   def slugify(name) when is_binary(name) do
@@ -312,11 +295,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     |> String.downcase()
     |> String.replace(~r/[^a-z0-9]+/u, "-")
     |> String.trim("-")
-    |> case do
-      "" -> "blog"
-      slug -> slug
-    end
   end
+
+  @doc """
+  Returns true when the slug matches the allowed lowercase letters, numbers, and hyphen pattern.
+  """
+  @spec valid_slug?(String.t()) :: boolean()
+  def valid_slug?(slug) when is_binary(slug) do
+    slug != "" and Regex.match?(@slug_regex, slug)
+  end
+
+  def valid_slug?(_), do: false
 
   defp settings_module do
     Application.get_env(:phoenix_kit, :blogging_settings_module, PhoenixKit.Settings)
@@ -427,16 +416,64 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     settings_call(:update_json_setting, [@blogs_key, %{"blogs" => updated}])
   end
 
-  defp sanitize_requested_slug(nil, fallback_name), do: slugify(fallback_name)
+  defp derive_requested_slug(nil, fallback_name) do
+    slugified = slugify(fallback_name)
+    if slugified == "", do: {:error, :invalid_slug}, else: {:ok, slugified}
+  end
 
-  defp sanitize_requested_slug(slug, fallback_name) when is_binary(slug) do
-    slug
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9]+/u, "-")
-    |> String.trim("-")
-    |> case do
-      "" -> slugify(fallback_name)
-      sanitized -> sanitized
+  defp derive_requested_slug(slug, fallback_name) when is_binary(slug) do
+    trimmed = slug |> String.trim()
+
+    cond do
+      trimmed == "" ->
+        slugified = slugify(fallback_name)
+        if slugified == "", do: {:error, :invalid_slug}, else: {:ok, slugified}
+
+      valid_slug?(trimmed) ->
+        {:ok, trimmed}
+
+      true ->
+        {:error, :invalid_slug}
+    end
+  end
+
+  defp derive_requested_slug(_other, fallback_name) do
+    slugified = slugify(fallback_name)
+    if slugified == "", do: {:error, :invalid_slug}, else: {:ok, slugified}
+  end
+
+  defp resolve_desired_slug(params, blog) do
+    case fetch_option(params, :slug) do
+      nil ->
+        {:ok, blog["slug"]}
+
+      value ->
+        trimmed =
+          value
+          |> to_string()
+          |> String.trim()
+
+        cond do
+          trimmed == "" ->
+            {:error, :invalid_slug}
+
+          trimmed == blog["slug"] ->
+            {:ok, trimmed}
+
+          valid_slug?(trimmed) ->
+            {:ok, trimmed}
+
+          true ->
+            {:error, :invalid_slug}
+        end
+    end
+  end
+
+  defp ensure_slug_available?(slug, blog, blogs) do
+    if slug != blog["slug"] and Enum.any?(blogs, &(&1["slug"] == slug)) do
+      {:error, :already_exists}
+    else
+      :ok
     end
   end
 
