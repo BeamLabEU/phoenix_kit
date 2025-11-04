@@ -140,9 +140,10 @@ defmodule PhoenixKit.Storage.VariantGenerator do
                 File.rm(variant_path)
 
                 # Create file instance record with real data
+                # Use the full storage path (same format as original file)
                 instance_attrs = %{
                   variant_name: variant_name,
-                  file_name: variant_filename,
+                  file_name: variant_storage_path,
                   mime_type: variant_mime_type,
                   ext: variant_ext,
                   checksum: checksum,
