@@ -1,3 +1,81 @@
+## 1.5.0 - 2025-11-04
+
+### Added
+- **Comprehensive email lifecycle tracking** - Complete email status monitoring from queue to delivery
+  - Migration V19: Added timestamp fields for `queued_at`, `rejected_at`, `failed_at`, `delayed_at`
+  - New email lifecycle: QUEUED → SENT → DELIVERED with full event tracking
+  - 12 total email statuses now supported (was 7)
+- **Enhanced email status management** - New helper functions in Log schema
+  - `mark_as_queued/1` - Track when email enters send queue
+  - `mark_as_sent/1` - Track when email sent to provider
+  - `mark_as_rejected/2` - Track provider rejections with reason
+  - `mark_as_failed/2` - Track send failures with error details
+  - `mark_as_delayed/2` - Track delivery delays
+- **Event system improvements** - Extended event tracking for complete visibility
+  - New `queued` event type - Created when email enters queue
+  - New `send` event type - Created when email successfully sent to provider
+  - Event helpers: `create_queued_event/1`, `create_send_event/2`
+- **Enhanced UI status indicators** - Visual distinction for all email statuses
+  - New badge styles for queued, hard_bounced, soft_bounced, rejected, delayed, complaint
+  - Color-coded timeline events with appropriate icons
+  - Bounce type indicators (hard = red, soft = orange) in event details
+  - Provider information display in send events
+
+### Changed
+- **Email default status** - Changed from `"sent"` to `"queued"` for better lifecycle tracking
+  - Emails now created with `queued` status instead of immediately `sent`
+  - Status updated to `sent` after successful provider delivery
+  - Backward compatible - existing emails remain unchanged
+- **Interceptor workflow** - Updated email creation and delivery flow
+  - Creates `queued` event when email log is created
+  - Creates `send` event after successful provider delivery
+  - Removed premature `sent_at` timestamp from log creation
+- **SQS event processor** - All AWS SES events now set appropriate timestamps
+  - Bounce events → set `bounced_at`
+  - Complaint events → set `complained_at`
+  - Reject events → set `rejected_at`
+  - Delay events → set `delayed_at`
+  - Rendering failures → set `failed_at`
+- **Email details UI** - Improved event timeline visualization
+  - Queued events show queue timestamp
+  - Send events show provider information
+  - Bounce events display type (hard/soft) with color coding
+  - Reject events show rejection reason and diagnostic code
+  - Delay events show delay type and expiration time
+  - Fail events show failure reason and error details
+
+### Fixed
+- **Event display bug** - Fixed KeyError when viewing email with send events
+  - Removed incorrect `aws_message_id` field access in Event (field exists only in Log)
+  - Events now correctly use `event_data` for metadata display
+  - File: lib/phoenix_kit_web/live/modules/emails/details.ex
+
+### Email Status Flow
+
+```
+QUEUED (queued_at) → SENT (sent_at) → DELIVERED (delivered_at)
+                   ↘ FAILED (failed_at)
+                   ↘ REJECTED (rejected_at)
+
+DELIVERED → OPENED (opened_at) → CLICKED (clicked_at)
+         ↘ HARD_BOUNCED/SOFT_BOUNCED (bounced_at)
+         ↘ COMPLAINT (complained_at)
+         ↘ DELAYED (delayed_at)
+```
+
+### Impact
+- Complete visibility into email lifecycle from queue to final delivery state
+- Better debugging capabilities with granular timestamps for all status changes
+- Enhanced AWS SES integration with comprehensive event processing
+- Improved UI/UX with clear visual indicators for all email states
+- Production-ready email tracking system with full audit trail
+
+### Migration Guide
+- Migration V19 is **additive only** - safe to run on existing databases
+- No data migration required - new fields start as NULL
+- Existing emails retain their current status and timestamps
+- New emails automatically use enhanced lifecycle tracking
+
 ## 1.4.9 - 2025-11-03
 
 ### Added

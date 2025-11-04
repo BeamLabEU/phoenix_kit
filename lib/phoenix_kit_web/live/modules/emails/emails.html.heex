@@ -101,13 +101,25 @@
             </label>
             <select name="filter[status]" class="select select-bordered">
               <option value="">All Statuses</option>
+              <option value="queued" selected={@filters.status == "queued"}>Queued</option>
               <option value="sent" selected={@filters.status == "sent"}>Sent</option>
               <option value="delivered" selected={@filters.status == "delivered"}>
                 Delivered
               </option>
-              <option value="bounced" selected={@filters.status == "bounced"}>Bounced</option>
               <option value="opened" selected={@filters.status == "opened"}>Opened</option>
               <option value="clicked" selected={@filters.status == "clicked"}>Clicked</option>
+              <option value="bounced" selected={@filters.status == "bounced"}>Bounced</option>
+              <option value="hard_bounced" selected={@filters.status == "hard_bounced"}>
+                Hard Bounced
+              </option>
+              <option value="soft_bounced" selected={@filters.status == "soft_bounced"}>
+                Soft Bounced
+              </option>
+              <option value="rejected" selected={@filters.status == "rejected"}>Rejected</option>
+              <option value="delayed" selected={@filters.status == "delayed"}>Delayed</option>
+              <option value="complaint" selected={@filters.status == "complaint"}>
+                Complaint
+              </option>
               <option value="failed" selected={@filters.status == "failed"}>Failed</option>
             </select>
           </div>
@@ -230,12 +242,12 @@
                   <% column = Enum.find(@available_columns, fn col -> col.field == field end) %>
                   <%= if column do %>
                     <.table_default_header_cell>
-                      <%= if field == "activity" do %>
+                      <%= if field == "status" do %>
                         <div class="flex items-center gap-1">
                           <span>{column.label}</span>
                           <div
-                            class="tooltip tooltip-right"
-                            data-tip="🔵 Sent (date+time) | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Failed | ⚠️ Complaint"
+                            class="tooltip tooltip-bottom"
+                            data-tip="⚪ Queued | 🔵 Sent | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Hard/Soft/Rejected/Failed | 🟠 Delayed | ⚠️ Complaint"
                           >
                             <.icon
                               name="hero-information-circle"
@@ -244,7 +256,22 @@
                           </div>
                         </div>
                       <% else %>
-                        {column.label}
+                        <%= if field == "details" do %>
+                          <div class="flex items-center gap-1">
+                            <span>{column.label}</span>
+                            <div
+                              class="tooltip tooltip-bottom"
+                              data-tip="🔵 Campaign ID (primary) | 🟣 Message Tag (secondary) | ⚪ Template Name (outline)"
+                            >
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
+                          </div>
+                        <% else %>
+                          {column.label}
+                        <% end %>
                       <% end %>
                     </.table_default_header_cell>
                   <% end %>
@@ -270,46 +297,21 @@
                             {log.subject || "(no subject)"}
                           </div>
                         <% "status" -> %>
-                          <div class="space-y-1">
-                            <div class={status_badge_class(log.status)}>
-                              {log.status}
-                            </div>
-                            <%= if log.error_message do %>
-                              <div class="text-xs text-error truncate" title={log.error_message}>
-                                Error
-                              </div>
-                            <% end %>
-                          </div>
-                        <% "activity" -> %>
-                          <div class="flex flex-wrap gap-1">
-                            <%!-- Sent badge (blue) - always shows date + time --%>
-                            <%= if log.sent_at do %>
-                              <div class="badge badge-info badge-xs">
-                                {format_sent_badge(log.sent_at)}
-                              </div>
-                            <% end %>
-                            <%!-- Activity badges with smart date display --%>
-                            <%!-- Each badge shows date only when different from previous event --%>
-                            <%= for {badge_class, formatted_text, _event_type} <- get_activity_badges(log) do %>
-                              <div class={"badge #{badge_class} badge-xs"}>
-                                {formatted_text}
-                              </div>
-                            <% end %>
-                          </div>
+                          <.email_activity_badges log={log} />
                         <% "details" -> %>
                           <div class="space-y-1">
                             <%= if log.campaign_id do %>
                               <div class="badge badge-primary badge-xs">{log.campaign_id}</div>
                             <% end %>
-                            <%= if get_message_tag(log.message_tags) do %>
-                              <div class="badge badge-secondary badge-xs">
-                                {get_message_tag(log.message_tags)}
-                              </div>
-                            <% end %>
+                            <.message_tag_badge message_tags={log.message_tags} />
                             <%= if log.template_name do %>
                               <div class="badge badge-outline badge-xs">{log.template_name}</div>
                             <% end %>
-                            <%= if !log.campaign_id && !get_message_tag(log.message_tags) && !log.template_name do %>
+                            <% has_details =
+                              log.campaign_id ||
+                                (is_map(log.message_tags) &&
+                                   Map.get(log.message_tags, "email_type")) || log.template_name %>
+                            <%= if !has_details do %>
                               <span class="text-xs text-base-content/50">—</span>
                             <% end %>
                           </div>
@@ -345,33 +347,22 @@
 
         <%!-- Pagination --%>
         <%= if @total_count > @per_page do %>
-          <div class="flex justify-center p-4 border-t border-base-300">
-            <div class="join">
-              <%= if @page > 1 do %>
-                <.link patch={build_page_url(@page - 1, assigns)} class="join-item btn btn-sm">
-                  « Prev
-                </.link>
-              <% end %>
-
-              <%= for page_num <- pagination_pages(@page, @total_pages) do %>
-                <.link
-                  patch={build_page_url(page_num, assigns)}
-                  class={[
-                    "join-item btn btn-sm",
-                    page_num == @page && "btn-active"
-                  ]}
-                >
-                  {page_num}
-                </.link>
-              <% end %>
-
-              <%= if @page < @total_pages do %>
-                <.link patch={build_page_url(@page + 1, assigns)} class="join-item btn btn-sm">
-                  Next »
-                </.link>
-              <% end %>
-            </div>
-          </div>
+          <.pagination
+            current_page={@page}
+            total_pages={@total_pages}
+            base_path="/admin/emails"
+            params={
+              %{
+                "search" => @filters.search,
+                "status" => @filters.status,
+                "message_tag" => @filters.message_tag,
+                "campaign_id" => @filters.campaign_id,
+                "from_date" => @filters.from_date,
+                "to_date" => @filters.to_date,
+                "per_page" => @per_page
+              }
+            }
+          />
         <% end %>
       <% end %>
     </div>

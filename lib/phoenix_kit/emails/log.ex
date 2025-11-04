@@ -21,9 +21,13 @@ defmodule PhoenixKit.Emails.Log do
   - `size_bytes`: Total email size in bytes
   - `retry_count`: Number of send retry attempts
   - `error_message`: Error message if sending failed
-  - `status`: Current status (sent, delivered, bounced, opened, clicked, failed)
+  - `status`: Current status (queued, sent, delivered, bounced, opened, clicked, failed, etc.)
+  - `queued_at`: Timestamp when email was queued for sending
   - `sent_at`: Timestamp when email was sent
   - `delivered_at`: Timestamp when email was delivered (from provider)
+  - `rejected_at`: Timestamp when email was rejected by provider
+  - `failed_at`: Timestamp when email send failed
+  - `delayed_at`: Timestamp when email delivery was delayed
   - `configuration_set`: AWS SES configuration set used
   - `message_tags`: JSONB tags for grouping and analytics
   - `provider`: Email provider used (aws_ses, smtp, local, etc.)
@@ -41,8 +45,13 @@ defmodule PhoenixKit.Emails.Log do
   - `delete_log/1` - Delete an email log
 
   ### Status Management
+  - `mark_as_queued/1` - Mark email as queued with timestamp
+  - `mark_as_sent/1` - Mark email as sent with timestamp
   - `mark_as_delivered/2` - Mark email as delivered with timestamp
   - `mark_as_bounced/3` - Mark as bounced with bounce type and reason
+  - `mark_as_rejected/2` - Mark as rejected by provider
+  - `mark_as_failed/2` - Mark as failed with error reason
+  - `mark_as_delayed/2` - Mark as delayed with delay information
   - `mark_as_opened/2` - Mark as opened with timestamp
   - `mark_as_clicked/3` - Mark as clicked with link and timestamp
 
@@ -105,13 +114,17 @@ defmodule PhoenixKit.Emails.Log do
     field :size_bytes, :integer
     field :retry_count, :integer, default: 0
     field :error_message, :string
-    field :status, :string, default: "sent"
+    field :status, :string, default: "queued"
+    field :queued_at, :utc_datetime_usec
     field :sent_at, :utc_datetime_usec
     field :delivered_at, :utc_datetime_usec
     field :bounced_at, :utc_datetime_usec
     field :complained_at, :utc_datetime_usec
     field :opened_at, :utc_datetime_usec
     field :clicked_at, :utc_datetime_usec
+    field :rejected_at, :utc_datetime_usec
+    field :failed_at, :utc_datetime_usec
+    field :delayed_at, :utc_datetime_usec
     field :configuration_set, :string
     field :message_tags, :map, default: %{}
     field :provider, :string, default: "unknown"
@@ -150,12 +163,16 @@ defmodule PhoenixKit.Emails.Log do
       :retry_count,
       :error_message,
       :status,
+      :queued_at,
       :sent_at,
       :delivered_at,
       :bounced_at,
       :complained_at,
       :opened_at,
       :clicked_at,
+      :rejected_at,
+      :failed_at,
+      :delayed_at,
       :configuration_set,
       :message_tags,
       :provider,
@@ -170,6 +187,7 @@ defmodule PhoenixKit.Emails.Log do
     |> validate_number(:size_bytes, greater_than_or_equal_to: 0)
     |> validate_number(:retry_count, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, [
+      "queued",
       "sent",
       "delivered",
       "bounced",
@@ -185,7 +203,7 @@ defmodule PhoenixKit.Emails.Log do
     |> validate_message_id_uniqueness()
     |> unique_constraint(:message_id)
     |> unique_constraint(:aws_message_id)
-    |> maybe_set_sent_at()
+    |> maybe_set_queued_at()
     |> validate_body_size()
   end
 
@@ -503,6 +521,94 @@ defmodule PhoenixKit.Emails.Log do
 
       updated_log
     end)
+  end
+
+  @doc """
+  Marks an email as queued with timestamp.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Log.mark_as_queued(log)
+      {:ok, %PhoenixKit.Emails.Log{}}
+  """
+  def mark_as_queued(%__MODULE__{} = email_log, queued_at \\ nil) do
+    queued_at = queued_at || DateTime.utc_now()
+
+    update_log(email_log, %{
+      status: "queued",
+      queued_at: queued_at
+    })
+  end
+
+  @doc """
+  Marks an email as sent with timestamp.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Log.mark_as_sent(log)
+      {:ok, %PhoenixKit.Emails.Log{}}
+  """
+  def mark_as_sent(%__MODULE__{} = email_log, sent_at \\ nil) do
+    sent_at = sent_at || DateTime.utc_now()
+
+    update_log(email_log, %{
+      status: "sent",
+      sent_at: sent_at
+    })
+  end
+
+  @doc """
+  Marks an email as rejected by provider with reason.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Log.mark_as_rejected(log, "Invalid recipient")
+      {:ok, %PhoenixKit.Emails.Log{}}
+  """
+  def mark_as_rejected(%__MODULE__{} = email_log, reason, rejected_at \\ nil) do
+    rejected_at = rejected_at || DateTime.utc_now()
+
+    update_log(email_log, %{
+      status: "rejected",
+      rejected_at: rejected_at,
+      error_message: reason
+    })
+  end
+
+  @doc """
+  Marks an email as failed with error reason.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Log.mark_as_failed(log, "Connection timeout")
+      {:ok, %PhoenixKit.Emails.Log{}}
+  """
+  def mark_as_failed(%__MODULE__{} = email_log, reason, failed_at \\ nil) do
+    failed_at = failed_at || DateTime.utc_now()
+
+    update_log(email_log, %{
+      status: "failed",
+      failed_at: failed_at,
+      error_message: reason
+    })
+  end
+
+  @doc """
+  Marks an email as delayed with delay information.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Log.mark_as_delayed(log, "Temporary mailbox unavailable")
+      {:ok, %PhoenixKit.Emails.Log{}}
+  """
+  def mark_as_delayed(%__MODULE__{} = email_log, delay_info \\ nil, delayed_at \\ nil) do
+    delayed_at = delayed_at || DateTime.utc_now()
+
+    update_log(email_log, %{
+      status: "delayed",
+      delayed_at: delayed_at,
+      error_message: delay_info
+    })
   end
 
   @doc """
@@ -925,10 +1031,10 @@ defmodule PhoenixKit.Emails.Log do
     end
   end
 
-  # Set sent_at if not provided
-  defp maybe_set_sent_at(changeset) do
-    case get_field(changeset, :sent_at) do
-      nil -> put_change(changeset, :sent_at, DateTime.utc_now())
+  # Set queued_at if not provided
+  defp maybe_set_queued_at(changeset) do
+    case get_field(changeset, :queued_at) do
+      nil -> put_change(changeset, :queued_at, DateTime.utc_now())
       _ -> changeset
     end
   end

@@ -46,8 +46,7 @@
                 <span>To: {@email_log.to}</span>
                 <span>•</span>
                 <span>
-                  Status:
-                  <span class={status_badge_class(@email_log.status)}>{@email_log.status}</span>
+                  Status: <.email_status_badge status={@email_log.status} />
                 </span>
                 <span>•</span>
                 <span>
@@ -138,8 +137,8 @@
                     <div class="space-y-3">
                       <div>
                         <label class="text-sm font-medium text-base-content/70">Status</label>
-                        <div class={status_badge_class(@email_log.status)}>
-                          {@email_log.status}
+                        <div>
+                          <.email_status_badge status={@email_log.status} />
                         </div>
                       </div>
 
@@ -150,7 +149,9 @@
 
                       <div>
                         <label class="text-sm font-medium text-base-content/70">Size</label>
-                        <p class="text-sm">{format_bytes(@email_log.size_bytes)}</p>
+                        <p class="text-sm">
+                          <.file_size bytes={@email_log.size_bytes} />
+                        </p>
                       </div>
 
                       <div>
@@ -317,33 +318,8 @@
 
                   <%= if length(@events) > 0 do %>
                     <div class="space-y-4">
-                      <%= for {event, index} <- Enum.with_index(@events) do %>
-                        <div class="flex gap-3">
-                          <%!-- Event Icon --%>
-                          <div class="flex-shrink-0">
-                            <div class={event_marker_class(event.event_type)}>
-                              <.icon name={event_icon(event.event_type)} class="w-3 h-3" />
-                            </div>
-                          </div>
-
-                          <%!-- Event Content --%>
-                          <div class="flex-1 min-w-0">
-                            <div class="flex items-start justify-between gap-2 mb-1">
-                              <h4 class="font-medium text-sm text-base-content">
-                                {format_event_title(event.event_type)}
-                              </h4>
-                              <time class="text-xs text-base-content/60 whitespace-nowrap">
-                                {UtilsDate.format_datetime_full_with_user_format(
-                                  event.occurred_at
-                                )}
-                              </time>
-                            </div>
-
-                            <div class="mt-1">
-                              {render_event_details(event)}
-                            </div>
-                          </div>
-                        </div>
+                      <%= for event <- @events do %>
+                        <.event_timeline_item event={event} log={@email_log} />
                       <% end %>
                     </div>
                   <% else %>
@@ -397,7 +373,10 @@
                           {UtilsDate.format_datetime_with_user_format(@email_log.delivered_at)}
                         </div>
                         <div class="stat-desc text-xs">
-                          {format_duration(@email_log.sent_at, @email_log.delivered_at)} delivery time
+                          <.duration_display
+                            start_time={@email_log.sent_at}
+                            end_time={@email_log.delivered_at}
+                          /> delivery time
                         </div>
                       </div>
                     <% end %>
@@ -454,9 +433,7 @@
                             <span>
                               {UtilsDate.format_datetime_with_user_format(related.sent_at)}
                             </span>
-                            <span class={status_badge_class(related.status, "badge-xs")}>
-                              {related.status}
-                            </span>
+                            <.email_status_badge status={related.status} size={:xs} />
                           </div>
                         </.link>
                       <% end %>

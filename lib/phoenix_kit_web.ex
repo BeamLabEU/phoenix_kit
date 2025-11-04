@@ -103,10 +103,15 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.SimpleForm
       import PhoenixKitWeb.Components.Core.ThemeSwitcher
       import PhoenixKitWeb.Components.Core.Badge
+      import PhoenixKitWeb.Components.Core.EmailStatusBadge
       import PhoenixKitWeb.Components.Core.TimeDisplay
+      import PhoenixKitWeb.Components.Core.EventTimelineItem
       import PhoenixKitWeb.Components.Core.UserInfo
       import PhoenixKitWeb.Components.Core.Pagination
       import PhoenixKitWeb.Components.Core.FileDisplay
+      import PhoenixKitWeb.Components.Core.EmailActivityBadges
+      import PhoenixKitWeb.Components.Core.MessageTagBadge
+      import PhoenixKitWeb.Components.Core.NumberFormatter
       import PhoenixKitWeb.Components.Core.TableDefault
       import PhoenixKitWeb.Components.Core.OAuthUtils
       import PhoenixKitWeb.Components.Core.OAuthProvider

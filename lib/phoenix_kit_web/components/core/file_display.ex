@@ -27,14 +27,19 @@ defmodule PhoenixKitWeb.Components.Core.FileDisplay do
   end
 
   @doc """
-  Displays formatted file size.
+  Displays formatted file size with automatic unit conversion.
+
+  Handles nil values by returning "Unknown".
+  Converts to GB, MB, KB, or bytes based on size.
 
   ## Examples
 
       <.file_size bytes={1024} />  <%!-- 1.0 KB --%>
       <.file_size bytes={1_048_576} />  <%!-- 1.0 MB --%>
+      <.file_size bytes={5_242_880} />  <%!-- 5.0 MB --%>
+      <.file_size bytes={nil} />  <%!-- Unknown --%>
   """
-  attr :bytes, :integer, required: true
+  attr :bytes, :integer, default: nil
   attr :class, :string, default: ""
 
   def file_size(assigns) do
@@ -70,15 +75,18 @@ defmodule PhoenixKitWeb.Components.Core.FileDisplay do
     end
   end
 
+  defp format_bytes(nil), do: "Unknown"
+
   defp format_bytes(bytes) when is_integer(bytes) do
     cond do
+      bytes >= 1_073_741_824 -> "#{Float.round(bytes / 1_073_741_824, 1)} GB"
       bytes >= 1_048_576 -> "#{Float.round(bytes / 1_048_576, 1)} MB"
-      bytes >= 1_024 -> "#{Float.round(bytes / 1_024, 1)} KB"
-      true -> "#{bytes} B"
+      bytes >= 1024 -> "#{Float.round(bytes / 1024, 1)} KB"
+      true -> "#{bytes} bytes"
     end
   end
 
-  defp format_bytes(_), do: "0 B"
+  defp format_bytes(_), do: "Unknown"
 
   defp format_mtime(mtime) when is_tuple(mtime) do
     # Convert Erlang datetime tuple to NaiveDateTime

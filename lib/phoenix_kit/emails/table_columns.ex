@@ -13,7 +13,7 @@ defmodule PhoenixKit.Emails.TableColumns do
 
   alias PhoenixKit.Settings
 
-  @default_columns ["to", "subject", "status", "activity", "details", "actions"]
+  @default_columns ["to", "subject", "status", "details", "actions"]
   @required_columns ["to", "actions"]
 
   @doc """
@@ -38,8 +38,7 @@ defmodule PhoenixKit.Emails.TableColumns do
     [
       %{field: "to", label: "Email", type: :string, required: true},
       %{field: "subject", label: "Subject", type: :string, required: false},
-      %{field: "status", label: "Status", type: :badge, required: false},
-      %{field: "activity", label: "Sent & Activity", type: :activity_events, required: false},
+      %{field: "status", label: "Status", type: :activity_events, required: false},
       %{field: "details", label: "Details", type: :details_composite, required: false},
       %{field: "actions", label: "Actions", type: :actions, required: true}
     ]

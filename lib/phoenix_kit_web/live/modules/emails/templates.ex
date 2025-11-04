@@ -447,14 +447,6 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Templates do
     |> URI.encode_query()
   end
 
-  # Helper function for pagination component
-  defp build_page_url(assigns) do
-    fn page ->
-      params = build_url_params(assigns, %{"page" => page})
-      Routes.path("/admin/modules/emails/templates?#{params}")
-    end
-  end
-
   # Validate clone form
   defp validate_clone_form(params) do
     errors = %{}
