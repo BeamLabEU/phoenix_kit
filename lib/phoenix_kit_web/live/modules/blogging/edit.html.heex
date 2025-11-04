@@ -89,9 +89,11 @@
                 <span class="font-semibold">{gettext("Storage mode")}:</span>
                 <%= case @blog["mode"] do %>
                   <% "slug" -> %>
-                    {gettext("Slug")} · {gettext("Semantic URLs ideal for evergreen content.")}
+                    {gettext("Slug-based")} · {gettext(
+                      "Semantic URLs ideal for evergreen content."
+                    )}
                   <% _ -> %>
-                    {gettext("Timestamp")} · {gettext(
+                    {gettext("Timestamp-based")} · {gettext(
                       "Chronological folders ideal for news and updates."
                     )}
                 <% end %>

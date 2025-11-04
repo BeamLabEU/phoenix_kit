@@ -120,7 +120,7 @@
                     checked={@form[:mode].value == "timestamp"}
                   />
                   <div>
-                    <p class="font-medium text-base-content">{gettext("Timestamp")}</p>
+                    <p class="font-medium text-base-content">{gettext("Timestamp-based")}</p>
                     <p class="text-sm text-base-content/70">
                       {gettext(
                         "Organizes posts in date/time folders. Great for news, updates, and chronological feeds."
@@ -133,7 +133,7 @@
                       </p>
                       <p>
                         <span class="font-medium text-base-content">
-                          {gettext("Public URL")}: 
+                          {gettext("Public URL")}:
                         </span>
                         <code class="font-mono break-all">{timestamp_url_pattern}</code>
                       </p>
@@ -149,7 +149,7 @@
                     checked={@form[:mode].value == "slug"}
                   />
                   <div>
-                    <p class="font-medium text-base-content">{gettext("Slug")}</p>
+                    <p class="font-medium text-base-content">{gettext("Slug-based")}</p>
                     <p class="text-sm text-base-content/70">
                       {gettext(
                         "Uses semantic URLs and editable slugs. Ideal for documentation, guides, and evergreen content."
@@ -162,7 +162,7 @@
                       </p>
                       <p>
                         <span class="font-medium text-base-content">
-                          {gettext("Public URL")}: 
+                          {gettext("Public URL")}:
                         </span>
                         <code class="font-mono break-all">{slug_url_pattern}</code>
                       </p>
