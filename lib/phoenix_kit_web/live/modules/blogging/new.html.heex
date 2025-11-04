@@ -6,30 +6,29 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between gap-3">
-      <div class="space-y-1">
-        <p class="text-sm uppercase tracking-wide text-base-content/60">
-          {gettext("Blogging Module")}
-        </p>
-        <h1 class="text-3xl font-bold text-base-content">{gettext("Create a New Blog")}</h1>
-        <p class="text-sm text-base-content/70 max-w-2xl">
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Blogging Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Create a New Blog")}</h1>
+        <p class="text-lg text-base-content">
           {gettext(
             "Spin up a dedicated workspace for your content team. Choose the storage approach that fits the publishing experience you want to provide."
           )}
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <.link
-          navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
-          class="btn btn-outline btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> {gettext("Back to Blogs")}
-        </.link>
-      </div>
-    </div>
+    </header>
 
-    <div class="grid gap-6 lg:grid-cols-[2fr,1fr]">
+    <div class="max-w-2xl mx-auto space-y-6">
       <div class="card bg-base-100 shadow-xl border border-base-200">
         <div class="card-body space-y-6">
           <.form
@@ -191,20 +190,18 @@
         </div>
       </div>
 
-      <aside class="space-y-4">
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-          <div class="card-body space-y-3">
-            <h3 class="text-lg font-semibold text-base-content">
-              {gettext("What happens next")}
-            </h3>
-            <ul class="text-sm text-base-content/70 space-y-2">
-              <li>• {gettext("We create a blog workspace under priv/static/blogging.")}</li>
-              <li>• {gettext("You’ll see the new blog in the navigation immediately.")}</li>
-              <li>• {gettext("Editors can jump right in and start drafting content.")}</li>
-            </ul>
-          </div>
+      <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-3">
+          <h3 class="text-lg font-semibold text-base-content">
+            {gettext("What happens next")}
+          </h3>
+          <ul class="text-sm text-base-content/70 space-y-2">
+            <li>• {gettext("We create a blog workspace under priv/static/blogging.")}</li>
+            <li>• {gettext("You'll see the new blog in the navigation immediately.")}</li>
+            <li>• {gettext("Editors can jump right in and start drafting content.")}</li>
+          </ul>
         </div>
-      </aside>
+      </div>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
