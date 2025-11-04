@@ -16,8 +16,8 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
-  alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.BlogHTML
+  alias PhoenixKitWeb.Live.Modules.Blogging
 
   @doc """
   Displays a blog post, blog listing, or all blogs overview.
@@ -186,10 +186,12 @@ defmodule PhoenixKitWeb.BlogController do
     blog_slug = blog_slug |> to_string() |> String.trim()
 
     case Enum.find(Blogging.list_blogs(), fn blog ->
-           with slug when is_binary(slug) <- blog["slug"] do
-             String.downcase(slug) == String.downcase(blog_slug)
-           else
-             _ -> false
+           case blog["slug"] do
+             slug when is_binary(slug) ->
+               String.downcase(slug) == String.downcase(blog_slug)
+
+             _ ->
+               false
            end
          end) do
       nil -> {:error, :blog_not_found}
@@ -359,37 +361,37 @@ defmodule PhoenixKitWeb.BlogController do
     language = conn.assigns[:current_language] || "en"
     path = conn.params["path"] || []
 
-    case {reason, path} do
-      # Post not found or unpublished -> try blog listing
-      {reason, [blog_slug, _post_identifier]}
-      when reason in [:post_not_found, :unpublished] ->
-        fallback_to_blog_or_overview(blog_slug, language)
+    handle_fallback_case(reason, path, language)
+  end
 
-      # Timestamp post not found -> try blog listing
-      {reason, [blog_slug, _date, _time]}
-      when reason in [:post_not_found, :unpublished] ->
-        fallback_to_blog_or_overview(blog_slug, language)
+  defp handle_fallback_case(reason, [blog_slug, _post_identifier], language)
+       when reason in [:post_not_found, :unpublished] do
+    fallback_to_blog_or_overview(blog_slug, language)
+  end
 
-      # Blog not found -> redirect to first available blog when possible
-      {:blog_not_found, [_blog_slug]} ->
-        case default_blog_listing(language) do
-          nil -> :no_fallback
-          path -> {:ok, path}
-        end
+  defp handle_fallback_case(reason, [blog_slug, _date, _time], language)
+       when reason in [:post_not_found, :unpublished] do
+    fallback_to_blog_or_overview(blog_slug, language)
+  end
 
-      {:blog_not_found, []} ->
-        case default_blog_listing(language) do
-          nil -> :no_fallback
-          path -> {:ok, path}
-        end
+  defp handle_fallback_case(:blog_not_found, [_blog_slug], language) do
+    fallback_to_default_blog(language)
+  end
 
-      # Invalid language for post -> try default language
-      {:post_not_found, [blog_slug, post_slug]} ->
-        fallback_to_default_language(blog_slug, post_slug, language)
+  defp handle_fallback_case(:blog_not_found, [], language) do
+    fallback_to_default_blog(language)
+  end
 
-      # Other errors -> no fallback
-      _ ->
-        :no_fallback
+  defp handle_fallback_case(:post_not_found, [blog_slug, post_slug], language) do
+    fallback_to_default_language(blog_slug, post_slug, language)
+  end
+
+  defp handle_fallback_case(_reason, _path, _language), do: :no_fallback
+
+  defp fallback_to_default_blog(language) do
+    case default_blog_listing(language) do
+      nil -> :no_fallback
+      path -> {:ok, path}
     end
   end
 
