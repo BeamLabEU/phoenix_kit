@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V19 do
+defmodule PhoenixKit.Migrations.Postgres.V20 do
   @moduledoc """
-  PhoenixKit V19 Migration: Distributed File Storage System
+  PhoenixKit V20 Migration: Distributed File Storage System
 
   Adds comprehensive distributed file storage with multi-location redundancy,
   automatic variant generation, and smart volume selection.
@@ -51,7 +51,7 @@ defmodule PhoenixKit.Migrations.Postgres.V19 do
   use Ecto.Migration
 
   @doc """
-  Run the V19 migration to add distributed storage system.
+  Run the V20 migration to add distributed storage system.
   """
   def up(%{prefix: prefix} = _opts) do
     # Create storage buckets table
@@ -222,11 +222,11 @@ defmodule PhoenixKit.Migrations.Postgres.V19 do
     insert_setting(prefix, "storage_default_bucket_id", nil)
 
     # Update version tracking
-    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '19'"
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '20'"
   end
 
   @doc """
-  Rollback the V19 migration.
+  Rollback the V20 migration.
   """
   def down(%{prefix: prefix} = _opts) do
     # Drop tables in reverse order (respecting foreign keys)

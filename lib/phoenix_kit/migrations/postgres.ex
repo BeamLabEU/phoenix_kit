@@ -120,7 +120,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - API functions for custom field management
   - Support for arbitrary user data without schema changes
 
-  ### V19 - Distributed File Storage System ⚡ LATEST
+  ### V20 - Distributed File Storage System ⚡ LATEST
   - Phoenix_kit_buckets for storage provider configurations (local, S3, B2, R2)
   - Phoenix_kit_files for original file uploads with metadata
   - Phoenix_kit_file_instances for file variants (thumbnails, resizes, video qualities)
@@ -136,19 +136,20 @@ defmodule PhoenixKit.Migrations.Postgres do
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V19 in sequence.
+  Runs all migrations V01 through V20 in sequence.
 
   ### Incremental Updates
-  - V01 → V19: Runs V02 through V19 in sequence
-  - V18 → V19: Runs V19 only (adds distributed storage system)
-  - V17 → V19: Runs V18, V19 (adds custom fields, then storage system)
-  - V16 → V19: Runs V17, V18, V19 (adds entities, custom fields, storage)
-  - V15 → V19: Runs V16, V17, V18, V19 (adds OAuth, entities, custom fields, storage)
-  - V14 → V19: Runs V15, V16, V17, V18, V19 (adds templates, OAuth, entities, custom fields, storage)
-  - V13 → V19: Runs V14, V15, V16, V17, V18, V19 (adds modules, templates, OAuth, entities, custom fields, storage)
+  - V01 → V20: Runs V02 through V20 in sequence
+  - V18 → V20: Runs V19, V20 (adds storage files tables, then distributed storage system)
+  - V17 → V20: Runs V18, V19, V20 (adds custom fields, storage tables, distributed storage)
+  - V16 → V20: Runs V17, V18, V19, V20 (adds entities, custom fields, storage tables, distributed storage)
+  - V15 → V20: Runs V16, V17, V18, V19, V20 (adds OAuth, entities, custom fields, storage tables, distributed storage)
+  - V14 → V20: Runs V15, V16, V17, V18, V19, V20 (adds templates, OAuth, entities, custom fields, storage tables, distributed storage)
+  - V13 → V20: Runs V14, V15, V16, V17, V18, V19, V20 (adds modules, templates, OAuth, entities, custom fields, storage tables, distributed storage)
 
   ### Rollback Support
-  - V19 → V18: Removes distributed storage system
+  - V20 → V19: Removes distributed storage system (keeps buckets, files, instances, locations, dimensions tables)
+  - V19 → V18: Removes distributed storage tables
   - V18 → V17: Removes user custom fields
   - V17 → V16: Removes entities system
   - V16 → V15: Removes OAuth providers system
@@ -192,7 +193,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Config
 
   @initial_version 1
-  @current_version 19
+  @current_version 20
   @default_prefix "public"
 
   @doc false
