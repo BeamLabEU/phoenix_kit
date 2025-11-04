@@ -230,21 +230,35 @@
                   <% column = Enum.find(@available_columns, fn col -> col.field == field end) %>
                   <%= if column do %>
                     <.table_default_header_cell>
-                      <%= if field == "activity" do %>
-                        <div class="flex items-center gap-1">
-                          <span>{column.label}</span>
-                          <div
-                            class="tooltip tooltip-right"
-                            data-tip="🔵 Sent (date+time) | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Failed | ⚠️ Complaint"
-                          >
-                            <.icon
-                              name="hero-information-circle"
-                              class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
-                            />
+                      <%= cond do %>
+                        <% field == "activity" -> %>
+                          <div class="flex items-center gap-1">
+                            <span>{column.label}</span>
+                            <div
+                              class="tooltip tooltip-right"
+                              data-tip="🔵 Sent (date+time) | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Failed | ⚠️ Complaint"
+                            >
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
                           </div>
-                        </div>
-                      <% else %>
-                        {column.label}
+                        <% field == "details" -> %>
+                          <div class="flex items-center gap-1">
+                            <span>{column.label}</span>
+                            <div
+                              class="tooltip tooltip-right"
+                              data-tip="🔵 Campaign ID (primary) | 🟣 Message Tag (secondary) | ⚪ Template Name (outline)"
+                            >
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
+                          </div>
+                        <% true -> %>
+                          {column.label}
                       <% end %>
                     </.table_default_header_cell>
                   <% end %>

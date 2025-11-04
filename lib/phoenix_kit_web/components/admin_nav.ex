@@ -444,14 +444,20 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to determine if navigation item is active
-  defp nav_item_active?(current_path, href, _nested) do
+  defp nav_item_active?(current_path, href, nested) do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 
-    exact_match?(current_parts, href_parts) or
-      tab_match?(current_parts, href_parts) or
-      parent_match?(current_parts, href_parts) or
-      hierarchical_match?(current_parts, href_parts)
+    # For nested items, use only exact and tab matching to prevent parent highlighting
+    if nested do
+      exact_match?(current_parts, href_parts) or tab_match?(current_parts, href_parts)
+    else
+      # For top-level items, use full hierarchical matching
+      exact_match?(current_parts, href_parts) or
+        tab_match?(current_parts, href_parts) or
+        parent_match?(current_parts, href_parts) or
+        hierarchical_match?(current_parts, href_parts)
+    end
   end
 
   defp hierarchical_match?(current_parts, href_parts) do
