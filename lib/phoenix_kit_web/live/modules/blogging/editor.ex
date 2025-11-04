@@ -30,6 +30,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   @impl true
+  def handle_params(%{"preview_token" => token} = params, uri, socket) do
+    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
+
+    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
+      {:ok, data} ->
+        socket =
+          socket
+          |> apply_preview_payload(data)
+          |> assign(:preview_token, token)
+          |> assign(:current_path, preview_editor_path(socket, data, token, params))
+          |> push_event("changes-status", %{has_changes: true})
+
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        handle_params(Map.delete(params, "preview_token"), uri, socket)
+    end
+  end
+
   def handle_params(%{"new" => "true"}, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Blogging.get_blog_mode(blog_slug)
@@ -251,26 +270,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            locale: socket.assigns.current_locale
          )
      )}
-  end
-
-  @impl true
-  def handle_params(%{"preview_token" => token} = params, _uri, socket) do
-    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
-
-    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
-      {:ok, data} ->
-        socket =
-          socket
-          |> apply_preview_payload(data)
-          |> assign(:preview_token, token)
-          |> assign(:current_path, preview_editor_path(socket, data, token, params))
-          |> push_event("changes-status", %{has_changes: true})
-
-        {:noreply, socket}
-
-      {:error, _reason} ->
-        handle_params(Map.delete(params, "preview_token"), _uri, socket)
-    end
   end
 
   def handle_event("attempt_cancel", _params, %{assigns: %{has_pending_changes: false}} = socket) do

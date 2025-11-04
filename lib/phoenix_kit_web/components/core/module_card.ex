@@ -60,6 +60,7 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
     doc: "Action buttons to display (right side of actions row)"
 
   slot :stats, doc: "Optional stats/configuration section (shown when enabled)"
+  slot :info, doc: "Optional informational content rendered between header and actions"
 
   def module_card(assigns) do
     ~H"""
@@ -87,6 +88,12 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
             </div>
           <% end %>
         </div>
+
+        <%= if @info != [] do %>
+          <div class="mt-4 bg-base-200/60 rounded-lg p-3 text-xs text-base-content/80 space-y-2">
+            {render_slot(@info)}
+          </div>
+        <% end %>
 
         <div class="divider my-2"></div>
 

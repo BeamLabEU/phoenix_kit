@@ -67,6 +67,19 @@
                   "Used for the URL and the directory where blog files are stored. Stick to lowercase letters, numbers, and hyphens."
                 )}
               </p>
+              <% slug_value = @form[:slug].value || "" %>
+              <% slug_sample = if slug_value == "", do: gettext("your-blog"), else: slug_value %>
+              <% url_prefix =
+                   PhoenixKit.Config.get_url_prefix()
+                   |> case do
+                     nil -> ""
+                     "/" -> ""
+                     prefix -> prefix
+                   end %>
+              <% timestamp_file_pattern = "priv/static/blogging/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>/<locale>.phk" %>
+              <% timestamp_url_pattern = "#{url_prefix}/:locale/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>" %>
+              <% slug_file_pattern = "priv/static/blogging/#{slug_sample}/<slug>/<locale>.phk" %>
+              <% slug_url_pattern = "#{url_prefix}/:locale/#{slug_sample}/:post_slug" %>
             </div>
 
             <div class="form-control">
@@ -91,6 +104,16 @@
                         "Organizes posts in date/time folders. Great for news, updates, and chronological feeds."
                       )}
                     </p>
+                    <div class="mt-2 space-y-1 text-xs text-base-content/70">
+                      <p>
+                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
+                        <code class="font-mono break-all">{timestamp_file_pattern}</code>
+                      </p>
+                      <p>
+                        <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+                        <code class="font-mono break-all">{timestamp_url_pattern}</code>
+                      </p>
+                    </div>
                   </div>
                 </label>
                 <label class="cursor-pointer flex items-start gap-3 rounded-lg border border-base-300/70 bg-base-200/40 px-4 py-3 hover:border-primary/60 transition">
@@ -108,6 +131,16 @@
                         "Uses semantic URLs and editable slugs. Ideal for documentation, guides, and evergreen content."
                       )}
                     </p>
+                    <div class="mt-2 space-y-1 text-xs text-base-content/70">
+                      <p>
+                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
+                        <code class="font-mono break-all">{slug_file_pattern}</code>
+                      </p>
+                      <p>
+                        <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+                        <code class="font-mono break-all">{slug_url_pattern}</code>
+                      </p>
+                    </div>
                   </div>
                 </label>
               </div>
@@ -146,16 +179,6 @@
           </div>
         </div>
 
-        <div class="card bg-base-100 shadow-sm border border-base-200">
-          <div class="card-body space-y-3">
-            <h3 class="text-lg font-semibold text-base-content">{gettext("Need guidance?")}</h3>
-            <p class="text-sm text-base-content/70">
-              {gettext(
-                "Timestamp mode mirrors legacy behavior, while slug mode gives you clean URLs and easier linking. Pick what fits the experience you want."
-              )}
-            </p>
-          </div>
-        </div>
       </aside>
     </div>
   </div>

@@ -457,7 +457,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   defp hierarchical_match?(current_parts, href_parts, nested?) do
-    not nested? and String.starts_with?(current_parts.base_path, href_parts.base_path <> "/")
+    cond do
+      nested? and String.contains?(href_parts.base_path, "/") ->
+        String.starts_with?(current_parts.base_path, href_parts.base_path <> "/")
+
+      not nested? ->
+        String.starts_with?(current_parts.base_path, href_parts.base_path <> "/")
+
+      true ->
+        false
+    end
   end
 
   # Check if paths match exactly
