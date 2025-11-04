@@ -219,7 +219,11 @@
         </div>
       </div>
       <%!-- Charts Section --%>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" id="email-charts-container" phx-hook="EmailCharts">
+      <div
+        class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
+        id="email-charts-container"
+        phx-hook="EmailCharts"
+      >
         <%!-- Delivery Trends Chart --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
@@ -229,7 +233,8 @@
               id="delivery-chart-container"
               data-chart-data={Jason.encode!(Map.get(@charts_data, :delivery_trend, %{}))}
             >
-              <canvas id="delivery-trend-chart" width="400" height="200" phx-update="ignore"></canvas>
+              <canvas id="delivery-trend-chart" width="400" height="200" phx-update="ignore">
+              </canvas>
             </div>
           </div>
         </div>
