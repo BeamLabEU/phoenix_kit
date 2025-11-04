@@ -53,11 +53,11 @@
             {gettext("Showing %{count} posts", count: length(@posts))}
           </span>
           <div class="flex gap-2">
-            <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
-              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
-            </button>
             <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
               <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
             </button>
           </div>
         </div>
@@ -217,7 +217,7 @@
                                   else: "Add #{lang_code}"
                               }
                             >
-                              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" />
+                              <.icon name="hero-plus" class="w-4 h-4 mr-1" />
                               <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
                             </button>
                           </div>
