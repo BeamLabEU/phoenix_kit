@@ -122,54 +122,66 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     blogs = list_blogs()
 
     case Enum.find(blogs, &(&1["slug"] == slug)) do
-      nil ->
-        {:error, :not_found}
+      nil -> {:error, :not_found}
+      blog -> process_blog_update(blog, blogs, params)
+    end
+  end
 
-      blog ->
-        name =
-          params
-          |> fetch_option(:name)
-          |> case do
-            nil -> blog["name"]
-            value -> String.trim(to_string(value || ""))
-          end
+  defp process_blog_update(blog, blogs, params) do
+    with {:ok, name} <- extract_and_validate_name(blog, params),
+         {:ok, sanitized_slug} <- extract_and_validate_slug(blog, params, name),
+         :ok <- check_slug_uniqueness(blog, blogs, sanitized_slug) do
+      apply_blog_update(blog, blogs, name, sanitized_slug)
+    end
+  end
 
-        if name == "" do
-          {:error, :invalid_name}
-        else
-          desired_slug =
-            params
-            |> fetch_option(:slug)
-            |> case do
-              nil -> blog["slug"]
-              value -> String.trim(to_string(value || ""))
-            end
+  defp extract_and_validate_name(blog, params) do
+    name =
+      params
+      |> fetch_option(:name)
+      |> case do
+        nil -> blog["name"]
+        value -> String.trim(to_string(value || ""))
+      end
 
-          sanitized_slug =
-            case slugify(desired_slug) do
-              "" -> slugify(name)
-              slug_value -> slug_value
-            end
+    if name == "", do: {:error, :invalid_name}, else: {:ok, name}
+  end
 
-          if sanitized_slug == "" do
-            {:error, :invalid_slug}
-          else
-            if sanitized_slug != blog["slug"] and
-                 Enum.any?(blogs, &(&1["slug"] == sanitized_slug)) do
-              {:error, :already_exists}
-            else
-              updated_blog =
-                blog
-                |> Map.put("name", name)
-                |> Map.put("slug", sanitized_slug)
+  defp extract_and_validate_slug(blog, params, name) do
+    desired_slug =
+      params
+      |> fetch_option(:slug)
+      |> case do
+        nil -> blog["slug"]
+        value -> String.trim(to_string(value || ""))
+      end
 
-              with :ok <- Storage.rename_blog_directory(blog["slug"], sanitized_slug),
-                   {:ok, _} <- persist_blog_update(blogs, blog["slug"], updated_blog) do
-                {:ok, updated_blog}
-              end
-            end
-          end
-        end
+    sanitized_slug =
+      case slugify(desired_slug) do
+        "" -> slugify(name)
+        slug_value -> slug_value
+      end
+
+    if sanitized_slug == "", do: {:error, :invalid_slug}, else: {:ok, sanitized_slug}
+  end
+
+  defp check_slug_uniqueness(blog, blogs, sanitized_slug) do
+    if sanitized_slug != blog["slug"] and Enum.any?(blogs, &(&1["slug"] == sanitized_slug)) do
+      {:error, :already_exists}
+    else
+      :ok
+    end
+  end
+
+  defp apply_blog_update(blog, blogs, name, sanitized_slug) do
+    updated_blog =
+      blog
+      |> Map.put("name", name)
+      |> Map.put("slug", sanitized_slug)
+
+    with :ok <- Storage.rename_blog_directory(blog["slug"], sanitized_slug),
+         {:ok, _} <- persist_blog_update(blogs, blog["slug"], updated_blog) do
+      {:ok, updated_blog}
     end
   end
 
