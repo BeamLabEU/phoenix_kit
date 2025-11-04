@@ -448,7 +448,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 
-    # For nested items, use only exact matching to prevent parent highlighting
+    # For nested items, use only exact and tab matching to prevent parent highlighting
     if nested do
       exact_match?(current_parts, href_parts) or tab_match?(current_parts, href_parts)
     else
