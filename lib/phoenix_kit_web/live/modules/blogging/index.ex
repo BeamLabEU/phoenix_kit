@@ -45,70 +45,77 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
 
   defp dashboard_snapshot(locale) do
     blogs = Blogging.list_blogs()
-
-    insights =
-      Enum.map(blogs, fn blog ->
-        posts = Blogging.list_posts(blog["slug"], locale)
-        status_counts = Enum.frequencies_by(posts, &Map.get(&1.metadata, :status, "draft"))
-
-        languages =
-          posts
-          |> Enum.flat_map(&(&1.available_languages || []))
-          |> Enum.uniq()
-          |> Enum.sort()
-
-        latest_published_at =
-          posts
-          |> Enum.map(&Map.get(&1.metadata, :published_at))
-          |> Enum.reduce(nil, fn value, acc ->
-            case parse_datetime(value) do
-              {:ok, dt} ->
-                case acc do
-                  nil -> dt
-                  current -> if DateTime.compare(dt, current) == :gt, do: dt, else: current
-                end
-
-              :error ->
-                acc
-            end
-          end)
-
-        %{
-          name: blog["name"],
-          slug: blog["slug"],
-          mode: Map.get(blog, "mode", "timestamp"),
-          posts_count: length(posts),
-          published_count: Map.get(status_counts, "published", 0),
-          draft_count: Map.get(status_counts, "draft", 0),
-          archived_count: Map.get(status_counts, "archived", 0),
-          languages: languages,
-          last_published_at: latest_published_at,
-          last_published_at_text: format_datetime(latest_published_at)
-        }
-      end)
-
-    summary =
-      Enum.reduce(
-        insights,
-        %{
-          total_blogs: length(blogs),
-          total_posts: 0,
-          published_posts: 0,
-          draft_posts: 0,
-          archived_posts: 0
-        },
-        fn insight, acc ->
-          %{
-            acc
-            | total_posts: acc.total_posts + insight.posts_count,
-              published_posts: acc.published_posts + insight.published_count,
-              draft_posts: acc.draft_posts + insight.draft_count,
-              archived_posts: acc.archived_posts + insight.archived_count
-          }
-        end
-      )
+    insights = Enum.map(blogs, &build_blog_insight(&1, locale))
+    summary = build_summary(blogs, insights)
 
     {blogs, insights, summary}
+  end
+
+  defp build_blog_insight(blog, locale) do
+    posts = Blogging.list_posts(blog["slug"], locale)
+    status_counts = Enum.frequencies_by(posts, &Map.get(&1.metadata, :status, "draft"))
+
+    languages =
+      posts
+      |> Enum.flat_map(&(&1.available_languages || []))
+      |> Enum.uniq()
+      |> Enum.sort()
+
+    latest_published_at = find_latest_published_at(posts)
+
+    %{
+      name: blog["name"],
+      slug: blog["slug"],
+      mode: Map.get(blog, "mode", "timestamp"),
+      posts_count: length(posts),
+      published_count: Map.get(status_counts, "published", 0),
+      draft_count: Map.get(status_counts, "draft", 0),
+      archived_count: Map.get(status_counts, "archived", 0),
+      languages: languages,
+      last_published_at: latest_published_at,
+      last_published_at_text: format_datetime(latest_published_at)
+    }
+  end
+
+  defp find_latest_published_at(posts) do
+    posts
+    |> Enum.map(&Map.get(&1.metadata, :published_at))
+    |> Enum.reduce(nil, &update_latest_datetime/2)
+  end
+
+  defp update_latest_datetime(value, acc) do
+    case parse_datetime(value) do
+      {:ok, dt} -> compare_and_select_latest(dt, acc)
+      :error -> acc
+    end
+  end
+
+  defp compare_and_select_latest(datetime, nil), do: datetime
+
+  defp compare_and_select_latest(datetime, current) do
+    if DateTime.compare(datetime, current) == :gt, do: datetime, else: current
+  end
+
+  defp build_summary(blogs, insights) do
+    Enum.reduce(
+      insights,
+      %{
+        total_blogs: length(blogs),
+        total_posts: 0,
+        published_posts: 0,
+        draft_posts: 0,
+        archived_posts: 0
+      },
+      fn insight, acc ->
+        %{
+          acc
+          | total_posts: acc.total_posts + insight.posts_count,
+            published_posts: acc.published_posts + insight.published_count,
+            draft_posts: acc.draft_posts + insight.draft_count,
+            archived_posts: acc.archived_posts + insight.archived_count
+        }
+      end
+    )
   end
 
   defp parse_datetime(nil), do: :error

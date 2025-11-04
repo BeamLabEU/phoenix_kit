@@ -154,7 +154,6 @@ defmodule PhoenixKitWeb.BlogHTML do
   defp url_prefix_segments do
     Config.get_url_prefix()
     |> case do
-      nil -> []
       "/" -> []
       prefix -> prefix |> String.trim("/") |> String.split("/", trim: true)
     end
