@@ -12,7 +12,8 @@ defmodule PhoenixKitWeb.BlogHTML do
   Builds the public URL for a blog listing page.
   """
   def blog_listing_path(language, blog_slug, params \\ []) do
-    base_path = build_public_path([language, blog_slug])
+    segments = if single_language_mode?(), do: [blog_slug], else: [language, blog_slug]
+    base_path = build_public_path(segments)
 
     case params do
       [] -> base_path
@@ -26,15 +27,18 @@ defmodule PhoenixKitWeb.BlogHTML do
   def build_post_url(blog_slug, post, language) do
     case post.mode do
       :slug ->
-        build_public_path([language, blog_slug, post.slug])
+        segments = if single_language_mode?(), do: [blog_slug, post.slug], else: [language, blog_slug, post.slug]
+        build_public_path(segments)
 
       :timestamp ->
         date = format_date_for_url(post.metadata.published_at)
         time = format_time_for_url(post.metadata.published_at)
-        build_public_path([language, blog_slug, date, time])
+        segments = if single_language_mode?(), do: [blog_slug, date, time], else: [language, blog_slug, date, time]
+        build_public_path(segments)
 
       _ ->
-        build_public_path([language, blog_slug, post.slug])
+        segments = if single_language_mode?(), do: [blog_slug, post.slug], else: [language, blog_slug, post.slug]
+        build_public_path(segments)
     end
   end
 
@@ -111,5 +115,17 @@ defmodule PhoenixKitWeb.BlogHTML do
       "/" -> []
       prefix -> prefix |> String.trim("/") |> String.split("/", trim: true)
     end
+  end
+
+  defp single_language_mode? do
+    enabled_count =
+      try do
+        PhoenixKit.Module.Languages.enabled_locale_codes()
+        |> length()
+      rescue
+        _ -> 1
+      end
+
+    enabled_count == 1
   end
 end
