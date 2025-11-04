@@ -95,6 +95,49 @@ defmodule PhoenixKitWeb.BlogHTML do
   def pluralize(1, singular, _plural), do: "1 #{singular}"
   def pluralize(count, _singular, plural), do: "#{count} #{plural}"
 
+  @doc """
+  Extracts and renders an excerpt from post content.
+  Returns content before <!-- more --> tag, or first paragraph if no tag.
+  Renders markdown and strips HTML tags for plain text display.
+  """
+  def extract_excerpt(content) when is_binary(content) do
+    excerpt_markdown =
+      cond do
+        # Check for <!-- more --> tag
+        String.contains?(content, "<!-- more -->") ->
+          content
+          |> String.split("<!-- more -->")
+          |> List.first()
+          |> String.trim()
+
+        # Otherwise, get first paragraph (content before first double newline)
+        true ->
+          content
+          |> String.split(~r/\n\s*\n/, parts: 2)
+          |> List.first()
+          |> String.trim()
+      end
+
+    # Render markdown to HTML
+    html = PhoenixKit.Blogging.Renderer.render_markdown(excerpt_markdown)
+
+    # Strip HTML tags to get plain text
+    html
+    |> Phoenix.HTML.raw()
+    |> Phoenix.HTML.safe_to_string()
+    |> strip_html_tags()
+    |> String.trim()
+  end
+
+  def extract_excerpt(_), do: ""
+
+  defp strip_html_tags(html) when is_binary(html) do
+    html
+    |> String.replace(~r/<[^>]*>/, " ")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+  end
+
   defp build_public_path(segments) do
     parts =
       url_prefix_segments() ++
