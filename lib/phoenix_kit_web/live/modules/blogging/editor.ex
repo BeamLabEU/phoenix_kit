@@ -30,6 +30,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   @impl true
+  def handle_params(%{"preview_token" => token} = params, uri, socket) do
+    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
+
+    case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
+      {:ok, data} ->
+        socket =
+          socket
+          |> apply_preview_payload(data)
+          |> assign(:preview_token, token)
+          |> assign(:current_path, preview_editor_path(socket, data, token, params))
+          |> push_event("changes-status", %{has_changes: true})
+
+        {:noreply, socket}
+
+      {:error, _reason} ->
+        handle_params(Map.delete(params, "preview_token"), uri, socket)
+    end
+  end
+
   def handle_params(%{"new" => "true"}, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Blogging.get_blog_mode(blog_slug)
@@ -61,7 +80,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     {:noreply, socket}
   end
 
-  def handle_params(%{"path" => path} = params, _uri, socket) do
+  def handle_params(%{"path" => path} = params, _uri, socket)
+      when not is_map_key(params, "preview_token") do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Blogging.get_blog_mode(blog_slug)
 
@@ -227,11 +247,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
   def handle_event("preview", _params, socket) do
+    preview_payload = build_preview_payload(socket)
+    endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
+    token = Phoenix.Token.sign(endpoint, "blog-preview", preview_payload, max_age: 300)
+
+    query_params =
+      %{"preview_token" => token}
+      |> maybe_put_preview_path(preview_payload.path)
+      |> maybe_put_preview_new_flag(preview_payload)
+
+    query_string =
+      case URI.encode_query(query_params) do
+        "" -> ""
+        encoded -> "?" <> encoded
+      end
+
     {:noreply,
      push_navigate(socket,
        to:
          Routes.path(
-           "/admin/blogging/#{socket.assigns.blog_slug}/preview?path=#{URI.encode(socket.assigns.post.path)}",
+           "/admin/blogging/#{socket.assigns.blog_slug}/preview#{query_string}",
            locale: socket.assigns.current_locale
          )
      )}
@@ -528,6 +563,247 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_published_at(_), do: ""
+
+  defp build_preview_payload(socket) do
+    form = socket.assigns.form || %{}
+    post = socket.assigns.post
+
+    metadata = %{
+      title: map_get_with_fallback(form, "title", metadata_value(post, :title), ""),
+      status: map_get_with_fallback(form, "status", metadata_value(post, :status), "draft"),
+      published_at:
+        map_get_with_fallback(
+          form,
+          "published_at",
+          metadata_value(post, :published_at),
+          ""
+        ),
+      slug: preview_slug(form, post)
+    }
+
+    %{
+      blog_slug: socket.assigns.blog_slug,
+      path: post.path,
+      mode: Map.get(post, :mode) || Map.get(post, "mode") || infer_mode(socket),
+      language: socket.assigns.current_language,
+      available_languages: post.available_languages || [],
+      metadata: metadata,
+      content: socket.assigns.content || "",
+      is_new_post:
+        Map.get(socket.assigns, :is_new_post, false) ||
+          is_nil(post.path)
+    }
+  end
+
+  defp maybe_put_preview_path(params, path) when is_binary(path) and path != "" do
+    Map.put(params, "path", path)
+  end
+
+  defp maybe_put_preview_path(params, _), do: params
+
+  defp maybe_put_preview_new_flag(params, %{is_new_post: true}) do
+    Map.put(params, "new", "true")
+  end
+
+  defp maybe_put_preview_new_flag(params, _), do: params
+
+  defp map_get_with_fallback(map, key, fallback, default) do
+    case Map.get(map, key) do
+      nil -> fallback || default
+      value -> value
+    end
+  end
+
+  defp preview_slug(form, post) do
+    form_slug =
+      form
+      |> Map.get("slug")
+      |> case do
+        nil -> nil
+        slug -> String.trim(to_string(slug))
+      end
+
+    cond do
+      form_slug && form_slug != "" ->
+        form_slug
+
+      Map.get(post, :slug) && post.slug != "" ->
+        post.slug
+
+      Map.get(post, "slug") && post["slug"] != "" ->
+        post["slug"]
+
+      metadata_value(post, :slug) ->
+        metadata_value(post, :slug)
+
+      metadata_value(post, "slug") ->
+        metadata_value(post, "slug")
+
+      true ->
+        ""
+    end
+  end
+
+  defp metadata_value(post, key) do
+    metadata = Map.get(post, :metadata) || %{}
+
+    cond do
+      is_atom(key) ->
+        Map.get(metadata, key) || Map.get(metadata, Atom.to_string(key))
+
+      is_binary(key) ->
+        Map.get(metadata, key) ||
+          try do
+            Map.get(metadata, String.to_existing_atom(key))
+          rescue
+            ArgumentError -> nil
+          end
+
+      true ->
+        nil
+    end
+  end
+
+  defp apply_preview_payload(socket, data) do
+    blog_slug = data[:blog_slug] || socket.assigns.blog_slug
+    mode = data[:mode] || :timestamp
+    language = data[:language] || socket.assigns.current_language || "en"
+    metadata = normalize_preview_metadata(data[:metadata] || %{}, mode)
+    {date, time} = derive_datetime_fields(mode, metadata[:published_at])
+    path = data[:path] || derive_preview_path(blog_slug, metadata[:slug], language, mode)
+    full_path = if path, do: Storage.absolute_path(path), else: nil
+    available_languages = data[:available_languages] || []
+
+    available_languages =
+      [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
+
+    post = %{
+      blog: blog_slug,
+      slug: metadata[:slug],
+      date: date,
+      time: time,
+      path: path,
+      full_path: full_path,
+      metadata: metadata,
+      content: data[:content] || "",
+      language: language,
+      available_languages: available_languages,
+      mode: mode
+    }
+
+    form =
+      %{
+        "title" => metadata[:title] || "",
+        "status" => metadata[:status] || "draft",
+        "published_at" => metadata[:published_at] || ""
+      }
+      |> maybe_put_form_slug(metadata[:slug], mode)
+      |> normalize_form()
+
+    socket
+    |> assign(:blog_mode, mode_to_string(mode))
+    |> assign(:blog_slug, blog_slug)
+    |> assign(:post, post)
+    |> assign(:form, form)
+    |> assign(:content, data[:content] || "")
+    |> assign(:current_language, language)
+    |> assign(:available_languages, post.available_languages)
+    |> assign(:all_enabled_languages, Storage.enabled_language_codes())
+    |> assign(:has_pending_changes, true)
+    |> assign(:is_new_post, data[:is_new_post] || false)
+    |> assign(:public_url, build_public_url(post, language))
+    |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
+  end
+
+  defp normalize_preview_metadata(metadata, mode) do
+    metadata_map =
+      Enum.reduce(metadata, %{}, fn
+        {key, value}, acc when key in [:title, :status, :published_at, :slug] ->
+          Map.put(acc, key, value)
+
+        {"title", value}, acc ->
+          Map.put(acc, :title, value)
+
+        {"status", value}, acc ->
+          Map.put(acc, :status, value)
+
+        {"published_at", value}, acc ->
+          Map.put(acc, :published_at, value)
+
+        {"slug", value}, acc ->
+          Map.put(acc, :slug, value)
+
+        _, acc ->
+          acc
+      end)
+
+    defaults =
+      case mode do
+        :slug -> %{title: "", status: "draft", published_at: "", slug: ""}
+        _ -> %{title: "", status: "draft", published_at: "", slug: nil}
+      end
+
+    Map.merge(defaults, metadata_map)
+  end
+
+  defp derive_datetime_fields(:timestamp, published_at) do
+    with value when is_binary(value) and value != "" <- published_at,
+         {:ok, dt, _offset} <- DateTime.from_iso8601(value) do
+      floored = floor_datetime_to_minute(dt)
+
+      {DateTime.to_date(floored), DateTime.to_time(floored)}
+    else
+      _ -> {nil, nil}
+    end
+  end
+
+  defp derive_datetime_fields(_, _), do: {nil, nil}
+
+  defp derive_preview_path(_blog_slug, _slug, _language, :timestamp), do: nil
+
+  defp derive_preview_path(blog_slug, slug, language, :slug)
+       when is_binary(slug) and slug != "" do
+    Path.join([blog_slug, slug, "#{language}.phk"])
+  end
+
+  defp derive_preview_path(_, _, _, _), do: nil
+
+  defp maybe_put_form_slug(form, slug, :slug) do
+    Map.put(form, "slug", slug || "")
+  end
+
+  defp maybe_put_form_slug(form, _slug, _mode), do: form
+
+  defp mode_to_string(:slug), do: "slug"
+  defp mode_to_string(_), do: "timestamp"
+
+  defp preview_editor_path(socket, data, token, params) do
+    blog_slug = data[:blog_slug] || socket.assigns.blog_slug
+
+    query_params =
+      %{}
+      |> maybe_put_preview_path(Map.get(params, "path") || data[:path])
+      |> maybe_put_preview_new_flag(%{is_new_post: data[:is_new_post] || false})
+      |> Map.put("preview_token", token)
+
+    query =
+      case URI.encode_query(query_params) do
+        "" -> ""
+        encoded -> "?" <> encoded
+      end
+
+    Routes.path("/admin/blogging/#{blog_slug}/edit#{query}",
+      locale: socket.assigns.current_locale
+    )
+  end
+
+  defp infer_mode(socket) do
+    case socket.assigns[:blog_mode] do
+      "slug" -> :slug
+      :slug -> :slug
+      _ -> :timestamp
+    end
+  end
 
   defp build_virtual_post(blog_slug, "slug", primary_language, now) do
     %{

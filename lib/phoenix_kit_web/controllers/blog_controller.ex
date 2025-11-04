@@ -57,6 +57,37 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
+  # Single-language mode (no :language parameter in URL)
+  def show(conn, params) do
+    # Default to first enabled language or "en"
+    language = get_default_language()
+    conn = assign(conn, :current_language, language)
+
+    if Blogging.enabled?() and public_enabled?() do
+      case build_segments(params) do
+        [] ->
+          handle_not_found(conn, :invalid_path)
+
+        segments ->
+          case parse_path(segments) do
+            {:listing, blog_slug} ->
+              render_blog_listing(conn, blog_slug, language, conn.params)
+
+            {:slug_post, blog_slug, post_slug} ->
+              render_post(conn, blog_slug, {:slug, post_slug}, language)
+
+            {:timestamp_post, blog_slug, date, time} ->
+              render_post(conn, blog_slug, {:timestamp, date, time}, language)
+
+            {:error, reason} ->
+              handle_not_found(conn, reason)
+          end
+      end
+    else
+      handle_not_found(conn, :module_disabled)
+    end
+  end
+
   # ============================================================================
   # Path Parsing
   # ============================================================================
@@ -221,11 +252,23 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_translation_links(blog_slug, post, current_language) do
+    # Get enabled languages
+    enabled_languages =
+      try do
+        Languages.enabled_locale_codes()
+      rescue
+        _ -> ["en"]
+      end
+
+    # Filter available languages to only show enabled ones
     languages =
       if Enum.empty?(post.available_languages) do
         [current_language]
       else
-        post.available_languages
+        # Only show translations that are both available AND enabled
+        Enum.filter(post.available_languages, fn lang ->
+          lang in enabled_languages
+        end)
       end
 
     Enum.map(languages, fn lang ->

@@ -6,34 +6,29 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-8">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-      <div class="space-y-2">
-        <p class="text-sm uppercase tracking-wide text-base-content/60">
-          {gettext("Blogging Module")}
-        </p>
-        <h1 class="text-3xl font-bold text-base-content">{gettext("Content Overview")}</h1>
-        <p class="text-base text-base-content/60 max-w-2xl">
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/dashboard", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Content Overview")}</h1>
+        <p class="text-lg text-base-content">
           {gettext(
             "Monitor publishing activity, jump into blog workspaces, and guide your team toward new content opportunities."
           )}
         </p>
       </div>
-      <div class="flex flex-wrap gap-3">
-        <.link
-          navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
-          class="btn btn-primary btn-sm"
-        >
-          <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
-        </.link>
-        <.link
-          navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
-          class="btn btn-outline btn-sm"
-        >
-          <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogs")}
-        </.link>
-      </div>
-    </div>
+    </header>
+
+    <div class="space-y-8">
 
     <%= if @empty_state? do %>
       <div class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
@@ -52,7 +47,7 @@
               navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
               class="btn btn-primary btn-sm"
             >
-              <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
             </.link>
             <.link
               navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
@@ -96,61 +91,79 @@
 
       <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <%= for insight <- @dashboard_insights do %>
-          <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition">
-            <div class="card-body space-y-4">
+          <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition h-full">
+            <div class="card-body space-y-4 h-full flex flex-col">
               <div class="flex items-start justify-between gap-3">
                 <div class="space-y-2">
                   <h3 class="text-xl font-semibold text-base-content">{insight.name}</h3>
                   <p class="text-xs text-base-content/60">
                     {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
                   </p>
-                  <%= if insight.last_published_at_text do %>
-                    <p class="text-xs text-base-content/60">
-                      {gettext("Last published")} {insight.last_published_at_text}
-                    </p>
-                  <% end %>
+                  <p class="text-xs text-base-content/60">
+                    <span class="whitespace-nowrap">{gettext("Last published")}: </span>
+                    <%= if insight.last_published_at_text do %>
+                      <span class="whitespace-nowrap">{insight.last_published_at_text}</span>
+                    <% else %>
+                      {gettext("No published posts yet")}
+                    <% end %>
+                  </p>
                 </div>
                 <span class={[
-                  "badge badge-sm uppercase",
+                  "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
                   if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
                 ]}>
-                  {insight.mode}
+                  <%= if insight.mode == "slug" do %>
+                    {gettext("Slug-based")}
+                  <% else %>
+                    {gettext("Timestamp-based")}
+                  <% end %>
                 </span>
               </div>
 
               <div class="grid grid-cols-3 gap-3">
                 <div class="rounded-lg bg-base-200/60 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-base-content/60">
+                  <p class="text-xs uppercase tracking-wide text-base-content/60 min-h-[1.25rem] flex items-center justify-center">
                     {gettext("Posts")}
                   </p>
                   <p class="font-semibold text-base-content">{insight.posts_count}</p>
                 </div>
                 <div class="rounded-lg bg-success/10 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-success">
+                  <p class="text-xs uppercase tracking-wide text-success min-h-[1.25rem] flex items-center justify-center">
                     {gettext("Published")}
                   </p>
                   <p class="font-semibold text-success">{insight.published_count}</p>
                 </div>
                 <div class="rounded-lg bg-warning/10 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-warning">{gettext("Drafts")}</p>
+                  <p class="text-xs uppercase tracking-wide text-warning min-h-[1.25rem] flex items-center justify-center">
+                    {gettext("Drafts")}
+                  </p>
                   <p class="font-semibold text-warning">{insight.draft_count}</p>
                 </div>
               </div>
 
-              <%= if insight.languages != [] do %>
-                <div class="flex flex-wrap gap-2">
-                  <span class="text-xs font-medium uppercase text-base-content/60">
-                    {gettext("Languages")}:
-                  </span>
-                  <%= for language <- insight.languages do %>
-                    <span class="badge badge-ghost badge-sm px-2 py-1">
-                      {String.upcase(language)}
+              <div class="min-h-[2rem]">
+                <%= if insight.languages != [] do %>
+                  <div class="flex flex-wrap gap-2">
+                    <span class="text-xs font-medium uppercase text-base-content/60">
+                      {gettext("Languages")}:
                     </span>
-                  <% end %>
-                </div>
-              <% end %>
+                    <%= for language <- insight.languages do %>
+                      <span class="badge badge-ghost badge-sm px-2 py-1">
+                        {String.upcase(language)}
+                      </span>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <p class="text-xs text-base-content/60">
+                    {gettext("Languages")}:
+                    <span class="badge badge-ghost badge-sm px-2 py-1 uppercase">
+                      {gettext("N/A")}
+                    </span>
+                  </p>
+                <% end %>
+              </div>
 
-              <div class="flex flex-wrap gap-3">
+              <div class="flex gap-2 mt-auto">
                 <.link
                   navigate={
                     Routes.path("/admin/blogging/#{insight.slug}", locale: @current_locale)
@@ -158,20 +171,40 @@
                   class="btn btn-outline btn-sm"
                 >
                   <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" />
-                  {gettext("Open Admin")}
+                  {gettext("Admin")}
                 </.link>
                 <.link
                   navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
-                  class="btn btn-ghost btn-sm"
+                  class="btn btn-outline btn-sm"
                 >
                   <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
                   {gettext("Settings")}
                 </.link>
+                <% blog_slug = insight.slug %>
+                <% url_prefix =
+                  PhoenixKit.Config.get_url_prefix()
+                  |> case do
+                    nil -> ""
+                    "/" -> ""
+                    prefix -> prefix
+                  end %>
+                <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+                <a
+                  href={public_url}
+                  target="_blank"
+                  rel="noopener"
+                  class="btn btn-outline btn-sm"
+                  aria-label={gettext("View public blog")}
+                >
+                  <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" />
+                  {gettext("View")}
+                </a>
               </div>
             </div>
           </div>
         <% end %>
       </div>
     <% end %>
+    </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

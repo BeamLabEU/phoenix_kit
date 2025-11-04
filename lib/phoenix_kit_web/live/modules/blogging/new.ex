@@ -131,6 +131,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
       {:error, :invalid_mode} ->
         {:noreply, put_flash(socket, :error, gettext("Invalid storage mode"))}
 
+      {:error, :invalid_slug} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-blog-name)"
+           )
+         )}
+
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to add blog"))}
     end

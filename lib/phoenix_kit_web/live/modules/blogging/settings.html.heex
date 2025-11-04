@@ -6,64 +6,47 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-6">
-    <div class="flex items-center justify-between">
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
-        class="btn btn-outline btn-sm"
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" />
-        {gettext("Back to Settings")}
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
       </.link>
-      <div class="text-right">
-        <p class="text-sm text-base-content/70">{gettext("Project")}</p>
-        <p class="text-lg font-semibold">{@project_title}</p>
-      </div>
-    </div>
 
-    <header class="text-center space-y-2">
-      <p class="text-sm uppercase tracking-wide text-base-content/60">
-        {gettext("Blogging Module")}
-      </p>
-      <h1 class="text-4xl font-bold text-base-content">{gettext("Manage Blogs")}</h1>
-      <p class="text-base text-base-content/70 max-w-2xl mx-auto">
-        {gettext(
-          "Create dedicated blogs your team can publish to. Each blog appears as its own tab in the blogging workspace."
-        )}
-      </p>
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Blogging Settings")}</h1>
+        <p class="text-lg text-base-content">
+          {gettext(
+            "Create dedicated blogs your team can publish to. Each blog appears as its own tab in the blogging workspace."
+          )}
+        </p>
+      </div>
     </header>
 
-    <div class="grid gap-6 lg:grid-cols-3">
-      <div class="card bg-base-100 shadow-xl border border-base-200 lg:col-span-2">
+    <div class="max-w-2xl mx-auto space-y-6">
+      <%!-- Blogs Section --%>
+      <div class="card bg-base-100 shadow-xl border border-base-200">
         <div class="card-body space-y-6">
-          <div class="space-y-2">
-            <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogs")}</h2>
-            <p class="text-sm text-base-content/70">
-              {gettext(
-                "Create dedicated blogs like Product Updates, Release Notes, or Company News. Each blog stores its content in structured folders on disk."
-              )}
-            </p>
-          </div>
-
-          <div class="rounded-lg border border-dashed border-base-300 bg-base-100/40 p-6">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div class="space-y-1">
-                <h3 class="text-lg font-semibold text-base-content">
-                  {gettext("Ready to add a new blog?")}
-                </h3>
-                <p class="text-sm text-base-content/70">
-                  {gettext(
-                    "Pick a name, choose your storage mode, and configure details in the dedicated creation flow."
-                  )}
-                </p>
-              </div>
-              <.link
-                navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
-                class="btn btn-primary btn-sm self-start sm:self-center"
-              >
-                <.icon name="hero-plus-circle" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
-              </.link>
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogs")}</h2>
+              <p class="text-sm text-base-content/70">
+                {gettext(
+                  "Create dedicated blogs like Product Updates, Release Notes, or Company News. Each blog stores its content in structured folders on disk."
+                )}
+              </p>
             </div>
+            <.link
+              navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+              class="btn btn-primary btn-sm whitespace-nowrap"
+            >
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+            </.link>
           </div>
 
           <%= if @blogs == [] do %>
@@ -81,53 +64,69 @@
               <%= for blog <- @blogs do %>
                 <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
-                    <div class="flex items-center gap-2">
-                      <p class="text-base font-semibold text-base-content">{blog["name"]}</p>
+                    <p class="flex items-center gap-2 text-base font-semibold text-base-content">
+                      <span>{blog["name"]}</span>
                       <span class={[
-                        "badge badge-sm uppercase",
+                        "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
                         if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
                       ]}>
-                        {blog["mode"] || "timestamp"}
+                        <%= if blog["mode"] == "slug" do %>
+                          {gettext("Slug-based")}
+                        <% else %>
+                          {gettext("Timestamp-based")}
+                        <% end %>
                       </span>
-                    </div>
+                    </p>
                     <p class="text-xs text-base-content/60">
-                      {gettext("Slug")}: <code class="font-mono">{blog["slug"]}</code>
+                      {gettext("Slug")}: <code class="font-mono break-all">{blog["slug"]}</code>
+                    </p>
+                    <% blog_mode = blog["mode"] || "timestamp" %>
+                    <% blog_path =
+                      if blog_mode == "slug" do
+                        "priv/static/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
+                      else
+                        "priv/static/blogging/" <>
+                          blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
+                      end %>
+                    <p class="text-xs text-base-content/50">
+                      {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
                     </p>
                   </div>
-                  <div class="flex flex-wrap gap-2">
+                  <div class="flex items-center gap-2">
                     <.link
+                      aria-label={gettext("Open Admin")}
                       navigate={
                         Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
                       }
-                      class="btn btn-outline btn-sm"
+                      class="btn btn-outline btn-sm btn-square"
                     >
-                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> {gettext(
-                        "Open Admin"
-                      )}
+                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
                     </.link>
                     <.link
+                      aria-label={gettext("Edit")}
                       navigate={
                         Routes.path(
                           "/admin/settings/blogging/#{blog["slug"]}/edit",
                           locale: @current_locale
                         )
                       }
-                      class="btn btn-ghost btn-sm"
+                      class="btn btn-outline btn-sm btn-square"
                     >
-                      <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" /> {gettext("Edit")}
+                      <.icon name="hero-pencil-square" class="w-4 h-4" />
                     </.link>
                     <button
                       type="button"
+                      aria-label={gettext("Delete")}
                       phx-click="remove_blog"
                       phx-value-slug={blog["slug"]}
-                      class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-error-content"
+                      class="btn btn-sm btn-square btn-outline text-error hover:bg-error hover:text-error-content"
                       data-confirm={
                         gettext(
                           "Move this blog to trash? The directory will be renamed with a timestamp."
                         )
                       }
                     >
-                      <.icon name="hero-trash" class="w-4 h-4 mr-1" /> {gettext("Delete")}
+                      <.icon name="hero-trash" class="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -136,28 +135,6 @@
           <% end %>
         </div>
       </div>
-
-      <aside class="card bg-base-100 shadow-xl border border-base-200">
-        <div class="card-body space-y-4">
-          <h3 class="text-xl font-semibold text-base-content">{gettext("How it works")}</h3>
-          <ul class="text-sm text-base-content/70 space-y-3">
-            <li>• {gettext("Each blog becomes a dedicated publishing workspace.")}</li>
-            <li>
-              • {gettext("Posts are organized by date & time with multi-language support.")}
-            </li>
-            <li>
-              • {gettext(
-                "Files live under priv/static/blogging for easy versioning and deployment."
-              )}
-            </li>
-            <li>
-              • {gettext(
-                "Language variants are automatically created based on enabled languages."
-              )}
-            </li>
-          </ul>
-        </div>
-      </aside>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -79,7 +79,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
       {:error, :invalid_slug} ->
         {:noreply,
          socket
-         |> put_flash(:error, gettext("Please provide a valid slug."))
+         |> put_flash(
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-blog-name)"
+           )
+         )
          |> assign(:form, Component.to_form(params, as: :blog))}
 
       {:error, :destination_exists} ->

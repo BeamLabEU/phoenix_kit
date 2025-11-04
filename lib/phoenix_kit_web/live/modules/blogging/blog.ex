@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 

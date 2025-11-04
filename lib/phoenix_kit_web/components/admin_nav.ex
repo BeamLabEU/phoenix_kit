@@ -33,14 +33,14 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         mobile={true}
       />
   """
-  attr :href, :string, required: true
-  attr :icon, :string, required: true
-  attr :label, :string, required: true
-  attr :description, :string, default: nil
-  attr :current_path, :string, required: true
-  attr :mobile, :boolean, default: false
-  attr :nested, :boolean, default: false
-  attr :disable_active, :boolean, default: false
+  attr(:href, :string, required: true)
+  attr(:icon, :string, required: true)
+  attr(:label, :string, required: true)
+  attr(:description, :string, default: nil)
+  attr(:current_path, :string, required: true)
+  attr(:mobile, :boolean, default: false)
+  attr(:nested, :boolean, default: false)
+  attr(:disable_active, :boolean, default: false)
 
   def admin_nav_item(assigns) do
     active =
@@ -86,8 +86,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   @doc """
   Renders an icon for admin navigation items.
   """
-  attr :icon, :string, required: true
-  attr :active, :boolean, default: false
+  attr(:icon, :string, required: true)
+  attr(:active, :boolean, default: false)
 
   def admin_nav_icon(assigns) do
     ~H"""
@@ -130,7 +130,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   Renders theme controller for admin panel.
   Based on EZNews theme system with DaisyUI integration.
   """
-  attr :mobile, :boolean, default: false
+  attr(:mobile, :boolean, default: false)
 
   def admin_theme_controller(assigns) do
     assigns =
@@ -206,8 +206,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   Renders language dropdown for top bar navigation.
   Shows globe icon with dropdown menu for language selection.
   """
-  attr :current_path, :string, default: ""
-  attr :current_locale, :string, default: "en"
+  attr(:current_path, :string, default: "")
+  attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
     # Only show if languages are enabled and there are enabled languages
@@ -270,9 +270,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   Renders user dropdown for top bar navigation.
   Shows user avatar with dropdown menu containing email, role, settings and logout.
   """
-  attr :scope, :any, default: nil
-  attr :current_path, :string, default: ""
-  attr :current_locale, :string, default: "en"
+  attr(:scope, :any, default: nil)
+  attr(:current_path, :string, default: "")
+  attr(:current_locale, :string, default: "en")
 
   def admin_user_dropdown(assigns) do
     ~H"""
@@ -386,7 +386,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   Renders user information section for admin panel sidebar.
   Shows current user email and role information.
   """
-  attr :scope, :any, default: nil
+  attr(:scope, :any, default: nil)
 
   def admin_user_info(assigns) do
     ~H"""
