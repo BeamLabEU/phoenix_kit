@@ -514,17 +514,40 @@ defmodule PhoenixKitWeb.Integration do
 
   defp generate_blog_routes(url_prefix) do
     quote do
-      blog_scope =
-        case unquote(url_prefix) do
-          "/" -> "/:language"
-          prefix -> "#{prefix}/:language"
+      # Determine if we're in single-language mode
+      enabled_locales =
+        try do
+          PhoenixKit.Module.Languages.enabled_locale_codes()
+        rescue
+          _ -> ["en"]
         end
 
-      scope blog_scope, PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+      single_language_mode = length(enabled_locales) == 1
 
-        get "/:blog", BlogController, :show
-        get "/:blog/*path", BlogController, :show
+      if single_language_mode do
+        # Single-language routes (without :language parameter)
+        blog_scope_single = unquote(url_prefix)
+
+        scope blog_scope_single, PhoenixKitWeb do
+          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+          get "/:blog", BlogController, :show
+          get "/:blog/*path", BlogController, :show
+        end
+      else
+        # Multi-language routes (with :language parameter)
+        blog_scope_multi =
+          case unquote(url_prefix) do
+            "/" -> "/:language"
+            prefix -> "#{prefix}/:language"
+          end
+
+        scope blog_scope_multi, PhoenixKitWeb do
+          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+          get "/:blog", BlogController, :show
+          get "/:blog/*path", BlogController, :show
+        end
       end
     end
   end

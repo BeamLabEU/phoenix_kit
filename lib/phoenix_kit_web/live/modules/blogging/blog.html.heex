@@ -103,7 +103,10 @@
                     <% all_languages =
                       (post.available_languages ++ @enabled_languages)
                       |> Enum.uniq()
-                      |> Enum.sort() %>
+                      |> Enum.sort()
+
+                    # Only hide flags if: single language enabled AND post has only 1 language file
+                    hide_flags = length(@enabled_languages) == 1 and length(post.available_languages) == 1 %>
                     <%= for lang_code <- all_languages do %>
                       <% lang_path =
                         Path.join([
@@ -195,7 +198,11 @@
                             }
                           >
                             <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" />
-                            <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                            <%= if hide_flags do %>
+                              {gettext("Edit")}
+                            <% else %>
+                              <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                            <% end %>
                           </.link>
                         </div>
                       <% else %>
