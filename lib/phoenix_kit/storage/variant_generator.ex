@@ -27,7 +27,6 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   """
 
   alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.Manager
 
   require Logger
@@ -133,7 +132,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
                    generate_variants: false,
                    path_prefix: variant_storage_path
                  ) do
-              {:ok, storage_info} ->
+              {:ok, _storage_info} ->
                 Logger.info("Variant #{variant_name} stored successfully in buckets")
                 # Clean up temp files
                 File.rm(original_path)
@@ -229,16 +228,6 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       variants = Enum.map(successful, fn {:ok, variant} -> variant end)
       {:ok, variants}
     end
-  end
-
-  defp generate_variant_filename(original_filename, variant_name, format_override) do
-    # Extract base name without extension
-    base_name = Path.rootname(original_filename)
-
-    # Determine format
-    format = format_override || Path.extname(original_filename) |> String.trim_leading(".")
-
-    "#{base_name}-#{variant_name}.#{format}"
   end
 
   defp determine_variant_mime_type(original_mime, format_override) do
@@ -367,60 +356,17 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       {_output, 0} ->
         # Get video dimensions
         case get_video_dimensions(output_path) do
-          {:ok, {width, height}} ->
+          {:ok, {_width, _height}} ->
             # Dimensions will be calculated later when creating instance
             {:ok, output_path}
 
-          error ->
-            error
+          {:error, reason} ->
+            {:error, reason}
         end
 
       {output, exit_code} ->
         {:error, "FFmpeg failed with exit code #{exit_code}: #{output}"}
     end
-  end
-
-  defp build_imagemagick_args(input_path, output_path, dimension) do
-    args = [input_path]
-
-    # Handle resizing
-    args =
-      case {dimension.width, dimension.height} do
-        {width, height} when width != nil and height != nil ->
-          # Both dimensions specified
-          args ++ ["-resize", "#{width}x#{height}"]
-
-        {width, nil} when width != nil ->
-          # Only width specified, maintain aspect ratio
-          args ++ ["-resize", "#{width}"]
-
-        {nil, height} when height != nil ->
-          # Only height specified, maintain aspect ratio
-          args ++ ["-resize", "x#{height}"]
-
-        _ ->
-          # No dimensions, use original size
-          args
-      end
-
-    # Handle quality
-    args =
-      if dimension.quality do
-        quality = convert_image_quality(dimension.quality)
-        args ++ ["-quality", quality]
-      else
-        args
-      end
-
-    # Handle thumbnail (square crop)
-    args =
-      if dimension.name == "thumbnail" do
-        args ++ ["-thumbnail", "150x150^", "-gravity", "center", "-extent", "150x150"]
-      else
-        args
-      end
-
-    args ++ [output_path]
   end
 
   defp build_ffmpeg_args(input_path, output_path, dimension) do
@@ -462,33 +408,11 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     args ++ [output_path]
   end
 
-  defp convert_image_quality(quality) when is_integer(quality) do
-    # ImageMagick uses 1-100 for quality
-    Integer.to_string(quality)
-  end
-
-  defp convert_vix_quality(quality) when is_integer(quality) do
-    # Vix uses Q value (1-100, lower = higher compression)
-    quality
-  end
-
   defp convert_video_quality(quality) when is_integer(quality) do
     # FFmpeg CRF uses 0-51 (lower = higher quality)
     # Map image quality (1-100) to CRF (51-0)
     crf = 51 - trunc(quality / 100 * 51)
     Integer.to_string(crf)
-  end
-
-  defp get_image_dimensions(image_path) do
-    case Vix.Vips.Image.new_from_file(image_path) do
-      {:ok, image} ->
-        width = Vix.Vips.Image.width(image)
-        height = Vix.Vips.Image.height(image)
-        {width, height}
-
-      {:error, reason} ->
-        {:error, "Failed to identify image: #{inspect(reason)}"}
-    end
   end
 
   defp get_video_dimensions(video_path) do
@@ -506,7 +430,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       {dimensions, 0} ->
         case String.split(String.trim(dimensions), ",") do
           [width, height] ->
-            {String.to_integer(width), String.to_integer(height)}
+            {:ok, {String.to_integer(width), String.to_integer(height)}}
 
           _ ->
             {:error, "Invalid dimension format"}
@@ -514,24 +438,6 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
       {output, exit_code} ->
         {:error, "Failed to probe video: #{output} (exit code: #{exit_code})"}
-    end
-  end
-
-  defp update_instance_with_file_info(instance, file_path, {width, height}) do
-    Storage.update_instance_with_file_info(instance, file_path, {width, height})
-  end
-
-  defp store_variant_file(variant_path, instance) do
-    case Manager.store_file(variant_path, []) do
-      {:ok, _storage_info} ->
-        # Mark instance as completed
-        Storage.update_instance_status(instance, "completed")
-        {:ok, instance}
-
-      {:error, reason} ->
-        # Mark instance as failed
-        Storage.update_instance_status(instance, "failed")
-        {:error, reason}
     end
   end
 

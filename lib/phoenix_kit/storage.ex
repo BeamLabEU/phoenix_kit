@@ -20,7 +20,6 @@ defmodule PhoenixKit.Storage do
 
   alias PhoenixKit.Storage.Bucket
   alias PhoenixKit.Storage.Dimension
-  alias PhoenixKit.Storage.File
 
   # ===== BUCKETS =====
 
@@ -789,7 +788,7 @@ defmodule PhoenixKit.Storage do
         original_path = "#{file_path}/#{md5_hash}_original.#{ext}"
 
         case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: original_path) do
-          {:ok, storage_info} ->
+          {:ok, _storage_info} ->
             # Create file instance for original
             original_instance_attrs = %{
               variant_name: "original",
@@ -873,7 +872,7 @@ defmodule PhoenixKit.Storage do
 
   defp calculate_local_free_space(bucket) do
     try do
-      case :disksup.get_disk_info() do
+      case apply(:disksup, :get_disk_info, []) do
         [{_device, total_kb, available_kb}] ->
           total_mb = total_kb / 1024
           available_mb = available_kb / 1024

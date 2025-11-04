@@ -114,14 +114,4 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.Dimensions do
   end
 
   defp format_dimension_size(_, _), do: "Auto"
-
-  defp applies_to_badge("image"), do: "badge-info"
-  defp applies_to_badge("video"), do: "badge-warning"
-  defp applies_to_badge("both"), do: "badge-success"
-  defp applies_to_badge(_), do: "badge-neutral"
-
-  defp applies_to_text("image"), do: "Images"
-  defp applies_to_text("video"), do: "Videos"
-  defp applies_to_text("both"), do: "Both"
-  defp applies_to_text(_), do: "Unknown"
 end

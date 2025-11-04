@@ -306,7 +306,7 @@
             <.icon name="hero-check" class="w-4 h-4 mr-2" /> Apply Changes
           </button>
           <span class="label-text-alt text-xs ml-2">
-            <% if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants do %>
+            <%= if @form_redundancy == @redundancy_copies and @form_auto_generate_variants == @auto_generate_variants do %>
               No changes to apply
             <% else %>
               Changes will be saved immediately

@@ -13,7 +13,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
 
   def mount(params, _session, socket) do
     dimension_id = params["id"]
-    action = socket.assigns[:live_action]
+    _action = socket.assigns[:live_action]
 
     mode = if dimension_id, do: :edit, else: :new
 
@@ -136,12 +136,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
     |> assign(:form_action, "Update Dimension")
   end
 
-  defp page_title(:new), do: "Add Storage Dimension"
-  defp page_title(:edit), do: "Edit Storage Dimension"
-
   defp page_title_with_type(:new, "image"), do: "Add Image Dimension"
   defp page_title_with_type(:new, "video"), do: "Add Video Dimension"
-  defp page_title_with_type(:edit, _), do: "Edit Storage Dimension"
   defp page_title_with_type(:new, _), do: "Add Storage Dimension"
 
   # Helper function for input validation styling

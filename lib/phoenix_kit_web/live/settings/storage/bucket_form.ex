@@ -195,55 +195,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     {:noreply, socket}
   end
 
-  # Validates and creates local path before save
-  # Returns {:ok, bucket_params, flash_socket} if successful
-  # Returns {:error, error_message} if failed
-  defp validate_local_path_before_save(_socket, bucket_params) do
-    provider = Map.get(bucket_params, "provider")
-
-    # Only validate for local buckets
-    if provider == "local" do
-      endpoint = Map.get(bucket_params, "endpoint")
-
-      if endpoint do
-        case Storage.validate_and_normalize_path(endpoint) do
-          {:ok, _relative_path} ->
-            # Path exists, proceed with save
-            {:ok, bucket_params, nil}
-
-          {:error, :does_not_exist, expanded_path} ->
-            # Path doesn't exist, try to create it
-            case Storage.create_directory(expanded_path) do
-              {:ok, _} ->
-                # Directory created, return info flash message
-                flash_socket =
-                  _socket
-                  |> put_flash(:info, "Storage path created: #{expanded_path}")
-
-                {:ok, bucket_params, flash_socket}
-
-              {:error, reason} ->
-                # Failed to create, return error message
-                error_msg =
-                  "Storage path could not be created: #{inspect(reason)}. Please create it manually."
-
-                {:error, error_msg}
-            end
-
-          {:error, :invalid_path} ->
-            # Invalid path format, return error message
-            {:error, "Invalid storage path format. Please check the path and try again."}
-        end
-      else
-        # No endpoint provided, will be handled by changeset validation
-        {:ok, bucket_params, nil}
-      end
-    else
-      # Not a local bucket, proceed with save
-      {:ok, bucket_params, nil}
-    end
-  end
-
   defp create_bucket(socket, bucket_params) do
     case Storage.create_bucket(bucket_params) do
       {:ok, _bucket} ->
@@ -307,48 +258,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       "input-error"
     else
       ""
-    end
-  end
-
-  # Helper function to validate and create local path
-  defp validate_and_create_local_path(changeset, original_bucket, bucket_params) do
-    endpoint = Map.get(bucket_params, "endpoint")
-    original_endpoint = original_bucket.endpoint
-
-    # Only validate if endpoint changed
-    if endpoint && endpoint != original_endpoint do
-      case Storage.validate_and_normalize_path(endpoint) do
-        {:ok, _relative_path} ->
-          # Path exists, no need to create
-          changeset
-
-        {:error, :does_not_exist, expanded_path} ->
-          # Path doesn't exist, try to create it
-          case Storage.create_directory(expanded_path) do
-            {:ok, _} ->
-              # Directory created successfully, add a success message
-              changeset
-
-            {:error, reason} ->
-              # Failed to create directory, add error to changeset
-              Ecto.Changeset.add_error(
-                changeset,
-                :endpoint,
-                "Path does not exist and could not be created: #{inspect(reason)}"
-              )
-          end
-
-        {:error, :invalid_path} ->
-          # Invalid path format
-          Ecto.Changeset.add_error(
-            changeset,
-            :endpoint,
-            "Invalid path format"
-          )
-      end
-    else
-      # Endpoint unchanged or empty
-      changeset
     end
   end
 

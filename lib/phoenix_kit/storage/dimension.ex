@@ -85,8 +85,6 @@ defmodule PhoenixKit.Storage.Dimension do
     field :enabled, :boolean, default: true
     field :order, :integer, default: 0
 
-    has_many :file_instances, PhoenixKit.Storage.FileInstance
-
     timestamps(type: :naive_datetime)
   end
 

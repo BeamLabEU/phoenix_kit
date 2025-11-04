@@ -191,7 +191,7 @@ defmodule PhoenixKit.Storage.URLSigner do
         fn i, acc ->
           <<_::binary-size(i), byte1::8, _::binary>> = padded1
           <<_::binary-size(i), byte2::8, _::binary>> = padded2
-          acc ||| byte1 ^^^ byte2
+          acc ||| Bitwise.bxor(byte1, byte2)
         end
       )
 

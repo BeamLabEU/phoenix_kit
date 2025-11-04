@@ -81,7 +81,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   end
 
   @impl true
-  def public_url(_bucket, file_path) do
+  def public_url(_bucket, _file_path) do
     # Local storage doesn't have public URLs by default
     # This would need to be configured with a web server path
     nil

@@ -18,7 +18,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   """
   @impl Oban.Worker
   def perform(%Oban.Job{
-        args: %{"file_id" => file_id, "user_id" => user_id, "filename" => filename} = args
+        args: %{"file_id" => file_id, "user_id" => _user_id, "filename" => filename} = _args
       }) do
     Logger.info("ProcessFileJob: EXECUTING for file_id=#{file_id}, filename=#{filename}")
 
@@ -113,11 +113,6 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
                 File.rm(temp_path)
                 {:error, reason}
             end
-
-          {:error, reason} ->
-            Logger.error("ProcessFileJob: Failed to extract image metadata: #{inspect(reason)}")
-            File.rm(temp_path)
-            {:error, reason}
         end
 
       {:error, reason} ->
@@ -130,9 +125,6 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
     with {:ok, temp_path} <- Storage.retrieve_file(file.id),
          {:ok, metadata} <- extract_video_metadata(temp_path),
          :ok <- update_file_with_metadata(file, metadata) do
-      # Get dimensions configured for videos
-      dimensions = Storage.list_dimensions_for_type("video")
-
       # Generate variants
       case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
         {:ok, variants} ->
@@ -175,12 +167,12 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
           }
 
         {:error, reason} ->
-          Logger.warn("Failed to extract image metadata: #{inspect(reason)}")
+          Logger.warning("Failed to extract image metadata: #{inspect(reason)}")
           {:ok, %{}}
       end
     rescue
       e ->
-        Logger.warn("Failed to extract image metadata: #{inspect(e)}")
+        Logger.warning("Failed to extract image metadata: #{inspect(e)}")
         {:ok, %{}}
     end
   end
@@ -210,7 +202,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
         }
 
       {error, _} ->
-        Logger.warn("Failed to extract video metadata: #{error}")
+        Logger.warning("Failed to extract video metadata: #{error}")
         {:ok, %{}}
     end
   end

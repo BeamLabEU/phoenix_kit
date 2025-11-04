@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.UploadController do
       }
   """
   def create(conn, params) do
-    with {:ok, upload} <- extract_upload(conn),
+    with {:ok, upload} <- extract_upload(params),
          :ok <- validate_file_type(upload),
          :ok <- validate_file_size(upload),
          {:ok, user_id} <- get_current_user_id(conn, params),
@@ -100,11 +100,10 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp extract_upload(conn) do
-    case Plug.Upload.allowed_content_type(conn, @upload_config.allowed_types) do
-      {:ok, upload} -> {:ok, upload}
-      {:content_type, _} -> {:error, :invalid_file_type}
-      {:size, _} -> {:error, :file_too_large}
+  defp extract_upload(params) do
+    case params["file"] do
+      %Plug.Upload{} = upload -> {:ok, upload}
+      _ -> {:error, :no_file}
     end
   end
 
@@ -132,7 +131,7 @@ defmodule PhoenixKitWeb.UploadController do
 
   defp get_current_user_id(conn, params) do
     # Check if user is authenticated
-    case PhoenixKit.Users.Auth.get_current_user(conn) do
+    case conn.assigns[:phoenix_kit_current_user] do
       %PhoenixKit.Users.Auth.User{id: user_id} ->
         {:ok, user_id}
 
@@ -167,7 +166,7 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp perform_upload(upload, user_id, file_size, file_hash) do
+  defp perform_upload(upload, user_id, _file_size, file_hash) do
     file_type = determine_file_type(upload.content_type)
     ext = Path.extname(upload.filename) |> String.replace_leading(".", "")
 
@@ -212,7 +211,7 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp calculate_size(bytes, [unit | rest]) when bytes >= 1024 and rest != [] do
+  defp calculate_size(bytes, [_unit | rest]) when bytes >= 1024 and rest != [] do
     calculate_size(bytes / 1024, rest)
   end
 

@@ -379,14 +379,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
-  defp calculate_size(bytes, [unit | rest]) when bytes >= 1024 and rest != [] do
+  defp calculate_size(bytes, [_unit | rest]) when bytes >= 1024 and rest != [] do
     calculate_size(bytes / 1024, rest)
   end
 
   defp calculate_size(bytes, [unit | _]), do: {bytes, unit}
-
-  defp error_to_string(:too_large), do: "File is too large"
-  defp error_to_string(:not_accepted), do: "File type not accepted"
-  defp error_to_string({_, reason}), do: to_string(reason)
-  defp error_to_string(_), do: "Unknown error"
 end

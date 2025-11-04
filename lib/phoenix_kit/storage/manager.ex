@@ -27,7 +27,7 @@ defmodule PhoenixKit.Storage.Manager do
       # Get redundancy settings
       redundancy_copies = Keyword.get(opts, :redundancy_copies, get_redundancy_copies())
       priority_buckets = Keyword.get(opts, :priority_buckets, [])
-      generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
+      _generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
 
       # Select buckets for storage
       buckets = select_buckets_for_storage(redundancy_copies, priority_buckets)
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Storage.Manager do
     end
   end
 
-  defp retrieve_with_failover(file_path, [], _opts), do: {:error, "File not found in any bucket"}
+  defp retrieve_with_failover(_file_path, [], _opts), do: {:error, "File not found in any bucket"}
 
   defp retrieve_with_failover(file_path, [bucket | remaining_buckets], opts) do
     provider = get_provider_for_bucket(bucket)
@@ -230,11 +230,6 @@ defmodule PhoenixKit.Storage.Manager do
 
   defp get_enabled_buckets do
     PhoenixKit.Storage.list_enabled_buckets()
-  end
-
-  defp repo do
-    # Get the repository from application config or use a default
-    Application.get_env(:phoenix_kit, :repo) || PhoenixKit.Repo
   end
 
   defp get_redundancy_copies do
