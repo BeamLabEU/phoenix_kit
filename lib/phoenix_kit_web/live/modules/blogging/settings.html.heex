@@ -84,10 +84,14 @@
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
                       <span>{blog["name"]}</span>
                       <span class={[
-                        "badge badge-sm uppercase",
+                        "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
                         if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
                       ]}>
-                        {blog["mode"] || "timestamp"}
+                        <%= if blog["mode"] == "slug" do %>
+                          {gettext("Slug-based")}
+                        <% else %>
+                          {gettext("Timestamp-based")}
+                        <% end %>
                       </span>
                     </p>
                     <p class="text-xs text-base-content/60">
