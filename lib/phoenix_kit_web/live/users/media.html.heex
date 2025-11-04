@@ -48,12 +48,29 @@
 
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <%= for file <- @uploaded_files do %>
-              <div class="card bg-base-200 border border-base-300">
+              <div class="card bg-base-200 border border-base-300 overflow-hidden">
+                <%!-- Medium Image Display (fallback to Original) --%>
+                <figure class="h-24 bg-base-300 flex items-center justify-center overflow-hidden">
+                  <% image_url = file.urls["medium"] || file.urls["original"] %>
+                  <%= if image_url do %>
+                    <img
+                      src={image_url}
+                      alt={file.filename}
+                      class="w-full h-full object-cover"
+                    />
+                  <% else %>
+                    <div class="flex flex-col items-center justify-center text-base-content/50">
+                      <.icon name={file_icon(file.file_type)} class="w-10 h-10 mb-1" />
+                      <p class="text-xs font-semibold">{String.upcase(file.file_type)}</p>
+                    </div>
+                  <% end %>
+                </figure>
+
                 <div class="card-body p-4">
                   <div class="flex items-start justify-between">
                     <div class="flex-1 min-w-0">
-                      <h3 class="font-semibold truncate">{file.filename}</h3>
-                      <p class="text-sm text-base-content/60 mt-1">
+                      <h3 class="font-semibold truncate text-sm">{file.filename}</h3>
+                      <p class="text-xs text-base-content/60 mt-1">
                         {format_file_size(file.size)}
                       </p>
                     </div>

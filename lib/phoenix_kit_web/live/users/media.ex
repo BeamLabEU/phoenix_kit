@@ -168,6 +168,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp status_badge("failed"), do: "badge-error"
   defp status_badge(_), do: "badge-warning"
 
+  # Get icon for file type
+  defp file_icon("image"), do: "hero-photo"
+  defp file_icon("video"), do: "hero-play-circle"
+  defp file_icon("pdf"), do: "hero-document-text"
+  defp file_icon("document"), do: "hero-document"
+  defp file_icon(_), do: "hero-document-arrow-down"
+
   # Load existing files from database
   defp load_existing_files do
     import Ecto.Query
