@@ -116,6 +116,7 @@ defmodule PhoenixKit.Emails.Event do
     ])
     |> validate_required([:email_log_id, :event_type])
     |> validate_inclusion(:event_type, [
+      "queued",
       "send",
       "delivery",
       "bounce",
@@ -416,6 +417,43 @@ defmodule PhoenixKit.Emails.Event do
         link_url: link_url,
         ip_address: ip_address,
         user_agent: user_agent,
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  @doc """
+  Creates a queued event when email is queued for sending.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Event.create_queued_event(log_id)
+      {:ok, %PhoenixKit.Emails.Event{}}
+  """
+  def create_queued_event(email_log_id) when is_integer(email_log_id) do
+    create_event(%{
+      email_log_id: email_log_id,
+      event_type: "queued",
+      event_data: %{
+        timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+    })
+  end
+
+  @doc """
+  Creates a send event when email is successfully sent to provider.
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.Event.create_send_event(log_id)
+      {:ok, %PhoenixKit.Emails.Event{}}
+  """
+  def create_send_event(email_log_id, provider \\ nil) when is_integer(email_log_id) do
+    create_event(%{
+      email_log_id: email_log_id,
+      event_type: "send",
+      event_data: %{
+        provider: provider,
         timestamp: DateTime.utc_now() |> DateTime.to_iso8601()
       }
     })

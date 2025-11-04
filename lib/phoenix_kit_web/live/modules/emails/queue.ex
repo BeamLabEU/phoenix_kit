@@ -39,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Queue do
   alias PhoenixKit.Emails.{Log, RateLimiter}
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Number, as: UtilsNumber
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icons, only: [icon_arrow_left: 1]
@@ -325,17 +326,4 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Queue do
      |> put_flash(:info, message)
      |> load_queue_data()}
   end
-
-  defp format_number(number) when is_integer(number) do
-    number
-    |> to_string()
-    |> String.graphemes()
-    |> Enum.reverse()
-    |> Enum.chunk_every(3)
-    |> Enum.map(&Enum.reverse/1)
-    |> Enum.reverse()
-    |> Enum.map_join(",", &Enum.join/1)
-  end
-
-  defp format_number(number), do: to_string(number)
 end

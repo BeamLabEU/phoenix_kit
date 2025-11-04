@@ -502,11 +502,4 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Blocklist do
         {:error, "Invalid line format"}
     end
   end
-
-  defp pagination_range(current_page, total_pages) do
-    start_page = max(1, current_page - 2)
-    end_page = min(total_pages, current_page + 2)
-
-    start_page..end_page
-  end
 end

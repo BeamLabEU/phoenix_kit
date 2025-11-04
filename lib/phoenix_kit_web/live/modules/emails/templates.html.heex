@@ -313,13 +313,20 @@
 
         <%!-- Pagination --%>
         <%= if @total_count > @per_page do %>
-          <div class="flex justify-center p-4 border-t border-base-300">
-            <.pagination_controls
-              page={@page}
-              total_pages={@total_pages}
-              build_url={build_page_url(assigns)}
-            />
-          </div>
+          <.pagination
+            current_page={@page}
+            total_pages={@total_pages}
+            base_path="/admin/modules/emails/templates"
+            params={
+              %{
+                "search" => @filters.search,
+                "category" => @filters.category,
+                "status" => @filters.status,
+                "is_system" => @filters.is_system,
+                "per_page" => @per_page
+              }
+            }
+          />
         <% end %>
       <% end %>
     </div>

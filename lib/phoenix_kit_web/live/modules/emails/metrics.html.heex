@@ -167,7 +167,7 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-primary-content/70 text-sm">Total Sent</p>
-                <p class="text-2xl font-bold">{format_number(@metrics.total_sent || 0)}</p>
+                <p class="text-2xl font-bold">{UtilsNumber.format(@metrics.total_sent || 0)}</p>
               </div>
               <div class="text-primary-content/70">
                 <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-8 h-8" />
@@ -181,7 +181,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-success-content/70 text-sm">Delivery Rate</p>
-                <p class="text-2xl font-bold">{format_percentage(@metrics.delivery_rate || 0)}</p>
+                <p class="text-2xl font-bold">
+                  {UtilsNumber.format_percentage(@metrics.delivery_rate || 0)}
+                </p>
               </div>
               <div class="text-success-content/70">
                 <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-8 h-8" />
@@ -195,7 +197,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-warning-content/70 text-sm">Bounce Rate</p>
-                <p class="text-2xl font-bold">{format_percentage(@metrics.bounce_rate || 0)}</p>
+                <p class="text-2xl font-bold">
+                  {UtilsNumber.format_percentage(@metrics.bounce_rate || 0)}
+                </p>
               </div>
               <div class="text-warning-content/70">
                 <PhoenixKitWeb.Components.Core.Icons.icon_warning_filled class="w-8 h-8" />
@@ -209,7 +213,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-info-content/70 text-sm">Open Rate</p>
-                <p class="text-2xl font-bold">{format_percentage(@metrics.open_rate || 0)}</p>
+                <p class="text-2xl font-bold">
+                  {UtilsNumber.format_percentage(@metrics.open_rate || 0)}
+                </p>
               </div>
               <div class="text-info-content/70">
                 <PhoenixKitWeb.Components.Core.Icons.icon_eye class="w-8 h-8" />
@@ -219,7 +225,11 @@
         </div>
       </div>
       <%!-- Charts Section --%>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div
+        class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6"
+        id="email-charts-container"
+        phx-hook="EmailCharts"
+      >
         <%!-- Delivery Trends Chart --%>
         <div class="card bg-base-100 shadow-sm">
           <div class="card-body">
@@ -227,10 +237,10 @@
             <div
               class="w-full h-64"
               id="delivery-chart-container"
-              phx-update="ignore"
               data-chart-data={Jason.encode!(Map.get(@charts_data, :delivery_trend, %{}))}
             >
-              <canvas id="delivery-trend-chart" width="400" height="200"></canvas>
+              <canvas id="delivery-trend-chart" width="400" height="200" phx-update="ignore">
+              </canvas>
             </div>
           </div>
         </div>
@@ -241,10 +251,9 @@
             <div
               class="w-full h-64"
               id="engagement-chart-container"
-              phx-update="ignore"
               data-chart-data={Jason.encode!(Map.get(@charts_data, :engagement, %{}))}
             >
-              <canvas id="engagement-chart" width="400" height="200"></canvas>
+              <canvas id="engagement-chart" width="400" height="200" phx-update="ignore"></canvas>
             </div>
           </div>
         </div>
@@ -271,7 +280,7 @@
                       <.table_default_row>
                         <.table_default_cell class="font-medium">{provider}</.table_default_cell>
                         <.table_default_cell>
-                          {format_number(stats.total_sent || 0)}
+                          {UtilsNumber.format(stats.total_sent || 0)}
                         </.table_default_cell>
                         <.table_default_cell>
                           <span class={[
@@ -280,11 +289,11 @@
                               ((stats.delivery_rate || 0) >= 85 && "badge-warning") ||
                               "badge-error"
                           ]}>
-                            {format_percentage(stats.delivery_rate || 0)}
+                            {UtilsNumber.format_percentage(stats.delivery_rate || 0)}
                           </span>
                         </.table_default_cell>
                         <.table_default_cell>
-                          {format_percentage(stats.bounce_rate || 0)}
+                          {UtilsNumber.format_percentage(stats.bounce_rate || 0)}
                         </.table_default_cell>
                       </.table_default_row>
                     <% end %>
@@ -316,7 +325,7 @@
               <div class="flex items-center justify-between">
                 <span class="text-sm">Total Emails Today</span>
                 <span class="text-sm font-medium">
-                  {format_number(@metrics.today_count || 0)}
+                  {UtilsNumber.format(@metrics.today_count || 0)}
                 </span>
               </div>
               <div class="flex items-center justify-between">
@@ -605,6 +614,9 @@
         }
       };
 
+      // Make PhoenixKitCharts available globally for hooks
+      window.PhoenixKitCharts = PhoenixKitCharts;
+
       // Listen for LiveView updates
       window.addEventListener('phx:email-charts-update', (event) => {
         if (event.detail && event.detail.charts) {
@@ -626,21 +638,30 @@
         setTimeout(initCharts, 50);
       }
 
+      // Track if we're on the metrics page
+      let onMetricsPage = false;
+
+      // Check if we're on metrics page
+      const checkMetricsPage = () => {
+        return document.getElementById('email-charts-container') !== null;
+      };
+
       // Handle LiveView navigation
       window.addEventListener('phx:page-loading-start', () => {
         PhoenixKitCharts.cleanup();
+        onMetricsPage = false;
       });
 
       window.addEventListener('phx:page-loading-stop', () => {
-        // Reset attempts counter for new page
-        PhoenixKitCharts.initAttempts = 0;
-        setTimeout(initCharts, 50);
-      });
-
-      // Handle LiveView mount event
-      window.addEventListener('phx:mount', () => {
-        console.log('LiveView mounted, initializing charts');
-        setTimeout(initCharts, 100);
+        // Check if we landed on metrics page
+        setTimeout(() => {
+          onMetricsPage = checkMetricsPage();
+          if (onMetricsPage) {
+            console.log('Navigated to metrics page, initializing charts');
+            PhoenixKitCharts.initAttempts = 0;
+            initCharts();
+          }
+        }, 100);
       });
 
       // Reinitialize on visibility change (tab becomes active)
