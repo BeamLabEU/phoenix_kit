@@ -57,7 +57,7 @@
       <PhoenixKitWeb.Components.Core.StatCard.stat_card
         compact={true}
         rounded="xl"
-        value={format_number(@system_status[:total_sent_today] || 0)}
+        value={UtilsNumber.format(@system_status[:total_sent_today] || 0)}
         title="Sent Today"
         subtitle="Total emails sent since midnight"
       >
@@ -101,7 +101,7 @@
           <div class="stat bg-base-200 rounded-lg">
             <div class="stat-title">Global Hourly Limit</div>
             <div class="stat-value text-sm">
-              {format_number(@rate_limit_status[:global][:count] || 0)} / {format_number(
+              {UtilsNumber.format(@rate_limit_status[:global][:count] || 0)} / {UtilsNumber.format(
                 @rate_limit_status[:global][:limit] || 0
               )}
             </div>

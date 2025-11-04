@@ -447,6 +447,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
         update_attrs = %{
           status: status,
+          bounced_at: DateTime.utc_now(),
           error_message: build_bounce_error_message(bounce_data)
         }
 
@@ -493,6 +494,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
         update_attrs = %{
           status: "complaint",
+          complained_at: DateTime.utc_now(),
           error_message: "Spam complaint: #{complaint_type || "unknown"}"
         }
 
@@ -738,6 +740,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
         update_attrs = %{
           status: "rejected",
+          rejected_at: DateTime.utc_now(),
           error_message: build_reject_error_message(reject_data)
         }
 
@@ -772,6 +775,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
           {:ok, log} ->
             update_attrs = %{
               status: "rejected",
+              rejected_at: DateTime.utc_now(),
               error_message: build_reject_error_message(reject_data)
             }
 
@@ -839,10 +843,10 @@ defmodule PhoenixKit.Emails.SQSProcessor do
                    "clicked",
                    "opened"
                  ] ->
-              %{}
+              %{delayed_at: DateTime.utc_now()}
 
             _ ->
-              %{status: "delayed"}
+              %{status: "delayed", delayed_at: DateTime.utc_now()}
           end
 
         case Log.update_log(log, status_update) do
@@ -972,6 +976,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
         update_attrs = %{
           status: "failed",
+          failed_at: DateTime.utc_now(),
           error_message: build_rendering_failure_message(failure_data)
         }
 
@@ -1010,6 +1015,7 @@ defmodule PhoenixKit.Emails.SQSProcessor do
           {:ok, log} ->
             update_attrs = %{
               status: "failed",
+              failed_at: DateTime.utc_now(),
               error_message: build_rendering_failure_message(failure_data)
             }
 

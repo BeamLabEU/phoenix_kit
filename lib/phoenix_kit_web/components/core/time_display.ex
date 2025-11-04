@@ -89,6 +89,43 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
     """
   end
 
+  @doc """
+  Displays formatted duration between two DateTime values.
+
+  Formats duration in human-readable format with appropriate units:
+  - Less than 1 minute: "45s"
+  - Less than 1 hour: "5m 30s"
+  - 1 hour or more: "2h 15m"
+
+  ## Attributes
+  - `start_time` - Start DateTime
+  - `end_time` - End DateTime
+  - `class` - CSS classes
+
+  ## Examples
+
+      <.duration_display start_time={@log.queued_at} end_time={@log.sent_at} />
+      <%!-- Shows: "3m 45s" --%>
+
+      <.duration_display
+        start_time={@log.sent_at}
+        end_time={@log.delivered_at}
+        class="text-sm font-mono"
+      />
+      <%!-- Shows: "125s" --%>
+  """
+  attr :start_time, :any, required: true
+  attr :end_time, :any, required: true
+  attr :class, :string, default: ""
+
+  def duration_display(assigns) do
+    ~H"""
+    <span class={@class}>
+      {format_duration(@start_time, @end_time)}
+    </span>
+    """
+  end
+
   # Private formatters
 
   defp format_time_ago(nil), do: "—"
@@ -117,4 +154,17 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   defp format_age(days) when days < 7, do: {"badge-info", "#{days}d"}
   defp format_age(days) when days < 30, do: {"badge-warning", "#{days}d"}
   defp format_age(days), do: {"badge-error", "#{days}d"}
+
+  defp format_duration(start_time, end_time)
+       when is_struct(start_time, DateTime) and is_struct(end_time, DateTime) do
+    diff_seconds = DateTime.diff(end_time, start_time, :second)
+
+    cond do
+      diff_seconds < 60 -> "#{diff_seconds}s"
+      diff_seconds < 3600 -> "#{div(diff_seconds, 60)}m #{rem(diff_seconds, 60)}s"
+      true -> "#{div(diff_seconds, 3600)}h #{div(rem(diff_seconds, 3600), 60)}m"
+    end
+  end
+
+  defp format_duration(_, _), do: "—"
 end
