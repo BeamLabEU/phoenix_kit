@@ -6,7 +6,7 @@ defmodule PhoenixKitWeb.Components.Core.EmailActivityBadges do
   Shows date only when it changes between events, otherwise shows time only.
 
   Supported events: queued, send, delivery, open, click, bounce (hard/soft),
-  rejected, delayed, complaint, failed.
+  rejected, delivery_delay, subscription, complaint, rendering_failure, failed.
   """
 
   use Phoenix.Component
@@ -65,8 +65,10 @@ defmodule PhoenixKitWeb.Components.Core.EmailActivityBadges do
       {get_bounce_type(log.status), get_event_time(log, "bounce"),
        get_bounce_badge_class(log.status)},
       {"rejected", get_event_time(log, "rejected"), "badge-error"},
-      {"delayed", get_event_time(log, "delayed"), "badge-warning"},
+      {"delivery_delay", get_event_time(log, "delivery_delay"), "badge-warning"},
+      {"subscription", get_event_time(log, "subscription"), "badge-info"},
       {"complaint", get_event_time(log, "complaint"), "badge-accent"},
+      {"rendering_failure", get_event_time(log, "rendering_failure"), "badge-error"},
       {"failed", get_event_time(log, "failed"), "badge-error"}
     ]
 
@@ -114,8 +116,10 @@ defmodule PhoenixKitWeb.Components.Core.EmailActivityBadges do
   defp get_fallback_time(log, "hard_bounce"), do: log.bounced_at
   defp get_fallback_time(log, "soft_bounce"), do: log.bounced_at
   defp get_fallback_time(log, "rejected"), do: log.rejected_at
-  defp get_fallback_time(log, "delayed"), do: log.delayed_at
+  defp get_fallback_time(log, "delivery_delay"), do: log.delayed_at
+  defp get_fallback_time(_log, "subscription"), do: nil
   defp get_fallback_time(log, "complaint"), do: log.complained_at
+  defp get_fallback_time(log, "rendering_failure"), do: log.failed_at
   defp get_fallback_time(log, "failed"), do: log.failed_at
   defp get_fallback_time(_log, _type), do: nil
 
