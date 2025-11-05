@@ -73,7 +73,7 @@
                       <option value="" disabled selected>Select a language to add...</option>
                       <%= for language <- @available_languages_for_selection do %>
                         <option value={language.code}>
-                          {language.flag} {language.name} ({language.native})
+                          {language.name} ({language.native}) {language.flag}
                         </option>
                       <% end %>
                     </select>
