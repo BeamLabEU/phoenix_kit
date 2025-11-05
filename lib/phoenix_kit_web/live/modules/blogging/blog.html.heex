@@ -202,7 +202,9 @@
                                       if(lang_metadata.status == "draft", do: "active", else: "")
                                     ]}
                                   >
-                                    <span class="badge badge-warning badge-sm">{gettext("Draft")}</span>
+                                    <span class="badge badge-warning badge-sm">
+                                      {gettext("Draft")}
+                                    </span>
                                   </button>
                                 </li>
                                 <li>
@@ -213,7 +215,10 @@
                                     phx-value-status="published"
                                     class={[
                                       "btn-xs",
-                                      if(lang_metadata.status == "published", do: "active", else: "")
+                                      if(lang_metadata.status == "published",
+                                        do: "active",
+                                        else: ""
+                                      )
                                     ]}
                                   >
                                     <span class="badge badge-success badge-sm">
@@ -229,7 +234,10 @@
                                     phx-value-status="archived"
                                     class={[
                                       "btn-xs",
-                                      if(lang_metadata.status == "archived", do: "active", else: "")
+                                      if(lang_metadata.status == "archived",
+                                        do: "active",
+                                        else: ""
+                                      )
                                     ]}
                                   >
                                     <span class="badge badge-neutral badge-sm">
@@ -242,7 +250,8 @@
                           <% else %>
                             <%!-- Empty placeholder to maintain spacing --%>
                             <div class="dropdown dropdown-end">
-                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none"></div>
+                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
+                              </div>
                             </div>
                           <% end %>
                           <%!-- Layer 2: Edit button --%>
@@ -292,7 +301,8 @@
                             </a>
                           <% else %>
                             <%!-- Empty placeholder to maintain spacing --%>
-                            <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none"></div>
+                            <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
+                            </div>
                           <% end %>
                         </div>
                       <% else %>

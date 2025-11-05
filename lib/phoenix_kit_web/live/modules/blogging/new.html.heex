@@ -100,7 +100,8 @@
                 if length(@enabled_languages) == 1 do
                   @endpoint_url <> "#{url_prefix}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
                 else
-                  @endpoint_url <> "#{url_prefix}/#{@current_locale}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
+                  @endpoint_url <>
+                    "#{url_prefix}/#{@current_locale}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
                 end %>
               <% slug_file_pattern = "priv/blogging/#{slug_sample}/<slug>/<locale>.phk" %>
               <% slug_url_pattern =
