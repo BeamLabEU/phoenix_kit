@@ -475,7 +475,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     if slugified == "", do: {:error, :invalid_slug}, else: {:ok, slugified}
   end
 
-
   defp ensure_unique_slug(slug, blogs), do: ensure_unique_slug(slug, blogs, 2)
 
   defp ensure_unique_slug(slug, blogs, counter) do

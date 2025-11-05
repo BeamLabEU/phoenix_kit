@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
       socket
       |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
-      |> assign(:page_title, gettext("Manage Blogs"))
+      |> assign(:page_title, gettext("Manage Blogging"))
       |> assign(:current_path, Routes.path("/admin/settings/blogging", locale: locale))
       |> assign(:module_enabled, Blogging.enabled?())
       |> assign(:blogs, blogs)

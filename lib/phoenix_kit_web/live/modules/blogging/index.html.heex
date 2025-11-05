@@ -29,182 +29,185 @@
     </header>
 
     <div class="space-y-8">
-
-    <%= if @empty_state? do %>
-      <div class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
-        <div class="card-body items-center text-center space-y-4">
-          <div class="rounded-full bg-base-200 p-3 text-primary">
-            <.icon name="hero-document-text" class="w-8 h-8" />
-          </div>
-          <h2 class="text-2xl font-semibold text-base-content">{gettext("No blogs yet")}</h2>
-          <p class="text-base text-base-content/70 max-w-xl">
-            {gettext(
-              "Blogs let you organize content into themed workspaces with their own publishing flows. Set up your first blog to start drafting posts."
-            )}
-          </p>
-          <div class="flex flex-wrap justify-center gap-3">
-            <.link
-              navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
-              class="btn btn-primary btn-sm"
-            >
-              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
-            </.link>
-            <.link
-              navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
-              class="btn btn-outline btn-sm"
-            >
-              <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext("Learn More")}
-            </.link>
-          </div>
-        </div>
-      </div>
-    <% else %>
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
-          <div class="stat-title text-sm text-base-content/70">{gettext("Total Blogs")}</div>
-          <div class="stat-value text-3xl text-base-content">
-            {@dashboard_summary.total_blogs}
-          </div>
-        </div>
-        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
-          <div class="stat-title text-sm text-base-content/70">{gettext("Total Posts")}</div>
-          <div class="stat-value text-3xl text-base-content">
-            {@dashboard_summary.total_posts}
-          </div>
-        </div>
-        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
-          <div class="stat-title text-sm text-base-content/70">{gettext("Published")}</div>
-          <div class="stat-value text-3xl text-base-content">
-            {@dashboard_summary.published_posts}
-          </div>
-          <div class="stat-desc text-xs text-base-content/60">
-            {gettext("Drafts: %{count}", count: @dashboard_summary.draft_posts)}
-          </div>
-        </div>
-        <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
-          <div class="stat-title text-sm text-base-content/70">{gettext("Archived Posts")}</div>
-          <div class="stat-value text-3xl text-base-content">
-            {@dashboard_summary.archived_posts}
-          </div>
-        </div>
-      </div>
-
-      <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <%= for insight <- @dashboard_insights do %>
-          <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition h-full">
-            <div class="card-body space-y-4 h-full flex flex-col">
-              <div class="flex items-start justify-between gap-3">
-                <div class="space-y-2">
-                  <h3 class="text-xl font-semibold text-base-content">{insight.name}</h3>
-                  <p class="text-xs text-base-content/60">
-                    {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
-                  </p>
-                  <p class="text-xs text-base-content/60">
-                    <span class="whitespace-nowrap">{gettext("Last published")}: </span>
-                    <%= if insight.last_published_at_text do %>
-                      <span class="whitespace-nowrap">{insight.last_published_at_text}</span>
-                    <% else %>
-                      {gettext("No published posts yet")}
-                    <% end %>
-                  </p>
-                </div>
-                <span class={[
-                  "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
-                  if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
-                ]}>
-                  <%= if insight.mode == "slug" do %>
-                    {gettext("Slug-based")}
-                  <% else %>
-                    {gettext("Timestamp-based")}
-                  <% end %>
-                </span>
-              </div>
-
-              <div class="grid grid-cols-3 gap-3">
-                <div class="rounded-lg bg-base-200/60 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-base-content/60 min-h-[1.25rem] flex items-center justify-center">
-                    {gettext("Posts")}
-                  </p>
-                  <p class="font-semibold text-base-content">{insight.posts_count}</p>
-                </div>
-                <div class="rounded-lg bg-success/10 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-success min-h-[1.25rem] flex items-center justify-center">
-                    {gettext("Published")}
-                  </p>
-                  <p class="font-semibold text-success">{insight.published_count}</p>
-                </div>
-                <div class="rounded-lg bg-warning/10 px-3 py-2 text-center">
-                  <p class="text-xs uppercase tracking-wide text-warning min-h-[1.25rem] flex items-center justify-center">
-                    {gettext("Drafts")}
-                  </p>
-                  <p class="font-semibold text-warning">{insight.draft_count}</p>
-                </div>
-              </div>
-
-              <div class="min-h-[2rem]">
-                <%= if insight.languages != [] do %>
-                  <div class="flex flex-wrap gap-2">
-                    <span class="text-xs font-medium uppercase text-base-content/60">
-                      {gettext("Languages")}:
-                    </span>
-                    <%= for language <- insight.languages do %>
-                      <span class="badge badge-ghost badge-sm px-2 py-1">
-                        {String.upcase(language)}
-                      </span>
-                    <% end %>
-                  </div>
-                <% else %>
-                  <p class="text-xs text-base-content/60">
-                    {gettext("Languages")}:
-                    <span class="badge badge-ghost badge-sm px-2 py-1 uppercase">
-                      {gettext("N/A")}
-                    </span>
-                  </p>
-                <% end %>
-              </div>
-
-              <div class="flex gap-2 mt-auto">
-                <.link
-                  navigate={
-                    Routes.path("/admin/blogging/#{insight.slug}", locale: @current_locale)
-                  }
-                  class="btn btn-outline btn-sm"
-                >
-                  <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" />
-                  {gettext("Admin")}
-                </.link>
-                <.link
-                  navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
-                  class="btn btn-outline btn-sm"
-                >
-                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
-                  {gettext("Settings")}
-                </.link>
-                <% blog_slug = insight.slug %>
-                <% url_prefix =
-                  PhoenixKit.Config.get_url_prefix()
-                  |> case do
-                    nil -> ""
-                    "/" -> ""
-                    prefix -> prefix
-                  end %>
-                <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
-                <a
-                  href={public_url}
-                  target="_blank"
-                  rel="noopener"
-                  class="btn btn-outline btn-sm"
-                  aria-label={gettext("View public blog")}
-                >
-                  <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" />
-                  {gettext("View")}
-                </a>
-              </div>
+      <%= if @empty_state? do %>
+        <div class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
+          <div class="card-body items-center text-center space-y-4">
+            <div class="rounded-full bg-base-200 p-3 text-primary">
+              <.icon name="hero-document-text" class="w-8 h-8" />
+            </div>
+            <h2 class="text-2xl font-semibold text-base-content">{gettext("No blogs yet")}</h2>
+            <p class="text-base text-base-content/70 max-w-xl">
+              {gettext(
+                "Blogging lets you organize content into themed workspaces with their own publishing flows. Set up your first blog to start drafting posts."
+              )}
+            </p>
+            <div class="flex flex-wrap justify-center gap-3">
+              <.link
+                navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+              </.link>
+              <.link
+                navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext(
+                  "Learn More"
+                )}
+              </.link>
             </div>
           </div>
-        <% end %>
-      </div>
-    <% end %>
+        </div>
+      <% else %>
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+            <div class="stat-title text-sm text-base-content/70">
+              {gettext("Total Blog Types")}
+            </div>
+            <div class="stat-value text-3xl text-base-content">
+              {@dashboard_summary.total_blogs}
+            </div>
+          </div>
+          <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+            <div class="stat-title text-sm text-base-content/70">{gettext("Total Posts")}</div>
+            <div class="stat-value text-3xl text-base-content">
+              {@dashboard_summary.total_posts}
+            </div>
+          </div>
+          <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+            <div class="stat-title text-sm text-base-content/70">{gettext("Published")}</div>
+            <div class="stat-value text-3xl text-base-content">
+              {@dashboard_summary.published_posts}
+            </div>
+            <div class="stat-desc text-xs text-base-content/60">
+              {gettext("Drafts: %{count}", count: @dashboard_summary.draft_posts)}
+            </div>
+          </div>
+          <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+            <div class="stat-title text-sm text-base-content/70">{gettext("Archived Posts")}</div>
+            <div class="stat-value text-3xl text-base-content">
+              {@dashboard_summary.archived_posts}
+            </div>
+          </div>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <%= for insight <- @dashboard_insights do %>
+            <div class="card bg-base-100 shadow-sm border border-base-200 hover:border-primary/60 transition h-full">
+              <div class="card-body space-y-4 h-full flex flex-col">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="space-y-2">
+                    <h3 class="text-xl font-semibold text-base-content">{insight.name}</h3>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
+                    </p>
+                    <p class="text-xs text-base-content/60">
+                      <span class="whitespace-nowrap">{gettext("Last published")}: </span>
+                      <%= if insight.last_published_at_text do %>
+                        <span class="whitespace-nowrap">{insight.last_published_at_text}</span>
+                      <% else %>
+                        {gettext("No published posts yet")}
+                      <% end %>
+                    </p>
+                  </div>
+                  <span class={[
+                    "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
+                    if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
+                  ]}>
+                    <%= if insight.mode == "slug" do %>
+                      {gettext("Slug-based")}
+                    <% else %>
+                      {gettext("Timestamp-based")}
+                    <% end %>
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="rounded-lg bg-base-200/60 px-3 py-2 text-center">
+                    <p class="text-xs uppercase tracking-wide text-base-content/60 min-h-[1.25rem] flex items-center justify-center">
+                      {gettext("Posts")}
+                    </p>
+                    <p class="font-semibold text-base-content">{insight.posts_count}</p>
+                  </div>
+                  <div class="rounded-lg bg-success/10 px-3 py-2 text-center">
+                    <p class="text-xs uppercase tracking-wide text-success min-h-[1.25rem] flex items-center justify-center">
+                      {gettext("Published")}
+                    </p>
+                    <p class="font-semibold text-success">{insight.published_count}</p>
+                  </div>
+                  <div class="rounded-lg bg-warning/10 px-3 py-2 text-center">
+                    <p class="text-xs uppercase tracking-wide text-warning min-h-[1.25rem] flex items-center justify-center">
+                      {gettext("Drafts")}
+                    </p>
+                    <p class="font-semibold text-warning">{insight.draft_count}</p>
+                  </div>
+                </div>
+
+                <div class="min-h-[2rem]">
+                  <%= if insight.languages != [] do %>
+                    <div class="flex flex-wrap gap-2">
+                      <span class="text-xs font-medium uppercase text-base-content/60">
+                        {gettext("Languages")}:
+                      </span>
+                      <%= for language <- insight.languages do %>
+                        <span class="badge badge-ghost badge-sm px-2 py-1">
+                          {String.upcase(language)}
+                        </span>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Languages")}:
+                      <span class="badge badge-ghost badge-sm px-2 py-1 uppercase">
+                        {gettext("N/A")}
+                      </span>
+                    </p>
+                  <% end %>
+                </div>
+
+                <div class="flex gap-2 mt-auto">
+                  <.link
+                    navigate={
+                      Routes.path("/admin/blogging/#{insight.slug}", locale: @current_locale)
+                    }
+                    class="btn btn-outline btn-sm"
+                  >
+                    <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                    {gettext("Admin")}
+                  </.link>
+                  <.link
+                    navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+                    class="btn btn-outline btn-sm"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
+                    {gettext("Settings")}
+                  </.link>
+                  <% blog_slug = insight.slug %>
+                  <% url_prefix =
+                    PhoenixKit.Config.get_url_prefix()
+                    |> case do
+                      nil -> ""
+                      "/" -> ""
+                      prefix -> prefix
+                    end %>
+                  <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+                  <a
+                    href={public_url}
+                    target="_blank"
+                    rel="noopener"
+                    class="btn btn-outline btn-sm"
+                    aria-label={gettext("View public blog")}
+                  >
+                    <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" />
+                    {gettext("View")}
+                  </a>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
