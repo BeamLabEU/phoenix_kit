@@ -454,14 +454,27 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         case Log.update_log(log, update_attrs) do
           {:ok, updated_log} ->
             # Create event record
-            create_bounce_event(updated_log, bounce_data)
+            case create_bounce_event(updated_log, bounce_data) do
+              {:ok, :duplicate_event} ->
+                Logger.info("Email bounced (duplicate event skipped)", %{
+                  log_id: updated_log.id,
+                  message_id: message_id
+                })
 
-            Logger.info("Email bounced", %{
-              log_id: updated_log.id,
-              message_id: message_id,
-              bounce_type: bounce_type,
-              bounce_subtype: bounce_subtype
-            })
+              {:ok, _event} ->
+                Logger.info("Email bounced with event created", %{
+                  log_id: updated_log.id,
+                  message_id: message_id,
+                  bounce_type: bounce_type,
+                  bounce_subtype: bounce_subtype
+                })
+
+              {:error, reason} ->
+                Logger.error("Failed to create bounce event", %{
+                  log_id: updated_log.id,
+                  reason: inspect(reason)
+                })
+            end
 
             {:ok, %{type: "bounce", log_id: updated_log.id, updated: true}}
 
@@ -501,13 +514,26 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         case Log.update_log(log, update_attrs) do
           {:ok, updated_log} ->
             # Create event record
-            create_complaint_event(updated_log, complaint_data)
+            case create_complaint_event(updated_log, complaint_data) do
+              {:ok, :duplicate_event} ->
+                Logger.warning("Email complaint (duplicate event skipped)", %{
+                  log_id: updated_log.id,
+                  message_id: message_id
+                })
 
-            Logger.warning("Email complaint received", %{
-              log_id: updated_log.id,
-              message_id: message_id,
-              complaint_type: complaint_type
-            })
+              {:ok, _event} ->
+                Logger.warning("Email complaint received with event created", %{
+                  log_id: updated_log.id,
+                  message_id: message_id,
+                  complaint_type: complaint_type
+                })
+
+              {:error, reason} ->
+                Logger.error("Failed to create complaint event", %{
+                  log_id: updated_log.id,
+                  reason: inspect(reason)
+                })
+            end
 
             {:ok, %{type: "complaint", log_id: updated_log.id, updated: true}}
 
@@ -747,13 +773,26 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         case Log.update_log(log, update_attrs) do
           {:ok, updated_log} ->
             # Create event record
-            create_reject_event(updated_log, reject_data)
+            case create_reject_event(updated_log, reject_data) do
+              {:ok, :duplicate_event} ->
+                Logger.warning("Email rejected (duplicate event skipped)", %{
+                  log_id: updated_log.id,
+                  message_id: message_id
+                })
 
-            Logger.warning("Email rejected", %{
-              log_id: updated_log.id,
-              message_id: message_id,
-              reject_reason: reject_reason
-            })
+              {:ok, _event} ->
+                Logger.warning("Email rejected with event created", %{
+                  log_id: updated_log.id,
+                  message_id: message_id,
+                  reject_reason: reject_reason
+                })
+
+              {:error, reason} ->
+                Logger.error("Failed to create reject event", %{
+                  log_id: updated_log.id,
+                  reason: inspect(reason)
+                })
+            end
 
             {:ok, %{type: "reject", log_id: updated_log.id, updated: true}}
 
@@ -983,14 +1022,27 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         case Log.update_log(log, update_attrs) do
           {:ok, updated_log} ->
             # Create event record
-            create_rendering_failure_event(updated_log, failure_data)
+            case create_rendering_failure_event(updated_log, failure_data) do
+              {:ok, :duplicate_event} ->
+                Logger.error("Email rendering failed (duplicate event skipped)", %{
+                  log_id: updated_log.id,
+                  message_id: message_id
+                })
 
-            Logger.error("Email rendering failed", %{
-              log_id: updated_log.id,
-              message_id: message_id,
-              template_name: template_name,
-              error_message: error_message
-            })
+              {:ok, _event} ->
+                Logger.error("Email rendering failed with event created", %{
+                  log_id: updated_log.id,
+                  message_id: message_id,
+                  template_name: template_name,
+                  error_message: error_message
+                })
+
+              {:error, reason} ->
+                Logger.error("Failed to create rendering_failure event", %{
+                  log_id: updated_log.id,
+                  reason: inspect(reason)
+                })
+            end
 
             {:ok, %{type: "rendering_failure", log_id: updated_log.id, updated: true}}
 
