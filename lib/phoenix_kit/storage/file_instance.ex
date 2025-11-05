@@ -83,6 +83,24 @@ defmodule PhoenixKit.Storage.FileInstance do
   @primary_key {:id, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
+  @type t :: %__MODULE__{
+          id: UUIDv7.t() | nil,
+          variant_name: String.t(),
+          file_name: String.t(),
+          mime_type: String.t(),
+          ext: String.t(),
+          checksum: String.t(),
+          size: integer(),
+          width: integer() | nil,
+          height: integer() | nil,
+          processing_status: String.t(),
+          file_id: UUIDv7.t() | nil,
+          file: PhoenixKit.Storage.File.t() | Ecto.Association.NotLoaded.t(),
+          locations: [PhoenixKit.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
+          inserted_at: NaiveDateTime.t() | nil,
+          updated_at: NaiveDateTime.t() | nil
+        }
+
   schema "phoenix_kit_file_instances" do
     field :variant_name, :string
     field :file_name, :string

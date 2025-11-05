@@ -69,6 +69,24 @@ defmodule PhoenixKit.Storage.Bucket do
   @primary_key {:id, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
+  @type t :: %__MODULE__{
+          id: UUIDv7.t() | nil,
+          name: String.t(),
+          provider: String.t(),
+          region: String.t() | nil,
+          endpoint: String.t() | nil,
+          bucket_name: String.t() | nil,
+          access_key_id: String.t() | nil,
+          secret_access_key: String.t() | nil,
+          cdn_url: String.t() | nil,
+          enabled: boolean(),
+          priority: integer(),
+          max_size_mb: integer() | nil,
+          file_locations: [PhoenixKit.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
+          inserted_at: NaiveDateTime.t() | nil,
+          updated_at: NaiveDateTime.t() | nil
+        }
+
   schema "phoenix_kit_buckets" do
     field :name, :string
     field :provider, :string

@@ -70,6 +70,20 @@ defmodule PhoenixKit.Storage.FileLocation do
   @primary_key {:id, UUIDv7, autogenerate: true}
   @foreign_key_type UUIDv7
 
+  @type t :: %__MODULE__{
+          id: UUIDv7.t() | nil,
+          path: String.t(),
+          status: String.t(),
+          priority: integer(),
+          last_verified_at: NaiveDateTime.t() | nil,
+          file_instance_id: UUIDv7.t() | nil,
+          bucket_id: UUIDv7.t() | nil,
+          file_instance: PhoenixKit.Storage.FileInstance.t() | Ecto.Association.NotLoaded.t(),
+          bucket: PhoenixKit.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
+          inserted_at: NaiveDateTime.t() | nil,
+          updated_at: NaiveDateTime.t() | nil
+        }
+
   schema "phoenix_kit_file_locations" do
     field :path, :string
     field :status, :string, default: "active"

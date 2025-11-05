@@ -133,8 +133,20 @@ defmodule PhoenixKit.MixProject do
       name: "PhoenixKit",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      main: "readme",
-      extras: ["README.md", "CHANGELOG.md"],
+      main: "PhoenixKit",
+      extras: [
+        "README.md",
+        "CHANGELOG.md",
+        "guides/oauth_and_magic_link_setup.md",
+        "guides/aws_email_setup.md",
+        "guides/making-pages-live.md",
+        "guides/phk_blogging_format.md",
+        "guides/AUTH_HEADER_INTEGRATION.md",
+        "guides/README.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/guides\/.*/
+      ],
       groups_for_modules: []
     ]
   end
