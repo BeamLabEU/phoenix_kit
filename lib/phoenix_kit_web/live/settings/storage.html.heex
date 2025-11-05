@@ -40,6 +40,45 @@
       </div>
     </div>
 
+    <%!-- System Dependencies Check --%>
+    <%= if match?({:error, :not_installed}, @imagemagick_status) do %>
+      <div class="alert alert-error mb-6">
+        <.icon name="hero-exclamation-circle" class="w-5 h-5" />
+        <div>
+          <h3 class="font-bold">ImageMagick Not Installed</h3>
+          <p class="text-sm">
+            ImageMagick is required for image processing and variant generation.
+            Without it, image resizing, cropping, and format conversion will not work.
+          </p>
+          <p class="text-sm mt-2">
+            <strong>Installation:</strong>
+            <br/>macOS: <code class="bg-base-200 px-2 py-1 rounded text-xs">brew install imagemagick</code>
+            <br/>Ubuntu/Debian: <code class="bg-base-200 px-2 py-1 rounded text-xs">sudo apt-get install imagemagick</code>
+            <br/>CentOS/RHEL: <code class="bg-base-200 px-2 py-1 rounded text-xs">sudo yum install ImageMagick</code>
+          </p>
+        </div>
+      </div>
+    <% end %>
+
+    <%= if match?({:error, :not_installed}, @ffmpeg_status) do %>
+      <div class="alert alert-warning mb-6">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        <div>
+          <h3 class="font-bold">FFmpeg Not Installed</h3>
+          <p class="text-sm">
+            FFmpeg is required for video processing, transcoding, and thumbnail generation.
+            Without it, video file processing will not work.
+          </p>
+          <p class="text-sm mt-2">
+            <strong>Installation:</strong>
+            <br/>macOS: <code class="bg-base-200 px-2 py-1 rounded text-xs">brew install ffmpeg</code>
+            <br/>Ubuntu/Debian: <code class="bg-base-200 px-2 py-1 rounded text-xs">sudo apt-get install ffmpeg</code>
+            <br/>CentOS/RHEL: <code class="bg-base-200 px-2 py-1 rounded text-xs">sudo yum install ffmpeg</code>
+          </p>
+        </div>
+      </div>
+    <% end %>
+
     <%!-- Storage Buckets --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">

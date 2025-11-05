@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.System.Dependencies
 
   def mount(params, session, socket) do
     # Get current path for navigation
@@ -41,6 +42,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     form_redundancy = current_redundancy
     form_auto_generate_variants = auto_generate_variants == "true"
 
+    # Check system dependencies
+    imagemagick_status = Dependencies.check_imagemagick_cached()
+    ffmpeg_status = Dependencies.check_ffmpeg_cached()
+
     # Allow uploads - SUPER SIMPLE!
     socket =
       socket
@@ -64,6 +69,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_auto_generate_variants, form_auto_generate_variants)
       |> assign(:uploaded_files, [])
+      |> assign(:imagemagick_status, imagemagick_status)
+      |> assign(:ffmpeg_status, ffmpeg_status)
 
     {:ok, socket}
   end
