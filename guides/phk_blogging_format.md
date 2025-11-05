@@ -8,12 +8,12 @@ The `.phk` format is PhoenixKit's component-based post markup language. It allow
 
 Blog posts are stored at:
 ```
-priv/static/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/en.phk
+priv/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/en.phk
 ```
 
 Example:
 ```
-priv/static/blogging/blog/2025-10-28/14:30/en.phk
+priv/blogging/blog/2025-10-28/14:30/en.phk
 ```
 
 ## Basic Structure

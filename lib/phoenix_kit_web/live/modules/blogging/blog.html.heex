@@ -30,7 +30,7 @@
             "/" -> ""
             prefix -> prefix
           end %>
-        <% files_hint = "priv/static/blogging/" <> blog_slug <> "/…" %>
+        <% files_hint = "priv/blogging/" <> blog_slug <> "/…" %>
         <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>
@@ -85,7 +85,7 @@
                     <% blog_slug =
                       post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                         "blog" %>
-                    <% files_path = "priv/static/blogging/" <> post.path %>
+                    <% files_path = "priv/blogging/" <> post.path %>
                     <% public_url =
                       BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
                     <p class="text-xs text-base-content/50 mt-1">

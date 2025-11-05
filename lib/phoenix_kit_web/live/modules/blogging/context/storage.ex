@@ -4,7 +4,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   Content is stored under:
 
-      priv/static/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/<language>.phk
+      priv/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/<language>.phk
 
   Where <language> is determined by the site's content language setting.
   Files use the .phk (PhoenixKit) format, which supports XML-style
@@ -170,7 +170,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     # Get the parent app's priv directory
     # This ensures files are always stored in the parent app, not in PhoenixKit's deps folder
     base_priv = Application.app_dir(parent_app, "priv")
-    base = Path.join(base_priv, "static/blogging")
+    base = Path.join(base_priv, "blogging")
 
     File.mkdir_p!(base)
     base
