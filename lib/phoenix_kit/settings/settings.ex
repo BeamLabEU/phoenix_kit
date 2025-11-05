@@ -986,7 +986,9 @@ defmodule PhoenixKit.Settings do
     # If Languages module is enabled, use the configured setting
     if Code.ensure_loaded?(Languages) and Languages.enabled?() do
       # Use batch cached settings for better performance
-      settings = get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
+      settings =
+        get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
+
       settings["site_content_language"]
     else
       # Languages module disabled - force "en"

@@ -19,10 +19,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     Process.put(:phoenix_kit_current_locale, locale)
 
     # Batch load all settings needed for this page (uses cached settings for performance)
-    settings = Settings.get_settings_cached(
-      ["project_title"],
-      %{"project_title" => "PhoenixKit"}
-    )
+    settings =
+      Settings.get_settings_cached(
+        ["project_title"],
+        %{"project_title" => "PhoenixKit"}
+      )
 
     # Load existing files from database
     existing_files = load_existing_files()

@@ -86,10 +86,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             "blogging_categories" => %{"types" => []}
           }
 
-          json_settings = PhoenixKit.Settings.get_json_settings_cached(
-            ["blogging_blogs", "blogging_categories"],
-            json_defaults
-          )
+          json_settings =
+            PhoenixKit.Settings.get_json_settings_cached(
+              ["blogging_blogs", "blogging_categories"],
+              json_defaults
+            )
 
           case json_settings["blogging_blogs"] do
             %{"blogs" => blogs} when is_list(blogs) ->
