@@ -40,8 +40,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
       |> assign(:uploaded_files, existing_files)
-      |> assign(:show_image_modal, false)
-      |> assign(:selected_file, nil)
 
     {:ok, socket}
   end
@@ -58,27 +56,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   def handle_event("upload", _params, socket) do
     # Process uploaded files when user clicks upload button
     process_uploads(socket)
-  end
-
-  def handle_event("show_image_modal", %{"file_id" => file_id}, socket) do
-    # Find the file in uploaded_files by file_id
-    selected_file = Enum.find(socket.assigns.uploaded_files, &(&1.file_id == file_id))
-
-    socket =
-      socket
-      |> assign(:selected_file, selected_file)
-      |> assign(:show_image_modal, true)
-
-    {:noreply, socket}
-  end
-
-  def handle_event("hide_image_modal", _params, socket) do
-    socket =
-      socket
-      |> assign(:selected_file, nil)
-      |> assign(:show_image_modal, false)
-
-    {:noreply, socket}
   end
 
   defp process_uploads(socket) do
@@ -185,18 +162,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       true -> "#{bytes} B"
     end
   end
-
-  # Get badge color for file type
-  defp file_type_badge("image"), do: "badge-info"
-  defp file_type_badge("video"), do: "badge-warning"
-  defp file_type_badge("pdf"), do: "badge-error"
-  defp file_type_badge(_), do: "badge-ghost"
-
-  # Get badge color for status
-  defp status_badge("active"), do: "badge-success"
-  defp status_badge("processing"), do: "badge-info"
-  defp status_badge("failed"), do: "badge-error"
-  defp status_badge(_), do: "badge-warning"
 
   # Get icon for file type
   defp file_icon("image"), do: "hero-photo"

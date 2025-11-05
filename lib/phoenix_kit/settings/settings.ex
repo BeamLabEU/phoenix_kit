@@ -971,6 +971,9 @@ defmodule PhoenixKit.Settings do
   This represents the primary language of website content (not UI language).
   Falls back to "en" if not configured or Languages module is disabled.
 
+  This function uses batch caching for optimal performance when called
+  alongside other settings queries.
+
   ## Examples
 
       iex> PhoenixKit.Settings.get_content_language()
@@ -982,7 +985,9 @@ defmodule PhoenixKit.Settings do
   def get_content_language do
     # If Languages module is enabled, use the configured setting
     if Code.ensure_loaded?(Languages) and Languages.enabled?() do
-      get_setting_cached("site_content_language", "en")
+      # Use batch cached settings for better performance
+      settings = get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
+      settings["site_content_language"]
     else
       # Languages module disabled - force "en"
       "en"

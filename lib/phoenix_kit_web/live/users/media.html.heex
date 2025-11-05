@@ -40,56 +40,130 @@
       </div>
     </div>
 
-    <%!-- Image Preview Modal --%>
-    <%= if @show_image_modal && @selected_file do %>
-      <div class="modal modal-open">
-        <div class="modal-box max-w-4xl">
-          <%!-- Large Image Preview --%>
-          <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4">
-            <img
-              src={@selected_file.urls["original"]}
-              alt={@selected_file.filename}
-              class="max-h-96 w-auto rounded"
-            />
-          </figure>
+    <%!-- Image Preview Modal (Client-side controlled) --%>
+    <dialog id="image-modal" class="modal">
+      <div class="modal-box max-w-4xl">
+        <%!-- Large Image Preview --%>
+        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4">
+          <img
+            id="modal-image"
+            src=""
+            alt="Image preview"
+            class="max-h-96 w-auto rounded"
+          />
+        </figure>
 
-          <%!-- File Info --%>
-          <h3 class="font-bold text-xl mb-2">{@selected_file.filename}</h3>
-          <div class="flex gap-3 mb-6">
-            <span class={"badge badge-lg #{file_type_badge(@selected_file.file_type)}"}>
-              {String.upcase(@selected_file.file_type)}
-            </span>
-            <span class={"badge badge-lg #{status_badge(@selected_file.status)}"}>
-              {String.capitalize(@selected_file.status)}
-            </span>
-            <span class="badge badge-lg">{format_file_size(@selected_file.size)}</span>
-          </div>
+        <%!-- File Info --%>
+        <h3 id="modal-filename" class="font-bold text-xl mb-2"></h3>
+        <div class="flex gap-3 mb-6">
+          <span id="modal-file-type" class="badge badge-lg"></span>
+          <span id="modal-file-status" class="badge badge-lg"></span>
+          <span id="modal-file-size" class="badge badge-lg"></span>
+        </div>
 
-          <%!-- Download Links --%>
-          <div class="space-y-2 mb-6">
-            <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
-            <%= for {variant, url} <- @selected_file.urls do %>
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn btn-sm btn-outline w-full justify-start"
-              >
-                <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
-                {String.capitalize(variant)}
-              </a>
-            <% end %>
-          </div>
+        <%!-- Download Links --%>
+        <div class="space-y-2 mb-6">
+          <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
+          <div id="modal-variants"></div>
+        </div>
 
-          <%!-- Close Button --%>
-          <div class="modal-action">
-            <button type="button" phx-click="hide_image_modal" class="btn btn-primary">
-              Close
-            </button>
-          </div>
+        <%!-- Close Button --%>
+        <div class="modal-action">
+          <button
+            type="button"
+            class="btn btn-primary"
+            onclick="document.getElementById('image-modal').close()"
+          >
+            Close
+          </button>
         </div>
       </div>
-    <% end %>
+      <form method="dialog" class="modal-backdrop">
+        <button>close</button>
+      </form>
+    </dialog>
+
+    <%!-- Modal Control Script --%>
+    <script>
+      const fileBadgeMap = {
+        'image': 'badge-info',
+        'video': 'badge-warning',
+        'pdf': 'badge-error',
+        'document': 'badge-ghost'
+      };
+
+      const statusBadgeMap = {
+        'active': 'badge-success',
+        'processing': 'badge-info',
+        'failed': 'badge-error'
+      };
+
+      // Format file size
+      function formatFileSize(bytes) {
+        if (bytes >= 1_000_000_000) return (bytes / 1_000_000_000).toFixed(2) + ' GB';
+        if (bytes >= 1_000_000) return (bytes / 1_000_000).toFixed(2) + ' MB';
+        if (bytes >= 1_000) return (bytes / 1_000).toFixed(2) + ' KB';
+        return bytes + ' B';
+      }
+
+      // Show modal with file data
+      function showImageModal(fileData) {
+        const modal = document.getElementById('image-modal');
+        const imageEl = document.getElementById('modal-image');
+        const filenameEl = document.getElementById('modal-filename');
+        const fileTypeEl = document.getElementById('modal-file-type');
+        const statusEl = document.getElementById('modal-file-status');
+        const sizeEl = document.getElementById('modal-file-size');
+        const variantsEl = document.getElementById('modal-variants');
+
+        // Set image and basic info
+        imageEl.src = fileData.urls.original || fileData.urls.medium || '';
+        imageEl.alt = fileData.filename;
+        filenameEl.textContent = fileData.filename;
+
+        // Set badges
+        const badgeClass = fileBadgeMap[fileData.file_type] || 'badge-ghost';
+        fileTypeEl.className = `badge badge-lg ${badgeClass}`;
+        fileTypeEl.textContent = fileData.file_type.toUpperCase();
+
+        const statusBadgeClass = statusBadgeMap[fileData.status] || 'badge-warning';
+        statusEl.className = `badge badge-lg ${statusBadgeClass}`;
+        statusEl.textContent = fileData.status.charAt(0).toUpperCase() + fileData.status.slice(1);
+
+        sizeEl.textContent = formatFileSize(fileData.size);
+
+        // Generate download links
+        variantsEl.innerHTML = Object.entries(fileData.urls)
+          .map(([variant, url]) => `
+            <a
+              href="${url}"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-sm btn-outline w-full justify-start"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+              </svg>
+              ${variant.charAt(0).toUpperCase() + variant.slice(1)}
+            </a>
+          `)
+          .join('');
+
+        // Show modal
+        modal.showModal();
+      }
+
+      // Attach click handlers to file thumbnails
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('[data-file-id]').forEach(el => {
+          el.addEventListener('click', function(e) {
+            e.preventDefault();
+            const fileData = JSON.parse(this.getAttribute('data-file-data'));
+            showImageModal(fileData);
+          });
+        });
+      });
+    </script>
 
     <%!-- Uploaded Files --%>
     <%= if length(@uploaded_files) > 0 do %>
@@ -101,15 +175,15 @@
             <%= for file <- @uploaded_files do %>
               <div
                 class="relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                phx-click="show_image_modal"
-                phx-value-file_id={file.file_id}
+                data-file-id={file.file_id}
+                data-file-data={Jason.encode!(file)}
               >
                 <% image_url = file.urls["medium"] || file.urls["original"] %>
                 <%= if image_url do %>
                   <img
                     src={image_url}
                     alt={file.filename}
-                    class="w-full h-full object-cover"
+                    class="w-full h-full object-cover pointer-events-none"
                   />
                 <% else %>
                   <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
@@ -119,7 +193,7 @@
                 <% end %>
 
                 <%!-- File size in corner --%>
-                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
                   {format_file_size(file.size)}
                 </div>
               </div>
