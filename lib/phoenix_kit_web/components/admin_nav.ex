@@ -119,6 +119,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-document-text" class="w-5 h-5" />
         <% "maintenance" -> %>
           <.icon name="hero-wrench-screwdriver" class="w-5 h-5" />
+        <% "storage" -> %>
+          <.icon name="hero-folder" class="w-5 h-5" />
         <% _ -> %>
           <.icon name="hero-squares-2x2" class="w-5 h-5" />
       <% end %>

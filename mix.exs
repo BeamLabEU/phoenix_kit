@@ -98,6 +98,8 @@ defmodule PhoenixKit.MixProject do
       {:timex, "~> 3.7"},
       {:earmark, "~> 1.4"},
       {:yaml_elixir, "~> 2.9"},
+      {:uuidv7, "~> 1.0"},
+      {:oban, "~> 2.20"},
 
       # AWS integration for emails
       {:ex_aws, "~> 2.4"},
