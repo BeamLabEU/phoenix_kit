@@ -1080,19 +1080,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   end
 
   # Used in HEEX template - compiler cannot detect usage
-  def get_language_flag(code) do
-    case code do
-      "en" -> "🇺🇸"
-      "es" -> "🇪🇸"
-      "fr" -> "🇫🇷"
-      "de" -> "🇩🇪"
-      "pt" -> "🇵🇹"
-      "it" -> "🇮🇹"
-      "nl" -> "🇳🇱"
-      "ru" -> "🇷🇺"
-      "zh-CN" -> "🇨🇳"
-      "ja" -> "🇯🇵"
-      _ -> "🌐"
+  def get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
     end
   end
 

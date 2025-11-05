@@ -544,19 +544,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to get language flag emoji
-  defp get_language_flag(code) do
-    case code do
-      "en" -> "🇺🇸"
-      "es" -> "🇪🇸"
-      "fr" -> "🇫🇷"
-      "de" -> "🇩🇪"
-      "pt" -> "🇵🇹"
-      "it" -> "🇮🇹"
-      "nl" -> "🇳🇱"
-      "ru" -> "🇷🇺"
-      "zh-CN" -> "🇨🇳"
-      "ja" -> "🇯🇵"
-      _ -> "🌐"
+  defp get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
     end
   end
 

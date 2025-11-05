@@ -287,4 +287,12 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     # For LanguagesLive, return the settings path
     Routes.path("/admin/settings/languages")
   end
+
+  # Helper function to get language flag emoji
+  defp get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
+    end
+  end
 end
