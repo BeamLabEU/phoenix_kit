@@ -4,7 +4,9 @@ defmodule PhoenixKitWeb.BlogHTML do
   """
   use PhoenixKitWeb, :html
 
+  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
+  alias PhoenixKit.Module.Languages
 
   embed_templates "blog_html/*"
 
@@ -115,24 +117,22 @@ defmodule PhoenixKitWeb.BlogHTML do
   """
   def extract_excerpt(content) when is_binary(content) do
     excerpt_markdown =
-      cond do
-        # Check for <!-- more --> tag
-        String.contains?(content, "<!-- more -->") ->
-          content
-          |> String.split("<!-- more -->")
-          |> List.first()
-          |> String.trim()
-
-        # Otherwise, get first paragraph (content before first double newline)
-        true ->
-          content
-          |> String.split(~r/\n\s*\n/, parts: 2)
-          |> List.first()
-          |> String.trim()
+      if String.contains?(content, "<!-- more -->") do
+        # Extract content before <!-- more --> tag
+        content
+        |> String.split("<!-- more -->")
+        |> List.first()
+        |> String.trim()
+      else
+        # Get first paragraph (content before first double newline)
+        content
+        |> String.split(~r/\n\s*\n/, parts: 2)
+        |> List.first()
+        |> String.trim()
       end
 
     # Render markdown to HTML
-    html = PhoenixKit.Blogging.Renderer.render_markdown(excerpt_markdown)
+    html = Renderer.render_markdown(excerpt_markdown)
 
     # Strip HTML tags to get plain text
     html
@@ -175,7 +175,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   defp single_language_mode? do
     enabled_count =
       try do
-        PhoenixKit.Module.Languages.enabled_locale_codes()
+        Languages.enabled_locale_codes()
         |> length()
       rescue
         _ -> 1

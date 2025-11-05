@@ -428,68 +428,39 @@ defmodule PhoenixKit.Emails.SQSProcessor do
     message_id = get_in(event_data, ["mail", "messageId"])
     mail_data = event_data["mail"] || %{}
     bounce_data = event_data["bounce"]
-    # Permanent or Temporary
     bounce_type = get_in(bounce_data, ["bounceType"])
     bounce_subtype = get_in(bounce_data, ["bounceSubType"])
 
-    case find_email_log_by_message_id(message_id) do
-      {:ok, log} ->
-        # Update headers if empty
-        update_log_headers_if_empty(log, mail_data)
+    status = determine_bounce_status(bounce_type)
 
-        # Determine status based on bounce type
-        status =
-          case String.downcase(bounce_type || "") do
-            "permanent" -> "hard_bounced"
-            "temporary" -> "soft_bounced"
-            _ -> "bounced"
-          end
+    update_attrs = %{
+      status: status,
+      bounced_at: DateTime.utc_now(),
+      error_message: build_bounce_error_message(bounce_data)
+    }
 
-        update_attrs = %{
-          status: status,
-          bounced_at: DateTime.utc_now(),
-          error_message: build_bounce_error_message(bounce_data)
-        }
+    extra_log_data = %{
+      bounce_type: bounce_type,
+      bounce_subtype: bounce_subtype
+    }
 
-        case Log.update_log(log, update_attrs) do
-          {:ok, updated_log} ->
-            # Create event record
-            case create_bounce_event(updated_log, bounce_data) do
-              {:ok, :duplicate_event} ->
-                Logger.info("Email bounced (duplicate event skipped)", %{
-                  log_id: updated_log.id,
-                  message_id: message_id
-                })
+    process_ses_event(
+      message_id,
+      mail_data,
+      update_attrs,
+      bounce_data,
+      "bounce",
+      &create_bounce_event/2,
+      extra_log_data,
+      nil
+    )
+  end
 
-              {:ok, _event} ->
-                Logger.info("Email bounced with event created", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  bounce_type: bounce_type,
-                  bounce_subtype: bounce_subtype
-                })
-
-              {:error, reason} ->
-                Logger.error("Failed to create bounce event", %{
-                  log_id: updated_log.id,
-                  reason: inspect(reason)
-                })
-            end
-
-            {:ok, %{type: "bounce", log_id: updated_log.id, updated: true}}
-
-          {:error, reason} ->
-            Logger.error("Failed to update bounce status", %{
-              log_id: log.id,
-              reason: inspect(reason)
-            })
-
-            {:error, reason}
-        end
-
-      {:error, :not_found} ->
-        Logger.warning("Bounce event for unknown email", %{message_id: message_id})
-        {:error, :email_log_not_found}
+  defp determine_bounce_status(bounce_type) do
+    case String.downcase(bounce_type || "") do
+      "permanent" -> "hard_bounced"
+      "temporary" -> "soft_bounced"
+      _ -> "bounced"
     end
   end
 
@@ -500,103 +471,25 @@ defmodule PhoenixKit.Emails.SQSProcessor do
     complaint_data = event_data["complaint"]
     complaint_type = get_in(complaint_data, ["complaintFeedbackType"])
 
-    case find_email_log_by_message_id(message_id) do
-      {:ok, log} ->
-        # Update headers if empty
-        update_log_headers_if_empty(log, mail_data)
+    update_attrs = %{
+      status: "complaint",
+      complained_at: DateTime.utc_now(),
+      error_message: "Spam complaint: #{complaint_type || "unknown"}"
+    }
 
-        update_attrs = %{
-          status: "complaint",
-          complained_at: DateTime.utc_now(),
-          error_message: "Spam complaint: #{complaint_type || "unknown"}"
-        }
+    extra_log_data = %{complaint_type: complaint_type}
+    placeholder_opts = %{event_data: event_data, status: "complaint"}
 
-        case Log.update_log(log, update_attrs) do
-          {:ok, updated_log} ->
-            # Create event record
-            case create_complaint_event(updated_log, complaint_data) do
-              {:ok, :duplicate_event} ->
-                Logger.warning("Email complaint (duplicate event skipped)", %{
-                  log_id: updated_log.id,
-                  message_id: message_id
-                })
-
-              {:ok, _event} ->
-                Logger.warning("Email complaint received with event created", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  complaint_type: complaint_type
-                })
-
-              {:error, reason} ->
-                Logger.error("Failed to create complaint event", %{
-                  log_id: updated_log.id,
-                  reason: inspect(reason)
-                })
-            end
-
-            {:ok, %{type: "complaint", log_id: updated_log.id, updated: true}}
-
-          {:error, reason} ->
-            Logger.error("Failed to update complaint status", %{
-              log_id: log.id,
-              reason: inspect(reason)
-            })
-
-            {:error, reason}
-        end
-
-      {:error, :not_found} ->
-        Logger.warning(
-          "Complaint event for unknown email - attempting to create placeholder log",
-          %{message_id: message_id}
-        )
-
-        case create_placeholder_log_from_event(event_data, "complaint") do
-          {:ok, log} ->
-            # Update status to complaint
-            update_attrs = %{
-              status: "complaint",
-              error_message: "Spam complaint: #{complaint_type || "unknown"}"
-            }
-
-            case Log.update_log(log, update_attrs) do
-              {:ok, updated_log} ->
-                # Create event record
-                create_complaint_event(updated_log, complaint_data)
-
-                Logger.info("Created placeholder log for complaint event", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  complaint_type: complaint_type
-                })
-
-                {:ok,
-                 %{
-                   type: "complaint",
-                   log_id: updated_log.id,
-                   updated: true,
-                   created_placeholder: true
-                 }}
-
-              {:error, reason} ->
-                Logger.error("Failed to update placeholder log for complaint", %{
-                  log_id: log.id,
-                  reason: inspect(reason)
-                })
-
-                {:error, reason}
-            end
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for complaint event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
-
-            {:error, :email_log_not_found}
-        end
-    end
+    process_ses_event(
+      message_id,
+      mail_data,
+      update_attrs,
+      complaint_data,
+      "complaint",
+      &create_complaint_event/2,
+      extra_log_data,
+      placeholder_opts
+    )
   end
 
   # Processes email open event
@@ -759,102 +652,25 @@ defmodule PhoenixKit.Emails.SQSProcessor do
     reject_data = event_data["reject"]
     reject_reason = get_in(reject_data, ["reason"])
 
-    case find_email_log_by_message_id(message_id) do
-      {:ok, log} ->
-        # Update headers if empty
-        update_log_headers_if_empty(log, mail_data)
+    update_attrs = %{
+      status: "rejected",
+      rejected_at: DateTime.utc_now(),
+      error_message: build_reject_error_message(reject_data)
+    }
 
-        update_attrs = %{
-          status: "rejected",
-          rejected_at: DateTime.utc_now(),
-          error_message: build_reject_error_message(reject_data)
-        }
+    extra_log_data = %{reject_reason: reject_reason}
+    placeholder_opts = %{event_data: event_data, status: "rejected"}
 
-        case Log.update_log(log, update_attrs) do
-          {:ok, updated_log} ->
-            # Create event record
-            case create_reject_event(updated_log, reject_data) do
-              {:ok, :duplicate_event} ->
-                Logger.warning("Email rejected (duplicate event skipped)", %{
-                  log_id: updated_log.id,
-                  message_id: message_id
-                })
-
-              {:ok, _event} ->
-                Logger.warning("Email rejected with event created", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  reject_reason: reject_reason
-                })
-
-              {:error, reason} ->
-                Logger.error("Failed to create reject event", %{
-                  log_id: updated_log.id,
-                  reason: inspect(reason)
-                })
-            end
-
-            {:ok, %{type: "reject", log_id: updated_log.id, updated: true}}
-
-          {:error, reason} ->
-            Logger.error("Failed to update reject status", %{
-              log_id: log.id,
-              reason: inspect(reason)
-            })
-
-            {:error, reason}
-        end
-
-      {:error, :not_found} ->
-        Logger.warning("Reject event for unknown email - attempting to create placeholder log", %{
-          message_id: message_id
-        })
-
-        case create_placeholder_log_from_event(event_data, "rejected") do
-          {:ok, log} ->
-            update_attrs = %{
-              status: "rejected",
-              rejected_at: DateTime.utc_now(),
-              error_message: build_reject_error_message(reject_data)
-            }
-
-            case Log.update_log(log, update_attrs) do
-              {:ok, updated_log} ->
-                # Create event record
-                create_reject_event(updated_log, reject_data)
-
-                Logger.info("Created placeholder log for reject event", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  reject_reason: reject_reason
-                })
-
-                {:ok,
-                 %{
-                   type: "reject",
-                   log_id: updated_log.id,
-                   updated: true,
-                   created_placeholder: true
-                 }}
-
-              {:error, reason} ->
-                Logger.error("Failed to update placeholder log for reject", %{
-                  log_id: log.id,
-                  reason: inspect(reason)
-                })
-
-                {:error, reason}
-            end
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for reject event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
-
-            {:error, :email_log_not_found}
-        end
-    end
+    process_ses_event(
+      message_id,
+      mail_data,
+      update_attrs,
+      reject_data,
+      "reject",
+      &create_reject_event/2,
+      extra_log_data,
+      placeholder_opts
+    )
   end
 
   # Processes delivery delay event
@@ -1008,46 +824,102 @@ defmodule PhoenixKit.Emails.SQSProcessor do
     error_message = get_in(failure_data, ["errorMessage"])
     template_name = get_in(failure_data, ["templateName"])
 
+    update_attrs = %{
+      status: "failed",
+      failed_at: DateTime.utc_now(),
+      error_message: build_rendering_failure_message(failure_data)
+    }
+
+    extra_log_data = %{template_name: template_name, error_message: error_message}
+    placeholder_opts = %{event_data: event_data, status: "failed"}
+
+    process_ses_event(
+      message_id,
+      mail_data,
+      update_attrs,
+      failure_data,
+      "rendering_failure",
+      &create_rendering_failure_event/2,
+      extra_log_data,
+      placeholder_opts
+    )
+  end
+
+  # Generic SES event processor to reduce duplication
+  defp process_ses_event(
+         message_id,
+         mail_data,
+         update_attrs,
+         event_specific_data,
+         event_type,
+         create_event_fn,
+         extra_log_data,
+         placeholder_opts
+       ) do
     case find_email_log_by_message_id(message_id) do
       {:ok, log} ->
-        # Update headers if empty
         update_log_headers_if_empty(log, mail_data)
 
-        update_attrs = %{
-          status: "failed",
-          failed_at: DateTime.utc_now(),
-          error_message: build_rendering_failure_message(failure_data)
-        }
+        update_log_and_create_event(
+          log,
+          update_attrs,
+          event_specific_data,
+          event_type,
+          create_event_fn,
+          message_id,
+          extra_log_data
+        )
 
+      {:error, :not_found} when not is_nil(placeholder_opts) ->
+        handle_missing_log_with_placeholder(
+          message_id,
+          event_specific_data,
+          update_attrs,
+          event_type,
+          create_event_fn,
+          extra_log_data,
+          placeholder_opts
+        )
+
+      {:error, :not_found} ->
+        Logger.warning("#{event_type} event for unknown email", %{message_id: message_id})
+        {:error, :email_log_not_found}
+    end
+  end
+
+  defp handle_missing_log_with_placeholder(
+         message_id,
+         full_event_data,
+         update_attrs,
+         event_type,
+         create_event_fn,
+         extra_log_data,
+         placeholder_opts
+       ) do
+    Logger.warning(
+      "#{event_type} event for unknown email - attempting to create placeholder log",
+      %{message_id: message_id}
+    )
+
+    case create_placeholder_log_from_event(
+           placeholder_opts[:event_data],
+           placeholder_opts[:status]
+         ) do
+      {:ok, log} ->
         case Log.update_log(log, update_attrs) do
           {:ok, updated_log} ->
-            # Create event record
-            case create_rendering_failure_event(updated_log, failure_data) do
-              {:ok, :duplicate_event} ->
-                Logger.error("Email rendering failed (duplicate event skipped)", %{
-                  log_id: updated_log.id,
-                  message_id: message_id
-                })
+            create_event_fn.(updated_log, full_event_data)
 
-              {:ok, _event} ->
-                Logger.error("Email rendering failed with event created", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  template_name: template_name,
-                  error_message: error_message
-                })
+            Logger.info(
+              "Created placeholder log for #{event_type} event",
+              Map.merge(%{log_id: updated_log.id, message_id: message_id}, extra_log_data)
+            )
 
-              {:error, reason} ->
-                Logger.error("Failed to create rendering_failure event", %{
-                  log_id: updated_log.id,
-                  reason: inspect(reason)
-                })
-            end
-
-            {:ok, %{type: "rendering_failure", log_id: updated_log.id, updated: true}}
+            {:ok,
+             %{type: event_type, log_id: updated_log.id, updated: true, created_placeholder: true}}
 
           {:error, reason} ->
-            Logger.error("Failed to update rendering failure status", %{
+            Logger.error("Failed to update placeholder log for #{event_type}", %{
               log_id: log.id,
               reason: inspect(reason)
             })
@@ -1055,58 +927,80 @@ defmodule PhoenixKit.Emails.SQSProcessor do
             {:error, reason}
         end
 
-      {:error, :not_found} ->
-        Logger.warning(
-          "Rendering failure event for unknown email - attempting to create placeholder log",
-          %{
-            message_id: message_id
-          }
+      {:error, reason} ->
+        Logger.error("Failed to create placeholder log for #{event_type} event", %{
+          message_id: message_id,
+          reason: inspect(reason)
+        })
+
+        {:error, :email_log_not_found}
+    end
+  end
+
+  defp update_log_and_create_event(
+         log,
+         update_attrs,
+         event_data,
+         event_type,
+         create_event_fn,
+         message_id,
+         extra_log_data
+       ) do
+    case Log.update_log(log, update_attrs) do
+      {:ok, updated_log} ->
+        handle_event_creation(
+          updated_log,
+          event_data,
+          event_type,
+          create_event_fn,
+          message_id,
+          extra_log_data
         )
 
-        case create_placeholder_log_from_event(event_data, "failed") do
-          {:ok, log} ->
-            update_attrs = %{
-              status: "failed",
-              failed_at: DateTime.utc_now(),
-              error_message: build_rendering_failure_message(failure_data)
-            }
+        {:ok, %{type: event_type, log_id: updated_log.id, updated: true}}
 
-            case Log.update_log(log, update_attrs) do
-              {:ok, updated_log} ->
-                # Create event record
-                create_rendering_failure_event(updated_log, failure_data)
+      {:error, reason} ->
+        Logger.error("Failed to update #{event_type} status", %{
+          log_id: log.id,
+          reason: inspect(reason)
+        })
 
-                Logger.info("Created placeholder log for rendering failure event", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  template_name: template_name
-                })
+        {:error, reason}
+    end
+  end
 
-                {:ok,
-                 %{
-                   type: "rendering_failure",
-                   log_id: updated_log.id,
-                   updated: true,
-                   created_placeholder: true
-                 }}
+  defp handle_event_creation(
+         log,
+         event_data,
+         event_type,
+         create_event_fn,
+         message_id,
+         extra_log_data
+       ) do
+    case create_event_fn.(log, event_data) do
+      {:ok, :duplicate_event} ->
+        log_level = if event_type in ["bounce", "complaint", "reject"], do: :warning, else: :info
 
-              {:error, reason} ->
-                Logger.error("Failed to update placeholder log for rendering failure", %{
-                  log_id: log.id,
-                  reason: inspect(reason)
-                })
+        Logger.log(
+          log_level,
+          "#{event_type} event (duplicate skipped)",
+          Map.merge(%{log_id: log.id, message_id: message_id}, extra_log_data)
+        )
 
-                {:error, reason}
-            end
+      {:ok, _event} ->
+        log_level = if event_type in ["rendering_failure"], do: :error, else: :info
 
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for rendering failure event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
+        Logger.log(
+          log_level,
+          "#{event_type} event created",
+          Map.merge(%{log_id: log.id, message_id: message_id}, extra_log_data)
+        )
 
-            {:error, :email_log_not_found}
-        end
+      {:error, reason} ->
+        Logger.error("Failed to create #{event_type} event", %{
+          log_id: log.id,
+          reason: inspect(reason)
+        })
     end
   end
 
