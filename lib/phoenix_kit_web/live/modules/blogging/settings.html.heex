@@ -65,7 +65,14 @@
                 <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
-                      <span>{blog["name"]}</span>
+                      <.link
+                        navigate={
+                          Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {blog["name"]}
+                      </.link>
                       <span class={[
                         "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
                         if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")

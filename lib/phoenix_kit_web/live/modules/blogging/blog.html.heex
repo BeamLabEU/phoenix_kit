@@ -90,12 +90,28 @@
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
                       <span>{format_datetime(post)}</span>
                     </div>
-                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                      {post.metadata.title || gettext("Untitled post")}
-                    </h3>
                     <% blog_slug =
                       post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                         "blog" %>
+                    <% default_lang = List.first(post.available_languages) || @current_locale %>
+                    <% default_lang_path =
+                      Path.join([
+                        Path.dirname(post.path),
+                        "#{default_lang}.phk"
+                      ]) %>
+                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
+                            locale: @current_locale
+                          )
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {post.metadata.title || gettext("Untitled post")}
+                      </.link>
+                    </h3>
                     <% files_path = "priv/blogging/" <> post.path %>
                     <% public_url =
                       BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
