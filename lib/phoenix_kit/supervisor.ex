@@ -18,7 +18,9 @@ defmodule PhoenixKit.Supervisor do
       # OAuth config loader MUST be first to ensure configuration
       # is available before any OAuth requests are processed
       PhoenixKit.Workers.OAuthConfigLoader,
-      PhoenixKit.Entities.Presence
+      PhoenixKit.Entities.Presence,
+      # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
+      PhoenixKit.Emails.Supervisor
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

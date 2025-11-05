@@ -46,7 +46,6 @@
     </header>
 
     <div class="space-y-6">
-
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
           <span class="text-sm text-base-content/70">
@@ -106,7 +105,8 @@
                       |> Enum.sort()
 
                     # Only hide flags if: single language enabled AND post has only 1 language file
-                    hide_flags = length(@enabled_languages) == 1 and length(post.available_languages) == 1 %>
+                    hide_flags =
+                      length(@enabled_languages) == 1 and length(post.available_languages) == 1 %>
                     <%= for lang_code <- all_languages do %>
                       <% lang_path =
                         Path.join([

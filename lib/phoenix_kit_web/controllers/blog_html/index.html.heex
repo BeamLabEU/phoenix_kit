@@ -40,11 +40,12 @@
                 </a>
               </h2>
 
-              <% excerpt = if Map.get(post.metadata, :description) do
-                post.metadata.description
-              else
-                extract_excerpt(post.content)
-              end %>
+              <% excerpt =
+                if Map.get(post.metadata, :description) do
+                  post.metadata.description
+                else
+                  extract_excerpt(post.content)
+                end %>
               <%= if excerpt && excerpt != "" do %>
                 <p class="text-sm text-base-content/70 line-clamp-3">
                   {excerpt}
