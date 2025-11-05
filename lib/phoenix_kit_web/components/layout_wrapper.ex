@@ -240,7 +240,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes", "/admin/users/media"]) do %>
                       <%!-- Submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -271,6 +271,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           href={Routes.locale_aware_path(assigns, "/admin/users/roles")}
                           icon="roles"
                           label="Roles"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/users/media")}
+                          icon="photo"
+                          label="Media"
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -423,7 +431,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/blogging"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -492,6 +500,28 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             current_path={@current_path || ""}
                             nested={true}
                           />
+                        <% end %>
+
+                        <%!-- Storage section with submenu --%>
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/storage")}
+                          icon="storage"
+                          label="Storage"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+
+                        <%= if submenu_open?(@current_path, ["/admin/settings/storage", "/admin/settings/storage/dimensions"]) do %>
+                          <%!-- Storage submenu items --%>
+                          <div class="mt-1 pl-4">
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/storage/dimensions")}
+                              icon="photo"
+                              label="Dimensions"
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          </div>
                         <% end %>
 
                         <%= if PhoenixKit.Entities.enabled?() do %>

@@ -1,0 +1,136 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Media"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="p-6">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-base-content">Media</h1>
+      <p class="text-base-content/70 mt-1">Manage user media and uploads</p>
+    </div>
+
+    <%!-- Upload Section --%>
+    <div class="card bg-base-100 shadow-xl mb-8">
+      <div class="card-body">
+        <h2 class="card-title text-xl mb-4">Upload Media</h2>
+        <p class="text-sm text-base-content/70 mb-4">
+          Upload images, videos, or PDFs. Files are automatically processed and optimized.
+        </p>
+
+        <form phx-submit="upload">
+          <.file_upload
+            upload={@uploads.media_files}
+            label="Upload Media Files"
+            icon="hero-cloud-arrow-up"
+            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+            max_size_description="100MB per file"
+          />
+
+          <button
+            type="submit"
+            class="btn btn-primary mt-4"
+            disabled={length(@uploads.media_files.entries) == 0}
+          >
+            <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <%!-- Image Preview Modal --%>
+    <%= if @show_image_modal && @selected_file do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-4xl">
+          <%!-- Large Image Preview --%>
+          <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4">
+            <img
+              src={@selected_file.urls["original"]}
+              alt={@selected_file.filename}
+              class="max-h-96 w-auto rounded"
+            />
+          </figure>
+
+          <%!-- File Info --%>
+          <h3 class="font-bold text-xl mb-2">{@selected_file.filename}</h3>
+          <div class="flex gap-3 mb-6">
+            <span class={"badge badge-lg #{file_type_badge(@selected_file.file_type)}"}>
+              {String.upcase(@selected_file.file_type)}
+            </span>
+            <span class={"badge badge-lg #{status_badge(@selected_file.status)}"}>
+              {String.capitalize(@selected_file.status)}
+            </span>
+            <span class="badge badge-lg">{format_file_size(@selected_file.size)}</span>
+          </div>
+
+          <%!-- Download Links --%>
+          <div class="space-y-2 mb-6">
+            <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
+            <%= for {variant, url} <- @selected_file.urls do %>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-sm btn-outline w-full justify-start"
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                {String.capitalize(variant)}
+              </a>
+            <% end %>
+          </div>
+
+          <%!-- Close Button --%>
+          <div class="modal-action">
+            <button type="button" phx-click="hide_image_modal" class="btn btn-primary">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Uploaded Files --%>
+    <%= if length(@uploaded_files) > 0 do %>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-4">Uploaded Files ({length(@uploaded_files)})</h2>
+
+          <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
+            <%= for file <- @uploaded_files do %>
+              <div
+                class="relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+                phx-click="show_image_modal"
+                phx-value-file_id={file.file_id}
+              >
+                <% image_url = file.urls["medium"] || file.urls["original"] %>
+                <%= if image_url do %>
+                  <img
+                    src={image_url}
+                    alt={file.filename}
+                    class="w-full h-full object-cover"
+                  />
+                <% else %>
+                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
+                    <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
+                    <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
+                  </div>
+                <% end %>
+
+                <%!-- File size in corner --%>
+                <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                  {format_file_size(file.size)}
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-base-200 rounded-lg p-8 text-center">
+        <p class="text-base-content/70">No media uploaded yet. Upload your first file above!</p>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

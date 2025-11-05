@@ -114,26 +114,41 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Admin interfaces for entity and data management
   - Settings integration (entities_enabled, entities_max_per_user, etc.)
 
-  ### V18 - User Custom Fields ⚡ LATEST
+  ### V18 - User Custom Fields
   - JSONB custom_fields column in phoenix_kit_users table
   - Flexible key-value storage for user metadata
   - API functions for custom field management
   - Support for arbitrary user data without schema changes
 
+  ### V19 - Distributed File Storage System ⚡ LATEST
+  - Phoenix_kit_buckets for storage provider configurations (local, S3, B2, R2)
+  - Phoenix_kit_files for original file uploads with metadata
+  - Phoenix_kit_file_instances for file variants (thumbnails, resizes, video qualities)
+  - Phoenix_kit_file_locations for physical storage locations (multi-location redundancy)
+  - Phoenix_kit_storage_dimensions for admin-configurable dimension presets
+  - UUIDv7 primary keys for time-sortable identifiers
+  - Smart bucket selection with priority system (0 = random/emptiest, >0 = specific priority)
+  - Token-based URL security to prevent enumeration attacks
+  - Support for images, videos, documents, and archives
+  - Automatic variant generation system (8 default dimensions seeded)
+  - Storage settings (redundancy_copies, auto_generate_variants, default_bucket_id)
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V18 in sequence.
+  Runs all migrations V01 through V19 in sequence.
 
   ### Incremental Updates
-  - V01 → V18: Runs V02 through V18 in sequence
-  - V17 → V18: Runs V18 only (adds user custom fields)
-  - V16 → V18: Runs V17, V18 (adds entities, then custom fields)
-  - V15 → V18: Runs V16, V17, V18 (adds OAuth providers, entities, custom fields)
-  - V14 → V18: Runs V15, V16, V17, V18 (adds email templates, OAuth, entities, custom fields)
-  - V13 → V18: Runs V14, V15, V16, V17, V18 (adds modules, templates, OAuth, entities, custom fields)
+  - V01 → V19: Runs V02 through V19 in sequence
+  - V18 → V19: Runs V19 only (adds distributed storage system)
+  - V17 → V19: Runs V18, V19 (adds custom fields, then storage system)
+  - V16 → V19: Runs V17, V18, V19 (adds entities, custom fields, storage)
+  - V15 → V19: Runs V16, V17, V18, V19 (adds OAuth, entities, custom fields, storage)
+  - V14 → V19: Runs V15, V16, V17, V18, V19 (adds templates, OAuth, entities, custom fields, storage)
+  - V13 → V19: Runs V14, V15, V16, V17, V18, V19 (adds modules, templates, OAuth, entities, custom fields, storage)
 
   ### Rollback Support
+  - V19 → V18: Removes distributed storage system
   - V18 → V17: Removes user custom fields
   - V17 → V16: Removes entities system
   - V16 → V15: Removes OAuth providers system
@@ -177,7 +192,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   alias PhoenixKit.Config
 
   @initial_version 1
-  @current_version 19
+  @current_version 20
   @default_prefix "public"
 
   @doc false

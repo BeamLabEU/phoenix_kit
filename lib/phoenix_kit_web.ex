@@ -119,6 +119,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.AWSRegionSelect
       import PhoenixKitWeb.Components.Core.AWSCredentialsVerify
       import PhoenixKitWeb.Components.Core.Accordion
+      import PhoenixKitWeb.Components.Core.FileUpload
     end
   end
 

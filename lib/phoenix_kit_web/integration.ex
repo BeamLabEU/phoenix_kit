@@ -207,6 +207,11 @@ defmodule PhoenixKitWeb.Integration do
         # Email webhook endpoint (no authentication required)
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
 
+        # Storage API routes (file upload and serving)
+        post "/api/upload", UploadController, :create
+        get "/file/:file_id/:variant/:token", FileController, :show
+        get "/api/files/:file_id/info", FileController, :info
+
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
       end
@@ -291,6 +296,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
+          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -309,6 +315,23 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,
                :index
+
+          live "/admin/settings/storage", Live.Settings.Storage, :index
+          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
+          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
+
+          live "/admin/settings/storage/dimensions/new/image",
+               Live.Settings.Storage.DimensionForm,
+               :new_image
+
+          live "/admin/settings/storage/dimensions/new/video",
+               Live.Settings.Storage.DimensionForm,
+               :new_video
+
+          live "/admin/settings/storage/dimensions/:id/edit",
+               Live.Settings.Storage.DimensionForm,
+               :edit
 
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
@@ -403,6 +426,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
+          live "/admin/users/media", Live.Users.Media, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -422,7 +446,23 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
-          live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
+          live "/admin/settings/storage", Live.Settings.Storage, :index
+          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
+          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
+
+          live "/admin/settings/storage/dimensions/new/image",
+               Live.Settings.Storage.DimensionForm,
+               :new_image
+
+          live "/admin/settings/storage/dimensions/new/video",
+               Live.Settings.Storage.DimensionForm,
+               :new_video
+
+          live "/admin/settings/storage/dimensions/:id/edit",
+               Live.Settings.Storage.DimensionForm,
+               :edit
+
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
           live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
