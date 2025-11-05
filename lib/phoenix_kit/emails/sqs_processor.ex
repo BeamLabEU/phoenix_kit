@@ -1176,17 +1176,27 @@ defmodule PhoenixKit.Emails.SQSProcessor do
     if Event.event_exists?(log.id, "bounce") do
       {:ok, :duplicate_event}
     else
+      # Convert AWS bounce types to our internal types
+      aws_bounce_type = get_in(bounce_data, ["bounceType"])
+      bounce_type = normalize_bounce_type(aws_bounce_type)
+
       event_attrs = %{
         email_log_id: log.id,
         event_type: "bounce",
         event_data: bounce_data,
         occurred_at: parse_timestamp(get_in(bounce_data, ["timestamp"])),
-        bounce_type: get_in(bounce_data, ["bounceType"])
+        bounce_type: bounce_type,
+        bounce_subtype: get_in(bounce_data, ["bounceSubType"])
       }
 
       PhoenixKit.Emails.create_event(event_attrs)
     end
   end
+
+  # Converts AWS SES bounce types to internal bounce types
+  defp normalize_bounce_type("Permanent"), do: "hard"
+  defp normalize_bounce_type("Transient"), do: "soft"
+  defp normalize_bounce_type(_), do: "hard"
 
   # Creates event record for complaint
   defp create_complaint_event(log, complaint_data) do
