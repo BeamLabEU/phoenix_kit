@@ -90,6 +90,32 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
      )}
   end
 
+  def handle_event("change_status", %{"path" => post_path, "status" => new_status}, socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    case Blogging.read_post(socket.assigns.blog_slug, post_path) do
+      {:ok, post} ->
+        case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
+               scope: scope
+             }) do
+          {:ok, _updated_post} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
+             |> assign(
+               :posts,
+               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale)
+             )}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
+        end
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+    end
+  end
+
   def handle_event(
         "toggle_status",
         %{"path" => post_path, "current-status" => current_status},
