@@ -191,7 +191,12 @@
                       "/" -> ""
                       prefix -> prefix
                     end %>
-                  <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+                  <% public_url =
+                    if length(@enabled_languages) == 1 do
+                      @endpoint_url <> url_prefix <> "/" <> blog_slug
+                    else
+                      @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+                    end %>
                   <a
                     href={public_url}
                     target="_blank"

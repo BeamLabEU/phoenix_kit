@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
@@ -26,11 +27,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
       |> assign(:last_generated_slug, last_generated_slug)
       |> assign(:form_params, initial_params)
       |> assign(:form, new_blog_form(initial_params))
+      |> assign(:enabled_languages, Storage.enabled_language_codes())
+      |> assign(:endpoint_url, nil)
 
     {:ok, socket}
   end
 
-  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+  def handle_params(_params, uri, socket) do
+    endpoint_url = extract_endpoint_url(uri)
+    {:noreply, assign(socket, :endpoint_url, endpoint_url)}
+  end
 
   def handle_event("update_new_blog", %{"blog" => params}, socket) do
     {normalized_params, auto?, last_generated_slug} =
@@ -233,4 +239,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
       {%{"name" => name, "slug" => slug_value, "mode" => mode}, auto?, new_last_generated}
     end
   end
+
+  defp extract_endpoint_url(uri) when is_binary(uri) do
+    case URI.parse(uri) do
+      %URI{scheme: scheme, host: host, port: port} when not is_nil(scheme) and not is_nil(host) ->
+        port_string = if port in [80, 443], do: "", else: ":#{port}"
+        "#{scheme}://#{host}#{port_string}"
+
+      _ ->
+        ""
+    end
+  end
+
+  defp extract_endpoint_url(_), do: ""
 end

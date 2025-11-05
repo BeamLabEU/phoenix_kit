@@ -31,7 +31,12 @@
             prefix -> prefix
           end %>
         <% files_hint = "priv/blogging/" <> blog_slug <> "/…" %>
-        <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+        <% public_url =
+          if length(@enabled_languages) == 1 do
+            @endpoint_url <> url_prefix <> "/" <> blog_slug
+          else
+            @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+          end %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>
             <span class="font-medium text-base-content">{gettext("Files")}: </span>
@@ -39,7 +44,13 @@
           </p>
           <p>
             <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-            <code class="font-mono break-all">{public_hint}</code>
+            <a
+              href={public_url}
+              target="_blank"
+              class="link link-hover font-mono break-all text-xs"
+            >
+              {public_url}
+            </a>
           </p>
         </div>
       </div>
@@ -88,13 +99,20 @@
                     <% files_path = "priv/blogging/" <> post.path %>
                     <% public_url =
                       BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
+                    <% full_public_url = @endpoint_url <> public_url %>
                     <p class="text-xs text-base-content/50 mt-1">
                       <span class="font-medium text-base-content">{gettext("Files")}: </span>
                       <code class="font-mono break-all">{files_path}</code>
                     </p>
                     <p class="text-xs text-base-content/50">
                       <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-                      <code class="font-mono break-all">{public_url}</code>
+                      <a
+                        href={full_public_url}
+                        target="_blank"
+                        class="link link-hover font-mono break-all text-xs"
+                      >
+                        {full_public_url}
+                      </a>
                     </p>
                   </div>
                   <div class="flex gap-2 flex-wrap">
