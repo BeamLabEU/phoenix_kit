@@ -27,17 +27,30 @@ defmodule PhoenixKitWeb.BlogHTML do
   def build_post_url(blog_slug, post, language) do
     case post.mode do
       :slug ->
-        segments = if single_language_mode?(), do: [blog_slug, post.slug], else: [language, blog_slug, post.slug]
+        segments =
+          if single_language_mode?(),
+            do: [blog_slug, post.slug],
+            else: [language, blog_slug, post.slug]
+
         build_public_path(segments)
 
       :timestamp ->
         date = format_date_for_url(post.metadata.published_at)
         time = format_time_for_url(post.metadata.published_at)
-        segments = if single_language_mode?(), do: [blog_slug, date, time], else: [language, blog_slug, date, time]
+
+        segments =
+          if single_language_mode?(),
+            do: [blog_slug, date, time],
+            else: [language, blog_slug, date, time]
+
         build_public_path(segments)
 
       _ ->
-        segments = if single_language_mode?(), do: [blog_slug, post.slug], else: [language, blog_slug, post.slug]
+        segments =
+          if single_language_mode?(),
+            do: [blog_slug, post.slug],
+            else: [language, blog_slug, post.slug]
+
         build_public_path(segments)
     end
   end
