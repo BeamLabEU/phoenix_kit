@@ -11,6 +11,12 @@ config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
 # Applications using PhoenixKit should configure their own providers
 config :ueberauth, Ueberauth, providers: []
 
+# Configure Oban (if using job processing)
+config :phoenix_kit, Oban,
+  repo: PhoenixKit.Repo,
+  queues: [default: 10, emails: 50, file_processing: 20],
+  plugins: [Oban.Plugins.Pruner, {Oban.Plugins.Cron, crontab: []}]
+
 # Configure Logger metadata
 config :logger, :console,
   metadata: [

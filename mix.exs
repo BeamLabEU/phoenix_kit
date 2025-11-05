@@ -99,6 +99,10 @@ defmodule PhoenixKit.MixProject do
       {:earmark, "~> 1.4"},
       {:yaml_elixir, "~> 2.9"},
       {:uuidv7, "~> 1.0"},
+      {:oban, "~> 2.20"},
+
+      # Image processing
+      {:vix, "~> 0.23"},
 
       # AWS integration for emails
       {:ex_aws, "~> 2.4"},
