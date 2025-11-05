@@ -101,9 +101,6 @@ defmodule PhoenixKit.MixProject do
       {:uuidv7, "~> 1.0"},
       {:oban, "~> 2.20"},
 
-      # Image processing
-      {:vix, "~> 0.23"},
-
       # AWS integration for emails
       {:ex_aws, "~> 2.4"},
       {:ex_aws_sqs, "~> 3.4"},

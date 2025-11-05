@@ -115,10 +115,16 @@ defmodule PhoenixKit.Storage.Dimension do
         changeset
 
       applies_to in ["image", "both"] ->
-        validate_number(changeset, :quality, greater_than_or_equal_to: 1, less_than_or_equal_to: 100)
+        validate_number(changeset, :quality,
+          greater_than_or_equal_to: 1,
+          less_than_or_equal_to: 100
+        )
 
       applies_to == "video" ->
-        validate_number(changeset, :quality, greater_than_or_equal_to: 0, less_than_or_equal_to: 51)
+        validate_number(changeset, :quality,
+          greater_than_or_equal_to: 0,
+          less_than_or_equal_to: 51
+        )
 
       true ->
         changeset

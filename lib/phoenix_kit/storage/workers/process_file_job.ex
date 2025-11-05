@@ -12,6 +12,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   require Logger
 
   alias PhoenixKit.Storage
+  alias PhoenixKit.Storage.ImageProcessor
 
   @doc """
   Process a file and generate variants.
@@ -149,30 +150,19 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   end
 
   defp extract_image_metadata(file_path) do
-    try do
-      case Vix.Vips.Image.new_from_file(file_path) do
-        {:ok, image} ->
-          width = Vix.Vips.Image.width(image)
-          height = Vix.Vips.Image.height(image)
-          # Default format
-          format = "jpeg"
-
-          {
-            :ok,
-            %{
-              width: width,
-              height: height,
-              format: format
-            }
+    case ImageProcessor.extract_dimensions(file_path) do
+      {:ok, {width, height}} ->
+        {
+          :ok,
+          %{
+            width: width,
+            height: height,
+            format: "jpeg"
           }
+        }
 
-        {:error, reason} ->
-          Logger.warning("Failed to extract image metadata: #{inspect(reason)}")
-          {:ok, %{}}
-      end
-    rescue
-      e ->
-        Logger.warning("Failed to extract image metadata: #{inspect(e)}")
+      {:error, reason} ->
+        Logger.warning("Failed to extract image metadata: #{inspect(reason)}")
         {:ok, %{}}
     end
   end

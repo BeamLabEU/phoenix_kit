@@ -21,13 +21,14 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   ## Dependencies
 
   Requires external tools to be installed:
-  - Images: ImageMagick or GraphicsMagick
+  - Images: ImageMagick (`convert` and `identify` commands)
   - Videos: FFmpeg
 
   """
 
   alias PhoenixKit.Storage
   alias PhoenixKit.Storage.Manager
+  alias PhoenixKit.Storage.ImageProcessor
 
   require Logger
 
@@ -287,65 +288,13 @@ defmodule PhoenixKit.Storage.VariantGenerator do
       "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}"
     )
 
-    try do
-      # Load image with Vix
-      case Vix.Vips.Image.new_from_file(input_path) do
-        {:ok, image} ->
-          # Resize image based on dimension settings
-          resized_image =
-            case {dimension.width, dimension.height} do
-              {w, h} when w != nil and h != nil ->
-                # Both width and height specified - resize to fit within bounds
-                Logger.info("Resizing to #{w}x#{h}")
-                current_width = Vix.Vips.Image.width(image)
-                current_height = Vix.Vips.Image.height(image)
-                scale_by_width = w / current_width
-                scale_by_height = h / current_height
+    quality = dimension.quality || 85
+    format = dimension.format
 
-                # Use smaller scale to fit both width and height (works for vertical and horizontal images)
-                scale = min(scale_by_width, scale_by_height)
-                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
-                resized
-
-              {w, nil} when w != nil ->
-                # Only width specified - maintain aspect ratio
-                Logger.info("Resizing to width #{w}")
-                current_width = Vix.Vips.Image.width(image)
-                scale = w / current_width
-                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
-                resized
-
-              {nil, h} when h != nil ->
-                # Only height specified - maintain aspect ratio
-                Logger.info("Resizing to height #{h}")
-                current_height = Vix.Vips.Image.height(image)
-                scale = h / current_height
-                {:ok, resized} = Vix.Vips.Operation.resize(image, scale)
-                resized
-
-              _ ->
-                # No dimensions specified - use original size
-                Logger.info("No dimensions specified, using original size")
-                image
-            end
-
-          # Write resized image to output path
-          case Vix.Vips.Image.write_to_file(resized_image, output_path) do
-            :ok ->
-              Logger.info("Successfully saved resized image to #{output_path}")
-              {:ok, output_path}
-
-            {:error, reason} ->
-              {:error, "Failed to write resized image: #{inspect(reason)}"}
-          end
-
-        {:error, reason} ->
-          {:error, "Failed to load image: #{inspect(reason)}"}
-      end
-    rescue
-      e ->
-        {:error, "Image processing failed: #{inspect(e)}"}
-    end
+    ImageProcessor.resize(input_path, output_path, dimension.width, dimension.height,
+      quality: quality,
+      format: format
+    )
   end
 
   defp process_video_variant(input_path, output_path, _mime_type, dimension) do
@@ -449,23 +398,11 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp get_width_from_file(file_path) do
-    case Vix.Vips.Image.new_from_file(file_path) do
-      {:ok, image} ->
-        Vix.Vips.Image.width(image)
-
-      {:error, _} ->
-        nil
-    end
+    ImageProcessor.get_width(file_path)
   end
 
   defp get_height_from_file(file_path) do
-    case Vix.Vips.Image.new_from_file(file_path) do
-      {:ok, image} ->
-        Vix.Vips.Image.height(image)
-
-      {:error, _} ->
-        nil
-    end
+    ImageProcessor.get_height(file_path)
   end
 
   defp generate_temp_path(extension) do

@@ -54,7 +54,8 @@ defmodule PhoenixKit.Storage.URLSigner do
       iex> URLSigner.generate_token("018e3c4a-9f6b-7890-abcd-ef1234567890", "medium")
       "b7e5"
   """
-  def generate_token(file_id, instance_name) when is_binary(file_id) and is_binary(instance_name) do
+  def generate_token(file_id, instance_name)
+      when is_binary(file_id) and is_binary(instance_name) do
     secret = get_secret_key_base()
     data = "#{file_id}:#{instance_name}"
 
