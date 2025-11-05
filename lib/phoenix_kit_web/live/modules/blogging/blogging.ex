@@ -159,13 +159,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         value -> String.trim(to_string(value || ""))
       end
 
-    sanitized_slug =
-      case slugify(desired_slug) do
-        "" -> slugify(name)
-        slug_value -> slug_value
-      end
+    # If slug is empty, auto-generate from name; otherwise validate as-is
+    cond do
+      desired_slug == "" ->
+        auto_slug = slugify(name)
+        if valid_slug?(auto_slug), do: {:ok, auto_slug}, else: {:error, :invalid_slug}
 
-    if sanitized_slug == "", do: {:error, :invalid_slug}, else: {:ok, sanitized_slug}
+      valid_slug?(desired_slug) ->
+        {:ok, desired_slug}
+
+      true ->
+        {:error, :invalid_slug}
+    end
   end
 
   defp check_slug_uniqueness(blog, blogs, sanitized_slug) do
