@@ -211,6 +211,7 @@ defmodule PhoenixKit.Module.Languages do
   Enables the language module and creates default configuration.
 
   Creates the initial module configuration with English as the default language.
+  If a previous configuration exists, it will be restored instead of reset.
   Updates both the enabled flag and the JSON configuration.
 
   Returns `{:ok, config}` on success, `{:error, reason}` on failure.
@@ -224,9 +225,13 @@ defmodule PhoenixKit.Module.Languages do
     # Enable the system
     case Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name) do
       {:ok, _setting} ->
-        # Create initial JSON configuration with default English
-        case Settings.update_json_setting_with_module(@config_key, @default_config, @module_name) do
-          {:ok, _setting} -> {:ok, @default_config}
+        # Check if a previous configuration exists to preserve languages
+        existing_config = Settings.get_json_setting(@config_key, nil)
+        config_to_save = if is_nil(existing_config), do: @default_config, else: existing_config
+
+        # Save the configuration (either existing or new default)
+        case Settings.update_json_setting_with_module(@config_key, config_to_save, @module_name) do
+          {:ok, _setting} -> {:ok, config_to_save}
           {:error, changeset} -> {:error, changeset}
         end
 
