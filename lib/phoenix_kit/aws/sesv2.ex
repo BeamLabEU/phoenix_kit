@@ -164,7 +164,9 @@ defmodule PhoenixKit.AWS.SESv2 do
           "DELIVERY",
           "OPEN",
           "CLICK",
-          "RENDERING_FAILURE"
+          "RENDERING_FAILURE",
+          "DELIVERY_DELAY",
+          "SUBSCRIPTION"
         ],
         "SnsDestination" => %{
           "TopicArn" => topic_arn
