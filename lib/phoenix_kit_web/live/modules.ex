@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Entities
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
@@ -31,6 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     pages_enabled = Pages.enabled?()
     blogging_enabled = Blogging.enabled?()
     under_construction_config = Maintenance.get_config()
+    storage_config = Storage.get_config()
 
     socket =
       socket
@@ -57,6 +59,9 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:under_construction_enabled, under_construction_config.enabled)
       |> assign(:under_construction_header, under_construction_config.header)
       |> assign(:under_construction_subtext, under_construction_config.subtext)
+      |> assign(:storage_enabled, storage_config.module_enabled)
+      |> assign(:storage_buckets_count, storage_config.buckets_count)
+      |> assign(:storage_active_buckets_count, storage_config.active_buckets_count)
       |> assign(:current_locale, locale)
 
     {:ok, socket}

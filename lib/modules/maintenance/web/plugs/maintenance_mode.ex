@@ -20,6 +20,8 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
   import Plug.Conn
   import Phoenix.Controller
 
+  require Logger
+
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
@@ -33,27 +35,18 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
   Checks if maintenance mode is enabled and renders maintenance page for non-admin users.
   """
   def call(conn, _opts) do
-    # Debug logging
-    require Logger
-    Logger.debug("MaintenanceMode plug called for path: #{conn.request_path}")
-
     # Only proceed if maintenance mode is enabled
     if Maintenance.enabled?() do
-      Logger.debug("Maintenance mode is ENABLED")
       handle_maintenance_mode(conn)
     else
-      Logger.debug("Maintenance mode is DISABLED")
       conn
     end
   end
 
   # Handle maintenance mode logic
   defp handle_maintenance_mode(conn) do
-    require Logger
-
     # Skip maintenance mode for auth routes and static assets
     if should_skip_maintenance?(conn.request_path) do
-      Logger.debug("Skipping maintenance for path: #{conn.request_path}")
       conn
     else
       # Check if this is a LiveView route (Phoenix LiveView handles maintenance in-place)
@@ -64,16 +57,13 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
         # This allows users to stay on their current page when maintenance is disabled
         conn
       else
-        Logger.debug("Controller route detected: #{conn.request_path}")
         # Get user from session and check if admin/owner
         user = get_user_from_session(conn)
 
         if user_is_admin_or_owner?(user) do
-          Logger.debug("User is admin/owner, bypassing maintenance")
           # Admin/Owner bypasses maintenance mode
           conn
         else
-          Logger.debug("Rendering maintenance page for non-admin user")
           # Non-admin user - render maintenance page (only for controller routes)
           render_maintenance_page(conn)
         end
@@ -86,7 +76,6 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
     require Logger
     # Get the configured URL prefix
     url_prefix = PhoenixKit.Config.get_url_prefix()
-    Logger.debug("URL prefix: #{inspect(url_prefix)}")
 
     # Check if this request is for a PhoenixKit route
     # The path must actually start with the prefix to be a PhoenixKit route
@@ -106,8 +95,6 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
           String.starts_with?(conn.request_path, prefix)
       end
 
-    Logger.debug("Is PhoenixKit route? #{is_phoenix_kit_route} for path: #{conn.request_path}")
-
     # Only let LiveView routes through if they're PhoenixKit routes
     if is_phoenix_kit_route do
       # LiveView routes use WebSocket upgrades or have specific markers
@@ -122,7 +109,6 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
       end
     else
       # Not a PhoenixKit route - don't let it through as LiveView
-      Logger.debug("Not a PhoenixKit route, will show full maintenance page")
       false
     end
   end
