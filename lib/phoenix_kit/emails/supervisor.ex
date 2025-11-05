@@ -209,9 +209,11 @@ defmodule PhoenixKit.Emails.Supervisor do
   # Checks whether SQS Worker should start
   defp should_start_sqs_worker? do
     # Check that email tracking is enabled
+    # Check that AWS SES events processing is enabled
     # Check that SQS polling is enabled
     # Check that SQS settings exist
     PhoenixKit.Emails.enabled?() &&
+      PhoenixKit.Emails.ses_events_enabled?() &&
       PhoenixKit.Emails.sqs_polling_enabled?() &&
       has_sqs_configuration?()
   end

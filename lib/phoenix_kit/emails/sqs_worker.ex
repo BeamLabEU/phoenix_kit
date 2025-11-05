@@ -19,17 +19,23 @@ defmodule PhoenixKit.Emails.SQSWorker do
   - **Graceful Shutdown**: Proper work completion on shutdown
   - **Metrics**: Processing metrics collection for monitoring
   - **Backpressure**: Load control through visibility timeout
+  - **Dynamic Configuration**: Automatically responds to settings changes without restart
 
   ## Configuration
 
-  All settings are retrieved from PhoenixKit Settings:
+  All settings are retrieved from PhoenixKit Settings and checked dynamically:
 
-  - `sqs_polling_enabled` - enable/disable polling
+  - `email_ses_events` - master switch for AWS SES events processing (checked before each cycle)
+  - `sqs_polling_enabled` - enable/disable polling (checked before each cycle)
   - `sqs_polling_interval_ms` - interval between polling cycles
   - `sqs_max_messages_per_poll` - maximum messages per batch
   - `sqs_visibility_timeout` - time for message processing
   - `aws_sqs_queue_url` - SQS queue URL
   - `aws_region` - AWS region
+
+  **Note**: When `email_ses_events` or `sqs_polling_enabled` is changed in settings,
+  the worker will automatically stop or resume polling without requiring a restart.
+  Status checks occur every 30 seconds when polling is disabled to detect re-enablement.
 
   ## Security
 
@@ -243,15 +249,55 @@ defmodule PhoenixKit.Emails.SQSWorker do
 
   @doc false
   def handle_info(:poll_sqs, state) do
-    if state.polling_enabled and not state.paused do
-      new_state =
-        state
-        |> perform_polling_cycle()
-        |> schedule_next_poll(state.polling_interval_ms)
+    # Check current polling status from database (dynamic check)
+    ses_events_enabled = PhoenixKit.Emails.ses_events_enabled?()
+    current_polling_enabled = PhoenixKit.Emails.sqs_polling_enabled?()
 
-      {:noreply, new_state}
-    else
-      {:noreply, state}
+    cond do
+      # AWS SES events processing is disabled - stop polling
+      not ses_events_enabled ->
+        if state.polling_enabled do
+          Logger.info("SQS Worker: AWS SES events disabled via settings, stopping polling cycle")
+        end
+
+        # Check status again after 30 seconds to detect if it was re-enabled
+        new_state =
+          %{state | polling_enabled: false}
+          |> schedule_next_poll(30_000, true)
+
+        {:noreply, new_state}
+
+      # Polling is enabled and not paused - perform normal polling cycle
+      ses_events_enabled and current_polling_enabled and not state.paused ->
+        # Log if polling was just re-enabled
+        if not state.polling_enabled do
+          Logger.info("SQS Worker: Polling enabled via settings, resuming polling cycle")
+        end
+
+        new_state =
+          %{state | polling_enabled: true}
+          |> perform_polling_cycle()
+          |> schedule_next_poll(state.polling_interval_ms)
+
+        {:noreply, new_state}
+
+      # Polling is disabled - log once and schedule status check
+      not current_polling_enabled ->
+        if state.polling_enabled do
+          Logger.info("SQS Worker: Polling disabled via settings, stopping polling cycle")
+        end
+
+        # Check status again after 30 seconds to detect if polling was re-enabled
+        new_state =
+          %{state | polling_enabled: false}
+          |> schedule_next_poll(30_000, true)
+
+        {:noreply, new_state}
+
+      # Worker is paused - keep checking
+      state.paused ->
+        new_state = schedule_next_poll(state, state.polling_interval_ms)
+        {:noreply, new_state}
     end
   end
 
@@ -477,17 +523,27 @@ defmodule PhoenixKit.Emails.SQSWorker do
         :ok
 
       {:error, error} ->
-        Logger.warning("Failed to delete SQS message", %{error: inspect(error)})
+        Logger.error("Failed to delete SQS message", %{
+          error: inspect(error),
+          error_type: if(is_map(error), do: error.__struct__, else: :unknown),
+          queue_url: queue_url,
+          receipt_handle: String.slice(receipt_handle, 0, 50) <> "...",
+          has_aws_config: not Enum.empty?(aws_config)
+        })
+
         # Non-critical error, message will return to queue
         :ok
     end
   end
 
   # Schedules the next polling cycle
-  defp schedule_next_poll(state, delay_ms) do
+  defp schedule_next_poll(state, delay_ms, force \\ false) do
     new_state = cancel_timer(state)
 
-    if new_state.polling_enabled and not new_state.paused do
+    # Schedule next cycle if:
+    # - polling is enabled and not paused, OR
+    # - force is true (for status checks when polling is disabled)
+    if (new_state.polling_enabled and not new_state.paused) or force do
       timer_ref = Process.send_after(self(), :poll_sqs, delay_ms)
       %{new_state | poll_timer_ref: timer_ref}
     else
