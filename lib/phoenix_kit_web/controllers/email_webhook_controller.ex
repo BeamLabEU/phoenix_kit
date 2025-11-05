@@ -16,12 +16,18 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
 
   ## Supported Event Types
 
+  All 10 AWS SES email event types are supported:
+
+  - **Send**: Email accepted by AWS SES for sending
+  - **Reject**: Email rejected before sending (virus, content policy violation)
   - **Bounce**: Hard and soft bounces with detailed reasons
   - **Complaint**: Spam complaints and feedback loops
   - **Delivery**: Successful delivery confirmations
-  - **Send**: Send confirmations from SES
-  - **Open**: Email open detection (AWS SES)
-  - **Click**: Link click tracking
+  - **Open**: Email open detection (AWS SES tracking pixel)
+  - **Click**: Link click tracking in emails
+  - **Rendering Failure**: Email template rendering errors
+  - **Delivery Delay**: Temporary delivery delays
+  - **Subscription**: Subscription preference updates or unsubscribes
 
   ## Configuration
 

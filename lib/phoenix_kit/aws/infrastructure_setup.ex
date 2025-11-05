@@ -431,7 +431,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
         Logger.info("[AWS Setup]   ✓ SES Event Tracking configured")
 
         Logger.info(
-          "[AWS Setup]     Events: SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, OPEN, CLICK, RENDERING_FAILURE"
+          "[AWS Setup]     Events: SEND, REJECT, BOUNCE, COMPLAINT, DELIVERY, OPEN, CLICK, RENDERING_FAILURE, DELIVERY_DELAY, SUBSCRIPTION"
         )
 
         Logger.info("[AWS Setup]     Destination: #{sns_topic_arn}")

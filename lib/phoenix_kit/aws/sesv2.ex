@@ -124,7 +124,7 @@ defmodule PhoenixKit.AWS.SESv2 do
 
   ## Events Tracked
 
-  The event destination is configured to track all email event types:
+  The event destination is configured to track all 10 AWS SES email event types:
   - `SEND` - Email accepted by AWS SES
   - `REJECT` - Email rejected before sending
   - `BOUNCE` - Email bounced (hard or soft)
@@ -133,6 +133,8 @@ defmodule PhoenixKit.AWS.SESv2 do
   - `OPEN` - Recipient opened email (tracking pixel loaded)
   - `CLICK` - Recipient clicked link in email
   - `RENDERING_FAILURE` - Email template failed to render
+  - `DELIVERY_DELAY` - Temporary delivery delay occurred
+  - `SUBSCRIPTION` - Recipient updated subscription preferences or unsubscribed
 
   ## Examples
 
@@ -164,7 +166,9 @@ defmodule PhoenixKit.AWS.SESv2 do
           "DELIVERY",
           "OPEN",
           "CLICK",
-          "RENDERING_FAILURE"
+          "RENDERING_FAILURE",
+          "DELIVERY_DELAY",
+          "SUBSCRIPTION"
         ],
         "SnsDestination" => %{
           "TopicArn" => topic_arn
