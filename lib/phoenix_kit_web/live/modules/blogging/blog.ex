@@ -39,21 +39,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:posts, posts)
+      |> assign(:endpoint_url, nil)
 
     {:ok, redirect_if_missing(socket)}
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
+  def handle_params(_params, uri, socket) do
     posts =
       case socket.assigns.blog_slug do
         nil -> []
         slug -> Blogging.list_posts(slug, socket.assigns.current_locale)
       end
 
+    endpoint_url = extract_endpoint_url(uri)
+
     socket =
       socket
       |> assign(:posts, posts)
+      |> assign(:endpoint_url, endpoint_url)
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -88,6 +92,32 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
            locale: socket.assigns.current_locale
          )
      )}
+  end
+
+  def handle_event("change_status", %{"path" => post_path, "status" => new_status}, socket) do
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    case Blogging.read_post(socket.assigns.blog_slug, post_path) do
+      {:ok, post} ->
+        case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
+               scope: scope
+             }) do
+          {:ok, _updated_post} ->
+            {:noreply,
+             socket
+             |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
+             |> assign(
+               :posts,
+               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale)
+             )}
+
+          {:error, _reason} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to update status"))}
+        end
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+    end
   end
 
   def handle_event(
@@ -163,4 +193,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   end
 
   defp format_datetime(_post), do: gettext("Unsaved draft")
+
+  defp extract_endpoint_url(uri) when is_binary(uri) do
+    case URI.parse(uri) do
+      %URI{scheme: scheme, host: host, port: port} when not is_nil(scheme) and not is_nil(host) ->
+        port_string = if port in [80, 443], do: "", else: ":#{port}"
+        "#{scheme}://#{host}#{port_string}"
+
+      _ ->
+        ""
+    end
+  end
+
+  defp extract_endpoint_url(_), do: ""
 end

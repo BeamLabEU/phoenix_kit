@@ -38,7 +38,7 @@
             <h2 class="text-2xl font-semibold text-base-content">{gettext("No blogs yet")}</h2>
             <p class="text-base text-base-content/70 max-w-xl">
               {gettext(
-                "Blogs let you organize content into themed workspaces with their own publishing flows. Set up your first blog to start drafting posts."
+                "Blogging lets you organize content into themed workspaces with their own publishing flows. Set up your first blog to start drafting posts."
               )}
             </p>
             <div class="flex flex-wrap justify-center gap-3">
@@ -62,7 +62,9 @@
       <% else %>
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
-            <div class="stat-title text-sm text-base-content/70">{gettext("Total Blogs")}</div>
+            <div class="stat-title text-sm text-base-content/70">
+              {gettext("Total Blog Types")}
+            </div>
             <div class="stat-value text-3xl text-base-content">
               {@dashboard_summary.total_blogs}
             </div>
@@ -96,7 +98,16 @@
               <div class="card-body space-y-4 h-full flex flex-col">
                 <div class="flex items-start justify-between gap-3">
                   <div class="space-y-2">
-                    <h3 class="text-xl font-semibold text-base-content">{insight.name}</h3>
+                    <h3 class="text-xl font-semibold text-base-content">
+                      <.link
+                        navigate={
+                          Routes.path("/admin/blogging/#{insight.slug}", locale: @current_locale)
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {insight.name}
+                      </.link>
+                    </h3>
                     <p class="text-xs text-base-content/60">
                       {gettext("Slug")}: <code class="font-mono">{insight.slug}</code>
                     </p>
@@ -171,7 +182,7 @@
                     }
                     class="btn btn-outline btn-sm"
                   >
-                    <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" />
+                    <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
                     {gettext("Admin")}
                   </.link>
                   <.link
@@ -189,7 +200,12 @@
                       "/" -> ""
                       prefix -> prefix
                     end %>
-                  <% public_url = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+                  <% public_url =
+                    if length(@enabled_languages) == 1 do
+                      @endpoint_url <> url_prefix <> "/" <> blog_slug
+                    else
+                      @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+                    end %>
                   <a
                     href={public_url}
                     target="_blank"
@@ -197,7 +213,7 @@
                     class="btn btn-outline btn-sm"
                     aria-label={gettext("View public blog")}
                   >
-                    <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" />
+                    <.icon name="hero-eye" class="w-4 h-4 mr-1" />
                     {gettext("View")}
                   </a>
                 </div>

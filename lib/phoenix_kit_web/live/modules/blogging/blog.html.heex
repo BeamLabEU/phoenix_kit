@@ -14,7 +14,7 @@
         navigate={Routes.path("/admin/blogging", locale: @current_locale)}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Content Overview
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Blogging
       </.link>
 
       <%!-- Title Section --%>
@@ -29,8 +29,13 @@
             "/" -> ""
             prefix -> prefix
           end %>
-        <% files_hint = "priv/static/blogging/" <> blog_slug <> "/…" %>
-        <% public_hint = url_prefix <> "/:locale/" <> blog_slug <> "/…" %>
+        <% files_hint = "priv/blogging/" <> blog_slug <> "/…" %>
+        <% public_url =
+          if length(@enabled_languages) == 1 do
+            @endpoint_url <> url_prefix <> "/" <> blog_slug
+          else
+            @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+          end %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>
             <span class="font-medium text-base-content">{gettext("Files")}: </span>
@@ -38,7 +43,13 @@
           </p>
           <p>
             <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-            <code class="font-mono break-all">{public_hint}</code>
+            <a
+              href={public_url}
+              target="_blank"
+              class="link link-hover font-mono break-all text-xs"
+            >
+              {public_url}
+            </a>
           </p>
         </div>
       </div>
@@ -78,22 +89,45 @@
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
                       <span>{format_datetime(post)}</span>
                     </div>
-                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                      {post.metadata.title || gettext("Untitled post")}
-                    </h3>
                     <% blog_slug =
                       post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                         "blog" %>
-                    <% files_path = "priv/static/blogging/" <> post.path %>
+                    <% default_lang = List.first(post.available_languages) || @current_locale %>
+                    <% default_lang_path =
+                      Path.join([
+                        Path.dirname(post.path),
+                        "#{default_lang}.phk"
+                      ]) %>
+                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
+                      <.link
+                        navigate={
+                          PhoenixKit.Utils.Routes.path(
+                            "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
+                            locale: @current_locale
+                          )
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {post.metadata.title || gettext("Untitled post")}
+                      </.link>
+                    </h3>
+                    <% files_path = "priv/blogging/" <> post.path %>
                     <% public_url =
                       BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
+                    <% full_public_url = @endpoint_url <> public_url %>
                     <p class="text-xs text-base-content/50 mt-1">
                       <span class="font-medium text-base-content">{gettext("Files")}: </span>
                       <code class="font-mono break-all">{files_path}</code>
                     </p>
                     <p class="text-xs text-base-content/50">
                       <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-                      <code class="font-mono break-all">{public_url}</code>
+                      <a
+                        href={full_public_url}
+                        target="_blank"
+                        class="link link-hover font-mono break-all text-xs"
+                      >
+                        {full_public_url}
+                      </a>
                     </p>
                   </div>
                   <div class="flex gap-2 flex-wrap">
@@ -134,48 +168,93 @@
                           nil
                         end %>
                       <%= if file_exists do %>
-                        <%!-- Language card with status, edit, and view buttons --%>
-                        <div class="flex flex-col gap-1 justify-between">
-                          <div class="flex gap-1 items-center">
-                            <%!-- Status badge --%>
-                            <%= if lang_metadata do %>
-                              <button
-                                type="button"
-                                phx-click="toggle_status"
-                                phx-value-path={lang_path}
-                                phx-value-current-status={lang_metadata.status}
+                        <%!-- Language card with 3 layers of buttons --%>
+                        <div class="flex flex-col gap-1 min-w-[95px]">
+                          <%!-- Layer 1: Status dropdown (only for enabled languages) --%>
+                          <%= if lang_metadata && is_enabled do %>
+                            <div class="dropdown dropdown-end">
+                              <label
+                                tabindex="0"
                                 class={[
-                                  "badge badge-sm cursor-pointer hover:brightness-90 transition-all",
+                                  "btn btn-xs btn-outline shadow-none w-full justify-start",
                                   case lang_metadata.status do
-                                    "published" -> "badge-success"
-                                    "archived" -> "badge-neutral"
-                                    _ -> "badge-warning"
+                                    "published" -> "btn-success"
+                                    "archived" -> "btn-neutral"
+                                    _ -> "btn-warning"
                                   end
                                 ]}
-                                title={gettext("Click to change status")}
                               >
-                                {lang_metadata.status}
-                              </button>
-                              <%!-- View button for published posts --%>
-                              <%= if lang_metadata.status == "published" do %>
-                                <a
-                                  href={
-                                    BlogHTML.build_post_url(
-                                      @blog_slug,
-                                      post,
-                                      lang_code
-                                    )
-                                  }
-                                  target="_blank"
-                                  class="badge badge-sm badge-ghost cursor-pointer hover:badge-primary"
-                                  title={gettext("View on public site")}
-                                >
-                                  <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3" />
-                                </a>
-                              <% end %>
-                            <% end %>
-                          </div>
-                          <%!-- Edit button --%>
+                                {String.capitalize(lang_metadata.status)}
+                                <.icon name="hero-chevron-down" class="w-3 h-3 ml-auto" />
+                              </label>
+                              <ul
+                                tabindex="0"
+                                class="dropdown-content menu p-1 shadow-lg bg-base-100 rounded-box w-32 border border-base-300 z-10"
+                              >
+                                <li>
+                                  <button
+                                    type="button"
+                                    phx-click="change_status"
+                                    phx-value-path={lang_path}
+                                    phx-value-status="draft"
+                                    class={[
+                                      "btn-xs",
+                                      if(lang_metadata.status == "draft", do: "active", else: "")
+                                    ]}
+                                  >
+                                    <span class="badge badge-warning badge-sm">
+                                      {gettext("Draft")}
+                                    </span>
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    type="button"
+                                    phx-click="change_status"
+                                    phx-value-path={lang_path}
+                                    phx-value-status="published"
+                                    class={[
+                                      "btn-xs",
+                                      if(lang_metadata.status == "published",
+                                        do: "active",
+                                        else: ""
+                                      )
+                                    ]}
+                                  >
+                                    <span class="badge badge-success badge-sm">
+                                      {gettext("Published")}
+                                    </span>
+                                  </button>
+                                </li>
+                                <li>
+                                  <button
+                                    type="button"
+                                    phx-click="change_status"
+                                    phx-value-path={lang_path}
+                                    phx-value-status="archived"
+                                    class={[
+                                      "btn-xs",
+                                      if(lang_metadata.status == "archived",
+                                        do: "active",
+                                        else: ""
+                                      )
+                                    ]}
+                                  >
+                                    <span class="badge badge-neutral badge-sm">
+                                      {gettext("Archived")}
+                                    </span>
+                                  </button>
+                                </li>
+                              </ul>
+                            </div>
+                          <% else %>
+                            <%!-- Empty placeholder to maintain spacing --%>
+                            <div class="dropdown dropdown-end">
+                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
+                              </div>
+                            </div>
+                          <% end %>
+                          <%!-- Layer 2: Edit button --%>
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
@@ -184,7 +263,7 @@
                               )
                             }
                             class={[
-                              "btn btn-sm shadow-none",
+                              "btn btn-xs shadow-none w-full",
                               if(is_enabled,
                                 do: "btn-outline",
                                 else: "bg-base-200 text-base-content/60 border-base-300"
@@ -196,13 +275,35 @@
                                 else: "Edit #{lang_code}"
                             }
                           >
-                            <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" />
+                            <.icon name="hero-pencil-square" class="w-3 h-3" />
                             <%= if hide_flags do %>
                               {gettext("Edit")}
                             <% else %>
-                              <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                              <span class="text-base">{flag}</span> {String.upcase(lang_code)}
                             <% end %>
                           </.link>
+                          <%!-- Layer 3: View button (only for published posts in enabled languages) --%>
+                          <%= if lang_metadata && lang_metadata.status == "published" && is_enabled do %>
+                            <a
+                              href={
+                                BlogHTML.build_post_url(
+                                  @blog_slug,
+                                  post,
+                                  lang_code
+                                )
+                              }
+                              target="_blank"
+                              class="btn btn-xs btn-outline shadow-none w-full"
+                              title={gettext("View on public site")}
+                            >
+                              <.icon name="hero-eye" class="w-3 h-3" />
+                              {gettext("View")}
+                            </a>
+                          <% else %>
+                            <%!-- Empty placeholder to maintain spacing --%>
+                            <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
+                            </div>
+                          <% end %>
                         </div>
                       <% else %>
                         <%!-- Add button for missing files (only if language is enabled) --%>

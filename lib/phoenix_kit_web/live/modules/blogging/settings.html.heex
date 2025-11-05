@@ -29,12 +29,12 @@
     </header>
 
     <div class="max-w-2xl mx-auto space-y-6">
-      <%!-- Blogs Section --%>
+      <%!-- Blogging Section --%>
       <div class="card bg-base-100 shadow-xl border border-base-200">
         <div class="card-body space-y-6">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogs")}</h2>
+              <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogging")}</h2>
               <p class="text-sm text-base-content/70">
                 {gettext(
                   "Create dedicated blogs like Product Updates, Release Notes, or Company News. Each blog stores its content in structured folders on disk."
@@ -65,7 +65,14 @@
                 <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                   <div class="space-y-1">
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
-                      <span>{blog["name"]}</span>
+                      <.link
+                        navigate={
+                          Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {blog["name"]}
+                      </.link>
                       <span class={[
                         "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
                         if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
@@ -83,10 +90,9 @@
                     <% blog_mode = blog["mode"] || "timestamp" %>
                     <% blog_path =
                       if blog_mode == "slug" do
-                        "priv/static/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
+                        "priv/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
                       else
-                        "priv/static/blogging/" <>
-                          blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
+                        "priv/blogging/" <> blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
                       end %>
                     <p class="text-xs text-base-content/50">
                       {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
@@ -100,7 +106,7 @@
                       }
                       class="btn btn-outline btn-sm btn-square"
                     >
-                      <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4" />
+                      <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
                       aria-label={gettext("Edit")}

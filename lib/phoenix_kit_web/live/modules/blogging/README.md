@@ -477,7 +477,7 @@ Blogging.enabled?()  # => true/false
 Content is stored in the filesystem under:
 
 ```
-priv/content/blogging/
+priv/blogging/
   ├── docs/
   │   ├── getting-started/
   │   │   ├── en.phk
@@ -490,14 +490,9 @@ priv/content/blogging/
               └── en.phk
 ```
 
-Path can be configured via:
+Default: `priv/blogging`
 
-```elixir
-# config/config.exs
-config :phoenix_kit, blogging_content_path: "/var/app/content/blogging"
-```
-
-Default: `priv/content/blogging`
+Note: The path is determined by the parent application's priv directory, not PhoenixKit's dependencies folder.
 
 ## Best Practices
 

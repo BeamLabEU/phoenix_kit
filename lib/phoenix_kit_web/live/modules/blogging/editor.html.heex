@@ -172,8 +172,14 @@
                       type="text"
                       name="slug"
                       value={@form["slug"] || ""}
+                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
                       class="input input-bordered w-full lowercase"
                       placeholder={gettext("auto-generated from title")}
+                      title={
+                        gettext(
+                          "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
+                        )
+                      }
                     />
                     <p class="text-xs text-base-content/60 mt-1">
                       {gettext("Use lowercase letters, numbers, and hyphens only.")}

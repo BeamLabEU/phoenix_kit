@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder do
   # - lib/phoenix_kit/blogging/page_builder/parser.ex
   # - lib/phoenix_kit/blogging/page_builder/renderer.ex
   # - lib/phoenix_kit_web/components/blogging/*.ex
-  # - priv/static/blogging/blog/*/en.phk (sample files)
+  # - priv/blogging/blog/*/en.phk (sample files)
   # ============================================================================
 
   # alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser

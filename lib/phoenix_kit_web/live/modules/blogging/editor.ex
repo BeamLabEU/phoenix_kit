@@ -167,33 +167,29 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> Map.drop(["_target"])
       |> maybe_autofill_slug(socket)
 
-    case validate_slug(socket.assigns.blog_mode, params, socket) do
-      :ok ->
-        new_form =
-          socket.assigns.form
-          |> Map.merge(params)
-          |> normalize_form()
+    # No real-time validation - accept any input, validation happens on save
+    new_form =
+      socket.assigns.form
+      |> Map.merge(params)
+      |> normalize_form()
 
-        has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+    has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
-        # Update public_url if status changed
-        updated_post = %{
-          socket.assigns.post
-          | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
-        }
+    # Update public_url if status changed
+    updated_post = %{
+      socket.assigns.post
+      | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
+    }
 
-        public_url = build_public_url(updated_post, socket.assigns.current_locale)
+    public_url = build_public_url(updated_post, socket.assigns.current_locale)
 
-        {:noreply,
-         socket
-         |> assign(:form, new_form)
-         |> assign(:has_pending_changes, has_changes)
-         |> assign(:public_url, public_url)
-         |> push_event("changes-status", %{has_changes: has_changes})}
-
-      {:error, message} ->
-        {:noreply, put_flash(socket, :error, message)}
-    end
+    {:noreply,
+     socket
+     |> assign(:form, new_form)
+     |> assign(:has_pending_changes, has_changes)
+     |> assign(:public_url, public_url)
+     |> clear_flash()
+     |> push_event("changes-status", %{has_changes: has_changes})}
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
@@ -378,9 +374,35 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_slug} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :slug_already_exists} ->
+            {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
+
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
         end
+
+      {:error, :invalid_slug} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+           )
+         )}
+
+      {:error, :slug_already_exists} ->
+        {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to create post"))}
@@ -430,6 +452,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_slug} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :slug_already_exists} ->
+            {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
+
           {:error, _reason} ->
             {:noreply, put_flash(socket, :error, gettext("Failed to save translation"))}
         end
@@ -457,6 +492,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
          |> assign(:has_pending_changes, false)
          |> push_event("changes-status", %{has_changes: false})
          |> put_flash(:info, gettext("Post saved"))}
+
+      {:error, :invalid_slug} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+           )
+         )}
+
+      {:error, :slug_already_exists} ->
+        {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
@@ -881,10 +929,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     slug_value = Map.get(trimmed_params, "slug")
     current_slug = assigns.form |> Map.get("slug", "")
 
+    # Get title from params or form
+    title =
+      Map.get(trimmed_params, "title") ||
+        Map.get(assigns.form, "title") ||
+        ""
+
+    title = String.trim(to_string(title))
+
     cond do
+      # User has manually entered a slug - keep it
       is_binary(slug_value) and slug_value != "" ->
         trimmed_params
 
+      # Slug is empty - auto-generate from title
+      slug_value == "" and title != "" ->
+        generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
+        Map.put(trimmed_params, "slug", generated)
+
+      # Slug is empty and title is also empty
       slug_value == "" ->
         Map.put(trimmed_params, "slug", "")
 
@@ -892,13 +955,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         Map.put(trimmed_params, "slug", current_slug)
 
       true ->
-        title =
-          Map.get(trimmed_params, "title") ||
-            Map.get(assigns.form, "title") ||
-            ""
-
-        title = String.trim(to_string(title))
-
         if title == "" do
           Map.put(trimmed_params, "slug", "")
         else
@@ -911,26 +967,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp maybe_autofill_slug(params, _socket) do
     Map.delete(params, "slug")
   end
-
-  defp validate_slug("slug", params, socket) do
-    slug =
-      Map.get(params, "slug") ||
-        Map.get(socket.assigns.form, "slug") ||
-        ""
-
-    cond do
-      slug == "" ->
-        :ok
-
-      Storage.valid_slug?(slug) ->
-        :ok
-
-      true ->
-        {:error, gettext("Slug must contain only lowercase letters, numbers, and hyphens")}
-    end
-  end
-
-  defp validate_slug(_mode, _params, _socket), do: :ok
 
   defp slug_base_dir(post, blog_slug) do
     cond do

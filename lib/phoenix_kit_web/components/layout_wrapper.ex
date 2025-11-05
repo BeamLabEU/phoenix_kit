@@ -428,8 +428,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/blogging")}
                         icon="document"
-                        label="Blogs"
+                        label="Blogging"
                         current_path={@current_path || ""}
+                        disable_active={true}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
@@ -496,7 +497,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
                             icon="document"
-                            label="Blogs"
+                            label="Blogging"
                             current_path={@current_path || ""}
                             nested={true}
                           />
