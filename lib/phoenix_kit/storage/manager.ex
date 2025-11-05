@@ -8,6 +8,9 @@ defmodule PhoenixKit.Storage.Manager do
 
   alias PhoenixKit.Storage.ProviderRegistry
 
+  # Cache TTL for bucket list (5 minutes)
+  @buckets_cache_ttl 300_000
+
   @doc """
   Stores a file across multiple buckets based on redundancy settings.
 
@@ -134,9 +137,9 @@ defmodule PhoenixKit.Storage.Manager do
         |> Enum.filter(&(&1.id in priority_buckets))
 
       true ->
-        # Use all enabled buckets ordered by priority
+        # Use all enabled buckets ordered by priority (simple sort, no usage calculation needed for retrieval)
         get_enabled_buckets()
-        |> Enum.sort_by(&bucket_priority/1)
+        |> Enum.sort_by(& &1.priority)
     end
   end
 
@@ -229,7 +232,21 @@ defmodule PhoenixKit.Storage.Manager do
   end
 
   defp get_enabled_buckets do
-    PhoenixKit.Storage.list_enabled_buckets()
+    # Cache bucket list to avoid querying on every file request
+    cache_key = :phoenix_kit_buckets_cache
+    current_time = System.monotonic_time(:millisecond)
+
+    case :persistent_term.get(cache_key, nil) do
+      {timestamp, buckets} when current_time - timestamp < @buckets_cache_ttl ->
+        # Cache hit - return cached buckets
+        buckets
+
+      _ ->
+        # Cache miss or expired - fetch fresh buckets
+        buckets = PhoenixKit.Storage.list_enabled_buckets()
+        :persistent_term.put(cache_key, {current_time, buckets})
+        buckets
+    end
   end
 
   defp get_redundancy_copies do

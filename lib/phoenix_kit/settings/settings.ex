@@ -242,12 +242,48 @@ defmodule PhoenixKit.Settings do
   rescue
     error ->
       Logger.warning(
-        "Settings cache error: #{inspect(error)}, falling back to individual queries"
+        "Settings cache error: #{inspect(error)}, falling back to batch database query"
       )
 
+      # Batch query all keys in a single database operation
+      batch_results = query_settings_batch(keys)
+
+      # Merge with defaults for any missing keys
       Enum.reduce(keys, %{}, fn key, acc ->
-        default = Map.get(defaults, key)
-        value = get_setting(key, default)
+        value = Map.get(batch_results, key) || Map.get(defaults, key)
+        Map.put(acc, key, value)
+      end)
+  end
+
+  @doc """
+  Gets multiple JSON settings from cache in a single operation.
+
+  More efficient than multiple individual get_json_setting_cached/2 calls
+  when you need several JSON settings at once.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_json_settings_cached(["app_config", "feature_flags"])
+      %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
+
+      iex> defaults = %{"app_config" => %{}, "feature_flags" => %{}}
+      iex> PhoenixKit.Settings.get_json_settings_cached(["app_config", "feature_flags"], defaults)
+      %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
+  """
+  def get_json_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
+    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+  rescue
+    error ->
+      Logger.warning(
+        "Settings cache error: #{inspect(error)}, falling back to batch database query"
+      )
+
+      # Batch query all keys in a single database operation
+      batch_results = query_json_settings_batch(keys)
+
+      # Merge with defaults for any missing keys
+      Enum.reduce(keys, %{}, fn key, acc ->
+        value = Map.get(batch_results, key) || Map.get(defaults, key)
         Map.put(acc, key, value)
       end)
   end
@@ -1269,6 +1305,37 @@ defmodule PhoenixKit.Settings do
   rescue
     error ->
       Logger.error("Failed to warm settings cache: #{inspect(error)}")
+      %{}
+  end
+
+  ## Private Batch Query Functions
+
+  # Batch query multiple string settings from database in a single operation
+  defp query_settings_batch(keys) do
+    Setting
+    |> where([s], s.key in ^keys)
+    |> select([s], {s.key, s.value})
+    |> repo().all()
+    |> Map.new()
+  rescue
+    _error ->
+      # If query fails, return empty map
+      %{}
+  end
+
+  # Batch query multiple JSON settings from database in a single operation
+  defp query_json_settings_batch(keys) do
+    Setting
+    |> where([s], s.key in ^keys)
+    |> repo().all()
+    |> Enum.reduce(%{}, fn setting, acc ->
+      # Prioritize JSON value over string value (same logic as warm_cache_data)
+      value = if setting.value_json, do: setting.value_json, else: nil
+      Map.put(acc, setting.key, value)
+    end)
+  rescue
+    _error ->
+      # If query fails, return empty map
       %{}
   end
 

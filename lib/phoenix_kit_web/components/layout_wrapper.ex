@@ -72,7 +72,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   slot :inner_block, required: false
 
   def app_layout(assigns) do
-    # Ensure content_language is available in assigns
+    # Batch load all page settings in a single operation for optimal database performance
     assigns =
       assigns
       |> assign_new(:content_language, fn ->
@@ -80,7 +80,38 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       end)
       |> assign_new(:blogging_blogs, fn ->
         if Blogging.enabled?() do
-          Blogging.list_blogs()
+          # Batch load blogging settings instead of separate queries
+          json_defaults = %{
+            "blogging_blogs" => nil,
+            "blogging_categories" => %{"types" => []}
+          }
+
+          json_settings = PhoenixKit.Settings.get_json_settings_cached(
+            ["blogging_blogs", "blogging_categories"],
+            json_defaults
+          )
+
+          case json_settings["blogging_blogs"] do
+            %{"blogs" => blogs} when is_list(blogs) ->
+              normalize_blogs(blogs)
+
+            list when is_list(list) ->
+              normalize_blogs(list)
+
+            _ ->
+              legacy =
+                case json_settings["blogging_categories"] do
+                  %{"types" => types} when is_list(types) -> types
+                  other when is_list(other) -> other
+                  _ -> []
+                end
+
+              if legacy != [] do
+                PhoenixKit.Settings.update_json_setting("blogging_blogs", %{"blogs" => legacy})
+              end
+
+              normalize_blogs(legacy)
+          end
         else
           []
         end
@@ -958,6 +989,34 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         |> to_string()
     end
   end
+
+  # Normalize blogs list to ensure consistent structure
+  defp normalize_blogs(blogs) do
+    blogs
+    |> Enum.map(&normalize_blog_keys/1)
+    |> Enum.map(fn
+      %{"mode" => mode} = blog when mode in ["timestamp", "slug"] ->
+        blog
+
+      blog ->
+        Map.put(blog, "mode", "timestamp")
+    end)
+  end
+
+  defp normalize_blog_keys(blog) when is_map(blog) do
+    Enum.reduce(blog, %{}, fn
+      {key, value}, acc when is_binary(key) ->
+        Map.put(acc, key, value)
+
+      {key, value}, acc when is_atom(key) ->
+        Map.put(acc, Atom.to_string(key), value)
+
+      {key, value}, acc ->
+        Map.put(acc, to_string(key), value)
+    end)
+  end
+
+  defp normalize_blog_keys(other), do: other
 
   # Language switcher component for admin sidebar
   attr :current_path, :string, required: true

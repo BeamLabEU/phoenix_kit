@@ -18,8 +18,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
-    # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Batch load all settings needed for this page (uses cached settings for performance)
+    settings = Settings.get_settings_cached(
+      ["project_title"],
+      %{"project_title" => "PhoenixKit"}
+    )
 
     # Load existing files from database
     existing_files = load_existing_files()
@@ -33,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         auto_upload: false
       )
       |> assign(:page_title, "Media")
-      |> assign(:project_title, project_title)
+      |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
       |> assign(:uploaded_files, existing_files)
@@ -135,8 +138,16 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
+  # Generate URLs from pre-loaded instances (no database query needed)
+  defp generate_urls_from_instances(instances, file_id) do
+    Enum.reduce(instances, %{}, fn instance, acc ->
+      url = URLSigner.signed_url(file_id, instance.variant_name)
+      Map.put(acc, instance.variant_name, url)
+    end)
+  end
+
+  # Legacy function for cases where we need to query a single file's instances
   defp generate_file_urls(file_id) do
-    # Query all file instances for this file
     import Ecto.Query
 
     repo = Application.get_env(:phoenix_kit, :repo)
@@ -146,11 +157,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> where([fi], fi.file_id == ^file_id)
       |> repo.all()
 
-    # Generate signed URLs for each instance
-    Enum.reduce(instances, %{}, fn instance, acc ->
-      url = URLSigner.signed_url(file_id, instance.variant_name)
-      Map.put(acc, instance.variant_name, url)
-    end)
+    generate_urls_from_instances(instances, file_id)
   end
 
   defp calculate_file_hash(file_path) do
@@ -212,10 +219,21 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       )
       |> repo.all()
 
+    # Batch load ALL file instances in ONE query instead of N queries
+    file_ids = Enum.map(files, & &1.id)
+
+    instances_by_file =
+      from(fi in FileInstance,
+        where: fi.file_id in ^file_ids
+      )
+      |> repo.all()
+      |> Enum.group_by(& &1.file_id)
+
     # Convert to same format as uploaded files
     Enum.map(files, fn file ->
-      # Generate URLs for all variants
-      urls = generate_file_urls(file.id)
+      # Get pre-loaded instances for this file (no DB query!)
+      instances = Map.get(instances_by_file, file.id, [])
+      urls = generate_urls_from_instances(instances, file.id)
 
       %{
         file_id: file.id,
