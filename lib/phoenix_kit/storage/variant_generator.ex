@@ -291,10 +291,26 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     quality = dimension.quality || 85
     format = dimension.format
 
-    ImageProcessor.resize(input_path, output_path, dimension.width, dimension.height,
-      quality: quality,
-      format: format
-    )
+    # Use center-crop for dimensions with both width and height (e.g., thumbnails)
+    # Use regular resize for dimensions with only one specified (maintains aspect ratio)
+    case {dimension.width, dimension.height} do
+      {w, h} when w != nil and h != nil ->
+        # Both dimensions specified - use center-crop with gravity
+        Logger.info("Using center-crop for #{dimension.name} (#{w}x#{h})")
+
+        ImageProcessor.resize_and_crop_center(input_path, output_path, w, h,
+          quality: quality,
+          format: format,
+          background: "white"
+        )
+
+      _ ->
+        # Only one dimension specified - use regular resize to maintain aspect ratio
+        ImageProcessor.resize(input_path, output_path, dimension.width, dimension.height,
+          quality: quality,
+          format: format
+        )
+    end
   end
 
   defp process_video_variant(input_path, output_path, _mime_type, dimension) do

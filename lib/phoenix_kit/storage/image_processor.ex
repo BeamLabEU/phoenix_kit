@@ -129,6 +129,77 @@ defmodule PhoenixKit.Storage.ImageProcessor do
     end
   end
 
+  @doc """
+  Resize and center-crop an image to exact dimensions.
+
+  Zooms into the image to fill the target dimensions completely, then
+  center-crops to extract the exact target size. No padding borders - the
+  entire output is filled with the image content.
+
+  This is ideal for thumbnails where you want perfect squares (e.g., 150x150)
+  with the image zoomed in and centered, no white/black borders.
+
+  The algorithm:
+  1. Resizes image to fill the target box (scales to cover both dimensions)
+  2. Centers the image using gravity
+  3. Crops from center to exact target dimensions
+
+  Parameters:
+  - `input_path` - Path to input image file
+  - `output_path` - Path to save cropped image
+  - `width` - Target width (required)
+  - `height` - Target height (required)
+  - `opts` - Additional options
+    - `:quality` - JPEG quality 1-100 (default: 85)
+    - `:format` - Output format override (jpg, png, webp, etc)
+    - `:background` - Background color (rarely used, default: "white")
+
+  Returns:
+  - `{:ok, output_path}` - Success
+  - `{:error, reason}` - If processing fails
+  """
+  def resize_and_crop_center(input_path, output_path, width, height, opts \\ []) do
+    quality = Keyword.get(opts, :quality, 85)
+    format = Keyword.get(opts, :format, nil)
+    background = Keyword.get(opts, :background, "white")
+
+    if is_nil(width) or is_nil(height) do
+      {:error, "Both width and height are required for center-crop resizing"}
+    else
+      try do
+        Logger.info(
+          "Center-cropping image: #{input_path} -> #{output_path}, target: #{width}x#{height}"
+        )
+
+        # Build ImageMagick convert command for center-crop
+        args =
+          build_center_crop_args(
+            input_path,
+            output_path,
+            width,
+            height,
+            quality,
+            format,
+            background
+          )
+
+        case System.cmd("convert", args, stderr_to_stdout: true) do
+          {_output, 0} ->
+            Logger.info("Successfully center-cropped image to #{output_path}")
+            {:ok, output_path}
+
+          {output, exit_code} ->
+            Logger.error("convert failed with exit code #{exit_code}: #{output}")
+            {:error, "ImageMagick convert failed: #{output}"}
+        end
+      rescue
+        e ->
+          Logger.error("Image center-crop failed: #{inspect(e)}")
+          {:error, "Image center-crop failed: #{inspect(e)}"}
+      end
+    end
+  end
+
   # Private functions
 
   defp calculate_resize_spec(current_width, current_height, target_width, target_height) do
@@ -158,6 +229,39 @@ defmodule PhoenixKit.Storage.ImageProcessor do
 
     # Add resize operation
     args = args ++ ["-resize", resize_spec]
+
+    # Add quality setting for JPEG (ImageMagick quality for lossy formats)
+    args = args ++ ["-quality", to_string(quality)]
+
+    # Add format conversion if specified
+    args =
+      if format do
+        format_spec = "#{format}:#{output_path}"
+        args ++ [format_spec]
+      else
+        args ++ [output_path]
+      end
+
+    args
+  end
+
+  defp build_center_crop_args(input_path, output_path, width, height, quality, format, background) do
+    args = [input_path]
+
+    # Set background color for padding/extension (rarely used with ^ resize)
+    args = args ++ ["-background", background]
+
+    # Resize to fill/cover the target dimensions (with the ^ flag)
+    # The ^ flag means "resize to FILL the box" - scales up to ensure both dimensions
+    # are at least the target size, creating overflow that gets cropped
+    resize_spec = "#{width}x#{height}^"
+    args = args ++ ["-resize", resize_spec]
+
+    # Use gravity center to position image at center before cropping
+    args = args ++ ["-gravity", "center"]
+
+    # Crop to exact dimensions from the centered position
+    args = args ++ ["-extent", "#{width}x#{height}"]
 
     # Add quality setting for JPEG (ImageMagick quality for lossy formats)
     args = args ++ ["-quality", to_string(quality)]
