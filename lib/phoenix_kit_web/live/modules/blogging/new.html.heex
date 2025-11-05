@@ -91,7 +91,6 @@
               <% url_prefix =
                 PhoenixKit.Config.get_url_prefix()
                 |> case do
-                  nil -> ""
                   "/" -> ""
                   prefix -> prefix
                 end %>

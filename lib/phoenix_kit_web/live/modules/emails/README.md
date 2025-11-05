@@ -483,8 +483,8 @@ aws sesv2 create-configuration-set-event-destination \
   --event-destination '{
     "Enabled": true,
     "MatchingEventTypes": [
-      "SEND", "REJECT", "BOUNCE", "COMPLAINT",
-      "DELIVERY", "OPEN", "CLICK", "RENDERING_FAILURE"
+      "SEND", "REJECT", "BOUNCE", "COMPLAINT", "DELIVERY",
+      "OPEN", "CLICK", "RENDERING_FAILURE", "DELIVERY_DELAY", "SUBSCRIPTION"
     ],
     "SnsDestination": {
       "TopicArn": "arn:aws:sns:eu-north-1:123456:yourapp-email-events"

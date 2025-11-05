@@ -669,6 +669,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     mode = data[:mode] || :timestamp
     language = data[:language] || socket.assigns.current_language || "en"
     metadata = normalize_preview_metadata(data[:metadata] || %{}, mode)
+
+    post = build_preview_post(data, blog_slug, mode, language, metadata)
+    form = build_preview_form(metadata, mode)
+
+    apply_preview_assigns(socket, post, form, blog_slug, mode, data)
+  end
+
+  defp build_preview_post(data, blog_slug, mode, language, metadata) do
     {date, time} = derive_datetime_fields(mode, metadata[:published_at])
     path = data[:path] || derive_preview_path(blog_slug, metadata[:slug], language, mode)
     full_path = if path, do: Storage.absolute_path(path), else: nil
@@ -677,7 +685,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     available_languages =
       [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
-    post = %{
+    %{
       blog: blog_slug,
       slug: metadata[:slug],
       date: date,
@@ -690,15 +698,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       available_languages: available_languages,
       mode: mode
     }
+  end
 
-    form =
-      %{
-        "title" => metadata[:title] || "",
-        "status" => metadata[:status] || "draft",
-        "published_at" => metadata[:published_at] || ""
-      }
-      |> maybe_put_form_slug(metadata[:slug], mode)
-      |> normalize_form()
+  defp build_preview_form(metadata, mode) do
+    %{
+      "title" => metadata[:title] || "",
+      "status" => metadata[:status] || "draft",
+      "published_at" => metadata[:published_at] || ""
+    }
+    |> maybe_put_form_slug(metadata[:slug], mode)
+    |> normalize_form()
+  end
+
+  defp apply_preview_assigns(socket, post, form, blog_slug, mode, data) do
+    language = post.language
 
     socket
     |> assign(:blog_mode, mode_to_string(mode))

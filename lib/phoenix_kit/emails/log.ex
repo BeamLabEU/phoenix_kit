@@ -453,8 +453,20 @@ defmodule PhoenixKit.Emails.Log do
   """
   def mark_as_bounced(%__MODULE__{} = email_log, bounce_type, reason \\ nil) do
     repo().transaction(fn ->
-      # Update log status
-      {:ok, updated_log} = update_log(email_log, %{status: "bounced"})
+      # Determine correct status based on bounce type
+      status =
+        case bounce_type do
+          "hard" -> "hard_bounced"
+          "soft" -> "soft_bounced"
+          _ -> "bounced"
+        end
+
+      # Update log status with timestamp
+      {:ok, updated_log} =
+        update_log(email_log, %{
+          status: status,
+          bounced_at: DateTime.utc_now()
+        })
 
       # Create bounce event
       Event.create_event(%{
@@ -586,11 +598,27 @@ defmodule PhoenixKit.Emails.Log do
   def mark_as_failed(%__MODULE__{} = email_log, reason, failed_at \\ nil) do
     failed_at = failed_at || DateTime.utc_now()
 
-    update_log(email_log, %{
-      status: "failed",
-      failed_at: failed_at,
-      error_message: reason
-    })
+    repo().transaction(fn ->
+      # Update log status with timestamp
+      {:ok, updated_log} =
+        update_log(email_log, %{
+          status: "failed",
+          failed_at: failed_at,
+          error_message: reason
+        })
+
+      # Create failed event
+      Event.create_event(%{
+        email_log_id: updated_log.id,
+        event_type: "failed",
+        event_data: %{
+          reason: reason
+        },
+        failure_reason: reason
+      })
+
+      updated_log
+    end)
   end
 
   @doc """

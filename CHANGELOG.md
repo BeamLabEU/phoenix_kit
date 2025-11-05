@@ -1,3 +1,76 @@
+## 1.5.1 - 2025-11-05
+
+### Fixed
+- **Critical: Bounce event creation** - Fixed automatic EmailEvent creation for bounces
+  - Added result checking for `create_bounce_event()` in SQS processor
+  - Previously: bounce status updated correctly but no EmailEvent created
+  - Now: complete bounce events appear in EmailEvents timeline
+  - Fixed validation error: bounce types now converted from AWS format (Permanent/Transient) to internal format (hard/soft)
+- **Event tracking completeness** - Fixed event creation for all AWS SES event types
+  - Added result checking for `create_complaint_event()`
+  - Added result checking for `create_reject_event()`
+  - Added result checking for `create_rendering_failure_event()`
+  - All events now properly validated and logged
+- **Status precision** - Fixed `mark_as_bounced` to set specific status
+  - Now sets `hard_bounced` or `soft_bounced` instead of generic `bounced`
+  - Added `bounced_at` timestamp capture
+  - Fixed `mark_as_failed` to create EmailEvent for audit trail
+- **SQS Worker crashes** - Fixed FunctionClauseError in delete_message
+  - Changed `String.slice(receipt_handle, 0..50)` to `String.slice(receipt_handle, 0, 50)`
+  - Prevents Task crashes when deleting SQS messages
+
+### Added
+- **Dynamic configuration management** - Settings changes take effect without restart
+  - SQS Worker now checks `email_ses_events` (master switch) dynamically before each cycle
+  - Worker automatically stops when `email_ses_events` disabled via UI
+  - Worker automatically resumes within 30 seconds when setting re-enabled
+  - Added forced scheduling for status checks when polling disabled
+  - Logs: "AWS SES events disabled/enabled via settings" for monitoring
+- **Email Supervisor integration** - Automatic SQS Worker startup
+  - Added `PhoenixKit.Emails.Supervisor` to PhoenixKit supervision tree
+  - SQS Worker now starts automatically on application boot
+  - Conditional startup based on `email_ses_events` and `sqs_polling_enabled` settings
+- **Management tools** - New Mix tasks for email system administration
+  - `mix phoenix_kit.process_sqs` - Manual SQS queue processing with status monitoring
+  - `mix phoenix_kit.fix_missing_events` - Repair historical email logs with missing events
+  - Both support dry-run mode and selective processing
+
+### Changed
+- **Code quality improvements** - Refactored SQS processor for maintainability
+  - Extracted `determine_bounce_status/1` function for bounce type detection
+  - Extracted `build_bounce_error_message/1` for error message formatting
+  - Simplified event processing flow with better error handling
+  - Reduced code duplication across event processors (94 lines removed)
+- **UI cleanup** - Removed unnecessary HTML comments from blogging templates
+  - Cleaned up modules.html.heex, blog.html.heex, index.html.heex, new.html.heex
+  - Improved editor.ex code structure
+  - Updated blog_html.ex template helpers
+- **Dialyzer configuration** - Added ignores for external library warnings
+  - Ignoring Ueberauth OAuth provider warnings in .dialyzer_ignore.exs
+
+### Technical Details
+**Dynamic Configuration Flow:**
+```
+Settings UI → Database → SQS Worker (checks every 5-30s)
+├─ email_ses_events: false → Worker stops polling
+├─ email_ses_events: true → Worker resumes within 30s
+├─ sqs_polling_enabled: false → Worker pauses
+└─ sqs_polling_enabled: true → Worker continues
+```
+
+**Event Creation Fix:**
+- Before: `create_bounce_event(log, data)` (result ignored)
+- After: `case create_bounce_event(log, data)` with proper result handling
+- Impact: All bounce/complaint/reject events now appear in timeline
+
+**Files Changed:**
+- lib/phoenix_kit/supervisor.ex - Email Supervisor integration
+- lib/phoenix_kit/emails/supervisor.ex - email_ses_events check
+- lib/phoenix_kit/emails/sqs_worker.ex - Dynamic config, forced scheduling
+- lib/phoenix_kit/emails/sqs_processor.ex - Event result checking, refactoring
+- lib/phoenix_kit/emails/log.ex - Status management fixes
+- lib/mix/tasks/phoenix_kit.* - New management tools
+
 ## 1.5.0 - 2025-11-04
 
 ### Added

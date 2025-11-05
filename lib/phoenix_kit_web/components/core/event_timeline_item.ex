@@ -55,24 +55,22 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
   # Event marker classes with background colors
   defp marker_class(event_type) do
     base = "w-6 h-6 rounded-full flex items-center justify-center text-white flex-shrink-0"
-
-    color =
-      case event_type do
-        "queued" -> "bg-gray-500"
-        "send" -> "bg-blue-500"
-        "delivery" -> "bg-green-500"
-        "bounce" -> "bg-red-500"
-        "reject" -> "bg-red-600"
-        "delay" -> "bg-yellow-500"
-        "complaint" -> "bg-orange-500"
-        "open" -> "bg-purple-500"
-        "click" -> "bg-indigo-500"
-        "fail" -> "bg-red-700"
-        _ -> "bg-base-content"
-      end
-
-    "#{base} #{color}"
+    "#{base} #{event_marker_color(event_type)}"
   end
+
+  # Event marker background colors
+  defp event_marker_color("queued"), do: "bg-gray-500"
+  defp event_marker_color("send"), do: "bg-blue-500"
+  defp event_marker_color("delivery"), do: "bg-green-500"
+  defp event_marker_color("bounce"), do: "bg-red-500"
+  defp event_marker_color("reject"), do: "bg-red-600"
+  defp event_marker_color("delivery_delay"), do: "bg-yellow-500"
+  defp event_marker_color("subscription"), do: "bg-cyan-500"
+  defp event_marker_color("complaint"), do: "bg-orange-500"
+  defp event_marker_color("open"), do: "bg-purple-500"
+  defp event_marker_color("click"), do: "bg-indigo-500"
+  defp event_marker_color("rendering_failure"), do: "bg-red-700"
+  defp event_marker_color(_), do: "bg-base-content"
 
   # Event icons
   defp event_icon("queued"), do: "hero-clock"
@@ -80,11 +78,12 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
   defp event_icon("delivery"), do: "hero-check-circle"
   defp event_icon("bounce"), do: "hero-exclamation-triangle"
   defp event_icon("reject"), do: "hero-x-circle"
-  defp event_icon("delay"), do: "hero-clock"
+  defp event_icon("delivery_delay"), do: "hero-clock"
+  defp event_icon("subscription"), do: "hero-envelope"
   defp event_icon("complaint"), do: "hero-flag"
   defp event_icon("open"), do: "hero-eye"
   defp event_icon("click"), do: "hero-cursor-arrow-rays"
-  defp event_icon("fail"), do: "hero-x-mark"
+  defp event_icon("rendering_failure"), do: "hero-x-mark"
   defp event_icon(_), do: "hero-clock"
 
   # Event title formatting
@@ -93,11 +92,12 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
   defp format_title("delivery"), do: "Email Delivered"
   defp format_title("bounce"), do: "Email Bounced"
   defp format_title("reject"), do: "Email Rejected"
-  defp format_title("delay"), do: "Delivery Delayed"
+  defp format_title("delivery_delay"), do: "Delivery Delayed"
+  defp format_title("subscription"), do: "Subscription Event"
   defp format_title("complaint"), do: "Spam Complaint"
   defp format_title("open"), do: "Email Opened"
   defp format_title("click"), do: "Link Clicked"
-  defp format_title("fail"), do: "Send Failed"
+  defp format_title("rendering_failure"), do: "Rendering Failed"
   defp format_title(type), do: String.capitalize(type)
 
   # Render event-specific details
@@ -193,7 +193,7 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     """
   end
 
-  defp render_details(%{event_type: "delay"} = event) do
+  defp render_details(%{event_type: "delivery_delay"} = event) do
     assigns = %{event: event}
 
     ~H"""
@@ -203,6 +203,9 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
       <% end %>
       <%= if get_in(@event.event_data, ["delayedUntil"]) do %>
         <div>Delayed until: {get_in(@event.event_data, ["delayedUntil"])}</div>
+      <% end %>
+      <%= if get_in(@event.event_data, ["expirationTime"]) do %>
+        <div>Expires: {get_in(@event.event_data, ["expirationTime"])}</div>
       <% end %>
     </div>
     """
@@ -256,7 +259,31 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
     """
   end
 
-  defp render_details(%{event_type: "fail"} = event) do
+  defp render_details(%{event_type: "subscription"} = event) do
+    assigns = %{event: event}
+
+    ~H"""
+    <div class="text-xs text-base-content/60">
+      <%= if @event.subscription_type do %>
+        <div>Type: <span class="font-medium">{@event.subscription_type}</span></div>
+      <% end %>
+      <%= if get_in(@event.event_data, ["newTopicPreferences"]) do %>
+        <div class="mt-1">
+          Preferences updated:
+          <span class="font-mono text-xs">{get_in(@event.event_data, ["newTopicPreferences"])}</span>
+        </div>
+      <% end %>
+      <%= if get_in(@event.event_data, ["oldTopicPreferences"]) do %>
+        <div>
+          Previous:
+          <span class="font-mono text-xs">{get_in(@event.event_data, ["oldTopicPreferences"])}</span>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp render_details(%{event_type: "rendering_failure"} = event) do
     assigns = %{event: event}
 
     ~H"""
@@ -264,8 +291,13 @@ defmodule PhoenixKitWeb.Components.Core.EventTimelineItem do
       <%= if @event.failure_reason do %>
         <div>Reason: <span class="font-medium text-error">{@event.failure_reason}</span></div>
       <% end %>
-      <%= if get_in(@event.event_data, ["error"]) do %>
-        <div class="mt-1">Error: {get_in(@event.event_data, ["error"])}</div>
+      <%= if get_in(@event.event_data, ["errorMessage"]) do %>
+        <div class="mt-1">Error: {get_in(@event.event_data, ["errorMessage"])}</div>
+      <% end %>
+      <%= if get_in(@event.event_data, ["templateName"]) do %>
+        <div>
+          Template: <span class="font-mono">{get_in(@event.event_data, ["templateName"])}</span>
+        </div>
       <% end %>
     </div>
     """
