@@ -916,10 +916,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     slug_value = Map.get(trimmed_params, "slug")
     current_slug = assigns.form |> Map.get("slug", "")
 
+    # Get title from params or form
+    title =
+      Map.get(trimmed_params, "title") ||
+        Map.get(assigns.form, "title") ||
+        ""
+
+    title = String.trim(to_string(title))
+
     cond do
+      # User has manually entered a slug - keep it
       is_binary(slug_value) and slug_value != "" ->
         trimmed_params
 
+      # Slug is empty - auto-generate from title
+      slug_value == "" and title != "" ->
+        generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
+        Map.put(trimmed_params, "slug", generated)
+
+      # Slug is empty and title is also empty
       slug_value == "" ->
         Map.put(trimmed_params, "slug", "")
 
@@ -927,13 +942,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         Map.put(trimmed_params, "slug", current_slug)
 
       true ->
-        title =
-          Map.get(trimmed_params, "title") ||
-            Map.get(assigns.form, "title") ||
-            ""
-
-        title = String.trim(to_string(title))
-
         if title == "" do
           Map.put(trimmed_params, "slug", "")
         else
