@@ -569,19 +569,26 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to generate language switch URL
+  # This function handles both admin and frontend language switchers
   defp generate_language_switch_url(current_path, new_locale) do
-    # Get admin languages codes for validation
+    # Get valid language codes from both admin and frontend systems
     admin_languages = get_admin_languages()
     admin_language_codes = Enum.map(admin_languages, & &1["code"])
+
+    # Get frontend language codes from the Language Module
+    frontend_language_codes = Languages.enabled_locale_codes()
+
+    # Accept language if it's valid in EITHER admin or frontend
+    valid_language_codes = (admin_language_codes ++ frontend_language_codes) |> Enum.uniq()
 
     # Remove PhoenixKit prefix if present
     normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
 
-    # Remove existing locale prefix only if it matches actual admin language codes
+    # Remove existing locale prefix only if it matches actual language codes
     clean_path =
       case String.split(normalized_path, "/", parts: 3) do
         ["", potential_locale, rest] ->
-          if potential_locale in admin_language_codes do
+          if potential_locale in valid_language_codes do
             "/" <> rest
           else
             normalized_path

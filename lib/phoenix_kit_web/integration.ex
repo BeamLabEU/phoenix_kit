@@ -119,27 +119,17 @@ defmodule PhoenixKitWeb.Integration do
     quote do
       alias PhoenixKit.Module.Languages
 
-      # Get enabled locales at compile time with fallback
-      enabled_locales =
-        try do
-          Languages.enabled_locale_codes()
-        rescue
-          # Fallback if module not available at compile time
-          _ -> ["en"]
-        end
-
-      # Create regex pattern for enabled locales
-      pattern = Enum.join(enabled_locales, "|")
-
       # Define locale validation pipeline
       pipeline :phoenix_kit_locale_validation do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # Localized scope with locale parameter
+      # Localized scope with generic locale pattern
+      # Accepts any 2-5 character language code format (e.g., "en", "zh-CN", "ar", etc.)
+      # Actual validation of whether the locale is supported happens in the validation plug
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
-            Keyword.put(unquote(opts), :locale, ~r/^(#{pattern})$/) do
+            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
@@ -572,17 +562,10 @@ defmodule PhoenixKitWeb.Integration do
         prefix -> prefix
       end
 
-    # Get enabled locales at compile time with fallback
-    enabled_locales =
-      try do
-        Languages.enabled_locale_codes()
-      rescue
-        # Fallback if module not available at compile time
-        _ -> ["en"]
-      end
-
-    # Create regex pattern for enabled locales
-    pattern = Enum.join(enabled_locales, "|")
+    # Use a generic locale pattern that accepts any valid language code format
+    # This allows switching to any of the 80+ predefined languages
+    # Actual validation of whether the locale is supported happens in the validation plug
+    pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
 
     quote do
       # Generate pipeline definitions
