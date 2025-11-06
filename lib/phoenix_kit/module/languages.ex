@@ -435,6 +435,8 @@ defmodule PhoenixKit.Module.Languages do
       ["en"]
   """
   def enabled_locale_codes do
+    # Return enabled language codes from the frontend language module only
+    # Admin navbar languages are managed separately in settings
     if enabled?() do
       codes = get_enabled_language_codes()
       # Ensure we always have at least "en" as a fallback

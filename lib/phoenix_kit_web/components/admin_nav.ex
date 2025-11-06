@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Settings
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Utils.Routes
 
@@ -212,17 +213,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
-    # Always show the language switcher with display languages (defaults or configured)
-    display_languages = Languages.get_display_languages()
-    enabled_languages = Enum.filter(display_languages, & &1["is_enabled"])
+    # Get admin languages from settings (separate from the language module)
+    admin_languages = get_admin_languages()
 
     current_language =
-      Enum.find(enabled_languages, &(&1["code"] == assigns.current_locale)) ||
+      Enum.find(admin_languages, &(&1["code"] == assigns.current_locale)) ||
         %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
 
     assigns =
       assigns
-      |> assign(:enabled_languages, enabled_languages)
+      |> assign(:enabled_languages, admin_languages)
       |> assign(:current_language, current_language)
 
     ~H"""
@@ -536,6 +536,29 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     String.length(locale) in 2..5 and Regex.match?(~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/, locale)
   end
 
+  # Helper function to get admin languages from settings
+  defp get_admin_languages do
+    admin_languages_json = Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+
+    languages =
+      case Jason.decode(admin_languages_json) do
+        {:ok, codes} when is_list(codes) -> codes
+        _ -> ["en", "ru", "es"]
+      end
+
+    # Map language codes to language details
+    languages
+    |> Enum.map(fn code ->
+      case Languages.get_predefined_language(code) do
+        %{name: name, flag: flag, native: native} ->
+          %{"code" => code, "name" => name, "flag" => flag, "native" => native}
+
+        nil ->
+          %{"code" => code, "name" => String.upcase(code), "flag" => "🌐", "native" => ""}
+      end
+    end)
+  end
+
   # Helper function to get language flag emoji
   defp get_language_flag(code) when is_binary(code) do
     case Languages.get_predefined_language(code) do
@@ -546,17 +569,18 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # Helper function to generate language switch URL
   defp generate_language_switch_url(current_path, new_locale) do
-    # Get actual enabled language codes to properly detect locale prefixes
-    enabled_language_codes = Languages.get_enabled_language_codes()
+    # Get admin languages codes for validation
+    admin_languages = get_admin_languages()
+    admin_language_codes = Enum.map(admin_languages, & &1["code"])
 
     # Remove PhoenixKit prefix if present
     normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
 
-    # Remove existing locale prefix only if it matches actual language codes
+    # Remove existing locale prefix only if it matches actual admin language codes
     clean_path =
       case String.split(normalized_path, "/", parts: 3) do
         ["", potential_locale, rest] ->
-          if potential_locale in enabled_language_codes do
+          if potential_locale in admin_language_codes do
             "/" <> rest
           else
             normalized_path
