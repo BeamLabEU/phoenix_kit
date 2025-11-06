@@ -27,8 +27,8 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   """
 
   alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.Manager
   alias PhoenixKit.Storage.ImageProcessor
+  alias PhoenixKit.Storage.Manager
 
   require Logger
 
@@ -54,25 +54,26 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     async = Keyword.get(opts, :async, true)
     specific_dimensions = Keyword.get(opts, :dimensions, [])
 
-    case should_generate_variants?(file) do
-      false ->
-        {:ok, []}
+    if should_generate_variants?(file) do
+      dimensions = get_dimensions_for_generation(file.file_type, specific_dimensions)
 
-      true ->
-        dimensions = get_dimensions_for_generation(file.file_type, specific_dimensions)
-
-        if Enum.empty?(dimensions) do
-          {:ok, []}
-        else
-          if async do
-            task = Task.async(fn -> process_variants(file, dimensions) end)
-            # 30 second timeout
-            Task.await(task, 30_000)
-          else
-            process_variants(file, dimensions)
-          end
-        end
+      case dimensions do
+        [] -> {:ok, []}
+        _ -> run_variant_processing(file, dimensions, async)
+      end
+    else
+      {:ok, []}
     end
+  end
+
+  defp run_variant_processing(file, dimensions, true) do
+    task = Task.async(fn -> process_variants(file, dimensions) end)
+    # 30 second timeout
+    Task.await(task, 30_000)
+  end
+
+  defp run_variant_processing(file, dimensions, false) do
+    process_variants(file, dimensions)
   end
 
   @doc """
@@ -110,86 +111,75 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     variant_path = generate_temp_path(variant_ext)
 
     # Download original file to temp location
-    case retrieve_original_file(file) do
-      {:ok, original_path} ->
-        # Process the variant
-        case process_variant(original_path, variant_path, file.mime_type, dimension) do
-          {:ok, variant_path} ->
-            # Calculate checksum and size
-            checksum = calculate_file_checksum(variant_path)
-            {:ok, stat} = File.stat(variant_path)
-            size = stat.size
-
-            # Get dimensions from processed file
-            width = get_width_from_file(variant_path)
-            height = get_height_from_file(variant_path)
-
-            # Store the variant file in storage - use the same path structure as original!
-            Logger.info(
-              "Storing variant #{variant_name} to storage buckets at path: #{variant_storage_path}"
-            )
-
-            case Manager.store_file(variant_path,
-                   generate_variants: false,
-                   path_prefix: variant_storage_path
-                 ) do
-              {:ok, _storage_info} ->
-                Logger.info("Variant #{variant_name} stored successfully in buckets")
-                # Clean up temp files
-                File.rm(original_path)
-                File.rm(variant_path)
-
-                # Create file instance record with real data
-                # Use the full storage path (same format as original file)
-                instance_attrs = %{
-                  variant_name: variant_name,
-                  file_name: variant_storage_path,
-                  mime_type: variant_mime_type,
-                  ext: variant_ext,
-                  checksum: checksum,
-                  size: size,
-                  width: width,
-                  height: height,
-                  processing_status: "completed",
-                  file_id: file.id
-                }
-
-                case Storage.create_file_instance(instance_attrs) do
-                  {:ok, instance} ->
-                    Logger.info("Variant #{variant_name} created successfully in database")
-                    {:ok, instance}
-
-                  {:error, changeset} ->
-                    Logger.error(
-                      "Variant #{variant_name} failed to create instance: #{inspect(changeset)}"
-                    )
-
-                    {:error, changeset}
-                end
-
-              {:error, reason} ->
-                Logger.error("Variant #{variant_name} failed to store file: #{inspect(reason)}")
-                # Clean up temp files
-                File.rm(original_path)
-                File.rm(variant_path)
-                {:error, reason}
-            end
-
-          {:error, reason} ->
-            # Clean up temp files
-            File.rm(original_path)
-            File.rm(variant_path)
-            Logger.error("Variant #{variant_name} processing failed: #{inspect(reason)}")
-            {:error, reason}
-        end
-
-      {:error, reason} ->
-        Logger.error("Variant #{variant_name} failed to retrieve original: #{inspect(reason)}")
-        {:error, reason}
+    with {:ok, original_path} <- retrieve_original_file(file),
+         {:ok, variant_path} <-
+           process_variant(original_path, variant_path, file.mime_type, dimension),
+         {:ok, file_stats} <- get_variant_file_stats(variant_path),
+         {:ok, _storage_info} <-
+           store_variant_file(variant_path, variant_name, variant_storage_path),
+         {:ok, instance} <-
+           create_variant_instance(
+             file,
+             variant_name,
+             variant_storage_path,
+             variant_mime_type,
+             variant_ext,
+             file_stats
+           ) do
+      cleanup_temp_files([original_path, variant_path])
+      Logger.info("Variant #{variant_name} created successfully in database")
+      {:ok, instance}
+    else
+      {:error, reason} = error ->
+        Logger.error("Variant #{variant_name} failed: #{inspect(reason)}")
+        error
     end
   end
 
   # Private functions
+
+  defp get_variant_file_stats(variant_path) do
+    with {:ok, stat} <- File.stat(variant_path) do
+      checksum = calculate_file_checksum(variant_path)
+      width = get_width_from_file(variant_path)
+      height = get_height_from_file(variant_path)
+      {:ok, %{size: stat.size, checksum: checksum, width: width, height: height}}
+    end
+  end
+
+  defp store_variant_file(variant_path, variant_name, storage_path) do
+    Logger.info("Storing variant #{variant_name} to storage buckets at path: #{storage_path}")
+
+    case Manager.store_file(variant_path, generate_variants: false, path_prefix: storage_path) do
+      {:ok, _storage_info} = success ->
+        Logger.info("Variant #{variant_name} stored successfully in buckets")
+        success
+
+      error ->
+        error
+    end
+  end
+
+  defp create_variant_instance(file, variant_name, storage_path, mime_type, ext, stats) do
+    instance_attrs = %{
+      variant_name: variant_name,
+      file_name: storage_path,
+      mime_type: mime_type,
+      ext: ext,
+      checksum: stats.checksum,
+      size: stats.size,
+      width: stats.width,
+      height: stats.height,
+      processing_status: "completed",
+      file_id: file.id
+    }
+
+    Storage.create_file_instance(instance_attrs)
+  end
+
+  defp cleanup_temp_files(paths) do
+    Enum.each(paths, &File.rm/1)
+  end
 
   defp should_generate_variants?(file) do
     file.file_type in ["image", "video"] and

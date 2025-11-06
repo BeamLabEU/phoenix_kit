@@ -118,26 +118,24 @@ defmodule PhoenixKit.System.Dependencies do
 
   # Private helper to check a system command
   defp check_command(command, args) do
-    try do
-      case System.cmd(command, args, stderr_to_stdout: true) do
-        {output, 0} ->
-          {:ok, output}
+    case System.cmd(command, args, stderr_to_stdout: true) do
+      {output, 0} ->
+        {:ok, output}
 
-        {_output, _code} ->
-          {:error, :command_failed}
-      end
-    rescue
-      e in ErlangError ->
-        # ErlangError with :enoent means command not found
-        if e.reason == :enoent do
-          {:error, :enoent}
-        else
-          {:error, "Error checking #{command}: #{inspect(e.reason)}"}
-        end
-
-      error ->
-        {:error, "Unexpected error: #{inspect(error)}"}
+      {_output, _code} ->
+        {:error, :command_failed}
     end
+  rescue
+    e in ErlangError ->
+      # ErlangError with :enoent means command not found
+      if e.reason == :enoent do
+        {:error, :enoent}
+      else
+        {:error, "Error checking #{command}: #{inspect(e.reason)}"}
+      end
+
+    error ->
+      {:error, "Unexpected error: #{inspect(error)}"}
   end
 
   # Get cached result with TTL check

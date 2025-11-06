@@ -18,8 +18,13 @@ defmodule PhoenixKit.Storage do
 
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Storage.Bucket
   alias PhoenixKit.Storage.Dimension
+  alias PhoenixKit.Storage.FileInstance
+  alias PhoenixKit.Storage.FileLocation
+  alias PhoenixKit.Storage.Manager
+  alias PhoenixKit.Storage.VariantGenerator
 
   # ===== BUCKETS =====
 
@@ -122,8 +127,8 @@ defmodule PhoenixKit.Storage do
   file instances that have locations in this bucket.
   """
   def calculate_bucket_usage(bucket_id) do
-    from(fl in PhoenixKit.Storage.FileLocation,
-      join: fi in PhoenixKit.Storage.FileInstance,
+    from(fl in FileLocation,
+      join: fi in FileInstance,
       on: fl.file_instance_id == fi.id,
       where: fl.bucket_id == ^bucket_id and fl.status == "active",
       select: fragment("SUM(? / (1024 * 1024))", fi.size)
@@ -453,7 +458,7 @@ defmodule PhoenixKit.Storage do
   Returns a list of file instances for a given file.
   """
   def list_file_instances(file_id) do
-    PhoenixKit.Storage.FileInstance
+    FileInstance
     |> where([fi], fi.file_id == ^file_id)
     |> order_by(asc: :variant_name)
     |> repo().all()
@@ -462,45 +467,45 @@ defmodule PhoenixKit.Storage do
   @doc """
   Gets a single file instance by ID.
   """
-  def get_file_instance(id), do: repo().get(PhoenixKit.Storage.FileInstance, id)
+  def get_file_instance(id), do: repo().get(FileInstance, id)
 
   @doc """
   Gets a file instance by file ID and variant name.
   """
   def get_file_instance_by_name(file_id, variant_name) do
-    repo().get_by(PhoenixKit.Storage.FileInstance, file_id: file_id, variant_name: variant_name)
+    repo().get_by(FileInstance, file_id: file_id, variant_name: variant_name)
   end
 
   @doc """
   Creates a new file instance.
   """
   def create_file_instance(attrs \\ %{}) do
-    %PhoenixKit.Storage.FileInstance{}
-    |> PhoenixKit.Storage.FileInstance.changeset(attrs)
+    %FileInstance{}
+    |> FileInstance.changeset(attrs)
     |> repo().insert()
   end
 
   @doc """
   Updates a file instance.
   """
-  def update_file_instance(%PhoenixKit.Storage.FileInstance{} = instance, attrs) do
+  def update_file_instance(%FileInstance{} = instance, attrs) do
     instance
-    |> PhoenixKit.Storage.FileInstance.changeset(attrs)
+    |> FileInstance.changeset(attrs)
     |> repo().update()
   end
 
   @doc """
   Deletes a file instance.
   """
-  def delete_file_instance(%PhoenixKit.Storage.FileInstance{} = instance) do
+  def delete_file_instance(%FileInstance{} = instance) do
     repo().delete(instance)
   end
 
   @doc """
   Returns an `%Ecto.Changeset{}` for tracking file instance changes.
   """
-  def change_file_instance(%PhoenixKit.Storage.FileInstance{} = instance, attrs \\ %{}) do
-    PhoenixKit.Storage.FileInstance.changeset(instance, attrs)
+  def change_file_instance(%FileInstance{} = instance, attrs \\ %{}) do
+    FileInstance.changeset(instance, attrs)
   end
 
   @doc """
@@ -580,7 +585,7 @@ defmodule PhoenixKit.Storage do
   Updates the default storage path.
   """
   def update_default_path(relative_path) when is_binary(relative_path) do
-    PhoenixKit.Settings.update_setting("storage_default_path", relative_path)
+    Settings.update_setting("storage_default_path", relative_path)
   end
 
   @doc """
@@ -622,9 +627,7 @@ defmodule PhoenixKit.Storage do
     metadata = Keyword.get(opts, :metadata, %{})
 
     # Validate required fields
-    if !Elixir.File.exists?(source_path) do
-      {:error, "Source file does not exist"}
-    else
+    if Elixir.File.exists?(source_path) do
       # Calculate file hash
       file_hash = calculate_file_hash(source_path)
 
@@ -646,6 +649,8 @@ defmodule PhoenixKit.Storage do
             metadata
           )
       end
+    else
+      {:error, "Source file does not exist"}
     end
   end
 
@@ -659,13 +664,13 @@ defmodule PhoenixKit.Storage do
       %PhoenixKit.Storage.File{} = file ->
         # Look up the original variant path from file_instances table
         case get_file_instance_by_name(file_id, "original") do
-          %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+          %FileInstance{file_name: file_path} ->
             destination_path = generate_temp_path()
 
-            case PhoenixKit.Storage.Manager.retrieve_file(file_path,
+            case Manager.retrieve_file(file_path,
                    destination_path: destination_path
                  ) do
-              :ok -> {:ok, destination_path, file}
+              {:ok, _path} -> {:ok, destination_path, file}
               error -> error
             end
 
@@ -698,7 +703,7 @@ defmodule PhoenixKit.Storage do
     # Look up the actual file path from file_instances where "original" variant is stored
     case get_file_instance_by_name(file.id, "original") do
       %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
-        case PhoenixKit.Storage.Manager.delete_file(file_path) do
+        case Manager.delete_file(file_path) do
           :ok -> :ok
           error -> error
         end
@@ -715,7 +720,7 @@ defmodule PhoenixKit.Storage do
     # Look up the actual file path from file_instances where "original" variant is stored
     case get_file_instance_by_name(file.id, "original") do
       %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
-        PhoenixKit.Storage.Manager.public_url(file_path)
+        Manager.public_url(file_path)
 
       nil ->
         nil
@@ -729,7 +734,7 @@ defmodule PhoenixKit.Storage do
     # Look up the actual file path from file_instances where "original" variant is stored
     case get_file_instance_by_name(file.id, "original") do
       %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
-        PhoenixKit.Storage.Manager.file_exists?(file_path)
+        Manager.file_exists?(file_path)
 
       nil ->
         false
@@ -787,7 +792,7 @@ defmodule PhoenixKit.Storage do
         # Store in buckets with redundancy - use MD5 hash for organized structure
         original_path = "#{file_path}/#{md5_hash}_original.#{ext}"
 
-        case PhoenixKit.Storage.Manager.store_file(source_path, path_prefix: original_path) do
+        case Manager.store_file(source_path, path_prefix: original_path) do
           {:ok, _storage_info} ->
             # Create file instance for original
             original_instance_attrs = %{
@@ -807,7 +812,7 @@ defmodule PhoenixKit.Storage do
 
               {:error, changeset} ->
                 # Clean up if instance creation fails
-                PhoenixKit.Storage.Manager.delete_file(original_path)
+                Manager.delete_file(original_path)
                 {:error, changeset}
             end
 
@@ -852,44 +857,29 @@ defmodule PhoenixKit.Storage do
   end
 
   defp get_default_path do
-    PhoenixKit.Settings.get_setting("storage_default_path", "priv/uploads")
+    Settings.get_setting("storage_default_path", "priv/uploads")
   end
 
   defp get_redundancy_copies do
-    PhoenixKit.Settings.get_setting("storage_redundancy_copies", "2")
+    Settings.get_setting("storage_redundancy_copies", "2")
     |> String.to_integer()
     |> max(1)
     |> min(5)
   end
 
   def get_auto_generate_variants do
-    PhoenixKit.Settings.get_setting("storage_auto_generate_variants", "true") == "true"
+    Settings.get_setting("storage_auto_generate_variants", "true") == "true"
   end
 
   defp get_default_bucket_id do
-    PhoenixKit.Settings.get_setting("storage_default_bucket_id", nil)
+    Settings.get_setting("storage_default_bucket_id", nil)
   end
 
   defp calculate_local_free_space(bucket) do
-    try do
-      case apply(:disksup, :get_disk_info, []) do
-        [{_device, total_kb, available_kb}] ->
-          total_mb = total_kb / 1024
-          available_mb = available_kb / 1024
-          max_used = bucket.max_size_mb || total_mb
-          max(max_used - (total_mb - available_mb), 0)
-
-        _ ->
-          bucket.max_size_mb || 1000
-      end
-    rescue
-      # :disksup module not available or other error
-      UndefinedFunctionError ->
-        bucket.max_size_mb || 1000
-
-      _ ->
-        bucket.max_size_mb || 1000
-    end
+    # For local storage, return configured max_size_mb or default 1000 MB
+    # Note: Real disk space monitoring should be implemented via System.cmd("df")
+    # or external monitoring tools, as :disksup is not reliably available
+    bucket.max_size_mb || 1000
   end
 
   # ===== REPO HELPERS =====
@@ -927,69 +917,88 @@ defmodule PhoenixKit.Storage do
          metadata
        ) do
     # Store file using manager
-    case PhoenixKit.Storage.Manager.store_file(source_path) do
+    case Manager.store_file(source_path) do
       {:ok, storage_info} ->
-        # Create database record
-        file_attrs = %{
-          original_file_name: filename,
-          file_name: storage_info.destination_path,
-          mime_type: content_type,
-          file_type: determine_file_type(content_type),
-          ext: Path.extname(filename),
-          checksum: file_hash,
-          size: size_bytes,
-          # Convert to MB
-          size_mb: size_bytes / (1024 * 1024),
-          status: "active",
-          metadata: metadata,
-          user_id: user_id
-        }
+        file_attrs =
+          build_file_attrs(
+            storage_info,
+            filename,
+            content_type,
+            file_hash,
+            size_bytes,
+            metadata,
+            user_id
+          )
 
         case create_file(file_attrs) do
           {:ok, file} ->
-            # Create original file instance
-            original_instance_attrs = %{
-              variant_name: "original",
-              file_name: file.file_name,
-              mime_type: file.mime_type,
-              ext: file.ext,
-              checksum: file_hash,
-              size: size_bytes,
-              # Will be populated if we can detect dimensions
-              width: nil,
-              # Will be populated if we can detect dimensions
-              height: nil,
-              processing_status: "completed",
-              file_id: file.id
-            }
-
-            case create_file_instance(original_instance_attrs) do
-              {:ok, _original_instance} ->
-                # Generate variants if enabled
-                case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
-                  {:ok, _variants} ->
-                    {:ok, file}
-
-                  {:error, _reason} ->
-                    # Variant generation failed, but file was stored successfully
-                    # Log the error but don't fail the entire upload
-                    {:ok, file}
-                end
-
-              {:error, _changeset} ->
-                # Original instance creation failed, but file was stored
-                # This shouldn't happen in normal circumstances
-                {:ok, file}
-            end
+            # Create original instance and variants (non-critical operations)
+            create_original_instance_and_variants(file, file_hash, size_bytes)
+            {:ok, file}
 
           {:error, changeset} ->
             # Clean up stored files if database creation fails
-            PhoenixKit.Storage.Manager.delete_file(storage_info.destination_path)
+            Manager.delete_file(storage_info.destination_path)
             {:error, changeset}
         end
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp build_file_attrs(
+         storage_info,
+         filename,
+         content_type,
+         file_hash,
+         size_bytes,
+         metadata,
+         user_id
+       ) do
+    %{
+      original_file_name: filename,
+      file_name: storage_info.destination_path,
+      mime_type: content_type,
+      file_type: determine_file_type(content_type),
+      ext: Path.extname(filename),
+      checksum: file_hash,
+      size: size_bytes,
+      # Convert to MB
+      size_mb: size_bytes / (1024 * 1024),
+      status: "active",
+      metadata: metadata,
+      user_id: user_id
+    }
+  end
+
+  defp create_original_instance_and_variants(file, file_hash, size_bytes) do
+    original_instance_attrs = %{
+      variant_name: "original",
+      file_name: file.file_name,
+      mime_type: file.mime_type,
+      ext: file.ext,
+      checksum: file_hash,
+      size: size_bytes,
+      # Will be populated if we can detect dimensions
+      width: nil,
+      # Will be populated if we can detect dimensions
+      height: nil,
+      processing_status: "completed",
+      file_id: file.id
+    }
+
+    case create_file_instance(original_instance_attrs) do
+      {:ok, _original_instance} ->
+        # Generate variants if enabled (failure is non-critical)
+        case VariantGenerator.generate_variants(file) do
+          {:ok, _variants} -> :ok
+          {:error, _reason} -> :ok
+        end
+
+      {:error, _changeset} ->
+        # Original instance creation failed, but file was stored (non-critical)
+        :ok
     end
   end
 

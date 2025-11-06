@@ -7,9 +7,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
   alias PhoenixKit.System.Dependencies
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
     # Get current path for navigation
@@ -298,11 +301,11 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
               # Queue background job for processing
               job =
                 %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-                |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+                |> ProcessFileJob.new()
                 |> Oban.insert()
 
               # Debug logging
-              IO.inspect(job, label: "Oban Job Inserted")
+              Logger.debug("Oban Job Inserted: #{inspect(job)}")
 
               {:ok,
                %{
@@ -316,7 +319,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
                }}
 
             {:error, reason} ->
-              IO.inspect(reason, label: "Storage Error")
+              Logger.error("Storage Error: #{inspect(reason)}")
               {:error, reason}
           end
         end)

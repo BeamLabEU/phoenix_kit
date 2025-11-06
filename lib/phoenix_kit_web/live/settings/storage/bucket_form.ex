@@ -90,58 +90,21 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
   end
 
   def handle_event("save", %{"bucket" => bucket_params}, socket) do
-    # For local buckets, check if path exists and show confirmation if needed
     provider = Map.get(bucket_params, "provider")
+    endpoint = Map.get(bucket_params, "endpoint")
 
-    if provider == "local" do
-      endpoint = Map.get(bucket_params, "endpoint")
+    cond do
+      provider != "local" ->
+        # Not a local bucket, proceed with save
+        save_bucket(socket, bucket_params)
 
-      if endpoint do
-        case Storage.validate_and_normalize_path(endpoint) do
-          {:ok, _relative_path} ->
-            # Path exists, proceed with save
-            case socket.assigns.mode do
-              :new -> create_bucket(socket, bucket_params)
-              :edit -> update_bucket(socket, bucket_params)
-            end
-
-          {:error, :does_not_exist, expanded_path} ->
-            # Path doesn't exist, show confirmation modal
-            socket =
-              socket
-              |> assign(:pending_bucket_params, bucket_params)
-              |> assign(:show_create_path_modal, true)
-              |> assign(:missing_path, expanded_path)
-
-            {:noreply, socket}
-
-          {:error, :invalid_path} ->
-            # Invalid path format, redirect back with error
-            socket =
-              socket
-              |> put_flash(
-                :error,
-                "Invalid storage path format. Please check the path and try again."
-              )
-              |> push_navigate(
-                to: socket.assigns.current_path || Routes.path("/admin/settings/storage")
-              )
-
-            {:noreply, socket}
-        end
-      else
+      is_nil(endpoint) ->
         # No endpoint provided, will be handled by changeset validation
-        case socket.assigns.mode do
-          :new -> create_bucket(socket, bucket_params)
-          :edit -> update_bucket(socket, bucket_params)
-        end
-      end
-    else
-      # Not a local bucket, proceed with save
-      case socket.assigns.mode do
-        :new -> create_bucket(socket, bucket_params)
-        :edit -> update_bucket(socket, bucket_params)
-      end
+        save_bucket(socket, bucket_params)
+
+      true ->
+        # Local bucket with endpoint - validate path first
+        handle_local_bucket_save(socket, bucket_params, endpoint)
     end
   end
 
@@ -193,6 +156,46 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       |> assign(:missing_path, nil)
 
     {:noreply, socket}
+  end
+
+  defp handle_local_bucket_save(socket, bucket_params, endpoint) do
+    case Storage.validate_and_normalize_path(endpoint) do
+      {:ok, _relative_path} ->
+        # Path exists, proceed with save
+        save_bucket(socket, bucket_params)
+
+      {:error, :does_not_exist, expanded_path} ->
+        # Path doesn't exist, show confirmation modal
+        {:noreply, show_path_creation_modal(socket, bucket_params, expanded_path)}
+
+      {:error, :invalid_path} ->
+        # Invalid path format, redirect back with error
+        socket =
+          socket
+          |> put_flash(
+            :error,
+            "Invalid storage path format. Please check the path and try again."
+          )
+          |> push_navigate(
+            to: socket.assigns.current_path || Routes.path("/admin/settings/storage")
+          )
+
+        {:noreply, socket}
+    end
+  end
+
+  defp save_bucket(socket, bucket_params) do
+    case socket.assigns.mode do
+      :new -> create_bucket(socket, bucket_params)
+      :edit -> update_bucket(socket, bucket_params)
+    end
+  end
+
+  defp show_path_creation_modal(socket, bucket_params, expanded_path) do
+    socket
+    |> assign(:pending_bucket_params, bucket_params)
+    |> assign(:show_create_path_modal, true)
+    |> assign(:missing_path, expanded_path)
   end
 
   defp create_bucket(socket, bucket_params) do
@@ -266,7 +269,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     case changeset do
       %Ecto.Changeset{changes: %{provider: provider}} -> provider
       %Ecto.Changeset{} -> if bucket, do: bucket.provider, else: nil
-      _ -> nil
     end
   end
 end

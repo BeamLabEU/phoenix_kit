@@ -27,8 +27,9 @@ defmodule PhoenixKit.Storage.FileServer do
   """
 
   import Ecto.Query
-  alias PhoenixKit.Storage.FileLocation
+
   alias PhoenixKit.Storage.FileInstance
+  alias PhoenixKit.Storage.FileLocation
 
   @doc """
   Get file location with priority-ordered failover list.

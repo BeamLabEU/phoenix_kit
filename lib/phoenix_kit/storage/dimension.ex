@@ -185,16 +185,16 @@ defmodule PhoenixKit.Storage.Dimension do
     format = get_field(changeset, :format)
     applies_to = get_field(changeset, :applies_to)
 
-    if !is_nil(format) do
+    if is_nil(format) do
+      changeset
+    else
       valid_formats = get_valid_formats(applies_to)
 
-      if format not in valid_formats do
-        add_error(changeset, :format, "must be one of: #{Enum.join(valid_formats, ", ")}")
-      else
+      if format in valid_formats do
         changeset
+      else
+        add_error(changeset, :format, "must be one of: #{Enum.join(valid_formats, ", ")}")
       end
-    else
-      changeset
     end
   end
 

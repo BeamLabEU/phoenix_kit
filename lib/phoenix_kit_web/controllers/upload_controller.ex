@@ -84,7 +84,7 @@ defmodule PhoenixKitWeb.UploadController do
         |> put_status(:unauthorized)
         |> json(%{error: "UNAUTHORIZED", message: "Authentication required"})
 
-      {:error, {:validation, changeset}} ->
+      {:error, %Ecto.Changeset{} = changeset} ->
         conn
         |> put_status(:bad_request)
         |> json(%{
@@ -149,20 +149,38 @@ defmodule PhoenixKitWeb.UploadController do
   end
 
   defp process_upload(upload, user_id) do
-    {:ok, stat} = File.stat(upload.path)
-    file_size = stat.size
-    file_hash = calculate_file_hash(upload.path)
+    with {:ok, stat} <- File.stat(upload.path),
+         {:ok, file_hash} <- safe_calculate_file_hash(upload.path) do
+      file_size = stat.size
 
-    # Check if file already exists
-    case Storage.get_file_by_hash(file_hash) do
-      %StorageFile{} = existing_file ->
-        # File already exists, delete temp upload and return existing file
-        File.rm(upload.path)
-        {:ok, existing_file.id}
+      # Check if file already exists
+      case Storage.get_file_by_hash(file_hash) do
+        %StorageFile{} = existing_file ->
+          # File already exists, delete temp upload and return existing file
+          File.rm(upload.path)
+          {:ok, existing_file.id}
 
-      nil ->
-        # New file, proceed with upload
-        perform_upload(upload, user_id, file_size, file_hash)
+        nil ->
+          # New file, proceed with upload
+          perform_upload(upload, user_id, file_size, file_hash)
+      end
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp safe_calculate_file_hash(file_path) do
+    case File.read(file_path) do
+      {:ok, data} ->
+        hash =
+          data
+          |> then(&:crypto.hash(:md5, &1))
+          |> Base.encode16(case: :lower)
+
+        {:ok, hash}
+
+      {:error, reason} ->
+        {:error, "Failed to read file: #{inspect(reason)}"}
     end
   end
 
@@ -183,13 +201,6 @@ defmodule PhoenixKitWeb.UploadController do
       {:error, reason} ->
         {:error, reason}
     end
-  end
-
-  defp calculate_file_hash(file_path) do
-    file_path
-    |> File.read!()
-    |> :crypto.hash(:md5)
-    |> Base.encode16(case: :lower)
   end
 
   defp determine_file_type(mime_type) do

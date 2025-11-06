@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.FileController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Storage
+  alias PhoenixKit.Storage.Manager
   alias PhoenixKit.Storage.URLSigner
 
   @doc """
@@ -171,14 +172,10 @@ defmodule PhoenixKitWeb.FileController do
     temp_path = Path.join(temp_dir, "phoenix_kit_#{instance.id}#{ext}")
 
     # Retrieve from storage
-    case PhoenixKit.Storage.Manager.retrieve_file(instance.file_name,
+    case Manager.retrieve_file(instance.file_name,
            destination_path: temp_path
          ) do
       {:ok, _} ->
-        {:ok, temp_path}
-
-      :ok ->
-        # Fallback for functions that return :ok
         {:ok, temp_path}
 
       {:error, reason} ->

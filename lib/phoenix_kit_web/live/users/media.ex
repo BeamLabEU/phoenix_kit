@@ -7,10 +7,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
-  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Storage.FileInstance
+  alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
@@ -73,7 +76,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         user_id = if current_user, do: current_user.id, else: 1
 
         # Get file size
-        {:ok, stat} = File.stat(path)
+        {:ok, stat} = Elixir.File.stat(path)
         file_size = stat.size
 
         # Calculate hash
@@ -85,7 +88,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
             # Queue background job for processing
             _job =
               %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-              |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+              |> ProcessFileJob.new()
               |> Oban.insert()
 
             # Generate URLs for available variants (start with original)
@@ -103,7 +106,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
              }}
 
           {:error, reason} ->
-            IO.inspect(reason, label: "Storage Error")
+            Logger.error("Storage Error: #{inspect(reason)}")
             {:error, reason}
         end
       end)
@@ -140,7 +143,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   defp calculate_file_hash(file_path) do
     file_path
-    |> File.read!()
+    |> Elixir.File.read!()
     |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end

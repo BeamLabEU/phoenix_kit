@@ -919,53 +919,54 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp maybe_autofill_slug(params, %{assigns: %{blog_mode: "slug"} = assigns}) do
-    trimmed_params =
-      case Map.fetch(params, "slug") do
-        {:ok, slug} when is_binary(slug) -> Map.put(params, "slug", String.trim(slug))
-        {:ok, _} -> Map.put(params, "slug", "")
-        :error -> params
-      end
-
+    trimmed_params = normalize_slug_param(params)
     slug_value = Map.get(trimmed_params, "slug")
-    current_slug = assigns.form |> Map.get("slug", "")
+    current_slug = Map.get(assigns.form, "slug", "")
+    title = extract_and_normalize_title(trimmed_params, assigns)
 
-    # Get title from params or form
-    title =
-      Map.get(trimmed_params, "title") ||
-        Map.get(assigns.form, "title") ||
-        ""
-
-    title = String.trim(to_string(title))
-
-    cond do
-      # User has manually entered a slug - keep it
-      is_binary(slug_value) and slug_value != "" ->
-        trimmed_params
-
-      # Slug is empty - auto-generate from title
-      slug_value == "" and title != "" ->
-        generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
-        Map.put(trimmed_params, "slug", generated)
-
-      # Slug is empty and title is also empty
-      slug_value == "" ->
-        Map.put(trimmed_params, "slug", "")
-
-      current_slug not in [nil, ""] ->
-        Map.put(trimmed_params, "slug", current_slug)
-
-      true ->
-        if title == "" do
-          Map.put(trimmed_params, "slug", "")
-        else
-          generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
-          Map.put(trimmed_params, "slug", generated)
-        end
-    end
+    new_slug = determine_slug_value(slug_value, current_slug, title, assigns)
+    Map.put(trimmed_params, "slug", new_slug)
   end
 
   defp maybe_autofill_slug(params, _socket) do
     Map.delete(params, "slug")
+  end
+
+  defp normalize_slug_param(params) do
+    case Map.fetch(params, "slug") do
+      {:ok, slug} when is_binary(slug) -> Map.put(params, "slug", String.trim(slug))
+      {:ok, _} -> Map.put(params, "slug", "")
+      :error -> params
+    end
+  end
+
+  defp extract_and_normalize_title(params, assigns) do
+    title =
+      Map.get(params, "title") ||
+        Map.get(assigns.form, "title") ||
+        ""
+
+    String.trim(to_string(title))
+  end
+
+  defp determine_slug_value(slug_value, current_slug, title, assigns) do
+    cond do
+      # User has manually entered a slug - keep it
+      is_binary(slug_value) and slug_value != "" ->
+        slug_value
+
+      # Current slug exists - use it
+      current_slug not in [nil, ""] ->
+        current_slug
+
+      # No slug but have title - auto-generate
+      title != "" ->
+        Storage.generate_unique_slug(assigns.blog_slug, title, nil)
+
+      # No slug and no title - keep empty
+      true ->
+        ""
+    end
   end
 
   defp slug_base_dir(post, blog_slug) do

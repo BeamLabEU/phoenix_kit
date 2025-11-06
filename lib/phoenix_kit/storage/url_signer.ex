@@ -153,23 +153,20 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   defp find_endpoint_module do
     # Get all loaded modules and find an Endpoint module
-    case :code.all_loaded() do
-      modules when is_list(modules) ->
-        Enum.find_value(modules, fn {module, _path} ->
-          module_name = module |> to_string()
+    # :code.all_loaded() always returns a list, so no need for catch-all pattern
+    modules = :code.all_loaded()
 
-          if String.ends_with?(module_name, "Endpoint") do
-            try do
-              module.config(:secret_key_base)
-            rescue
-              _ -> nil
-            end
-          end
-        end)
+    Enum.find_value(modules, fn {module, _path} ->
+      module_name = module |> to_string()
 
-      _ ->
-        nil
-    end
+      if String.ends_with?(module_name, "Endpoint") do
+        try do
+          module.config(:secret_key_base)
+        rescue
+          _ -> nil
+        end
+      end
+    end)
   end
 
   defp secure_compare(string1, string2) when is_binary(string1) and is_binary(string2) do
