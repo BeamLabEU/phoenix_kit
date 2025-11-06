@@ -538,7 +538,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # Helper function to get admin languages from settings
   defp get_admin_languages do
-    admin_languages_json = Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+    admin_languages_json =
+      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
 
     languages =
       case Jason.decode(admin_languages_json) do

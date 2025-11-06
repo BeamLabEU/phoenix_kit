@@ -202,7 +202,14 @@ defmodule PhoenixKit.Module.Languages do
     %{"code" => "it", "name" => "Italian", "is_default" => false, "is_enabled" => true},
     %{"code" => "ko", "name" => "Korean", "is_default" => false, "is_enabled" => true},
     %{"code" => "ru", "name" => "Russian", "is_default" => false, "is_enabled" => true},
-    %{"code" => "nl", "name" => "Dutch", "is_default" => false, "is_enabled" => true}
+    %{"code" => "nl", "name" => "Dutch", "is_default" => false, "is_enabled" => true},
+    %{
+      "code" => "zh-CN",
+      "name" => "Chinese (Mandarin)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
+    %{"code" => "ar", "name" => "Arabic", "is_default" => false, "is_enabled" => true}
   ]
 
   ## --- System Management Functions ---

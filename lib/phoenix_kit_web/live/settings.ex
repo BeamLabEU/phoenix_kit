@@ -50,7 +50,9 @@ defmodule PhoenixKitWeb.Live.Settings do
       end
 
     # Load admin languages from settings
-    admin_languages_json = Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+    admin_languages_json =
+      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+
     admin_languages =
       case Jason.decode(admin_languages_json) do
         {:ok, codes} when is_list(codes) -> codes
@@ -97,11 +99,6 @@ defmodule PhoenixKitWeb.Live.Settings do
   def handle_event("save_settings", %{"settings" => settings_params}, socket) do
     socket = assign(socket, :saving, true)
 
-    require Logger
-    Logger.info("Settings params received: #{inspect(settings_params)}")
-    Logger.info("Admin languages from params: #{inspect(settings_params["admin_languages"])}")
-    Logger.info("Admin languages from socket: #{inspect(socket.assigns.admin_languages)}")
-
     # admin_languages comes as JSON string from hidden field
     # If it's present and valid, keep it; otherwise remove it from params
     settings_params_to_save =
@@ -109,17 +106,14 @@ defmodule PhoenixKitWeb.Live.Settings do
         json when is_binary(json) ->
           if String.trim(json) != "" do
             # admin_languages is already JSON encoded from the hidden field, keep it as-is
-            Logger.info("Using admin_languages from form: #{json}")
             settings_params
           else
             # Empty string, remove it
-            Logger.info("Admin languages empty, removing from params")
             Map.delete(settings_params, "admin_languages")
           end
 
         _ ->
           # If not present, remove it so it doesn't get saved with invalid data
-          Logger.info("Admin languages not in params, removing")
           Map.delete(settings_params, "admin_languages")
       end
 
@@ -268,7 +262,12 @@ defmodule PhoenixKitWeb.Live.Settings do
     end
   end
 
-  def handle_event("add_admin_language_to_form", %{"admin_language_code_input" => language_code}, socket) when language_code != "" do
+  def handle_event(
+        "add_admin_language_to_form",
+        %{"admin_language_code_input" => language_code},
+        socket
+      )
+      when language_code != "" do
     current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
 
     # Only add if not already present

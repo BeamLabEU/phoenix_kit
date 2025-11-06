@@ -1210,10 +1210,10 @@
                           </option>
                         <% end %>
                       </optgroup>
-                      <%!-- Other Languages --%>
-                      <optgroup label="Other Languages">
+                      <%!-- Untranslated Languages (disabled for now) --%>
+                      <optgroup label="Untranslated Languages (Coming Soon)" disabled>
                         <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code not in ["en", "ru", "es"]) do %>
-                          <option value={language.code}>
+                          <option value={language.code} disabled>
                             {language.name} ({language.native}) {language.flag}
                           </option>
                         <% end %>
@@ -1224,19 +1224,27 @@
               </div>
 
               <%!-- Hidden field to store admin languages as JSON --%>
-              <input type="hidden" name="settings[admin_languages]" value={Jason.encode!(@admin_languages || ["en", "ru", "es"])} />
+              <input
+                type="hidden"
+                name="settings[admin_languages]"
+                value={Jason.encode!(@admin_languages || ["en", "ru", "es"])}
+              />
 
               <%!-- Selected Admin Languages List --%>
               <div class="space-y-3">
                 <%= if Enum.empty?(@admin_languages || []) do %>
                   <div class="alert alert-warning text-sm">
                     <PhoenixKitWeb.Components.Core.Icons.icon_warning class="w-5 h-5" />
-                    <span>No admin languages selected. At least one language is recommended.</span>
+                    <span>
+                      No admin languages selected. At least one language is recommended.
+                    </span>
                   </div>
                 <% else %>
                   <%= for {language_code, index} <- Enum.with_index(@admin_languages || []) do %>
-                    <% language = PhoenixKit.Module.Languages.get_predefined_language(language_code) %>
-                    <% language_name = if language, do: language.name, else: String.upcase(language_code) %>
+                    <% language =
+                      PhoenixKit.Module.Languages.get_predefined_language(language_code) %>
+                    <% language_name =
+                      if language, do: language.name, else: String.upcase(language_code) %>
                     <% language_flag = if language, do: language.flag, else: "🌐" %>
                     <% language_native = if language, do: language.native, else: "" %>
                     <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
@@ -1244,7 +1252,11 @@
                         <span class="text-2xl">{language_flag}</span>
                         <div>
                           <div class="font-medium">{language_name}</div>
-                          <div class="text-xs text-base-content/60">{language_code}{if language_native, do: " - #{language_native}", else: ""}</div>
+                          <div class="text-xs text-base-content/60">
+                            {language_code}{if language_native,
+                              do: " - #{language_native}",
+                              else: ""}
+                          </div>
                         </div>
                       </div>
                       <button
