@@ -245,6 +245,8 @@ defmodule PhoenixKit.Settings.Setting do
       field :date_format, :string
       field :time_format, :string
       field :track_registration_geolocation, :string
+      # Admin Panel Languages
+      field :admin_languages, :string
       # OAuth Provider Credentials
       field :oauth_google_client_id, :string
       field :oauth_google_client_secret, :string
@@ -305,6 +307,7 @@ defmodule PhoenixKit.Settings.Setting do
         :date_format,
         :time_format,
         :track_registration_geolocation,
+        :admin_languages,
         :oauth_google_client_id,
         :oauth_google_client_secret,
         :oauth_apple_client_id,
