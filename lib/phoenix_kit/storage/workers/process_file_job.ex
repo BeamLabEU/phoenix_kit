@@ -13,6 +13,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
 
   alias PhoenixKit.Storage
   alias PhoenixKit.Storage.ImageProcessor
+  alias PhoenixKit.Storage.VariantGenerator
 
   @doc """
   Process a file and generate variants.
@@ -74,60 +75,72 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   defp process_image(file) do
     Logger.info("ProcessFileJob: process_image/1 called for file_id=#{file.id}")
 
-    case Storage.retrieve_file(file.id) do
-      {:ok, temp_path} ->
+    with {:ok, temp_path} <- retrieve_and_log_file(file.id),
+         {:ok, metadata} <- extract_and_log_image_metadata(temp_path),
+         :ok <- update_and_log_metadata(file, metadata),
+         :ok <- log_dimensions_info(),
+         {:ok, variants} <- generate_and_log_variants(file) do
+      File.rm(temp_path)
+      {:ok, variants}
+    else
+      {:error, reason} = error ->
+        Logger.error("ProcessFileJob: Failed to process image: #{inspect(reason)}")
+        error
+    end
+  end
+
+  defp retrieve_and_log_file(file_id) do
+    case Storage.retrieve_file(file_id) do
+      {:ok, temp_path, _file} ->
         Logger.info("ProcessFileJob: Retrieved file to temp_path=#{temp_path}")
+        {:ok, temp_path}
 
-        case extract_image_metadata(temp_path) do
-          {:ok, metadata} ->
-            Logger.info("ProcessFileJob: Extracted metadata=#{inspect(metadata)}")
+      error ->
+        error
+    end
+  end
 
-            case update_file_with_metadata(file, metadata) do
-              :ok ->
-                Logger.info("ProcessFileJob: Updated file with metadata")
+  defp extract_and_log_image_metadata(temp_path) do
+    # extract_image_metadata always returns {:ok, metadata}
+    {:ok, metadata} = extract_image_metadata(temp_path)
+    Logger.info("ProcessFileJob: Extracted metadata=#{inspect(metadata)}")
+    {:ok, metadata}
+  end
 
-                # Get dimensions configured for images
-                dimensions = Storage.list_dimensions_for_type("image")
-                Logger.info("ProcessFileJob: Found #{length(dimensions)} dimensions for images")
+  defp update_and_log_metadata(file, metadata) do
+    case update_file_with_metadata(file, metadata) do
+      :ok = success ->
+        Logger.info("ProcessFileJob: Updated file with metadata")
+        success
 
-                # Generate variants
-                case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
-                  {:ok, variants} ->
-                    Logger.info(
-                      "ProcessFileJob: Generated #{length(variants)} variants successfully"
-                    )
+      error ->
+        error
+    end
+  end
 
-                    File.rm(temp_path)
-                    {:ok, variants}
+  defp log_dimensions_info do
+    dimensions = Storage.list_dimensions_for_type("image")
+    Logger.info("ProcessFileJob: Found #{length(dimensions)} dimensions for images")
+    :ok
+  end
 
-                  {:error, reason} ->
-                    Logger.error("ProcessFileJob: Variant generation failed: #{inspect(reason)}")
-                    File.rm(temp_path)
-                    {:error, reason}
-                end
+  defp generate_and_log_variants(file) do
+    case VariantGenerator.generate_variants(file) do
+      {:ok, variants} = success ->
+        Logger.info("ProcessFileJob: Generated #{length(variants)} variants successfully")
+        success
 
-              {:error, reason} ->
-                Logger.error(
-                  "ProcessFileJob: Failed to update file with metadata: #{inspect(reason)}"
-                )
-
-                File.rm(temp_path)
-                {:error, reason}
-            end
-        end
-
-      {:error, reason} ->
-        Logger.error("ProcessFileJob: Failed to retrieve file: #{inspect(reason)}")
-        {:error, reason}
+      error ->
+        error
     end
   end
 
   defp process_video(file) do
-    with {:ok, temp_path} <- Storage.retrieve_file(file.id),
+    with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
          {:ok, metadata} <- extract_video_metadata(temp_path),
          :ok <- update_file_with_metadata(file, metadata) do
       # Generate variants
-      case PhoenixKit.Storage.VariantGenerator.generate_variants(file) do
+      case VariantGenerator.generate_variants(file) do
         {:ok, variants} ->
           File.rm(temp_path)
           {:ok, variants}
@@ -140,7 +153,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   end
 
   defp process_document(file) do
-    with {:ok, temp_path} <- Storage.retrieve_file(file.id),
+    with {:ok, temp_path, _file} <- Storage.retrieve_file(file.id),
          {:ok, metadata} <- extract_document_metadata(temp_path, file.mime_type),
          :ok <- update_file_with_metadata(file, metadata) do
       File.rm(temp_path)
