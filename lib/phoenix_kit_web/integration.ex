@@ -1,6 +1,4 @@
 defmodule PhoenixKitWeb.Integration do
-  alias PhoenixKit.Module.Languages
-
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
 

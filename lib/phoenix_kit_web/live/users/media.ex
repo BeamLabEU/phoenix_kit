@@ -80,7 +80,14 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         file_hash = calculate_file_hash(path)
 
         # Store file in storage
-        case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
+        case PhoenixKit.Storage.store_file_in_buckets(
+               path,
+               file_type,
+               user_id,
+               file_hash,
+               ext,
+               entry.client_name
+             ) do
           {:ok, file} ->
             # Queue background job for processing
             _job =
@@ -203,7 +210,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
       %{
         file_id: file.id,
-        filename: file.original_file_name || "Unknown",
+        filename: file.original_file_name || file.file_name || "Unknown",
+        original_filename: file.original_file_name,
         file_type: file.file_type,
         mime_type: file.mime_type,
         size: file.size || 0,

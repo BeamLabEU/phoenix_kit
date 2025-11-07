@@ -751,7 +751,14 @@ defmodule PhoenixKit.Storage do
   Original: "12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_original.jpg"
   Thumbnail: "12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
   """
-  def store_file_in_buckets(source_path, file_type, user_id, file_hash, ext) do
+  def store_file_in_buckets(
+        source_path,
+        file_type,
+        user_id,
+        file_hash,
+        ext,
+        original_filename \\ nil
+      ) do
     # Calculate MD5 hash for path structure
     md5_hash =
       source_path
@@ -767,11 +774,14 @@ defmodule PhoenixKit.Storage do
     hash_prefix = String.slice(md5_hash, 0, 2)
     file_path = "#{user_prefix}/#{hash_prefix}/#{md5_hash}"
 
+    # Use provided original filename or fall back to source basename
+    orig_filename = original_filename || Path.basename(source_path)
+
     # Create file record
     file_attrs = %{
       id: file_id,
-      file_name: Path.basename(source_path),
-      original_file_name: Path.basename(source_path),
+      file_name: md5_hash <> "." <> ext,
+      original_file_name: orig_filename,
       file_path: file_path,
       mime_type: determine_mime_type(ext),
       file_type: file_type,
