@@ -44,13 +44,23 @@
     <dialog id="image-modal" class="modal">
       <div class="modal-box max-w-4xl">
         <%!-- Large Image Preview --%>
-        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4">
+        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4 relative min-h-96">
           <img
             id="modal-image"
             src=""
             alt="Image preview"
             class="max-h-96 w-auto rounded"
+            onerror="this.style.display='none'; document.getElementById('modal-image-error').style.display='flex';"
           />
+          <div
+            id="modal-image-error"
+            class="hidden flex-col items-center justify-center w-full h-full absolute inset-0"
+            style="display: none;"
+          >
+            <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
+            <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
+            <p class="text-sm text-base-content/70 mt-2">The image file could not be loaded</p>
+          </div>
         </figure>
 
         <%!-- File Info --%>
@@ -110,11 +120,16 @@
       function showImageModal(fileData) {
         const modal = document.getElementById('image-modal');
         const imageEl = document.getElementById('modal-image');
+        const imageErrorEl = document.getElementById('modal-image-error');
         const filenameEl = document.getElementById('modal-filename');
         const fileTypeEl = document.getElementById('modal-file-type');
         const statusEl = document.getElementById('modal-file-status');
         const sizeEl = document.getElementById('modal-file-size');
         const variantsEl = document.getElementById('modal-variants');
+
+        // Reset image error state
+        imageEl.style.display = 'block';
+        imageErrorEl.style.display = 'none';
 
         // Set image and basic info
         imageEl.src = fileData.urls.original || fileData.urls.medium || '';
@@ -184,7 +199,14 @@
                     src={image_url}
                     alt={file.filename}
                     class="w-full h-full object-cover pointer-events-none"
+                    onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                   />
+                  <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
+                    <div class="flex flex-col items-center justify-center">
+                      <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
+                      <p class="text-xs font-semibold">Image Missing</p>
+                    </div>
+                  </div>
                 <% else %>
                   <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
                     <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
