@@ -102,7 +102,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
                scope: scope
              }) do
-          {:ok, _updated_post} ->
+          {:ok, updated_post} ->
+            # Invalidate cache for this post
+            invalidate_post_cache(socket.assigns.blog_slug, updated_post)
+
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
@@ -206,4 +209,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   end
 
   defp extract_endpoint_url(_), do: ""
+
+  defp invalidate_post_cache(blog_slug, post) do
+    # Determine identifier based on post mode
+    identifier =
+      case post.mode do
+        :slug -> post.slug
+        _ -> post.path
+      end
+
+    # Invalidate the render cache for this post
+    PhoenixKit.Blogging.Renderer.invalidate_cache(blog_slug, identifier, post.language)
+  end
 end
