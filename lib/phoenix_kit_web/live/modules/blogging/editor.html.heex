@@ -108,8 +108,12 @@
                     end
                   }
                 >
-                  <%= if not file_exists do %>
-                    <.icon name="hero-plus" class="w-3 h-3" />
+                  <%= cond do %>
+                    <% is_current -> %>
+                      <.icon name="hero-check" class="w-4 h-4" />
+                    <% not file_exists -> %>
+                      <.icon name="hero-plus" class="w-3 h-3" />
+                    <% true -> %>
                   <% end %>
                   <span class="text-lg phx-click-loading:opacity-50">{flag}</span>
                   <span class="phx-click-loading:hidden">{String.upcase(lang_code)}</span>
