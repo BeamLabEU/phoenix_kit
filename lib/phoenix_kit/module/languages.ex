@@ -191,6 +191,27 @@ defmodule PhoenixKit.Module.Languages do
     ]
   }
 
+  # Top 10 most common languages for permanent display in admin
+  @top_10_languages [
+    %{"code" => "en", "name" => "English", "is_default" => true, "is_enabled" => true},
+    %{"code" => "es", "name" => "Spanish", "is_default" => false, "is_enabled" => true},
+    %{"code" => "fr", "name" => "French", "is_default" => false, "is_enabled" => true},
+    %{"code" => "de", "name" => "German", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ja", "name" => "Japanese", "is_default" => false, "is_enabled" => true},
+    %{"code" => "pt", "name" => "Portuguese", "is_default" => false, "is_enabled" => true},
+    %{"code" => "it", "name" => "Italian", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ko", "name" => "Korean", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ru", "name" => "Russian", "is_default" => false, "is_enabled" => true},
+    %{"code" => "nl", "name" => "Dutch", "is_default" => false, "is_enabled" => true},
+    %{
+      "code" => "zh-CN",
+      "name" => "Chinese (Mandarin)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
+    %{"code" => "ar", "name" => "Arabic", "is_default" => false, "is_enabled" => true}
+  ]
+
   ## --- System Management Functions ---
 
   @doc """
@@ -211,6 +232,7 @@ defmodule PhoenixKit.Module.Languages do
   Enables the language module and creates default configuration.
 
   Creates the initial module configuration with English as the default language.
+  If a previous configuration exists, it will be restored instead of reset.
   Updates both the enabled flag and the JSON configuration.
 
   Returns `{:ok, config}` on success, `{:error, reason}` on failure.
@@ -224,9 +246,13 @@ defmodule PhoenixKit.Module.Languages do
     # Enable the system
     case Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name) do
       {:ok, _setting} ->
-        # Create initial JSON configuration with default English
-        case Settings.update_json_setting_with_module(@config_key, @default_config, @module_name) do
-          {:ok, _setting} -> {:ok, @default_config}
+        # Check if a previous configuration exists to preserve languages
+        existing_config = Settings.get_json_setting(@config_key, nil)
+        config_to_save = if is_nil(existing_config), do: @default_config, else: existing_config
+
+        # Save the configuration (either existing or new default)
+        case Settings.update_json_setting_with_module(@config_key, config_to_save, @module_name) do
+          {:ok, _setting} -> {:ok, config_to_save}
           {:error, changeset} -> {:error, changeset}
         end
 
@@ -416,6 +442,8 @@ defmodule PhoenixKit.Module.Languages do
       ["en"]
   """
   def enabled_locale_codes do
+    # Return enabled language codes from the frontend language module only
+    # Admin navbar languages are managed separately in settings
     if enabled?() do
       codes = get_enabled_language_codes()
       # Ensure we always have at least "en" as a fallback
@@ -423,6 +451,53 @@ defmodule PhoenixKit.Module.Languages do
     else
       ["en"]
     end
+  end
+
+  @doc """
+  Gets the appropriate language list for admin display.
+
+  Returns the configured languages if the module is enabled and has 2 or more languages.
+  Otherwise, returns the permanent top 10 most common languages for display.
+
+  This allows the admin to always show a language list, reverting to the top 10 when
+  the module is disabled or has fewer than 2 languages configured.
+
+  ## Examples
+
+      # When enabled with multiple languages
+      iex> PhoenixKit.Module.Languages.get_display_languages()
+      [%{"code" => "en", "name" => "English", ...}, %{"code" => "es", ...}, ...]
+
+      # When disabled or minimal languages
+      iex> PhoenixKit.Module.Languages.get_display_languages()
+      [%{"code" => "en", ...}, %{"code" => "es", ...}, ...]  # Top 10 default
+  """
+  def get_display_languages do
+    if enabled?() and length(get_languages()) >= 2 do
+      # Show configured languages when enabled with 2+ languages
+      get_languages()
+    else
+      # Show top 10 default languages when disabled or only 1 language
+      @top_10_languages
+    end
+  end
+
+  @doc """
+  Checks if currently in configured mode (showing user-configured languages vs defaults).
+
+  Returns true if the module is enabled and has 2+ configured languages.
+  Returns false if showing the default top 10 languages.
+
+  ## Examples
+
+      iex> PhoenixKit.Module.Languages.in_configured_mode?()
+      true  # When enabled with 2+ languages
+
+      iex> PhoenixKit.Module.Languages.in_configured_mode?()
+      false  # When disabled or only 1 language
+  """
+  def in_configured_mode? do
+    enabled?() and length(get_languages()) >= 2
   end
 
   @doc """

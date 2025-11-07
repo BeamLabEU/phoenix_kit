@@ -49,6 +49,16 @@ defmodule PhoenixKitWeb.Live.Settings do
         []
       end
 
+    # Load admin languages from settings
+    admin_languages_json =
+      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+
+    admin_languages =
+      case Jason.decode(admin_languages_json) do
+        {:ok, codes} when is_list(codes) -> codes
+        _ -> ["en", "ru", "es"]
+      end
+
     socket =
       socket
       |> assign(:page_title, "Settings")
@@ -64,6 +74,7 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:content_language, content_language)
       |> assign(:content_language_details, content_language_details)
       |> assign(:available_content_languages, available_languages)
+      |> assign(:admin_languages, admin_languages)
 
     {:ok, socket}
   end
@@ -88,13 +99,65 @@ defmodule PhoenixKitWeb.Live.Settings do
   def handle_event("save_settings", %{"settings" => settings_params}, socket) do
     socket = assign(socket, :saving, true)
 
-    case Settings.update_settings(settings_params) do
+    # admin_languages comes as JSON string from hidden field
+    # If it's present and valid, keep it; otherwise remove it from params
+    settings_params_to_save =
+      case settings_params["admin_languages"] do
+        json when is_binary(json) ->
+          if String.trim(json) != "" do
+            # admin_languages is already JSON encoded from the hidden field, keep it as-is
+            settings_params
+          else
+            # Empty string, remove it
+            Map.delete(settings_params, "admin_languages")
+          end
+
+        _ ->
+          # If not present, remove it so it doesn't get saved with invalid data
+          Map.delete(settings_params, "admin_languages")
+      end
+
+    case Settings.update_settings(settings_params_to_save) do
       {:ok, updated_settings} ->
         # Reload OAuth configuration to apply new credentials immediately
         OAuthConfig.configure_providers()
 
+        # Broadcast admin languages change if it was updated
+        if Map.has_key?(settings_params_to_save, "admin_languages") do
+          admin_languages_json = updated_settings["admin_languages"]
+
+          admin_languages =
+            if admin_languages_json && String.trim(admin_languages_json) != "" do
+              case Jason.decode(admin_languages_json) do
+                {:ok, codes} when is_list(codes) -> codes
+                _ -> ["en", "ru", "es"]
+              end
+            else
+              ["en", "ru", "es"]
+            end
+
+          SettingsEvents.broadcast_admin_languages_changed(admin_languages)
+        end
+
         # Update socket with new settings
         changeset = Settings.change_settings(updated_settings)
+
+        # Extract the admin_languages that were just saved
+        saved_admin_languages =
+          if Map.has_key?(settings_params_to_save, "admin_languages") do
+            admin_languages_json = settings_params_to_save["admin_languages"]
+
+            if admin_languages_json && String.trim(admin_languages_json) != "" do
+              case Jason.decode(admin_languages_json) do
+                {:ok, codes} when is_list(codes) -> codes
+                _ -> socket.assigns.admin_languages
+              end
+            else
+              socket.assigns.admin_languages
+            end
+          else
+            socket.assigns.admin_languages
+          end
 
         socket =
           socket
@@ -104,6 +167,8 @@ defmodule PhoenixKitWeb.Live.Settings do
           |> assign(:changeset, changeset)
           |> assign(:saving, false)
           |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
+          # Keep the admin_languages we just saved (don't reload from DB)
+          |> assign(:admin_languages, saved_admin_languages)
           |> put_flash(:info, "Settings updated successfully")
 
         {:noreply, socket}
@@ -197,6 +262,54 @@ defmodule PhoenixKitWeb.Live.Settings do
     end
   end
 
+  def handle_event(
+        "add_admin_language_to_form",
+        %{"admin_language_code_input" => language_code},
+        socket
+      )
+      when language_code != "" do
+    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
+
+    # Only add if not already present
+    if language_code in current_languages do
+      socket = put_flash(socket, :info, "Language already selected")
+      {:noreply, socket}
+    else
+      updated_languages = current_languages ++ [language_code]
+
+      # Get language details for feedback
+      language = Languages.get_predefined_language(language_code)
+      language_name = if language, do: language.name, else: String.upcase(language_code)
+
+      socket =
+        socket
+        |> assign(:admin_languages, updated_languages)
+        |> put_flash(:info, "#{language_name} added. Remember to save settings.")
+
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("add_admin_language_to_form", _params, socket) do
+    {:noreply, socket}
+  end
+
+  def handle_event("remove_admin_language_from_form", %{"code" => code}, socket) do
+    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
+    updated_languages = Enum.filter(current_languages, &(&1 != code))
+
+    # Get language details for feedback
+    language = Languages.get_predefined_language(code)
+    language_name = if language, do: language.name, else: String.upcase(code)
+
+    socket =
+      socket
+      |> assign(:admin_languages, updated_languages)
+      |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+
+    {:noreply, socket}
+  end
+
   ## Live updates - handle broadcasts from other admins
 
   def handle_info({:content_language_changed, new_language}, socket) do
@@ -208,6 +321,12 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:content_language, new_language)
       |> assign(:content_language_details, content_language_details)
 
+    {:noreply, socket}
+  end
+
+  def handle_info({:admin_languages_changed, admin_languages}, socket) do
+    # Another admin changed the admin languages - update our view
+    socket = assign(socket, :admin_languages, admin_languages)
     {:noreply, socket}
   end
 
