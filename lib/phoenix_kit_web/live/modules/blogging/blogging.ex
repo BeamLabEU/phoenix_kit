@@ -336,14 +336,31 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   @doc """
-  Returns true when the slug matches the allowed lowercase letters, numbers, and hyphen pattern.
+  Returns true when the slug matches the allowed lowercase letters, numbers, and hyphen pattern,
+  and is not a reserved language code.
+
+  Blog slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
   """
   @spec valid_slug?(String.t()) :: boolean()
   def valid_slug?(slug) when is_binary(slug) do
-    slug != "" and Regex.match?(@slug_regex, slug)
+    slug != "" and Regex.match?(@slug_regex, slug) and not reserved_language_code?(slug)
   end
 
   def valid_slug?(_), do: false
+
+  # Check if slug is a reserved language code
+  # We check against all available language codes from the language system
+  defp reserved_language_code?(slug) do
+    # Get all available language codes dynamically from the language module
+    language_codes =
+      try do
+        PhoenixKit.Module.Languages.get_language_codes()
+      rescue
+        _ -> []
+      end
+
+    slug in language_codes
+  end
 
   defp settings_module do
     Application.get_env(:phoenix_kit, :blogging_settings_module, PhoenixKit.Settings)

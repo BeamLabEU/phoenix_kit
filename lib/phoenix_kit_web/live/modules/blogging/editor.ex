@@ -226,18 +226,28 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   def handle_event("update_content", %{"content" => content}, socket) do
     # Auto-generate slug from content live for new unsaved posts only
-    is_new_unsaved = Map.get(socket.assigns, :is_new_post, false) || Map.get(socket.assigns, :is_new_translation, false)
+    is_new_unsaved =
+      Map.get(socket.assigns, :is_new_post, false) ||
+        Map.get(socket.assigns, :is_new_translation, false)
 
     {new_form, slug_events} =
       if socket.assigns.blog_mode == "slug" && is_new_unsaved && String.trim(content) != "" do
         title = PhoenixKitWeb.Live.Modules.Blogging.Metadata.extract_title_from_content(content)
-        new_slug = Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
-        current_slug = Map.get(socket.assigns.form, "slug", "")
 
-        if new_slug != current_slug do
-          {Map.put(socket.assigns.form, "slug", new_slug), [{"update-slug", %{slug: new_slug}}]}
-        else
-          {socket.assigns.form, []}
+        case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil) do
+          {:ok, new_slug} ->
+            current_slug = Map.get(socket.assigns.form, "slug", "")
+
+            if new_slug != current_slug do
+              {Map.put(socket.assigns.form, "slug", new_slug),
+               [{"update-slug", %{slug: new_slug}}]}
+            else
+              {socket.assigns.form, []}
+            end
+
+          {:error, _} ->
+            # If slug generation fails, keep current form
+            {socket.assigns.form, []}
         end
       else
         {socket.assigns.form, []}
@@ -431,6 +441,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_format} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :reserved_language_code} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+               )
+             )}
+
           {:error, :invalid_slug} ->
             {:noreply,
              put_flash(
@@ -509,6 +539,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_format} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :reserved_language_code} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+               )
+             )}
+
           {:error, :invalid_slug} ->
             {:noreply,
              put_flash(
@@ -549,6 +599,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
          |> assign(:has_pending_changes, false)
          |> push_event("changes-status", %{has_changes: false})
          |> put_flash(:info, gettext("Post saved"))}
+
+      {:error, :invalid_format} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+           )
+         )}
+
+      {:error, :reserved_language_code} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+           )
+         )}
 
       {:error, :invalid_slug} ->
         {:noreply,
