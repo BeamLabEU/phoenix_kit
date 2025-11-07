@@ -41,16 +41,17 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   ## Returns
 
-  A relative URL path: `/file/{file_id}/{instance_name}/{token}`
+  A relative URL path with prefix: `{url_prefix}/file/{file_id}/{instance_name}/{token}`
 
   ## Examples
 
       iex> PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
-      "/file/018e3c4a-9f6b-7890/thumbnail/abc1"
+      "/phoenix_kit/file/018e3c4a-9f6b-7890/thumbnail/abc1"  # With default prefix
   """
   def signed_url(file_id, instance_name) when is_binary(file_id) and is_binary(instance_name) do
     token = generate_token(file_id, instance_name)
-    "/file/#{file_id}/#{instance_name}/#{token}"
+    file_path = "/file/#{file_id}/#{instance_name}/#{token}"
+    PhoenixKit.Utils.Routes.path(file_path)
   end
 
   @doc """

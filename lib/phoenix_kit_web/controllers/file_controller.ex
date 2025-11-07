@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.FileController do
 
   alias PhoenixKit.Storage
   alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Serve a file variant by ID with signed URL token.
@@ -113,7 +114,8 @@ defmodule PhoenixKitWeb.FileController do
         variant_urls =
           Enum.map(instances, fn instance ->
             token = URLSigner.generate_token(file_id, instance.variant_name)
-            url = "/file/#{file_id}/#{instance.variant_name}/#{token}"
+            file_path = "/file/#{file_id}/#{instance.variant_name}/#{token}"
+            url = Routes.path(file_path)
 
             %{
               variant_name: instance.variant_name,
