@@ -154,22 +154,7 @@
           <div class="lg:w-80 space-y-4">
             <.form for={@form} id="blogging-meta" phx-change="update_meta" phx-submit="noop">
               <div class="space-y-4">
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Title")}
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={@form["title"]}
-                    class="input input-bordered w-full"
-                    placeholder={gettext("Post title")}
-                    phx-blur="generate_slug_from_title"
-                  />
-                </div>
-
+                <%!-- Title is extracted from markdown content (first # Heading) --%>
                 <%= if @blog_mode == "slug" do %>
                   <div>
                     <label class="label">
@@ -184,7 +169,7 @@
                       value={@form["slug"]}
                       pattern="[a-z0-9]+(-[a-z0-9]+)*"
                       class="input input-bordered w-full lowercase"
-                      placeholder={gettext("auto-generated from title")}
+                      placeholder={gettext("auto-generated from first heading")}
                       title={
                         gettext(
                           "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."

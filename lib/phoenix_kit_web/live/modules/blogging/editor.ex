@@ -191,13 +191,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> push_event("changes-status", %{has_changes: has_changes})}
   end
 
-  def handle_event("generate_slug_from_title", %{"value" => title}, socket) do
+  def handle_event("generate_slug_from_content", _params, socket) do
     # Only generate slug if in slug mode and slug is empty
     if socket.assigns.blog_mode == "slug" do
       current_slug = Map.get(socket.assigns.form, "slug", "")
+      content = socket.assigns.content || ""
 
       new_slug =
-        if current_slug == "" and String.trim(title) != "" do
+        if current_slug == "" and String.trim(content) != "" do
+          # Extract title from content and use it for slug
+          title = PhoenixKitWeb.Live.Modules.Blogging.Metadata.extract_title_from_content(content)
           Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
         else
           current_slug
@@ -205,7 +208,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
       new_form =
         socket.assigns.form
-        |> Map.put("title", title)
         |> Map.put("slug", new_slug)
         |> normalize_form()
 
@@ -223,14 +225,39 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
-    has_changes = dirty?(socket.assigns.post, socket.assigns.form, content)
+    # Auto-generate slug from content live for new unsaved posts only
+    is_new_unsaved = Map.get(socket.assigns, :is_new_post, false) || Map.get(socket.assigns, :is_new_translation, false)
+
+    {new_form, slug_events} =
+      if socket.assigns.blog_mode == "slug" && is_new_unsaved && String.trim(content) != "" do
+        title = PhoenixKitWeb.Live.Modules.Blogging.Metadata.extract_title_from_content(content)
+        new_slug = Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
+        current_slug = Map.get(socket.assigns.form, "slug", "")
+
+        if new_slug != current_slug do
+          {Map.put(socket.assigns.form, "slug", new_slug), [{"update-slug", %{slug: new_slug}}]}
+        else
+          {socket.assigns.form, []}
+        end
+      else
+        {socket.assigns.form, []}
+      end
+
+    has_changes = dirty?(socket.assigns.post, new_form, content)
 
     socket =
       socket
       |> assign(:content, content)
+      |> assign(:form, new_form)
       |> assign(:has_pending_changes, has_changes)
+      |> push_event("changes-status", %{has_changes: has_changes})
 
-    {:noreply, push_event(socket, "changes-status", %{has_changes: has_changes})}
+    socket =
+      Enum.reduce(slug_events, socket, fn {event, data}, acc ->
+        push_event(acc, event, data)
+      end)
+
+    {:noreply, socket}
   end
 
   def handle_event("save", _params, %{assigns: %{has_pending_changes: false}} = socket) do
@@ -240,7 +267,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_event("save", _params, socket) do
     params =
       socket.assigns.form
-      |> Map.take(["title", "status", "published_at", "slug"])
+      |> Map.take(["status", "published_at", "slug"])
       |> Map.put("content", socket.assigns.content)
 
     params =
@@ -543,7 +570,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   defp post_form(post) do
     base = %{
-      "title" => post.metadata.title || "",
       "status" => post.metadata.status || "draft",
       "published_at" =>
         post.metadata.published_at ||
@@ -583,7 +609,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp normalize_form(form) when is_map(form) do
     base =
       %{
-        "title" => Map.get(form, "title", "") || "",
         "status" => Map.get(form, "status", "draft") || "draft",
         "published_at" => normalize_published_at(Map.get(form, "published_at"))
       }
@@ -598,7 +623,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_form(_),
-    do: %{"title" => "", "status" => "draft", "published_at" => "", "slug" => ""}
+    do: %{"status" => "draft", "published_at" => "", "slug" => ""}
 
   defp datetime_local_value(nil), do: ""
 
@@ -647,7 +672,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     post = socket.assigns.post
 
     metadata = %{
-      title: map_get_with_fallback(form, "title", metadata_value(post, :title), ""),
       status: map_get_with_fallback(form, "status", metadata_value(post, :status), "draft"),
       published_at:
         map_get_with_fallback(
@@ -809,11 +833,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp normalize_preview_metadata(metadata, mode) do
     metadata_map =
       Enum.reduce(metadata, %{}, fn
-        {key, value}, acc when key in [:title, :status, :published_at, :slug] ->
+        {key, value}, acc when key in [:status, :published_at, :slug] ->
           Map.put(acc, key, value)
-
-        {"title", value}, acc ->
-          Map.put(acc, :title, value)
 
         {"status", value}, acc ->
           Map.put(acc, :status, value)
@@ -830,8 +851,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     defaults =
       case mode do
-        :slug -> %{title: "", status: "draft", published_at: "", slug: ""}
-        _ -> %{title: "", status: "draft", published_at: "", slug: nil}
+        :slug -> %{status: "draft", published_at: "", slug: ""}
+        _ -> %{status: "draft", published_at: "", slug: nil}
       end
 
     Map.merge(defaults, metadata_map)

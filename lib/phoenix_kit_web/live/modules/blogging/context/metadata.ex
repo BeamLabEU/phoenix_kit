@@ -30,22 +30,29 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
 
   @doc """
   Parses .phk content, extracting metadata from frontmatter and returning the content.
+  Title is extracted from the markdown content itself (first H1 heading).
   """
   @spec parse_with_content(String.t()) :: {:ok, metadata(), String.t()} | {:error, atom()}
   def parse_with_content(content) do
     case extract_frontmatter(content) do
       {:ok, metadata, body_content} ->
-        {:ok, metadata, body_content}
+        # Extract title from content
+        title = extract_title_from_content(body_content)
+        metadata_with_title = Map.put(metadata, :title, title)
+        {:ok, metadata_with_title, body_content}
 
       {:error, _} ->
         # Fallback: try old XML format for backwards compatibility
         metadata = extract_metadata_from_xml(content)
-        {:ok, metadata, content}
+        title = extract_title_from_content(content)
+        metadata_with_title = Map.put(metadata, :title, title)
+        {:ok, metadata_with_title, content}
     end
   end
 
   @doc """
   Serializes metadata as YAML-style frontmatter.
+  Note: Title is NOT saved in frontmatter - it's extracted from content.
   """
   @spec serialize(metadata()) :: String.t()
   def serialize(metadata) do
@@ -62,7 +69,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
     lines =
       [
         "slug: #{metadata.slug}",
-        "title: #{metadata.title || ""}",
         "status: #{metadata.status}",
         "published_at: #{metadata.published_at}"
       ]
@@ -95,6 +101,52 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       updated_by_id: nil,
       updated_by_email: nil
     }
+  end
+
+  @doc """
+  Extracts title from markdown content.
+  Looks for the first H1 heading (# Title) within the first few lines.
+  Falls back to the first line if no H1 found.
+  """
+  @spec extract_title_from_content(String.t()) :: String.t()
+  def extract_title_from_content(content) when is_binary(content) do
+    content
+    |> String.trim()
+    |> extract_title_from_lines()
+  end
+
+  def extract_title_from_content(_), do: "Untitled"
+
+  defp extract_title_from_lines(""), do: "Untitled"
+
+  defp extract_title_from_lines(content) do
+    lines =
+      content
+      |> String.split("\n")
+      |> Enum.take(10)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    # Look for first H1 heading (# Title)
+    h1_line =
+      Enum.find(lines, fn line ->
+        String.starts_with?(line, "# ") and String.length(line) > 2
+      end)
+
+    cond do
+      h1_line != nil ->
+        h1_line
+        |> String.trim_leading("# ")
+        |> String.trim()
+
+      length(lines) > 0 ->
+        # Fallback to first non-empty line
+        List.first(lines)
+        |> String.slice(0, 100)
+
+      true ->
+        "Untitled"
+    end
   end
 
   # Extract metadata from YAML-style frontmatter
@@ -130,6 +182,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       end)
 
     metadata_map = %{
+      # Title is extracted from content, not from frontmatter
+      # But we keep this for backward compatibility with old files
       title: Map.get(metadata, "title", default.title),
       status: Map.get(metadata, "status", default.status),
       slug: Map.get(metadata, "slug", default.slug),
