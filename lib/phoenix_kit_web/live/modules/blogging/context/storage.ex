@@ -153,8 +153,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       end
 
     case base_slug_result do
-      {:ok, base_slug} ->
+      {:ok, base_slug} when base_slug != "" ->
         {:ok, ensure_unique_slug(blog_slug, base_slug)}
+
+      {:ok, ""} ->
+        # Empty slug - return empty for auto-generation, will show placeholder
+        {:ok, ""}
 
       {:error, reason} ->
         {:error, reason}
@@ -168,7 +172,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     |> String.replace(~r/-+/, "-")
     |> String.trim("-")
     |> case do
-      "" -> fallback_slug()
+      # Return empty string instead of generating fallback
+      # This allows the form to show placeholder and user can enter custom slug
+      "" -> ""
       slug -> slug
     end
   end
@@ -197,10 +203,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     else
       candidate
     end
-  end
-
-  defp fallback_slug do
-    "post-#{System.unique_integer([:positive])}"
   end
 
   @type post :: %{
