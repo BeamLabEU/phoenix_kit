@@ -186,7 +186,12 @@
                     {gettext("Open")}
                   </.link>
                   <.link
-                    navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+                    navigate={
+                      Routes.path(
+                        "/admin/settings/blogging/#{insight.slug}/edit",
+                        locale: @current_locale
+                      )
+                    }
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
