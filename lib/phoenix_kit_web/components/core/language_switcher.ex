@@ -61,6 +61,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
+  attr(:_language_update_key, :any,
+    default: nil,
+    doc: "Internal: forces re-render when languages change"
+  )
+
   def language_switcher_dropdown(assigns) do
     # Use provided languages or fetch from Language Module
     # get_display_languages() returns configured languages or defaults (top 12)
