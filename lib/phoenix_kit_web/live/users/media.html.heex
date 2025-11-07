@@ -72,9 +72,9 @@
         </div>
 
         <%!-- Download Links --%>
-        <div class="space-y-2 mb-6">
+        <div class="mb-6">
           <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
-          <div id="modal-variants"></div>
+          <div id="modal-variants" class="flex gap-2 flex-wrap"></div>
         </div>
 
         <%!-- Close Button --%>
@@ -147,22 +147,32 @@
 
         sizeEl.textContent = formatFileSize(fileData.size);
 
-        // Generate download links
-        variantsEl.innerHTML = Object.entries(fileData.urls)
-          .map(([variant, url]) => `
+        // Generate download links - sorted with original first
+        const variantOrder = ['original', 'large', 'medium', 'small', 'thumbnail'];
+        const sortedEntries = Object.entries(fileData.urls).sort(([a], [b]) => {
+          const aIndex = variantOrder.indexOf(a);
+          const bIndex = variantOrder.indexOf(b);
+          return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+        });
+
+        variantsEl.innerHTML = sortedEntries.map(([variant, url]) => {
+          const isOriginal = variant === 'original';
+          const buttonClass = isOriginal ? 'btn btn-md btn-primary' : 'btn btn-sm btn-outline';
+
+          return `
             <a
               href="${url}"
               target="_blank"
               rel="noopener noreferrer"
-              class="btn btn-sm btn-outline w-full justify-start"
+              class="${buttonClass}"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
               </svg>
               ${variant.charAt(0).toUpperCase() + variant.slice(1)}
             </a>
-          `)
-          .join('');
+          `;
+        }).join('');
 
         // Show modal
         modal.showModal();
