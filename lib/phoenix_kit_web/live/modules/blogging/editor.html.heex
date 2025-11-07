@@ -49,6 +49,14 @@
           document.getElementById('confirm-cancel-btn').click();
         }
       });
+
+      // Listen for slug update event from LiveView
+      window.addEventListener('phx:update-slug', function(e) {
+        const slugInput = document.getElementById('slug-input');
+        if (slugInput && e.detail.slug) {
+          slugInput.value = e.detail.slug;
+        }
+      });
     })();
   </script>
   <%!-- Hidden confirmation button for JavaScript --%>
@@ -158,6 +166,7 @@
                     value={@form["title"]}
                     class="input input-bordered w-full"
                     placeholder={gettext("Post title")}
+                    phx-blur="generate_slug_from_title"
                   />
                 </div>
 
@@ -171,7 +180,8 @@
                     <input
                       type="text"
                       name="slug"
-                      value={@form["slug"] || ""}
+                      id="slug-input"
+                      value={@form["slug"]}
                       pattern="[a-z0-9]+(-[a-z0-9]+)*"
                       class="input input-bordered w-full lowercase"
                       placeholder={gettext("auto-generated from title")}

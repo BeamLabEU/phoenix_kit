@@ -165,7 +165,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     params =
       params
       |> Map.drop(["_target"])
-      |> maybe_autofill_slug(socket)
 
     # No real-time validation - accept any input, validation happens on save
     new_form =
@@ -190,6 +189,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> assign(:public_url, public_url)
      |> clear_flash()
      |> push_event("changes-status", %{has_changes: has_changes})}
+  end
+
+  def handle_event("generate_slug_from_title", %{"value" => title}, socket) do
+    # Only generate slug if in slug mode and slug is empty
+    if socket.assigns.blog_mode == "slug" do
+      current_slug = Map.get(socket.assigns.form, "slug", "")
+
+      new_slug =
+        if current_slug == "" and String.trim(title) != "" do
+          Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
+        else
+          current_slug
+        end
+
+      new_form =
+        socket.assigns.form
+        |> Map.put("title", title)
+        |> Map.put("slug", new_slug)
+        |> normalize_form()
+
+      has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+
+      {:noreply,
+       socket
+       |> assign(:form, new_form)
+       |> assign(:has_pending_changes, has_changes)
+       |> push_event("changes-status", %{has_changes: has_changes})
+       |> push_event("update-slug", %{slug: new_slug})}
+    else
+      {:noreply, socket}
+    end
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
