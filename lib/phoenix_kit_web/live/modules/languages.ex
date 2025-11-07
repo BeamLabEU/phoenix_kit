@@ -43,6 +43,11 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
         :available_languages_for_selection,
         Languages.get_available_languages_for_selection()
       )
+      # Switcher preview settings
+      |> assign(:switcher_show_names, true)
+      |> assign(:switcher_show_flags, true)
+      |> assign(:switcher_goto_home, false)
+      |> assign(:switcher_hide_current, false)
 
     {:ok, socket}
   end
@@ -256,6 +261,12 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
+  def handle_event("toggle_switcher_setting", %{"setting" => setting}, socket) do
+    setting_atom = String.to_atom(setting)
+    current_value = socket.assigns[setting_atom]
+    {:noreply, assign(socket, setting_atom, !current_value)}
+  end
+
   defp get_current_path(_socket, _session) do
     # For LanguagesLive, return the settings path
     Routes.path("/admin/settings/languages")
@@ -274,6 +285,20 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> assign(:language_count, length(display_languages))
     |> assign(:enabled_count, Enum.count(display_languages, & &1["is_enabled"]))
     |> assign(:default_language, Enum.find(display_languages, & &1["is_default"]))
+  end
+
+  # Helper function to generate the language switcher code based on current settings
+  defp generate_switcher_code(show_flags, show_names, goto_home, hide_current) do
+    flags_line = if show_flags, do: "\n  show_flags={true}", else: ""
+    names_line = if show_names, do: "\n  show_names={true}", else: ""
+    home_line = if goto_home, do: "\n  goto_home={true}", else: ""
+    hide_line = if hide_current, do: "\n  hide_current={true}", else: ""
+
+    """
+    <.language_switcher_dropdown
+      current_locale={@current_locale}#{flags_line}#{names_line}#{home_line}#{hide_line}
+    />
+    """
   end
 
   # Helper function to get language flag emoji

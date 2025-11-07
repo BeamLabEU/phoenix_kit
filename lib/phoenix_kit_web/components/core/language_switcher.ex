@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   Renders a dropdown language switcher.
 
   Displays a globe icon that opens a dropdown menu with available languages.
+  Automatically fetches the configured languages (or default top 12 if not configured).
   Perfect for navigation bars and header areas.
 
   ## Examples
@@ -47,20 +48,39 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       />
   """
   attr(:current_locale, :string, required: true, doc: "Current active language code")
+
+  attr(:languages, :any,
+    default: nil,
+    doc: "List of language maps. If nil, fetches from Language Module"
+  )
+
   attr(:show_flags, :boolean, default: true, doc: "Show language flags")
+  attr(:show_names, :boolean, default: true, doc: "Show language names")
   attr(:show_native_names, :boolean, default: false, doc: "Show native language names")
+  attr(:goto_home, :boolean, default: false, doc: "Redirect to home page on language switch")
+  attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_dropdown(assigns) do
-    languages = Languages.get_enabled_languages()
+    # Use provided languages or fetch from Language Module
+    # get_display_languages() returns configured languages or defaults (top 12)
+    languages = assigns.languages || Languages.get_display_languages()
+
+    # Filter out current language if hide_current is enabled
+    filtered_languages =
+      if assigns.hide_current do
+        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+      else
+        languages
+      end
 
     current_language =
-      Enum.find(languages, &(&1["code"] == assigns.current_locale)) ||
+      Enum.find(filtered_languages, &(&1["code"] == assigns.current_locale)) ||
         %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
 
     assigns =
       assigns
-      |> assign(:languages, languages)
+      |> assign(:languages, filtered_languages)
       |> assign(:current_language, current_language)
 
     ~H"""
@@ -77,7 +97,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           <%= for language <- @languages do %>
             <li class="w-full">
               <a
-                href={generate_language_url(@current_locale, language["code"])}
+                href={
+                  if @goto_home,
+                    do: "/#{language["code"]}",
+                    else: generate_language_url(@current_locale, language["code"])
+                }
                 class={[
                   "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
                   if(language["code"] == @current_locale, do: "bg-base-200", else: "")
@@ -86,16 +110,20 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                 <%= if @show_flags do %>
                   <span class="text-lg">{get_language_flag(language["code"])}</span>
                 <% end %>
-                <div class="flex-1">
-                  <span class="font-medium text-base-content">
-                    {language["name"]}
-                  </span>
-                  <%= if @show_native_names && Map.get(language, "native") do %>
-                    <span class="text-xs text-base-content/60 block">
-                      {language["native"]}
+                <%= if @show_names do %>
+                  <div class="flex-1">
+                    <span class="font-medium text-base-content">
+                      {language["name"]}
                     </span>
-                  <% end %>
-                </div>
+                    <%= if @show_native_names && Map.get(language, "native") do %>
+                      <span class="text-xs text-base-content/60 block">
+                        {language["native"]}
+                      </span>
+                    <% end %>
+                  </div>
+                <% else %>
+                  <div class="flex-1"></div>
+                <% end %>
                 <%= if language["code"] == @current_locale do %>
                   <span class="ml-auto">✓</span>
                 <% end %>
@@ -112,28 +140,52 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   Renders a button group language switcher.
 
   Displays language buttons in a row. Good for mobile layouts and areas
-  where space allows for multiple buttons.
+  where space allows for multiple buttons. Automatically fetches the configured
+  languages (or default top 12 if not configured).
 
   ## Examples
 
       <.language_switcher_buttons current_locale={@current_locale} />
   """
   attr(:current_locale, :string, required: true, doc: "Current active language code")
+
+  attr(:languages, :any,
+    default: nil,
+    doc: "List of language maps. If nil, fetches from Language Module"
+  )
+
   attr(:show_flags, :boolean, default: true, doc: "Show language flags")
+  attr(:show_names, :boolean, default: true, doc: "Show language names")
+  attr(:goto_home, :boolean, default: false, doc: "Redirect to home page on language switch")
+  attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_buttons(assigns) do
-    languages = Languages.get_enabled_languages()
+    # Use provided languages or fetch from Language Module
+    # get_display_languages() returns configured languages or defaults (top 12)
+    languages = assigns.languages || Languages.get_display_languages()
+
+    # Filter out current language if hide_current is enabled
+    filtered_languages =
+      if assigns.hide_current do
+        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+      else
+        languages
+      end
 
     assigns =
       assigns
-      |> assign(:languages, languages)
+      |> assign(:languages, filtered_languages)
 
     ~H"""
     <div class={["flex gap-2", @class]}>
       <%= for language <- @languages do %>
         <a
-          href={generate_language_url(@current_locale, language["code"])}
+          href={
+            if @goto_home,
+              do: "/#{language["code"]}",
+              else: generate_language_url(@current_locale, language["code"])
+          }
           class={[
             "btn btn-sm",
             if(language["code"] == @current_locale,
@@ -145,7 +197,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           <%= if @show_flags do %>
             <span>{get_language_flag(language["code"])}</span>
           <% end %>
-          <span>{language["code"] |> String.upcase()}</span>
+          <%= if @show_names do %>
+            <span>{language["code"] |> String.upcase()}</span>
+          <% end %>
         </a>
       <% end %>
     </div>
@@ -156,22 +210,42 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   Renders an inline language switcher.
 
   Displays languages as inline text links. Minimal design perfect for footers
-  or compact navigation areas.
+  or compact navigation areas. Automatically fetches the configured languages
+  (or default top 12 if not configured).
 
   ## Examples
 
       <.language_switcher_inline current_locale={@current_locale} />
   """
   attr(:current_locale, :string, required: true, doc: "Current active language code")
+
+  attr(:languages, :any,
+    default: nil,
+    doc: "List of language maps. If nil, fetches from Language Module"
+  )
+
   attr(:show_flags, :boolean, default: true, doc: "Show language flags")
+  attr(:show_names, :boolean, default: true, doc: "Show language names")
+  attr(:goto_home, :boolean, default: false, doc: "Redirect to home page on language switch")
+  attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_inline(assigns) do
-    languages = Languages.get_enabled_languages()
+    # Use provided languages or fetch from Language Module
+    # get_display_languages() returns configured languages or defaults (top 12)
+    languages = assigns.languages || Languages.get_display_languages()
+
+    # Filter out current language if hide_current is enabled
+    filtered_languages =
+      if assigns.hide_current do
+        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+      else
+        languages
+      end
 
     assigns =
       assigns
-      |> assign(:languages, languages)
+      |> assign(:languages, filtered_languages)
 
     ~H"""
     <div class={["flex gap-4 items-center", @class]}>
@@ -181,7 +255,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
             <span class="text-base-content/30">|</span>
           <% end %>
           <a
-            href={generate_language_url(@current_locale, language["code"])}
+            href={
+              if @goto_home,
+                do: "/#{language["code"]}",
+                else: generate_language_url(@current_locale, language["code"])
+            }
             class={[
               "text-sm transition hover:text-primary",
               if(language["code"] == @current_locale,
@@ -193,7 +271,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
             <%= if @show_flags do %>
               <span class="mr-1">{get_language_flag(language["code"])}</span>
             <% end %>
-            {language["code"] |> String.upcase()}
+            <%= if @show_names do %>
+              {language["code"] |> String.upcase()}
+            <% end %>
           </a>
         </div>
       <% end %>
