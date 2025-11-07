@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
       socket
       |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
-      |> assign(:page_title, gettext("Blogging Overview"))
+      |> assign(:page_title, gettext("Blogging"))
       |> assign(:current_path, Routes.path("/admin/blogging", locale: locale))
       |> assign(:blogs, blogs)
       |> assign(:dashboard_insights, insights)

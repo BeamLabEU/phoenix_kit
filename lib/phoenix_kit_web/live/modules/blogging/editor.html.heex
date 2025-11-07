@@ -49,6 +49,14 @@
           document.getElementById('confirm-cancel-btn').click();
         }
       });
+
+      // Listen for slug update event from LiveView
+      window.addEventListener('phx:update-slug', function(e) {
+        const slugInput = document.getElementById('slug-input');
+        if (slugInput && e.detail.slug) {
+          slugInput.value = e.detail.slug;
+        }
+      });
     })();
   </script>
   <%!-- Hidden confirmation button for JavaScript --%>
@@ -86,7 +94,7 @@
                     cond do
                       is_current -> "btn-primary"
                       file_exists -> "btn-outline"
-                      true -> "btn-success bg-green-50 hover:bg-green-100"
+                      true -> "btn-success btn-outline"
                     end
                   ]}
                   phx-click="switch_language"
@@ -100,6 +108,13 @@
                     end
                   }
                 >
+                  <%= cond do %>
+                    <% is_current -> %>
+                      <.icon name="hero-check" class="w-4 h-4" />
+                    <% not file_exists -> %>
+                      <.icon name="hero-plus" class="w-3 h-3" />
+                    <% true -> %>
+                  <% end %>
                   <span class="text-lg phx-click-loading:opacity-50">{flag}</span>
                   <span class="phx-click-loading:hidden">{String.upcase(lang_code)}</span>
                   <span class="hidden phx-click-loading:inline-block loading loading-spinner loading-xs">
@@ -146,21 +161,7 @@
           <div class="lg:w-80 space-y-4">
             <.form for={@form} id="blogging-meta" phx-change="update_meta" phx-submit="noop">
               <div class="space-y-4">
-                <div>
-                  <label class="label">
-                    <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Title")}
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={@form["title"]}
-                    class="input input-bordered w-full"
-                    placeholder={gettext("Post title")}
-                  />
-                </div>
-
+                <%!-- Title is extracted from markdown content (first # Heading) --%>
                 <%= if @blog_mode == "slug" do %>
                   <div>
                     <label class="label">
@@ -171,10 +172,11 @@
                     <input
                       type="text"
                       name="slug"
-                      value={@form["slug"] || ""}
+                      id="slug-input"
+                      value={@form["slug"]}
                       pattern="[a-z0-9]+(-[a-z0-9]+)*"
                       class="input input-bordered w-full lowercase"
-                      placeholder={gettext("auto-generated from title")}
+                      placeholder={gettext("auto-generated from first heading")}
                       title={
                         gettext(
                           "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."

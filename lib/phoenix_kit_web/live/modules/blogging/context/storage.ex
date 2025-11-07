@@ -59,11 +59,53 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   @slug_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
   @doc """
-  Validates whether the given string is a slug.
+  Validates whether the given string is a valid slug format and not a reserved language code.
+
+  Returns:
+  - `{:ok, slug}` if valid
+  - `{:error, :invalid_format}` if format is invalid
+  - `{:error, :reserved_language_code}` if slug is a language code
+
+  Blog slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
+  """
+  @spec validate_slug(String.t()) ::
+          {:ok, String.t()} | {:error, :invalid_format | :reserved_language_code}
+  def validate_slug(slug) when is_binary(slug) do
+    cond do
+      not Regex.match?(@slug_pattern, slug) ->
+        {:error, :invalid_format}
+
+      reserved_language_code?(slug) ->
+        {:error, :reserved_language_code}
+
+      true ->
+        {:ok, slug}
+    end
+  end
+
+  @doc """
+  Validates whether the given string is a slug and not a reserved language code.
+
+  Blog slugs cannot be language codes (like 'en', 'es', 'fr') to prevent routing ambiguity.
   """
   @spec valid_slug?(String.t()) :: boolean()
   def valid_slug?(slug) when is_binary(slug) do
-    Regex.match?(@slug_pattern, slug)
+    case validate_slug(slug) do
+      {:ok, _} -> true
+      {:error, _} -> false
+    end
+  end
+
+  # Check if slug is a reserved language code
+  defp reserved_language_code?(slug) do
+    language_codes =
+      try do
+        PhoenixKit.Module.Languages.get_language_codes()
+      rescue
+        _ -> []
+      end
+
+    slug in language_codes
   end
 
   @doc """
@@ -77,30 +119,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   @doc """
   Generates a unique slug based on title and optional preferred slug.
+
+  Returns `{:ok, slug}` or `{:error, reason}` where reason can be:
+  - `:invalid_format` - slug has invalid format
+  - `:reserved_language_code` - slug is a reserved language code
   """
-  @spec generate_unique_slug(String.t(), String.t(), String.t() | nil) :: String.t()
+  @spec generate_unique_slug(String.t(), String.t(), String.t() | nil) ::
+          {:ok, String.t()} | {:error, :invalid_format | :reserved_language_code}
   def generate_unique_slug(blog_slug, title, preferred_slug \\ nil) do
-    base_slug =
+    base_slug_result =
       case preferred_slug do
         nil ->
-          generate_slug_from_title(title)
+          {:ok, generate_slug_from_title(title)}
 
         slug when is_binary(slug) ->
           sanitized = sanitize_slug(slug)
 
           cond do
             sanitized == "" ->
-              generate_slug_from_title(title)
-
-            valid_slug?(sanitized) ->
-              sanitized
+              {:ok, generate_slug_from_title(title)}
 
             true ->
-              generate_slug_from_title(title)
+              # Validate the sanitized slug
+              case validate_slug(sanitized) do
+                {:ok, valid_slug} ->
+                  {:ok, valid_slug}
+
+                {:error, reason} ->
+                  # Return the specific error instead of falling back
+                  {:error, reason}
+              end
           end
       end
 
-    ensure_unique_slug(blog_slug, base_slug)
+    case base_slug_result do
+      {:ok, base_slug} when base_slug != "" ->
+        {:ok, ensure_unique_slug(blog_slug, base_slug)}
+
+      {:ok, ""} ->
+        # Empty slug - return empty for auto-generation, will show placeholder
+        {:ok, ""}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   defp generate_slug_from_title(title) when is_binary(title) do
@@ -110,7 +172,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     |> String.replace(~r/-+/, "-")
     |> String.trim("-")
     |> case do
-      "" -> fallback_slug()
+      # Return empty string instead of generating fallback
+      # This allows the form to show placeholder and user can enter custom slug
+      "" -> ""
       slug -> slug
     end
   end
@@ -139,10 +203,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     else
       candidate
     end
-  end
-
-  defp fallback_slug do
-    "post-#{System.unique_integer([:positive])}"
   end
 
   @type post :: %{
@@ -369,7 +429,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def create_post_slug_mode(blog_slug, title, preferred_slug, audit_meta) do
     audit_meta = Map.new(audit_meta)
     now = DateTime.utc_now() |> DateTime.truncate(:microsecond)
-    post_slug = generate_unique_slug(blog_slug, title || "", preferred_slug)
+
+    # Generate slug with validation
+    case generate_unique_slug(blog_slug, title || "", preferred_slug) do
+      {:ok, post_slug} ->
+        create_post_with_slug(blog_slug, post_slug, title, audit_meta, now)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp create_post_with_slug(blog_slug, post_slug, title, audit_meta, now) do
     primary_language = hd(enabled_language_codes())
 
     post_dir = Path.join([root_path(), blog_slug, post_slug])
@@ -532,14 +603,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       desired_slug == post.slug ->
         update_post_slug_in_place(blog_slug, post, params, audit_meta)
 
-      not valid_slug?(desired_slug) ->
-        {:error, :invalid_slug}
-
-      slug_exists?(blog_slug, desired_slug) ->
-        {:error, :slug_already_exists}
-
       true ->
-        move_post_to_new_slug(blog_slug, post, desired_slug, params, audit_meta)
+        # Validate slug and return specific error
+        case validate_slug(desired_slug) do
+          {:ok, _valid_slug} ->
+            # Check if slug already exists
+            if slug_exists?(blog_slug, desired_slug) do
+              {:error, :slug_already_exists}
+            else
+              move_post_to_new_slug(blog_slug, post, desired_slug, params, audit_meta)
+            end
+
+          {:error, reason} ->
+            # Return specific validation error
+            {:error, reason}
+        end
     end
   end
 

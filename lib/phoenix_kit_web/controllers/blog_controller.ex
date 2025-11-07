@@ -28,12 +28,15 @@ defmodule PhoenixKitWeb.BlogController do
   - [blog_slug, post_slug] -> Slug mode post
   - [blog_slug, date, time] -> Timestamp mode post
   """
-  def show(conn, %{"language" => language} = params) do
-    language = validate_language(language)
+  def show(conn, %{"language" => language_param} = params) do
+    # Detect if 'language' param is actually a language code or a blog slug
+    # This allows the same route to work for both single and multi-language setups
+    {language, adjusted_params} = detect_language_or_blog(language_param, params)
+
     conn = assign(conn, :current_language, language)
 
     if Blogging.enabled?() and public_enabled?() do
-      case build_segments(params) do
+      case build_segments(adjusted_params) do
         [] ->
           handle_not_found(conn, :invalid_path)
 
@@ -57,9 +60,8 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  # Single-language mode (no :language parameter in URL)
+  # Fallback for routes without language parameter (shouldn't happen with new routing)
   def show(conn, params) do
-    # Default to first enabled language or "en"
     language = get_default_language()
     conn = assign(conn, :current_language, language)
 
@@ -87,6 +89,55 @@ defmodule PhoenixKitWeb.BlogController do
       handle_not_found(conn, :module_disabled)
     end
   end
+
+  # ============================================================================
+  # Language Detection
+  # ============================================================================
+
+  # Detects whether the 'language' parameter is actually a language code or a blog slug.
+  #
+  # This allows the same route pattern (/:language/:blog/*path) to work for both:
+  # - Multi-language: /en/my-blog/my-post (language=en, blog=my-blog)
+  # - Single-language: /my-blog/my-post (language=my-blog, needs adjustment)
+  #
+  # Returns {detected_language, adjusted_params}
+  defp detect_language_or_blog(language_param, params) do
+    # Check if this looks like a valid language code
+    if is_valid_language?(language_param) do
+      # It's a real language code - use as-is
+      {language_param, params}
+    else
+      # It's actually a blog slug - shift parameters
+      # language_param becomes the blog, and what was 'blog' becomes part of path
+      default_language = get_default_language()
+
+      adjusted_params =
+        case params do
+          # Pattern: %{"language" => blog_slug, "blog" => first_path_segment, "path" => rest}
+          %{"blog" => first_segment, "path" => rest} when is_list(rest) ->
+            %{"blog" => language_param, "path" => [first_segment | rest]}
+
+          # Pattern: %{"language" => blog_slug, "blog" => first_path_segment}
+          %{"blog" => first_segment} ->
+            %{"blog" => language_param, "path" => [first_segment]}
+
+          # Pattern: %{"language" => blog_slug} (just listing)
+          _ ->
+            %{"blog" => language_param}
+        end
+
+      {default_language, adjusted_params}
+    end
+  end
+
+  defp is_valid_language?(code) when is_binary(code) do
+    # Check if it's an enabled language code
+    Languages.language_enabled?(code)
+  rescue
+    _ -> false
+  end
+
+  defp is_valid_language?(_), do: false
 
   # ============================================================================
   # Path Parsing
@@ -294,14 +345,6 @@ defmodule PhoenixKitWeb.BlogController do
     case Languages.get_language(code) do
       %{"name" => name} -> name
       _ -> String.upcase(code)
-    end
-  end
-
-  defp validate_language(code) do
-    if Languages.language_enabled?(code) do
-      code
-    else
-      get_default_language()
     end
   end
 
