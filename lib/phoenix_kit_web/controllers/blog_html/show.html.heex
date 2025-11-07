@@ -44,7 +44,19 @@
           <div class="flex gap-2">
             <%= for translation <- @translations do %>
               <%= if translation.current do %>
-                <span class="badge badge-primary">{translation.name}</span>
+                <span class="badge badge-primary gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke-width="2.5"
+                    stroke="currentColor"
+                    class="w-4 h-4"
+                  >
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                  {translation.name}
+                </span>
               <% else %>
                 <a href={translation.url} class="badge badge-outline hover:badge-primary">
                   {translation.name}
