@@ -47,7 +47,10 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         show_native_names={true}
       />
   """
-  attr(:current_locale, :string, required: true, doc: "Current active language code")
+  attr(:current_locale, :string,
+    default: nil,
+    doc: "Current active language code (auto-detected if not provided)"
+  )
 
   attr(:languages, :any,
     default: nil,
@@ -67,6 +70,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   )
 
   def language_switcher_dropdown(assigns) do
+    # Auto-detect current_locale if not explicitly provided
+    locale =
+      assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale) ||
+        Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+        "en"
+
     # Use provided languages or fetch from Language Module
     # get_display_languages() returns configured languages or defaults (top 12)
     languages = assigns.languages || Languages.get_display_languages()
@@ -74,17 +84,18 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+        Enum.filter(languages, &(&1["code"] != locale))
       else
         languages
       end
 
     current_language =
-      Enum.find(filtered_languages, &(&1["code"] == assigns.current_locale)) ||
-        %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
+      Enum.find(filtered_languages, &(&1["code"] == locale)) ||
+        %{"code" => locale, "name" => String.upcase(locale)}
 
     assigns =
       assigns
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
       |> assign(:current_language, current_language)
 
@@ -152,7 +163,10 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
       <.language_switcher_buttons current_locale={@current_locale} />
   """
-  attr(:current_locale, :string, required: true, doc: "Current active language code")
+  attr(:current_locale, :string,
+    default: nil,
+    doc: "Current active language code (auto-detected if not provided)"
+  )
 
   attr(:languages, :any,
     default: nil,
@@ -166,6 +180,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_buttons(assigns) do
+    # Auto-detect current_locale if not explicitly provided
+    locale =
+      assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale) ||
+        Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+        "en"
+
     # Use provided languages or fetch from Language Module
     # get_display_languages() returns configured languages or defaults (top 12)
     languages = assigns.languages || Languages.get_display_languages()
@@ -173,13 +194,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+        Enum.filter(languages, &(&1["code"] != locale))
       else
         languages
       end
 
     assigns =
       assigns
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
@@ -222,7 +244,10 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
       <.language_switcher_inline current_locale={@current_locale} />
   """
-  attr(:current_locale, :string, required: true, doc: "Current active language code")
+  attr(:current_locale, :string,
+    default: nil,
+    doc: "Current active language code (auto-detected if not provided)"
+  )
 
   attr(:languages, :any,
     default: nil,
@@ -236,6 +261,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_inline(assigns) do
+    # Auto-detect current_locale if not explicitly provided
+    locale =
+      assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale) ||
+        Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+        "en"
+
     # Use provided languages or fetch from Language Module
     # get_display_languages() returns configured languages or defaults (top 12)
     languages = assigns.languages || Languages.get_display_languages()
@@ -243,13 +275,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != assigns.current_locale))
+        Enum.filter(languages, &(&1["code"] != locale))
       else
         languages
       end
 
     assigns =
       assigns
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
