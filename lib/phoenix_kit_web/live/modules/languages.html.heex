@@ -203,5 +203,124 @@
         </div>
       </div>
     <% end %>
+
+    <%!-- Frontend Language Switcher Component Section --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <h2 class="card-title text-xl mb-4">Frontend Language Switcher</h2>
+        <p class="text-base-content/70 mb-6">
+          Use one of the ready-made language switcher components in your frontend application. Choose the style that best fits your design.
+        </p>
+
+        <%= if @ml_enabled and length(@languages) >= 1 do %>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <%!-- Dropdown Style Preview --%>
+            <div class="border border-base-200 rounded-lg p-4">
+              <h3 class="font-bold mb-3">Dropdown Switcher</h3>
+              <div class="bg-base-200 rounded p-4 mb-4">
+                <.language_switcher_dropdown current_locale={@current_locale} />
+              </div>
+              <div class="text-xs text-base-content/60 bg-base-200 rounded p-3 font-mono overflow-x-auto">
+                <pre>&lt;.language_switcher_dropdown
+  current_locale={@current_locale}
+/&gt;</pre>
+              </div>
+            </div>
+
+            <%!-- Button Group Style Preview --%>
+            <div class="border border-base-200 rounded-lg p-4">
+              <h3 class="font-bold mb-3">Button Group Switcher</h3>
+              <div class="bg-base-200 rounded p-4 mb-4">
+                <.language_switcher_buttons current_locale={@current_locale} />
+              </div>
+              <div class="text-xs text-base-content/60 bg-base-200 rounded p-3 font-mono overflow-x-auto">
+                <pre>&lt;.language_switcher_buttons
+  current_locale={@current_locale}
+/&gt;</pre>
+              </div>
+            </div>
+
+            <%!-- Inline Style Preview --%>
+            <div class="border border-base-200 rounded-lg p-4 lg:col-span-2">
+              <h3 class="font-bold mb-3">Inline Switcher</h3>
+              <div class="bg-base-200 rounded p-4 mb-4">
+                <.language_switcher_inline current_locale={@current_locale} />
+              </div>
+              <div class="text-xs text-base-content/60 bg-base-200 rounded p-3 font-mono overflow-x-auto">
+                <pre>&lt;.language_switcher_inline
+  current_locale={@current_locale}
+/&gt;</pre>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Configuration Options --%>
+          <div class="mt-6 pt-6 border-t border-base-200">
+            <h3 class="font-bold mb-3">Configuration Options</h3>
+            <div class="space-y-3 text-sm">
+              <div class="bg-base-200 rounded p-3">
+                <div class="font-mono font-bold mb-1">show_flags</div>
+                <p class="text-base-content/70">Show language flag emojis (default: true)</p>
+              </div>
+              <div class="bg-base-200 rounded p-3">
+                <div class="font-mono font-bold mb-1">show_native_names</div>
+                <p class="text-base-content/70">
+                  Show native language names (default: false, only for dropdown)
+                </p>
+              </div>
+              <div class="bg-base-200 rounded p-3">
+                <div class="font-mono font-bold mb-1">class</div>
+                <p class="text-base-content/70">Add custom Tailwind CSS classes for styling</p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Example with options --%>
+          <div class="mt-6 pt-6 border-t border-base-200">
+            <h3 class="font-bold mb-3">Example with Options</h3>
+            <div class="bg-base-200 rounded p-3 font-mono text-xs overflow-x-auto">
+              <pre>&lt;.language_switcher_dropdown
+  current_locale={@current_locale}
+  show_native_names={true}
+  class="ml-4"
+/&gt;</pre>
+            </div>
+          </div>
+
+          <%!-- Implementation Instructions --%>
+          <div class="alert alert-warning mt-6">
+            <PhoenixKitWeb.Components.Core.Icons.icon_warning class="w-5 h-5" />
+            <div>
+              <h3 class="font-bold">Implementation Notes</h3>
+              <div class="text-sm space-y-1">
+                <p>
+                  • Make sure <code class="bg-base-300 px-2 py-1 rounded">@current_locale</code>
+                  is available in your assigns
+                </p>
+                <p>
+                  • The component automatically fetches enabled languages from the Language Module
+                </p>
+                <p>• Only languages that are enabled will appear in the switcher</p>
+                <p>• Language switcher works with your existing route-based locale system</p>
+              </div>
+            </div>
+          </div>
+        <% else %>
+          <div class="alert alert-info">
+            <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
+            <div>
+              <h3 class="font-bold">Enable and Configure Languages</h3>
+              <p class="text-sm mt-2">
+                <%= if not @ml_enabled do %>
+                  First, enable the Languages module using the toggle at the top, then add at least one language to see live previews of the language switcher components.
+                <% else %>
+                  Add at least one language using the form above to see live previews of the language switcher components.
+                <% end %>
+              </p>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
