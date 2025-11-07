@@ -197,6 +197,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="draft"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "draft", do: "active", else: "")
@@ -213,6 +214,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="published"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "published",
@@ -232,6 +234,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="archived"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "archived",
