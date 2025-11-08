@@ -18,6 +18,11 @@ defmodule PhoenixKit.Settings.Events do
     Manager.broadcast(@topic_settings, {:content_language_changed, new_language})
   end
 
+  @doc "Broadcast that admin languages were changed."
+  def broadcast_admin_languages_changed(admin_languages) do
+    Manager.broadcast(@topic_settings, {:admin_languages_changed, admin_languages})
+  end
+
   @doc "Broadcast that any setting was changed (generic)."
   def broadcast_setting_changed(key, value) do
     Manager.broadcast(@topic_settings, {:setting_changed, key, value})

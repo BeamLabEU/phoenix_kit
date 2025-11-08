@@ -24,6 +24,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     # Load languages configuration
     ml_config = Languages.get_config()
+    display_languages = Languages.get_display_languages()
+    in_configured_mode = Languages.in_configured_mode?()
 
     socket =
       socket
@@ -32,14 +34,20 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:page_title, "Languages")
       |> assign(:project_title, project_title)
       |> assign(:ml_enabled, ml_config.enabled)
-      |> assign(:languages, ml_config.languages)
-      |> assign(:language_count, ml_config.language_count)
-      |> assign(:enabled_count, ml_config.enabled_count)
-      |> assign(:default_language, ml_config.default_language)
+      |> assign(:languages, display_languages)
+      |> assign(:in_configured_mode, in_configured_mode)
+      |> assign(:language_count, length(display_languages))
+      |> assign(:enabled_count, Enum.count(display_languages, & &1["is_enabled"]))
+      |> assign(:default_language, Enum.find(display_languages, & &1["is_default"]))
       |> assign(
         :available_languages_for_selection,
         Languages.get_available_languages_for_selection()
       )
+      # Switcher preview settings
+      |> assign(:switcher_show_names, true)
+      |> assign(:switcher_show_flags, true)
+      |> assign(:switcher_goto_home, false)
+      |> assign(:switcher_hide_current, false)
 
     {:ok, socket}
   end
@@ -58,15 +66,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     case result do
       {:ok, _} ->
         # Reload configuration to get fresh data
-        ml_config = Languages.get_config()
-
         socket =
           socket
-          |> assign(:ml_enabled, new_enabled)
-          |> assign(:languages, ml_config.languages)
-          |> assign(:language_count, ml_config.language_count)
-          |> assign(:enabled_count, ml_config.enabled_count)
-          |> assign(:default_language, ml_config.default_language)
+          |> reload_display_languages(new_enabled)
           |> put_flash(
             :info,
             if(new_enabled,
@@ -100,13 +102,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
       case result do
         {:ok, _config} ->
-          # Reload configuration
-          ml_config = Languages.get_config()
-
           socket =
             socket
-            |> assign(:languages, ml_config.languages)
-            |> assign(:enabled_count, ml_config.enabled_count)
+            |> reload_display_languages()
             |> put_flash(
               :info,
               "Language #{language["name"]} #{if new_enabled, do: "enabled", else: "disabled"}"
@@ -131,14 +129,11 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   def handle_event("set_default", %{"code" => code}, socket) do
     case Languages.set_default_language(code) do
       {:ok, _config} ->
-        # Reload configuration
-        ml_config = Languages.get_config()
-        language = Enum.find(ml_config.languages, &(&1["code"] == code))
+        language = Enum.find(socket.assigns.languages, &(&1["code"] == code))
 
         socket =
           socket
-          |> assign(:languages, ml_config.languages)
-          |> assign(:default_language, ml_config.default_language)
+          |> reload_display_languages()
           |> put_flash(:info, "#{language["name"]} set as default language")
 
         {:noreply, socket}
@@ -156,18 +151,13 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   def handle_event("add_language", %{"language_code" => language_code}, socket) do
     case Languages.add_language(language_code) do
       {:ok, _config} ->
-        # Reload configuration
-        ml_config = Languages.get_config()
-
         # Get language name for flash message
         predefined_lang = Languages.get_predefined_language(language_code)
         language_name = (predefined_lang && predefined_lang.name) || language_code
 
         socket =
           socket
-          |> assign(:languages, ml_config.languages)
-          |> assign(:language_count, ml_config.language_count)
-          |> assign(:enabled_count, ml_config.enabled_count)
+          |> reload_display_languages()
           |> assign(
             :available_languages_for_selection,
             Languages.get_available_languages_for_selection()
@@ -192,15 +182,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     if language do
       case Languages.remove_language(code) do
         {:ok, _config} ->
-          # Reload configuration
-          ml_config = Languages.get_config()
-
           socket =
             socket
-            |> assign(:languages, ml_config.languages)
-            |> assign(:language_count, ml_config.language_count)
-            |> assign(:enabled_count, ml_config.enabled_count)
-            |> assign(:default_language, ml_config.default_language)
+            |> reload_display_languages()
             |> assign(
               :available_languages_for_selection,
               Languages.get_available_languages_for_selection()
@@ -229,12 +213,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     if language do
       case Languages.move_language_up(code) do
         {:ok, _config} ->
-          # Reload configuration to get updated positions
-          ml_config = Languages.get_config()
-
           socket =
             socket
-            |> assign(:languages, ml_config.languages)
+            |> reload_display_languages()
             |> put_flash(:info, "#{language["name"]} moved up")
 
           {:noreply, socket}
@@ -259,12 +240,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     if language do
       case Languages.move_language_down(code) do
         {:ok, _config} ->
-          # Reload configuration to get updated positions
-          ml_config = Languages.get_config()
-
           socket =
             socket
-            |> assign(:languages, ml_config.languages)
+            |> reload_display_languages()
             |> put_flash(:info, "#{language["name"]} moved down")
 
           {:noreply, socket}
@@ -283,8 +261,51 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end
   end
 
+  def handle_event("toggle_switcher_setting", %{"setting" => setting}, socket) do
+    setting_atom = String.to_atom(setting)
+    current_value = socket.assigns[setting_atom]
+    {:noreply, assign(socket, setting_atom, !current_value)}
+  end
+
   defp get_current_path(_socket, _session) do
     # For LanguagesLive, return the settings path
     Routes.path("/admin/settings/languages")
+  end
+
+  # Helper function to reload display languages from the Languages module
+  defp reload_display_languages(socket, enabled \\ nil) do
+    enabled = enabled || Languages.enabled?()
+    display_languages = Languages.get_display_languages()
+    in_configured_mode = Languages.in_configured_mode?()
+
+    socket
+    |> assign(:ml_enabled, enabled)
+    |> assign(:languages, display_languages)
+    |> assign(:in_configured_mode, in_configured_mode)
+    |> assign(:language_count, length(display_languages))
+    |> assign(:enabled_count, Enum.count(display_languages, & &1["is_enabled"]))
+    |> assign(:default_language, Enum.find(display_languages, & &1["is_default"]))
+  end
+
+  # Helper function to generate the language switcher code based on current settings
+  defp generate_switcher_code(show_flags, show_names, goto_home, hide_current) do
+    flags_line = if show_flags, do: "\n  show_flags={true}", else: ""
+    names_line = if show_names, do: "\n  show_names={true}", else: ""
+    home_line = if goto_home, do: "\n  goto_home={true}", else: ""
+    hide_line = if hide_current, do: "\n  hide_current={true}", else: ""
+
+    """
+    <.language_switcher_dropdown
+      current_locale={@current_locale}#{flags_line}#{names_line}#{home_line}#{hide_line}
+    />
+    """
+  end
+
+  # Helper function to get language flag emoji
+  defp get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
+    end
   end
 end

@@ -197,6 +197,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="draft"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "draft", do: "active", else: "")
@@ -213,6 +214,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="published"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "published",
@@ -232,6 +234,7 @@
                                     phx-click="change_status"
                                     phx-value-path={lang_path}
                                     phx-value-status="archived"
+                                    onclick="document.activeElement.blur()"
                                     class={[
                                       "btn-xs",
                                       if(lang_metadata.status == "archived",
@@ -308,23 +311,26 @@
                       <% else %>
                         <%!-- Add button for missing files (only if language is enabled) --%>
                         <%= if is_enabled do %>
-                          <div class="flex flex-col gap-1">
-                            <%!-- Empty space for alignment --%>
-                            <div class="h-5"></div>
+                          <div class="flex flex-col gap-1 min-w-[95px]">
+                            <%!-- Empty placeholder to maintain spacing --%>
+                            <div class="dropdown dropdown-end">
+                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
+                              </div>
+                            </div>
                             <%!-- Add button --%>
                             <button
                               type="button"
                               phx-click="add_language"
                               phx-value-path={post.path}
                               phx-value-language={lang_code}
-                              class="btn btn-success btn-sm bg-green-50 hover:bg-green-100 text-success shadow-none"
+                              class="btn btn-success btn-outline btn-xs shadow-none w-full"
                               title={
                                 if lang_info,
                                   do: "Add #{lang_info.name}",
                                   else: "Add #{lang_code}"
                               }
                             >
-                              <.icon name="hero-plus" class="w-4 h-4 mr-1" />
+                              <.icon name="hero-plus" class="w-3 h-3 mr-1" />
                               <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
                             </button>
                           </div>

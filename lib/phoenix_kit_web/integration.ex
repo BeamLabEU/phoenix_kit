@@ -1,6 +1,4 @@
 defmodule PhoenixKitWeb.Integration do
-  alias PhoenixKit.Module.Languages
-
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
 
@@ -119,27 +117,17 @@ defmodule PhoenixKitWeb.Integration do
     quote do
       alias PhoenixKit.Module.Languages
 
-      # Get enabled locales at compile time with fallback
-      enabled_locales =
-        try do
-          Languages.enabled_locale_codes()
-        rescue
-          # Fallback if module not available at compile time
-          _ -> ["en"]
-        end
-
-      # Create regex pattern for enabled locales
-      pattern = Enum.join(enabled_locales, "|")
-
       # Define locale validation pipeline
       pipeline :phoenix_kit_locale_validation do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # Localized scope with locale parameter
+      # Localized scope with generic locale pattern
+      # Accepts any 2-5 character language code format (e.g., "en", "zh-CN", "ar", etc.)
+      # Actual validation of whether the locale is supported happens in the validation plug
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
-            Keyword.put(unquote(opts), :locale, ~r/^(#{pattern})$/) do
+            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
@@ -514,40 +502,19 @@ defmodule PhoenixKitWeb.Integration do
 
   defp generate_blog_routes(url_prefix) do
     quote do
-      # Determine if we're in single-language mode
-      enabled_locales =
-        try do
-          PhoenixKit.Module.Languages.enabled_locale_codes()
-        rescue
-          _ -> ["en"]
+      # Generate routes that work for both single and multi-language modes
+      # The controller will handle detection at runtime instead of compile time
+      blog_scope_multi =
+        case unquote(url_prefix) do
+          "/" -> "/:language"
+          prefix -> "#{prefix}/:language"
         end
 
-      single_language_mode = length(enabled_locales) == 1
+      scope blog_scope_multi, PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-      if single_language_mode do
-        # Single-language routes (without :language parameter)
-        blog_scope_single = unquote(url_prefix)
-
-        scope blog_scope_single, PhoenixKitWeb do
-          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-          get "/:blog", BlogController, :show
-          get "/:blog/*path", BlogController, :show
-        end
-      else
-        # Multi-language routes (with :language parameter)
-        blog_scope_multi =
-          case unquote(url_prefix) do
-            "/" -> "/:language"
-            prefix -> "#{prefix}/:language"
-          end
-
-        scope blog_scope_multi, PhoenixKitWeb do
-          pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-          get "/:blog", BlogController, :show
-          get "/:blog/*path", BlogController, :show
-        end
+        get "/:blog", BlogController, :show
+        get "/:blog/*path", BlogController, :show
       end
     end
   end
@@ -572,17 +539,10 @@ defmodule PhoenixKitWeb.Integration do
         prefix -> prefix
       end
 
-    # Get enabled locales at compile time with fallback
-    enabled_locales =
-      try do
-        Languages.enabled_locale_codes()
-      rescue
-        # Fallback if module not available at compile time
-        _ -> ["en"]
-      end
-
-    # Create regex pattern for enabled locales
-    pattern = Enum.join(enabled_locales, "|")
+    # Use a generic locale pattern that accepts any valid language code format
+    # This allows switching to any of the 80+ predefined languages
+    # Actual validation of whether the locale is supported happens in the validation plug
+    pattern = "[a-z]{2}(?:-[A-Za-z0-9]{2,})?"
 
     quote do
       # Generate pipeline definitions
