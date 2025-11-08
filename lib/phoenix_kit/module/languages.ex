@@ -539,6 +539,22 @@ defmodule PhoenixKit.Module.Languages do
   end
 
   @doc """
+  Gets the 12 default popular languages for admin panel display.
+
+  Returns a list of the most commonly used language codes that should
+  be available in the admin panel language selector.
+
+  ## Examples
+
+      iex> PhoenixKit.Module.Languages.get_default_language_codes()
+      ["en", "es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh-CN", "ar"]
+  """
+  def get_default_language_codes do
+    @top_10_languages
+    |> Enum.map(& &1["code"])
+  end
+
+  @doc """
   Gets all available predefined languages.
 
   Returns the complete list of languages that can be added to the system.
