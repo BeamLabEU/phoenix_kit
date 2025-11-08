@@ -65,6 +65,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     """
     use Igniter.Mix.Task
 
+    alias Igniter.Project.Config
     alias PhoenixKit.Install.{ApplicationSupervisor, AssetRebuild, Common, CssIntegration}
     alias PhoenixKit.Utils.Routes
 
@@ -155,6 +156,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     defp perform_igniter_update(igniter, opts) do
       prefix = opts[:prefix] || "public"
       force = opts[:force] || false
+
+      # Validate and fix Ueberauth configuration before update
+      igniter = validate_and_fix_ueberauth_config(igniter)
 
       case Common.check_installation_status(prefix) do
         {:not_installed} ->
@@ -606,12 +610,91 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         mix phx.server
       """)
     end
+
+    # Validate and fix Ueberauth configuration
+    defp validate_and_fix_ueberauth_config(igniter) do
+      # Read current config.exs to check Ueberauth configuration
+      config_file = "config/config.exs"
+
+      if File.exists?(config_file) do
+        content = File.read!(config_file)
+
+        # Check Ueberauth configuration status
+        cond do
+          # Case 1: Incorrect configuration with providers: []
+          String.contains?(content, "config :ueberauth, Ueberauth") &&
+              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
+            fix_ueberauth_providers_config(igniter, content)
+
+          # Case 2: Configuration exists and is correct (providers: %{} or with values)
+          String.contains?(content, "config :ueberauth, Ueberauth") ->
+            igniter
+
+          # Case 3: Configuration is missing - add it
+          true ->
+            add_missing_ueberauth_config(igniter)
+        end
+      else
+        # config.exs doesn't exist, skip validation
+        igniter
+      end
+    end
+
+    # Fix Ueberauth providers configuration from [] to %{}
+    defp fix_ueberauth_providers_config(igniter, _content) do
+      igniter
+      |> Igniter.update_file("config/config.exs", fn source ->
+        content = Rewrite.Source.get(source, :content)
+
+        # Replace providers: [] with providers: %{}
+        updated_content =
+          Regex.replace(
+            ~r/(config\s+:ueberauth,\s+Ueberauth,\s+providers:\s*)\[\s*\]/,
+            content,
+            "\\1%{}"
+          )
+
+        Rewrite.Source.update(source, :content, updated_content)
+      end)
+      |> add_ueberauth_fix_notice()
+    end
+
+    # Add notice about Ueberauth configuration fix
+    defp add_ueberauth_fix_notice(igniter) do
+      notice = """
+      ✅ Fixed Ueberauth configuration: providers: [] → providers: %{}
+         OAuth authentication will now work correctly.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Add missing Ueberauth configuration
+    defp add_missing_ueberauth_config(igniter) do
+      igniter
+      |> Config.configure_new(
+        "config.exs",
+        :ueberauth,
+        [Ueberauth],
+        providers: %{}
+      )
+      |> add_ueberauth_added_notice()
+    end
+
+    # Add notice about Ueberauth configuration being added
+    defp add_ueberauth_added_notice(igniter) do
+      notice = """
+      ✅ Added missing Ueberauth configuration: providers: %{}
+         OAuth authentication configured for runtime loading.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
   end
 
   # Fallback module for when Igniter is not available
 else
   defmodule Mix.Tasks.PhoenixKit.Update do
-    @dialyzer {:no_behaviours, [Mix.Task]}
     @moduledoc """
     PhoenixKit update task.
 
