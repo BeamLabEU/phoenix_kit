@@ -1202,17 +1202,17 @@
                       phx-hook="ResetAdminLanguageSelect"
                     >
                       <option value="" disabled selected>Select a language to add...</option>
-                      <%!-- Translated Languages (prioritized) --%>
-                      <optgroup label="✓ Translated Languages">
-                        <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code in ["en", "ru", "es"]) do %>
+                      <%!-- Default Languages (prioritized) --%>
+                      <optgroup label="✓ Popular Languages">
+                        <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code in PhoenixKit.Module.Languages.get_default_language_codes()) do %>
                           <option value={language.code}>
                             {language.name} ({language.native}) {language.flag}
                           </option>
                         <% end %>
                       </optgroup>
-                      <%!-- Untranslated Languages (disabled for now) --%>
-                      <optgroup label="Untranslated Languages (Coming Soon)" disabled>
-                        <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code not in ["en", "ru", "es"]) do %>
+                      <%!-- Other Languages (disabled for now) --%>
+                      <optgroup label="Other Languages (Coming Soon)" disabled>
+                        <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code not in PhoenixKit.Module.Languages.get_default_language_codes()) do %>
                           <option value={language.code} disabled>
                             {language.name} ({language.native}) {language.flag}
                           </option>

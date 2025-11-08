@@ -808,7 +808,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp submenu_open?(_, _), do: false
 
   defp remove_phoenix_kit_prefix(path) do
-    String.replace_prefix(path, "/phoenix_kit", "")
+    url_prefix = Config.get_url_prefix()
+
+    if url_prefix == "/" do
+      path
+    else
+      String.replace_prefix(path, url_prefix, "")
+    end
   end
 
   defp remove_locale_prefix(path) do
