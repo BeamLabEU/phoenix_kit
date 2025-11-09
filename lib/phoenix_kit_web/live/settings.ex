@@ -270,11 +270,23 @@ defmodule PhoenixKitWeb.Live.Settings do
       when language_code != "" do
     current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
 
-    # Only add if not already present
+    # Toggle: add if not present, remove if already present
     if language_code in current_languages do
-      socket = put_flash(socket, :info, "Language already selected")
+      # Remove language
+      updated_languages = Enum.filter(current_languages, &(&1 != language_code))
+
+      # Get language details for feedback
+      language = Languages.get_predefined_language(language_code)
+      language_name = if language, do: language.name, else: String.upcase(language_code)
+
+      socket =
+        socket
+        |> assign(:admin_languages, updated_languages)
+        |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+
       {:noreply, socket}
     else
+      # Add language
       updated_languages = current_languages ++ [language_code]
 
       # Get language details for feedback
