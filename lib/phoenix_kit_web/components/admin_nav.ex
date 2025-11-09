@@ -320,33 +320,31 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             </.link>
           </li>
 
-          <%!-- Language Switcher --%>
-          <%= if Languages.enabled?() do %>
-            <% enabled_languages = Languages.get_enabled_languages() %>
-            <%= if length(enabled_languages) > 0 do %>
-              <div class="divider my-0"></div>
+          <%!-- Language Switcher (Admin Languages) --%>
+          <% admin_languages = get_admin_languages() %>
+          <%= if length(admin_languages) > 0 do %>
+            <div class="divider my-0"></div>
 
-              <li class="menu-title px-4 py-1">
-                <span class="text-xs">Language</span>
+            <li class="menu-title px-4 py-1">
+              <span class="text-xs">Language</span>
+            </li>
+
+            <%= for language <- admin_languages do %>
+              <li>
+                <a
+                  href={generate_language_switch_url(@current_path, language["code"])}
+                  class={[
+                    "flex items-center gap-3",
+                    if(language["code"] == @current_locale, do: "active", else: "")
+                  ]}
+                >
+                  <span class="text-lg">{get_language_flag(language["code"])}</span>
+                  <span>{language["name"]}</span>
+                  <%= if language["code"] == @current_locale do %>
+                    <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
+                  <% end %>
+                </a>
               </li>
-
-              <%= for language <- enabled_languages do %>
-                <li>
-                  <a
-                    href={generate_language_switch_url(@current_path, language["code"])}
-                    class={[
-                      "flex items-center gap-3",
-                      if(language["code"] == @current_locale, do: "active", else: "")
-                    ]}
-                  >
-                    <span class="text-lg">{get_language_flag(language["code"])}</span>
-                    <span>{language["name"]}</span>
-                    <%= if language["code"] == @current_locale do %>
-                      <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
-                    <% end %>
-                  </a>
-                </li>
-              <% end %>
             <% end %>
           <% end %>
 
