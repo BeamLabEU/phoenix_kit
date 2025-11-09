@@ -98,94 +98,14 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   def handle_event("save_settings", %{"settings" => settings_params}, socket) do
     socket = assign(socket, :saving, true)
-
-    # admin_languages comes as JSON string from hidden field
-    # If it's present and valid, keep it; otherwise remove it from params
-    settings_params_to_save =
-      case settings_params["admin_languages"] do
-        json when is_binary(json) ->
-          if String.trim(json) != "" do
-            # admin_languages is already JSON encoded from the hidden field, keep it as-is
-            settings_params
-          else
-            # Empty string, remove it
-            Map.delete(settings_params, "admin_languages")
-          end
-
-        _ ->
-          # If not present, remove it so it doesn't get saved with invalid data
-          Map.delete(settings_params, "admin_languages")
-      end
+    settings_params_to_save = prepare_settings_params(settings_params)
 
     case Settings.update_settings(settings_params_to_save) do
       {:ok, updated_settings} ->
-        # Reload OAuth configuration to apply new credentials immediately
-        OAuthConfig.configure_providers()
-
-        # Broadcast admin languages change if it was updated
-        if Map.has_key?(settings_params_to_save, "admin_languages") do
-          admin_languages_json = updated_settings["admin_languages"]
-
-          admin_languages =
-            if admin_languages_json && String.trim(admin_languages_json) != "" do
-              case Jason.decode(admin_languages_json) do
-                {:ok, codes} when is_list(codes) -> codes
-                _ -> ["en", "ru", "es"]
-              end
-            else
-              ["en", "ru", "es"]
-            end
-
-          SettingsEvents.broadcast_admin_languages_changed(admin_languages)
-        end
-
-        # Update socket with new settings
-        changeset = Settings.change_settings(updated_settings)
-
-        # Extract the admin_languages that were just saved
-        saved_admin_languages =
-          if Map.has_key?(settings_params_to_save, "admin_languages") do
-            admin_languages_json = settings_params_to_save["admin_languages"]
-
-            if admin_languages_json && String.trim(admin_languages_json) != "" do
-              case Jason.decode(admin_languages_json) do
-                {:ok, codes} when is_list(codes) -> codes
-                _ -> socket.assigns.admin_languages
-              end
-            else
-              socket.assigns.admin_languages
-            end
-          else
-            socket.assigns.admin_languages
-          end
-
-        socket =
-          socket
-          |> assign(:settings, updated_settings)
-          # Update saved values
-          |> assign(:saved_settings, updated_settings)
-          |> assign(:changeset, changeset)
-          |> assign(:saving, false)
-          |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
-          # Keep the admin_languages we just saved (don't reload from DB)
-          |> assign(:admin_languages, saved_admin_languages)
-          |> put_flash(:info, "Settings updated successfully")
-
-        {:noreply, socket}
+        handle_settings_saved(socket, settings_params_to_save, updated_settings)
 
       {:error, errors} ->
-        # Debug: Log the actual error to understand the issue
-        require Logger
-        Logger.error("Settings save error: #{inspect(errors)}")
-
-        error_msg = format_error_message(errors)
-
-        socket =
-          socket
-          |> assign(:saving, false)
-          |> put_flash(:error, error_msg)
-
-        {:noreply, socket}
+        handle_settings_error(socket, errors)
     end
   end
 
@@ -333,6 +253,85 @@ defmodule PhoenixKitWeb.Live.Settings do
   # Catch-all for other settings changes (future-proof)
   def handle_info({:setting_changed, _key, _value}, socket) do
     {:noreply, socket}
+  end
+
+  # Handle successful settings save
+  defp handle_settings_saved(socket, settings_params_to_save, updated_settings) do
+    # Reload OAuth configuration to apply new credentials immediately
+    OAuthConfig.configure_providers()
+
+    # Broadcast admin languages change if it was updated
+    if Map.has_key?(settings_params_to_save, "admin_languages") do
+      admin_languages = parse_admin_languages_json(updated_settings["admin_languages"])
+      SettingsEvents.broadcast_admin_languages_changed(admin_languages)
+    end
+
+    # Update socket with new settings
+    changeset = Settings.change_settings(updated_settings)
+
+    saved_admin_languages =
+      extract_saved_admin_languages(settings_params_to_save, socket.assigns.admin_languages)
+
+    socket =
+      socket
+      |> assign(:settings, updated_settings)
+      |> assign(:saved_settings, updated_settings)
+      |> assign(:changeset, changeset)
+      |> assign(:saving, false)
+      |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
+      |> assign(:admin_languages, saved_admin_languages)
+      |> put_flash(:info, "Settings updated successfully")
+
+    {:noreply, socket}
+  end
+
+  # Handle settings save error
+  defp handle_settings_error(socket, errors) do
+    require Logger
+    Logger.error("Settings save error: #{inspect(errors)}")
+
+    error_msg = format_error_message(errors)
+
+    socket =
+      socket
+      |> assign(:saving, false)
+      |> put_flash(:error, error_msg)
+
+    {:noreply, socket}
+  end
+
+  # Parse admin_languages JSON string to list
+  defp parse_admin_languages_json(json) when is_binary(json) do
+    if String.trim(json) != "" do
+      case Jason.decode(json) do
+        {:ok, codes} when is_list(codes) -> codes
+        _ -> ["en", "ru", "es"]
+      end
+    else
+      ["en", "ru", "es"]
+    end
+  end
+
+  defp parse_admin_languages_json(_), do: ["en", "ru", "es"]
+
+  # Prepare settings params by handling admin_languages field
+  defp prepare_settings_params(%{"admin_languages" => json} = params) when is_binary(json) do
+    if String.trim(json) != "" do
+      params
+    else
+      Map.delete(params, "admin_languages")
+    end
+  end
+
+  defp prepare_settings_params(params), do: Map.delete(params, "admin_languages")
+
+  # Extract admin_languages from saved params or use fallback
+  defp extract_saved_admin_languages(settings_params, fallback) do
+    if Map.has_key?(settings_params, "admin_languages") do
+      parse_admin_languages_json(settings_params["admin_languages"])
+    else
+      fallback
+    end
   end
 
   # Format error messages for display

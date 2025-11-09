@@ -103,7 +103,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Returns {detected_language, adjusted_params}
   defp detect_language_or_blog(language_param, params) do
     # Check if this looks like a valid language code
-    if is_valid_language?(language_param) do
+    if valid_language?(language_param) do
       # It's a real language code - use as-is
       {language_param, params}
     else
@@ -130,14 +130,14 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  defp is_valid_language?(code) when is_binary(code) do
+  defp valid_language?(code) when is_binary(code) do
     # Check if it's an enabled language code
     Languages.language_enabled?(code)
   rescue
     _ -> false
   end
 
-  defp is_valid_language?(_), do: false
+  defp valid_language?(_), do: false
 
   # ============================================================================
   # Path Parsing

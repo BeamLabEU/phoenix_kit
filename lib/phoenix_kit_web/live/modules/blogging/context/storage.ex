@@ -100,7 +100,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   defp reserved_language_code?(slug) do
     language_codes =
       try do
-        PhoenixKit.Module.Languages.get_language_codes()
+        Languages.get_language_codes()
       rescue
         _ -> []
       end
@@ -135,20 +135,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
         slug when is_binary(slug) ->
           sanitized = sanitize_slug(slug)
 
-          cond do
-            sanitized == "" ->
-              {:ok, generate_slug_from_title(title)}
+          if sanitized == "" do
+            {:ok, generate_slug_from_title(title)}
+          else
+            # Validate the sanitized slug
+            case validate_slug(sanitized) do
+              {:ok, valid_slug} ->
+                {:ok, valid_slug}
 
-            true ->
-              # Validate the sanitized slug
-              case validate_slug(sanitized) do
-                {:ok, valid_slug} ->
-                  {:ok, valid_slug}
-
-                {:error, reason} ->
-                  # Return the specific error instead of falling back
-                  {:error, reason}
-              end
+              {:error, reason} ->
+                # Return the specific error instead of falling back
+                {:error, reason}
+            end
           end
       end
 
@@ -599,25 +597,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     audit_meta = Map.new(audit_meta)
     desired_slug = Map.get(params, "slug", post.slug)
 
-    cond do
-      desired_slug == post.slug ->
-        update_post_slug_in_place(blog_slug, post, params, audit_meta)
+    if desired_slug == post.slug do
+      update_post_slug_in_place(blog_slug, post, params, audit_meta)
+    else
+      # Validate slug and return specific error
+      case validate_slug(desired_slug) do
+        {:ok, _valid_slug} ->
+          # Check if slug already exists
+          if slug_exists?(blog_slug, desired_slug) do
+            {:error, :slug_already_exists}
+          else
+            move_post_to_new_slug(blog_slug, post, desired_slug, params, audit_meta)
+          end
 
-      true ->
-        # Validate slug and return specific error
-        case validate_slug(desired_slug) do
-          {:ok, _valid_slug} ->
-            # Check if slug already exists
-            if slug_exists?(blog_slug, desired_slug) do
-              {:error, :slug_already_exists}
-            else
-              move_post_to_new_slug(blog_slug, post, desired_slug, params, audit_meta)
-            end
-
-          {:error, reason} ->
-            # Return specific validation error
-            {:error, reason}
-        end
+        {:error, reason} ->
+          # Return specific validation error
+          {:error, reason}
+      end
     end
   end
 

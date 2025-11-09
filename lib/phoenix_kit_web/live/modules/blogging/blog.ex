@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
@@ -219,6 +220,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       end
 
     # Invalidate the render cache for this post
-    PhoenixKit.Blogging.Renderer.invalidate_cache(blog_slug, identifier, post.language)
+    Renderer.invalidate_cache(blog_slug, identifier, post.language)
   end
 end
