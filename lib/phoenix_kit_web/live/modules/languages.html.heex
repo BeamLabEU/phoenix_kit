@@ -51,160 +51,145 @@
       </div>
     </div>
 
-    <%= if @ml_enabled do %>
-      <%!-- Languages Management Section --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <div class="mb-4">
+    <%!-- Languages Management Section (always show to allow adding languages) --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <div class="mb-4">
+          <%= if @in_configured_mode do %>
             <h3 class="card-title text-xl">Language Configuration</h3>
-          </div>
-
-          <%!-- Add Language Dropdown --%>
-          <%= if not Enum.empty?(@available_languages_for_selection) do %>
-            <div class="mb-4">
-              <form phx-submit="add_language">
-                <div class="flex items-center gap-3">
-                  <div class="form-control flex-1">
-                    <select
-                      name="language_code"
-                      class="select select-bordered"
-                      required
-                    >
-                      <option value="" disabled selected>Select a language to add...</option>
-                      <%= for language <- @available_languages_for_selection do %>
-                        <option value={language.code}>
-                          {language.flag} {language.name} ({language.native})
-                        </option>
-                      <% end %>
-                    </select>
-                  </div>
-                  <button type="submit" class="btn btn-primary btn-sm">
-                    <PhoenixKitWeb.Components.Core.Icons.icon_plus class="w-4 h-4 mr-1" />
-                    Add Language
-                  </button>
-                </div>
-              </form>
-            </div>
-          <% end %>
-
-          <%!-- Languages List --%>
-          <%= if Enum.empty?(@languages) do %>
-            <div class="text-center py-8 text-base-content/50">
-              <div class="text-4xl mb-4">🌐</div>
-              <p>No languages configured yet.</p>
-              <p class="text-sm">Enable the system to add your first language.</p>
-            </div>
+            <p class="text-sm text-base-content/60 mt-1">
+              Manage your configured languages
+            </p>
           <% else %>
-            <div class="space-y-3">
-              <%= for {language, index} <- Enum.with_index(@languages) do %>
-                <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
-                  <div class="flex items-center flex-1">
-                    <div class="text-2xl mr-3">
-                      <%= case language["code"] do %>
-                        <% "en" -> %>
-                          🇺🇸
-                        <% "es" -> %>
-                          🇪🇸
-                        <% "fr" -> %>
-                          🇫🇷
-                        <% "de" -> %>
-                          🇩🇪
-                        <% "pt" -> %>
-                          🇵🇹
-                        <% "it" -> %>
-                          🇮🇹
-                        <% "nl" -> %>
-                          🇳🇱
-                        <% "ru" -> %>
-                          🇷🇺
-                        <% "zh-CN" -> %>
-                          🇨🇳
-                        <% "ja" -> %>
-                          🇯🇵
-                        <% _ -> %>
-                          🌐
-                      <% end %>
-                    </div>
-                    <div class="flex-1">
-                      <div class="flex items-center gap-2">
-                        <span class="font-medium">{language["name"]}</span>
-                        <span class="badge badge-outline badge-sm">{language["code"]}</span>
-                        <%= if language["is_default"] do %>
-                          <span class="badge badge-primary badge-sm">Default</span>
-                        <% end %>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <div class="btn-group">
-                          <button
-                            class="btn btn-outline btn-xs"
-                            phx-click="move_up"
-                            phx-value-code={language["code"]}
-                            disabled={index == 0}
-                            title="Move up"
-                          >
-                            ↑
-                          </button>
-                          <button
-                            class="btn btn-outline btn-xs"
-                            phx-click="move_down"
-                            phx-value-code={language["code"]}
-                            disabled={index == @language_count - 1}
-                            title="Move down"
-                          >
-                            ↓
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+            <h3 class="card-title text-xl">Add Your First Language</h3>
+            <p class="text-sm text-base-content/60 mt-1">
+              Select a language to begin configuration
+            </p>
+          <% end %>
+        </div>
 
-                  <div class="flex items-center gap-2">
-                    <%!-- Enable/Disable Toggle --%>
-                    <div class="form-control">
-                      <label class="label cursor-pointer">
-                        <span class="label-text mr-2 text-sm">Enabled</span>
-                        <input
-                          type="checkbox"
-                          class="toggle toggle-sm toggle-primary"
-                          checked={language["is_enabled"]}
-                          phx-click="toggle_language"
-                          phx-value-code={language["code"]}
-                          disabled={language["is_default"]}
-                        />
-                      </label>
-                    </div>
-
-                    <%!-- Set Default Button --%>
-                    <%= if not language["is_default"] do %>
-                      <button
-                        class="btn btn-outline btn-xs"
-                        phx-click="set_default"
-                        phx-value-code={language["code"]}
-                      >
-                        Set Default
-                      </button>
+        <%!-- Add Language Dropdown (always show) --%>
+        <%= if not Enum.empty?(@available_languages_for_selection) do %>
+          <div class="mb-4">
+            <form phx-submit="add_language">
+              <div class="flex items-center gap-3">
+                <div class="form-control flex-1">
+                  <select
+                    name="language_code"
+                    class="select select-bordered"
+                    required
+                  >
+                    <option value="" disabled selected>Select a language to add...</option>
+                    <%= for language <- @available_languages_for_selection do %>
+                      <option value={language.code}>
+                        {language.name} ({language.native}) {language.flag}
+                      </option>
                     <% end %>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_plus class="w-4 h-4 mr-1" />
+                  Add Language
+                </button>
+              </div>
+            </form>
+          </div>
+        <% end %>
 
-                    <%!-- Remove Button --%>
-                    <%= if not language["is_default"] and @language_count > 1 do %>
-                      <button
-                        class="btn btn-error btn-xs"
-                        phx-click="remove_language"
-                        phx-value-code={language["code"]}
-                        onclick="return confirm('Are you sure you want to remove this language?')"
-                      >
-                        <PhoenixKitWeb.Components.Core.Icons.icon_trash class="w-3 h-3" />
-                      </button>
+        <%!-- Languages List (always show) --%>
+        <div class="space-y-3">
+          <%= for {language, index} <- Enum.with_index(@languages) do %>
+            <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+              <div class="flex items-center flex-1">
+                <div class="text-2xl mr-3">
+                  {get_language_flag(language["code"])}
+                </div>
+                <div class="flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="font-medium">{language["name"]}</span>
+                    <span class="badge badge-outline badge-sm">{language["code"]}</span>
+                    <%= if language["is_default"] do %>
+                      <span class="badge badge-primary badge-sm">Default</span>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <%!-- Move buttons only in configured mode --%>
+                    <%= if @in_configured_mode do %>
+                      <div class="btn-group">
+                        <button
+                          class="btn btn-outline btn-xs"
+                          phx-click="move_up"
+                          phx-value-code={language["code"]}
+                          disabled={index == 0}
+                          title="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          class="btn btn-outline btn-xs"
+                          phx-click="move_down"
+                          phx-value-code={language["code"]}
+                          disabled={index == @language_count - 1}
+                          title="Move down"
+                        >
+                          ↓
+                        </button>
+                      </div>
                     <% end %>
                   </div>
                 </div>
-              <% end %>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <%!-- Enable/Disable Toggle --%>
+                <div class="form-control">
+                  <label class={[
+                    "label cursor-pointer",
+                    !@in_configured_mode && "opacity-50 cursor-not-allowed"
+                  ]}>
+                    <span class="label-text mr-2 text-sm">Enabled</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm toggle-primary"
+                      checked={language["is_enabled"]}
+                      phx-click="toggle_language"
+                      phx-value-code={language["code"]}
+                      disabled={not @in_configured_mode or language["is_default"]}
+                    />
+                  </label>
+                </div>
+
+                <%!-- Set Default Button (only in configured mode, and not the default language) --%>
+                <%= if @in_configured_mode and not language["is_default"] do %>
+                  <button
+                    class="btn btn-outline btn-xs"
+                    phx-click="set_default"
+                    phx-value-code={language["code"]}
+                  >
+                    Set Default
+                  </button>
+                <% end %>
+
+                <%!-- Remove Button (only in configured mode, and not the default language) --%>
+                <%= if @in_configured_mode and not language["is_default"] do %>
+                  <button
+                    class="btn btn-error btn-xs"
+                    phx-click="remove_language"
+                    phx-value-code={language["code"]}
+                    onclick="return confirm('Are you sure you want to remove this language?')"
+                  >
+                    <PhoenixKitWeb.Components.Core.Icons.icon_trash class="w-3 h-3" />
+                  </button>
+                <% end %>
+              </div>
             </div>
           <% end %>
         </div>
       </div>
+    </div>
 
-      <%!-- Help Section --%>
+    <%!-- Help Section (only when in configured mode) --%>
+    <%= if @in_configured_mode do %>
       <div class="alert alert-info mt-6">
         <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
         <div>
@@ -217,20 +202,143 @@
           </div>
         </div>
       </div>
-    <% else %>
-      <%!-- System Disabled Message --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body text-center py-12">
-          <div class="text-6xl mb-4 opacity-50">🌐</div>
-          <h3 class="text-xl font-semibold text-base-content/60 mb-2">
-            Languages Disabled
-          </h3>
-          <p class="text-base-content/50 mb-4">
-            Enable the language module above to start configuring languages for your application.
-            The module will automatically create English as the default language when enabled.
-          </p>
-        </div>
-      </div>
     <% end %>
+
+    <%!-- Frontend Language Switcher Component Section --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <h2 class="card-title text-xl mb-4">Frontend Language Switcher</h2>
+        <p class="text-base-content/70 mb-6">
+          Configure and preview the language switcher component for your frontend application.
+        </p>
+
+        <%= if @ml_enabled and length(@languages) >= 1 do %>
+          <%!-- Two Column Layout: Settings | Preview --%>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-fr">
+            <%!-- Left Column: Settings --%>
+            <div class="lg:col-span-1 border border-base-200 rounded-lg p-4 flex flex-col">
+              <h3 class="font-bold mb-4">Switcher Settings</h3>
+              <div class="space-y-4">
+                <%!-- Show Flags Toggle --%>
+                <div class="form-control">
+                  <label class="label cursor-pointer">
+                    <span class="label-text">Show Flags</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm toggle-primary"
+                      checked={@switcher_show_flags}
+                      phx-click="toggle_switcher_setting"
+                      phx-value-setting="switcher_show_flags"
+                    />
+                  </label>
+                </div>
+
+                <%!-- Show Language Names Toggle --%>
+                <div class="form-control">
+                  <label class="label cursor-pointer">
+                    <span class="label-text">Show Names</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm toggle-primary"
+                      checked={@switcher_show_names}
+                      phx-click="toggle_switcher_setting"
+                      phx-value-setting="switcher_show_names"
+                    />
+                  </label>
+                </div>
+
+                <%!-- Go to Home Page Toggle --%>
+                <div class="form-control">
+                  <label class="label cursor-pointer">
+                    <span class="label-text">Go to Home</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm toggle-primary"
+                      checked={@switcher_goto_home}
+                      phx-click="toggle_switcher_setting"
+                      phx-value-setting="switcher_goto_home"
+                    />
+                  </label>
+                </div>
+
+                <%!-- Hide Current Language Toggle --%>
+                <div class="form-control">
+                  <label class="label cursor-pointer">
+                    <span class="label-text">Hide Current</span>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-sm toggle-primary"
+                      checked={@switcher_hide_current}
+                      phx-click="toggle_switcher_setting"
+                      phx-value-setting="switcher_hide_current"
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Right Column: Preview and Code --%>
+            <div class="lg:col-span-2 space-y-4">
+              <%!-- Live Preview --%>
+              <div class="border border-base-200 rounded-lg p-4">
+                <h3 class="font-bold mb-3">Live Preview</h3>
+                <div class="bg-base-200 rounded p-4 flex items-center justify-center min-h-24">
+                  <.language_switcher_dropdown
+                    current_locale={@current_locale}
+                    show_flags={@switcher_show_flags}
+                    show_names={@switcher_show_names}
+                    _language_update_key={@language_count}
+                  />
+                </div>
+              </div>
+
+              <%!-- Generated Code --%>
+              <div class="border border-base-200 rounded-lg p-4">
+                <h3 class="font-bold mb-3">Generated Code</h3>
+                <div class="text-xs text-base-content/60 bg-base-200 rounded p-3 font-mono overflow-x-auto">
+                  <pre>{generate_switcher_code(@switcher_show_flags, @switcher_show_names, @switcher_goto_home, @switcher_hide_current)}</pre>
+                </div>
+                <p class="text-xs text-base-content/60 mt-2">
+                  Copy this code to your frontend application and customize as needed.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Implementation Instructions --%>
+          <div class="alert alert-warning mt-6">
+            <PhoenixKitWeb.Components.Core.Icons.icon_warning class="w-5 h-5" />
+            <div>
+              <h3 class="font-bold">Implementation Notes</h3>
+              <div class="text-sm space-y-1">
+                <p>
+                  • Make sure <code class="bg-base-300 px-2 py-1 rounded">@current_locale</code>
+                  is available in your assigns
+                </p>
+                <p>
+                  • The component automatically fetches enabled languages from the Language Module
+                </p>
+                <p>• Only enabled languages will appear in the switcher</p>
+                <p>• Language switcher works with your existing route-based locale system</p>
+              </div>
+            </div>
+          </div>
+        <% else %>
+          <div class="alert alert-info">
+            <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
+            <div>
+              <h3 class="font-bold">Enable and Configure Languages</h3>
+              <p class="text-sm mt-2">
+                <%= if not @ml_enabled do %>
+                  First, enable the Languages module using the toggle at the top, then add at least one language to see live previews of the language switcher component.
+                <% else %>
+                  Add at least one language using the form above to see live previews of the language switcher component.
+                <% end %>
+              </p>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

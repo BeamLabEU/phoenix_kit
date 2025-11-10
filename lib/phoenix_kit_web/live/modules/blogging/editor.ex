@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
@@ -165,7 +166,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     params =
       params
       |> Map.drop(["_target"])
-      |> maybe_autofill_slug(socket)
 
     # No real-time validation - accept any input, validation happens on save
     new_form =
@@ -192,15 +192,83 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> push_event("changes-status", %{has_changes: has_changes})}
   end
 
+  def handle_event("generate_slug_from_content", _params, socket) do
+    # Only generate slug if in slug mode and slug is empty
+    if socket.assigns.blog_mode == "slug" do
+      current_slug = Map.get(socket.assigns.form, "slug", "")
+      content = socket.assigns.content || ""
+
+      new_slug =
+        if current_slug == "" and String.trim(content) != "" do
+          # Extract title from content and use it for slug
+          title = Metadata.extract_title_from_content(content)
+          Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
+        else
+          current_slug
+        end
+
+      new_form =
+        socket.assigns.form
+        |> Map.put("slug", new_slug)
+        |> normalize_form()
+
+      has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+
+      {:noreply,
+       socket
+       |> assign(:form, new_form)
+       |> assign(:has_pending_changes, has_changes)
+       |> push_event("changes-status", %{has_changes: has_changes})
+       |> push_event("update-slug", %{slug: new_slug})}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("update_content", %{"content" => content}, socket) do
-    has_changes = dirty?(socket.assigns.post, socket.assigns.form, content)
+    # Auto-generate slug from content live for new unsaved posts only
+    is_new_unsaved =
+      Map.get(socket.assigns, :is_new_post, false) ||
+        Map.get(socket.assigns, :is_new_translation, false)
+
+    {new_form, slug_events} =
+      if socket.assigns.blog_mode == "slug" && is_new_unsaved && String.trim(content) != "" do
+        title = Metadata.extract_title_from_content(content)
+
+        case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil) do
+          {:ok, new_slug} ->
+            current_slug = Map.get(socket.assigns.form, "slug", "")
+
+            if new_slug != current_slug do
+              {Map.put(socket.assigns.form, "slug", new_slug),
+               [{"update-slug", %{slug: new_slug}}]}
+            else
+              {socket.assigns.form, []}
+            end
+
+          {:error, _} ->
+            # If slug generation fails, keep current form
+            {socket.assigns.form, []}
+        end
+      else
+        {socket.assigns.form, []}
+      end
+
+    has_changes = dirty?(socket.assigns.post, new_form, content)
 
     socket =
       socket
       |> assign(:content, content)
+      |> assign(:form, new_form)
       |> assign(:has_pending_changes, has_changes)
+      |> push_event("changes-status", %{has_changes: has_changes})
 
-    {:noreply, push_event(socket, "changes-status", %{has_changes: has_changes})}
+    socket =
+      Enum.reduce(slug_events, socket, fn {event, data}, acc ->
+        push_event(acc, event, data)
+      end)
+
+    {:noreply, socket}
   end
 
   def handle_event("save", _params, %{assigns: %{has_pending_changes: false}} = socket) do
@@ -210,7 +278,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_event("save", _params, socket) do
     params =
       socket.assigns.form
-      |> Map.take(["title", "status", "published_at", "slug"])
+      |> Map.take(["status", "published_at", "slug"])
       |> Map.put("content", socket.assigns.content)
 
     params =
@@ -374,6 +442,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_format} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :reserved_language_code} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+               )
+             )}
+
           {:error, :invalid_slug} ->
             {:noreply,
              put_flash(
@@ -452,6 +540,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                  )
              )}
 
+          {:error, :invalid_format} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+               )
+             )}
+
+          {:error, :reserved_language_code} ->
+            {:noreply,
+             put_flash(
+               socket,
+               :error,
+               gettext(
+                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+               )
+             )}
+
           {:error, :invalid_slug} ->
             {:noreply,
              put_flash(
@@ -493,6 +601,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
          |> push_event("changes-status", %{has_changes: false})
          |> put_flash(:info, gettext("Post saved"))}
 
+      {:error, :invalid_format} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+           )
+         )}
+
+      {:error, :reserved_language_code} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+           )
+         )}
+
       {:error, :invalid_slug} ->
         {:noreply,
          put_flash(
@@ -513,7 +641,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   defp post_form(post) do
     base = %{
-      "title" => post.metadata.title || "",
       "status" => post.metadata.status || "draft",
       "published_at" =>
         post.metadata.published_at ||
@@ -553,7 +680,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp normalize_form(form) when is_map(form) do
     base =
       %{
-        "title" => Map.get(form, "title", "") || "",
         "status" => Map.get(form, "status", "draft") || "draft",
         "published_at" => normalize_published_at(Map.get(form, "published_at"))
       }
@@ -568,7 +694,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_form(_),
-    do: %{"title" => "", "status" => "draft", "published_at" => "", "slug" => ""}
+    do: %{"status" => "draft", "published_at" => "", "slug" => ""}
 
   defp datetime_local_value(nil), do: ""
 
@@ -617,7 +743,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     post = socket.assigns.post
 
     metadata = %{
-      title: map_get_with_fallback(form, "title", metadata_value(post, :title), ""),
       status: map_get_with_fallback(form, "status", metadata_value(post, :status), "draft"),
       published_at:
         map_get_with_fallback(
@@ -779,11 +904,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp normalize_preview_metadata(metadata, mode) do
     metadata_map =
       Enum.reduce(metadata, %{}, fn
-        {key, value}, acc when key in [:title, :status, :published_at, :slug] ->
+        {key, value}, acc when key in [:status, :published_at, :slug] ->
           Map.put(acc, key, value)
-
-        {"title", value}, acc ->
-          Map.put(acc, :title, value)
 
         {"status", value}, acc ->
           Map.put(acc, :status, value)
@@ -800,8 +922,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     defaults =
       case mode do
-        :slug -> %{title: "", status: "draft", published_at: "", slug: ""}
-        _ -> %{title: "", status: "draft", published_at: "", slug: nil}
+        :slug -> %{status: "draft", published_at: "", slug: ""}
+        _ -> %{status: "draft", published_at: "", slug: nil}
       end
 
     Map.merge(defaults, metadata_map)
@@ -916,56 +1038,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       available_languages: [],
       mode: :timestamp
     }
-  end
-
-  defp maybe_autofill_slug(params, %{assigns: %{blog_mode: "slug"} = assigns}) do
-    trimmed_params =
-      case Map.fetch(params, "slug") do
-        {:ok, slug} when is_binary(slug) -> Map.put(params, "slug", String.trim(slug))
-        {:ok, _} -> Map.put(params, "slug", "")
-        :error -> params
-      end
-
-    slug_value = Map.get(trimmed_params, "slug")
-    current_slug = assigns.form |> Map.get("slug", "")
-
-    # Get title from params or form
-    title =
-      Map.get(trimmed_params, "title") ||
-        Map.get(assigns.form, "title") ||
-        ""
-
-    title = String.trim(to_string(title))
-
-    cond do
-      # User has manually entered a slug - keep it
-      is_binary(slug_value) and slug_value != "" ->
-        trimmed_params
-
-      # Slug is empty - auto-generate from title
-      slug_value == "" and title != "" ->
-        generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
-        Map.put(trimmed_params, "slug", generated)
-
-      # Slug is empty and title is also empty
-      slug_value == "" ->
-        Map.put(trimmed_params, "slug", "")
-
-      current_slug not in [nil, ""] ->
-        Map.put(trimmed_params, "slug", current_slug)
-
-      true ->
-        if title == "" do
-          Map.put(trimmed_params, "slug", "")
-        else
-          generated = Storage.generate_unique_slug(assigns.blog_slug, title, nil)
-          Map.put(trimmed_params, "slug", generated)
-        end
-    end
-  end
-
-  defp maybe_autofill_slug(params, _socket) do
-    Map.delete(params, "slug")
   end
 
   defp slug_base_dir(post, blog_slug) do

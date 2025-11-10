@@ -7,7 +7,9 @@ defmodule PhoenixKitWeb.FileController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Storage
+  alias PhoenixKit.Storage.Manager
   alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Serve a file variant by ID with signed URL token.
@@ -113,7 +115,8 @@ defmodule PhoenixKitWeb.FileController do
         variant_urls =
           Enum.map(instances, fn instance ->
             token = URLSigner.generate_token(file_id, instance.variant_name)
-            url = "/file/#{file_id}/#{instance.variant_name}/#{token}"
+            file_path = "/file/#{file_id}/#{instance.variant_name}/#{token}"
+            url = Routes.path(file_path)
 
             %{
               variant_name: instance.variant_name,
@@ -171,14 +174,10 @@ defmodule PhoenixKitWeb.FileController do
     temp_path = Path.join(temp_dir, "phoenix_kit_#{instance.id}#{ext}")
 
     # Retrieve from storage
-    case PhoenixKit.Storage.Manager.retrieve_file(instance.file_name,
+    case Manager.retrieve_file(instance.file_name,
            destination_path: temp_path
          ) do
       {:ok, _} ->
-        {:ok, temp_path}
-
-      :ok ->
-        # Fallback for functions that return :ok
         {:ok, temp_path}
 
       {:error, reason} ->

@@ -26,24 +26,22 @@ defmodule PhoenixKit.Storage.Manager do
   - `{:error, reason}` - Failed to store file
   """
   def store_file(source_path, opts \\ []) do
-    try do
-      # Get redundancy settings
-      redundancy_copies = Keyword.get(opts, :redundancy_copies, get_redundancy_copies())
-      priority_buckets = Keyword.get(opts, :priority_buckets, [])
-      _generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
+    # Get redundancy settings
+    redundancy_copies = Keyword.get(opts, :redundancy_copies, get_redundancy_copies())
+    priority_buckets = Keyword.get(opts, :priority_buckets, [])
+    _generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
 
-      # Select buckets for storage
-      buckets = select_buckets_for_storage(redundancy_copies, priority_buckets)
+    # Select buckets for storage
+    buckets = select_buckets_for_storage(redundancy_copies, priority_buckets)
 
-      if Enum.empty?(buckets) do
-        {:error, "No available storage buckets"}
-      else
-        # Store file across selected buckets
-        store_across_buckets(source_path, buckets, opts)
-      end
-    rescue
-      error -> {:error, "Error storing file: #{inspect(error)}"}
+    if Enum.empty?(buckets) do
+      {:error, "No available storage buckets"}
+    else
+      # Store file across selected buckets
+      store_across_buckets(source_path, buckets, opts)
     end
+  rescue
+    error -> {:error, "Error storing file: #{inspect(error)}"}
   end
 
   @doc """
@@ -114,32 +112,28 @@ defmodule PhoenixKit.Storage.Manager do
   # Private functions
 
   defp select_buckets_for_storage(redundancy_copies, priority_buckets) do
-    cond do
-      not Enum.empty?(priority_buckets) ->
-        # Use specified buckets
-        get_enabled_buckets()
-        |> Enum.filter(&(&1.id in priority_buckets))
-        |> Enum.take(redundancy_copies)
-
-      true ->
-        # Auto-select buckets based on priority and available space
-        get_enabled_buckets()
-        |> Enum.sort_by(&bucket_priority/1)
-        |> Enum.take(redundancy_copies)
+    if Enum.empty?(priority_buckets) do
+      # Auto-select buckets based on priority and available space
+      get_enabled_buckets()
+      |> Enum.sort_by(&bucket_priority/1)
+      |> Enum.take(redundancy_copies)
+    else
+      # Use specified buckets
+      get_enabled_buckets()
+      |> Enum.filter(&(&1.id in priority_buckets))
+      |> Enum.take(redundancy_copies)
     end
   end
 
   defp select_buckets_for_retrieval(priority_buckets) do
-    cond do
-      not Enum.empty?(priority_buckets) ->
-        # Use specified buckets
-        get_enabled_buckets()
-        |> Enum.filter(&(&1.id in priority_buckets))
-
-      true ->
-        # Use all enabled buckets ordered by priority (simple sort, no usage calculation needed for retrieval)
-        get_enabled_buckets()
-        |> Enum.sort_by(& &1.priority)
+    if Enum.empty?(priority_buckets) do
+      # Use all enabled buckets ordered by priority (simple sort, no usage calculation needed for retrieval)
+      get_enabled_buckets()
+      |> Enum.sort_by(& &1.priority)
+    else
+      # Use specified buckets
+      get_enabled_buckets()
+      |> Enum.filter(&(&1.id in priority_buckets))
     end
   end
 
@@ -196,18 +190,16 @@ defmodule PhoenixKit.Storage.Manager do
   end
 
   defp bucket_priority(bucket) do
-    cond do
-      bucket.priority == 0 ->
-        # Random priority - use available space as tiebreaker
-        used_space = PhoenixKit.Storage.calculate_bucket_usage(bucket.id)
-        # Large default
-        max_space = bucket.max_size_mb || 1_000_000
-        free_space_ratio = (max_space - used_space) / max_space
-        # Negative for descending sort
-        {0, -free_space_ratio}
-
-      true ->
-        {bucket.priority, 0}
+    if bucket.priority == 0 do
+      # Random priority - use available space as tiebreaker
+      used_space = PhoenixKit.Storage.calculate_bucket_usage(bucket.id)
+      # Large default
+      max_space = bucket.max_size_mb || 1_000_000
+      free_space_ratio = (max_space - used_space) / max_space
+      # Negative for descending sort
+      {0, -free_space_ratio}
+    else
+      {bucket.priority, 0}
     end
   end
 

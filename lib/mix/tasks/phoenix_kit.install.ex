@@ -55,6 +55,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       LayoutConfig,
       MailerConfig,
       MigrationStrategy,
+      OAuthConfig,
       RepoDetection,
       RouterIntegration
     }
@@ -89,6 +90,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       igniter
       |> RepoDetection.add_phoenix_kit_configuration(opts[:repo])
       |> MailerConfig.add_mailer_configuration()
+      |> OAuthConfig.add_oauth_configuration()
       |> ApplicationSupervisor.add_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()

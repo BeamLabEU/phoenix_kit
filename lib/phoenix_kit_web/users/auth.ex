@@ -804,10 +804,11 @@ defmodule PhoenixKitWeb.Users.Auth do
   def validate_and_set_locale(conn, _opts) do
     case conn.path_params do
       %{"locale" => locale} when is_binary(locale) ->
-        enabled_locales = Languages.enabled_locale_codes()
-
-        if locale in enabled_locales do
-          # Valid locale - set it and continue
+        # Accept any valid predefined language code
+        # get_predefined_language() checks the static list of 80+ languages
+        # regardless of whether the Language Module is enabled
+        if Languages.get_predefined_language(locale) do
+          # Valid language - set it and continue
           Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
           assign(conn, :current_locale, locale)
         else

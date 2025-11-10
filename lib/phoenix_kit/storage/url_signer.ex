@@ -1,6 +1,8 @@
 defmodule PhoenixKit.Storage.URLSigner do
   import Bitwise
 
+  alias PhoenixKit.Utils.Routes
+
   @moduledoc """
   Token-based URL signing for secure file serving.
 
@@ -41,16 +43,17 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   ## Returns
 
-  A relative URL path: `/file/{file_id}/{instance_name}/{token}`
+  A relative URL path with prefix: `{url_prefix}/file/{file_id}/{instance_name}/{token}`
 
   ## Examples
 
       iex> PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
-      "/file/018e3c4a-9f6b-7890/thumbnail/abc1"
+      "/phoenix_kit/file/018e3c4a-9f6b-7890/thumbnail/abc1"  # With default prefix
   """
   def signed_url(file_id, instance_name) when is_binary(file_id) and is_binary(instance_name) do
     token = generate_token(file_id, instance_name)
-    "/file/#{file_id}/#{instance_name}/#{token}"
+    file_path = "/file/#{file_id}/#{instance_name}/#{token}"
+    Routes.path(file_path)
   end
 
   @doc """
@@ -153,23 +156,20 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   defp find_endpoint_module do
     # Get all loaded modules and find an Endpoint module
-    case :code.all_loaded() do
-      modules when is_list(modules) ->
-        Enum.find_value(modules, fn {module, _path} ->
-          module_name = module |> to_string()
+    # :code.all_loaded() always returns a list, so no need for catch-all pattern
+    modules = :code.all_loaded()
 
-          if String.ends_with?(module_name, "Endpoint") do
-            try do
-              module.config(:secret_key_base)
-            rescue
-              _ -> nil
-            end
-          end
-        end)
+    Enum.find_value(modules, fn {module, _path} ->
+      module_name = module |> to_string()
 
-      _ ->
-        nil
-    end
+      if String.ends_with?(module_name, "Endpoint") do
+        try do
+          module.config(:secret_key_base)
+        rescue
+          _ -> nil
+        end
+      end
+    end)
   end
 
   defp secure_compare(string1, string2) when is_binary(string1) and is_binary(string2) do

@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Settings
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Utils.Routes
 
@@ -212,60 +213,52 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
-    # Only show if languages are enabled and there are enabled languages
-    if Languages.enabled?() do
-      enabled_languages = Languages.get_enabled_languages()
+    # Get admin languages from settings (separate from the language module)
+    admin_languages = get_admin_languages()
 
-      if length(enabled_languages) > 1 do
-        current_language =
-          Enum.find(enabled_languages, &(&1["code"] == assigns.current_locale)) ||
-            %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
+    current_language =
+      Enum.find(admin_languages, &(&1["code"] == assigns.current_locale)) ||
+        %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
 
-        assigns =
-          assigns
-          |> assign(:enabled_languages, enabled_languages)
-          |> assign(:current_language, current_language)
+    assigns =
+      assigns
+      |> assign(:enabled_languages, admin_languages)
+      |> assign(:current_language, current_language)
 
-        ~H"""
-        <div class="relative" data-language-dropdown>
-          <details class="dropdown dropdown-end dropdown-bottom" id="language-dropdown">
-            <summary class="btn btn-sm btn-ghost btn-circle">
-              <.icon name="hero-globe-alt" class="w-5 h-5" />
-            </summary>
-            <ul
-              class="dropdown-content w-52 rounded-box border border-base-200 bg-base-100 p-2 shadow-xl z-[60] mt-2 list-none space-y-1"
-              tabindex="0"
-              phx-click-away={JS.remove_attribute("open", to: "#language-dropdown")}
-            >
-              <%= for language <- @enabled_languages do %>
-                <li class="w-full">
-                  <a
-                    href={generate_language_switch_url(@current_path, language["code"])}
-                    class={[
-                      "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
-                      if(language["code"] == @current_locale, do: "bg-base-200", else: "")
-                    ]}
-                  >
-                    <span class="text-lg">{get_language_flag(language["code"])}</span>
-                    <span class="flex-1 text-left font-medium text-base-content">
-                      {language["name"]}
-                    </span>
-                    <%= if language["code"] == @current_locale do %>
-                      <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
-                    <% end %>
-                  </a>
-                </li>
-              <% end %>
-            </ul>
-          </details>
-        </div>
-        """
-      else
-        ~H""
-      end
-    else
-      ~H""
-    end
+    ~H"""
+    <div class="relative" data-language-dropdown>
+      <details class="dropdown dropdown-end dropdown-bottom" id="language-dropdown">
+        <summary class="btn btn-sm btn-ghost btn-circle">
+          <.icon name="hero-globe-alt" class="w-5 h-5" />
+        </summary>
+        <ul
+          class="dropdown-content w-52 rounded-box border border-base-200 bg-base-100 p-2 shadow-xl z-[60] mt-2 list-none space-y-1"
+          tabindex="0"
+          phx-click-away={JS.remove_attribute("open", to: "#language-dropdown")}
+        >
+          <%= for language <- @enabled_languages do %>
+            <li class="w-full">
+              <a
+                href={generate_language_switch_url(@current_path, language["code"])}
+                class={[
+                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
+                  if(language["code"] == @current_locale, do: "bg-base-200", else: "")
+                ]}
+              >
+                <span class="text-lg">{get_language_flag(language["code"])}</span>
+                <span class="flex-1 text-left font-medium text-base-content">
+                  {language["name"]}
+                </span>
+                <%= if language["code"] == @current_locale do %>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
+                <% end %>
+              </a>
+            </li>
+          <% end %>
+        </ul>
+      </details>
+    </div>
+    """
   end
 
   @doc """
@@ -327,33 +320,31 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             </.link>
           </li>
 
-          <%!-- Language Switcher --%>
-          <%= if Languages.enabled?() do %>
-            <% enabled_languages = Languages.get_enabled_languages() %>
-            <%= if length(enabled_languages) > 0 do %>
-              <div class="divider my-0"></div>
+          <%!-- Language Switcher (Admin Languages) --%>
+          <% admin_languages = get_admin_languages() %>
+          <%= if length(admin_languages) > 0 do %>
+            <div class="divider my-0"></div>
 
-              <li class="menu-title px-4 py-1">
-                <span class="text-xs">Language</span>
+            <li class="menu-title px-4 py-1">
+              <span class="text-xs">Language</span>
+            </li>
+
+            <%= for language <- admin_languages do %>
+              <li>
+                <a
+                  href={generate_language_switch_url(@current_path, language["code"])}
+                  class={[
+                    "flex items-center gap-3",
+                    if(language["code"] == @current_locale, do: "active", else: "")
+                  ]}
+                >
+                  <span class="text-lg">{get_language_flag(language["code"])}</span>
+                  <span>{language["name"]}</span>
+                  <%= if language["code"] == @current_locale do %>
+                    <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
+                  <% end %>
+                </a>
               </li>
-
-              <%= for language <- enabled_languages do %>
-                <li>
-                  <a
-                    href={generate_language_switch_url(@current_path, language["code"])}
-                    class={[
-                      "flex items-center gap-3",
-                      if(language["code"] == @current_locale, do: "active", else: "")
-                    ]}
-                  >
-                    <span class="text-lg">{get_language_flag(language["code"])}</span>
-                    <span>{language["name"]}</span>
-                    <%= if language["code"] == @current_locale do %>
-                      <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
-                    <% end %>
-                  </a>
-                </li>
-              <% end %>
             <% end %>
           <% end %>
 
@@ -543,27 +534,50 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     String.length(locale) in 2..5 and Regex.match?(~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/, locale)
   end
 
+  # Helper function to get admin languages from settings
+  defp get_admin_languages do
+    admin_languages_json =
+      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+
+    languages =
+      case Jason.decode(admin_languages_json) do
+        {:ok, codes} when is_list(codes) -> codes
+        _ -> ["en", "ru", "es"]
+      end
+
+    # Map language codes to language details
+    languages
+    |> Enum.map(fn code ->
+      case Languages.get_predefined_language(code) do
+        %{name: name, flag: flag, native: native} ->
+          %{"code" => code, "name" => name, "flag" => flag, "native" => native}
+
+        nil ->
+          %{"code" => code, "name" => String.upcase(code), "flag" => "🌐", "native" => ""}
+      end
+    end)
+  end
+
   # Helper function to get language flag emoji
-  defp get_language_flag(code) do
-    case code do
-      "en" -> "🇺🇸"
-      "es" -> "🇪🇸"
-      "fr" -> "🇫🇷"
-      "de" -> "🇩🇪"
-      "pt" -> "🇵🇹"
-      "it" -> "🇮🇹"
-      "nl" -> "🇳🇱"
-      "ru" -> "🇷🇺"
-      "zh-CN" -> "🇨🇳"
-      "ja" -> "🇯🇵"
-      _ -> "🌐"
+  defp get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
     end
   end
 
   # Helper function to generate language switch URL
+  # This function handles both admin and frontend language switchers
   defp generate_language_switch_url(current_path, new_locale) do
-    # Get actual enabled language codes to properly detect locale prefixes
-    enabled_language_codes = Languages.get_enabled_language_codes()
+    # Get valid language codes from both admin and frontend systems
+    admin_languages = get_admin_languages()
+    admin_language_codes = Enum.map(admin_languages, & &1["code"])
+
+    # Get frontend language codes from the Language Module
+    frontend_language_codes = Languages.enabled_locale_codes()
+
+    # Accept language if it's valid in EITHER admin or frontend
+    valid_language_codes = (admin_language_codes ++ frontend_language_codes) |> Enum.uniq()
 
     # Remove PhoenixKit prefix if present
     normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
@@ -572,7 +586,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     clean_path =
       case String.split(normalized_path, "/", parts: 3) do
         ["", potential_locale, rest] ->
-          if potential_locale in enabled_language_codes do
+          if potential_locale in valid_language_codes do
             "/" <> rest
           else
             normalized_path

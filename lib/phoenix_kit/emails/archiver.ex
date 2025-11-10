@@ -72,8 +72,8 @@ defmodule PhoenixKit.Emails.Archiver do
   """
 
   require Logger
-  alias PhoenixKit.Settings
   alias PhoenixKit.Emails.{Event, Log}
+  alias PhoenixKit.Settings
   import Ecto.Query
 
   ## --- Body Compression ---

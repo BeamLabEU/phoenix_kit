@@ -19,7 +19,7 @@
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Content Overview")}</h1>
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Blogging")}</h1>
         <p class="text-lg text-base-content">
           {gettext(
             "Monitor publishing activity, jump into blog workspaces, and guide your team toward new content opportunities."
@@ -183,10 +183,15 @@
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
-                    {gettext("Admin")}
+                    {gettext("Open")}
                   </.link>
                   <.link
-                    navigate={Routes.path("/admin/settings/blogging", locale: @current_locale)}
+                    navigate={
+                      Routes.path(
+                        "/admin/settings/blogging/#{insight.slug}/edit",
+                        locale: @current_locale
+                      )
+                    }
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
@@ -196,7 +201,6 @@
                   <% url_prefix =
                     PhoenixKit.Config.get_url_prefix()
                     |> case do
-                      nil -> ""
                       "/" -> ""
                       prefix -> prefix
                     end %>

@@ -46,30 +46,28 @@ defmodule PhoenixKit.Storage.ImageProcessor do
   - `{:error, reason}` - If extraction fails
   """
   def extract_dimensions(file_path) do
-    try do
-      case System.cmd("identify", ["-format", "%wx%h", file_path], stderr_to_stdout: true) do
-        {output, 0} ->
-          case String.split(String.trim(output), "x") do
-            [width_str, height_str] ->
-              case {Integer.parse(width_str), Integer.parse(height_str)} do
-                {{width, ""}, {height, ""}} ->
-                  {:ok, {width, height}}
+    case System.cmd("identify", ["-format", "%wx%h", file_path], stderr_to_stdout: true) do
+      {output, 0} ->
+        case String.split(String.trim(output), "x") do
+          [width_str, height_str] ->
+            case {Integer.parse(width_str), Integer.parse(height_str)} do
+              {{width, ""}, {height, ""}} ->
+                {:ok, {width, height}}
 
-                _ ->
-                  {:error, "Failed to parse dimensions: #{output}"}
-              end
+              _ ->
+                {:error, "Failed to parse dimensions: #{output}"}
+            end
 
-            _ ->
-              {:error, "Invalid dimension format: #{output}"}
-          end
+          _ ->
+            {:error, "Invalid dimension format: #{output}"}
+        end
 
-        {output, exit_code} ->
-          {:error, "identify failed with exit code #{exit_code}: #{output}"}
-      end
-    rescue
-      e ->
-        {:error, "Failed to extract dimensions: #{inspect(e)}"}
+      {output, exit_code} ->
+        {:error, "identify failed with exit code #{exit_code}: #{output}"}
     end
+  rescue
+    e ->
+      {:error, "Failed to extract dimensions: #{inspect(e)}"}
   end
 
   @doc """
@@ -95,38 +93,36 @@ defmodule PhoenixKit.Storage.ImageProcessor do
     quality = Keyword.get(opts, :quality, 85)
     format = Keyword.get(opts, :format, nil)
 
-    try do
-      # Extract current dimensions
-      case extract_dimensions(input_path) do
-        {:ok, {current_width, current_height}} ->
-          # Calculate resize parameters
-          resize_spec = calculate_resize_spec(current_width, current_height, width, height)
+    # Extract current dimensions
+    case extract_dimensions(input_path) do
+      {:ok, {current_width, current_height}} ->
+        # Calculate resize parameters
+        resize_spec = calculate_resize_spec(current_width, current_height, width, height)
 
-          # Build ImageMagick convert command
-          args = build_convert_args(input_path, output_path, resize_spec, quality, format)
+        # Build ImageMagick convert command
+        args = build_convert_args(input_path, output_path, resize_spec, quality, format)
 
-          Logger.info(
-            "Resizing image: #{input_path} -> #{output_path}, resize spec: #{resize_spec}"
-          )
+        Logger.info(
+          "Resizing image: #{input_path} -> #{output_path}, resize spec: #{resize_spec}"
+        )
 
-          case System.cmd("convert", args, stderr_to_stdout: true) do
-            {_output, 0} ->
-              Logger.info("Successfully resized image to #{output_path}")
-              {:ok, output_path}
+        case System.cmd("convert", args, stderr_to_stdout: true) do
+          {_output, 0} ->
+            Logger.info("Successfully resized image to #{output_path}")
+            {:ok, output_path}
 
-            {output, exit_code} ->
-              Logger.error("convert failed with exit code #{exit_code}: #{output}")
-              {:error, "ImageMagick convert failed: #{output}"}
-          end
+          {output, exit_code} ->
+            Logger.error("convert failed with exit code #{exit_code}: #{output}")
+            {:error, "ImageMagick convert failed: #{output}"}
+        end
 
-        {:error, reason} ->
-          {:error, "Failed to extract image dimensions: #{reason}"}
-      end
-    rescue
-      e ->
-        Logger.error("Image resize failed: #{inspect(e)}")
-        {:error, "Image resize failed: #{inspect(e)}"}
+      {:error, reason} ->
+        {:error, "Failed to extract image dimensions: #{reason}"}
     end
+  rescue
+    e ->
+      Logger.error("Image resize failed: #{inspect(e)}")
+      {:error, "Image resize failed: #{inspect(e)}"}
   end
 
   @doc """
@@ -166,38 +162,36 @@ defmodule PhoenixKit.Storage.ImageProcessor do
     if is_nil(width) or is_nil(height) do
       {:error, "Both width and height are required for center-crop resizing"}
     else
-      try do
-        Logger.info(
-          "Center-cropping image: #{input_path} -> #{output_path}, target: #{width}x#{height}"
+      Logger.info(
+        "Center-cropping image: #{input_path} -> #{output_path}, target: #{width}x#{height}"
+      )
+
+      # Build ImageMagick convert command for center-crop
+      args =
+        build_center_crop_args(
+          input_path,
+          output_path,
+          width,
+          height,
+          quality,
+          format,
+          background
         )
 
-        # Build ImageMagick convert command for center-crop
-        args =
-          build_center_crop_args(
-            input_path,
-            output_path,
-            width,
-            height,
-            quality,
-            format,
-            background
-          )
+      case System.cmd("convert", args, stderr_to_stdout: true) do
+        {_output, 0} ->
+          Logger.info("Successfully center-cropped image to #{output_path}")
+          {:ok, output_path}
 
-        case System.cmd("convert", args, stderr_to_stdout: true) do
-          {_output, 0} ->
-            Logger.info("Successfully center-cropped image to #{output_path}")
-            {:ok, output_path}
-
-          {output, exit_code} ->
-            Logger.error("convert failed with exit code #{exit_code}: #{output}")
-            {:error, "ImageMagick convert failed: #{output}"}
-        end
-      rescue
-        e ->
-          Logger.error("Image center-crop failed: #{inspect(e)}")
-          {:error, "Image center-crop failed: #{inspect(e)}"}
+        {output, exit_code} ->
+          Logger.error("convert failed with exit code #{exit_code}: #{output}")
+          {:error, "ImageMagick convert failed: #{output}"}
       end
     end
+  rescue
+    e ->
+      Logger.error("Image center-crop failed: #{inspect(e)}")
+      {:error, "Image center-crop failed: #{inspect(e)}"}
   end
 
   # Private functions

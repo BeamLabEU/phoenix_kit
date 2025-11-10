@@ -20,23 +20,13 @@
           Upload images, videos, or PDFs. Files are automatically processed and optimized.
         </p>
 
-        <form phx-submit="upload">
-          <.file_upload
-            upload={@uploads.media_files}
-            label="Upload Media Files"
-            icon="hero-cloud-arrow-up"
-            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
-            max_size_description="100MB per file"
-          />
-
-          <button
-            type="submit"
-            class="btn btn-primary mt-4"
-            disabled={length(@uploads.media_files.entries) == 0}
-          >
-            <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
-          </button>
-        </form>
+        <.file_upload
+          upload={@uploads.media_files}
+          label="Upload Media Files"
+          icon="hero-cloud-arrow-up"
+          accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+          max_size_description="100MB per file"
+        />
       </div>
     </div>
 
@@ -44,13 +34,23 @@
     <dialog id="image-modal" class="modal">
       <div class="modal-box max-w-4xl">
         <%!-- Large Image Preview --%>
-        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4">
+        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4 relative min-h-96">
           <img
             id="modal-image"
             src=""
             alt="Image preview"
             class="max-h-96 w-auto rounded"
+            onerror="this.style.display='none'; document.getElementById('modal-image-error').style.display='flex';"
           />
+          <div
+            id="modal-image-error"
+            class="hidden flex-col items-center justify-center w-full h-full absolute inset-0"
+            style="display: none;"
+          >
+            <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
+            <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
+            <p class="text-sm text-base-content/70 mt-2">The image file could not be loaded</p>
+          </div>
         </figure>
 
         <%!-- File Info --%>
@@ -62,9 +62,9 @@
         </div>
 
         <%!-- Download Links --%>
-        <div class="space-y-2 mb-6">
+        <div class="mb-6">
           <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
-          <div id="modal-variants"></div>
+          <div id="modal-variants" class="flex gap-2 flex-wrap"></div>
         </div>
 
         <%!-- Close Button --%>
@@ -110,11 +110,16 @@
       function showImageModal(fileData) {
         const modal = document.getElementById('image-modal');
         const imageEl = document.getElementById('modal-image');
+        const imageErrorEl = document.getElementById('modal-image-error');
         const filenameEl = document.getElementById('modal-filename');
         const fileTypeEl = document.getElementById('modal-file-type');
         const statusEl = document.getElementById('modal-file-status');
         const sizeEl = document.getElementById('modal-file-size');
         const variantsEl = document.getElementById('modal-variants');
+
+        // Reset image error state
+        imageEl.style.display = 'block';
+        imageErrorEl.style.display = 'none';
 
         // Set image and basic info
         imageEl.src = fileData.urls.original || fileData.urls.medium || '';
@@ -132,22 +137,32 @@
 
         sizeEl.textContent = formatFileSize(fileData.size);
 
-        // Generate download links
-        variantsEl.innerHTML = Object.entries(fileData.urls)
-          .map(([variant, url]) => `
+        // Generate download links - sorted with original first
+        const variantOrder = ['original', 'large', 'medium', 'small', 'thumbnail'];
+        const sortedEntries = Object.entries(fileData.urls).sort(([a], [b]) => {
+          const aIndex = variantOrder.indexOf(a);
+          const bIndex = variantOrder.indexOf(b);
+          return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+        });
+
+        variantsEl.innerHTML = sortedEntries.map(([variant, url]) => {
+          const isOriginal = variant === 'original';
+          const buttonClass = isOriginal ? 'btn btn-md btn-primary' : 'btn btn-sm btn-outline';
+
+          return `
             <a
               href="${url}"
               target="_blank"
               rel="noopener noreferrer"
-              class="btn btn-sm btn-outline w-full justify-start"
+              class="${buttonClass}"
             >
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
               </svg>
               ${variant.charAt(0).toUpperCase() + variant.slice(1)}
             </a>
-          `)
-          .join('');
+          `;
+        }).join('');
 
         // Show modal
         modal.showModal();
@@ -166,15 +181,23 @@
     </script>
 
     <%!-- Uploaded Files --%>
-    <%= if length(@uploaded_files) > 0 do %>
+    <%= if @total_count > 0 do %>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-4">Uploaded Files ({length(@uploaded_files)})</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+            <.pagination_info
+              page={@current_page}
+              per_page={@per_page}
+              total_count={@total_count}
+            />
+          </div>
 
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
-              <div
-                class="relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/users/media/#{file.file_id}")}
+                class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                 data-file-id={file.file_id}
                 data-file-data={Jason.encode!(file)}
               >
@@ -183,10 +206,17 @@
                   <img
                     src={image_url}
                     alt={file.filename}
-                    class="w-full h-full object-cover pointer-events-none"
+                    class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
+                    onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                   />
+                  <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
+                    <div class="flex flex-col items-center justify-center">
+                      <.icon name="hero-photo" class="w-12 h-12 mb-2 text-error" />
+                      <p class="text-xs font-semibold">Image Missing</p>
+                    </div>
+                  </div>
                 <% else %>
-                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
+                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
                     <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
                     <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
                   </div>
@@ -196,9 +226,18 @@
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
                   {format_file_size(file.size)}
                 </div>
-              </div>
+              </.link>
             <% end %>
           </div>
+
+          <%!-- Pagination Controls --%>
+          <%= if @total_count > @per_page do %>
+            <.pagination
+              current_page={@current_page}
+              total_pages={@total_pages}
+              base_path={@url_path}
+            />
+          <% end %>
         </div>
       </div>
     <% else %>

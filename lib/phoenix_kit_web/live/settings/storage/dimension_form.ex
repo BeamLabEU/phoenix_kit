@@ -164,7 +164,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   defp render_error(changeset, field) do
     if Keyword.has_key?(changeset.errors, field) do
       errors =
-        Keyword.get_values(changeset.errors, field) |> Enum.map(&elem(&1, 0)) |> Enum.join(", ")
+        changeset.errors
+        |> Keyword.get_values(field)
+        |> Enum.map_join(", ", &extract_error_message/1)
 
       content = """
       <p class="mt-2 flex gap-2 text-sm text-error phx-no-feedback:hidden">
@@ -180,4 +182,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       ""
     end
   end
+
+  defp extract_error_message({message, _}), do: message
 end

@@ -102,6 +102,7 @@ defmodule PhoenixKit.MixProject do
       {:oban, "~> 2.20"},
 
       # AWS integration for emails
+      {:sweet_xml, "~> 0.7"},
       {:ex_aws, "~> 2.4"},
       {:ex_aws_sqs, "~> 3.4"},
       {:ex_aws_sns, "~> 2.3"},

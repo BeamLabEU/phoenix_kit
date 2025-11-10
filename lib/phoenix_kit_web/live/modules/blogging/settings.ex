@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -14,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
     blogs = Blogging.list_blogs()
+    languages_enabled = Languages.enabled?()
 
     socket =
       socket
@@ -23,6 +25,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
       |> assign(:current_path, Routes.path("/admin/settings/blogging", locale: locale))
       |> assign(:module_enabled, Blogging.enabled?())
       |> assign(:blogs, blogs)
+      |> assign(:languages_enabled, languages_enabled)
 
     {:ok, socket}
   end

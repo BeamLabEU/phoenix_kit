@@ -7,10 +7,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
-  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Storage.FileInstance
+  alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
@@ -25,38 +28,77 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         %{"project_title" => "PhoenixKit"}
       )
 
-    # Load existing files from database
-    existing_files = load_existing_files()
-
     socket =
       socket
       |> allow_upload(:media_files,
         accept: ["image/*", "video/*", "application/pdf"],
         max_entries: 10,
         max_file_size: 100_000_000,
-        auto_upload: false
+        auto_upload: true
       )
       |> assign(:page_title, "Media")
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
-      |> assign(:uploaded_files, existing_files)
 
     {:ok, socket}
   end
 
-  def handle_event("validate", _params, socket) do
-    # File validation event - called when files are selected
+  def handle_params(params, _uri, socket) do
+    # Pagination setup
+    per_page = 50
+    page = String.to_integer(params["page"] || "1")
+
+    # Load existing files from database with pagination
+    {existing_files, total_count} = load_existing_files(page, per_page)
+    total_pages = ceil(total_count / per_page)
+
+    socket =
+      socket
+      |> assign(:uploaded_files, existing_files)
+      |> assign(:current_page, page)
+      |> assign(:per_page, per_page)
+      |> assign(:total_pages, total_pages)
+      |> assign(:total_count, total_count)
+
     {:noreply, socket}
+  end
+
+  def handle_event("validate", _params, socket) do
+    # File selection event - files will auto-upload
+    entries = socket.assigns.uploads.media_files.entries
+    Logger.info("validate event: entries=#{length(entries)}")
+
+    if entries != [] do
+      Logger.info("validate: scheduling check_uploads_complete")
+      Process.send_after(self(), :check_uploads_complete, 500)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_info(:check_uploads_complete, socket) do
+    entries = socket.assigns.uploads.media_files.entries
+
+    Logger.info(
+      "check_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
+    )
+
+    # Check if all entries are done uploading
+    if entries != [] && Enum.all?(entries, & &1.done?) do
+      Logger.info("All uploads done! Processing...")
+      # All done - process them
+      process_uploads(socket)
+    else
+      # Still uploading - check again later
+      Logger.info("Still uploading, checking again...")
+      Process.send_after(self(), :check_uploads_complete, 500)
+      {:noreply, socket}
+    end
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :media_files, ref)}
-  end
-
-  def handle_event("upload", _params, socket) do
-    # Process uploaded files when user clicks upload button
-    process_uploads(socket)
   end
 
   defp process_uploads(socket) do
@@ -73,19 +115,26 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         user_id = if current_user, do: current_user.id, else: 1
 
         # Get file size
-        {:ok, stat} = File.stat(path)
+        {:ok, stat} = Elixir.File.stat(path)
         file_size = stat.size
 
         # Calculate hash
         file_hash = calculate_file_hash(path)
 
         # Store file in storage
-        case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
+        case PhoenixKit.Storage.store_file_in_buckets(
+               path,
+               file_type,
+               user_id,
+               file_hash,
+               ext,
+               entry.client_name
+             ) do
           {:ok, file} ->
             # Queue background job for processing
             _job =
               %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-              |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+              |> ProcessFileJob.new()
               |> Oban.insert()
 
             # Generate URLs for available variants (start with original)
@@ -103,14 +152,22 @@ defmodule PhoenixKitWeb.Live.Users.Media do
              }}
 
           {:error, reason} ->
-            IO.inspect(reason, label: "Storage Error")
+            Logger.error("Storage Error: #{inspect(reason)}")
             {:error, reason}
         end
       end)
 
+    # Reload paginated data from database to show newly uploaded files
+    per_page = socket.assigns.per_page || 50
+    page = socket.assigns.current_page || 1
+    {refreshed_files, total_count} = load_existing_files(page, per_page)
+    total_pages = ceil(total_count / per_page)
+
     socket =
       socket
-      |> assign(:uploaded_files, (socket.assigns.uploaded_files || []) ++ uploaded_files)
+      |> assign(:uploaded_files, refreshed_files)
+      |> assign(:total_count, total_count)
+      |> assign(:total_pages, total_pages)
       |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
 
     {:noreply, socket}
@@ -140,7 +197,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   defp calculate_file_hash(file_path) do
     file_path
-    |> File.read!()
+    |> Elixir.File.read!()
     |> then(fn data -> :crypto.hash(:sha256, data) end)
     |> Base.encode16(case: :lower)
   end
@@ -171,17 +228,24 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp file_icon("document"), do: "hero-document"
   defp file_icon(_), do: "hero-document-arrow-down"
 
-  # Load existing files from database
-  defp load_existing_files do
+  # Load existing files from database with pagination
+  defp load_existing_files(page, per_page) do
     import Ecto.Query
 
     repo = Application.get_env(:phoenix_kit, :repo)
 
-    # Query files ordered by most recent first
+    # Get total count
+    total_count = repo.aggregate(PhoenixKit.Storage.File, :count, :id)
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # Query files ordered by most recent first with pagination
     files =
       from(f in PhoenixKit.Storage.File,
         order_by: [desc: f.inserted_at],
-        limit: 50
+        limit: ^per_page,
+        offset: ^offset
       )
       |> repo.all()
 
@@ -189,27 +253,35 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     file_ids = Enum.map(files, & &1.id)
 
     instances_by_file =
-      from(fi in FileInstance,
-        where: fi.file_id in ^file_ids
-      )
-      |> repo.all()
-      |> Enum.group_by(& &1.file_id)
+      if file_ids != [] do
+        from(fi in FileInstance,
+          where: fi.file_id in ^file_ids
+        )
+        |> repo.all()
+        |> Enum.group_by(& &1.file_id)
+      else
+        %{}
+      end
 
     # Convert to same format as uploaded files
-    Enum.map(files, fn file ->
-      # Get pre-loaded instances for this file (no DB query!)
-      instances = Map.get(instances_by_file, file.id, [])
-      urls = generate_urls_from_instances(instances, file.id)
+    existing_files =
+      Enum.map(files, fn file ->
+        # Get pre-loaded instances for this file (no DB query!)
+        instances = Map.get(instances_by_file, file.id, [])
+        urls = generate_urls_from_instances(instances, file.id)
 
-      %{
-        file_id: file.id,
-        filename: file.original_file_name || "Unknown",
-        file_type: file.file_type,
-        mime_type: file.mime_type,
-        size: file.size || 0,
-        status: file.status,
-        urls: urls
-      }
-    end)
+        %{
+          file_id: file.id,
+          filename: file.original_file_name || file.file_name || "Unknown",
+          original_filename: file.original_file_name,
+          file_type: file.file_type,
+          mime_type: file.mime_type,
+          size: file.size || 0,
+          status: file.status,
+          urls: urls
+        }
+      end)
+
+    {existing_files, total_count}
   end
 end

@@ -7,9 +7,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
   alias PhoenixKit.System.Dependencies
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
     # Get current path for navigation
@@ -46,16 +49,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     imagemagick_status = Dependencies.check_imagemagick_cached()
     ffmpeg_status = Dependencies.check_ffmpeg_cached()
 
-    # Allow uploads - SUPER SIMPLE!
     socket =
       socket
-      |> allow_upload(:files,
-        accept: ["image/*", "video/*", "application/pdf"],
-        max_entries: 10,
-        max_file_size: 100_000_000,
-        # Manually upload on submit
-        auto_upload: false
-      )
       |> assign(:current_path, current_path)
       |> assign(:page_title, "Storage Settings")
       |> assign(:project_title, project_title)
@@ -68,7 +63,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)
       |> assign(:form_auto_generate_variants, form_auto_generate_variants)
-      |> assign(:uploaded_files, [])
       |> assign(:imagemagick_status, imagemagick_status)
       |> assign(:ffmpeg_status, ffmpeg_status)
 
@@ -261,77 +255,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
         socket = put_flash(socket, :error, "Failed to update default bucket")
         {:noreply, socket}
     end
-  end
-
-  def handle_event("validate", _params, socket) do
-    # Handle form validation - files are being validated on change
-    {:noreply, socket}
-  end
-
-  def handle_event("save", _params, socket) do
-    # Check if there are files selected in the browser
-    if socket.assigns.uploads.files.entries == [] do
-      {:noreply, put_flash(socket, :info, "No files selected")}
-    else
-      # consume_uploaded_entries will automatically upload the files first, then process them
-      uploaded_files =
-        consume_uploaded_entries(socket, :files, fn %{path: path}, entry ->
-          # Get file info
-          ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-          mime_type = entry.client_type || MIME.from_path(entry.client_name)
-          file_type = determine_file_type(mime_type)
-
-          # Get current user
-          current_user = socket.assigns.phoenix_kit_current_user
-          user_id = if current_user, do: current_user.id, else: 1
-
-          # Get file size
-          {:ok, stat} = File.stat(path)
-          file_size = stat.size
-
-          # Calculate hash
-          file_hash = calculate_file_hash(path)
-
-          # Store file in storage
-          case PhoenixKit.Storage.store_file_in_buckets(path, file_type, user_id, file_hash, ext) do
-            {:ok, file} ->
-              # Queue background job for processing
-              job =
-                %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-                |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
-                |> Oban.insert()
-
-              # Debug logging
-              IO.inspect(job, label: "Oban Job Inserted")
-
-              {:ok,
-               %{
-                 file_id: file.id,
-                 filename: entry.client_name,
-                 file_type: file_type,
-                 mime_type: mime_type,
-                 size: file_size,
-                 status: file.status,
-                 url: nil
-               }}
-
-            {:error, reason} ->
-              IO.inspect(reason, label: "Storage Error")
-              {:error, reason}
-          end
-        end)
-
-      socket =
-        socket
-        |> assign(:uploaded_files, uploaded_files)
-        |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
-
-      {:noreply, socket}
-    end
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :files, ref)}
   end
 
   defp calculate_file_hash(file_path) do

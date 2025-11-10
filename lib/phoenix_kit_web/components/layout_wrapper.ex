@@ -78,45 +78,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       |> assign_new(:content_language, fn ->
         PhoenixKit.Settings.get_content_language()
       end)
-      |> assign_new(:blogging_blogs, fn ->
-        if Blogging.enabled?() do
-          # Batch load blogging settings instead of separate queries
-          json_defaults = %{
-            "blogging_blogs" => nil,
-            "blogging_categories" => %{"types" => []}
-          }
-
-          json_settings =
-            PhoenixKit.Settings.get_json_settings_cached(
-              ["blogging_blogs", "blogging_categories"],
-              json_defaults
-            )
-
-          case json_settings["blogging_blogs"] do
-            %{"blogs" => blogs} when is_list(blogs) ->
-              normalize_blogs(blogs)
-
-            list when is_list(list) ->
-              normalize_blogs(list)
-
-            _ ->
-              legacy =
-                case json_settings["blogging_categories"] do
-                  %{"types" => types} when is_list(types) -> types
-                  other when is_list(other) -> other
-                  _ -> []
-                end
-
-              if legacy != [] do
-                PhoenixKit.Settings.update_json_setting("blogging_blogs", %{"blogs" => legacy})
-              end
-
-              normalize_blogs(legacy)
-          end
-        else
-          []
-        end
-      end)
+      |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
     assigns = normalize_content_assigns(assigns)
@@ -139,24 +101,34 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   # Normalize content assigns to handle both inner_content and inner_block
   defp normalize_content_assigns(assigns) do
-    # If we have inner_content but no inner_block, create inner_block from inner_content
-    if assigns[:inner_content] && (!assigns[:inner_block] || assigns[:inner_block] == []) do
-      inner_content = assigns[:inner_content]
-
-      # Create a synthetic inner_block slot
-      inner_block = [
-        %{
-          inner_block: fn _slot_assigns, _index ->
-            Phoenix.HTML.raw(inner_content)
-          end
-        }
-      ]
-
-      Map.put(assigns, :inner_block, inner_block)
+    if needs_inner_block_conversion?(assigns) do
+      convert_inner_content_to_block(assigns)
     else
-      # If we have inner_block but no inner_content, leave as is
       assigns
     end
+  end
+
+  defp needs_inner_block_conversion?(assigns) do
+    has_inner_content?(assigns) and not has_inner_block?(assigns)
+  end
+
+  defp has_inner_content?(assigns), do: assigns[:inner_content] != nil
+  defp has_inner_block?(assigns), do: assigns[:inner_block] && assigns[:inner_block] != []
+
+  defp convert_inner_content_to_block(assigns) do
+    inner_content = assigns[:inner_content]
+    inner_block = build_synthetic_inner_block(inner_content)
+    Map.put(assigns, :inner_block, inner_block)
+  end
+
+  defp build_synthetic_inner_block(inner_content) do
+    [
+      %{
+        inner_block: fn _slot_assigns, _index ->
+          Phoenix.HTML.raw(inner_content)
+        end
+      }
+    ]
   end
 
   # Check if current page is an admin page that needs navigation
@@ -430,7 +402,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="document"
                         label="Blogging"
                         current_path={@current_path || ""}
-                        disable_active={true}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
@@ -828,28 +799,39 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   # Check if a submenu should be open based on current path
   defp submenu_open?(current_path, paths) when is_binary(current_path) do
-    # Remove PhoenixKit prefix first
-    normalized_path = String.replace_prefix(current_path, "/phoenix_kit", "")
-
-    # Remove locale prefix (e.g., /es, /fr, etc.) - keep leading slash
-    normalized_path =
-      case String.split(normalized_path, "/", parts: 3) do
-        ["", locale, rest] when locale != "" and rest != "" ->
-          # Check if locale looks like a locale code (2-3 chars)
-          if String.length(locale) <= 3 do
-            "/" <> rest
-          else
-            normalized_path
-          end
-
-        _ ->
-          normalized_path
-      end
-
-    Enum.any?(paths, fn path -> String.starts_with?(normalized_path, path) end)
+    current_path
+    |> remove_phoenix_kit_prefix()
+    |> remove_locale_prefix()
+    |> path_matches_any?(paths)
   end
 
   defp submenu_open?(_, _), do: false
+
+  defp remove_phoenix_kit_prefix(path) do
+    url_prefix = Config.get_url_prefix()
+
+    if url_prefix == "/" do
+      path
+    else
+      String.replace_prefix(path, url_prefix, "")
+    end
+  end
+
+  defp remove_locale_prefix(path) do
+    case String.split(path, "/", parts: 3) do
+      ["", locale, rest] when locale != "" and rest != "" ->
+        if looks_like_locale?(locale), do: "/" <> rest, else: path
+
+      _ ->
+        path
+    end
+  end
+
+  defp looks_like_locale?(locale), do: String.length(locale) <= 3
+
+  defp path_matches_any?(normalized_path, paths) do
+    Enum.any?(paths, &String.starts_with?(normalized_path, &1))
+  end
 
   # Render with parent application layout (Phoenix v1.8+ function component approach)
   defp render_with_parent_layout(assigns, module, function) do
@@ -992,6 +974,57 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
+  # Load blogging blogs configuration with legacy migration support
+  defp load_blogging_blogs do
+    if Blogging.enabled?() do
+      json_defaults = %{
+        "blogging_blogs" => nil,
+        "blogging_categories" => %{"types" => []}
+      }
+
+      json_settings =
+        PhoenixKit.Settings.get_json_settings_cached(
+          ["blogging_blogs", "blogging_categories"],
+          json_defaults
+        )
+
+      extract_and_normalize_blogs(json_settings)
+    else
+      []
+    end
+  end
+
+  defp extract_and_normalize_blogs(json_settings) do
+    case json_settings["blogging_blogs"] do
+      %{"blogs" => blogs} when is_list(blogs) ->
+        normalize_blogs(blogs)
+
+      list when is_list(list) ->
+        normalize_blogs(list)
+
+      _ ->
+        handle_legacy_blogging_categories(json_settings)
+    end
+  end
+
+  defp handle_legacy_blogging_categories(json_settings) do
+    legacy =
+      case json_settings["blogging_categories"] do
+        %{"types" => types} when is_list(types) -> types
+        other when is_list(other) -> other
+        _ -> []
+      end
+
+    migrate_legacy_categories_if_present(legacy)
+    normalize_blogs(legacy)
+  end
+
+  defp migrate_legacy_categories_if_present([]), do: :ok
+
+  defp migrate_legacy_categories_if_present(legacy) do
+    PhoenixKit.Settings.update_json_setting("blogging_blogs", %{"blogs" => legacy})
+  end
+
   # Normalize blogs list to ensure consistent structure
   defp normalize_blogs(blogs) do
     blogs
@@ -1081,19 +1114,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   end
 
   # Used in HEEX template - compiler cannot detect usage
-  def get_language_flag(code) do
-    case code do
-      "en" -> "🇺🇸"
-      "es" -> "🇪🇸"
-      "fr" -> "🇫🇷"
-      "de" -> "🇩🇪"
-      "pt" -> "🇵🇹"
-      "it" -> "🇮🇹"
-      "nl" -> "🇳🇱"
-      "ru" -> "🇷🇺"
-      "zh-CN" -> "🇨🇳"
-      "ja" -> "🇯🇵"
-      _ -> "🌐"
+  def get_language_flag(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
     end
   end
 
