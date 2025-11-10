@@ -195,8 +195,9 @@
 
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
-              <div
-                class="relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/users/media/#{file.file_id}")}
+                class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                 data-file-id={file.file_id}
                 data-file-data={Jason.encode!(file)}
               >
@@ -205,7 +206,7 @@
                   <img
                     src={image_url}
                     alt={file.filename}
-                    class="w-full h-full object-cover pointer-events-none"
+                    class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
                     onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                   />
                   <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
@@ -215,7 +216,7 @@
                     </div>
                   </div>
                 <% else %>
-                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
+                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
                     <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
                     <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
                   </div>
@@ -225,7 +226,7 @@
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
                   {format_file_size(file.size)}
                 </div>
-              </div>
+              </.link>
             <% end %>
           </div>
 
