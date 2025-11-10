@@ -257,7 +257,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
-
   defp calculate_file_hash(file_path) do
     file_path
     |> File.read!()

@@ -157,9 +157,17 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         end
       end)
 
+    # Reload paginated data from database to show newly uploaded files
+    per_page = socket.assigns.per_page || 50
+    page = socket.assigns.current_page || 1
+    {refreshed_files, total_count} = load_existing_files(page, per_page)
+    total_pages = ceil(total_count / per_page)
+
     socket =
       socket
-      |> assign(:uploaded_files, (socket.assigns.uploaded_files || []) ++ uploaded_files)
+      |> assign(:uploaded_files, refreshed_files)
+      |> assign(:total_count, total_count)
+      |> assign(:total_pages, total_pages)
       |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
 
     {:noreply, socket}
