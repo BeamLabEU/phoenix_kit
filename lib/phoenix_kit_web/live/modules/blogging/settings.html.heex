@@ -38,7 +38,9 @@
             <p>
               {gettext("The default language for blog posts is set by the")}
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
+                navigate={
+                  PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)
+                }
                 class="link link-primary font-medium underline"
               >
                 {gettext("Content Language")}
@@ -48,7 +50,9 @@
                 {gettext("Available language variants are configured in the")}
                 <.link
                   navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/settings/languages", locale: @current_locale)
+                    PhoenixKit.Utils.Routes.path("/admin/settings/languages",
+                      locale: @current_locale
+                    )
                   }
                   class="link link-primary font-medium underline"
                 >
@@ -57,7 +61,9 @@
               <% else %>
                 {gettext("To enable multi-language support, activate the")}
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)}
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)
+                  }
                   class="link link-primary font-medium underline"
                 >
                   {gettext("Languages Module")}
