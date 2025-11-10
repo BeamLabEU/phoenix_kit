@@ -37,7 +37,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         accept: ["image/*", "video/*", "application/pdf"],
         max_entries: 10,
         max_file_size: 100_000_000,
-        auto_upload: false
+        auto_upload: true
       )
       |> assign(:page_title, "Media")
       |> assign(:project_title, settings["project_title"])
@@ -49,17 +49,37 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   def handle_event("validate", _params, socket) do
-    # File validation event - called when files are selected
+    # File selection event - files will auto-upload
+    entries = socket.assigns.uploads.media_files.entries
+    Logger.info("validate event: entries=#{length(entries)}")
+
+    if entries != [] do
+      Logger.info("validate: scheduling check_uploads_complete")
+      Process.send_after(self(), :check_uploads_complete, 500)
+    end
+
     {:noreply, socket}
+  end
+
+  def handle_info(:check_uploads_complete, socket) do
+    entries = socket.assigns.uploads.media_files.entries
+    Logger.info("check_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}")
+
+    # Check if all entries are done uploading
+    if entries != [] && Enum.all?(entries, & &1.done?) do
+      Logger.info("All uploads done! Processing...")
+      # All done - process them
+      process_uploads(socket)
+    else
+      # Still uploading - check again later
+      Logger.info("Still uploading, checking again...")
+      Process.send_after(self(), :check_uploads_complete, 500)
+      {:noreply, socket}
+    end
   end
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :media_files, ref)}
-  end
-
-  def handle_event("upload", _params, socket) do
-    # Process uploaded files when user clicks upload button
-    process_uploads(socket)
   end
 
   defp process_uploads(socket) do

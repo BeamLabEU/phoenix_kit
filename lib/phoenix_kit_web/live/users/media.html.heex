@@ -20,23 +20,13 @@
           Upload images, videos, or PDFs. Files are automatically processed and optimized.
         </p>
 
-        <form phx-submit="upload">
-          <.file_upload
-            upload={@uploads.media_files}
-            label="Upload Media Files"
-            icon="hero-cloud-arrow-up"
-            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
-            max_size_description="100MB per file"
-          />
-
-          <button
-            type="submit"
-            class="btn btn-primary mt-4"
-            disabled={length(@uploads.media_files.entries) == 0}
-          >
-            <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
-          </button>
-        </form>
+        <.file_upload
+          upload={@uploads.media_files}
+          label="Upload Media Files"
+          icon="hero-cloud-arrow-up"
+          accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+          max_size_description="100MB per file"
+        />
       </div>
     </div>
 
