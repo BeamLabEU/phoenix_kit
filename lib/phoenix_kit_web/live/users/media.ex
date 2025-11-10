@@ -77,6 +77,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :media_files, ref)}
+  end
+
   def handle_info(:check_uploads_complete, socket) do
     entries = socket.assigns.uploads.media_files.entries
 
@@ -95,10 +99,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       Process.send_after(self(), :check_uploads_complete, 500)
       {:noreply, socket}
     end
-  end
-
-  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
-    {:noreply, cancel_upload(socket, :media_files, ref)}
   end
 
   defp process_uploads(socket) do
