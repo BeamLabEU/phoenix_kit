@@ -1,3 +1,17 @@
+## 1.5.2 - 2025-11-10
+- Fix compilation warnings from clause grouping and unused functions
+- Resolve Dialyzer type errors in storage system
+- Remove problematic :disksup dependency
+- Admin Language switcher fix
+- Enhance blogging module with dynamic routing and improved UX 
+- Fixed language switcher for admin and front end
+- Fix Ueberauth configuration in install and update tasks
+- Updated language switcher to look more cleaner
+- Update dependencies to latest versions
+- Improve blogging module language routing and configuration UX
+- Upgraded the media page, storage settings update fix, Added media details page
+
+
 ## 1.5.1 - 2025-11-05
 
 ### Fixed
