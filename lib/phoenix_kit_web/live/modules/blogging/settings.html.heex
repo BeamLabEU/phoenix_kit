@@ -29,6 +29,45 @@
     </header>
 
     <div class="max-w-2xl mx-auto space-y-6">
+      <%!-- Language Configuration Information --%>
+      <div class="border-l-4 border-primary bg-base-200 p-4 rounded-r-lg">
+        <div class="flex gap-3">
+          <.icon name="hero-information-circle" class="w-5 h-5 shrink-0 text-primary" />
+          <div class="text-sm">
+            <p class="font-semibold mb-1">{gettext("Multi-Language Configuration")}</p>
+            <p>
+              {gettext("The default language for blog posts is set by the")}
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)}
+                class="link link-primary font-medium underline"
+              >
+                {gettext("Content Language")}
+              </.link>
+              {gettext("in General Settings.")}
+              <%= if @languages_enabled do %>
+                {gettext("Available language variants are configured in the")}
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/settings/languages", locale: @current_locale)
+                  }
+                  class="link link-primary font-medium underline"
+                >
+                  {gettext("Languages Module")}
+                </.link>.
+              <% else %>
+                {gettext("To enable multi-language support, activate the")}
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)}
+                  class="link link-primary font-medium underline"
+                >
+                  {gettext("Languages Module")}
+                </.link>.
+              <% end %>
+            </p>
+          </div>
+        </div>
+      </div>
+
       <%!-- Blogging Section --%>
       <div class="card bg-base-100 shadow-xl border border-base-200">
         <div class="card-body space-y-6">
