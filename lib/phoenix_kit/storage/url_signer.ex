@@ -1,6 +1,8 @@
 defmodule PhoenixKit.Storage.URLSigner do
   import Bitwise
 
+  alias PhoenixKit.Utils.Routes
+
   @moduledoc """
   Token-based URL signing for secure file serving.
 
@@ -51,7 +53,7 @@ defmodule PhoenixKit.Storage.URLSigner do
   def signed_url(file_id, instance_name) when is_binary(file_id) and is_binary(instance_name) do
     token = generate_token(file_id, instance_name)
     file_path = "/file/#{file_id}/#{instance_name}/#{token}"
-    PhoenixKit.Utils.Routes.path(file_path)
+    Routes.path(file_path)
   end
 
   @doc """

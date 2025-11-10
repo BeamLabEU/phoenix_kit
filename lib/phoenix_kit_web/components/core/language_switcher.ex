@@ -27,9 +27,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   use Phoenix.Component
 
+  alias Phoenix.LiveView.JS
   alias PhoenixKit.Module.Languages
   alias PhoenixKitWeb.Components.Core.Icon
-  alias Phoenix.LiveView.JS
 
   @doc """
   Renders a dropdown language switcher.
@@ -328,41 +328,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   end
 
   # Helper function to generate language switch URL
+  # Current implementation returns home page with new locale
+  # Future enhancement: parse current path and preserve it when available via assigns
   defp generate_language_url(_current_locale, new_locale) do
-    # Get current path and replace locale if present
-    # This is a simple implementation - you may need to adjust based on your routing
-    case get_current_path_from_assigns() do
-      nil ->
-        # Fallback if path is not available
-        "/"
-
-      current_path ->
-        # Remove PhoenixKit prefix if present
-        normalized_path = String.replace_prefix(current_path, "/phoenix_kit", "")
-
-        # Remove existing locale prefix if it matches a language code
-        clean_path =
-          case String.split(normalized_path, "/", parts: 3) do
-            ["", potential_locale, rest] ->
-              if Languages.valid_language?(potential_locale) do
-                "/" <> rest
-              else
-                normalized_path
-              end
-
-            _ ->
-              normalized_path
-          end
-
-        # Build new URL with new locale
-        "/#{new_locale}#{clean_path}"
-    end
-  end
-
-  # Helper to get current path - should be passed via socket assigns
-  defp get_current_path_from_assigns do
-    # This will be populated by the LiveView or template context
-    # For now, return nil - the actual path should be passed as an attribute
-    nil
+    "/#{new_locale}"
   end
 end

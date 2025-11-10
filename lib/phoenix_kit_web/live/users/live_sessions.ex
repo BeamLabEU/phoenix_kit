@@ -15,11 +15,11 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Utils.IpAddress
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Admin.{Events, Presence}
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.Routes
 
   # Refresh every 5 seconds
   @refresh_interval 5_000

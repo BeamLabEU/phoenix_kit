@@ -7,12 +7,12 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Utils.IpAddress
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Admin.{Events, Presence}
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.{Roles, Sessions}
+  alias PhoenixKit.Utils.IpAddress
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
     # Set locale for LiveView process - check params first, then socket assigns, then default

@@ -103,8 +103,8 @@ defmodule PhoenixKit.Emails.RateLimiter do
   - `PhoenixKit.Users.Auth` - User-based limits
   """
 
-  alias PhoenixKit.Settings
   alias PhoenixKit.Emails.{EmailBlocklist, Log}
+  alias PhoenixKit.Settings
   import Ecto.Query
 
   ## --- Rate Limit Checks ---

@@ -6,6 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   for creating timestamped markdown blog posts.
   """
 
+  alias PhoenixKit.Module.Languages
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
@@ -354,7 +355,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     # Get all available language codes dynamically from the language module
     language_codes =
       try do
-        PhoenixKit.Module.Languages.get_language_codes()
+        Languages.get_language_codes()
       rescue
         _ -> []
       end
