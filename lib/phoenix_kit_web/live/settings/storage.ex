@@ -10,7 +10,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   require Logger
 
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage.Workers.ProcessFileJob
   alias PhoenixKit.System.Dependencies
   alias PhoenixKit.Utils.Routes
 
@@ -257,22 +256,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
-  defp calculate_file_hash(file_path) do
-    file_path
-    |> File.read!()
-    |> then(fn data -> :crypto.hash(:sha256, data) end)
-    |> Base.encode16(case: :lower)
-  end
-
-  defp determine_file_type(mime_type) do
-    cond do
-      String.starts_with?(mime_type, "image/") -> "image"
-      String.starts_with?(mime_type, "video/") -> "video"
-      mime_type == "application/pdf" -> "document"
-      true -> "other"
-    end
-  end
-
   defp get_current_path(_socket, _session) do
     # For Storage settings page
     Routes.path("/admin/settings/storage")
@@ -297,21 +280,4 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
         "#{bucket.provider}: unknown configuration"
     end
   end
-
-  # Helper functions for template
-  defp format_bytes(bytes) when is_integer(bytes) do
-    if bytes < 1024 do
-      "#{bytes} B"
-    else
-      units = ["KB", "MB", "GB", "TB"]
-      {value, unit} = calculate_size(bytes, units)
-      "#{Float.round(value, 2)} #{unit}"
-    end
-  end
-
-  defp calculate_size(bytes, [_unit | rest]) when bytes >= 1024 and rest != [] do
-    calculate_size(bytes / 1024, rest)
-  end
-
-  defp calculate_size(bytes, [unit | _]), do: {bytes, unit}
 end
