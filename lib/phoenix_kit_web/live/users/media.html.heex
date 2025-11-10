@@ -20,23 +20,13 @@
           Upload images, videos, or PDFs. Files are automatically processed and optimized.
         </p>
 
-        <form phx-submit="upload">
-          <.file_upload
-            upload={@uploads.media_files}
-            label="Upload Media Files"
-            icon="hero-cloud-arrow-up"
-            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
-            max_size_description="100MB per file"
-          />
-
-          <button
-            type="submit"
-            class="btn btn-primary mt-4"
-            disabled={length(@uploads.media_files.entries) == 0}
-          >
-            <.icon name="hero-cloud-arrow-up" class="w-4 h-4 mr-2" /> Upload Files
-          </button>
-        </form>
+        <.file_upload
+          upload={@uploads.media_files}
+          label="Upload Media Files"
+          icon="hero-cloud-arrow-up"
+          accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+          max_size_description="100MB per file"
+        />
       </div>
     </div>
 
@@ -191,15 +181,23 @@
     </script>
 
     <%!-- Uploaded Files --%>
-    <%= if length(@uploaded_files) > 0 do %>
+    <%= if @total_count > 0 do %>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-4">Uploaded Files ({length(@uploaded_files)})</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+            <.pagination_info
+              page={@current_page}
+              per_page={@per_page}
+              total_count={@total_count}
+            />
+          </div>
 
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
-              <div
-                class="relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/users/media/#{file.file_id}")}
+                class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
                 data-file-id={file.file_id}
                 data-file-data={Jason.encode!(file)}
               >
@@ -208,7 +206,7 @@
                   <img
                     src={image_url}
                     alt={file.filename}
-                    class="w-full h-full object-cover pointer-events-none"
+                    class="w-full h-full object-cover pointer-events-none group-hover:opacity-75 transition-opacity"
                     onerror="this.parentElement.querySelector('.image-error-placeholder').style.display='grid';"
                   />
                   <div class="image-error-placeholder hidden absolute inset-0 bg-base-300 grid place-items-center text-base-content/50">
@@ -218,7 +216,7 @@
                     </div>
                   </div>
                 <% else %>
-                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50">
+                  <div class="flex flex-col items-center justify-center w-full h-full text-base-content/50 group-hover:bg-base-200 transition-colors">
                     <.icon name={file_icon(file.file_type)} class="w-12 h-12 mb-2" />
                     <p class="text-sm font-semibold">{String.upcase(file.file_type)}</p>
                   </div>
@@ -228,9 +226,18 @@
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
                   {format_file_size(file.size)}
                 </div>
-              </div>
+              </.link>
             <% end %>
           </div>
+
+          <%!-- Pagination Controls --%>
+          <%= if @total_count > @per_page do %>
+            <.pagination
+              current_page={@current_page}
+              total_pages={@total_pages}
+              base_path={@url_path}
+            />
+          <% end %>
         </div>
       </div>
     <% else %>

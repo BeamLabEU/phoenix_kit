@@ -285,6 +285,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
           live "/admin/users/media", Live.Users.Media, :index
+          live "/admin/users/media/:file_id", Live.Users.MediaDetail, :show
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -415,6 +416,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
           live "/admin/users/media", Live.Users.Media, :index
+          live "/admin/users/media/:file_id", Live.Users.MediaDetail, :show
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -451,6 +453,7 @@ defmodule PhoenixKitWeb.Integration do
                Live.Settings.Storage.DimensionForm,
                :edit
 
+          live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
           live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
@@ -512,8 +515,24 @@ defmodule PhoenixKitWeb.Integration do
       scope blog_scope_multi, PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        get "/:blog", BlogController, :show
-        get "/:blog/*path", BlogController, :show
+        # Exclude admin paths from blogging catch-all routes
+        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+      end
+
+      # Non-localized blog routes (for when url_prefix is "/")
+      blog_scope_non_localized =
+        case unquote(url_prefix) do
+          "/" -> "/"
+          prefix -> prefix
+        end
+
+      scope blog_scope_non_localized, PhoenixKitWeb do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        # Exclude admin paths from blogging catch-all routes
+        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
       end
 
       # Single-language blog routes without language prefix (for backward compatibility)

@@ -33,14 +33,14 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
   def file_upload(assigns) do
     ~H"""
     <div class="space-y-4">
-      <%!-- Upload Button and File Input --%>
-      <div class="flex items-center gap-3">
+      <%!-- Upload Form with phx-change on form not file input --%>
+      <form phx-change="validate" id={"upload-form-" <> @upload.ref}>
         <label for={@upload.ref} class="btn btn-primary cursor-pointer">
           <.icon name={@icon} class="w-4 h-4 mr-2" />
           {@label}
         </label>
-        <.live_file_input upload={@upload} class="hidden" phx-change="validate" />
-      </div>
+        <.live_file_input upload={@upload} class="hidden" />
+      </form>
 
       <%!-- File Type and Size Info --%>
       <%= if @accept_description != nil or @max_size_description != nil do %>
