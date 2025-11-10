@@ -28,9 +28,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         %{"project_title" => "PhoenixKit"}
       )
 
-    # Load existing files from database
-    existing_files = load_existing_files()
-
     socket =
       socket
       |> allow_upload(:media_files,
@@ -43,9 +40,28 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
-      |> assign(:uploaded_files, existing_files)
 
     {:ok, socket}
+  end
+
+  def handle_params(params, _uri, socket) do
+    # Pagination setup
+    per_page = 50
+    page = String.to_integer(params["page"] || "1")
+
+    # Load existing files from database with pagination
+    {existing_files, total_count} = load_existing_files(page, per_page)
+    total_pages = ceil(total_count / per_page)
+
+    socket =
+      socket
+      |> assign(:uploaded_files, existing_files)
+      |> assign(:current_page, page)
+      |> assign(:per_page, per_page)
+      |> assign(:total_pages, total_pages)
+      |> assign(:total_count, total_count)
+
+    {:noreply, socket}
   end
 
   def handle_event("validate", _params, socket) do
@@ -63,7 +79,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   def handle_info(:check_uploads_complete, socket) do
     entries = socket.assigns.uploads.media_files.entries
-    Logger.info("check_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}")
+
+    Logger.info(
+      "check_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
+    )
 
     # Check if all entries are done uploading
     if entries != [] && Enum.all?(entries, & &1.done?) do
@@ -201,17 +220,24 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   defp file_icon("document"), do: "hero-document"
   defp file_icon(_), do: "hero-document-arrow-down"
 
-  # Load existing files from database
-  defp load_existing_files do
+  # Load existing files from database with pagination
+  defp load_existing_files(page, per_page) do
     import Ecto.Query
 
     repo = Application.get_env(:phoenix_kit, :repo)
 
-    # Query files ordered by most recent first
+    # Get total count
+    total_count = repo.aggregate(PhoenixKit.Storage.File, :count, :id)
+
+    # Calculate offset
+    offset = (page - 1) * per_page
+
+    # Query files ordered by most recent first with pagination
     files =
       from(f in PhoenixKit.Storage.File,
         order_by: [desc: f.inserted_at],
-        limit: 50
+        limit: ^per_page,
+        offset: ^offset
       )
       |> repo.all()
 
@@ -219,28 +245,35 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     file_ids = Enum.map(files, & &1.id)
 
     instances_by_file =
-      from(fi in FileInstance,
-        where: fi.file_id in ^file_ids
-      )
-      |> repo.all()
-      |> Enum.group_by(& &1.file_id)
+      if file_ids != [] do
+        from(fi in FileInstance,
+          where: fi.file_id in ^file_ids
+        )
+        |> repo.all()
+        |> Enum.group_by(& &1.file_id)
+      else
+        %{}
+      end
 
     # Convert to same format as uploaded files
-    Enum.map(files, fn file ->
-      # Get pre-loaded instances for this file (no DB query!)
-      instances = Map.get(instances_by_file, file.id, [])
-      urls = generate_urls_from_instances(instances, file.id)
+    existing_files =
+      Enum.map(files, fn file ->
+        # Get pre-loaded instances for this file (no DB query!)
+        instances = Map.get(instances_by_file, file.id, [])
+        urls = generate_urls_from_instances(instances, file.id)
 
-      %{
-        file_id: file.id,
-        filename: file.original_file_name || file.file_name || "Unknown",
-        original_filename: file.original_file_name,
-        file_type: file.file_type,
-        mime_type: file.mime_type,
-        size: file.size || 0,
-        status: file.status,
-        urls: urls
-      }
-    end)
+        %{
+          file_id: file.id,
+          filename: file.original_file_name || file.file_name || "Unknown",
+          original_filename: file.original_file_name,
+          file_type: file.file_type,
+          mime_type: file.mime_type,
+          size: file.size || 0,
+          status: file.status,
+          urls: urls
+        }
+      end)
+
+    {existing_files, total_count}
   end
 end

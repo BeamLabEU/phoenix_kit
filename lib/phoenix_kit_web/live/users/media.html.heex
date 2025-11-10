@@ -181,10 +181,17 @@
     </script>
 
     <%!-- Uploaded Files --%>
-    <%= if length(@uploaded_files) > 0 do %>
+    <%= if @total_count > 0 do %>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-4">Uploaded Files ({length(@uploaded_files)})</h2>
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+            <.pagination_info
+              page={@current_page}
+              per_page={@per_page}
+              total_count={@total_count}
+            />
+          </div>
 
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
@@ -221,6 +228,15 @@
               </div>
             <% end %>
           </div>
+
+          <%!-- Pagination Controls --%>
+          <%= if @total_count > @per_page do %>
+            <.pagination
+              current_page={@current_page}
+              total_pages={@total_pages}
+              base_path={@url_path}
+            />
+          <% end %>
         </div>
       </div>
     <% else %>
