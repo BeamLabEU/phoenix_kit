@@ -1159,28 +1159,40 @@ defmodule PhoenixKit.EmailSystem.SQSProcessor do
 
   # Creates event record for bounce
   defp create_bounce_event(log, bounce_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "bounce",
-      event_data: bounce_data,
-      occurred_at: parse_timestamp(get_in(bounce_data, ["timestamp"])),
-      bounce_type: get_in(bounce_data, ["bounceType"])
-    }
+    # Check if bounce event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "bounce") do
+      Logger.debug("Bounce event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "bounce",
+        event_data: bounce_data,
+        occurred_at: parse_timestamp(get_in(bounce_data, ["timestamp"])),
+        bounce_type: get_in(bounce_data, ["bounceType"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Creates event record for complaint
   defp create_complaint_event(log, complaint_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "complaint",
-      event_data: complaint_data,
-      occurred_at: parse_timestamp(get_in(complaint_data, ["timestamp"])),
-      complaint_type: get_in(complaint_data, ["complaintFeedbackType"])
-    }
+    # Check if complaint event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "complaint") do
+      Logger.debug("Complaint event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "complaint",
+        event_data: complaint_data,
+        occurred_at: parse_timestamp(get_in(complaint_data, ["timestamp"])),
+        complaint_type: get_in(complaint_data, ["complaintFeedbackType"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Creates event record for open
@@ -1227,54 +1239,78 @@ defmodule PhoenixKit.EmailSystem.SQSProcessor do
 
   # Creates event record for reject
   defp create_reject_event(log, reject_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "reject",
-      event_data: reject_data,
-      occurred_at: parse_timestamp(get_in(reject_data, ["timestamp"])),
-      reject_reason: get_in(reject_data, ["reason"])
-    }
+    # Check if reject event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "reject") do
+      Logger.debug("Reject event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "reject",
+        event_data: reject_data,
+        occurred_at: parse_timestamp(get_in(reject_data, ["timestamp"])),
+        reject_reason: get_in(reject_data, ["reason"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Creates event record for delivery delay
   defp create_delivery_delay_event(log, delay_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "delivery_delay",
-      event_data: delay_data,
-      occurred_at: parse_timestamp(get_in(delay_data, ["timestamp"])),
-      delay_type: get_in(delay_data, ["delayType"])
-    }
+    # Check if delivery_delay event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "delivery_delay") do
+      Logger.debug("Delivery delay event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "delivery_delay",
+        event_data: delay_data,
+        occurred_at: parse_timestamp(get_in(delay_data, ["timestamp"])),
+        delay_type: get_in(delay_data, ["delayType"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Creates event record for subscription
   defp create_subscription_event(log, subscription_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "subscription",
-      event_data: subscription_data,
-      occurred_at: parse_timestamp(get_in(subscription_data, ["timestamp"])),
-      subscription_type: get_in(subscription_data, ["subscriptionType"])
-    }
+    # Check if subscription event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "subscription") do
+      Logger.debug("Subscription event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "subscription",
+        event_data: subscription_data,
+        occurred_at: parse_timestamp(get_in(subscription_data, ["timestamp"])),
+        subscription_type: get_in(subscription_data, ["subscriptionType"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Creates event record for rendering failure
   defp create_rendering_failure_event(log, failure_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "rendering_failure",
-      event_data: failure_data,
-      occurred_at: parse_timestamp(get_in(failure_data, ["timestamp"])),
-      failure_reason: get_in(failure_data, ["errorMessage"])
-    }
+    # Check if rendering_failure event already exists to prevent duplicates
+    if EmailEvent.event_exists?(log.id, "rendering_failure") do
+      Logger.debug("Rendering failure event already exists for email log #{log.id}, skipping")
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "rendering_failure",
+        event_data: failure_data,
+        occurred_at: parse_timestamp(get_in(failure_data, ["timestamp"])),
+        failure_reason: get_in(failure_data, ["errorMessage"])
+      }
 
-    PhoenixKit.EmailSystem.create_event(event_attrs)
+      PhoenixKit.EmailSystem.create_event(event_attrs)
+    end
   end
 
   # Parses timestamp string to DateTime

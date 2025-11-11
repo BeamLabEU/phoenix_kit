@@ -367,7 +367,7 @@ defmodule PhoenixKit.EmailSystem.RateLimiter do
 
       "bulk_sending" ->
         # Monitor closely but don't block yet
-        monitor_user(user_id, reason)
+        monitor_user(user_id, "bulk_sending", %{reason: reason, flagged_at: DateTime.utc_now()})
         :monitored
 
       _ ->
@@ -519,18 +519,80 @@ defmodule PhoenixKit.EmailSystem.RateLimiter do
 
   ## --- User Management Helpers ---
 
-  defp reduce_user_limits(_user_id, _reason) do
-    # Implementation would reduce limits for specific user
+  defp reduce_user_limits(user_id, reason) when is_integer(user_id) do
+    # Reduce sending limits for a user by setting temporary rate limit override
+    Logger.warning("Reducing rate limits for user #{user_id}: #{reason}")
+
+    # Store temporary limit reduction in Settings
+    # This allows us to dynamically adjust per-user limits
+    limit_key = "email_rate_limit_user_#{user_id}"
+    current_limit = Settings.get_integer_setting(limit_key, get_recipient_limit())
+
+    # Reduce limit by 50%
+    new_limit = max(div(current_limit, 2), 10)
+
+    Settings.set_setting(limit_key, to_string(new_limit))
+
+    # Set expiration for the limit reduction (24 hours from now)
+    expiry_key = "email_rate_limit_user_#{user_id}_expires"
+    expires_at = DateTime.add(DateTime.utc_now(), 86_400)
+    Settings.set_setting(expiry_key, DateTime.to_iso8601(expires_at))
+
+    Logger.info("Reduced rate limit for user #{user_id} from #{current_limit} to #{new_limit}")
     :ok
   end
 
-  defp block_user_emails(_user_id, _reason) do
-    # Implementation would block user's email addresses
-    :ok
+  defp block_user_emails(user_id, reason) when is_integer(user_id) do
+    # Block all email addresses associated with this user
+    Logger.warning("Blocking email addresses for user #{user_id}: #{reason}")
+
+    # Get user's email address
+    case PhoenixKit.Users.Auth.get_user(user_id) do
+      nil ->
+        Logger.error("Cannot block emails for non-existent user #{user_id}")
+        {:error, :user_not_found}
+
+      user ->
+        # Add user's email to blocklist with 7-day expiration
+        expires_at = DateTime.add(DateTime.utc_now(), 604_800)
+
+        case add_to_blocklist(user.email, reason,
+               expires_at: expires_at,
+               user_id: user_id
+             ) do
+          :ok ->
+            Logger.info("Blocked email address #{user.email} for user #{user_id}")
+            :ok
+
+          {:error, error} ->
+            Logger.error(
+              "Failed to block email address #{user.email} for user #{user_id}: #{inspect(error)}"
+            )
+
+            {:error, error}
+        end
+    end
   end
 
-  defp monitor_user(_user_id, _reason) do
-    # Implementation would add user to monitoring list
+  defp monitor_user(user_id, event_type, metadata \\ %{}) when is_integer(user_id) do
+    # Add user to monitoring list by tracking in a dedicated setting
+    Logger.info("Adding user #{user_id} to monitoring list: #{event_type}")
+
+    # Store monitoring record in Settings with timestamp
+    monitor_key = "email_monitor_user_#{user_id}_#{event_type}"
+
+    monitoring_data = %{
+      user_id: user_id,
+      event_type: event_type,
+      metadata: metadata,
+      started_at: DateTime.to_iso8601(DateTime.utc_now()),
+      # Monitor for 30 days
+      expires_at: DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), 2_592_000))
+    }
+
+    Settings.set_setting(monitor_key, Jason.encode!(monitoring_data))
+
+    Logger.info("User #{user_id} added to monitoring list for #{event_type}")
     :ok
   end
 

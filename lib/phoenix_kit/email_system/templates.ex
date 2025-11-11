@@ -328,6 +328,9 @@ defmodule PhoenixKit.EmailSystem.Templates do
   Returns a map with `:subject`, `:html_body`, and `:text_body` keys containing
   the rendered content with variables substituted.
 
+  Validates that all required variables are provided and logs warnings for
+  missing variables or unreplaced placeholders.
+
   ## Examples
 
       iex> Templates.render_template(template, %{"user_name" => "John"})
@@ -339,7 +342,41 @@ defmodule PhoenixKit.EmailSystem.Templates do
 
   """
   def render_template(%EmailTemplate{} = template, variables \\ %{}) do
+    # Extract required variables from template
+    required_vars = extract_required_variables(template)
+    provided_vars = Map.keys(variables)
+
+    # Find missing variables
+    missing_vars = required_vars -- provided_vars
+
+    # Log warning if variables are missing
+    if missing_vars != [] do
+      Logger.warning("Template '#{template.name}' missing variables: #{inspect(missing_vars)}", %{
+        template_id: template.id,
+        template_name: template.name,
+        missing_variables: missing_vars,
+        provided_variables: provided_vars
+      })
+    end
+
+    # Find extra variables that aren't used
+    extra_vars = provided_vars -- required_vars
+
+    if extra_vars != [] do
+      Logger.debug("Template '#{template.name}' received unused variables: #{inspect(extra_vars)}",
+        %{
+          template_id: template.id,
+          template_name: template.name,
+          extra_variables: extra_vars
+        }
+      )
+    end
+
+    # Render template with variable substitution
     rendered_template = EmailTemplate.substitute_variables(template, variables)
+
+    # Check for unreplaced variables in the rendered output
+    validate_rendered_content(rendered_template, template.name)
 
     %{
       subject: rendered_template.subject,
@@ -347,6 +384,55 @@ defmodule PhoenixKit.EmailSystem.Templates do
       text_body: rendered_template.text_body
     }
   end
+
+  # Extract all variable names from template content
+  defp extract_required_variables(%EmailTemplate{} = template) do
+    # If template has explicit variables metadata, use that
+    if template.variables && map_size(template.variables) > 0 do
+      Map.keys(template.variables)
+    else
+      # Otherwise, extract from template content
+      all_content = "#{template.subject} #{template.html_body} #{template.text_body}"
+
+      # Match {{variable_name}} patterns
+      Regex.scan(~r/\{\{([^}]+)\}\}/, all_content)
+      |> Enum.map(fn [_, var_name] -> String.trim(var_name) end)
+      |> Enum.uniq()
+    end
+  end
+
+  # Validate that rendered content doesn't have unreplaced variables
+  defp validate_rendered_content(rendered_template, template_name) do
+    unreplaced_in_subject = extract_unreplaced_vars(rendered_template.subject)
+    unreplaced_in_html = extract_unreplaced_vars(rendered_template.html_body)
+    unreplaced_in_text = extract_unreplaced_vars(rendered_template.text_body)
+
+    all_unreplaced = Enum.uniq(unreplaced_in_subject ++ unreplaced_in_html ++ unreplaced_in_text)
+
+    if all_unreplaced != [] do
+      Logger.warning(
+        "Template '#{template_name}' contains unreplaced variables: #{inspect(all_unreplaced)}",
+        %{
+          template_name: template_name,
+          unreplaced_variables: all_unreplaced,
+          in_subject: unreplaced_in_subject != [],
+          in_html: unreplaced_in_html != [],
+          in_text: unreplaced_in_text != []
+        }
+      )
+    end
+
+    :ok
+  end
+
+  # Extract unreplaced variable patterns from content
+  defp extract_unreplaced_vars(content) when is_binary(content) do
+    Regex.scan(~r/\{\{([^}]+)\}\}/, content)
+    |> Enum.map(fn [_, var_name] -> String.trim(var_name) end)
+    |> Enum.uniq()
+  end
+
+  defp extract_unreplaced_vars(_), do: []
 
   @doc """
   Increments the usage count for a template and updates last_used_at.

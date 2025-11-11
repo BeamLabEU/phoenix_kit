@@ -8,7 +8,8 @@ defmodule PhoenixKit.EmailSystem.EmailLog do
 
   ## Schema Fields
 
-  - `message_id`: Unique identifier from email provider (required, unique)
+  - `message_id`: Internal unique identifier (pk_XXXXX format) generated before sending (required, unique)
+  - `aws_message_id`: AWS SES message ID from provider response (optional, unique when present)
   - `to`: Recipient email address (required)
   - `from`: Sender email address (required)
   - `subject`: Email subject line
@@ -24,10 +25,83 @@ defmodule PhoenixKit.EmailSystem.EmailLog do
   - `status`: Current status (sent, delivered, bounced, opened, clicked, failed)
   - `sent_at`: Timestamp when email was sent
   - `delivered_at`: Timestamp when email was delivered (from provider)
+  - `bounced_at`: Timestamp when email bounced
+  - `complained_at`: Timestamp when spam complaint was received
+  - `opened_at`: Timestamp when email was first opened
+  - `clicked_at`: Timestamp when first link was clicked
   - `configuration_set`: AWS SES configuration set used
   - `message_tags`: JSONB tags for grouping and analytics
   - `provider`: Email provider used (aws_ses, smtp, local, etc.)
   - `user_id`: Associated user ID for authentication emails
+
+  ## Message ID Strategy
+
+  PhoenixKit uses a dual message ID strategy to handle the lifecycle of email tracking:
+
+  ### 1. Internal Message ID (`message_id`)
+  - **Format**: `pk_XXXXX` (PhoenixKit prefix + random hex)
+  - **Generated**: BEFORE email is sent (in EmailInterceptor)
+  - **Purpose**: Primary identifier for database operations
+  - **Uniqueness**: Always unique, never null
+  - **Usage**: Used in logs, events, and internal correlation
+
+  ### 2. AWS SES Message ID (`aws_message_id`)
+  - **Format**: Provider-specific (e.g., AWS SES format)
+  - **Generated**: AFTER email is sent (from provider response)
+  - **Purpose**: Correlation with AWS SES events (SNS/SQS)
+  - **Uniqueness**: Unique when present, nullable
+  - **Usage**: Used to match SQS events to email logs
+
+  ### Workflow
+
+  ```
+  1. Email Created
+     └─> EmailInterceptor generates message_id (pk_12345)
+     └─> EmailLog created with message_id = "pk_12345"
+     └─> aws_message_id = nil (not yet sent)
+
+  2. Email Sent via AWS SES
+     └─> AWS returns MessageId = "0102abc-def-ghi"
+     └─> EmailInterceptor updates:
+         - message_id stays "pk_12345" (unchanged)
+         - aws_message_id = "0102abc-def-ghi"
+         - message_tags stores both for debugging
+
+  3. SQS Event Received
+     └─> Event contains AWS MessageId = "0102abc-def-ghi"
+     └─> SQSProcessor searches:
+         a) First by message_id (if starts with pk_)
+         b) Then by aws_message_id field
+         c) Then in headers/metadata
+     └─> Updates EmailLog and creates EmailEvent
+  ```
+
+  ### Benefits of Dual Strategy
+
+  - **Early Tracking**: Can create logs before provider response
+  - **Event Correlation**: AWS message_id links to SQS events
+  - **Robustness**: Multiple search strategies prevent missed events
+  - **Debugging**: Both IDs stored in message_tags for troubleshooting
+  - **No Duplication**: Partial unique index prevents duplicate aws_message_id
+
+  ### Search Priority in SQSProcessor
+
+  ```elixir
+  # 1. Direct message_id search (for internal IDs)
+  get_log_by_message_id(message_id)
+
+  # 2. AWS message_id field search (for provider IDs)
+  find_by_aws_message_id(aws_message_id)
+
+  # 3. Metadata search (fallback for legacy data)
+  # searches in headers for aws_message_id
+  ```
+
+  ### Database Constraints
+
+  - `message_id`: UNIQUE NOT NULL
+  - `aws_message_id`: PARTIAL UNIQUE (WHERE aws_message_id IS NOT NULL)
+  - Composite index: (message_id, aws_message_id) for fast correlation
 
   ## Core Functions
 
