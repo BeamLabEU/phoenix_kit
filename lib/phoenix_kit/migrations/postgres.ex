@@ -96,9 +96,56 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Template versioning and usage tracking
   - Integration with existing email logging system
 
-  ### V16-V20 - Additional Features (from dev branch)
-  - V16: OAuth Providers System & Magic Link Registration
-  - V17-V20: Additional enhancements (see individual migration files)
+  ### V14 - Modules and Referral Codes System
+  - Phoenix_kit_modules for feature management
+  - Phoenix_kit_referral_codes for user referrals
+  - Module-based feature toggles
+  - Referral tracking and analytics
+
+  ### V15 - Email Templates System
+  - Phoenix_kit_email_templates for template storage and management
+  - Template variables with {{variable}} syntax
+  - Template categories (system, marketing, transactional)
+  - Template versioning and usage tracking
+  - Integration with email logging system
+
+  ### V16 - OAuth Providers System & Magic Link Registration
+  - Phoenix_kit_user_oauth_providers for OAuth integration
+  - Support for Google, Apple, GitHub authentication
+  - Account linking by email address
+  - OAuth token storage with encryption support
+  - Multiple providers per user support
+  - Magic link registration tokens with nullable user_id
+
+  ### V17 - Entities System (WordPress ACF-like)
+  - Phoenix_kit_entities for dynamic content type definitions
+  - Phoenix_kit_entity_data for entity records
+  - JSONB storage for flexible field schemas
+  - Plural display names for better UI wording
+  - 13 field types support (text, number, date, select, etc.)
+  - Admin interfaces for entity and data management
+  - Settings integration (entities_enabled, entities_max_per_user, etc.)
+
+  ### V18 - User Custom Fields
+  - JSONB custom_fields column in phoenix_kit_users table
+  - Flexible key-value storage for user metadata
+  - API functions for custom field management
+  - Support for arbitrary user data without schema changes
+
+  ### V19 - Storage System Tables (Part 1)
+  - Initial storage system infrastructure
+  - See V20 for complete distributed storage system
+
+  ### V20 - Distributed File Storage System
+  - Phoenix_kit_buckets for storage provider configurations (local, S3, B2, R2)
+  - Phoenix_kit_files for original file uploads with metadata
+  - Phoenix_kit_file_instances for file variants (thumbnails, resizes, video qualities)
+  - Phoenix_kit_file_locations for physical storage locations (multi-location redundancy)
+  - Phoenix_kit_storage_dimensions for admin-configurable dimension presets
+  - UUIDv7 primary keys for time-sortable identifiers
+  - Smart bucket selection with priority system
+  - Token-based URL security to prevent enumeration attacks
+  - Automatic variant generation system
 
   ### V21 - Message ID Search Performance Optimization ⚡ LATEST
   - Composite index on (message_id, aws_message_id) for faster lookups

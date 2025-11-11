@@ -1,0 +1,28 @@
+<Page slug="sample-landing" title="Build Your SaaS Faster" status="published" published_at="2025-10-28T14:00:00Z">
+  <!-- EXAMPLE 1: Split Image Hero Variant -->
+  <!-- This variant shows content on the left and an image on the right with a gradient background -->
+  <Hero variant="split-image">
+    <Headline>Build Your SaaS Faster with {{framework}}</Headline>
+    <Subheadline>Start shipping production-ready features in days, not months. PhoenixKit gives you everything you need to launch your next SaaS project.</Subheadline>
+    <CTA primary="true" action="/signup">Start Free Trial</CTA>
+    <CTA action="#features">See Features</CTA>
+    <Image src="/assets/dashboard-preview.png" alt="Dashboard Preview" />
+  </Hero>
+
+  <!-- EXAMPLE 2: Centered Hero Variant -->
+  <!-- This variant centers all content with a neutral background - great for simple messaging -->
+  <Hero variant="centered">
+    <Headline>Welcome back, {{user.name}}</Headline>
+    <Subheadline>You have {{stats.active_projects}} active projects and {{stats.total_users}} team members.</Subheadline>
+    <CTA primary="true" action="/dashboard">Go to Dashboard</CTA>
+    <CTA action="/projects">View Projects</CTA>
+  </Hero>
+
+  <!-- EXAMPLE 3: Minimal Hero Variant -->
+  <!-- This variant is simple and text-focused - perfect for documentation or content pages -->
+  <Hero variant="minimal">
+    <Headline>Documentation</Headline>
+    <Subheadline>Everything you need to know about building with PhoenixKit.</Subheadline>
+    <CTA primary="true" action="/docs/getting-started">Get Started</CTA>
+  </Hero>
+</Page>

@@ -43,6 +43,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.SendTest do
   use Mix.Task
   import Swoosh.Email
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
@@ -190,8 +191,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.SendTest do
       <meta name="viewport" content="width=device-width, initial-scale=1">
       <title>PhoenixKit Test Email</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; }
         .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { padding: 30px; }
         .info-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 16px; margin: 20px 0; }

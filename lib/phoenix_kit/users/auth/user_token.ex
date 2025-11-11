@@ -102,6 +102,31 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     build_hashed_token(user, context, user.email)
   end
 
+  @doc """
+  Generates a token for email-based operations without requiring a user struct.
+
+  This is useful for pre-registration flows like magic link registration where
+  the user doesn't exist yet.
+
+  ## Examples
+
+      iex> build_email_token_for_context("user@example.com", "magic_link_registration")
+      {"encoded_token", %UserToken{}}
+  """
+  def build_email_token_for_context(email, context)
+      when is_binary(email) and is_binary(context) do
+    token = :crypto.strong_rand_bytes(@rand_size)
+    hashed_token = :crypto.hash(@hash_algorithm, token)
+
+    {Base.url_encode64(token, padding: false),
+     %UserToken{
+       token: hashed_token,
+       context: context,
+       sent_to: email,
+       user_id: nil
+     }}
+  end
+
   defp build_hashed_token(user, context, sent_to) do
     token = :crypto.strong_rand_bytes(@rand_size)
     hashed_token = :crypto.hash(@hash_algorithm, token)

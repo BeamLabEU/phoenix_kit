@@ -16,4 +16,10 @@ defmodule PhoenixKitWeb.Components.Core.Icon do
     <span class={[@name, @class]} />
     """
   end
+
+  # Fallback for invalid icon names - render nothing instead of crashing
+  def icon(assigns) do
+    ~H"""
+    """
+  end
 end

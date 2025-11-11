@@ -1,0 +1,305 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Role Management"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Role Management</h1>
+        <p class="text-lg text-base-content">Create and manage user roles</p>
+      </div>
+    </header>
+
+    <%!-- Action Button --%>
+    <div class="flex justify-center mb-6">
+      <button
+        phx-click="show_create_form"
+        class="btn btn-primary btn-lg"
+      >
+        <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Create New Role
+      </button>
+    </div>
+
+    <%!-- Role Edit Form Modals --%>
+    <%= if @show_create_form do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-xl mb-4">
+            Create New Role
+          </h3>
+
+          <form
+            phx-submit="create_role"
+            class="space-y-4"
+          >
+            <div class="form-control">
+              <.input
+                field={@create_role_form[:name]}
+                label="Role Name *"
+                placeholder="Enter role name (e.g., Manager, Editor)"
+                maxlength="50"
+                required
+              />
+
+              <p class="label mt-1">
+                Must be unique, 1-50 characters.
+              </p>
+            </div>
+
+            <div class="form-control">
+              <.textarea
+                field={@create_role_form[:description]}
+                label="Description"
+                placeholder="Describe what this role can do (optional)"
+                maxlength="500"
+              />
+
+              <p class="label mt-1">
+                Optional, up to 500 characters.
+              </p>
+            </div>
+
+            <div class="modal-action">
+              <button type="button" phx-click="hide_form" class="btn btn-outline">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Create Role
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Role Edit Form Modal --%>
+    <%= if @show_edit_form do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-xl mb-4">
+            Edit Role
+          </h3>
+
+          <form
+            phx-submit="update_role"
+            class="space-y-4"
+          >
+            <div class="form-control">
+              <.input
+                field={@edit_role_form[:name]}
+                label="Role Name *"
+                placeholder="Enter role name (e.g., Manager, Editor)"
+                maxlength="50"
+                required
+              />
+
+              <p class="label mt-1">
+                Must be unique, 1-50 characters.
+              </p>
+            </div>
+
+            <div class="form-control">
+              <.textarea
+                field={@edit_role_form[:description]}
+                label="Description"
+                placeholder="Describe what this role can do (optional)"
+                maxlength="500"
+              />
+
+              <p class="label mt-1">
+                Optional, up to 500 characters.
+              </p>
+            </div>
+
+            <div class="modal-action">
+              <button type="button" phx-click="hide_form" class="btn btn-outline">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Update Role
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Roles List --%>
+    <div class="bg-base-100">
+      <%= if length(@roles) > 0 do %>
+        <.table_default variant="zebra">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>Role</.table_default_header_cell>
+              <.table_default_header_cell>Type</.table_default_header_cell>
+              <.table_default_header_cell>Description</.table_default_header_cell>
+              <.table_default_header_cell>Users</.table_default_header_cell>
+              <.table_default_header_cell>Actions</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+          <.table_default_body>
+            <%= for role <- @roles do %>
+              <.table_default_row>
+                <.table_default_cell>
+                  <div class="flex items-center gap-2">
+                    <.role_badge role={role} />
+                  </div>
+                </.table_default_cell>
+                <.table_default_cell>
+                  <%= if role.is_system_role do %>
+                    <span class="badge badge-outline badge-sm">System Role</span>
+                  <% else %>
+                    <span class="badge badge-success badge-sm">Custom Role</span>
+                  <% end %>
+                </.table_default_cell>
+                <.table_default_cell class="max-w-xs">
+                  <div class="text-sm">
+                    <%= if role.description do %>
+                      {role.description}
+                    <% else %>
+                      <span class="text-base-content/50 italic">No description</span>
+                    <% end %>
+                  </div>
+                </.table_default_cell>
+                <.table_default_cell>
+                  <div class="flex items-center gap-2">
+                    <.users_count role={role} stats={@role_stats} />
+                    <span class="text-sm text-base-content/70">users</span>
+                  </div>
+                </.table_default_cell>
+                <.table_default_cell>
+                  <div class="flex flex-wrap gap-1">
+                    <%= if !role.is_system_role do %>
+                      <%!-- Edit Button --%>
+                      <button
+                        class="btn btn-xs btn-outline btn-primary"
+                        phx-click="show_edit_role"
+                        phx-value-role_id={role.id}
+                      >
+                        <.icon name="hero-pencil" class="h-3 w-3 mr-1" /> Edit
+                      </button>
+
+                      <%!-- Delete Button --%>
+                      <button
+                        class="btn btn-xs btn-outline btn-error"
+                        phx-click="request_delete_role"
+                        phx-value-role_id={role.id}
+                        phx-value-role_name={role.name}
+                      >
+                        <.icon name="hero-trash" class="h-3 w-3 mr-1" /> Delete
+                      </button>
+                    <% else %>
+                      <span class="text-xs text-base-content/50">Protected</span>
+                    <% end %>
+                  </div>
+                </.table_default_cell>
+              </.table_default_row>
+            <% end %>
+          </.table_default_body>
+        </.table_default>
+      <% else %>
+        <%!-- Empty state --%>
+        <div class="text-center py-12">
+          <.icon name="hero-shield-check" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
+          <h3 class="text-lg font-medium text-base-content mb-2">
+            No roles found
+          </h3>
+          <p class="text-base-content/70 mb-4">
+            Start by creating your first custom role.
+          </p>
+          <button
+            phx-click="show_create_form"
+            class="btn btn-primary"
+          >
+            Create First Role
+          </button>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Role Statistics --%>
+    <div class="mt-8">
+      <h3 class="text-lg font-semibold text-base-content mb-6">Role Statistics</h3>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <%!-- System Roles Count --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={Enum.count(@roles, & &1.is_system_role)}
+          title="System Roles"
+          subtitle="Protected core roles"
+        >
+          <:icon>
+            <.icon name="hero-lock-closed" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Custom Roles Count --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={Enum.count(@roles, &(!&1.is_system_role))}
+          title="Custom Roles"
+          subtitle="User-defined roles"
+        >
+          <:icon>
+            <.icon name="hero-cog-6-tooth" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Total Roles Count --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={length(@roles)}
+          title="Total Roles"
+          subtitle="All available roles"
+        >
+          <:icon>
+            <.icon name="hero-chart-bar" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+      </div>
+    </div>
+
+    <%!-- Confirmation Modal --%>
+    <%= if assigns[:delete_confirmation] && @delete_confirmation.show do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg">Delete Role Confirmation</h3>
+          <p class="py-4">
+            Are you sure you want to delete the role <strong>{@delete_confirmation.role_name}</strong>?
+            This action cannot be undone.
+          </p>
+          <div class="modal-action">
+            <button class="btn btn-ghost" phx-click="cancel_delete">
+              Cancel
+            </button>
+            <button
+              class="btn btn-error"
+              phx-click="confirm_delete_role"
+              phx-value-role_id={@delete_confirmation.role_id}
+            >
+              Delete Role
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
