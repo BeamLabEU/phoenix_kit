@@ -47,9 +47,26 @@ defmodule PhoenixKitWeb.Users.Auth do
   so LiveView sessions are identified and automatically
   disconnected on log out. The line can be safely removed
   if you are not using LiveView.
+
+  ## Session Fingerprinting
+
+  When session fingerprinting is enabled, this function captures the user's
+  IP address and user agent to create a session fingerprint. This helps
+  detect session hijacking attempts.
   """
   def log_in_user(conn, user, params \\ %{}) do
-    token = Auth.generate_user_session_token(user)
+    alias PhoenixKit.Utils.SessionFingerprint
+
+    # Create session fingerprint if enabled
+    opts =
+      if SessionFingerprint.fingerprinting_enabled?() do
+        fingerprint = SessionFingerprint.create_fingerprint(conn)
+        [fingerprint: fingerprint]
+      else
+        []
+      end
+
+    token = Auth.generate_user_session_token(user, opts)
     user_return_to = get_session(conn, :user_return_to)
 
     conn
@@ -154,10 +171,56 @@ defmodule PhoenixKitWeb.Users.Auth do
   @doc """
   Authenticates the user by looking into the session
   and remember me token.
+
+  Also verifies session fingerprints if enabled to detect session hijacking attempts.
   """
   def fetch_phoenix_kit_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Auth.get_user_by_session_token(user_token)
+
+    # Verify session fingerprint if token exists
+    fingerprint_valid? =
+      if user_token do
+        case Auth.verify_session_fingerprint(conn, user_token) do
+          :ok ->
+            true
+
+          {:warning, reason} ->
+            # Log warning but allow access (IP/UA can legitimately change)
+            require Logger
+
+            Logger.warning(
+              "PhoenixKit: Session fingerprint warning: #{reason} for token"
+            )
+
+            # In non-strict mode, allow access despite warning
+            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+
+          {:error, :fingerprint_mismatch} ->
+            # Both IP and UA changed - likely hijacking
+            require Logger
+
+            Logger.error(
+              "PhoenixKit: Session fingerprint mismatch detected - possible hijacking attempt"
+            )
+
+            # Strict mode: deny access; non-strict: log but allow
+            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+
+          {:error, :token_not_found} ->
+            # Token expired or invalid
+            false
+        end
+      else
+        true
+      end
+
+    user =
+      if fingerprint_valid? do
+        user_token && Auth.get_user_by_session_token(user_token)
+      else
+        # Fingerprint verification failed in strict mode
+        nil
+      end
 
     # Check if user is active, log out inactive users
     active_user =
@@ -187,10 +250,56 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   The scope is assigned to `:phoenix_kit_current_scope` and includes
   both the user and authentication status.
+
+  Also verifies session fingerprints if enabled to detect session hijacking attempts.
   """
   def fetch_phoenix_kit_current_scope(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
-    user = user_token && Auth.get_user_by_session_token(user_token)
+
+    # Verify session fingerprint if token exists
+    fingerprint_valid? =
+      if user_token do
+        case Auth.verify_session_fingerprint(conn, user_token) do
+          :ok ->
+            true
+
+          {:warning, reason} ->
+            # Log warning but allow access (IP/UA can legitimately change)
+            require Logger
+
+            Logger.warning(
+              "PhoenixKit: Session fingerprint warning: #{reason} for token (scope)"
+            )
+
+            # In non-strict mode, allow access despite warning
+            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+
+          {:error, :fingerprint_mismatch} ->
+            # Both IP and UA changed - likely hijacking
+            require Logger
+
+            Logger.error(
+              "PhoenixKit: Session fingerprint mismatch detected in scope - possible hijacking"
+            )
+
+            # Strict mode: deny access; non-strict: log but allow
+            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+
+          {:error, :token_not_found} ->
+            # Token expired or invalid
+            false
+        end
+      else
+        true
+      end
+
+    user =
+      if fingerprint_valid? do
+        user_token && Auth.get_user_by_session_token(user_token)
+      else
+        # Fingerprint verification failed in strict mode
+        nil
+      end
 
     # Check if user is active, log out inactive users
     active_user =
