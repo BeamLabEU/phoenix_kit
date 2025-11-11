@@ -77,11 +77,11 @@
   {"lib/phoenix_kit/email_system/email_system.ex", :call, 657},
 
   # Ecto.Multi opaque type false positives (code works correctly)
-  ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/
+  ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
   # Exact comparison warnings for nil checks (legacy warning format - Dialyzer bug)
   # (No current warnings - exact_compare issue in configure_aws_ses.ex was fixed by using pattern matching)
 
   # Ignore all test files - library tests are meant for integration testing
-  ~r/^test\/.*/
+  ~r|^test/.*|
 ]
