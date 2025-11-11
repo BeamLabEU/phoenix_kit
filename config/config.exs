@@ -4,6 +4,16 @@ import Config
 config :phoenix_kit,
   ecto_repos: []
 
+# Configure password requirements (optional - these are the defaults)
+# Uncomment and modify to enforce specific password strength requirements
+# config :phoenix_kit, :password_requirements,
+#   min_length: 8,            # Minimum password length (default: 8)
+#   max_length: 72,           # Maximum password length (default: 72, bcrypt limit)
+#   require_uppercase: false, # Require at least one uppercase letter (default: false)
+#   require_lowercase: false, # Require at least one lowercase letter (default: false)
+#   require_digit: false,     # Require at least one digit (default: false)
+#   require_special: false    # Require at least one special character (!?@#$%^&*_) (default: false)
+
 # Configure test mailer
 config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
 

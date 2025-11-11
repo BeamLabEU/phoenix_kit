@@ -735,6 +735,24 @@ config :phoenix_kit,
     time_format: "H:i"       # 24-hour format: 15:30
   }
 
+# Password Requirements Configuration (optional)
+# Configure password strength requirements for user registration and password changes
+config :phoenix_kit, :password_requirements,
+  min_length: 8,            # Minimum password length (default: 8)
+  max_length: 72,           # Maximum password length (default: 72, bcrypt limit)
+  require_uppercase: false, # Require at least one uppercase letter (default: false)
+  require_lowercase: false, # Require at least one lowercase letter (default: false)
+  require_digit: false,     # Require at least one digit (default: false)
+  require_special: false    # Require at least one special character (!?@#$%^&*_) (default: false)
+
+# Example: Strong password requirements for production
+# config :phoenix_kit, :password_requirements,
+#   min_length: 12,
+#   require_uppercase: true,
+#   require_lowercase: true,
+#   require_digit: true,
+#   require_special: true
+
 # In your Phoenix app's mix.exs
 def deps do
   [
