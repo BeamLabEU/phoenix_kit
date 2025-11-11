@@ -28,6 +28,7 @@ defmodule PhoenixKit.Emails do
   - `email_compress_body` - Compress body after N days
   - `email_archive_to_s3` - Enable S3 archival
   - `email_sampling_rate` - Percentage of emails to fully log
+  - `email_create_placeholder_logs` - Create placeholder logs for orphaned events (default: false)
 
   ## Core Functions
 
@@ -36,6 +37,9 @@ defmodule PhoenixKit.Emails do
   - `enable_system/0` - Enable email system
   - `disable_system/0` - Disable email system
   - `get_config/0` - Get current system configuration
+  - `placeholder_logs_enabled?/0` - Check if placeholder log creation is enabled
+  - `set_placeholder_logs/1` - Enable/disable placeholder log creation
+  - `get_placeholder_stats/1` - Get statistics about placeholder logs
 
   ### Email Log Management
   - `list_logs/1` - Get emails with filters
@@ -93,7 +97,7 @@ defmodule PhoenixKit.Emails do
   alias PhoenixKit.Emails.{Event, Log, SQSProcessor}
   alias PhoenixKit.Settings
 
-  import Ecto.Query, only: [where: 3, group_by: 3, select: 3]
+  import Ecto.Query, only: [where: 3, group_by: 3, select: 3, from: 2]
 
   require Logger
 
@@ -798,6 +802,134 @@ defmodule PhoenixKit.Emails do
       enabled,
       "email_system"
     )
+  end
+
+  @doc """
+  Checks if placeholder log creation is enabled.
+
+  When enabled, the system creates placeholder logs for events received from AWS SES
+  that don't have an existing email log. This can help recover from synchronization issues
+  but may mask underlying problems.
+
+  Default: false (recommended for production to expose synchronization issues)
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.placeholder_logs_enabled?()
+      false
+  """
+  def placeholder_logs_enabled? do
+    # Default to false to expose synchronization issues
+    # Users can explicitly enable via Settings if needed for development/debugging
+    Settings.get_boolean_setting("email_create_placeholder_logs", false)
+  end
+
+  @doc """
+  Enables or disables placeholder log creation.
+
+  ## Parameters
+
+  - `enabled` - true to enable placeholder logs, false to disable
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.set_placeholder_logs(false)
+      {:ok, %Setting{}}
+  """
+  def set_placeholder_logs(enabled) when is_boolean(enabled) do
+    Settings.update_boolean_setting_with_module(
+      "email_create_placeholder_logs",
+      enabled,
+      "email_system"
+    )
+  end
+
+  @doc """
+  Gets statistics about placeholder logs created in the system.
+
+  Returns a map with counts of placeholder logs by status and time period.
+
+  ## Parameters
+
+  - `period` - Time period to analyze (:last_24_hours, :last_7_days, :last_30_days, :all_time)
+
+  ## Returns
+
+  A map with placeholder log statistics:
+  - `total` - Total placeholder logs created
+  - `by_status` - Breakdown by email status
+  - `by_event_type` - Breakdown by event type that created the placeholder
+  - `recent_count` - Count in the specified period
+
+  ## Examples
+
+      iex> PhoenixKit.Emails.get_placeholder_stats(:last_7_days)
+      %{
+        total: 45,
+        recent_count: 12,
+        by_status: %{"delivered" => 8, "opened" => 3, "clicked" => 1},
+        by_event_type: %{"Delivery" => 8, "Open" => 3, "Click" => 1}
+      }
+  """
+  def get_placeholder_stats(period \\ :last_30_days) do
+    require Logger
+
+    cutoff_date =
+      case period do
+        :last_24_hours -> DateTime.add(DateTime.utc_now(), -1, :day)
+        :last_7_days -> DateTime.add(DateTime.utc_now(), -7, :day)
+        :last_30_days -> DateTime.add(DateTime.utc_now(), -30, :day)
+        :all_time -> ~U[2000-01-01 00:00:00Z]
+        _ -> DateTime.add(DateTime.utc_now(), -30, :day)
+      end
+
+    repo = PhoenixKit.RepoHelper.repo()
+
+    # Query for all placeholder logs
+    placeholder_query =
+      from(l in Log,
+        where:
+          fragment(
+            "?->'x-placeholder-log' = ?",
+            l.headers,
+            ^"true"
+          ) or l.template_name == "placeholder",
+        select: %{
+          id: l.id,
+          status: l.status,
+          event_type: fragment("?->>'x-created-from-event'", l.headers),
+          inserted_at: l.inserted_at
+        }
+      )
+
+    all_placeholders = repo.all(placeholder_query)
+
+    # Filter for recent placeholders
+    recent_placeholders =
+      Enum.filter(all_placeholders, fn log ->
+        DateTime.compare(log.inserted_at, cutoff_date) != :lt
+      end)
+
+    # Count by status
+    by_status =
+      Enum.reduce(all_placeholders, %{}, fn log, acc ->
+        Map.update(acc, log.status || "unknown", 1, &(&1 + 1))
+      end)
+
+    # Count by event type
+    by_event_type =
+      Enum.reduce(all_placeholders, %{}, fn log, acc ->
+        event_type = log.event_type || "Unknown"
+        Map.update(acc, String.capitalize(event_type), 1, &(&1 + 1))
+      end)
+
+    %{
+      total: length(all_placeholders),
+      recent_count: length(recent_placeholders),
+      by_status: by_status,
+      by_event_type: by_event_type,
+      period: period
+    }
   end
 
   @doc """
