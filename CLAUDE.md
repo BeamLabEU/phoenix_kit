@@ -96,14 +96,51 @@ mix phoenix_kit.update --force -y                         # Force update with au
 
 ### Testing & Code Quality
 
-- `mix compile` - Run to confirm the project is working after changes
-- `mix test` - Run all tests (52 tests, no database required)
+- `mix test` - Run smoke tests (module loading and configuration)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
 - `mix dialyzer` - Type checking (requires PLT setup)
-- `mix quality` - Run all quality checks (format, credo, dialyzer, test)
+- `mix quality` - Run all quality checks (format, credo, dialyzer)
 
-⚠️ Ecto warnings are normal for library - tests focus on API validation
+**Testing Philosophy for Library Modules:**
+
+PhoenixKit is a **library module**, not a standalone application. Testing approach:
+
+- ✅ **Smoke Tests** - Verify modules are loadable and properly structured
+- ✅ **Static Analysis** - Credo and Dialyzer catch logic and type errors
+- ✅ **Integration Testing** - Should be performed in parent Phoenix applications
+
+**Why Minimal Unit Tests?**
+- Library code requires database, configuration, and runtime context
+- Unit tests would need complex mocking of Repo, Settings, and other dependencies
+- Real-world usage testing in parent applications provides better coverage
+- Smoke tests ensure library compiles and modules load correctly
+
+**For Contributors:**
+Test your changes by integrating PhoenixKit into a real Phoenix application.
+See CONTRIBUTING.md for development workflow with live reloading.
+
+### CI/CD
+
+PhoenixKit uses GitHub Actions for continuous integration:
+
+**Automated Checks:**
+- ✅ Code formatting validation (`mix format --check-formatted`)
+- ✅ Static analysis with Credo (`mix credo --strict`)
+- ✅ Type checking with Dialyzer
+- ✅ Compilation with warnings as errors (production code)
+- ✅ Dependency audit (non-blocking for transitive deps)
+- 📝 Smoke tests (optional - basic module loading verification)
+
+**CI Workflow:**
+- Runs on push to `main`, `dev`, and `claude/**` branches
+- Runs on all pull requests
+- Uses caching for dependencies and PLT files
+- Parallel execution for faster feedback
+
+**View CI Status:**
+- GitHub Actions: Check the "Actions" tab in the repository
+- Badge: See README.md for CI status badge
 
 ### ⚠️ IMPORTANT: Pre-commit Checklist
 
@@ -203,8 +240,10 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 **Before committing version changes:**
 
 - ✅ Mix compiles without errors: `mix compile`
-- ✅ Tests pass: `mix test`
+- ✅ Tests pass: `mix test` (run existing tests to ensure no regressions)
 - ✅ Code formatted: `mix format`
+- ✅ Credo passes: `mix credo --strict`
+- ✅ CI checks pass: Verify GitHub Actions workflow succeeds
 - ✅ CHANGELOG.md includes current date
 - ✅ Version number incremented correctly
 
