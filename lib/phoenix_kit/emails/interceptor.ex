@@ -418,7 +418,11 @@ defmodule PhoenixKit.Emails.Interceptor do
   # Extract and clean headers
   defp extract_headers(%Email{headers: headers}, _opts) when is_map(headers) do
     # Remove sensitive headers and normalize
-    Utils.sanitize_headers(headers)
+    headers
+    |> Enum.reject(fn {key, _} ->
+      key in ["Authorization", "Authentication-Results", "X-Password", "X-API-Key"]
+    end)
+    |> Enum.into(%{})
   end
 
   defp extract_headers(_, _opts), do: %{}
@@ -768,7 +772,7 @@ defmodule PhoenixKit.Emails.Interceptor do
   defp strip_html_tags(_), do: ""
 
   # Helper function to identify which key contained the message ID
-  defp find_message_id_key(response) when is_map(response) do
+  defp find_message_id_key(response) do
     cond do
       Map.has_key?(response, :id) -> ":id (Swoosh format)"
       Map.has_key?(response, "id") -> "\"id\" (string format)"
@@ -778,8 +782,6 @@ defmodule PhoenixKit.Emails.Interceptor do
       true -> "not_found"
     end
   end
-
-  defp find_message_id_key(_), do: "invalid_response"
 
   # Log extraction metric for monitoring
   defp log_extraction_metric(success?, log_id, aws_message_id) do
@@ -817,15 +819,20 @@ defmodule PhoenixKit.Emails.Interceptor do
   end
 
   # Inspect response structure for detailed logging
-  defp inspect_response_structure(response) when is_map(response) do
+  defp inspect_response_structure(response) do
     %{
       top_level_keys: Map.keys(response),
       has_body: Map.has_key?(response, :body) or Map.has_key?(response, "body"),
       body_keys:
         cond do
-          Map.has_key?(response, :body) and is_map(response.body) -> Map.keys(response.body)
-          Map.has_key?(response, "body") and is_map(response["body"]) -> Map.keys(response["body"])
-          true -> []
+          Map.has_key?(response, :body) and is_map(response.body) ->
+            Map.keys(response.body)
+
+          Map.has_key?(response, "body") and is_map(response["body"]) ->
+            Map.keys(response["body"])
+
+          true ->
+            []
         end,
       has_nested_response:
         Map.has_key?(response, "SendEmailResponse") or Map.has_key?(response, :response) or
@@ -837,8 +844,6 @@ defmodule PhoenixKit.Emails.Interceptor do
         |> Map.new()
     }
   end
-
-  defp inspect_response_structure(_), do: %{error: "not_a_map"}
 
   # Helper to get type of value
   defp type_of(value) when is_map(value), do: "map"
