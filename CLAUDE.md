@@ -66,13 +66,43 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 
 ### Testing & Code Quality
 
-- `mix test` - Run all tests (52 tests, no database required)
+- `mix test` - Run test suite (tests are currently in development)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
 - `mix dialyzer` - Type checking (requires PLT setup)
 - `mix quality` - Run all quality checks (format, credo, dialyzer, test)
 
+**Current Test Status:**
+- ✅ Test infrastructure is set up (`test/support/` with DataCase and ConnCase)
+- ✅ Basic smoke tests verify module loading and configuration
+- ✅ User schema validation tests demonstrate testing patterns
+- 🚧 Comprehensive test suite is in active development
+- 🚧 Target: Full coverage for auth, roles, email system, and migrations
+
 ⚠️ Ecto warnings are normal for library - tests focus on API validation
+
+### CI/CD
+
+PhoenixKit uses GitHub Actions for continuous integration:
+
+**Automated Checks:**
+- ✅ Code formatting validation (`mix format --check-formatted`)
+- ✅ Static analysis with Credo (`mix credo --strict`)
+- ✅ Type checking with Dialyzer
+- ✅ Test suite execution with PostgreSQL
+- ✅ Compilation with warnings as errors
+- ✅ Dependency audit
+- ✅ Coverage reporting (Codecov integration)
+
+**CI Workflow:**
+- Runs on push to `main`, `dev`, and `claude/**` branches
+- Runs on all pull requests
+- Uses caching for dependencies and PLT files
+- Parallel execution for faster feedback
+
+**View CI Status:**
+- GitHub Actions: Check the "Actions" tab in the repository
+- Badge: See README.md for CI status badge
 
 ### ⚠️ IMPORTANT: Pre-commit Checklist
 
@@ -168,8 +198,10 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 
 **Before committing version changes:**
 - ✅ Mix compiles without errors: `mix compile`
-- ✅ Tests pass: `mix test`
+- ✅ Tests pass: `mix test` (run existing tests to ensure no regressions)
 - ✅ Code formatted: `mix format`
+- ✅ Credo passes: `mix credo --strict`
+- ✅ CI checks pass: Verify GitHub Actions workflow succeeds
 - ✅ CHANGELOG.md includes current date
 - ✅ Version number incremented correctly
 
