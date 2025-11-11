@@ -98,9 +98,16 @@ defmodule PhoenixKit.Users.MagicLink do
         end
 
       nil ->
-        # Perform a fake token generation to prevent timing attacks
-        # This takes similar time as real token generation
-        _fake_token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+        # Prevent timing attacks by simulating the same operations as the success case
+        # This ensures constant-time behavior regardless of whether user exists
+
+        # 1. Simulate database insert timing (typical insert: 1-3ms)
+        # Using pg_sleep to match the cost of an actual database write operation
+        Ecto.Adapters.SQL.query(repo(), "SELECT pg_sleep(0.002)", [])
+
+        # 2. Add consistent computational cost similar to password hashing operations
+        # This prevents CPU-based timing attacks and matches authentication flow timing
+        Bcrypt.no_user_verify()
 
         {:error, :user_not_found}
     end
