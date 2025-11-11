@@ -270,69 +270,29 @@ end
 
 ### Rate Limiting Architecture
 
-PhoenixKit includes comprehensive rate limiting to protect against brute-force attacks, token enumeration, and abuse.
+Protection against brute-force attacks, token enumeration, and spam using Hammer library.
 
 **Protected Endpoints:**
-- **Login** - Prevents password brute-forcing (5 attempts per minute per email)
-- **Magic Link** - Prevents token enumeration (3 requests per 5 minutes per email)
-- **Password Reset** - Prevents mass reset attacks (3 requests per 5 minutes per email)
-- **Registration** - Prevents spam account creation (3 attempts per hour per email, 10 per hour per IP)
-
-**Security Features:**
-- **Email-based rate limiting** - Prevents targeted attacks on specific accounts
-- **IP-based rate limiting** - Prevents distributed attacks from single sources
-- **Timing attack mitigation** - Consistent response times for valid/invalid emails
-- **Exponential backoff** - Automatically enforced through time windows
-- **Comprehensive logging** - All rate limit violations are logged for security monitoring
+- Login: 5/min per email + IP limiting
+- Magic Link: 3/5min per email
+- Password Reset: 3/5min per email
+- Registration: 3/hour per email + 10/hour per IP
 
 **Configuration:**
 ```elixir
 # config/config.exs
-config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-  # Login: 5 attempts per minute per email
-  login_limit: 5,
-  login_window_ms: 60_000,
-  # Magic link: 3 requests per 5 minutes per email
-  magic_link_limit: 3,
-  magic_link_window_ms: 300_000,
-  # Password reset: 3 requests per 5 minutes per email
-  password_reset_limit: 3,
-  password_reset_window_ms: 300_000,
-  # Registration: 3 attempts per hour per email
-  registration_limit: 3,
-  registration_window_ms: 3_600_000,
-  # Registration IP: 10 attempts per hour per IP
-  registration_ip_limit: 10,
-  registration_ip_window_ms: 3_600_000
-```
-
-**Backend Configuration:**
-```elixir
-# config/config.exs
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+
+config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+  login_limit: 5, login_window_ms: 60_000,
+  magic_link_limit: 3, magic_link_window_ms: 300_000,
+  password_reset_limit: 3, password_reset_window_ms: 300_000,
+  registration_limit: 3, registration_window_ms: 3_600_000,
+  registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
 ```
 
-**Production Recommendations:**
-- Use Redis backend for distributed systems (`hammer_backend_redis`)
-- Monitor rate limit violations for security threats
-- Adjust limits based on your application's usage patterns
-- Consider implementing CAPTCHA after multiple violations
-
-**API Usage:**
-```elixir
-# Check rate limit before operation
-case PhoenixKit.Users.RateLimiter.check_login_rate_limit(email, ip_address) do
-  :ok -> proceed_with_login()
-  {:error, :rate_limit_exceeded} -> show_rate_limit_error()
-end
-
-# Reset rate limit (admin intervention)
-PhoenixKit.Users.RateLimiter.reset_rate_limit(:login, "user@example.com")
-
-# Get remaining attempts
-remaining = PhoenixKit.Users.RateLimiter.get_remaining_attempts(:login, "user@example.com")
-```
+**Production:** Use `hammer_backend_redis` for distributed systems.
 
 ### Role System Architecture
 
