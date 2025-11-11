@@ -428,6 +428,40 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Ensures the user is active by checking the is_active field.
+
+  Returns nil for inactive users and logs a warning.
+  Returns the user for active users or nil input.
+
+  ## Examples
+
+      iex> ensure_active_user(%User{is_active: true})
+      %User{is_active: true}
+
+      iex> ensure_active_user(%User{is_active: false, id: 123})
+      nil
+
+      iex> ensure_active_user(nil)
+      nil
+
+  """
+  def ensure_active_user(user) do
+    case user do
+      %User{is_active: false} = inactive_user ->
+        require Logger
+
+        Logger.warning(
+          "PhoenixKit: Inactive user #{inactive_user.id} attempted access"
+        )
+
+        nil
+
+      active_user ->
+        active_user
+    end
+  end
+
+  @doc """
   Deletes the signed token with the given context.
   """
   def delete_user_session_token(token) do

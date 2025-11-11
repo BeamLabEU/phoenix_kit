@@ -158,23 +158,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   def fetch_phoenix_kit_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Auth.get_user_by_session_token(user_token)
-
-    # Check if user is active, log out inactive users
-    active_user =
-      case user do
-        %{is_active: false} = inactive_user ->
-          require Logger
-
-          Logger.warning(
-            "PhoenixKit: Inactive user #{inactive_user.id} attempted access, logging out"
-          )
-
-          # Don't assign inactive user, effectively logging them out
-          nil
-
-        active_user ->
-          active_user
-      end
+    active_user = Auth.ensure_active_user(user)
 
     assign(conn, :phoenix_kit_current_user, active_user)
   end
@@ -191,24 +175,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   def fetch_phoenix_kit_current_scope(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Auth.get_user_by_session_token(user_token)
-
-    # Check if user is active, log out inactive users
-    active_user =
-      case user do
-        %{is_active: false} = inactive_user ->
-          require Logger
-
-          Logger.warning(
-            "PhoenixKit: Inactive user #{inactive_user.id} attempted scope access, logging out"
-          )
-
-          # Don't assign inactive user, effectively logging them out
-          nil
-
-        active_user ->
-          active_user
-      end
-
+    active_user = Auth.ensure_active_user(user)
     scope = Scope.for_user(active_user)
 
     conn
@@ -408,20 +375,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp get_active_user_from_token(user_token) do
     user = Auth.get_user_by_session_token(user_token)
-
-    case user do
-      %{is_active: false} = inactive_user ->
-        require Logger
-
-        Logger.warning(
-          "PhoenixKit: Inactive user #{inactive_user.id} attempted LiveView mount, blocking access"
-        )
-
-        nil
-
-      active_user ->
-        active_user
-    end
+    Auth.ensure_active_user(user)
   end
 
   defp mount_phoenix_kit_current_scope(socket, session) do
