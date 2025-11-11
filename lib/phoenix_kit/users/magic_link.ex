@@ -55,6 +55,7 @@ defmodule PhoenixKit.Users.MagicLink do
         magic_link_for_login_expiry_minutes: 15
   """
 
+  alias Ecto.Adapters.SQL
   alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
@@ -103,7 +104,7 @@ defmodule PhoenixKit.Users.MagicLink do
 
         # 1. Simulate database insert timing (typical insert: 1-3ms)
         # Using pg_sleep to match the cost of an actual database write operation
-        Ecto.Adapters.SQL.query(repo(), "SELECT pg_sleep(0.002)", [])
+        SQL.query(repo(), "SELECT pg_sleep(0.002)", [])
 
         # 2. Add consistent computational cost similar to password hashing operations
         # This prevents CPU-based timing attacks and matches authentication flow timing
