@@ -6,20 +6,39 @@ defmodule PhoenixKit.Utils.Routes do
   PhoenixKit prefix configured in the application.
   """
 
-  def path(url_path) do
+  def path(url_path, opts \\ []) do
     if String.starts_with?(url_path, "/") do
       url_prefix = PhoenixKit.Config.get_url_prefix()
 
-      if url_prefix === "/" do
-        url_path
+      # Get locale from options, process dictionary, or Gettext
+      locale =
+        opts[:locale] ||
+          Process.get(:phoenix_kit_current_locale) ||
+          Gettext.get_locale(PhoenixKitWeb.Gettext)
+
+      base_path = if url_prefix === "/", do: "", else: url_prefix
+
+      if locale == "en" do
+        "#{base_path}#{url_path}"
       else
-        "#{url_prefix}#{url_path}"
+        "#{base_path}/#{locale}#{url_path}"
       end
     else
       raise """
       Url path must start with "/".
       """
     end
+  end
+
+  @doc """
+  Returns a locale-aware path using locale from assigns.
+
+  This function is specifically designed for use in component templates
+  where the locale needs to be passed explicitly via assigns.
+  """
+  def locale_aware_path(assigns, url_path) do
+    locale = assigns[:current_locale] || "en"
+    path(url_path, locale: locale)
   end
 
   @doc """
