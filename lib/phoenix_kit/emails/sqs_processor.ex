@@ -189,6 +189,52 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
   ## --- Private Helper Functions ---
 
+  # Helper function to handle placeholder log creation with configuration check
+  defp handle_placeholder_creation(event_data, message_id, event_type, status, callback_fn) do
+    if PhoenixKit.Emails.placeholder_logs_enabled?() do
+      Logger.warning(
+        "[SYNC ISSUE] #{String.capitalize(event_type)} event for unknown email - creating placeholder log",
+        %{
+          message_id: message_id,
+          event_type: event_type,
+          recommendation: "Check EmailInterceptor synchronization"
+        }
+      )
+
+      case create_placeholder_log_from_event(event_data, status) do
+        {:ok, log} ->
+          case callback_fn.(log) do
+            {:ok, result} ->
+              {:ok, Map.put(result, :created_placeholder, true)}
+
+            error ->
+              error
+          end
+
+        {:error, reason} ->
+          Logger.error("Failed to create placeholder log for #{event_type} event", %{
+            message_id: message_id,
+            reason: inspect(reason)
+          })
+
+          {:error, :email_log_not_found}
+      end
+    else
+      Logger.error(
+        "[SYNC ISSUE] #{String.capitalize(event_type)} event for unknown email - placeholder log creation disabled",
+        %{
+          message_id: message_id,
+          event_type: event_type,
+          action: "Event dropped - no email log found",
+          recommendation:
+            "Enable placeholder logs with PhoenixKit.Emails.set_placeholder_logs(true) or investigate EmailInterceptor synchronization"
+        }
+      )
+
+      {:error, :email_log_not_found}
+    end
+  end
+
   # Extracts SES event from SNS message
   defp extract_ses_event(%{"Type" => "Notification", "Message" => message_json}) do
     with {:ok, :not_empty} <- validate_message_not_empty(message_json),
@@ -307,26 +353,46 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
       {:error, :not_found} ->
         # Rare case - received send event without preliminary logging
-        Logger.warning("Send event for unknown email - attempting to create placeholder log", %{
-          message_id: message_id
-        })
-
-        case create_placeholder_log_from_event(event_data, "sent") do
-          {:ok, log} ->
-            Logger.info("Created placeholder log for send event", %{
-              log_id: log.id,
-              message_id: message_id
-            })
-
-            {:ok, %{type: "send", log_id: log.id, updated: true, created_placeholder: true}}
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for send event", %{
+        if PhoenixKit.Emails.placeholder_logs_enabled?() do
+          Logger.warning(
+            "[SYNC ISSUE] Send event for unknown email - creating placeholder log",
+            %{
               message_id: message_id,
-              reason: inspect(reason)
-            })
+              event_type: "send",
+              recommendation: "Check EmailInterceptor synchronization"
+            }
+          )
 
-            {:error, :email_log_not_found}
+          case create_placeholder_log_from_event(event_data, "sent") do
+            {:ok, log} ->
+              Logger.info("Created placeholder log for send event", %{
+                log_id: log.id,
+                message_id: message_id
+              })
+
+              {:ok, %{type: "send", log_id: log.id, updated: true, created_placeholder: true}}
+
+            {:error, reason} ->
+              Logger.error("Failed to create placeholder log for send event", %{
+                message_id: message_id,
+                reason: inspect(reason)
+              })
+
+              {:error, :email_log_not_found}
+          end
+        else
+          Logger.error(
+            "[SYNC ISSUE] Send event for unknown email - placeholder log creation disabled",
+            %{
+              message_id: message_id,
+              event_type: "send",
+              action: "Event dropped - no email log found",
+              recommendation:
+                "Enable placeholder logs with PhoenixKit.Emails.set_placeholder_logs(true) or investigate EmailInterceptor synchronization"
+            }
+          )
+
+          {:error, :email_log_not_found}
         end
     end
   end
