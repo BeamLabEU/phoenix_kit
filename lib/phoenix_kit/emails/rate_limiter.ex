@@ -106,6 +106,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
   alias PhoenixKit.Emails.{EmailBlocklist, Log}
   alias PhoenixKit.Settings
   import Ecto.Query
+  require Logger
 
   ## --- Rate Limit Checks ---
 
@@ -702,12 +703,12 @@ defmodule PhoenixKit.Emails.RateLimiter do
     # Reduce limit by 50%
     new_limit = max(div(current_limit, 2), 10)
 
-    Settings.set_setting(limit_key, to_string(new_limit))
+    Settings.update_setting(limit_key, to_string(new_limit))
 
     # Set expiration for the limit reduction (24 hours from now)
     expiry_key = "email_rate_limit_user_#{user_id}_expires"
     expires_at = DateTime.add(DateTime.utc_now(), 86_400)
-    Settings.set_setting(expiry_key, DateTime.to_iso8601(expires_at))
+    Settings.update_setting(expiry_key, DateTime.to_iso8601(expires_at))
 
     Logger.info("Reduced rate limit for user #{user_id} from #{current_limit} to #{new_limit}")
     :ok
@@ -745,7 +746,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
     end
   end
 
-  defp monitor_user(user_id, event_type, metadata \\ %{}) when is_integer(user_id) do
+  defp monitor_user(user_id, event_type, metadata) when is_integer(user_id) do
     # Add user to monitoring list by tracking in a dedicated setting
     Logger.info("Adding user #{user_id} to monitoring list: #{event_type}")
 
@@ -761,7 +762,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
       expires_at: DateTime.to_iso8601(DateTime.add(DateTime.utc_now(), 2_592_000))
     }
 
-    Settings.set_setting(monitor_key, Jason.encode!(monitoring_data))
+    Settings.update_setting(monitor_key, Jason.encode!(monitoring_data))
 
     Logger.info("User #{user_id} added to monitoring list for #{event_type}")
     :ok
