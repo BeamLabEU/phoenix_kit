@@ -8,11 +8,13 @@ defmodule PhoenixKit.Install.RouterIntegration do
   - Generate demo page routes
   - Handle router integration warnings and notices
   """
+  use PhoenixKit.Install.IgniterCompat
 
   alias Igniter.Code.{Common, Function}
   alias Igniter.Libs.Phoenix, as: IgniterPhoenix
   alias Igniter.Project.Application
   alias Igniter.Project.Module, as: IgniterModule
+  alias PhoenixKit.Install.IgniterHelpers
 
   @doc """
   Adds PhoenixKit integration to the Phoenix router.
@@ -43,10 +45,8 @@ defmodule PhoenixKit.Install.RouterIntegration do
         # This is the PhoenixKit library itself, skip router integration
         {igniter, nil}
 
-      app_name ->
-        # Try to auto-detect router first based on app name
-        app_web_module = Module.concat([Macro.camelize(to_string(app_name)) <> "Web"])
-        router_module = Module.concat([app_web_module, "Router"])
+      _app_name ->
+        router_module = IgniterHelpers.get_parent_app_module_web_router(igniter)
 
         case IgniterModule.module_exists(igniter, router_module) do
           {true, igniter} ->
@@ -182,15 +182,7 @@ defmodule PhoenixKit.Install.RouterIntegration do
   # Add phoenix_kit_routes() call to router
   defp add_routes_call_to_router_module(igniter, router_module) do
     IgniterModule.find_and_update_module!(igniter, router_module, fn zipper ->
-      # Get parent app name for module construction
-      app_name = Application.app_name(igniter)
-
-      app_web_module_name =
-        if app_name && app_name != :phoenix_kit do
-          "#{Macro.camelize(to_string(app_name))}Web"
-        else
-          "YourAppWeb"
-        end
+      app_web_module_name = IgniterHelpers.get_parent_app_module_web_string(igniter)
 
       routes_code = generate_routes_code(app_web_module_name)
       {:ok, Common.add_code(zipper, routes_code, placement: :after)}

@@ -10,13 +10,13 @@
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
 /docs/
-/test/
 /test_projects/
 /scripts/
 /scripts_backup/
 
 # Ignore .fetch files in case you like to edit your project deps locally.
 /.fetch
+/.claude
 
 # If the VM crashes, it generates a dump, let's ignore it too.
 erl_crash.dump

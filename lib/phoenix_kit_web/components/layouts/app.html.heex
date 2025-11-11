@@ -1,70 +1,13 @@
 <%!--
-  PhoenixKit App Layout Example
+  PhoenixKit App Layout
 
-  This layout demonstrates how to access PhoenixKit authentication data
-  within your application layouts. This example shows both traditional
-  and scope-based approaches for accessing user information.
+  Minimal layout wrapper for LiveView content.
+  This layout is used as the default for all PhoenixKit LiveView modules.
+
+  Parent applications can override this layout via configuration:
+  config :phoenix_kit, layout: {MyAppWeb.Layouts, :app}
+
+  This simple passthrough layout allows parent apps to control the full
+  layout structure while PhoenixKit provides the authentication UI.
 --%>
-<%!-- Only show header on non-admin pages --%>
-<%!--= if not String.contains?(assigns[:current_path] || "", "/admin/") do %>
-  <header class="px-4 sm:px-6 lg:px-8">
-    <div class="flex items-center justify-between border-b border-zinc-100 py-3 text-sm">
-      <div class="flex items-center gap-4">
-        <a href="/" class="text-lg font-semibold">
-          PhoenixKit
-        </a>
-        <p class="bg-blue-50 text-blue-700 rounded-full px-2 font-medium leading-6">
-          v{Application.spec(:phoenix_kit, :vsn)}
-        </p>
-      </div>
-      <div class="flex items-center gap-2 text-sm text-zinc-600">
-        <%= if assigns[:phoenix_kit_current_scope] && PhoenixKit.Users.Auth.Scope.authenticated?(@phoenix_kit_current_scope) do %>
-          <span class="bg-green-100 text-green-800 px-2 py-1 rounded">
-            Logged in as: {PhoenixKit.Users.Auth.Scope.user_email(@phoenix_kit_current_scope)}
-          </span>
-        <% else %>
-          <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">
-            Not authenticated
-          </span>
-        <% end %>
-
-        <%!--
-        Legacy option: Basic user check (backwards compatibility)
-
-        If you're still using :phoenix_kit_mount_current_user, this approach works:
-
-        <%= if @phoenix_kit_current_user do %>
-          <span class="bg-green-100 text-green-800 px-2 py-1 rounded">
-            Logged in as: {@phoenix_kit_current_user.email}
-          </span>
-        <% else %>
-          <span class="bg-gray-100 text-gray-600 px-2 py-1 rounded">
-            Not authenticated
-          </span>
-        <% end %>
-
-        To use scope approach, update your router:
-
-        live_session :default,
-          layout: {MyAppWeb.Layouts, :app},
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          # your routes
-        end
-
-        Benefits of scope approach:
-        - Better encapsulation of authentication state
-        - Explicit authentication checks
-        - Ready for future extensions (roles, permissions, etc.)
-        - Type safety with proper struct
-
-      </div>
-    </div>
-  </header>
-<% end %>
-<main class="px-4 sm:px-6 lg:px-8">
-  <div class="mx-auto max-w-2xl">
-    <.flash_group flash={@flash} />
-    {@inner_content}
-  </div>
-</main>--%>
 {@inner_content}

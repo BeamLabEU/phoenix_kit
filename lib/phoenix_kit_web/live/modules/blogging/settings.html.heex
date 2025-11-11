@@ -1,0 +1,191 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Blogging Settings")}</h1>
+        <p class="text-lg text-base-content">
+          {gettext(
+            "Create dedicated blogs your team can publish to. Each blog appears as its own tab in the blogging workspace."
+          )}
+        </p>
+      </div>
+    </header>
+
+    <div class="max-w-2xl mx-auto space-y-6">
+      <%!-- Language Configuration Information --%>
+      <div class="border-l-4 border-primary bg-base-200 p-4 rounded-r-lg">
+        <div class="flex gap-3">
+          <.icon name="hero-information-circle" class="w-5 h-5 shrink-0 text-primary" />
+          <div class="text-sm">
+            <p class="font-semibold mb-1">{gettext("Multi-Language Configuration")}</p>
+            <p>
+              {gettext("The default language for blog posts is set by the")}
+              <.link
+                navigate={
+                  PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)
+                }
+                class="link link-primary font-medium underline"
+              >
+                {gettext("Content Language")}
+              </.link>
+              {gettext("in General Settings.")}
+              <%= if @languages_enabled do %>
+                {gettext("Available language variants are configured in the")}
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/settings/languages",
+                      locale: @current_locale
+                    )
+                  }
+                  class="link link-primary font-medium underline"
+                >
+                  {gettext("Languages Module")}
+                </.link>.
+              <% else %>
+                {gettext("To enable multi-language support, activate the")}
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)
+                  }
+                  class="link link-primary font-medium underline"
+                >
+                  {gettext("Languages Module")}
+                </.link>.
+              <% end %>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Blogging Section --%>
+      <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold text-base-content">{gettext("Blogging")}</h2>
+              <p class="text-sm text-base-content/70">
+                {gettext(
+                  "Create dedicated blogs like Product Updates, Release Notes, or Company News. Each blog stores its content in structured folders on disk."
+                )}
+              </p>
+            </div>
+            <.link
+              navigate={Routes.path("/admin/settings/blogging/new", locale: @current_locale)}
+              class="btn btn-primary btn-sm whitespace-nowrap"
+            >
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Blog")}
+            </.link>
+          </div>
+
+          <%= if @blogs == [] do %>
+            <div class="alert alert-info">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <div>
+                <h3 class="font-bold">{gettext("No blogs yet")}</h3>
+                <p class="text-sm">
+                  {gettext("Create your first blog to start publishing content.")}
+                </p>
+              </div>
+            </div>
+          <% else %>
+            <div class="space-y-4">
+              <%= for blog <- @blogs do %>
+                <div class="border border-base-200 rounded-lg p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div class="space-y-1">
+                    <p class="flex items-center gap-2 text-base font-semibold text-base-content">
+                      <.link
+                        navigate={
+                          Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
+                        }
+                        class="hover:text-primary transition-colors"
+                      >
+                        {blog["name"]}
+                      </.link>
+                      <span class={[
+                        "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
+                        if(blog["mode"] == "slug", do: "badge-primary", else: "badge-ghost")
+                      ]}>
+                        <%= if blog["mode"] == "slug" do %>
+                          {gettext("Slug-based")}
+                        <% else %>
+                          {gettext("Timestamp-based")}
+                        <% end %>
+                      </span>
+                    </p>
+                    <p class="text-xs text-base-content/60">
+                      {gettext("Slug")}: <code class="font-mono break-all">{blog["slug"]}</code>
+                    </p>
+                    <% blog_mode = blog["mode"] || "timestamp" %>
+                    <% blog_path =
+                      if blog_mode == "slug" do
+                        "priv/blogging/" <> blog["slug"] <> "/<slug>/<locale>.phk"
+                      else
+                        "priv/blogging/" <> blog["slug"] <> "/<YYYY-MM-DD>/<HH:mm>/<locale>.phk"
+                      end %>
+                    <p class="text-xs text-base-content/50">
+                      {gettext("Files")}: <code class="font-mono break-all">{blog_path}</code>
+                    </p>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <.link
+                      aria-label={gettext("Open Admin")}
+                      navigate={
+                        Routes.path("/admin/blogging/#{blog["slug"]}", locale: @current_locale)
+                      }
+                      class="btn btn-outline btn-sm btn-square"
+                    >
+                      <.icon name="hero-arrow-right" class="w-4 h-4" />
+                    </.link>
+                    <.link
+                      aria-label={gettext("Edit")}
+                      navigate={
+                        Routes.path(
+                          "/admin/settings/blogging/#{blog["slug"]}/edit",
+                          locale: @current_locale
+                        )
+                      }
+                      class="btn btn-outline btn-sm btn-square"
+                    >
+                      <.icon name="hero-pencil-square" class="w-4 h-4" />
+                    </.link>
+                    <button
+                      type="button"
+                      aria-label={gettext("Delete")}
+                      phx-click="remove_blog"
+                      phx-value-slug={blog["slug"]}
+                      class="btn btn-sm btn-square btn-outline text-error hover:bg-error hover:text-error-content"
+                      data-confirm={
+                        gettext(
+                          "Move this blog to trash? The directory will be renamed with a timestamp."
+                        )
+                      }
+                    >
+                      <.icon name="hero-trash" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -1,0 +1,688 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={
+    gettext("%{project_title} %{action} %{entity}",
+      project_title: @project_title,
+      action: if(@entity.id, do: gettext("Edit"), else: gettext("New")),
+      entity: gettext("Entity")
+    )
+  }
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/entities")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> {gettext("Back to Entities")}
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">
+          {if @entity.id, do: gettext("Edit Entity"), else: gettext("Create New Entity")}
+        </h1>
+        <p class="text-lg text-base-content">
+          {gettext("Define your custom content type with dynamic fields")}
+        </p>
+      </div>
+    </header>
+
+    <%!-- Readonly Banner --%>
+    <%= if @readonly? do %>
+      <div class="alert alert-info mb-6">
+        <.icon name="hero-eye" class="w-5 h-5" />
+        <span>
+          {gettext(
+            "This entity is currently being edited by another user. You are in view-only mode."
+          )}
+        </span>
+      </div>
+    <% end %>
+
+    <.form
+      :let={f}
+      for={@changeset}
+      phx-change="validate"
+      phx-debounce="500"
+      phx-submit="save"
+      class="space-y-8"
+    >
+      <%!-- Entity Metadata Section --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-information-circle" class="w-6 h-6" /> {gettext(
+              "Entity Information"
+            )}
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <%!-- Entity Name (Singular) --%>
+            <div>
+              <.label for="entity_display_name">{gettext("Entity Name (Singular)")} *</.label>
+              <.input
+                field={f[:display_name]}
+                type="text"
+                placeholder={gettext("Blog Post")}
+                phx-debounce="300"
+                disabled={@readonly?}
+              />
+              <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("Singular form (e.g., \"Blog Post\")")}
+                </span>
+              </.label>
+            </div>
+
+            <%!-- Entity Name (Plural) --%>
+            <div>
+              <.label for="entity_display_name_plural">
+                {gettext("Entity Name (Plural)")} *
+              </.label>
+              <.input
+                field={f[:display_name_plural]}
+                type="text"
+                placeholder={gettext("Blog Posts")}
+                phx-debounce="300"
+                disabled={@readonly?}
+              />
+              <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("Plural form (e.g., \"Blog Posts\")")}
+                </span>
+              </.label>
+            </div>
+
+            <%!-- Slug --%>
+            <div>
+              <.label for="entity_name">
+                {gettext("Slug")} *
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs ml-2"
+                  phx-click="generate_entity_slug"
+                  title={gettext("Generate from Entity Name")}
+                  disabled={@readonly?}
+                >
+                  <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                </button>
+              </.label>
+              <.input
+                field={f[:name]}
+                type="text"
+                placeholder={gettext("blog_post")}
+                phx-debounce="300"
+                disabled={@readonly?}
+              />
+              <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("snake_case identifier used in the system")}
+                </span>
+              </.label>
+            </div>
+
+            <%!-- Icon --%>
+            <div>
+              <.label for="entity_icon">{gettext("Icon (Optional)")}</.label>
+              <div class="flex gap-2">
+                <div class="flex-1">
+                  <.input
+                    field={f[:icon]}
+                    type="text"
+                    placeholder={gettext("hero-document-text")}
+                    phx-debounce="300"
+                    disabled={@readonly?}
+                  />
+                </div>
+                <button
+                  type="button"
+                  phx-click="open_icon_picker"
+                  class="btn btn-outline btn-square"
+                  title={gettext("Browse icons")}
+                  disabled={@readonly?}
+                >
+                  <.icon name="hero-squares-2x2" class="w-5 h-5" />
+                </button>
+                <%= if f[:icon].value && f[:icon].value != "" do %>
+                  <button
+                    type="button"
+                    phx-click="clear_icon"
+                    class="btn btn-outline btn-square btn-error"
+                    title={gettext("Clear icon")}
+                    disabled={@readonly?}
+                  >
+                    <.icon name="hero-x-mark" class="w-5 h-5" />
+                  </button>
+                  <%= if String.starts_with?(f[:icon].value, "hero-") do %>
+                    <div class="btn btn-square btn-ghost pointer-events-none">
+                      <.icon name={f[:icon].value} class="w-6 h-6" />
+                    </div>
+                  <% end %>
+                <% end %>
+              </div>
+              <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("Heroicon name or click Browse")}
+                </span>
+              </.label>
+            </div>
+
+            <%!-- Status --%>
+            <div>
+              <.label for="entity_status">{gettext("Status")} *</.label>
+              <select
+                id="entity_status"
+                name={f[:status].name}
+                class="select select-bordered w-full"
+                required
+                disabled={@readonly?}
+              >
+                <option value="published" selected={f[:status].value == "published"}>
+                  {gettext("Published (active)")}
+                </option>
+                <option value="draft" selected={f[:status].value == "draft"}>
+                  {gettext("Draft (not visible)")}
+                </option>
+                <option value="archived" selected={f[:status].value == "archived"}>
+                  {gettext("Archived (hidden)")}
+                </option>
+              </select>
+              <.label class="label">
+                <span class="label-text-alt">
+                  {gettext("Only published can be used")}
+                </span>
+              </.label>
+            </div>
+          </div>
+
+          <%!-- Description --%>
+          <div>
+            <.label for="entity_description">{gettext("Description (Optional)")}</.label>
+            <textarea
+              id="entity_description"
+              name={f[:description].name}
+              placeholder={gettext("Describe what this entity represents...")}
+              class="textarea textarea-bordered w-full"
+              rows="3"
+              phx-debounce="300"
+              disabled={@readonly?}
+            >{f[:description].value}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Fields Section --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title text-2xl">
+              <.icon name="hero-list-bullet" class="w-6 h-6" />
+              {ngettext(
+                "%{count} Field Definition",
+                "%{count} Field Definitions",
+                length(@fields),
+                count: length(@fields)
+              )}
+            </h2>
+            <button
+              type="button"
+              class="btn btn-primary"
+              phx-click="add_field"
+              disabled={@readonly?}
+            >
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add Field")}
+            </button>
+          </div>
+
+          <%= if Enum.empty?(@fields) do %>
+            <%!-- Empty Fields State --%>
+            <div class="text-center py-8 border-2 border-dashed border-base-300 rounded-lg">
+              <div class="text-4xl mb-4 opacity-50">📝</div>
+              <h3 class="text-lg font-semibold text-base-content/60 mb-2">
+                {gettext("No Fields Yet")}
+              </h3>
+              <p class="text-base-content/50 mb-4">
+                {gettext("Add fields to define what data this entity can store")}
+              </p>
+              <button
+                type="button"
+                class="btn btn-primary"
+                phx-click="add_field"
+                disabled={@readonly?}
+              >
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add Your First Field")}
+              </button>
+            </div>
+          <% else %>
+            <%!-- Fields List --%>
+            <div class="space-y-4">
+              <%= for {field, index} <- Enum.with_index(@fields) do %>
+                <div class="card bg-base-200 border border-base-300">
+                  <div class="card-body p-4">
+                    <div class="flex items-center justify-between">
+                      <%!-- Move buttons (stacked vertically) at the beginning --%>
+                      <div class="flex flex-col -space-y-1 mr-3">
+                        <button
+                          type="button"
+                          class={"btn btn-ghost btn-xs px-1.5 #{if index == 0, do: "invisible", else: ""}"}
+                          phx-click="move_field_up"
+                          phx-value-index={index}
+                          title={gettext("Move up")}
+                          disabled={index == 0 or @readonly?}
+                        >
+                          <.icon name="hero-chevron-up" class="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          class={"btn btn-ghost btn-xs px-1.5 #{if index >= length(@fields) - 1, do: "invisible", else: ""}"}
+                          phx-click="move_field_down"
+                          phx-value-index={index}
+                          title={gettext("Move down")}
+                          disabled={index >= length(@fields) - 1 or @readonly?}
+                        >
+                          <.icon name="hero-chevron-down" class="w-3 h-3" />
+                        </button>
+                      </div>
+
+                      <div class="flex items-center justify-between flex-1">
+                        <%!-- Field Icon & Info --%>
+                        <div class="flex items-center space-x-2">
+                          <.icon
+                            name={field_type_icon(field["type"])}
+                            class="w-5 h-5 text-primary"
+                          />
+                          <div>
+                            <div class="font-medium">{field["label"]}</div>
+                            <div class="text-sm text-base-content/60">
+                              {field["key"]} · {field_type_label(field["type"])}
+                              {if field["required"], do: " · #{gettext("Required")}"}
+                            </div>
+                          </div>
+                        </div>
+
+                        <%!-- Field Actions --%>
+                        <div class="flex items-center space-x-2">
+                          <%= if @delete_confirm_index == index do %>
+                            <%!-- Delete confirmation buttons --%>
+                            <button
+                              type="button"
+                              class="btn btn-error btn-sm"
+                              phx-click="delete_field"
+                              phx-value-index={index}
+                              disabled={@readonly?}
+                            >
+                              {gettext("Confirm?")}
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-outline btn-sm"
+                              phx-click="cancel_delete_field"
+                              disabled={@readonly?}
+                            >
+                              {gettext("Cancel")}
+                            </button>
+                          <% else %>
+                            <%!-- Edit button --%>
+                            <button
+                              type="button"
+                              class="btn btn-primary btn-sm"
+                              phx-click="edit_field"
+                              phx-value-index={index}
+                              disabled={@readonly?}
+                            >
+                              <.icon name="hero-pencil" class="w-4 h-4" />
+                            </button>
+
+                            <%!-- Delete button --%>
+                            <button
+                              type="button"
+                              class="btn btn-error btn-sm"
+                              phx-click="confirm_delete_field"
+                              phx-value-index={index}
+                              title={gettext("Delete field")}
+                              disabled={@readonly?}
+                            >
+                              <.icon name="hero-trash" class="w-4 h-4" />
+                            </button>
+                          <% end %>
+                        </div>
+                      </div>
+                    </div>
+
+                    <%!-- Field Options Preview --%>
+                    <%= if requires_options?(field["type"]) && field["options"] do %>
+                      <div class="mt-2 text-sm text-base-content/60">
+                        <span class="font-medium">{gettext("Options")}:</span>
+                        {Enum.join(field["options"], ", ")}
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Form Actions --%>
+      <div class="flex justify-between items-center">
+        <div class="flex gap-2">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/entities")}
+            class="btn btn-outline"
+          >
+            {gettext("Cancel")}
+          </.link>
+
+          <button type="button" phx-click="reset" class="btn btn-warning" disabled={@readonly?}>
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+            {gettext("Reset Changes")}
+          </button>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={!@changeset.valid? or @readonly?}
+        >
+          {if @entity.id, do: gettext("Update Entity"), else: gettext("Create Entity")}
+        </button>
+      </div>
+    </.form>
+
+    <%!-- Field Form Modal --%>
+    <%= if @show_field_form do %>
+      <div class="modal modal-open" phx-click="cancel_field">
+        <div class="modal-box w-11/12 max-w-2xl" phx-click="stop_propagation">
+          <h3 class="font-bold text-lg mb-4">
+            {if @editing_field_index, do: gettext("Edit Field"), else: gettext("Add New Field")}
+          </h3>
+
+          <%!-- Field Error Alert --%>
+          <%= if @field_error do %>
+            <div class="alert alert-error mb-4">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+              <span>{@field_error}</span>
+            </div>
+          <% end %>
+
+          <.form
+            for={%{}}
+            phx-change="update_field_form"
+            phx-submit="save_field"
+            class="space-y-4"
+          >
+            <%!-- Field Type --%>
+            <div>
+              <.label>{gettext("Field Type")} *</.label>
+              <select
+                name="field[type]"
+                class="select select-bordered w-full"
+                value={@field_form["type"]}
+              >
+                <%= for {category_key, _label} <- PhoenixKit.Entities.FieldTypes.category_list() do %>
+                  <optgroup label={field_category_label(category_key)}>
+                    <%= for type <- PhoenixKit.Entities.FieldTypes.by_category(category_key) do %>
+                      <option value={type.name} selected={@field_form["type"] == type.name}>
+                        {field_type_label(type.name)}
+                      </option>
+                    <% end %>
+                  </optgroup>
+                <% end %>
+              </select>
+            </div>
+
+            <%!-- Field Label and Key --%>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <.label>{gettext("Field Label")} *</.label>
+                <input
+                  type="text"
+                  name="field[label]"
+                  class="input input-bordered w-full"
+                  placeholder={gettext("Field Name")}
+                  value={@field_form["label"]}
+                  required
+                />
+                <.label class="label">
+                  <span class="label-text-alt">{gettext("Display name for users")}</span>
+                </.label>
+              </div>
+
+              <div>
+                <.label>
+                  {gettext("Slug")} *
+                  <button
+                    type="button"
+                    class="btn btn-ghost btn-xs ml-2"
+                    phx-click="generate_field_key"
+                    title={gettext("Generate from Field Label")}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> {gettext("Generate")}
+                  </button>
+                </.label>
+                <input
+                  type="text"
+                  name="field[key]"
+                  class="input input-bordered w-full"
+                  placeholder={gettext("field_name")}
+                  value={@field_form["key"]}
+                  required
+                />
+                <.label class="label">
+                  <span class="label-text-alt">{gettext("snake_case identifier")}</span>
+                </.label>
+              </div>
+            </div>
+
+            <%!-- Required and Default Value --%>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <.label class="label cursor-pointer">
+                  <span class="label-text">{gettext("Required Field")}</span>
+                  <input
+                    type="checkbox"
+                    name="field[required]"
+                    class="toggle toggle-primary"
+                    value="true"
+                    checked={@field_form["required"]}
+                  />
+                </.label>
+              </div>
+
+              <div>
+                <.label>{gettext("Default Value (Optional)")}</.label>
+                <input
+                  type="text"
+                  name="field[default]"
+                  class="input input-bordered w-full"
+                  value={@field_form["default"]}
+                />
+              </div>
+            </div>
+
+            <%!-- Options (for choice fields) --%>
+            <%= if requires_options?(@field_form["type"]) do %>
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <.label>{gettext("Options")} *</.label>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline"
+                    phx-click="add_option"
+                  >
+                    <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Add Option")}
+                  </button>
+                </div>
+
+                <div class="space-y-2">
+                  <%= for {option, option_index} <- Enum.with_index(@field_form["options"] || []) do %>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        value={option}
+                        class="input input-bordered flex-1"
+                        phx-blur="update_option"
+                        phx-value-index={option_index}
+                        placeholder={gettext("Option value")}
+                      />
+                      <button
+                        type="button"
+                        class="btn btn-error btn-sm"
+                        phx-click="remove_option"
+                        phx-value-index={option_index}
+                      >
+                        <.icon name="hero-trash" class="w-4 h-4" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+
+                <%= if Enum.empty?(@field_form["options"] || []) do %>
+                  <div class="text-center text-base-content/60 py-4">
+                    {gettext("No options added yet. Click \"Add Option\" to get started.")}
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Modal Actions --%>
+            <div class="modal-action">
+              <button
+                type="button"
+                class="btn btn-outline"
+                phx-click="cancel_field"
+              >
+                {gettext("Cancel")}
+              </button>
+              <button
+                type="submit"
+                class="btn btn-primary"
+              >
+                {if @editing_field_index, do: gettext("Update Field"), else: gettext("Add Field")}
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Icon Picker Modal --%>
+    <%= if @show_icon_picker do %>
+      <div
+        class="fixed inset-0 bg-base-content/50 z-50 flex items-center justify-center p-4"
+        phx-click="close_icon_picker"
+      >
+        <div
+          class="bg-base-100 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col"
+          phx-click="stop_propagation"
+        >
+          <%!-- Modal Header --%>
+          <div class="flex items-center justify-between p-6 border-b border-base-300">
+            <h2 class="text-2xl font-bold flex items-center gap-2">
+              <.icon name="hero-squares-2x2" class="w-6 h-6" /> {gettext("Select an Icon")}
+            </h2>
+            <button
+              type="button"
+              phx-click="close_icon_picker"
+              class="btn btn-ghost btn-sm btn-circle"
+            >
+              <.icon name="hero-x-mark" class="w-5 h-5" />
+            </button>
+          </div>
+
+          <%!-- Search Bar --%>
+          <div class="p-4 border-b border-base-300">
+            <.form for={%{}} phx-change="search_icons" phx-submit="search_icons">
+              <div class="join w-full">
+                <input
+                  type="text"
+                  name="search"
+                  value={@icon_search}
+                  placeholder={gettext("Search icons...")}
+                  class="input input-bordered join-item flex-1"
+                  phx-debounce="300"
+                />
+                <button type="submit" class="btn btn-primary join-item">
+                  <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+                </button>
+              </div>
+            </.form>
+          </div>
+
+          <%!-- Category Tabs --%>
+          <div class="px-4 py-2 border-b border-base-300 overflow-x-auto">
+            <div class="tabs tabs-boxed inline-flex">
+              <%= for category <- @icon_categories do %>
+                <button
+                  type="button"
+                  phx-click="filter_by_category"
+                  phx-value-category={category}
+                  class={[
+                    "tab",
+                    @selected_category == category && "tab-active"
+                  ]}
+                >
+                  {icon_category_label(category)}
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Icon Grid --%>
+          <div class="flex-1 overflow-y-auto p-6">
+            <%= if Enum.empty?(@available_icons) do %>
+              <div class="text-center py-12">
+                <div class="text-4xl mb-4 opacity-50">🔍</div>
+                <p class="text-base-content/70">
+                  {gettext("No icons found matching your search")}
+                </p>
+              </div>
+            <% else %>
+              <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                <%= for {icon_name, display_name} <- @available_icons do %>
+                  <button
+                    type="button"
+                    phx-click="select_icon"
+                    phx-value-icon={icon_name}
+                    class="btn btn-outline flex flex-col h-auto py-3 gap-1 hover:btn-primary min-h-0"
+                    title={display_name}
+                  >
+                    <.icon name={icon_name} class="w-6 h-6 flex-shrink-0" />
+                    <span class="text-xs leading-tight text-center break-words w-full">
+                      {display_name}
+                    </span>
+                  </button>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Modal Footer --%>
+          <div class="p-4 border-t border-base-300 bg-base-200">
+            <div class="flex justify-between items-center text-sm text-base-content/70">
+              <span>
+                {ngettext(
+                  "%{count} icon available",
+                  "%{count} icons available",
+                  length(@available_icons),
+                  count: length(@available_icons)
+                )}
+              </span>
+              <button type="button" phx-click="close_icon_picker" class="btn btn-ghost btn-sm">
+                {gettext("Cancel")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

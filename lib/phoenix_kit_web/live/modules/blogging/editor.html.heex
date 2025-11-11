@@ -1,0 +1,269 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={
+    PhoenixKit.Utils.Routes.path("/admin/blogging/#{@blog_slug}/edit", locale: @current_locale)
+  }
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <script>
+    (function() {
+      // Track unsaved changes state
+      window.editorUnsavedChanges = false;
+
+      // Browser exit protection
+      window.addEventListener('beforeunload', function(e) {
+        if (window.editorUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = '';
+          return '';
+        }
+      });
+
+      // Intercept navigation links
+      document.addEventListener('click', function(e) {
+        if (window.editorUnsavedChanges) {
+          const link = e.target.closest('a[href], a[data-phx-link]');
+          if (link && !link.hasAttribute('data-confirm')) {
+            const href = link.getAttribute('href') || link.getAttribute('data-phx-link');
+            // Don't block external links or hash links
+            if (href && !href.startsWith('http') && !href.startsWith('#')) {
+              e.preventDefault();
+              e.stopPropagation();
+              document.getElementById('confirm-cancel-btn').click();
+            }
+          }
+        }
+      }, true);
+
+      // Listen for changes status from LiveView
+      window.addEventListener('phx:changes-status', function(e) {
+        window.editorUnsavedChanges = e.detail.has_changes;
+      });
+
+      // Listen for confirm navigation event
+      window.addEventListener('phx:confirm-navigation', function(e) {
+        if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
+          document.getElementById('confirm-cancel-btn').click();
+        }
+      });
+
+      // Listen for slug update event from LiveView
+      window.addEventListener('phx:update-slug', function(e) {
+        const slugInput = document.getElementById('slug-input');
+        if (slugInput && e.detail.slug) {
+          slugInput.value = e.detail.slug;
+        }
+      });
+    })();
+  </script>
+  <%!-- Hidden confirmation button for JavaScript --%>
+  <button
+    id="confirm-cancel-btn"
+    type="button"
+    phx-click="cancel"
+    class="hidden"
+    aria-hidden="true"
+  >
+  </button>
+
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="back_to_list">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-1" /> {gettext("Back to %{blog}",
+          blog: @blog_name || gettext("Blog")
+        )}
+      </button>
+      <div class="flex items-center gap-3">
+        <%!-- Language Switcher --%>
+        <%= if length(@all_enabled_languages) > 1 do %>
+          <div class="flex items-center gap-2" id="language-switcher">
+            <span class="text-sm text-base-content/70">{gettext("Language")}:</span>
+            <div class="join">
+              <%= for lang_code <- @all_enabled_languages do %>
+                <% lang_info = PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
+                flag = if lang_info, do: lang_info.flag, else: ""
+                is_current = @current_language == lang_code
+                file_exists = lang_code in @available_languages %>
+                <button
+                  type="button"
+                  class={[
+                    "join-item btn btn-sm shadow-none",
+                    cond do
+                      is_current -> "btn-primary"
+                      file_exists -> "btn-outline"
+                      true -> "btn-success btn-outline"
+                    end
+                  ]}
+                  phx-click="switch_language"
+                  phx-value-language={lang_code}
+                  title={
+                    cond do
+                      is_current && lang_info -> "Editing #{lang_info.name}"
+                      file_exists && lang_info -> "Switch to #{lang_info.name}"
+                      lang_info -> "Create #{lang_info.name} translation"
+                      true -> lang_code
+                    end
+                  }
+                >
+                  <%= cond do %>
+                    <% is_current -> %>
+                      <.icon name="hero-check" class="w-4 h-4" />
+                    <% not file_exists -> %>
+                      <.icon name="hero-plus" class="w-3 h-3" />
+                    <% true -> %>
+                  <% end %>
+                  <span class="text-lg phx-click-loading:opacity-50">{flag}</span>
+                  <span class="phx-click-loading:hidden">{String.upcase(lang_code)}</span>
+                  <span class="hidden phx-click-loading:inline-block loading loading-spinner loading-xs">
+                  </span>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        <button
+          type="button"
+          class="btn btn-outline btn-sm shadow-none"
+          phx-click="preview"
+        >
+          <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("Preview")}
+        </button>
+        <%= if @form["status"] == "published" && @public_url do %>
+          <a
+            href={if @has_pending_changes, do: "#", else: @public_url}
+            target="_blank"
+            class={[
+              "btn btn-outline btn-sm shadow-none",
+              !@has_pending_changes && "btn-success",
+              @has_pending_changes && "btn-disabled pointer-events-none opacity-60"
+            ]}
+            aria-disabled={@has_pending_changes}
+            tabindex={if @has_pending_changes, do: "-1", else: "0"}
+            title={
+              if(@has_pending_changes,
+                do: "Save the post before viewing the public page",
+                else: "View this post on the public site"
+              )
+            }
+          >
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+          </a>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 shadow-xl border border-base-200">
+      <div class="card-body space-y-6">
+        <div class="flex flex-col lg:flex-row gap-6">
+          <div class="lg:w-80 space-y-4">
+            <.form for={@form} id="blogging-meta" phx-change="update_meta" phx-submit="noop">
+              <div class="space-y-4">
+                <%!-- Title is extracted from markdown content (first # Heading) --%>
+                <%= if @blog_mode == "slug" do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Slug")}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      name="slug"
+                      id="slug-input"
+                      value={@form["slug"]}
+                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                      class="input input-bordered w-full lowercase"
+                      placeholder={gettext("auto-generated from first heading")}
+                      title={
+                        gettext(
+                          "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
+                        )
+                      }
+                    />
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext("Use lowercase letters, numbers, and hyphens only.")}
+                    </p>
+                  </div>
+                <% end %>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Status")}
+                    </span>
+                  </label>
+                  <select
+                    class="select select-bordered w-full"
+                    name="status"
+                  >
+                    <option value="draft" selected={@form["status"] == "draft"}>
+                      {gettext("Draft")}
+                    </option>
+                    <option value="published" selected={@form["status"] == "published"}>
+                      {gettext("Published")}
+                    </option>
+                    <option value="archived" selected={@form["status"] == "archived"}>
+                      {gettext("Archived")}
+                    </option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Publication Date & Time (UTC)")}
+                    </span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="published_at"
+                    value={datetime_local_value(@form["published_at"])}
+                    class="input input-bordered w-full"
+                  />
+                  <p class="text-xs text-base-content/60 mt-1">
+                    {gettext(
+                      "Updating the publication time moves the file to the matching folder."
+                    )}
+                  </p>
+                </div>
+              </div>
+            </.form>
+          </div>
+
+          <div class="flex-1 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
+              <div class="flex items-center gap-2">
+                <%= if @has_pending_changes do %>
+                  <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                <% end %>
+                <button
+                  type="button"
+                  class={[
+                    "btn btn-sm inline-flex items-center justify-center gap-2 px-3",
+                    if(@has_pending_changes, do: "btn-primary", else: "btn-disabled")
+                  ]}
+                  phx-click="save"
+                  disabled={!@has_pending_changes}
+                >
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  <span class="whitespace-nowrap">{gettext("Save Post")}</span>
+                </button>
+              </div>
+            </div>
+
+            <.form for={%{}} id="blogging-content" phx-change="update_content" phx-submit="noop">
+              <textarea
+                name="content"
+                class="textarea textarea-bordered w-full h-[480px] font-mono text-sm leading-6"
+              >{@content}</textarea>
+            </.form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

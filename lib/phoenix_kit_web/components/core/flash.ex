@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Components.Core.Flash do
       id={@id}
       phx-click={JS.push("lv:clear-flash", value: %{key: @kind}) |> hide_flash("##{@id}")}
       role="alert"
-      class="toast toast-top toast-end z-50"
+      class="toast toast-top toast-end z-[1000]"
       {@rest}
     >
       <div class={[

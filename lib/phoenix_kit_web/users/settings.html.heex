@@ -1,0 +1,453 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Account Settings"
+>
+  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+    <div class="w-full max-w-lg px-4">
+      <div class="text-center mb-8">
+        <div class="flex items-center justify-center mb-4">
+          <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-12 h-12 text-primary" />
+        </div>
+        <h1 class="text-3xl font-bold mb-2">Account Settings</h1>
+        <p class="text-base-content/60 text-sm">
+          Manage your account email address and password settings
+        </p>
+      </div>
+
+      <div class="space-y-8">
+        <%!-- Email Settings Card --%>
+        <div class="card bg-base-100 shadow-2xl">
+          <div class="card-body">
+            <div class="flex items-center mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-6 h-6 text-primary mr-3" />
+              <div>
+                <h2 class="text-xl font-bold">Email Address</h2>
+                <p class="text-sm text-base-content/60">Change your account email address</p>
+              </div>
+            </div>
+
+            <.simple_form
+              for={@email_form}
+              id="email_form"
+              phx-submit="update_email"
+              phx-change="validate_email"
+            >
+              <.input
+                field={@email_form[:email]}
+                type="email"
+                label="Email"
+                required
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <.input
+                field={@email_form[:current_password]}
+                name="current_password"
+                id="current_password_for_email"
+                type="password"
+                label="Current password"
+                value={@email_form_current_password}
+                required
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <:actions>
+                <.button
+                  phx-disable-with="Changing..."
+                  class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
+                  Change Email
+                </.button>
+              </:actions>
+            </.simple_form>
+          </div>
+        </div>
+
+        <%!-- Profile Settings Card --%>
+        <div class="card bg-base-100 shadow-2xl">
+          <div class="card-body">
+            <div class="flex items-center mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-6 h-6 text-primary mr-3" />
+              <div>
+                <h2 class="text-xl font-bold">Profile Information</h2>
+                <p class="text-sm text-base-content/60">
+                  Update your personal information and timezone preference
+                </p>
+              </div>
+            </div>
+
+            <.simple_form
+              for={@profile_form}
+              id="profile_form"
+              phx-submit="update_profile"
+              phx-change="validate_profile"
+            >
+              <.input
+                field={@profile_form[:first_name]}
+                type="text"
+                label="First Name"
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <.input field={@profile_form[:last_name]} type="text" label="Last Name">
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <div id="timezone-detector">
+                <.select
+                  field={@profile_form[:user_timezone]}
+                  label="Personal Timezone"
+                  options={@timezone_options}
+                />
+
+                <%!-- Timezone Mismatch Warning --%>
+                <%= if assigns[:timezone_mismatch_warning] do %>
+                  <div class="alert alert-warning text-sm mt-2">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_warning class="stroke-current shrink-0 h-5 w-5" />
+                    <div>
+                      <div class="font-semibold">Timezone Mismatch Detected</div>
+                      <div class="text-xs">
+                        {@timezone_mismatch_warning}
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%!-- Browser Timezone Info --%>
+                <%= if assigns[:browser_timezone_name] do %>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Browser detected: {@browser_timezone_name} ({@browser_timezone_offset})
+                  </div>
+                <% end %>
+
+                <%!-- Debug button for timezone detection --%>
+                <div class="mt-2">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline"
+                    onclick="detectAndStoreTimezone(); return false;"
+                  >
+                    🐛 Detect Browser Timezone (Debug)
+                  </button>
+                  <div class="text-xs text-base-content/60 mt-1">
+                    Click if timezone detection isn't working automatically
+                  </div>
+                </div>
+              </div>
+              <:actions>
+                <.button
+                  phx-disable-with="Updating..."
+                  class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-5 h-5 mr-2" />
+                  Update Profile
+                </.button>
+              </:actions>
+            </.simple_form>
+          </div>
+        </div>
+
+        <%!-- Password Settings Card --%>
+        <div class="card bg-base-100 shadow-2xl">
+          <div class="card-body">
+            <div class="flex items-center mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-6 h-6 text-primary mr-3" />
+              <div>
+                <h2 class="text-xl font-bold">Password</h2>
+                <p class="text-sm text-base-content/60">Update your account password</p>
+              </div>
+            </div>
+
+            <.simple_form
+              for={@password_form}
+              id="password_form"
+              action={Routes.path("/users/log-in?_action=password_updated")}
+              method="post"
+              phx-change="validate_password"
+              phx-submit="update_password"
+              phx-trigger-action={@trigger_submit}
+            >
+              <input
+                name={@password_form[:email].name}
+                type="hidden"
+                id="hidden_user_email"
+                value={@current_email}
+              />
+              <.input
+                field={@password_form[:password]}
+                type="password"
+                label="New password"
+                required
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <.input
+                field={@password_form[:password_confirmation]}
+                type="password"
+                label="Confirm new password"
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <.input
+                field={@password_form[:current_password]}
+                name="current_password"
+                type="password"
+                label="Current password"
+                id="current_password_for_password"
+                value={@current_password}
+                required
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
+              <:actions>
+                <.button
+                  phx-disable-with="Changing..."
+                  class="btn-primary transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-5 h-5 mr-2" />
+                  Change Password
+                </.button>
+              </:actions>
+            </.simple_form>
+          </div>
+        </div>
+
+        <%!-- Connected Accounts Card --%>
+        <%= if @oauth_available do %>
+          <div class="card bg-base-100 shadow-2xl">
+            <div class="card-body">
+              <div class="flex items-center mb-4">
+                <PhoenixKitWeb.Components.Core.Icons.icon_link class="w-6 h-6 text-primary mr-3" />
+                <div>
+                  <h2 class="text-xl font-bold">Connected Accounts</h2>
+                  <p class="text-sm text-base-content/60">
+                    Manage OAuth providers for quick sign-in
+                  </p>
+                </div>
+              </div>
+              <%!-- Connected Providers List --%>
+              <%= if length(@oauth_providers) > 0 do %>
+                <div class="space-y-3 mb-4">
+                  <h3 class="font-semibold text-sm text-base-content/70">Connected Providers</h3>
+                  <%= for provider <- @oauth_providers do %>
+                    <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                      <div class="flex items-center gap-3">
+                        <%= case provider.provider do %>
+                          <% "google" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_google class="w-6 h-6" />
+                          <% "apple" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_apple class="w-6 h-6" />
+                          <% "github" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_github class="w-6 h-6" />
+                          <% "facebook" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_facebook class="w-6 h-6" />
+                          <% _ -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_link class="w-6 h-6" />
+                        <% end %>
+                        <div>
+                          <div class="font-semibold">
+                            {format_provider_name(provider.provider)}
+                          </div>
+                          <div class="text-xs text-base-content/60">
+                            {provider.provider_email || @current_email}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="disconnect_oauth_provider"
+                        phx-value-provider={provider.provider}
+                        class="btn btn-sm btn-outline btn-error"
+                        data-confirm="Are you sure you want to disconnect this account? You won't be able to sign in with it anymore."
+                      >
+                        <PhoenixKitWeb.Components.Core.Icons.icon_trash class="w-4 h-4 mr-1" />
+                        Disconnect
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="alert alert-info text-sm mb-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-5 w-5" />
+                  <span>
+                    You don't have any OAuth providers connected yet. Connect one for faster sign-in.
+                  </span>
+                </div>
+              <% end %>
+              <%!-- Available Providers to Connect --%>
+              <%= if length(@available_providers) > 0 do %>
+                <div class="space-y-3">
+                  <h3 class="font-semibold text-sm text-base-content/70">
+                    Connect Additional Providers
+                  </h3>
+                  <div class="space-y-2">
+                    <%= for provider <- @available_providers do %>
+                      <button
+                        type="button"
+                        phx-click="connect_oauth_provider"
+                        phx-value-provider={provider}
+                        class="btn btn-outline w-full flex items-center justify-start gap-3 transition-all hover:scale-[1.02]"
+                      >
+                        <%= case provider do %>
+                          <% "google" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_google class="w-5 h-5" />
+                            <span>Connect Google Account</span>
+                          <% "apple" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_apple class="w-5 h-5" />
+                            <span>Connect Apple Account</span>
+                          <% "github" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_github class="w-5 h-5" />
+                            <span>Connect GitHub Account</span>
+                          <% "facebook" -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_facebook class="w-5 h-5" />
+                            <span>Connect Facebook Account</span>
+                          <% _ -> %>
+                            <PhoenixKitWeb.Components.Core.Icons.icon_link class="w-5 h-5" />
+                            <span>Connect {format_provider_name(provider)}</span>
+                        <% end %>
+                      </button>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+              <%!-- Instructions Collapsible --%>
+              <div class="collapse collapse-arrow bg-base-200 mt-4">
+                <input type="checkbox" />
+                <div class="collapse-title text-sm font-medium">
+                  How to connect an OAuth account
+                </div>
+                <div class="collapse-content text-sm space-y-2">
+                  <p class="text-base-content/80">
+                    <strong>What is OAuth?</strong>
+                  </p>
+                  <p class="text-base-content/70">
+                    OAuth lets you sign in using your existing Google, Apple, or GitHub account instead
+                    of remembering a password.
+                  </p>
+                  <p class="text-base-content/80 mt-3">
+                    <strong>Requirements:</strong>
+                  </p>
+                  <ul class="list-disc list-inside text-base-content/70 space-y-1">
+                    <li>
+                      Your OAuth account email must match your account email ({@current_email})
+                    </li>
+                    <li>You'll be redirected to the provider to authorize access</li>
+                    <li>After authorization, you'll be brought back here</li>
+                  </ul>
+                  <p class="text-base-content/80 mt-3">
+                    <strong>Security:</strong>
+                  </p>
+                  <p class="text-base-content/70">
+                    We recommend keeping at least one OAuth provider connected OR having a password
+                    set to ensure you can always access your account.
+                  </p>
+                </div>
+              </div>
+              <%!-- Password Warning for OAuth-only Users --%>
+              <%= if length(@oauth_providers) > 0 and @phoenix_kit_current_user.hashed_password == nil do %>
+                <div class="alert alert-warning text-sm mt-4">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_warning class="stroke-current shrink-0 h-5 w-5" />
+                  <div>
+                    <div class="font-semibold">No Password Set</div>
+                    <div class="text-xs">
+                      You signed up using OAuth. Consider setting a password above as a backup sign-in
+                      method.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+        <%!-- Development Mode Notice --%>
+        <div :if={show_dev_notice?()} class="alert alert-info">
+          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
+          <span>
+            Development mode: Check
+            <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
+            for confirmation emails
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+
+<script>
+  // Simple timezone detection - detect once and store in form
+  function detectAndStoreTimezone() {
+    try {
+      // Get browser timezone data
+      const timezoneName = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const now = new Date();
+      const offsetMinutes = now.getTimezoneOffset();
+      const offsetHours = Math.round(offsetMinutes / -60);
+      const offsetString = offsetHours === 0 ? "0" :
+        (offsetHours > 0 ? "+" + offsetHours : offsetHours.toString());
+
+      // Add hidden fields to the form
+      const form = document.querySelector('#profile_form');
+
+      if (form) {
+        // Remove any existing timezone inputs first
+        const existingInputs = form.querySelectorAll('input[name="browser_timezone_name"], input[name="browser_timezone_offset"]');
+        existingInputs.forEach(input => input.remove());
+
+        // Add new timezone inputs
+        const nameInput = document.createElement('input');
+        nameInput.type = 'hidden';
+        nameInput.name = 'browser_timezone_name';
+        nameInput.value = timezoneName;
+        nameInput.id = 'browser_timezone_name_input';
+
+        const offsetInput = document.createElement('input');
+        offsetInput.type = 'hidden';
+        offsetInput.name = 'browser_timezone_offset';
+        offsetInput.value = offsetString;
+        offsetInput.id = 'browser_timezone_offset_input';
+
+        form.appendChild(nameInput);
+        form.appendChild(offsetInput);
+
+        // Trigger form validation to send data to LiveView
+        const timezoneSelect = form.querySelector('select[name*="user_timezone"]');
+
+        if (timezoneSelect) {
+          const option = timezoneSelect.querySelector(`[value="${offsetString}"]`);
+
+          if (option) {
+            option.selected = true;
+          }
+
+          const changeEvent = new Event('input', { bubbles: true });
+          timezoneSelect.dispatchEvent(changeEvent);
+        }
+
+        return true;
+      }
+    } catch (error) {
+      // Silent fail - timezone detection is not critical
+    }
+
+    return false;
+  }
+
+  // Detect timezone when page loads
+  setTimeout(detectAndStoreTimezone, 500);
+  setTimeout(detectAndStoreTimezone, 1500);
+</script>
