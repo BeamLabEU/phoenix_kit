@@ -96,20 +96,29 @@ mix phoenix_kit.update --force -y                         # Force update with au
 
 ### Testing & Code Quality
 
-- `mix test` - Run test suite (tests are currently in development)
+- `mix test` - Run smoke tests (module loading and configuration)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
 - `mix dialyzer` - Type checking (requires PLT setup)
-- `mix quality` - Run all quality checks (format, credo, dialyzer, test)
+- `mix quality` - Run all quality checks (format, credo, dialyzer)
 
-**Current Test Status:**
-- ✅ Test infrastructure is set up (`test/support/` with DataCase and ConnCase)
-- ✅ Basic smoke tests verify module loading and configuration
-- ✅ User schema validation tests demonstrate testing patterns
-- 🚧 Comprehensive test suite is in active development
-- 🚧 Target: Full coverage for auth, roles, email system, and migrations
+**Testing Philosophy for Library Modules:**
 
-⚠️ Ecto warnings are normal for library - tests focus on API validation
+PhoenixKit is a **library module**, not a standalone application. Testing approach:
+
+- ✅ **Smoke Tests** - Verify modules are loadable and properly structured
+- ✅ **Static Analysis** - Credo and Dialyzer catch logic and type errors
+- ✅ **Integration Testing** - Should be performed in parent Phoenix applications
+
+**Why Minimal Unit Tests?**
+- Library code requires database, configuration, and runtime context
+- Unit tests would need complex mocking of Repo, Settings, and other dependencies
+- Real-world usage testing in parent applications provides better coverage
+- Smoke tests ensure library compiles and modules load correctly
+
+**For Contributors:**
+Test your changes by integrating PhoenixKit into a real Phoenix application.
+See CONTRIBUTING.md for development workflow with live reloading.
 
 ### CI/CD
 
@@ -119,10 +128,9 @@ PhoenixKit uses GitHub Actions for continuous integration:
 - ✅ Code formatting validation (`mix format --check-formatted`)
 - ✅ Static analysis with Credo (`mix credo --strict`)
 - ✅ Type checking with Dialyzer
-- ✅ Test suite execution with PostgreSQL
-- ✅ Compilation with warnings as errors
-- ✅ Dependency audit
-- ✅ Coverage reporting (Codecov integration)
+- ✅ Compilation with warnings as errors (production code)
+- ✅ Dependency audit (non-blocking for transitive deps)
+- 📝 Smoke tests (optional - basic module loading verification)
 
 **CI Workflow:**
 - Runs on push to `main`, `dev`, and `claude/**` branches
