@@ -12,40 +12,88 @@ PhoenixKit is under heavy development and we're looking for early adopters to te
 
 With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps much faster and focus on your unique business logic instead of reimplementing common SaaS patterns.
 
+## Semi-Automatic Installation
+
+PhoenixKit provides pretty simple installation method, powered by igniter library, which takes care of all configuration needs.
+
+Add both `phoenix_kit` and `igniter` to your project dependencies:
+
+```elixir
+# mix.exs
+def deps do
+  [
+    {:phoenix_kit, "~> 1.4"},
+    {:igniter, "~> 0.6.30", only: [:dev]}
+  ]
+end
+```
+
+Then run the PhoenixKit installer:
+
+```bash
+mix deps.get
+mix phoenix_kit.install
+```
+
+This will automatically:
+- Auto-detect your Ecto repository
+- **Validate PostgreSQL compatibility** with adapter detection
+- Generate migration files for authentication tables
+- **Optionally run migrations interactively** for instant setup
+- Add PhoenixKit configuration to `config/config.exs`
+- Configure mailer settings for development
+- **Create production mailer templates** in `config/prod.exs`
+- Add authentication routes to your router
+
 ## 📦 Current PhoenixKit Features / Modules:
-- [x] Simple installation using Igniter
-- [x] Tailwind and DaisyUI integration
-- [x] App layout integration
-- [x] App database integration (Postgres only for now)
-- [ ] User Module
-  - [x] Registration
-  - [x] Login
-    - [ ] Login screen customizations
-  - [x] Logout
-  - [x] Magic link
-  - [x] Email confirmation (waiting Email Module)
-  - [x] Password reset
-  - [x] User roles
-  - [x] Location of registration (ip, country, region, city)
+```
+✅ Simple installation using Igniter
+✅ Tailwind and DaisyUI integration
+✅ App layout integration
+✅ App database integration (Postgres only for now)
+✅ Custom slug prefix (default: `/phoenix_kit`)
+✅ User Module
+  ✅ Registration
+  ✅ Login
+    [ ] Login screen customizations
+  ✅ Logout
+  ✅ Magic link
+  ✅ Email confirmation (waiting Email Module)
+  ✅ Password reset
+  ✅ User roles
+  ✅ Custom user fields
+    ✅ JSONB storage for flexibility
+  ✅ Location of registration (ip, country, region, city)
+  ✅ User's timezone (and mismatch detection)
+  ✅ User's locale
+  ✅ OAuth (google, facebook)
+```
+
 - [ ] Backend Admin module
-  - [x] Modules Manager (in progress)
+  - [x] Modules Manager
   - [x] Session Manager Module
-  - [x] Settings (in progress)
+  - [x] Settings
     - [x] Global app title
     - [x] Global app timezone (using timex)
     - [x] Global time format (using timex)
   - [x] User management
   - [x] Role management
   - [x] Referral Program
-- [x] Email Module
+  - [x] Maintenance Mode Module
+  - [x] Email Module
+    - [x] AWS SES integration
+  - [x] Entities Module (WordPress ACF-like dynamic content types)
+    - [x] Dynamic entity type creation
+    - [x] Flexible field schemas (13 field types)
+    - [x] JSONB storage for flexibility
+    - [x] Full CRUD interfaces
+    - [x] Settings management
+  - [x] Pages Module
 
 ## 🛣️ Roadmap / Ideas / Feature requests
-- User module
-  - User's timezone (mismatch detection)
-  - User's locale (needs global language settings, in works)
-  - OAuth (google, facebook, twitter, github, etc...)
+- User Auth
   - 2FA
-  - Fail2ban
+  - Fail2ban (userbased, ip based, region based)
 - Backend admin
   - Design / templates / themes
   - Settings
@@ -53,9 +101,10 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
     - Languages
   - Email Module
     - Email templates
+  - Newsletter Module
   - Notifications Module
     - Integration with notification providers (Twilio, etc...)
-  - Content publishing Module
+  - Blogging module
     - Media / Gallery (with s3 backend)
     - Video (Video processing, streaming, Adaptive Bitrate (ABR): stream in multiple bitrates and resolutions for difference devices, HTTP Live Streaming (HLS): reduce bandwidth usage, playback latency, and buffering, H.264, H.265, VP8 & VP9: optimized next-generation video codecs)
     - Audio
@@ -63,7 +112,6 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
     - Local / External storage support (AWS S3, Azure Storage, Google Storage, Cloudflare R2, and DigitalOcean Spaces)
     - CDN
     - Static pages
-    - Legal (Cookies, Terms Of Service, Acceptable Use, GDPR, Privacy & Data Policy)
     - Blog
     - Comments
     - Search
@@ -72,39 +120,43 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
       - Video player (mp4, youtube, etc)
   - Billing System Module
     - Invoices
-    - Integration
-      - Stripe
-      - PayPal
-      - Crypto
-  - Newsletter Module
+    - Payment
+      - Integration
+        - Stripe
+        - PayPal
+        - Crypto
+    - Orders
+  - Membership / Subscription Module
   - E-commerce Module
-    - Digital products
+    - Digital and downloadable products
     - Physical products
-  - Membership Module
   - Cookies Module
+  - Complience and Legal Module (Cookies usage, Terms Of Service, Acceptable Use, GDPR, Privacy & Data Policy)
+  - Booking Module (Calendar based)
   - Popups Module
   - Contact Us Module
-  - SEO Module
+  - SEO Module (sitemap, open graph)
   - AI Module
-    - Integration with AI providers
+    - OpenRouter Integration
+    - Integration with other AI providers
   - What’s New Module
-  - Chat Module (https://github.com/basecamp/once-campfire)
+  - Internal Chat Module (https://github.com/basecamp/once-campfire)
   - DB Manager Module
     - Export / Import
     - Snapshots
-    - Backups
-    - Custom entities and fields
+    - Backups (onsite/offsite)
   - Customer service Module
     - Chat
   - Feedback Module
   - Roadmap / Ideas Module
   - CRM Module
-  - Analytics / BI Module
+  - App Analytics / BI Module
     - ClickHouse backend
     - Events
+    - Charts, trends and notifications
   - API Module
   - Cron Modules
-  - Jobs Module (Oban)
+  - Jobs Module (Oban powered)
   - Testimonials Module
   - Team Module
   - FAQ
@@ -127,7 +179,7 @@ Add both `phoenix_kit` and `igniter` to your project dependencies:
 # mix.exs
 def deps do
   [
-    {:phoenix_kit, "~> 1.2"},
+    {:phoenix_kit, "~> 1.4.3"},
     {:igniter, "~> 0.6.0", only: [:dev]}
   ]
 end
@@ -164,9 +216,9 @@ mix phoenix_kit.install --prefix "auth" --create-schema
 mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 ```
 
-### Manual Installation
+## Manual Installation
 
-1. Add `{:phoenix_kit, "~> 1.2"}` to `mix.exs`
+1. Add `{:phoenix_kit, "~> 1.4"}` to `mix.exs`
 2. Run `mix deps.get && mix phoenix_kit.gen.migration`
 3. Configure repository: `config :phoenix_kit, repo: MyApp.Repo`
 4. Add `phoenix_kit_routes()` to your router
@@ -175,8 +227,8 @@ mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 ## Quick Start
 
 Visit these URLs after installation:
-- `http://localhost:4000{prefix}/users/register` - User registration
-- `http://localhost:4000{prefix}/users/log-in` - User login
+- `http://localhost:4000/{prefix}/users/register` - User registration
+- `http://localhost:4000/{prefix}/users/log-in` - User login
 
 Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
@@ -252,6 +304,17 @@ config :phoenix_kit, PhoenixKit.Mailer,
 ```
 
 **Note:** Run `mix deps.compile phoenix_kit --force` after changing configuration.
+
+### OAuth Configuration
+
+Enable social authentication (Google, Apple, GitHub) through admin UI at `{prefix}/admin/settings`.
+Built-in setup instructions included. For reverse proxy deployments, ensure `X-Forwarded-Proto` header is set:
+
+```nginx
+proxy_set_header X-Forwarded-Proto $scheme;
+```
+
+See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 
 ### Advanced Options
 - Custom URL prefix: `phoenix_kit_routes("/authentication")`
@@ -348,7 +411,7 @@ PhoenixKit follows professional library patterns:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed instructions on setting up a development environment and contributing to PhoenixKit.
+See [CONTRIBUTING.md](https://github.com/BeamLabEU/phoenix_kit/blob/main/CONTRIBUTING.md) for detailed instructions on setting up a development environment and contributing to PhoenixKit.
 
 ## License
 

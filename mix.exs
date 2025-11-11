@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.2.13"
+  @version "1.5.2"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -23,7 +23,15 @@ defmodule PhoenixKit.MixProject do
 
       # Testing
       test_coverage: [tool: ExCoveralls],
-      preferred_cli_env: [
+
+      # Aliases for development
+      aliases: aliases()
+    ]
+  end
+
+  def cli do
+    [
+      preferred_env: [
         coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
@@ -71,8 +79,6 @@ defmodule PhoenixKit.MixProject do
 
       # Web functionality
       {:gettext, "~> 0.24"},
-      {:telemetry_metrics, "~> 1.0"},
-      {:telemetry_poller, "~> 1.0"},
       {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.8", only: :dev},
       {:tailwind, "~> 0.4.0", only: :dev},
@@ -81,6 +87,14 @@ defmodule PhoenixKit.MixProject do
       # Authentication
       {:bcrypt_elixir, "~> 3.0"},
       {:swoosh, "~> 1.19.5"},
+      {:gen_smtp, "~> 1.2"},
+
+      # OAuth authentication
+      {:ueberauth, "~> 0.10"},
+      {:ueberauth_google, "~> 0.12"},
+      {:ueberauth_apple, "~> 0.1"},
+      {:ueberauth_github, "~> 0.8"},
+      {:ueberauth_facebook, "~> 0.10"},
 
       # Development and testing
       {:ex_doc, "~> 0.38.4", only: :dev, runtime: false},
@@ -94,14 +108,24 @@ defmodule PhoenixKit.MixProject do
       # Utilities
       {:jason, "~> 1.4"},
       {:timex, "~> 3.7"},
+      {:earmark, "~> 1.4"},
+      {:yaml_elixir, "~> 2.9"},
+      {:uuidv7, "~> 1.0"},
+      {:oban, "~> 2.20"},
 
       # AWS integration for emails
+      {:sweet_xml, "~> 0.7"},
       {:ex_aws, "~> 2.4"},
       {:ex_aws_sqs, "~> 3.4"},
+      {:ex_aws_sns, "~> 2.3"},
       {:ex_aws_sts, "~> 2.3"},
+      {:ex_aws_s3, "~> 2.4"},
+      {:ex_aws_ec2, "~> 2.0"},
+      {:saxy, "~> 1.5"},
+      {:finch, "~> 0.18"},
 
       # Code generation and project patching
-      {:igniter, "~> 0.6.27", optional: true}
+      {:igniter, "~> 0.7", optional: true}
     ]
   end
 
@@ -122,8 +146,20 @@ defmodule PhoenixKit.MixProject do
       name: "PhoenixKit",
       source_ref: "v#{@version}",
       source_url: @source_url,
-      main: "readme",
-      extras: ["README.md", "CHANGELOG.md"],
+      main: "PhoenixKit",
+      extras: [
+        "README.md",
+        "CHANGELOG.md",
+        "guides/oauth_and_magic_link_setup.md",
+        "guides/aws_email_setup.md",
+        "guides/making-pages-live.md",
+        "guides/phk_blogging_format.md",
+        "guides/AUTH_HEADER_INTEGRATION.md",
+        "guides/README.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/guides\/.*/
+      ],
       groups_for_modules: []
     ]
   end

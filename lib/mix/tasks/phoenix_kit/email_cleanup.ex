@@ -42,14 +42,15 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    # Note: EmailSystem.enabled?() check omitted as Dialyzer determines it's always true
+    # Note: Emails.enabled?() check omitted as Dialyzer determines it's always true
 
     days_old = parse_days(options[:older_than])
 
@@ -88,7 +89,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
 
   defp parse_days(nil) do
     # Use system retention setting or default to 90 days
-    EmailSystem.get_retention_days()
+    Emails.get_retention_days()
   end
 
   defp parse_days(period_string) do
@@ -110,7 +111,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
       count = count_compressible_logs(days_old)
       Mix.shell().info("Would compress #{count} email log bodies")
     else
-      {compressed_count, _} = EmailSystem.compress_old_bodies(days_old)
+      {compressed_count, _} = Emails.compress_old_bodies(days_old)
 
       if compressed_count > 0 do
         Mix.shell().info("✅ Compressed #{compressed_count} email log bodies")
@@ -127,7 +128,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
       Mix.shell().info("📦 Archiving to S3 before deletion...")
 
       if not options[:dry_run] do
-        case EmailSystem.archive_to_s3(days_old) do
+        case Emails.archive_to_s3(days_old) do
           {:ok, :skipped} ->
             Mix.shell().info("ℹ️  Archive skipped (email system disabled)")
 
@@ -146,7 +147,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
         confirm_deletion_or_exit(days_old)
       end
 
-      {deleted_count, _} = EmailSystem.cleanup_old_logs(days_old)
+      {deleted_count, _} = Emails.cleanup_old_logs(days_old)
 
       if deleted_count > 0 do
         Mix.shell().info("✅ Deleted #{deleted_count} old emails")

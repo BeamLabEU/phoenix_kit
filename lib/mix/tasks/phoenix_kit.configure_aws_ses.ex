@@ -35,7 +35,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
 
   use Mix.Task
 
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
   @default_region "eu-north-1"
 
@@ -79,7 +79,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
     IO.puts("\n📊 Current AWS SES Integration Status")
     IO.puts("═══════════════════════════════════")
 
-    config = EmailSystem.get_config()
+    config = Emails.get_config()
 
     IO.puts("📧 Email:")
     IO.puts("   Enabled: #{format_boolean(config.enabled)}")
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
 
     updates =
       if config_set = opts[:config_set] do
-        case EmailSystem.set_ses_configuration_set(config_set) do
+        case Emails.set_ses_configuration_set(config_set) do
           {:ok, _} ->
             IO.puts("✅ Set configuration set: #{config_set}")
             ["configuration_set" | updates]
@@ -126,7 +126,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
     region = opts[:region] || @default_region
 
     updates =
-      case EmailSystem.set_aws_region(region) do
+      case Emails.set_aws_region(region) do
         {:ok, _} ->
           IO.puts("✅ Set AWS region: #{region}")
           ["region" | updates]
@@ -154,14 +154,14 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
     config_set = prompt("AWS SES Configuration Set name", "phoenixkit-system")
 
     if config_set != "" do
-      EmailSystem.set_ses_configuration_set(config_set)
+      Emails.set_ses_configuration_set(config_set)
     end
 
     region = prompt("AWS Region", @default_region)
-    EmailSystem.set_aws_region(region)
+    Emails.set_aws_region(region)
 
     enable_ses = prompt_boolean("Enable SES event management?", true)
-    EmailSystem.set_ses_events(enable_ses)
+    Emails.set_ses_events(enable_ses)
 
     IO.puts("\n✅ Configuration completed!")
     IO.puts("💡 Run 'mix phoenix_kit.configure_aws_ses --status' to verify")
@@ -185,8 +185,14 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
   defp format_default(""), do: ""
   defp format_default(default), do: " [#{default}]"
 
-  defp prompt_boolean(message, default) do
-    default_text = if default, do: " [Y/n]", else: " [y/N]"
+  @spec prompt_boolean(String.t(), boolean()) :: boolean()
+  defp prompt_boolean(message, default) when is_boolean(default) do
+    default_text =
+      case default do
+        true -> " [Y/n]"
+        false -> " [y/N]"
+      end
+
     input = IO.gets("#{message}#{default_text}: ") |> String.trim() |> String.downcase()
 
     case input do

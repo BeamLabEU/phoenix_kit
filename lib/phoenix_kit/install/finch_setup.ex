@@ -1,4 +1,6 @@
 defmodule PhoenixKit.Install.FinchSetup do
+  use PhoenixKit.Install.IgniterCompat
+
   @moduledoc """
   Handles automatic Finch and HTTP client setup for PhoenixKit installation.
 
@@ -67,6 +69,93 @@ defmodule PhoenixKit.Install.FinchSetup do
       [:api_client],
       Swoosh.ApiClient.Finch
     )
+  rescue
+    _ ->
+      add_swoosh_config_simple(igniter)
+  end
+
+  # Simple file append for Swoosh config when Igniter fails
+  defp add_swoosh_config_simple(igniter) do
+    swoosh_config = """
+
+    # Swoosh API client configuration
+    config :swoosh, api_client: Swoosh.ApiClient.Finch
+    """
+
+    try do
+      igniter =
+        Igniter.update_file(igniter, "config/config.exs", fn source ->
+          content = Rewrite.Source.get(source, :content)
+
+          # Check if already configured
+          if String.contains?(content, "config :swoosh, api_client:") do
+            source
+          else
+            # Find insertion point before import_config
+            updated_content =
+              case find_import_config_location_simple(content) do
+                {:before_import, before_content, after_content} ->
+                  before_content <> swoosh_config <> "\n" <> after_content
+
+                :append_to_end ->
+                  content <> swoosh_config
+              end
+
+            Rewrite.Source.update(source, :content, updated_content)
+          end
+        end)
+
+      igniter
+    rescue
+      e ->
+        IO.warn("Failed to configure Swoosh API client automatically: #{inspect(e)}")
+        add_swoosh_config_manual_notice(igniter)
+    end
+  end
+
+  # Helper to find import_config location (simplified version)
+  defp find_import_config_location_simple(content) do
+    if String.contains?(content, "import_config") do
+      lines = String.split(content, "\n")
+
+      import_index =
+        Enum.find_index(lines, fn line ->
+          String.contains?(line, "import_config")
+        end)
+
+      case import_index do
+        nil ->
+          :append_to_end
+
+        index ->
+          # Find start of import block
+          start_index = max(0, index - 3)
+          before_lines = Enum.take(lines, start_index)
+          after_lines = Enum.drop(lines, start_index)
+
+          before_content = Enum.join(before_lines, "\n")
+          after_content = Enum.join(after_lines, "\n")
+
+          {:before_import, before_content, after_content}
+      end
+    else
+      :append_to_end
+    end
+  end
+
+  # Manual configuration notice for Swoosh
+  defp add_swoosh_config_manual_notice(igniter) do
+    notice = """
+    ⚠️  Manual Swoosh Configuration Required
+
+    PhoenixKit couldn't automatically configure Swoosh API client.
+
+    Please add this to config/config.exs:
+
+      config :swoosh, api_client: Swoosh.ApiClient.Finch
+    """
+
+    Igniter.add_notice(igniter, notice)
   end
 
   # Check if AWS SES is being used (needs gen_smtp)

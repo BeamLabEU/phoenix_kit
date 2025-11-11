@@ -8,6 +8,7 @@ defmodule PhoenixKit.Install.CssIntegration do
   - Ensure idempotent operations (safe to run multiple times)
   - Provide fallback instructions if automatic integration fails
   """
+  use PhoenixKit.Install.IgniterCompat
 
   @phoenix_kit_css_marker "/* PhoenixKit Integration - DO NOT REMOVE */"
 
@@ -50,6 +51,7 @@ defmodule PhoenixKit.Install.CssIntegration do
       phoenix_kit_marker: String.contains?(content, @phoenix_kit_css_marker),
       phoenix_kit_source: has_phoenix_kit_source?(content),
       daisyui_plugin: has_daisyui_plugin?(content),
+      daisyui_themes_disabled: has_daisyui_themes_disabled?(content),
       tailwindcss_import: String.match?(content, ~r/@import\s+["']tailwindcss["']/)
     }
   end
@@ -67,6 +69,10 @@ defmodule PhoenixKit.Install.CssIntegration do
     igniter
     |> Igniter.update_file(css_path, &add_smart_integration/1)
     |> add_integration_success_notice(css_path)
+  rescue
+    e ->
+      IO.warn("Failed to automatically integrate CSS: #{inspect(e)}")
+      add_manual_integration_instructions(igniter)
   end
 
   # Smart integration that handles all cases within Igniter context
@@ -74,12 +80,35 @@ defmodule PhoenixKit.Install.CssIntegration do
     content = source.content
     existing = check_existing_integration(content)
 
-    if existing.phoenix_kit_source do
-      # No changes needed - PhoenixKit source already integrated
-      source
+    source =
+      if existing.phoenix_kit_source do
+        # No changes needed - PhoenixKit source already integrated
+        source
+      else
+        # No PhoenixKit integration exists, add it
+        add_complete_integration(source, existing)
+      end
+
+    # Always check and update daisyUI themes configuration
+    update_daisyui_themes_config(source)
+  end
+
+  # Update daisyUI plugin configuration to enable all themes
+  defp update_daisyui_themes_config(source) do
+    content = source.content
+
+    # Pattern to match daisyUI plugin with themes: false
+    pattern = ~r/@plugin\s+(["'][^"']*daisyui["'])\s*\{([^}]*themes:\s*)false([^}]*)\}/
+
+    if String.match?(content, pattern) do
+      updated_content =
+        String.replace(content, pattern, fn match ->
+          String.replace(match, ~r/(themes:\s*)false/, "\\1all")
+        end)
+
+      Rewrite.Source.update(source, :content, updated_content)
     else
-      # No PhoenixKit integration exists, add it
-      add_complete_integration(source, existing)
+      source
     end
   end
 
@@ -240,6 +269,10 @@ defmodule PhoenixKit.Install.CssIntegration do
     ]
 
     Enum.any?(daisyui_patterns, &String.match?(content, &1))
+  end
+
+  defp has_daisyui_themes_disabled?(content) do
+    String.match?(content, ~r/@plugin\s+["'][^"']*daisyui["']\s*\{[^}]*themes:\s*false/)
   end
 
   # Insert missing parts into existing CSS content

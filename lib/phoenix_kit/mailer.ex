@@ -16,7 +16,7 @@ defmodule PhoenixKit.Mailer do
       config :phoenix_kit,
         mailer: MyApp.Mailer
 
-  When delegation is configured, all emails will be sent through your application's 
+  When delegation is configured, all emails will be sent through your application's
   mailer, allowing you to use a single mailer configuration across your entire application.
   """
 
@@ -24,10 +24,11 @@ defmodule PhoenixKit.Mailer do
 
   import Swoosh.Email
 
-  alias PhoenixKit.EmailSystem.EmailInterceptor
-  alias PhoenixKit.EmailSystem.Templates
-
+  alias PhoenixKit.Emails.Interceptor
+  alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Emails.Utils
   alias PhoenixKit.Users.Auth.User
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Gets the mailer module to use for sending emails.
@@ -39,12 +40,119 @@ defmodule PhoenixKit.Mailer do
 
       iex> PhoenixKit.Mailer.get_mailer()
       MyApp.Mailer  # if configured
-      
+
       iex> PhoenixKit.Mailer.get_mailer()
       PhoenixKit.Mailer  # default
   """
   def get_mailer do
     PhoenixKit.Config.get(:mailer, __MODULE__)
+  end
+
+  @doc """
+  Sends an email using a template from the database.
+
+  This is the main function for sending emails using PhoenixKit's template system.
+  It automatically:
+  - Loads the template by name
+  - Renders it with provided variables
+  - Tracks template usage
+  - Sends the email with tracking
+  - Logs to EmailSystem
+
+  ## Parameters
+
+  - `template_name` - Name of the template in the database (e.g., "welcome_email")
+  - `recipient` - Email address (string) or {name, email} tuple
+  - `variables` - Map of variables to substitute in the template
+  - `opts` - Additional options:
+    - `:user_id` - Associate email with a user (for tracking)
+    - `:campaign_id` - Campaign identifier (for analytics)
+    - `:from` - Override from address (default: configured from_email)
+    - `:reply_to` - Reply-to address
+    - `:metadata` - Additional metadata map for tracking
+
+  ## Returns
+
+  - `{:ok, email}` - Email sent successfully
+  - `{:error, :template_not_found}` - Template doesn't exist
+  - `{:error, :template_inactive}` - Template is not active
+  - `{:error, reason}` - Other error
+
+  ## Examples
+
+      # Simple welcome email
+      PhoenixKit.Mailer.send_from_template(
+        "welcome_email",
+        "user@example.com",
+        %{"user_name" => "John", "url" => "https://app.com"}
+      )
+
+      # With user tracking
+      PhoenixKit.Mailer.send_from_template(
+        "password_reset",
+        {"Jane Doe", "jane@example.com"},
+        %{"reset_url" => "https://app.com/reset/token123"},
+        user_id: user.id,
+        campaign_id: "password_recovery"
+      )
+
+      # With metadata
+      PhoenixKit.Mailer.send_from_template(
+        "order_confirmation",
+        customer.email,
+        %{"order_id" => "12345", "total" => "$99.99"},
+        user_id: customer.id,
+        campaign_id: "orders",
+        metadata: %{order_id: order.id, amount: order.total}
+      )
+  """
+  def send_from_template(template_name, recipient, variables \\ %{}, opts \\ [])
+      when is_binary(template_name) do
+    # Get the template from database
+    case Templates.get_active_template_by_name(template_name) do
+      nil ->
+        {:error, :template_not_found}
+
+      template ->
+        # Ensure template is active
+        if template.status == "active" do
+          # Render template with variables
+          rendered = Templates.render_template(template, variables)
+
+          # Build email
+          email =
+            new()
+            |> to(recipient)
+            |> from(Keyword.get(opts, :from, {get_from_name(), get_from_email()}))
+            |> subject(rendered.subject)
+            |> html_body(rendered.html_body)
+            |> text_body(rendered.text_body)
+
+          # Add reply-to if provided
+          email =
+            if reply_to = Keyword.get(opts, :reply_to) do
+              reply_to(email, reply_to)
+            else
+              email
+            end
+
+          # Track template usage
+          Templates.track_usage(template)
+
+          # Prepare delivery options
+          delivery_opts =
+            opts
+            |> Keyword.put(:template_name, template_name)
+            |> Keyword.put(:template_id, template.id)
+            |> Keyword.put_new(:campaign_id, template.category)
+            |> Keyword.put(:provider, detect_provider())
+
+          # Send email with tracking
+          deliver_email(email, delivery_opts)
+        else
+          {:error, :template_inactive}
+        end
+    end
   end
 
   @doc """
@@ -58,23 +166,51 @@ defmodule PhoenixKit.Mailer do
   """
   def deliver_email(email, opts \\ []) do
     # Intercept email for tracking before sending
-    tracked_email = EmailInterceptor.intercept_before_send(email, opts)
+    tracked_email = Interceptor.intercept_before_send(email, opts)
 
     mailer = get_mailer()
 
     result =
       if mailer == __MODULE__ do
-        # Use built-in mailer
-        __MODULE__.deliver(tracked_email)
+        # Use built-in mailer with runtime config for AWS
+        deliver_with_runtime_config(tracked_email, mailer)
       else
-        # Delegate to parent application mailer
-        mailer.deliver(tracked_email)
+        # Check if parent mailer also uses AWS SES
+        app = PhoenixKit.Config.get_parent_app()
+        config = Application.get_env(app, mailer, [])
+
+        if config[:adapter] == Swoosh.Adapters.AmazonSES do
+          # Parent mailer uses AWS SES, provide runtime config
+          deliver_with_runtime_config(tracked_email, mailer, app)
+        else
+          # Non-AWS mailer, use standard delivery
+          mailer.deliver(tracked_email)
+        end
       end
 
     # Handle post-send tracking updates
     handle_delivery_result(tracked_email, result, opts)
 
     result
+  end
+
+  # Deliver email with runtime configuration for AWS SES
+  defp deliver_with_runtime_config(email, mailer, app \\ :phoenix_kit) do
+    config = Application.get_env(app, mailer, [])
+
+    # If using AWS SES, override with runtime settings from DB
+    runtime_config =
+      if config[:adapter] == Swoosh.Adapters.AmazonSES do
+        config
+        |> Keyword.put(:region, PhoenixKit.Emails.get_aws_region())
+        |> Keyword.put(:access_key, PhoenixKit.Emails.get_aws_access_key())
+        |> Keyword.put(:secret, PhoenixKit.Emails.get_aws_secret_key())
+      else
+        config
+      end
+
+    # Use Swoosh.Mailer.deliver with runtime config
+    Swoosh.Mailer.deliver(email, runtime_config)
   end
 
   @doc """
@@ -115,7 +251,7 @@ defmodule PhoenixKit.Mailer do
     email =
       new()
       |> to({user.email, user.email})
-      |> from({"PhoenixKit", get_from_email()})
+      |> from({get_from_name(), get_from_email()})
       |> subject(subject)
       |> html_body(html_body)
       |> text_body(text_body)
@@ -146,7 +282,6 @@ defmodule PhoenixKit.Mailer do
       <title>Your Secure Login Link</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
         .button:hover { background-color: #2563eb; }
@@ -209,14 +344,14 @@ defmodule PhoenixKit.Mailer do
   # Handle delivery result for email tracking updates
   defp handle_delivery_result(email, result, opts) do
     # Only process if email tracking is enabled
-    if PhoenixKit.EmailSystem.enabled?() do
+    if PhoenixKit.Emails.enabled?() do
       case extract_log_id_from_email(email) do
         nil ->
           # No log ID found, skip tracking
           :ok
 
         log_id ->
-          case PhoenixKit.EmailSystem.get_log!(log_id) do
+          case PhoenixKit.Emails.get_log!(log_id) do
             nil -> :ok
             log -> update_log_after_delivery(log, result, opts)
           end
@@ -246,11 +381,11 @@ defmodule PhoenixKit.Mailer do
 
   # Update email log based on delivery result
   defp update_log_after_delivery(log, {:ok, response}, _opts) do
-    EmailInterceptor.update_after_send(log, response)
+    Interceptor.update_after_send(log, response)
   end
 
   defp update_log_after_delivery(log, {:error, error}, _opts) do
-    EmailInterceptor.update_after_failure(log, error)
+    Interceptor.update_after_failure(log, error)
   end
 
   defp update_log_after_delivery(_log, _result, _opts) do
@@ -273,7 +408,7 @@ defmodule PhoenixKit.Mailer do
   defp detect_builtin_provider do
     config = Application.get_env(:phoenix_kit, __MODULE__, [])
     adapter = Keyword.get(config, :adapter)
-    adapter_to_provider_name(adapter, "phoenix_kit_builtin")
+    Utils.adapter_to_provider_name(adapter, "phoenix_kit_builtin")
   end
 
   # Detect provider for parent application mailer
@@ -281,22 +416,10 @@ defmodule PhoenixKit.Mailer do
     app = PhoenixKit.Config.get_parent_app()
     config = Application.get_env(app, mailer, [])
     adapter = Keyword.get(config, :adapter)
-    adapter_to_provider_name(adapter, "parent_app_mailer")
+    Utils.adapter_to_provider_name(adapter, "parent_app_mailer")
   end
 
   defp detect_parent_app_provider(_mailer), do: "unknown"
-
-  # Convert adapter module to provider name
-  defp adapter_to_provider_name(adapter, default_name) do
-    case adapter do
-      Swoosh.Adapters.AmazonSES -> "aws_ses"
-      Swoosh.Adapters.SMTP -> "smtp"
-      Swoosh.Adapters.Sendgrid -> "sendgrid"
-      Swoosh.Adapters.Mailgun -> "mailgun"
-      Swoosh.Adapters.Local -> "local"
-      _ -> default_name
-    end
-  end
 
   @doc """
   Send a test tracking email to verify email delivery and tracking functionality.
@@ -328,8 +451,7 @@ defmodule PhoenixKit.Mailer do
   """
   def send_test_tracking_email(recipient_email, user_id \\ nil) when is_binary(recipient_email) do
     timestamp = DateTime.utc_now() |> DateTime.to_string()
-    base_url = PhoenixKit.Config.get_dynamic_base_url()
-    test_link_url = "#{base_url}/phoenix_kit/admin/emails"
+    test_link_url = Routes.url("/admin/emails")
 
     # Variables for template substitution
     template_variables = %{
@@ -358,7 +480,7 @@ defmodule PhoenixKit.Mailer do
     email =
       new()
       |> to(recipient_email)
-      |> from({"PhoenixKit Test", get_from_email()})
+      |> from({get_from_name(), get_from_email()})
       |> subject(subject)
       |> html_body(html_body)
       |> text_body(text_body)
@@ -380,8 +502,7 @@ defmodule PhoenixKit.Mailer do
 
   # HTML version of the test tracking email
   defp test_email_html_body(recipient_email, timestamp) do
-    base_url = PhoenixKit.Config.get_dynamic_base_url()
-    test_link_url = "#{base_url}/phoenix_kit/admin/emails"
+    test_link_url = Routes.url("/admin/emails")
 
     """
     <!DOCTYPE html>
@@ -392,7 +513,6 @@ defmodule PhoenixKit.Mailer do
       <title>Test Tracking Email</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; }
-        .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }
         .content { padding: 30px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; margin: 10px 5px; }
@@ -461,8 +581,7 @@ defmodule PhoenixKit.Mailer do
 
   # Text version of the test tracking email
   defp test_email_text_body(recipient_email, timestamp) do
-    base_url = PhoenixKit.Config.get_dynamic_base_url()
-    test_link_url = "#{base_url}/phoenix_kit/admin/emails"
+    test_link_url = Routes.url("/admin/emails")
 
     """
     TEST TRACKING EMAIL - EMAIL SYSTEM VERIFICATION
@@ -502,10 +621,38 @@ defmodule PhoenixKit.Mailer do
   end
 
   # Get the from email address from configuration or use a default
+  # Priority: Settings Database > Config file > Default
   defp get_from_email do
-    case PhoenixKit.Config.get(:from_email) do
-      {:ok, email} -> email
-      :not_found -> "noreply@localhost"
+    # Priority 1: Settings Database (runtime)
+    case PhoenixKit.Settings.get_setting("from_email") do
+      nil ->
+        # Priority 2: Config file (compile-time, fallback)
+        case PhoenixKit.Config.get(:from_email) do
+          {:ok, email} -> email
+          # Priority 3: Default
+          _ -> "noreply@localhost"
+        end
+
+      email ->
+        email
+    end
+  end
+
+  # Get the from name from configuration or use a default
+  # Priority: Settings Database > Config file > Default
+  defp get_from_name do
+    # Priority 1: Settings Database (runtime)
+    case PhoenixKit.Settings.get_setting("from_name") do
+      nil ->
+        # Priority 2: Config file (compile-time, fallback)
+        case PhoenixKit.Config.get(:from_name) do
+          {:ok, name} -> name
+          # Priority 3: Default
+          _ -> "PhoenixKit"
+        end
+
+      name ->
+        name
     end
   end
 end

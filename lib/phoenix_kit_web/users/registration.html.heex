@@ -1,0 +1,172 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} - Create account"
+>
+  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+    <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+      <div class="card-body">
+        <h1 class="text-2xl font-bold text-center mb-6">{@project_title} Create account</h1>
+
+        <.form
+          for={@form}
+          id="registration_form"
+          phx-submit="save"
+          phx-change="validate"
+          phx-trigger-action={@trigger_submit}
+          action={Routes.path("/users/log-in?_action=registered")}
+          method="post"
+        >
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend sr-only">Account Information</legend>
+
+            <div :if={@check_errors} class="alert alert-error text-sm mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
+              <span>Oops, something went wrong! Please check the errors below.</span>
+            </div>
+
+            <div phx-feedback-for="user[email]">
+              <label class="label" for="user_email">
+                <span class="label-text flex items-center">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
+                </span>
+              </label>
+              <.input
+                field={@form[:email]}
+                type="email"
+                placeholder="Enter your email address"
+                autocomplete="email"
+                class="transition-colors focus:input-primary"
+                required
+              />
+            </div>
+
+            <%!-- Username Field (optional) --%>
+            <div phx-feedback-for="user[username]">
+              <label class="label" for="user_username">
+                <span class="label-text flex items-center">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                  Username
+                </span>
+              </label>
+              <.input
+                field={@form[:username]}
+                type="text"
+                placeholder="Choose a unique username (optional)"
+                autocomplete="username"
+                class="transition-colors focus:input-primary"
+              />
+              <div class="text-xs text-base-content/60 mt-1">
+                If not provided, we'll generate one from your email
+              </div>
+            </div>
+
+            <%!-- Referral Code Field (shown when referral codes are enabled) --%>
+            <%= if @referral_codes_enabled do %>
+              <div phx-feedback-for="referral_code">
+                <.label for="referral_code">
+                  Referral Code<%= if @referral_codes_required do %>
+                    *
+                  <% end %>
+                </.label>
+                <input
+                  id="referral_code"
+                  name="referral_code"
+                  type="text"
+                  class={[
+                    "input input-bordered",
+                    (@referral_code_error ||
+                       (@check_errors && @referral_codes_required &&
+                          (is_nil(@referral_code) || @referral_code == ""))) && "input-error"
+                  ]}
+                  placeholder="Enter your referral code"
+                  value={@referral_code || ""}
+                  required={@referral_codes_required}
+                />
+                <%= if @referral_code_error do %>
+                  <.error>{@referral_code_error}</.error>
+                <% end %>
+              </div>
+            <% end %>
+
+            <div phx-feedback-for="user[password]">
+              <label class="label" for="user_password">
+                <span class="label-text flex items-center">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> Password
+                </span>
+              </label>
+              <.input
+                field={@form[:password]}
+                type="password"
+                placeholder="Choose a secure password"
+                autocomplete="new-password"
+                class="transition-colors focus:input-primary"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              phx-disable-with="Creating account..."
+              class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-5 h-5 mr-2" />
+              Create account <span aria-hidden="true">→</span>
+            </button>
+          </fieldset>
+        </.form>
+
+        <%!-- Alternative registration methods --%>
+        <%!-- Only show this section if at least one alternative method is available --%>
+        <%= if @magic_link_registration_enabled or PhoenixKit.Users.OAuthAvailability.oauth_available?() do %>
+          <div class="mt-6">
+            <div class="relative">
+              <div class="absolute inset-0 flex items-center">
+                <div class="w-full border-t border-base-300" />
+              </div>
+              <div class="relative flex justify-center text-sm">
+                <span class="px-2 bg-base-100 text-base-content/60">Or continue with</span>
+              </div>
+            </div>
+
+            <div class="mt-4 space-y-2">
+              <%!-- Magic Link Registration --%>
+              <%= if @magic_link_registration_enabled do %>
+                <.link
+                  navigate={Routes.path("/users/register/magic-link")}
+                  class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
+                  Register with Magic Link
+                </.link>
+              <% end %>
+              <%!-- OAuth authentication --%>
+              <PhoenixKitWeb.Components.OAuthButtons.oauth_buttons show_divider={false} />
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Login link --%>
+        <div class="text-center mt-4 text-sm">
+          <span>Already have an account? </span>
+          <.link
+            navigate={Routes.path("/users/log-in")}
+            class="font-semibold text-primary hover:underline"
+          >
+            Sign in
+          </.link>
+        </div>
+
+        <%!-- Development Mode Notice --%>
+        <div :if={show_dev_notice?()} class="alert alert-info text-sm mt-4">
+          <PhoenixKitWeb.Components.Core.Icons.icon_info class="stroke-current shrink-0 h-6 w-6" />
+          <span>
+            Development mode: Check
+            <.link href="/dev/mailbox" class="font-semibold underline">mailbox</.link>
+            for confirmation emails
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
