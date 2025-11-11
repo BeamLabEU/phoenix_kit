@@ -709,39 +709,36 @@ defmodule PhoenixKit.Users.Roles do
     roles = Role.system_roles()
 
     repo.transaction(fn ->
-      # Lock the phoenix_kit_user_roles table to prevent race conditions
-      # Use a simpler approach - lock the Owner role and check for existing assignments
-      owner_role =
+      # Lock the Owner role AND count existing active owners in a single atomic query
+      # This prevents race conditions during concurrent user registrations
+      result =
         repo.one(
           from r in Role,
+            left_join: assignment in RoleAssignment,
+            on: assignment.role_id == r.id,
+            left_join: u in User,
+            on: assignment.user_id == u.id and u.is_active == true,
             where: r.name == ^roles.owner,
-            lock: "FOR UPDATE"
+            lock: "FOR UPDATE",
+            select: {r, count(u.id)}
         )
 
-      # Check if there are any existing active Owner assignments
-      existing_owner =
-        repo.one(
-          from assignment in RoleAssignment,
-            join: u in User,
-            on: assignment.user_id == u.id,
-            where: assignment.role_id == ^owner_role.id,
-            where: u.is_active == true,
-            limit: 1
-        )
+      case result do
+        {_owner_role, 0} ->
+          # No active owners exist, make this user Owner
+          case assign_role_internal(user, roles.owner) do
+            {:ok, _assignment} -> :owner
+            {:error, reason} -> repo.rollback(reason)
+          end
 
-      # Get configurable default role with safe fallback
-      default_role_name = get_safe_default_role()
+        {_owner_role, _count} ->
+          # Active owners exist, assign default role
+          default_role_name = get_safe_default_role()
 
-      role_name = if is_nil(existing_owner), do: roles.owner, else: default_role_name
-
-      role_type =
-        if is_nil(existing_owner),
-          do: :owner,
-          else: String.to_atom(String.downcase(default_role_name))
-
-      case assign_role_internal(user, role_name) do
-        {:ok, _assignment} -> role_type
-        {:error, reason} -> repo.rollback(reason)
+          case assign_role_internal(user, default_role_name) do
+            {:ok, _assignment} -> String.to_atom(String.downcase(default_role_name))
+            {:error, reason} -> repo.rollback(reason)
+          end
       end
     end)
   end
