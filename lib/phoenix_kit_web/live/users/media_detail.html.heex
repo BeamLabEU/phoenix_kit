@@ -1,0 +1,181 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Media Detail"
+  current_path={Routes.path("/admin/users/media/#{@file_id}")}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="p-6">
+    <div class="mb-8">
+      <%!-- Back Button --%>
+      <.link
+        navigate={Routes.path("/admin/users/media")}
+        class="btn btn-outline btn-sm mb-4"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
+      </.link>
+
+      <%= if @file_data do %>
+        <h1 class="text-3xl font-bold text-base-content">{@file_data.filename}</h1>
+        <p class="text-base-content/70 mt-1">Shareable media file</p>
+      <% else %>
+        <h1 class="text-3xl font-bold text-error">File Not Found</h1>
+        <p class="text-base-content/70 mt-1">The requested media file could not be found</p>
+      <% end %>
+    </div>
+
+    <%= if @file_data do %>
+      <div class="card bg-base-100 shadow-xl mb-8">
+        <div class="card-body">
+          <%!-- File Preview --%>
+          <div class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4 min-h-96">
+            <%= if String.starts_with?(@file_data.mime_type, "image/") do %>
+              <img
+                src={@file_data.urls["original"] || @file_data.urls["medium"]}
+                alt={@file_data.filename}
+                class="max-h-96 w-auto rounded"
+                onerror="this.style.display='none'; document.getElementById('preview-error').style.display='flex';"
+              />
+              <div
+                id="preview-error"
+                class="hidden flex-col items-center justify-center w-full h-full"
+              >
+                <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
+                <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
+                <p class="text-sm text-base-content/70 mt-2">
+                  The image file could not be loaded
+                </p>
+              </div>
+            <% else %>
+              <div class="flex flex-col items-center justify-center text-base-content/50">
+                <.icon name={file_icon(@file_data.file_type)} class="w-20 h-20 mb-4" />
+                <p class="text-lg font-semibold">{String.upcase(@file_data.file_type)}</p>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- File Information --%>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">File Name</label>
+              <p class="text-base-content mt-1">{@file_data.filename}</p>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">File Type</label>
+              <span class="badge badge-lg badge-primary mt-1">
+                {String.upcase(@file_data.file_type)}
+              </span>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">File Size</label>
+              <p class="text-base-content mt-1">{format_file_size(@file_data.size)}</p>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">Status</label>
+              <span class={[
+                "badge badge-lg mt-1",
+                @file_data.status == "active" && "badge-success",
+                @file_data.status == "processing" && "badge-info",
+                @file_data.status == "failed" && "badge-error"
+              ]}>
+                {String.capitalize(@file_data.status)}
+              </span>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">MIME Type</label>
+              <p class="text-base-content mt-1 break-all text-sm">{@file_data.mime_type}</p>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">File ID</label>
+              <p class="text-base-content mt-1 break-all text-sm font-mono">
+                {@file_data.file_id}
+              </p>
+            </div>
+          </div>
+
+          <%!-- Timestamps --%>
+          <div class="divider my-4"></div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">Uploaded</label>
+              <p class="text-base-content mt-1 text-sm">
+                {UtilsDate.format_datetime_with_user_format(@file_data.inserted_at)}
+              </p>
+            </div>
+
+            <div>
+              <label class="text-sm font-semibold text-base-content/70">Updated</label>
+              <p class="text-base-content mt-1 text-sm">
+                {UtilsDate.format_datetime_with_user_format(@file_data.updated_at)}
+              </p>
+            </div>
+          </div>
+
+          <%!-- Download Links --%>
+          <%= if map_size(@file_data.urls) > 0 do %>
+            <div class="divider my-4"></div>
+
+            <div>
+              <p class="text-sm font-semibold text-base-content mb-3">Download Variants:</p>
+              <div class="flex gap-2 flex-wrap">
+                <%!-- Sort variants with original first --%>
+                <% variant_order = ["original", "large", "medium", "small", "thumbnail"] %>
+                <% sorted_variants =
+                  @file_data.urls
+                  |> Enum.sort_by(fn {name, _url} ->
+                    Enum.find_index(variant_order, &(&1 == name)) || 999
+                  end) %>
+
+                <%= for {variant, url} <- sorted_variants do %>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class={[
+                      "btn gap-2",
+                      variant == "original" && "btn-primary",
+                      variant != "original" && "btn-outline btn-sm"
+                    ]}
+                  >
+                    <svg
+                      class="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      >
+                      </path>
+                    </svg>
+                    {String.capitalize(variant)}
+                  </a>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    <% else %>
+      <div class="bg-base-200 rounded-lg p-8 text-center">
+        <.icon name="hero-photo" class="w-12 h-12 mx-auto mb-4 text-base-content/50" />
+        <p class="text-base-content/70">
+          The file you're looking for doesn't exist or has been deleted.
+        </p>
+        <.link navigate={Routes.path("/admin/users/media")} class="btn btn-primary btn-sm mt-4">
+          Back to Media Library
+        </.link>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

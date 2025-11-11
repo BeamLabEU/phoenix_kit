@@ -52,6 +52,28 @@ defmodule PhoenixKit.Settings.Setting do
   alias PhoenixKit.Users.Role
   alias PhoenixKit.Users.Roles
 
+  # Settings that are allowed to have empty/nil values
+  @optional_settings [
+    "aws_access_key_id",
+    "aws_secret_access_key",
+    "aws_sqs_queue_url",
+    "aws_sqs_dlq_url",
+    "aws_sqs_queue_arn",
+    "aws_sns_topic_arn",
+    "site_url",
+    # OAuth Provider Credentials
+    "oauth_google_client_id",
+    "oauth_google_client_secret",
+    "oauth_apple_client_id",
+    "oauth_apple_team_id",
+    "oauth_apple_key_id",
+    "oauth_apple_private_key",
+    "oauth_github_client_id",
+    "oauth_github_client_secret",
+    "oauth_facebook_app_id",
+    "oauth_facebook_app_secret"
+  ]
+
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_settings" do
@@ -121,23 +143,21 @@ defmodule PhoenixKit.Settings.Setting do
     if value_json do
       changeset
     else
-      case key do
-        "site_url" ->
-          # site_url can be empty, but max 1000 characters
-          # Ensure empty string is preserved, not converted to nil
+      cond do
+        # Optional settings (AWS credentials, site_url, etc.) can be empty
+        key in @optional_settings ->
           case value do
             nil -> put_change(changeset, :value, "")
             _ -> validate_length(changeset, :value, max: 1000)
           end
 
-        _ ->
-          # For settings with JSON data being set, allow nil/empty value
-          if Map.get(changeset.changes, :value_json) do
-            changeset
-          else
-            # All other settings require non-empty values when using string storage
-            validate_length(changeset, :value, min: 1, max: 1000)
-          end
+        # For settings with JSON data being set, allow nil/empty value
+        Map.get(changeset.changes, :value_json) ->
+          changeset
+
+        # All other settings require non-empty values when using string storage
+        true ->
+          validate_length(changeset, :value, min: 1, max: 1000)
       end
     end
   end
@@ -146,6 +166,7 @@ defmodule PhoenixKit.Settings.Setting do
   defp validate_value_exclusivity(changeset) do
     value = get_field(changeset, :value)
     value_json = get_field(changeset, :value_json)
+    key = get_field(changeset, :key)
 
     cond do
       # Both have meaningful values - only allow one
@@ -154,6 +175,10 @@ defmodule PhoenixKit.Settings.Setting do
 
       # At least one meaningful value exists - valid
       (not is_nil(value) and value != "") or not is_nil(value_json) ->
+        changeset
+
+      # Optional settings can be empty
+      key in @optional_settings ->
         changeset
 
       # Both are nil/empty - require at least one for new records
@@ -206,12 +231,33 @@ defmodule PhoenixKit.Settings.Setting do
       field :project_title, :string
       field :site_url, :string
       field :allow_registration, :string
+      field :oauth_enabled, :string
+      field :oauth_google_enabled, :string
+      field :oauth_apple_enabled, :string
+      field :oauth_github_enabled, :string
+      field :oauth_facebook_enabled, :string
+      field :magic_link_login_enabled, :string
+      field :magic_link_registration_enabled, :string
       field :new_user_default_role, :string
+      field :new_user_default_status, :string
       field :week_start_day, :string
       field :time_zone, :string
       field :date_format, :string
       field :time_format, :string
       field :track_registration_geolocation, :string
+      # Admin Panel Languages
+      field :admin_languages, :string
+      # OAuth Provider Credentials
+      field :oauth_google_client_id, :string
+      field :oauth_google_client_secret, :string
+      field :oauth_apple_client_id, :string
+      field :oauth_apple_team_id, :string
+      field :oauth_apple_key_id, :string
+      field :oauth_apple_private_key, :string
+      field :oauth_github_client_id, :string
+      field :oauth_github_client_secret, :string
+      field :oauth_facebook_app_id, :string
+      field :oauth_facebook_app_secret, :string
     end
 
     @doc """
@@ -247,16 +293,36 @@ defmodule PhoenixKit.Settings.Setting do
         :project_title,
         :site_url,
         :allow_registration,
+        :oauth_enabled,
+        :oauth_google_enabled,
+        :oauth_apple_enabled,
+        :oauth_github_enabled,
+        :oauth_facebook_enabled,
+        :magic_link_login_enabled,
+        :magic_link_registration_enabled,
         :new_user_default_role,
+        :new_user_default_status,
         :week_start_day,
         :time_zone,
         :date_format,
         :time_format,
-        :track_registration_geolocation
+        :track_registration_geolocation,
+        :admin_languages,
+        :oauth_google_client_id,
+        :oauth_google_client_secret,
+        :oauth_apple_client_id,
+        :oauth_apple_team_id,
+        :oauth_apple_key_id,
+        :oauth_apple_private_key,
+        :oauth_github_client_id,
+        :oauth_github_client_secret,
+        :oauth_facebook_app_id,
+        :oauth_facebook_app_secret
       ])
       |> validate_required([
         :project_title,
         :new_user_default_role,
+        :new_user_default_status,
         :week_start_day,
         :time_zone,
         :date_format,
@@ -266,7 +332,15 @@ defmodule PhoenixKit.Settings.Setting do
       |> validate_length(:project_title, min: 1, max: 100)
       |> validate_url()
       |> validate_allow_registration()
+      |> validate_oauth_enabled()
+      |> validate_oauth_provider_enabled(:oauth_google_enabled)
+      |> validate_oauth_provider_enabled(:oauth_apple_enabled)
+      |> validate_oauth_provider_enabled(:oauth_github_enabled)
+      |> validate_oauth_provider_enabled(:oauth_facebook_enabled)
+      |> validate_magic_link_enabled(:magic_link_login_enabled)
+      |> validate_magic_link_enabled(:magic_link_registration_enabled)
       |> validate_new_user_default_role()
+      |> validate_new_user_default_status()
       |> validate_week_start_day()
       |> validate_timezone()
       |> validate_date_format()
@@ -334,6 +408,13 @@ defmodule PhoenixKit.Settings.Setting do
       )
     end
 
+    # Validates new_user_default_status is a valid boolean string
+    defp validate_new_user_default_status(changeset) do
+      validate_inclusion(changeset, :new_user_default_status, ["true", "false"],
+        message: "must be either 'true' or 'false'"
+      )
+    end
+
     # Validates week_start_day is a valid weekday number (1-7)
     defp validate_week_start_day(changeset) do
       validate_inclusion(changeset, :week_start_day, ["1", "2", "3", "4", "5", "6", "7"],
@@ -377,6 +458,39 @@ defmodule PhoenixKit.Settings.Setting do
       validate_inclusion(changeset, :track_registration_geolocation, ["true", "false"],
         message: "must be either 'true' or 'false'"
       )
+    end
+
+    # Validates oauth_enabled is a valid boolean string
+    defp validate_oauth_enabled(changeset) do
+      if get_field(changeset, :oauth_enabled) do
+        validate_inclusion(changeset, :oauth_enabled, ["true", "false"],
+          message: "must be either 'true' or 'false'"
+        )
+      else
+        changeset
+      end
+    end
+
+    # Validates OAuth provider enabled fields
+    defp validate_oauth_provider_enabled(changeset, field) do
+      if get_field(changeset, field) do
+        validate_inclusion(changeset, field, ["true", "false"],
+          message: "must be either 'true' or 'false'"
+        )
+      else
+        changeset
+      end
+    end
+
+    # Validates magic link enabled fields
+    defp validate_magic_link_enabled(changeset, field) do
+      if get_field(changeset, field) do
+        validate_inclusion(changeset, field, ["true", "false"],
+          message: "must be either 'true' or 'false'"
+        )
+      else
+        changeset
+      end
     end
   end
 end

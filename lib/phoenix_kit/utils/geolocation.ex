@@ -29,6 +29,8 @@ defmodule PhoenixKit.Utils.Geolocation do
 
   require Logger
 
+  alias PhoenixKit.Utils.IpAddress
+
   @doc """
   Extracts IP address from a Phoenix LiveView socket.
 
@@ -41,9 +43,7 @@ defmodule PhoenixKit.Utils.Geolocation do
       "unknown"
   """
   def extract_ip_from_socket(socket) do
-    socket
-    |> Phoenix.LiveView.get_connect_info(:peer_data)
-    |> extract_ip_address()
+    IpAddress.extract_from_socket(socket)
   end
 
   @doc """
@@ -77,11 +77,6 @@ defmodule PhoenixKit.Utils.Geolocation do
   def lookup_location(_), do: {:error, "Invalid IP address format"}
 
   # Private functions
-
-  defp extract_ip_address(nil), do: "unknown"
-  defp extract_ip_address(%{address: {a, b, c, d}}), do: "#{a}.#{b}.#{c}.#{d}"
-  defp extract_ip_address(%{address: address}), do: to_string(address)
-  defp extract_ip_address(_), do: "unknown"
 
   defp perform_lookup(ip_address) do
     case lookup_with_ip_api(ip_address) do

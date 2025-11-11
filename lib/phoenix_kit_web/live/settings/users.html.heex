@@ -1,0 +1,616 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} User Settings"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">User Settings</h1>
+        <p class="text-lg text-base-content">
+          Manage user registration, defaults, and custom fields
+        </p>
+      </div>
+    </header>
+
+    <%!-- Settings Form --%>
+    <div class="max-w-2xl mx-auto space-y-6">
+      <%!-- User Configuration Settings Card --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-6">User Configuration</h2>
+
+          <.form
+            :let={_form}
+            for={@changeset}
+            id="user_settings_form"
+            phx-submit="save_settings"
+            phx-change="validate_settings"
+            class="space-y-6"
+          >
+            <%!-- Hidden fields for required settings from General page --%>
+            <%!-- Use @saved_settings to preserve database values, not @settings which may have incorrect form state --%>
+
+            <%!-- General Settings --%>
+            <input
+              type="hidden"
+              name="settings[project_title]"
+              value={@saved_settings["project_title"]}
+            />
+            <input
+              type="hidden"
+              name="settings[site_url]"
+              value={@saved_settings["site_url"]}
+            />
+            <input
+              type="hidden"
+              name="settings[week_start_day]"
+              value={@saved_settings["week_start_day"]}
+            />
+            <input
+              type="hidden"
+              name="settings[time_zone]"
+              value={@saved_settings["time_zone"]}
+            />
+            <input
+              type="hidden"
+              name="settings[date_format]"
+              value={@saved_settings["date_format"]}
+            />
+            <input
+              type="hidden"
+              name="settings[time_format]"
+              value={@saved_settings["time_format"]}
+            />
+
+            <%!-- OAuth Settings --%>
+            <input
+              type="hidden"
+              name="settings[oauth_enabled]"
+              value={@saved_settings["oauth_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_google_enabled]"
+              value={@saved_settings["oauth_google_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_enabled]"
+              value={@saved_settings["oauth_apple_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_enabled]"
+              value={@saved_settings["oauth_github_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_enabled]"
+              value={@saved_settings["oauth_facebook_enabled"]}
+            />
+
+            <%!-- Magic Link Settings --%>
+            <input
+              type="hidden"
+              name="settings[magic_link_login_enabled]"
+              value={@saved_settings["magic_link_login_enabled"]}
+            />
+            <input
+              type="hidden"
+              name="settings[magic_link_registration_enabled]"
+              value={@saved_settings["magic_link_registration_enabled"]}
+            />
+
+            <%!-- OAuth Credentials --%>
+            <input
+              type="hidden"
+              name="settings[oauth_google_client_id]"
+              value={@saved_settings["oauth_google_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_google_client_secret]"
+              value={@saved_settings["oauth_google_client_secret"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_client_id]"
+              value={@saved_settings["oauth_apple_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_team_id]"
+              value={@saved_settings["oauth_apple_team_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_key_id]"
+              value={@saved_settings["oauth_apple_key_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_apple_private_key]"
+              value={@saved_settings["oauth_apple_private_key"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_client_id]"
+              value={@saved_settings["oauth_github_client_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_github_client_secret]"
+              value={@saved_settings["oauth_github_client_secret"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_app_id]"
+              value={@saved_settings["oauth_facebook_app_id"]}
+            />
+            <input
+              type="hidden"
+              name="settings[oauth_facebook_app_secret]"
+              value={@saved_settings["oauth_facebook_app_secret"]}
+            />
+
+            <%!-- Registration Control Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Registration Settings</span>
+              </label>
+              <div class="flex items-center gap-3 mb-3">
+                <input
+                  name="settings[allow_registration]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[allow_registration]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["allow_registration"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Anyone can register</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[track_registration_geolocation]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["track_registration_geolocation"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Track user registration location</span>
+              </div>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["allow_registration"] != @saved_settings["allow_registration"] or @settings["track_registration_geolocation"] != @saved_settings["track_registration_geolocation"] do %>
+                    <span class="text-warning">
+                      Registration: {if @settings["allow_registration"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"} |
+                      Geolocation: {if @settings["track_registration_geolocation"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {if @saved_settings["allow_registration"] == "true",
+                        do: "Enabled",
+                        else: "Disabled"} | {if @saved_settings["track_registration_geolocation"] ==
+                                                  "true",
+                                                do: "Enabled",
+                                                else: "Disabled"}
+                    </span>
+                  <% else %>
+                    Registration: {if @settings["allow_registration"] == "true",
+                      do: "Enabled",
+                      else: "Disabled"} |
+                    Geolocation: {if @settings["track_registration_geolocation"] == "true",
+                      do: "Enabled",
+                      else: "Disabled"}
+                  <% end %>
+                </span>
+              </div>
+
+              <%!-- Privacy Notice for Geolocation --%>
+              <%= if @settings["track_registration_geolocation"] == "true" do %>
+                <div class="alert alert-info text-sm mt-2">
+                  <.icon name="hero-information-circle" class="w-5 h-5" />
+                  <div>
+                    <div class="font-semibold">
+                      Privacy Notice: IP Geolocation Data
+                    </div>
+                    <div class="text-xs">
+                      When enabled, registration IP addresses and approximate location data (country, region, city) will be collected for analytics.
+                      Uses free APIs: IP-API.com (45 requests/minute) with ipapi.co (1000 requests/day) fallback. Defaults to OFF for privacy.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- New User Default Role Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">New User Default Role</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Role assigned to new user registrations
+                </span>
+              </label>
+              <select
+                name="settings[new_user_default_role]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["new_user_default_role"] do %>
+                  <option value={value} selected={value == @settings["new_user_default_role"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["new_user_default_role"] != @saved_settings["new_user_default_role"] do %>
+                    <span class="text-warning">
+                      Selected: {get_option_label(
+                        @settings["new_user_default_role"],
+                        @setting_options["new_user_default_role"]
+                      )}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_option_label(
+                        @saved_settings["new_user_default_role"],
+                        @setting_options["new_user_default_role"]
+                      )}
+                    </span>
+                  <% else %>
+                    Saved: {get_option_label(
+                      @settings["new_user_default_role"],
+                      @setting_options["new_user_default_role"]
+                    )}
+                  <% end %>
+                </span>
+              </div>
+
+              <%!-- Security Warning for Admin Role --%>
+              <%= if @settings["new_user_default_role"] == "Admin" do %>
+                <div class="alert alert-warning text-sm mt-2">
+                  <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                  <div>
+                    <div class="font-semibold">
+                      Security Notice: Medium Risk
+                    </div>
+                    <div class="text-xs">
+                      All new users will receive administrative privileges and access to the admin panel.
+                      Consider "User" for most installations to maintain security.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- New User Default Status Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">New User Default Status</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Active status for new user registrations
+                </span>
+              </label>
+              <select
+                name="settings[new_user_default_status]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["new_user_default_status"] do %>
+                  <option value={value} selected={value == @settings["new_user_default_status"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["new_user_default_status"] != @saved_settings["new_user_default_status"] do %>
+                    <span class="text-warning">
+                      Selected: {get_option_label(
+                        @settings["new_user_default_status"],
+                        @setting_options["new_user_default_status"]
+                      )}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_option_label(
+                        @saved_settings["new_user_default_status"],
+                        @setting_options["new_user_default_status"]
+                      )}
+                    </span>
+                  <% else %>
+                    Saved: {get_option_label(
+                      @settings["new_user_default_status"],
+                      @setting_options["new_user_default_status"]
+                    )}
+                  <% end %>
+                </span>
+              </div>
+
+              <%!-- Security Warning for Inactive Status --%>
+              <%= if @settings["new_user_default_status"] == "false" do %>
+                <div class="alert alert-warning text-sm mt-2">
+                  <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                  <div>
+                    <div class="font-semibold">
+                      Security Notice: Inactive Default
+                    </div>
+                    <div class="text-xs">
+                      New users will be created as inactive and will not be able to log in until an admin activates their account.
+                      The first user (Owner) will always be active regardless of this setting.
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Divider for Custom Fields --%>
+            <div class="divider text-base-content/60 mt-6">Custom User Fields</div>
+
+            <%!-- Custom Fields Section --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Manage Custom Fields</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Define additional profile fields for users
+                </span>
+              </label>
+
+              <%= if Enum.empty?(@field_definitions) do %>
+                <%!-- Empty State --%>
+                <div class="text-center py-8 border border-dashed border-base-300 rounded-lg">
+                  <div class="text-4xl mb-4 opacity-50">📋</div>
+                  <p class="text-base-content/60 mb-4">No custom fields defined yet</p>
+                  <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    phx-click="show_add_field_form"
+                  >
+                    <.icon name="hero-plus" class="w-4 h-4" /> Add First Field
+                  </button>
+                </div>
+              <% else %>
+                <%!-- Table Display --%>
+                <.table_default variant="zebra" size="sm">
+                  <.table_default_header>
+                    <.table_default_row>
+                      <.table_default_header_cell>Field</.table_default_header_cell>
+                      <.table_default_header_cell>Type</.table_default_header_cell>
+                      <.table_default_header_cell>Required</.table_default_header_cell>
+                      <.table_default_header_cell>Status</.table_default_header_cell>
+                      <.table_default_header_cell>Actions</.table_default_header_cell>
+                    </.table_default_row>
+                  </.table_default_header>
+
+                  <.table_default_body>
+                    <%= for field <- Enum.sort_by(@field_definitions, & &1["position"]) do %>
+                      <.table_default_row>
+                        <.table_default_cell>
+                          <div class="font-semibold">{field["label"]}</div>
+                          <div class="text-xs text-base-content/60">
+                            Key: <code class="bg-base-300 px-1 rounded">{field["key"]}</code>
+                          </div>
+                        </.table_default_cell>
+                        <.table_default_cell>
+                          <span class="badge badge-sm">{field["type"]}</span>
+                        </.table_default_cell>
+                        <.table_default_cell>
+                          <%= if field["required"] do %>
+                            <span class="badge badge-sm badge-warning">Yes</span>
+                          <% else %>
+                            <span class="badge badge-sm badge-ghost">No</span>
+                          <% end %>
+                        </.table_default_cell>
+                        <.table_default_cell>
+                          <%= if field["enabled"] do %>
+                            <span class="badge badge-sm badge-success">Enabled</span>
+                          <% else %>
+                            <span class="badge badge-sm badge-ghost">Disabled</span>
+                          <% end %>
+                        </.table_default_cell>
+                        <.table_default_cell>
+                          <div class="flex gap-1">
+                            <button
+                              type="button"
+                              class="btn btn-xs btn-ghost"
+                              phx-click="toggle_field_enabled"
+                              phx-value-key={field["key"]}
+                              title={if field["enabled"], do: "Disable", else: "Enable"}
+                            >
+                              <%= if field["enabled"] do %>
+                                <.icon name="hero-eye" class="w-3 h-3" />
+                              <% else %>
+                                <.icon name="hero-eye-slash" class="w-3 h-3" />
+                              <% end %>
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-xs btn-ghost"
+                              phx-click="show_edit_field_form"
+                              phx-value-key={field["key"]}
+                              title="Edit"
+                            >
+                              <.icon name="hero-pencil" class="w-3 h-3" />
+                            </button>
+                            <button
+                              type="button"
+                              class="btn btn-xs btn-ghost text-error"
+                              phx-click="delete_field"
+                              phx-value-key={field["key"]}
+                              onclick="return confirm('Are you sure you want to delete this field?')"
+                              title="Delete"
+                            >
+                              <.icon name="hero-trash" class="w-3 h-3" />
+                            </button>
+                          </div>
+                        </.table_default_cell>
+                      </.table_default_row>
+                    <% end %>
+                  </.table_default_body>
+                </.table_default>
+
+                <button
+                  type="button"
+                  class="btn btn-outline btn-sm mt-2"
+                  phx-click="show_add_field_form"
+                >
+                  <.icon name="hero-plus" class="w-4 h-4" /> Add Custom Field
+                </button>
+              <% end %>
+            </div>
+
+            <%!-- Action Buttons --%>
+            <div class="flex gap-3 pt-4">
+              <button
+                type="submit"
+                class={[
+                  "btn btn-primary flex-1",
+                  if(@saving, do: "loading", else: "")
+                ]}
+                disabled={@saving}
+              >
+                <%= if @saving do %>
+                  Saving...
+                <% else %>
+                  Save User Settings
+                <% end %>
+              </button>
+            </div>
+          </.form>
+
+          <%!-- Field Form Modal (outside main form) --%>
+          <%= if @show_field_form do %>
+            <div class="modal modal-open">
+              <div class="modal-box max-w-2xl">
+                <h3 class="font-bold text-lg mb-4">
+                  {if @editing_field, do: "Edit Custom Field", else: "Add Custom Field"}
+                </h3>
+
+                <.form :let={_f} for={%{}} phx-submit="save_field" class="space-y-4">
+                  <%!-- Field Key --%>
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Field Key *</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="field[key]"
+                      value={if @editing_field, do: @editing_field["key"], else: ""}
+                      class="input input-bordered"
+                      placeholder="phone_number"
+                      required
+                      disabled={!!@editing_field}
+                    />
+                    <div class="label">
+                      <span class="label-text-alt">
+                        Lowercase letters, numbers, underscores only
+                      </span>
+                    </div>
+                  </div>
+
+                  <%!-- Field Label --%>
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Label *</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="field[label]"
+                      value={if @editing_field, do: @editing_field["label"], else: ""}
+                      class="input input-bordered"
+                      placeholder="Phone Number"
+                      required
+                    />
+                  </div>
+
+                  <%!-- Field Type --%>
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Type *</span>
+                    </label>
+                    <select name="field[type]" class="select select-bordered" required>
+                      <%= for type <- ~w(text textarea number boolean date email url select radio checkbox) do %>
+                        <option
+                          value={type}
+                          selected={@editing_field && @editing_field["type"] == type}
+                        >
+                          {String.capitalize(type)}
+                        </option>
+                      <% end %>
+                    </select>
+                  </div>
+
+                  <%!-- Required Checkbox --%>
+                  <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                      <input
+                        type="checkbox"
+                        name="field[required]"
+                        value="true"
+                        checked={@editing_field && @editing_field["required"]}
+                        class="checkbox checkbox-primary"
+                      />
+                      <span class="label-text">Required field</span>
+                    </label>
+                  </div>
+
+                  <%!-- Position --%>
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Position</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="field[position]"
+                      value={if @editing_field, do: @editing_field["position"], else: "0"}
+                      class="input input-bordered"
+                      min="0"
+                    />
+                    <div class="label">
+                      <span class="label-text-alt">
+                        Display order (lower numbers appear first)
+                      </span>
+                    </div>
+                  </div>
+
+                  <%!-- Modal Actions --%>
+                  <div class="modal-action">
+                    <button type="submit" class="btn btn-primary">
+                      {if @editing_field, do: "Update Field", else: "Add Field"}
+                    </button>
+                    <button type="button" class="btn" phx-click="hide_field_form">
+                      Cancel
+                    </button>
+                  </div>
+                </.form>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

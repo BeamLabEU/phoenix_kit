@@ -9,6 +9,7 @@ defmodule PhoenixKit.Install.Common do
   - Migration detection
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Migrations.Postgres
 
   @doc """
@@ -72,7 +73,10 @@ defmodule PhoenixKit.Install.Common do
   """
   def check_installation_status(prefix \\ "public") do
     # Use the same version detection logic as the migration system
-    opts = %{prefix: prefix, escaped_prefix: String.replace(prefix, "'", "\\'")}
+    opts = %{
+      prefix: prefix,
+      escaped_prefix: String.replace(prefix, "'", "\\'")
+    }
 
     try do
       # Use PhoenixKit's centralized runtime version detection function
@@ -116,7 +120,7 @@ defmodule PhoenixKit.Install.Common do
   # Try direct database connection (similar to what status command does)
   defp try_direct_database_version_check(opts) do
     # Try to get the repo from application config first (same as status command)
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = Config.get(:repo, nil)
 
     if repo do
       escaped_prefix = Map.fetch!(opts, :escaped_prefix)
