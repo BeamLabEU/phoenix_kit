@@ -1046,35 +1046,32 @@ defmodule PhoenixKit.EmailSystem.SQSProcessor do
 
   ## --- Helper Functions ---
 
-  # Finds email log by message_id with extended search
+  # Finds email log by message_id with simplified two-tier search
+  # AWS events use AWS message IDs, so we search aws_message_id field first
   defp find_email_log_by_message_id(message_id) when is_binary(message_id) do
     Logger.debug("SQSProcessor: Searching for email log", %{
       message_id: message_id,
       message_id_length: String.length(message_id)
     })
 
-    # First search - direct search by message_id
-    case PhoenixKit.EmailSystem.get_log_by_message_id(message_id) do
+    # Primary search - AWS message_id field (AWS events use AWS IDs)
+    case EmailLog.find_by_aws_message_id(message_id) do
       {:ok, log} ->
-        Logger.debug("SQSProcessor: Found email log by direct message_id search", %{
+        Logger.debug("SQSProcessor: Found email log by aws_message_id field", %{
           log_id: log.id,
-          message_id: message_id
+          internal_message_id: log.message_id,
+          aws_message_id: message_id
         })
 
         {:ok, log}
 
       {:error, :not_found} ->
-        Logger.debug("SQSProcessor: Direct search failed, trying AWS message_id search", %{
-          message_id: message_id
-        })
-
-        # Second search - search by AWS message ID
-        case EmailLog.find_by_aws_message_id(message_id) do
+        # Secondary fallback - try internal message_id field (backward compatibility)
+        case PhoenixKit.EmailSystem.get_log_by_message_id(message_id) do
           {:ok, log} ->
-            Logger.info("SQSProcessor: Found email log by AWS message_id search", %{
+            Logger.info("SQSProcessor: Found email log by internal message_id field", %{
               log_id: log.id,
-              stored_message_id: log.message_id,
-              search_message_id: message_id
+              message_id: message_id
             })
 
             {:ok, log}
@@ -1082,22 +1079,22 @@ defmodule PhoenixKit.EmailSystem.SQSProcessor do
           {:error, :not_found} ->
             Logger.warning("SQSProcessor: No email log found for message_id", %{
               message_id: message_id,
-              searched_strategies: ["direct", "aws_field", "metadata"]
+              searched_fields: ["aws_message_id", "message_id"]
             })
 
             # Try to find similar records for diagnostics
             log_recent_emails_for_diagnosis(message_id)
 
             {:error, :not_found}
+
+          {:error, reason} ->
+            Logger.error("SQSProcessor: Error during email log search", %{
+              message_id: message_id,
+              reason: inspect(reason)
+            })
+
+            {:error, reason}
         end
-
-      {:error, reason} ->
-        Logger.error("SQSProcessor: Error during email log search", %{
-          message_id: message_id,
-          reason: inspect(reason)
-        })
-
-        {:error, reason}
     end
   end
 

@@ -283,27 +283,40 @@ defmodule PhoenixKit.EmailSystem.EmailLog do
   end
 
   @doc """
-  Gets a single email log by message ID from the email provider.
+  Gets a single email log by message ID.
+
+  This function searches for logs using PhoenixKit's internal message_id
+  (pk_ prefix). For AWS SES message IDs, use find_by_aws_message_id/1 instead.
 
   Returns nil if not found.
 
+  ## Search Strategy
+
+  Primary: Search internal message_id field (pk_ prefix)
+  Fallback: If ID doesn't have pk_ prefix, also check aws_message_id field
+
   ## Examples
 
-      iex> PhoenixKit.EmailSystem.EmailLog.get_log_by_message_id("msg-abc123")
+      iex> PhoenixKit.EmailSystem.EmailLog.get_log_by_message_id("pk_abc123")
       %PhoenixKit.EmailSystem.EmailLog{}
 
       iex> PhoenixKit.EmailSystem.EmailLog.get_log_by_message_id("nonexistent")
       nil
+
+  ## See Also
+
+  - `find_by_aws_message_id/1` - For searching by AWS SES message IDs
   """
   def get_log_by_message_id(message_id) when is_binary(message_id) do
-    # First try to find by internal message_id (pk_ prefix)
+    # Primary: Search internal message_id field (pk_ prefix)
     log =
       __MODULE__
       |> where([l], l.message_id == ^message_id)
       |> preload([:user, :events])
       |> repo().one()
 
-    # If not found and message_id looks like AWS format, try aws_message_id field
+    # Fallback: If not found and ID doesn't look like internal format,
+    # try aws_message_id field for backward compatibility
     if is_nil(log) and not String.starts_with?(message_id, "pk_") do
       __MODULE__
       |> where([l], l.aws_message_id == ^message_id)
@@ -315,46 +328,31 @@ defmodule PhoenixKit.EmailSystem.EmailLog do
   end
 
   @doc """
-  Finds an email log by AWS message ID.
+  Finds an email log by AWS SES message ID.
 
-  This function looks for logs where the AWS SES message ID might be stored
-  in the message_id field after sending.
+  This function searches the dedicated aws_message_id field where AWS SES
+  message IDs are stored after email delivery. AWS events correlate using
+  this field.
+
+  ## Search Strategy
+
+  Primary: Search aws_message_id field (AWS SES ID stored after send)
+  Fallback: Search message_id field (for backward compatibility)
 
   ## Examples
 
-      iex> PhoenixKit.EmailSystem.EmailLog.find_by_aws_message_id("abc123-aws")
+      iex> PhoenixKit.EmailSystem.EmailLog.find_by_aws_message_id("abc123-aws-ses")
       {:ok, %PhoenixKit.EmailSystem.EmailLog{}}
 
       iex> PhoenixKit.EmailSystem.EmailLog.find_by_aws_message_id("nonexistent")
       {:error, :not_found}
   """
   def find_by_aws_message_id(aws_message_id) when is_binary(aws_message_id) do
-    # Try multiple search strategies for AWS message ID
-    case find_by_direct_aws_id(aws_message_id) do
-      {:ok, log} -> {:ok, log}
-      {:error, :not_found} -> find_by_metadata_search(aws_message_id)
-    end
-  end
-
-  # Direct search using dedicated aws_message_id field
-  defp find_by_direct_aws_id(aws_message_id) do
+    # Search dedicated aws_message_id field (primary)
+    # Also check message_id field for backward compatibility
     case __MODULE__
          |> where([l], l.aws_message_id == ^aws_message_id)
          |> or_where([l], l.message_id == ^aws_message_id)
-         |> preload([:user, :events])
-         |> repo().one() do
-      nil -> {:error, :not_found}
-      log -> {:ok, log}
-    end
-  end
-
-  # Search in metadata/headers for AWS message ID
-  defp find_by_metadata_search(aws_message_id) do
-    # Look for AWS message ID in headers or other metadata
-    case __MODULE__
-         |> where([l], fragment("?->>'aws_message_id' = ?", l.headers, ^aws_message_id))
-         |> or_where([l], fragment("?->>'X-AWS-Message-Id' = ?", l.headers, ^aws_message_id))
-         |> or_where([l], fragment("?->>'MessageId' = ?", l.headers, ^aws_message_id))
          |> preload([:user, :events])
          |> repo().one() do
       nil -> {:error, :not_found}
