@@ -28,7 +28,7 @@ defmodule PhoenixKit.Emails do
   - `email_compress_body` - Compress body after N days
   - `email_archive_to_s3` - Enable S3 archival
   - `email_sampling_rate` - Percentage of emails to fully log
-  - `email_create_placeholder_logs` - Create placeholder logs for orphaned events (default: true in dev, false in prod)
+  - `email_create_placeholder_logs` - Create placeholder logs for orphaned events (default: false)
 
   ## Core Functions
 
@@ -811,7 +811,7 @@ defmodule PhoenixKit.Emails do
   that don't have an existing email log. This can help recover from synchronization issues
   but may mask underlying problems.
 
-  Default: true in development, false in production (recommended)
+  Default: false (recommended for production to expose synchronization issues)
 
   ## Examples
 
@@ -819,9 +819,9 @@ defmodule PhoenixKit.Emails do
       false
   """
   def placeholder_logs_enabled? do
-    # Default to false in production to expose synchronization issues
-    default_value = Mix.env() == :dev
-    Settings.get_boolean_setting("email_create_placeholder_logs", default_value)
+    # Default to false to expose synchronization issues
+    # Users can explicitly enable via Settings if needed for development/debugging
+    Settings.get_boolean_setting("email_create_placeholder_logs", false)
   end
 
   @doc """
