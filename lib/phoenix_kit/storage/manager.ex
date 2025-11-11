@@ -18,6 +18,7 @@ defmodule PhoenixKit.Storage.Manager do
 
   - `:redundancy_copies` - Number of copies to store (default: from settings)
   - `:priority_buckets` - List of specific bucket IDs to use (default: auto-select)
+  - `:force_bucket_ids` - List of specific bucket IDs to use (overrides priority_buckets)
   - `:generate_variants` - Whether to generate variants (default: from settings)
 
   ## Returns
@@ -28,11 +29,15 @@ defmodule PhoenixKit.Storage.Manager do
   def store_file(source_path, opts \\ []) do
     # Get redundancy settings
     redundancy_copies = Keyword.get(opts, :redundancy_copies, get_redundancy_copies())
+    force_bucket_ids = Keyword.get(opts, :force_bucket_ids, [])
     priority_buckets = Keyword.get(opts, :priority_buckets, [])
     _generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
 
+    # Use force_bucket_ids if provided, otherwise use priority_buckets
+    buckets_to_use = if Enum.empty?(force_bucket_ids), do: priority_buckets, else: force_bucket_ids
+
     # Select buckets for storage
-    buckets = select_buckets_for_storage(redundancy_copies, priority_buckets)
+    buckets = select_buckets_for_storage(redundancy_copies, buckets_to_use)
 
     if Enum.empty?(buckets) do
       {:error, "No available storage buckets"}
@@ -113,13 +118,24 @@ defmodule PhoenixKit.Storage.Manager do
 
   defp select_buckets_for_storage(redundancy_copies, priority_buckets) do
     if Enum.empty?(priority_buckets) do
-      # Auto-select buckets based on priority and available space
-      get_enabled_buckets()
-      |> Enum.sort_by(&bucket_priority/1)
+      # Get fresh bucket list from database (don't use cache for selection)
+      # This ensures we get the current state and can shuffle properly
+      all_buckets = PhoenixKit.Storage.list_enabled_buckets()
+
+      # Separate buckets by priority
+      {auto_priority_buckets, fixed_priority_buckets} =
+        Enum.split_with(all_buckets, &(&1.priority == 0))
+
+      # Shuffle auto-priority buckets (priority = 0) for random distribution
+      # Fixed priority buckets are deterministic
+      shuffled_auto = Enum.shuffle(auto_priority_buckets)
+
+      # Combine: fixed priority buckets first (sorted), then shuffled auto-priority
+      (Enum.sort_by(fixed_priority_buckets, & &1.priority) ++ shuffled_auto)
       |> Enum.take(redundancy_copies)
     else
       # Use specified buckets
-      get_enabled_buckets()
+      PhoenixKit.Storage.list_enabled_buckets()
       |> Enum.filter(&(&1.id in priority_buckets))
       |> Enum.take(redundancy_copies)
     end
@@ -187,20 +203,6 @@ defmodule PhoenixKit.Storage.Manager do
   defp get_provider_for_bucket(bucket) do
     {:ok, provider_module} = ProviderRegistry.get_provider(bucket.provider)
     provider_module
-  end
-
-  defp bucket_priority(bucket) do
-    if bucket.priority == 0 do
-      # Random priority - use available space as tiebreaker
-      used_space = PhoenixKit.Storage.calculate_bucket_usage(bucket.id)
-      # Large default
-      max_space = bucket.max_size_mb || 1_000_000
-      free_space_ratio = (max_space - used_space) / max_space
-      # Negative for descending sort
-      {0, -free_space_ratio}
-    else
-      {bucket.priority, 0}
-    end
   end
 
   defp generate_destination_path(source_path, opts) do

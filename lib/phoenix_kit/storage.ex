@@ -477,6 +477,20 @@ defmodule PhoenixKit.Storage do
   end
 
   @doc """
+  Gets the bucket IDs where a file instance is stored.
+
+  Returns a list of bucket IDs from the file_locations for the given file instance.
+  """
+  def get_file_instance_bucket_ids(file_instance_id) do
+    import Ecto.Query
+
+    FileLocation
+    |> where([fl], fl.file_instance_id == ^file_instance_id and fl.status == "active")
+    |> select([fl], fl.bucket_id)
+    |> repo().all()
+  end
+
+  @doc """
   Creates a new file instance.
   """
   def create_file_instance(attrs \\ %{}) do
@@ -803,7 +817,7 @@ defmodule PhoenixKit.Storage do
         original_path = "#{file_path}/#{md5_hash}_original.#{ext}"
 
         case Manager.store_file(source_path, path_prefix: original_path) do
-          {:ok, _storage_info} ->
+          {:ok, storage_info} ->
             # Create file instance for original
             original_instance_attrs = %{
               variant_name: "original",
@@ -817,7 +831,9 @@ defmodule PhoenixKit.Storage do
             }
 
             case create_file_instance(original_instance_attrs) do
-              {:ok, _instance} ->
+              {:ok, instance} ->
+                # Create file location records for each bucket where the file was stored
+                _ = create_file_locations(instance.id, storage_info.bucket_ids, original_path)
                 {:ok, file}
 
               {:error, changeset} ->
@@ -1054,5 +1070,21 @@ defmodule PhoenixKit.Storage do
     temp_dir = System.tmp_dir!()
     random_name = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
     Path.join(temp_dir, "phoenix_kit_#{random_name}")
+  end
+
+  defp create_file_locations(file_instance_id, bucket_ids, file_path) do
+    Enum.each(bucket_ids, fn bucket_id ->
+      location_attrs = %{
+        path: file_path,
+        status: "active",
+        priority: 0,
+        file_instance_id: file_instance_id,
+        bucket_id: bucket_id
+      }
+
+      repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs))
+    end)
+
+    :ok
   end
 end

@@ -116,7 +116,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
            process_variant(original_path, variant_path, file.mime_type, dimension),
          {:ok, file_stats} <- get_variant_file_stats(variant_path),
          {:ok, _storage_info} <-
-           store_variant_file(variant_path, variant_name, variant_storage_path),
+           store_variant_file(variant_path, variant_name, variant_storage_path, file.id),
          {:ok, instance} <-
            create_variant_instance(
              file,
@@ -147,10 +147,37 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     end
   end
 
-  defp store_variant_file(variant_path, variant_name, storage_path) do
+  defp store_variant_file(variant_path, variant_name, storage_path, file_id) do
     Logger.info("Storing variant #{variant_name} to storage buckets at path: #{storage_path}")
 
-    case Manager.store_file(variant_path, generate_variants: false, path_prefix: storage_path) do
+    # Get the bucket IDs from the original file instance if available
+    opts =
+      case file_id do
+        nil ->
+          [generate_variants: false, path_prefix: storage_path]
+
+        file_id ->
+          # Get the original instance's bucket IDs
+          case Storage.get_file_instance_by_name(file_id, "original") do
+            %Storage.FileInstance{id: original_instance_id} ->
+              bucket_ids = Storage.get_file_instance_bucket_ids(original_instance_id)
+
+              if Enum.empty?(bucket_ids) do
+                [generate_variants: false, path_prefix: storage_path]
+              else
+                [
+                  generate_variants: false,
+                  path_prefix: storage_path,
+                  force_bucket_ids: bucket_ids
+                ]
+              end
+
+            nil ->
+              [generate_variants: false, path_prefix: storage_path]
+          end
+      end
+
+    case Manager.store_file(variant_path, opts) do
       {:ok, _storage_info} = success ->
         Logger.info("Variant #{variant_name} stored successfully in buckets")
         success
