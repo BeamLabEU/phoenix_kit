@@ -81,4 +81,7 @@
 
   # Exact comparison warnings for nil checks (legacy warning format - Dialyzer bug)
   # (No current warnings - exact_compare issue in configure_aws_ses.ex was fixed by using pattern matching)
+
+  # Ignore all test files - library tests are meant for integration testing
+  ~r/^test\/.*/
 ]

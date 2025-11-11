@@ -29,7 +29,7 @@ defmodule PhoenixKitWeb.ConnCase do
     end
   end
 
-  setup _tags do
+  setup __tags do
     # Setup database sandbox if needed
     # pid = Ecto.Adapters.SQL.Sandbox.start_owner!(PhoenixKit.RepoHelper.repo(), shared: not tags[:async])
     # on_exit(fn -> Ecto.Adapters.SQL.Sandbox.stop_owner(pid) end)

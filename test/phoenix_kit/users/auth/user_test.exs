@@ -234,3 +234,4 @@ defmodule PhoenixKit.Users.Auth.UserTest do
       end)
     end)
   end
+end

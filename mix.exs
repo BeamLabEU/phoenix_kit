@@ -30,6 +30,15 @@ defmodule PhoenixKit.MixProject do
         "coveralls.html": :test
       ],
 
+      # Dialyzer configuration
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:ex_unit],
+        ignore_warnings: ".dialyzer_ignore.exs",
+        # Exclude test files from Dialyzer analysis
+        list_unused_filters: true
+      ],
+
       # Aliases for development
       aliases: aliases()
     ]
