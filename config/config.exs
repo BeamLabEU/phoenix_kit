@@ -37,6 +37,30 @@ config :phoenix_kit, PhoenixKit.Users.RateLimiter,
   registration_ip_limit: 10,
   registration_ip_window_ms: 3_600_000
 
+# Configure Ueberauth (minimal configuration for compilation)
+# Applications using PhoenixKit should configure their own providers
+config :ueberauth, Ueberauth, providers: []
+
+# Configure Oban (if using job processing)
+config :phoenix_kit, Oban,
+  repo: PhoenixKit.Repo,
+  queues: [default: 10, emails: 50, file_processing: 20],
+  plugins: [Oban.Plugins.Pruner, {Oban.Plugins.Cron, crontab: []}]
+
+# Configure Logger metadata
+config :logger, :console,
+  metadata: [
+    :blog_slug,
+    :identifier,
+    :reason,
+    :language,
+    :user_agent,
+    :path,
+    :blog,
+    :pattern,
+    :content_size
+  ]
+
 # For development/testing with real SMTP (when available)
 # config :phoenix_kit, PhoenixKit.Mailer,
 #   adapter: Swoosh.Adapters.SMTP,

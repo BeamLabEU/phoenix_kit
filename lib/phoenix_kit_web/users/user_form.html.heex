@@ -1,0 +1,600 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Users
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
+        <p class="text-lg text-base-content">
+          <%= if @mode == :new do %>
+            Create a new user account
+          <% else %>
+            Edit user information
+          <% end %>
+        </p>
+      </div>
+    </header>
+
+    <%!-- User Form --%>
+    <div class="max-w-2xl mx-auto">
+      <div class="bg-base-100 rounded-lg shadow-md p-6">
+        <.form
+          :let={form}
+          for={@changeset}
+          id="user_form"
+          phx-submit="save_user"
+          phx-change="validate_user"
+          class="space-y-6"
+        >
+          <div class="space-y-4">
+            <%!-- Email --%>
+            <div class="w-full">
+              <.input
+                field={form[:email]}
+                type="email"
+                label="Email *"
+                placeholder="user@example.com"
+                required
+              />
+            </div>
+
+            <%!-- Username --%>
+            <div class="w-full">
+              <.input
+                field={form[:username]}
+                type="text"
+                label="Username"
+                placeholder="unique_username"
+              />
+              <div class="text-xs text-base-content/60 mt-2">
+                Unique username (3-30 characters, letters, numbers, and underscores only)
+              </div>
+            </div>
+
+            <%!-- Password (only for new users) --%>
+            <%= if @mode == :new do %>
+              <div class="w-full">
+                <.input
+                  field={form[:password]}
+                  type="password"
+                  label="Password *"
+                  placeholder="Minimum 8 characters"
+                  required
+                />
+              </div>
+            <% end %>
+
+            <%!-- Name Fields --%>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <%!-- First Name --%>
+              <div class="w-full">
+                <.input
+                  field={form[:first_name]}
+                  type="text"
+                  label="First Name"
+                  placeholder="Optional"
+                />
+              </div>
+
+              <%!-- Last Name --%>
+              <div class="w-full">
+                <.input
+                  field={form[:last_name]}
+                  type="text"
+                  label="Last Name"
+                  placeholder="Optional"
+                />
+              </div>
+            </div>
+          </div>
+
+          <%!-- Password Change Section (Edit mode, Admin/Owner only) --%>
+          <%= if @mode == :edit and (PhoenixKit.Users.Auth.Scope.admin?(@phoenix_kit_current_scope) or PhoenixKit.Users.Auth.Scope.owner?(@phoenix_kit_current_scope)) do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Password Management</span>
+              </label>
+              <div class="flex items-center gap-4 mt-2">
+                <button
+                  type="button"
+                  phx-click="toggle_password_field"
+                  class="btn btn-outline btn-sm"
+                >
+                  <%= if @show_password_field do %>
+                    Hide Password Field
+                  <% else %>
+                    Change Password
+                  <% end %>
+                </button>
+                <span class="text-sm text-base-content/70">
+                  Set a new password for this user (Admin privilege required)
+                </span>
+              </div>
+            </div>
+
+            <%!-- Inline Password Field --%>
+            <%= if @show_password_field do %>
+              <div class="w-full mt-4">
+                <.input
+                  field={form[:password]}
+                  type="password"
+                  label="New Password *"
+                  placeholder="Enter new password (minimum 8 characters)"
+                  required
+                />
+                <div class="text-xs text-base-content/60 mt-2">
+                  <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
+                  <strong>Note:</strong>
+                  This will immediately invalidate all current sessions for this user.
+                </div>
+              </div>
+            <% end %>
+          <% end %>
+
+          <%!-- User Status Section (Edit mode only) --%>
+          <%= if @mode == :edit do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-semibold">Account Status</span>
+                <%= if @user.is_active do %>
+                  <span class="badge badge-success badge-sm">Active</span>
+                <% else %>
+                  <span class="badge badge-error badge-sm">Inactive</span>
+                <% end %>
+              </label>
+
+              <%= if @user.id == @phoenix_kit_current_user.id do %>
+                <div class="bg-base-200 p-4 rounded-lg">
+                  <div class="flex items-start gap-3">
+                    <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
+                    <div class="text-sm">
+                      <p class="font-medium">Cannot modify own status</p>
+                      <p class="text-base-content/70 mt-1">
+                        You cannot deactivate your own account for security reasons.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              <% else %>
+                <div class="flex items-center gap-4 mt-2">
+                  <button
+                    type="button"
+                    phx-click="toggle_user_status"
+                    class={"btn btn-sm #{if @user.is_active, do: "btn-error btn-outline", else: "btn-success"}"}
+                  >
+                    <%= if @user.is_active do %>
+                      Deactivate User
+                    <% else %>
+                      Activate User
+                    <% end %>
+                  </button>
+                  <span class="text-sm text-base-content/70">
+                    <%= if @user.is_active do %>
+                      Deactivating will prevent this user from logging in
+                    <% else %>
+                      Activating will allow this user to log in
+                    <% end %>
+                  </span>
+                </div>
+
+                <%= if @user.is_active and PhoenixKit.Users.Roles.user_has_role_owner?(@user) do %>
+                  <div class="text-xs text-base-content/60 mt-3">
+                    <.icon
+                      name="hero-exclamation-triangle-solid"
+                      class="w-4 h-4 inline mr-1 text-warning"
+                    />
+                    <strong>Note:</strong>
+                    Cannot deactivate if this is the last active Owner in the system.
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%!-- Roles Management Section (Edit mode only) --%>
+          <%= if @mode == :edit do %>
+            <%= if @user.id == @phoenix_kit_current_user.id do %>
+              <div class="bg-base-200 p-4 rounded-lg">
+                <div class="flex items-start gap-3">
+                  <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
+                  <div class="text-sm">
+                    <p class="font-medium">Cannot modify own roles</p>
+                    <p class="text-base-content/70 mt-1">
+                      You cannot modify your own roles for security reasons. Ask another admin to change your roles.
+                    </p>
+                    <div class="mt-3">
+                      <p class="font-medium text-base-content">Your current roles:</p>
+                      <div class="flex flex-wrap gap-2 mt-2">
+                        <%= for role_name <- @user_roles do %>
+                          <.role_badge
+                            role={%{name: role_name, is_system_role: false}}
+                            size={:sm}
+                          />
+                        <% end %>
+                        <%= if Enum.empty?(@user_roles) do %>
+                          <span class="badge badge-ghost badge-sm">No roles assigned</span>
+                        <% end %>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% else %>
+              <div class="form-control w-full">
+                <label class="label">
+                  <span class="label-text font-semibold">User Roles</span>
+                </label>
+
+                <%!-- Multi-select Dropdown --%>
+                <div class="dropdown w-full" id="roles-dropdown">
+                  <div
+                    tabindex="0"
+                    role="button"
+                    class="btn btn-outline w-full justify-between"
+                    phx-click="open_roles_dropdown"
+                  >
+                    <div class="flex flex-wrap gap-2 items-center overflow-hidden">
+                      <%= if Enum.empty?(@user_roles) do %>
+                        <span class="text-base-content/60">Select roles...</span>
+                      <% else %>
+                        <%= for role_name <- @user_roles do %>
+                          <.role_badge
+                            role={%{name: role_name, is_system_role: false}}
+                            size={:sm}
+                          />
+                        <% end %>
+                      <% end %>
+                    </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+
+                  <div
+                    tabindex="0"
+                    class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full mt-2 max-h-96 overflow-y-auto border border-base-300"
+                  >
+                    <%= if Enum.empty?(@all_roles) do %>
+                      <div class="text-center py-4 text-base-content/70 px-4">
+                        <p class="text-sm">
+                          No roles available. Create roles first in Role Management.
+                        </p>
+                      </div>
+                    <% else %>
+                      <ul class="space-y-1">
+                        <%= for role <- @all_roles do %>
+                          <% owner_role? = role.name == PhoenixKit.Users.Role.system_roles().owner %>
+                          <% is_selected = role.name in @pending_roles %>
+                          <li>
+                            <a
+                              class={[
+                                "flex items-center gap-3 p-3 rounded hover:bg-base-200",
+                                owner_role? && "cursor-not-allowed opacity-50"
+                              ]}
+                              phx-click={unless owner_role?, do: "toggle_role"}
+                              phx-value-role={role.name}
+                            >
+                              <div class="flex-shrink-0">
+                                <input
+                                  type="checkbox"
+                                  class="checkbox checkbox-primary pointer-events-none"
+                                  checked={is_selected}
+                                  disabled={owner_role?}
+                                />
+                              </div>
+                              <div class="flex-1 flex flex-wrap items-center gap-2">
+                                <.role_badge role={role} size={:sm} />
+                                <%= if role.is_system_role do %>
+                                  <span class="badge badge-outline badge-xs">System</span>
+                                <% end %>
+                                <%= if role.description do %>
+                                  <span class="text-xs text-base-content/70">
+                                    - {role.description}
+                                  </span>
+                                <% end %>
+                                <%= if owner_role? do %>
+                                  <span class="badge badge-warning badge-xs">Protected</span>
+                                <% end %>
+                              </div>
+                            </a>
+                          </li>
+                        <% end %>
+                      </ul>
+                    <% end %>
+                  </div>
+                </div>
+
+                <div class="text-xs text-base-content/60 mt-2">
+                  <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
+                  <strong>Note:</strong>
+                  Owner role is protected and can only be assigned during initial setup.
+                  Removing the last Owner is not allowed.
+                </div>
+              </div>
+            <% end %>
+          <% end %>
+
+          <%!-- Custom User Fields Section (Edit mode only) --%>
+          <%= if @mode == :edit && length(@field_definitions) > 0 do %>
+            <div class="divider text-base-content/60 mt-6">Custom User Fields</div>
+
+            <%= for field_def <- Enum.sort_by(@field_definitions, & &1["position"]) do %>
+              <% field_key = field_def["key"] %>
+              <% field_value = Map.get(@custom_fields_data, field_key, field_def["default"] || "") %>
+              <% field_error = Map.get(@custom_fields_errors, field_key) %>
+
+              <div class="form-control w-full">
+                <%!-- Label with required indicator --%>
+                <label class="label">
+                  <span class="label-text font-medium">
+                    {field_def["label"]}
+                    <%= if field_def["required"] do %>
+                      <span class="text-error">*</span>
+                    <% end %>
+                  </span>
+                  <span class="label-text-alt text-xs text-base-content/60">
+                    {String.capitalize(field_def["type"])}
+                  </span>
+                </label>
+
+                <%!-- Dynamic input based on field type --%>
+                <%= case field_def["type"] do %>
+                  <% "textarea" -> %>
+                    <textarea
+                      name={"user[custom_fields][#{field_key}]"}
+                      class={"textarea textarea-bordered w-full #{if field_error, do: "textarea-error", else: ""}"}
+                      placeholder={field_def["label"]}
+                      required={field_def["required"]}
+                    >{field_value}</textarea>
+                  <% "number" -> %>
+                    <input
+                      type="number"
+                      name={"user[custom_fields][#{field_key}]"}
+                      value={field_value}
+                      class={"input input-bordered w-full #{if field_error, do: "input-error", else: ""}"}
+                      placeholder={field_def["label"]}
+                      required={field_def["required"]}
+                    />
+                  <% "boolean" -> %>
+                    <div class="flex items-center gap-3 mt-2">
+                      <input
+                        type="hidden"
+                        name={"user[custom_fields][#{field_key}]"}
+                        value="false"
+                      />
+                      <input
+                        type="checkbox"
+                        name={"user[custom_fields][#{field_key}]"}
+                        value="true"
+                        checked={field_value == true || field_value == "true"}
+                        class="checkbox checkbox-primary"
+                      />
+                      <span class="label-text">Enable this option</span>
+                    </div>
+                  <% "date" -> %>
+                    <input
+                      type="date"
+                      name={"user[custom_fields][#{field_key}]"}
+                      value={field_value}
+                      class={"input input-bordered w-full #{if field_error, do: "input-error", else: ""}"}
+                      required={field_def["required"]}
+                    />
+                  <% "email" -> %>
+                    <input
+                      type="email"
+                      name={"user[custom_fields][#{field_key}]"}
+                      value={field_value}
+                      class={"input input-bordered w-full #{if field_error, do: "input-error", else: ""}"}
+                      placeholder="user@example.com"
+                      required={field_def["required"]}
+                    />
+                  <% "url" -> %>
+                    <input
+                      type="url"
+                      name={"user[custom_fields][#{field_key}]"}
+                      value={field_value}
+                      class={"input input-bordered w-full #{if field_error, do: "input-error", else: ""}"}
+                      placeholder="https://example.com"
+                      required={field_def["required"]}
+                    />
+                  <% "select" -> %>
+                    <select
+                      name={"user[custom_fields][#{field_key}]"}
+                      class={"select select-bordered w-full #{if field_error, do: "select-error", else: ""}"}
+                      required={field_def["required"]}
+                    >
+                      <option value="">Select an option</option>
+                      <%= for option <- field_def["options"] || [] do %>
+                        <option value={option} selected={field_value == option}>
+                          {option}
+                        </option>
+                      <% end %>
+                    </select>
+                  <% _default -> %>
+                    <%!-- text, radio, checkbox, and other types default to text input --%>
+                    <input
+                      type="text"
+                      name={"user[custom_fields][#{field_key}]"}
+                      value={field_value}
+                      class={"input input-bordered w-full #{if field_error, do: "input-error", else: ""}"}
+                      placeholder={field_def["label"]}
+                      required={field_def["required"]}
+                    />
+                <% end %>
+
+                <%!-- Error message --%>
+                <%= if field_error do %>
+                  <div class="label">
+                    <span class="label-text-alt text-error">{field_error}</span>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          <% end %>
+
+          <%= if @mode == :new do %>
+            <div class="divider">Additional Information</div>
+
+            <div class="bg-base-200 p-4 rounded-lg">
+              <div class="flex items-start gap-3">
+                <.icon name="hero-information-circle-solid" class="w-5 h-5 mt-0.5 text-info" />
+                <div class="text-sm">
+                  <p class="font-medium">Default Settings:</p>
+                  <ul class="mt-1 text-base-content/70">
+                    <li>
+                      • User will be assigned default "<span class="font-semibold text-primary">{@default_role}</span>" role
+                    </li>
+                    <li>• Account will be active by default</li>
+                    <li>• Confirmation email will be sent automatically</li>
+                    <li>• User can update their profile after first login</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-3 pt-6 border-t border-base-300">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              phx-disable-with={
+                if @mode == :new, do: "Creating user...", else: "Updating user..."
+              }
+            >
+              <%= if @mode == :new do %>
+                Create User
+              <% else %>
+                Update User
+              <% end %>
+            </button>
+            <button
+              type="button"
+              phx-click="cancel"
+              class="btn btn-outline"
+            >
+              Cancel
+            </button>
+          </div>
+        </.form>
+      </div>
+
+      <%!-- Password Reset via Email Section (Edit mode only) --%>
+      <%= if @mode == :edit do %>
+        <div class="bg-yellow-50 border border-yellow-200 dark:bg-warning/10 dark:border-warning/30 rounded-lg p-6 mt-6">
+          <div class="flex items-start gap-3">
+            <.icon
+              name="hero-exclamation-triangle-solid"
+              class="w-6 h-6 text-yellow-600 dark:text-warning mt-0.5"
+            />
+            <div class="flex-1">
+              <h3 class="font-semibold text-yellow-800 dark:text-warning mb-2">
+                Password Reset via Email
+              </h3>
+              <p class="text-sm text-yellow-700 dark:text-base-content/80 mb-6">
+                Send a password reset email to this user. They will receive a secure link to create a new password.
+                <strong class="text-yellow-800 dark:text-warning">
+                  This action cannot be undone
+                </strong>
+                and will invalidate their current password immediately.
+              </p>
+              <button
+                type="button"
+                phx-click="show_reset_password_modal"
+                class="btn btn-warning btn-sm mt-3"
+              >
+                <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> Reset User Password
+              </button>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Reset Password Confirmation Modal --%>
+    <%= if @mode == :edit && @show_reset_password_modal do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-lg">
+          <div class="flex items-center gap-3 mb-4">
+            <.icon name="hero-exclamation-triangle-solid" class="w-8 h-8 text-error" />
+            <h3 class="font-bold text-xl text-error">Confirm Password Reset</h3>
+          </div>
+
+          <div class="space-y-4 mb-6">
+            <div class="bg-error/10 border border-error/20 rounded-lg p-4">
+              <p class="text-sm"><strong>Warning:</strong> This action cannot be undone!</p>
+            </div>
+
+            <div class="space-y-2 text-sm">
+              <p>You are about to reset the password for:</p>
+              <div class="bg-base-200 p-3 rounded font-mono text-primary">
+                {@user.email || "Unknown user"}
+              </div>
+            </div>
+
+            <div class="space-y-2 text-sm text-base-content/80">
+              <p><strong>What will happen:</strong></p>
+              <ul class="list-disc list-inside space-y-1 ml-4">
+                <li>Their current password will be immediately invalidated</li>
+                <li>They will receive an email with reset instructions</li>
+                <li>They must create a new password using the emailed link</li>
+                <li>The reset link expires in 1 hour</li>
+              </ul>
+            </div>
+
+            <div class="bg-info/10 border border-info/20 rounded-lg p-4">
+              <p class="text-sm">
+                <.icon name="hero-information-circle-solid" class="w-4 h-4 inline mr-1" />
+                <strong>Note:</strong>
+                Make sure the user has access to their email account before proceeding.
+              </p>
+            </div>
+          </div>
+
+          <div class="modal-action">
+            <button
+              type="button"
+              phx-click="hide_reset_password_modal"
+              class="btn btn-outline"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              phx-click="admin_reset_password"
+              class="btn btn-error"
+              phx-disable-with="Sending email..."
+            >
+              <.icon name="hero-lock-closed" class="w-4 h-4 mr-2" /> Yes, Reset Password
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

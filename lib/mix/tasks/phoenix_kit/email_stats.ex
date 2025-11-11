@@ -39,16 +39,17 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailSystem.enabled?() do
+    unless Emails.enabled?() do
       Mix.shell().error("Email is not enabled. Enable it first with:")
-      Mix.shell().info("  PhoenixKit.EmailSystem.enable_system()")
+      Mix.shell().info("  PhoenixKit.Emails.enable_system()")
       exit({:shutdown, 1})
     end
 
@@ -174,12 +175,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   defp get_stats_data(options) do
     period = determine_period(options)
 
-    base_stats = EmailSystem.get_system_stats(period)
+    base_stats = Emails.get_system_stats(period)
 
     stats =
       if options[:detailed] do
         Map.merge(base_stats, %{
-          by_provider: EmailSystem.get_provider_performance(period),
+          by_provider: Emails.get_provider_performance(period),
           by_template: get_template_stats(period)
         })
       else
@@ -187,7 +188,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
       end
 
     if options[:campaign] do
-      EmailSystem.get_campaign_stats(options[:campaign])
+      Emails.get_campaign_stats(options[:campaign])
     else
       stats
     end
@@ -207,7 +208,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   end
 
   defp get_template_stats(period) do
-    PhoenixKit.EmailSystem.get_template_stats(period)
+    PhoenixKit.Emails.get_template_stats(period)
   end
 
   defp format_number(number) when is_integer(number) do

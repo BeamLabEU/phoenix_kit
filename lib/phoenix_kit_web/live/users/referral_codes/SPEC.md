@@ -42,12 +42,12 @@ lib/phoenix_kit_web/live/referral_codes/
 | used_by   | integer      | User ID who used the code          |
 | date_used | utc_datetime | Usage timestamp                    |
 
-## System Configuration
+## Configuration
 
 ### Settings Integration
-The system integrates with PhoenixKit Settings module using:
+The configuration integrates with PhoenixKit Settings module using:
 - **Module**: `"referral_codes"`
-- **Key**: `"referral_codes_enabled"` - System toggle (boolean)
+- **Key**: `"referral_codes_enabled"` - Enable/disable toggle (boolean)
 - **Key**: `"referral_codes_required"` - Registration requirement toggle (boolean)
 
 ### Default Values
@@ -250,7 +250,7 @@ PhoenixKit.ReferralCodes.get_system_stats()
 - **Transaction Boundaries**: Minimal transaction scopes to reduce locking
 
 ### Caching Strategy
-- **System Status**: Settings cached via PhoenixKit Settings module
+- **Status**: Settings cached via PhoenixKit Settings module
 - **Code Validation**: Individual code lookups optimized with get_by queries
 - **Statistics**: Aggregated stats calculated on-demand with efficient queries
 

@@ -16,389 +16,64 @@
 - Brute-force attack, token enumeration, and email enumeration vulnerabilities
 - Timing attacks with consistent response times
 
-## 1.2.13 - 2025-09-29
+## 1.6.0 - 2025-11-11
 
 ### Added
-- **Email Template Management System** - Complete database-driven template system with CRUD operations and variable substitution
-- **Template Editor Interface** - Full-featured LiveView editor with HTML structure, preview, and test functionality
-- **Template List Interface** - Comprehensive template management with search, filtering, and status management
-- **Mix Task for Template Seeding** - New `mix phoenix_kit.seed_templates` task for creating default system templates
-- **Migration V15** - Database tables for email template storage with system template protection
-- **Version Tracking in Migrations** - Enhanced migration system with PostgreSQL table comments for version tracking
-- **Debug Logging for Email Metrics** - Enhanced error handling and debugging for chart data preparation
+- **Migration V22: Email System Improvements** - Enhanced email tracking and AWS SES integration
+  - Added `aws_message_id` field to `phoenix_kit_email_logs` for AWS SES message ID correlation
+  - Added event timestamp fields: `bounced_at`, `complained_at`, `opened_at`, `clicked_at`
+  - Added partial unique index on `aws_message_id` (WHERE aws_message_id IS NOT NULL) to prevent duplicates
+  - Added composite index `(message_id, aws_message_id)` for fast message correlation
+  - Added composite index `(email_log_id, event_type)` for 10-100x faster duplicate event checking
+  - Created `phoenix_kit_email_orphaned_events` table for tracking unmatched SQS events
+  - Created `phoenix_kit_email_metrics` table for email system metrics and monitoring
 
 ### Changed
-- **Mailer Integration** - Updated to use database templates with fallback to hardcoded templates for backward compatibility
-- **User Notifier** - Enhanced to support template-based email generation with variable substitution
-- **Email Metrics Dashboard** - Improved chart data initialization and error handling for better reliability
-- **Email Templates Search** - Simplified search form layout for better user experience
+- **Dual Message ID Strategy** - Comprehensive documentation for email tracking
+  - Internal `message_id` (pk_XXXXX format) - generated before sending, always unique
+  - Provider `aws_message_id` - obtained after sending, used for AWS SES event correlation
+  - 3-tier search strategy for matching SQS events to email logs
+  - Enhanced debugging capabilities with both IDs stored in metadata
 
 ### Fixed
-- **Email Metrics Chart Data** - Fixed initialization errors and null value handling in chart data preparation
-- **Migration Rollback** - Added proper version tracking for migration rollback operations
-- **Linter Issues** - Resolved alias ordering and function complexity issues for better code quality
-- **Pre-commit Hooks** - Enhanced pre-commit validation with proper error handling
-
-## 1.2.12 - 2025-09-27
-
-### Added
-- **Complete Email System Architecture** - New email_system module replacing legacy email_tracking with enhanced AWS SES integration and comprehensive event management
-- **AWS SES Configuration Task** - New `mix phoenix_kit.configure_aws_ses` task for automated AWS infrastructure setup with configuration sets, SNS topics, and SQS queues
-- **Enhanced SQS Processing** - New Mix tasks for queue processing and Dead Letter Queue management:
-  - `mix phoenix_kit.process_sqs_queue` - Real-time SQS message processing for email events
-  - `mix phoenix_kit.process_dlq` - Dead Letter Queue processing for failed messages
-  - `mix phoenix_kit.sync_email_status` - Manual email status synchronization
-- **V12 Migration** - Enhanced email tracking with AWS SES message ID correlation and specific event timestamps (bounced_at, complained_at, opened_at, clicked_at)
-- **Email System LiveView Interfaces** - Reorganized email management interfaces with improved navigation and functionality
-- **Extended Event Support** - Support for new AWS SES event types: reject, delivery_delay, subscription, and rendering_failure
-- **Enhanced Status Management** - Expanded email status types including rejected, delayed, hard_bounced, soft_bounced, and complaint
-
-### Changed
-- **Email Architecture Refactoring** - Complete transition from email_tracking to email_system module for better organization and AWS SES integration
-- **Email Event Processing** - Enhanced event handling with provider-specific data extraction and improved error recovery patterns
-- **Database Schema** - Updated email logging with aws_message_id field and specific timestamp tracking for different event types
-- **LiveView Organization** - Reorganized email-related LiveView modules under email_system namespace for better structure
-
-### Removed
-- **Legacy Email Tracking Module** - Removed entire email_tracking module and all associated files in favor of new email_system architecture
-- **Old Email LiveView Interfaces** - Removed legacy email_tracking LiveView components and templates
-- **Deprecated Email Processing** - Removed outdated email event processing and archiver implementations
-
-### Fixed
-- **Email System Integration** - Improved integration patterns for better performance and reliability
-- **SQS Message Processing** - Enhanced message processing with proper error recovery and retry mechanisms
-- **Email Event Handling** - Better handling of AWS SES events with improved message parsing and validation
-
-## 1.2.11 - 2025-09-24
-
-### Added
-- **AWS SQS Integration** - Complete SQS worker and processor for real-time email event processing from AWS SES through SNS
-- **Manual Email Sync** - New `sync_email_status/1` function to manually fetch and process SES events for specific messages
-- **DLQ Processing** - Dead Letter Queue support for handling failed messages with comprehensive retry mechanisms
-- **Mix Tasks for Email System**:
-  - `mix phoenix_kit.email.send_test` - Test email sending functionality with system options
-  - `mix phoenix_kit.email.debug_sqs` - Debug SQS messages and email system with detailed diagnostics
-  - `mix phoenix_kit.email.process_dlq` - Process Dead Letter Queue messages and handle stuck events
-- **Email System Supervisor** - OTP supervision tree for SQS worker management with graceful startup/shutdown
-- **Application Integration Module** - Enhanced integration patterns for email system initialization
-
-### Improved
-- **Email Interceptor** - Enhanced with provider-specific data extraction for multiple email services (SendGrid, Mailgun, AWS SES)
-- **Email System API** - Added manual synchronization and event fetching capabilities for both main queue and DLQ
-- **Mailer Module** - Improved integration with email system and enhanced error handling patterns
-- **Email Event Processing** - Better handling of AWS SES events with improved message parsing and validation
-
-### Fixed
-- **Email Status Processing** - Improved handling of delivery confirmations, bounce events, and open management
-- **SQS Message Handling** - Enhanced message processing with proper error recovery and retry logic
-
-### Added
-- **Update Task Enhancement** - Added `--yes/-y` flag for skipping confirmation prompts and automatic migration execution
-
-## 1.2.10 - 2025-09-21
-
-### Improved
-- **Authentication UI Consistency** - Unified design across all authentication pages (login, registration, magic link, account settings) with consistent card layouts, shadows, and spacing
-- **Icon Integration** - Added icon slot support to input component enabling consistent iconography throughout forms using PhoenixKit's centralized icon system
-- **User Experience** - Enhanced interaction feedback with hover scale animations and focus transitions on buttons and form elements
-- **Visual Cohesion** - Removed background color inconsistencies and standardized visual hierarchy across all authentication flows
-- **Development Documentation** - Comprehensive contributor guide with Phoenix built-in live reloading (primary method), custom FileWatcher fallback, GitHub workflow, and complete CONTRIBUTING.md documentation
-
-### Added
-- **Magic Link Integration** - Added Magic Link authentication option to login page with elegant divider and themed button
-- **Account Settings Redesign** - Complete visual overhaul of settings page to match authentication pages design language
-- **Flash Message Auto-dismiss** - Implemented automatic flash message dismissal after 10 seconds for improved user experience
-- **Form Field Icons** - Email, password, and profile fields now display contextual icons (email, lock, user profile) for better visual clarity
-
-### Changed
-- **Magic Link Page Layout** - Redesigned magic link page with card-based layout matching login and registration pages
-- **Settings Page Structure** - Restructured account settings with centered layout, improved typography, and consistent spacing
-- **Input Component Enhancement** - Extended core input component to support icon slots while maintaining backward compatibility
-
-## 1.2.9 - 2025-09-18
-
-### Improved
-- **Icon System Centralization** - Consolidated all inline SVG icons across the codebase into centralized PhoenixKitWeb.Components.Core.Icons module for better maintainability and consistency
-- **Authentication Pages Icons** - Migrated 10 inline SVG icons from login, registration, and magic link pages to centralized icon components (email, lock, user profile, user add, login icons)
-- **Component Reusability** - Migrated 50+ SVG icons from 20+ template files to reusable component functions with configurable CSS classes
-- **Code Quality** - Eliminated duplicate SVG code and standardized icon usage patterns throughout admin interfaces, forms, and user authentication flows
-- **LiveView Module Organization** - Reorganized LiveView modules into logical subfolders for better structure
-- **Route Organization** - Restructured admin routes with improved hierarchical organization
-- **Email URL Generation** - Enhanced Routes.url/1 function to prioritize site_url setting from Settings over dynamic endpoint detection, ensuring consistent email links across PROD and DEV environments
-
-### Changed
-- **User Routes** - Moved all user-related routes under `/admin/users/` prefix:
-  - `/admin/roles` → `/admin/users/roles`
-  - `/admin/live_sessions` → `/admin/users/live_sessions`
-  - `/admin/sessions` → `/admin/users/sessions`
-  - `/admin/referral-codes` → `/admin/users/referral-codes`
-- **Email Routes** - Reorganized email routes for better clarity:
-  - `/admin/email-logs` → `/admin/emails`
-  - `/admin/email-logs/:id` → `/admin/emails/email/:id`
-  - `/admin/email-metrics` → `/admin/emails/dashboard`
-  - `/admin/email-queue` → `/admin/emails/queue`
-  - `/admin/email-blocklist` → `/admin/emails/blocklist`
-
-### Added
-- **icon_login Component** - Added new login icon component (arrow entering door) to Icons module for authentication pages
-- **New Icon Components** - Added icon_download, icon_lock, and icon_search components to Icons module for comprehensive coverage
-- **Icon Documentation** - Enhanced Icons module with detailed component documentation and usage examples
-- **HTML Email Templates** - Added professional HTML versions for all authentication emails (confirmation, password reset, email update) with responsive design and consistent branding
-- **Site URL Configuration** - Email links now use site_url setting from Settings panel when configured, providing full control over email URLs in production environments
-
-### Fixed
-- **Icon Reference** - Fixed incorrect icon_check_circle reference to icon_check_circle_filled in magic_link_live.ex
-- **Code Readability** - Removed unnecessary alias expansion braces for single module imports
-
-## 1.2.8 - 2025-09-17
-
-### Improved
-- **Asset Build Pipeline** - Enhanced asset rebuilding using standard Phoenix asset pipeline (mix assets.build) with intelligent fallbacks to esbuild, tailwind, and npm commands for better compatibility
-- **Dynamic URL Prefix Handling** - Replaced hardcoded /phoenix_kit/ paths with dynamic Routes.path() throughout the codebase for proper prefix support
-- **Code Quality** - Improved code formatting, comment alignment, and whitespace consistency across all modules
-- **Installation Messages** - Enhanced user feedback messages with dynamic prefix support and clearer instructions
-
-### Fixed
-- **Hardcoded Paths** - Replaced static URL paths with dynamic prefix resolution using PhoenixKit.Utils.Routes
-- **Asset Rebuild Process** - Asset builder now tries multiple commands in order of preference for maximum compatibility
-
-### Removed
-- **SimpleTest File** - Removed unused development test artifact (simple_test.ex)
-
-## 1.2.7 - 2025-09-16
-
-### Added
-- **Email Navigation** - Added Email Metrics, Email Queue, and Email Blocklist pages to admin navigation menu
-- **Email Blocklist System (V09 Migration)** - Complete email blocklist functionality with temporary/permanent blocks, reason management, and audit trail
-- **Email Routes** - Added routes for all Email LiveView pages in admin integration
-- **Users Menu Grouping** - Reorganized admin navigation with expandable Users and Email groups using HTML5 details/summary
-- **Migration Documentation** - Comprehensive migration system documentation with all version paths and rollback options
-
-### Fixed
-- **Email Cleanup Task Pattern Matching** - Fixed Dialyzer warning about EmailSystem.enabled?() pattern matching
-- **Dashboard Add User Button** - Corrected navigation from dashboard Add User button to proper /admin/users/new route
-- **Migration V09 Primary Key** - Fixed duplicate column 'id' error in phoenix_kit_email_blocklist table creation
-
-### Improved
-- **Navigation Menu Structure** - Replaced custom JavaScript with native HTML5 details/summary for better reliability and performance
-- **Email Group Organization** - Email, Metrics, Queue, and Blocklist now properly grouped under Email section
-
-
-## 1.2.6 - 2025-09-15
-
-### Added
-- **Admin Password Change Feature** - Direct password change capability for administrators in user edit form
-- **Username Search Integration** - Added username search to referral code beneficiary selection and main user dashboard
-- **Username Implementation** - Added optional username field with automatic generation from email for new user registrations
-
-### Fixed
-- **Form Validation Display Issues** - Replaced static validator hints with proper Phoenix LiveView components using phx-no-feedback:hidden
-- **Dark Theme Compatibility** - Improved password management sections with theme-adaptive styling
-
-### Improved
-- **Date Formatting** - Updated referral dashboard to use user settings-aware date formatting
-- **Dynamic Routing** - Replaced hardcoded /phoenix_kit/ paths with PhoenixKit.Utils.Routes.path() throughout referral system
-- **Admin UI Experience** - Enhanced password management with both direct change and email reset options
-
-## 1.2.5 - 2025-09-12
-
-### Added
-- **Email System Foundation** with email logging and event management schemas
-- **Email Rate Limiting Core** with basic rate limiting functionality and blocklist management
-- **Email Database Schema (V07)** with optimized tables and proper indexing
-- **Email Interceptor System** for pre-send filtering and validation capabilities
-- **Webhook Processing Foundation** for AWS SES event handling (bounces, complaints, opens, clicks)
-- **get_mailer/0 function** in PhoenixKit.Config for improved mailer integration
-- **RepoHelper Integration** for proper database access patterns in email system modules
-
-### Fixed
-- **All compilation warnings (40 → 0)** - 100% improvement in code cleanliness
-- **PhoenixKit.Repo undefined references** - proper integration with PhoenixKit.RepoHelper
-- **Unused variable warnings** throughout the codebase
-- **Pattern matching issues** in error handling code
-- **Missing @moduledoc** for EmailBlocklist schema
-
-### Improved
-- **Credo warnings (30 → 5)** - 83% improvement in code quality metrics
-- **Dialyzer warnings (40 → 4)** - 90% improvement in type checking
-- **Code formatting** with proper number formatting (86_400 vs 86400)
-- **Code efficiency** with optimized Enum operations (map_join vs map + join)
-- **Function complexity** by extracting nested logic into helper functions
-- **Error handling** by replacing explicit try blocks with case/with patterns
-- **Alias ordering** alphabetically in imports
-- **Trailing whitespace** removal across codebase
-
-### Technical Improvements
-- **Memory-efficient patterns** preparation for future batch processing
-- **Comprehensive input validation** for email system data
-- **SQL injection protection** with parameterized queries
-- **Professional code structure** following PhoenixKit conventions
-- **Enhanced error handling** with proper rescue clauses and pattern matching
-
-## 1.2.4 - 2025-09-11
-
-### Added
-- Complete referral codes system with comprehensive management interface
-- Referral code creation, validation, and usage management functionality
-- Admin modules page for system-wide module management and configuration
-- Flexible expiration system with optional "no expiration" support for referral codes
-- Advanced admin settings for referral code limits with real-time validation:
-  - Maximum uses per referral code (configurable limit)
-  - Maximum referral codes per user (configurable limit)
-- Beneficiary system allowing referral codes to be assigned to specific users
-- User search functionality with real-time filtering for beneficiary assignment
-- Hierarchical navigation structure with "Modules" parent and nested "Referral System" item
-- Professional referral code generation with confusion-resistant character set
-- Settings persistence system with module-specific organization
-- Introduced custom prefix in the config (/phoenix_kit to something else)
-
-### Changed
-- Improved form component alignment and styling in referral code forms
-- Updated core input components to fix layout issues with conditional labels
-- Reorganized admin settings order for better user experience
-- Strengthened form validation with real-time feedback and error handling
-
-### Fixed
-- Settings persistence ensuring values are properly saved and loaded from database
-
-## 1.2.3 - 2025-09-11
-
-### Added
-- Enhanced `mix phoenix_kit.status` task with hybrid repository detection and fallback strategies
-- Comprehensive status diagnostics with detailed database connection reporting
-- Application startup management for reliable status checking in various project configurations
-- Intelligent repository detection supporting both configured and auto-detected repositories
-- Mailer delegation support with automatic parent application mailer detection
-- Comprehensive AWS SES configuration with automatic Finch HTTP client setup
-- Finch HTTP client integration for email adapters (SendGrid, Mailgun, AWS SES)
-- Auto-detection of existing mailer modules in parent applications
-- Enhanced email configuration with configurable sender name and email address
-- Production-ready email templates for SMTP, SendGrid, Mailgun, and AWS SES
-- Complete AWS SES setup guide with step-by-step checklist and region configuration
-- Automatic dependency management for gen_smtp when using AWS SES
-- Swoosh API client configuration for HTTP-based email adapters
-
-### Changed
-- Asset rebuild system simplified to consistently recommend rebuilds for better reliability
-- Status task now provides more detailed verbose diagnostics for troubleshooting
-- Update task now delegates status display to dedicated status command for consistency
-- Removed complex asset checking logic in favor of straightforward rebuild recommendations
-- Email system architecture now supports both delegation and built-in modes
-- Mailer configuration defaults to using parent application's existing mailer when available
-- Installation process automatically configures appropriate email dependencies
-- Documentation restructured with detailed provider-specific setup guides
-- PhoenixKit.Mailer module enhanced with delegation capabilities
-
-### Fixed
-- Critical CSS integration bug where regex patterns incorrectly matched file paths containing "phoenix_kit" substring
-- CSS integration now properly detects only exact PhoenixKit dependency paths (../../deps/phoenix_kit) and ignores false matches like "test_phoenix_kit_v1_web"
-- Improved pattern matching specificity to prevent installation failures in projects with similar naming
-- Trailing whitespace issues across multiple files for better code quality
-- Unused alias imports in tasks and modules
-- Dialyzer warnings by updating ignore patterns for better type checking
-- Email sender configuration now properly supports custom from_email and from_name settings
-- Production email setup documentation with comprehensive provider examples
-- Mailer integration patterns for better parent application compatibility
-
-## 1.2.2 - 2025-09-08
-
-### Added
-- Comprehensive asset rebuild system with `mix phoenix_kit.assets.rebuild` task for automatic CSS integration
-- System status checker with `mix phoenix_kit.status` task for installation diagnostics
-- Asset management tools for PhoenixKit CSS integration updates and Tailwind CSS compatibility
-- Common utility functions in `PhoenixKit.Install.Common` for version checking and installation management
-- Helper functions for better code organization and separation of concerns
-- Progress tracking and enhanced user feedback for migration operations
-- Type specifications for Mix.Task modules and asset rebuild functions
-
-### Changed
-- CSS integration workflow simplified with better Tailwind CSS 4 support and @source directive optimization
-- Migration function refactored to reduce cyclomatic complexity and improve maintainability
-- Code organization improved with extraction of helper functions across multiple modules
-- Enhanced error handling and user notifications for asset rebuild operations
-
-### Fixed
-- All Credo static analysis warnings (trailing whitespace, formatting issues, deep nesting)
-- All Dialyzer type analysis warnings with proper function specifications
-- CSS integration logic and @source directive paths for correct asset compilation
-- Complex migration function broken down into smaller, more maintainable functions
-- Conditional statements simplified (cond to if) for better code clarity
-
-## 1.2.1 - 2025-09-07
-
-### Added
-- Project title customization system with dynamic branding across all admin interfaces
-- Project title integration in authentication pages (login and registration)
-- Time display enhancement showing both date and time in Users and Sessions tables
-- Settings-aware date/time formatting functions for consistent user preferences
-
-### Changed
-- Date handling moved from PhoenixKit.Date to PhoenixKit.Utils.Date for better organization
-- All admin pages now consistently display custom project title instead of hardcoded "PhoenixKit"
-- Enhanced admin interface with unified project branding throughout navigation
-- Login and registration pages now show custom project title in headings and browser tabs
-- Changed config and magic link
-
-## Fixed
-- Fixed asset rebuilding integration in migration strategy
-
-## 1.2.0 - 2025-09-03
-
-### Added
-- User settings system with customizable time zone, date format, and time format preferences
-- Comprehensive session management system for admin interface with real-time monitoring
-- Live data updates system for admin panels with automatic refresh capabilities
-- Automatic user logout functionality when role changes occur for enhanced security
-- DateTime formatting functions with Timex library integration for better date/time handling
-- Enhanced authentication session management for improved user experience
-
-### Changed
-- Authentication components updated with GitHub-inspired design and unified development notices
-- Date handling refactored into separate PhoenixKit.Date module (aliased as PKDate) for better organization
-- User dashboard "Registered" field now uses enhanced date formatting from settings
-- Improved code quality and PubSub integration for better real-time communication
-
-### Fixed
-- Missing admin routes for settings and modules sections
-- Dialyzer type errors resolved across the codebase
-- Live Activity link in dashboard now correctly navigates to intended destination
-- Settings tab information updated with accurate user preferences display
-
-## 1.1.1 - 2025-09-02
-
-### Added
-- Profile settings functionality with first name and last name fields
-- Profile changeset function for user profile updates
-- Complete profile editing interface in user settings
-
-### Fixed
-- Router integration by removing unnecessary redirect pipe for login route
-- Added admin shortcut route for improved navigation
-- Enhanced admin dashboard accessibility
-
-## 1.1.0 - 2025-09-01
-
-### Changed
-- **BREAKING**: Simplified role system by removing `is_active` column from role assignments
-- Role removal now permanently deletes assignment records instead of soft deactivation
-- All role-related functions updated to work with direct deletion approach
-- Improved performance by eliminating `is_active` filtering in database queries
-- Documenatation link fixed for hex
-
-### Added
-- V02 migration for upgrading existing installations to simplified role system
-- Enhanced migration system with comprehensive upgrade path from V01 to V02
-- Pre-migration reporting with warnings about inactive assignments that will be deleted
-- Rollback support for V02 migration (though inactive assignments cannot be restored)
-
-### Fixed
-- Test suite updated to reflect schema new changes
-
-### Migration Notes
-- Existing V01 installations can upgrade using `mix phoenix_kit.update`
-- V02 migration will permanently delete any inactive role assignments
-- New installations will use V02 schema without `is_active` column
-
-## 1.0.0 - 2025-08-29
-
-Initial version with basic functionality, mostly around authorization and user registration with roles. Also admin page for admin users with User section.
+- **RateLimiter compilation warnings** - Resolved all Elixir compiler and Credo warnings
+  - Added `require Logger` to fix Logger.warning/info/error undefined warnings
+  - Replaced `Settings.set_setting/2` with correct `Settings.update_setting/2` function
+  - Removed unused default value from `monitor_user/3` function signature
+  - Fixed Dialyzer warnings for nested module aliases
+
+### Technical Details
+
+**Database Schema Changes:**
+```
+phoenix_kit_email_logs:
+  + aws_message_id (string, nullable, unique when present)
+  + bounced_at (utc_datetime_usec)
+  + complained_at (utc_datetime_usec)
+  + opened_at (utc_datetime_usec)
+  + clicked_at (utc_datetime_usec)
+
+New Tables:
+  + phoenix_kit_email_orphaned_events (track unmatched SQS events)
+  + phoenix_kit_email_metrics (system metrics tracking)
+
+New Indexes:
+  + phoenix_kit_email_logs_aws_message_id_uidx (partial unique)
+  + phoenix_kit_email_logs_message_ids_idx (composite)
+  + phoenix_kit_email_events_log_type_idx (composite, 10-100x faster)
+```
+
+**Message ID Workflow:**
+```
+1. Email Created → message_id = "pk_12345" (internal)
+2. Email Sent → aws_message_id = "0102abc..." (from AWS SES)
+3. SQS Event → Searches by aws_message_id → Updates EmailLog
+```
+
+**Performance Improvements:**
+- Event duplicate checking: 10-100x faster with composite index
+- Message correlation: Instant lookup with dual message ID strategy
+- Orphaned event tracking: No more lost SQS events
+
+**Migration Notes:**
+- All changes are backward compatible

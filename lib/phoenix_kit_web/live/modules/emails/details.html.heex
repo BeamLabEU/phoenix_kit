@@ -1,0 +1,473 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"Email #{@email_id}"}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/emails")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon_arrow_left /> Back to Emails
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">
+          Email Details #{@email_id}
+        </h1>
+        <%= if @email_log do %>
+          <p class="text-lg text-base-content">{@email_log.to}</p>
+        <% end %>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="email-details-container">
+      <%= if @loading do %>
+        <div class="flex justify-center items-center h-32">
+          <span class="loading loading-spinner loading-md"></span>
+          <span class="ml-2">Loading email details...</span>
+        </div>
+      <% else %>
+        <%= if @email_log do %>
+          <%!-- Page Header with Actions --%>
+          <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
+            <div>
+              <h1 class="text-2xl font-bold text-base-content mb-2">
+                Email Details #{@email_log.id}
+              </h1>
+              <div class="flex items-center gap-4 text-sm text-base-content/70">
+                <span>To: {@email_log.to}</span>
+                <span>•</span>
+                <span>
+                  Status: <.email_status_badge status={@email_log.status} />
+                </span>
+                <span>•</span>
+                <span>
+                  Sent: {UtilsDate.format_datetime_with_user_format(@email_log.sent_at)}
+                </span>
+              </div>
+            </div>
+
+            <div class="flex gap-2 mt-4 lg:mt-0">
+              <.link
+                href={Routes.path("/admin/emails/#{@email_id}/export")}
+                target="_blank"
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Export CSV
+              </.link>
+
+              <button
+                phx-click="sync_status"
+                class="btn btn-outline btn-sm"
+                disabled={assigns[:syncing]}
+              >
+                <%= if assigns[:syncing] do %>
+                  <span class="loading loading-spinner loading-xs mr-1"></span> Syncing...
+                <% else %>
+                  <.icon name="hero-arrow-path-rounded-square" class="w-4 h-4 mr-1" /> Sync Status
+                <% end %>
+              </button>
+
+              <button
+                phx-click="refresh"
+                class="btn btn-outline btn-sm"
+                disabled={assigns[:loading]}
+              >
+                <%= if assigns[:loading] do %>
+                  <span class="loading loading-spinner loading-xs mr-1"></span> Loading...
+                <% else %>
+                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Refresh
+                <% end %>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <%!-- Main Content Column --%>
+            <div class="lg:col-span-2 space-y-6">
+              <%!-- Email Overview Card --%>
+              <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                  <h2 class="card-title text-lg mb-4">Email Overview</h2>
+
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-3">
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">Subject</label>
+                        <p class="text-sm">{@email_log.subject || "(no subject)"}</p>
+                      </div>
+
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">From</label>
+                        <p class="text-sm">{@email_log.from}</p>
+                      </div>
+
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">To</label>
+                        <p class="text-sm">{@email_log.to}</p>
+                      </div>
+
+                      <%= if @email_log.template_name do %>
+                        <div>
+                          <label class="text-sm font-medium text-base-content/70">Template</label>
+                          <div class="flex items-center gap-2">
+                            <span class="badge badge-primary badge-sm">
+                              {@email_log.template_name}
+                            </span>
+                            <button
+                              phx-click="view_related"
+                              phx-value-template_name={@email_log.template_name}
+                              class="text-xs text-blue-600 hover:underline"
+                            >
+                              View related emails
+                            </button>
+                          </div>
+                        </div>
+                      <% end %>
+                    </div>
+
+                    <div class="space-y-3">
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">Status</label>
+                        <div>
+                          <.email_status_badge status={@email_log.status} />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">Provider</label>
+                        <div class="badge badge-outline badge-sm">{@email_log.provider}</div>
+                      </div>
+
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">Size</label>
+                        <p class="text-sm">
+                          <.file_size bytes={@email_log.size_bytes} />
+                        </p>
+                      </div>
+
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">
+                          Attachments
+                        </label>
+                        <p class="text-sm">{@email_log.attachments_count}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <%!-- Message IDs Section --%>
+                  <div class="border-t pt-4 mt-4 space-y-3">
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70">
+                        Message ID (Internal)
+                      </label>
+                      <p class="text-xs font-mono text-base-content/90 break-all">
+                        {@email_log.message_id}
+                      </p>
+                    </div>
+
+                    <%= if @email_log.aws_message_id do %>
+                      <div>
+                        <label class="text-sm font-medium text-base-content/70">
+                          AWS Message ID
+                        </label>
+                        <p class="text-xs font-mono text-base-content/90 break-all">
+                          {@email_log.aws_message_id}
+                        </p>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <%= if @email_log.campaign_id do %>
+                    <div class="border-t pt-4 mt-4">
+                      <label class="text-sm font-medium text-base-content/70">Campaign</label>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="badge badge-secondary badge-sm">
+                          {@email_log.campaign_id}
+                        </span>
+                        <button
+                          phx-click="view_related"
+                          phx-value-campaign_id={@email_log.campaign_id}
+                          class="text-xs text-blue-600 hover:underline"
+                        >
+                          View campaign emails
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%= if @email_log.error_message do %>
+                    <div class="alert alert-error mt-4">
+                      <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                      <div>
+                        <strong>Error:</strong> {@email_log.error_message}
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Email Content Card --%>
+              <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                  <div class="flex items-center justify-between mb-4">
+                    <h2 class="card-title text-lg">Email Content</h2>
+                    <div class="flex gap-2">
+                      <%= if @email_log.body_full do %>
+                        <button
+                          phx-click="toggle_body"
+                          class="btn btn-outline btn-sm"
+                        >
+                          {if assigns[:show_body], do: "Hide", else: "Show"} Full Body
+                        </button>
+                      <% end %>
+                      <%= if @email_log.headers && map_size(@email_log.headers) > 0 do %>
+                        <button
+                          phx-click="toggle_headers"
+                          class="btn btn-outline btn-sm"
+                        >
+                          {if assigns[:show_headers], do: "Hide", else: "Show"} Headers
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+
+                  <%!-- Body Preview --%>
+                  <div class="mb-4">
+                    <label class="text-sm font-medium text-base-content/70 block mb-2">
+                      Body Preview
+                    </label>
+                    <div class="bg-base-200 p-3 rounded text-sm max-h-40 overflow-y-auto">
+                      <%= if @email_log.body_preview do %>
+                        <pre class="whitespace-pre-wrap"><%= @email_log.body_preview %></pre>
+                      <% else %>
+                        <em class="text-base-content/60">No preview available</em>
+                      <% end %>
+                    </div>
+                  </div>
+
+                  <%!-- Full Body (collapsible) --%>
+                  <%= if assigns[:show_body] and @email_log.body_full do %>
+                    <div class="mb-4">
+                      <label class="text-sm font-medium text-base-content/70 block mb-2">
+                        Full Body
+                      </label>
+                      <div class="bg-base-200 p-3 rounded text-sm max-h-60 overflow-y-auto">
+                        <pre class="whitespace-pre-wrap"><%= @email_log.body_full %></pre>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%!-- Headers (collapsible) --%>
+                  <%= if assigns[:show_headers] and @email_log.headers && map_size(@email_log.headers) > 0 do %>
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70 block mb-2">
+                        Headers
+                      </label>
+                      <div class="bg-base-200 p-3 rounded text-sm max-h-40 overflow-y-auto">
+                        <.table_default size="xs" class="w-full">
+                          <.table_default_header>
+                            <.table_default_row>
+                              <.table_default_header_cell>Header</.table_default_header_cell>
+                              <.table_default_header_cell>Value</.table_default_header_cell>
+                            </.table_default_row>
+                          </.table_default_header>
+                          <.table_default_body>
+                            <%= for {key, value} <- @email_log.headers do %>
+                              <.table_default_row>
+                                <.table_default_cell class="font-medium">
+                                  {key}
+                                </.table_default_cell>
+                                <.table_default_cell class="break-all">
+                                  {value}
+                                </.table_default_cell>
+                              </.table_default_row>
+                            <% end %>
+                          </.table_default_body>
+                        </.table_default>
+                      </div>
+                    </div>
+                  <% end %>
+
+                  <%!-- Show message when headers are empty but toggle is on --%>
+                  <%= if assigns[:show_headers] and (is_nil(@email_log.headers) or map_size(@email_log.headers) == 0) do %>
+                    <div>
+                      <label class="text-sm font-medium text-base-content/70 block mb-2">
+                        Headers
+                      </label>
+                      <div class="bg-base-200 p-3 rounded text-sm text-base-content/60 italic">
+                        No headers available for this email
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Events Timeline --%>
+              <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                  <h2 class="card-title text-lg mb-4">Events Timeline</h2>
+
+                  <%= if length(@events) > 0 do %>
+                    <div class="space-y-4">
+                      <%= for event <- @events do %>
+                        <.event_timeline_item event={event} log={@email_log} />
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <div class="text-center py-8 text-base-content/60">
+                      <.icon
+                        name="hero-clock"
+                        class="w-12 h-12 mx-auto mb-2 text-base-content/30"
+                      />
+                      <p>No events recorded for this email</p>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Sidebar --%>
+            <div class="space-y-6">
+              <%!-- Quick Stats --%>
+              <div class="card bg-base-100 shadow-sm">
+                <div class="card-body">
+                  <h3 class="card-title text-base mb-4">Quick Stats</h3>
+
+                  <div class="stats stats-vertical shadow-none bg-transparent">
+                    <div class="stat px-0 py-2">
+                      <div class="stat-title text-xs">Message ID</div>
+                      <div class="stat-value text-xs font-mono break-all">
+                        {@email_log.message_id}
+                      </div>
+                    </div>
+
+                    <%= if @email_log.aws_message_id do %>
+                      <div class="stat px-0 py-2">
+                        <div class="stat-title text-xs">AWS Message ID</div>
+                        <div class="stat-value text-xs font-mono break-all">
+                          {@email_log.aws_message_id}
+                        </div>
+                      </div>
+                    <% end %>
+
+                    <div class="stat px-0 py-2">
+                      <div class="stat-title text-xs">Sent At</div>
+                      <div class="stat-value text-sm">
+                        {UtilsDate.format_datetime_with_user_format(@email_log.sent_at)}
+                      </div>
+                    </div>
+
+                    <%= if @email_log.delivered_at do %>
+                      <div class="stat px-0 py-2">
+                        <div class="stat-title text-xs">Delivered At</div>
+                        <div class="stat-value text-sm">
+                          {UtilsDate.format_datetime_with_user_format(@email_log.delivered_at)}
+                        </div>
+                        <div class="stat-desc text-xs">
+                          <.duration_display
+                            start_time={@email_log.sent_at}
+                            end_time={@email_log.delivered_at}
+                          /> delivery time
+                        </div>
+                      </div>
+                    <% end %>
+
+                    <div class="stat px-0 py-2">
+                      <div class="stat-title text-xs">Events</div>
+                      <div class="stat-value text-lg">{length(@events)}</div>
+                    </div>
+
+                    <%= if @email_log.retry_count > 0 do %>
+                      <div class="stat px-0 py-2">
+                        <div class="stat-title text-xs">Retries</div>
+                        <div class="stat-value text-lg text-warning">
+                          {@email_log.retry_count}
+                        </div>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Message Tags --%>
+              <%= if map_size(@email_log.message_tags) > 0 do %>
+                <div class="card bg-base-100 shadow-sm">
+                  <div class="card-body">
+                    <h3 class="card-title text-base mb-4">Message Tags</h3>
+
+                    <div class="space-y-2">
+                      <%= for {key, value} <- @email_log.message_tags do %>
+                        <div class="flex justify-between items-center text-sm">
+                          <span class="font-medium">{key}</span>
+                          <span class="badge badge-outline badge-xs">{value}</span>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+
+              <%!-- Related Emails --%>
+              <%= if length(@related_emails) > 0 do %>
+                <div class="card bg-base-100 shadow-sm">
+                  <div class="card-body">
+                    <h3 class="card-title text-base mb-4">Related Emails</h3>
+
+                    <div class="space-y-2">
+                      <%= for related <- Enum.take(@related_emails, 5) do %>
+                        <.link
+                          navigate={Routes.path("/admin/emails/email/#{related.id}")}
+                          class="block p-2 rounded hover:bg-base-200 text-sm"
+                        >
+                          <div class="font-medium truncate">{related.to}</div>
+                          <div class="text-xs text-base-content/60 flex items-center justify-between">
+                            <span>
+                              {UtilsDate.format_datetime_with_user_format(related.sent_at)}
+                            </span>
+                            <.email_status_badge status={related.status} size={:xs} />
+                          </div>
+                        </.link>
+                      <% end %>
+
+                      <%= if length(@related_emails) > 5 do %>
+                        <div class="text-center pt-2">
+                          <button
+                            phx-click="view_related"
+                            phx-value-campaign_id={@email_log.campaign_id}
+                            class="text-xs text-blue-600 hover:underline"
+                          >
+                            View all {length(@related_emails)} related emails
+                          </button>
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% else %>
+          <div class="text-center py-12">
+            <.icon name="hero-envelope-open" class="w-16 h-16 mx-auto mb-4 text-base-content/30" />
+            <h2 class="text-xl font-semibold text-base-content/70 mb-2">Email Not Found</h2>
+            <p class="text-base-content/60 mb-4">
+              The email with ID {@email_id} could not be found.
+            </p>
+            <.link navigate={Routes.path("/admin/emails")} class="btn btn-primary">
+              Back to Emails
+            </.link>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

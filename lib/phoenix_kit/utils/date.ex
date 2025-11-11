@@ -82,6 +82,7 @@ defmodule PhoenixKit.Utils.Date do
       "m/d/Y" -> "{0M}/{0D}/{YYYY}"
       "d/m/Y" -> "{0D}/{0M}/{YYYY}"
       "d.m.Y" -> "{0D}.{0M}.{YYYY}"
+      "d.m" -> "{0D}.{0M}"
       "d-m-Y" -> "{0D}-{0M}-{YYYY}"
       "F j, Y" -> "{Mfull} {D}, {YYYY}"
       # Default to Y-m-d format
@@ -298,6 +299,50 @@ defmodule PhoenixKit.Utils.Date do
   def format_time_with_user_format(time) do
     time_format = Settings.get_setting("time_format", "H:i")
     format_time(time, time_format)
+  end
+
+  @doc """
+  Formats a datetime (NaiveDateTime or DateTime) showing both date and time
+  according to the specified date and time formats.
+
+  Returns "Never" for nil values.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Date.format_datetime_full(~N[2024-01-15 15:30:00], "F j, Y", "h:i A")
+      "January 15, 2024 3:30 PM"
+
+      iex> PhoenixKit.Utils.Date.format_datetime_full(nil, "Y-m-d", "H:i")
+      "Never"
+  """
+  def format_datetime_full(nil, _date_format, _time_format), do: "Never"
+
+  def format_datetime_full(datetime, date_format, time_format) do
+    date = NaiveDateTime.to_date(datetime)
+    time = NaiveDateTime.to_time(datetime)
+    formatted_date = format_date(date, date_format)
+    formatted_time = format_time(time, time_format)
+    "#{formatted_date} #{formatted_time}"
+  end
+
+  @doc """
+  Formats a datetime showing both date and time using user preferences from Settings.
+
+  Automatically loads date_format and time_format settings and applies them.
+  Returns "Never" for nil values.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Date.format_datetime_full_with_user_format(~N[2024-01-15 15:30:00])
+      "January 15, 2024 3:30 PM"  # If user has "F j, Y" and "h:i A" formats selected
+
+      iex> PhoenixKit.Utils.Date.format_datetime_full_with_user_format(nil)
+      "Never"
+  """
+  def format_datetime_full_with_user_format(datetime) do
+    date_format = Settings.get_setting("date_format", "Y-m-d")
+    time_format = Settings.get_setting("time_format", "H:i")
+    format_datetime_full(datetime, date_format, time_format)
   end
 
   @doc """
