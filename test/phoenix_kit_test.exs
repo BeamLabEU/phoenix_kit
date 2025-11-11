@@ -1,6 +1,8 @@
 defmodule PhoenixKitTest do
   use ExUnit.Case
 
+  alias PhoenixKit.Migrations.Postgres, as: Migrations
+
   @moduledoc """
   Basic smoke tests for PhoenixKit library.
 
@@ -54,12 +56,12 @@ defmodule PhoenixKitTest do
 
   describe "Migration system" do
     test "initial version is defined" do
-      assert PhoenixKit.Migrations.Postgres.initial_version() == 1
+      assert Migrations.initial_version() == 1
     end
 
     test "current version is defined and valid" do
-      current = PhoenixKit.Migrations.Postgres.current_version()
-      initial = PhoenixKit.Migrations.Postgres.initial_version()
+      current = Migrations.current_version()
+      initial = Migrations.initial_version()
 
       assert is_integer(current)
       assert current >= initial
