@@ -65,7 +65,7 @@ defmodule PhoenixKit.Users.Auth do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.{RateLimiter, Roles}
   alias PhoenixKit.Utils.Geolocation
 
   ## Database getters
@@ -89,19 +89,41 @@ defmodule PhoenixKit.Users.Auth do
   @doc """
   Gets a user by email and password.
 
+  This function includes rate limiting protection to prevent brute-force attacks.
+  After exceeding the rate limit (default: 5 attempts per minute), subsequent
+  attempts will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
+      {:ok, %User{}}
 
       iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
-      nil
+      {:error, :invalid_credentials}
+
+      iex> get_user_by_email_and_password("foo@example.com", "password", "192.168.1.1")
+      {:ok, %User{}}
 
   """
-  def get_user_by_email_and_password(email, password)
+  def get_user_by_email_and_password(email, password, ip_address \\ nil)
       when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email, ip_address) do
+      :ok ->
+        user = Repo.get_by(User, email: email)
+        if User.valid_password?(user, password) do
+          # Successful login - optionally reset rate limit
+          {:ok, user}
+        else
+          # Invalid credentials - rate limit counter incremented
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        # Return error immediately without checking credentials
+        # This prevents timing attacks and reduces load
+        {:error, :rate_limit_exceeded}
+    end
   end
 
   @doc """
@@ -130,6 +152,9 @@ defmodule PhoenixKit.Users.Auth do
   - Subsequent users receive User role
   - Uses database transactions to prevent race conditions
 
+  This function includes rate limiting protection to prevent spam account creation.
+  Rate limits apply per email address and optionally per IP address.
+
   ## Examples
 
       iex> register_user(%{field: value})
@@ -138,8 +163,33 @@ defmodule PhoenixKit.Users.Auth do
       iex> register_user(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+      iex> register_user(%{email: "user@example.com"}, "192.168.1.1")
+      {:ok, %User{}}
+
   """
-  def register_user(attrs) do
+  def register_user(attrs, ip_address \\ nil) do
+    # Check rate limit before attempting registration
+    email = attrs["email"] || attrs[:email] || ""
+
+    case RateLimiter.check_registration_rate_limit(email, ip_address) do
+      :ok ->
+        do_register_user(attrs)
+
+      {:error, :rate_limit_exceeded} ->
+        # Return changeset error for rate limit
+        changeset =
+          %User{}
+          |> User.registration_changeset(attrs)
+          |> Ecto.Changeset.add_error(
+            :email,
+            "Too many registration attempts. Please try again later."
+          )
+
+        {:error, changeset}
+    end
+  end
+
+  defp do_register_user(attrs) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
@@ -181,6 +231,8 @@ defmodule PhoenixKit.Users.Auth do
   based on the provided IP address and includes it in the user registration.
   If geolocation lookup fails, the user is still registered with just the IP address.
 
+  This function automatically applies rate limiting based on the IP address.
+
   ## Examples
 
       iex> register_user_with_geolocation(%{email: "user@example.com", password: "password"}, "192.168.1.1")
@@ -206,7 +258,8 @@ defmodule PhoenixKit.Users.Auth do
         require Logger
         Logger.info("PhoenixKit: Successful geolocation lookup for IP #{ip_address}")
 
-        register_user(enhanced_attrs)
+        # Pass IP address for rate limiting
+        register_user(enhanced_attrs, ip_address)
 
       {:error, reason} ->
         # Log the error but continue with registration
@@ -214,7 +267,7 @@ defmodule PhoenixKit.Users.Auth do
         Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
 
         # Register user with just IP address
-        register_user(enhanced_attrs)
+        register_user(enhanced_attrs, ip_address)
     end
   end
 
@@ -579,17 +632,31 @@ defmodule PhoenixKit.Users.Auth do
   @doc ~S"""
   Delivers the reset password email to the given user.
 
+  This function includes rate limiting protection to prevent mass password reset attacks.
+  After exceeding the rate limit (default: 3 requests per 5 minutes), subsequent
+  requests will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
+      iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
+      {:error, :rate_limit_exceeded}
+
   """
   def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+    # Check rate limit before sending reset email
+    case RateLimiter.check_password_reset_rate_limit(user.email) do
+      :ok ->
+        {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+        Repo.insert!(user_token)
+        UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
   end
 
   @doc """

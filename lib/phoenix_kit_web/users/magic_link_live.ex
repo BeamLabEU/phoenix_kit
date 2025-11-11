@@ -79,6 +79,13 @@ defmodule PhoenixKitWeb.Users.MagicLinkLive do
          |> assign(:loading, false)
          |> put_flash(:info, "Magic link sent! Check your email.")}
 
+      {:error, :rate_limit_exceeded} ->
+        # Rate limit exceeded - show specific error message
+        {:noreply,
+         socket
+         |> assign(:loading, false)
+         |> assign(:error, "Too many magic link requests. Please try again later.")}
+
       {:error, _} ->
         # For security, we don't reveal whether the email exists or not
         {:noreply,
@@ -113,6 +120,10 @@ defmodule PhoenixKitWeb.Users.MagicLinkLive do
       case MagicLink.generate_magic_link(email) do
         {:ok, user, token} ->
           send_magic_link_email_to_user(user, token)
+
+        {:error, :rate_limit_exceeded} ->
+          # Return rate limit error immediately
+          {:error, :rate_limit_exceeded}
 
         {:error, :user_not_found} ->
           # For security, we simulate the same delay as successful case

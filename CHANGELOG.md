@@ -1,3 +1,33 @@
+## 1.2.14 - 2025-11-11
+
+### Added
+- **Rate Limiting System** - Comprehensive rate limiting protection for all authentication endpoints using Hammer library
+- **Brute-Force Protection** - Login endpoint protected with email and IP-based rate limiting (5 attempts per minute)
+- **Token Enumeration Prevention** - Magic link generation protected with rate limiting (3 requests per 5 minutes)
+- **Password Reset Protection** - Password reset requests protected with rate limiting (3 requests per 5 minutes)
+- **Registration Spam Prevention** - User registration protected with dual rate limiting (3 attempts per hour per email, 10 per hour per IP)
+- **Rate Limiter Module** - New `PhoenixKit.Users.RateLimiter` module with comprehensive API for rate limit management
+- **Admin Functions** - Rate limit reset and inspection functions for administrative intervention
+- **Comprehensive Tests** - Full test coverage for rate limiting functionality with 20+ test cases
+- **Security Logging** - All rate limit violations are logged for security monitoring and threat detection
+
+### Changed
+- **Auth Module** - Updated `get_user_by_email_and_password/3` to include rate limiting and return tuple format `{:ok, user} | {:error, reason}`
+- **Registration Function** - Updated `register_user/2` to include IP-based rate limiting
+- **Password Reset** - Updated `deliver_user_reset_password_instructions/2` to include rate limiting
+- **Magic Link** - Updated `generate_magic_link/1` to include rate limiting protection
+- **Session Controller** - Enhanced to handle rate limiting errors with appropriate user feedback
+- **LiveView Components** - Updated login, registration, magic link, and password reset LiveViews to handle rate limit errors
+
+### Fixed
+- **Timing Attack Prevention** - Consistent response times for valid/invalid emails across all authentication endpoints
+- **Security Vulnerabilities** - Addressed brute-force attack, token enumeration, and email enumeration vulnerabilities
+
+### Documentation
+- **CLAUDE.md** - Added comprehensive Rate Limiting Architecture section with configuration examples
+- **Module Documentation** - Extensive documentation in RateLimiter module with security best practices
+- **Configuration Examples** - Production-ready configuration examples for Hammer backend and rate limits
+
 ## 1.2.13 - 2025-09-29
 
 ### Added

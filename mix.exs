@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.2.13"
+  @version "1.2.14"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -85,6 +85,10 @@ defmodule PhoenixKit.MixProject do
       # Utilities
       {:jason, "~> 1.4"},
       {:timex, "~> 3.7"},
+
+      # Rate limiting
+      {:hammer, "~> 6.2"},
+      {:hammer_backend_ets, "~> 6.2"},
 
       # AWS integration for emails
       {:ex_aws, "~> 2.4"},

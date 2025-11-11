@@ -39,19 +39,35 @@ defmodule PhoenixKitWeb.Users.ForgotPasswordLive do
   end
 
   def handle_event("send_email", %{"user" => %{"email" => email}}, socket) do
-    if user = Auth.get_user_by_email(email) do
-      Auth.deliver_user_reset_password_instructions(
-        user,
-        &Routes.url("/users/reset-password/#{&1}")
-      )
+    result =
+      if user = Auth.get_user_by_email(email) do
+        Auth.deliver_user_reset_password_instructions(
+          user,
+          &Routes.url("/users/reset-password/#{&1}")
+        )
+      else
+        # User not found - return success for security
+        {:ok, nil}
+      end
+
+    case result do
+      {:ok, _} ->
+        info =
+          "If your email is in our system, you will receive instructions to reset your password shortly."
+
+        {:noreply,
+         socket
+         |> put_flash(:info, info)
+         |> redirect(to: "/")}
+
+      {:error, :rate_limit_exceeded} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           "Too many password reset requests. Please try again later."
+         )
+         |> redirect(to: Routes.path("/users/log-in"))}
     end
-
-    info =
-      "If your email is in our system, you will receive instructions to reset your password shortly."
-
-    {:noreply,
-     socket
-     |> put_flash(:info, info)
-     |> redirect(to: "/")}
   end
 end
