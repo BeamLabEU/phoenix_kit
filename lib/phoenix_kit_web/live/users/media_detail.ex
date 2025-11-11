@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   alias PhoenixKit.Storage
   alias PhoenixKit.Storage.File
   alias PhoenixKit.Storage.FileInstance
+  alias PhoenixKit.Storage.FileLocation
   alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -114,6 +115,13 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         # Generate URLs from instances
         urls = generate_urls_from_instances(instances, file_id)
 
+        # Load file locations for the original instance
+        locations =
+          case Enum.find(instances, &(&1.variant_name == "original")) do
+            nil -> []
+            original_instance -> load_file_locations(original_instance.id, repo)
+          end
+
         # Extract metadata
         metadata = file.metadata || %{}
         title = metadata["title"] || ""
@@ -135,7 +143,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
           tags: tags,
           metadata: metadata,
           inserted_at: file.inserted_at,
-          updated_at: file.updated_at
+          updated_at: file.updated_at,
+          locations: locations
         }
 
         socket
@@ -150,6 +159,23 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     Enum.reduce(instances, %{}, fn instance, acc ->
       url = URLSigner.signed_url(file_id, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
+    end)
+  end
+
+  # Load file locations with bucket information
+  defp load_file_locations(file_instance_id, repo) do
+    import Ecto.Query
+
+    FileLocation
+    |> where([fl], fl.file_instance_id == ^file_instance_id and fl.status == "active")
+    |> preload(:bucket)
+    |> repo.all()
+    |> Enum.map(fn location ->
+      %{
+        bucket_name: location.bucket.name,
+        bucket_provider: location.bucket.provider,
+        path: location.path
+      }
     end)
   end
 
