@@ -353,47 +353,14 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
       {:error, :not_found} ->
         # Rare case - received send event without preliminary logging
-        if PhoenixKit.Emails.placeholder_logs_enabled?() do
-          Logger.warning(
-            "[SYNC ISSUE] Send event for unknown email - creating placeholder log",
-            %{
-              message_id: message_id,
-              event_type: "send",
-              recommendation: "Check EmailInterceptor synchronization"
-            }
-          )
+        handle_placeholder_creation(event_data, message_id, "send", "sent", fn log ->
+          Logger.info("Created placeholder log for send event", %{
+            log_id: log.id,
+            message_id: message_id
+          })
 
-          case create_placeholder_log_from_event(event_data, "sent") do
-            {:ok, log} ->
-              Logger.info("Created placeholder log for send event", %{
-                log_id: log.id,
-                message_id: message_id
-              })
-
-              {:ok, %{type: "send", log_id: log.id, updated: true, created_placeholder: true}}
-
-            {:error, reason} ->
-              Logger.error("Failed to create placeholder log for send event", %{
-                message_id: message_id,
-                reason: inspect(reason)
-              })
-
-              {:error, :email_log_not_found}
-          end
-        else
-          Logger.error(
-            "[SYNC ISSUE] Send event for unknown email - placeholder log creation disabled",
-            %{
-              message_id: message_id,
-              event_type: "send",
-              action: "Event dropped - no email log found",
-              recommendation:
-                "Enable placeholder logs with PhoenixKit.Emails.set_placeholder_logs(true) or investigate EmailInterceptor synchronization"
-            }
-          )
-
-          {:error, :email_log_not_found}
-        end
+          {:ok, %{type: "send", log_id: log.id, updated: true}}
+        end)
     end
   end
 
@@ -437,55 +404,35 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         end
 
       {:error, :not_found} ->
-        Logger.warning(
-          "Delivery event for unknown email - attempting to create placeholder log",
-          %{message_id: message_id}
-        )
+        handle_placeholder_creation(event_data, message_id, "delivery", "delivered", fn log ->
+          # Update status to delivered and add timestamp
+          update_attrs = %{
+            status: "delivered",
+            delivered_at: parse_timestamp(delivery_timestamp)
+          }
 
-        case create_placeholder_log_from_event(event_data, "delivered") do
-          {:ok, log} ->
-            # Update status to delivered and add timestamp
-            update_attrs = %{
-              status: "delivered",
-              delivered_at: parse_timestamp(delivery_timestamp)
-            }
+          case Log.update_log(log, update_attrs) do
+            {:ok, updated_log} ->
+              # Create event record
+              create_delivery_event(updated_log, delivery_data)
 
-            case Log.update_log(log, update_attrs) do
-              {:ok, updated_log} ->
-                # Create event record
-                create_delivery_event(updated_log, delivery_data)
+              Logger.info("Created placeholder log for delivery event", %{
+                log_id: updated_log.id,
+                message_id: message_id,
+                delivered_at: updated_log.delivered_at
+              })
 
-                Logger.info("Created placeholder log for delivery event", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  delivered_at: updated_log.delivered_at
-                })
+              {:ok, %{type: "delivery", log_id: updated_log.id, updated: true}}
 
-                {:ok,
-                 %{
-                   type: "delivery",
-                   log_id: updated_log.id,
-                   updated: true,
-                   created_placeholder: true
-                 }}
+            {:error, reason} ->
+              Logger.error("Failed to update placeholder log for delivery", %{
+                log_id: log.id,
+                reason: inspect(reason)
+              })
 
-              {:error, reason} ->
-                Logger.error("Failed to update placeholder log for delivery", %{
-                  log_id: log.id,
-                  reason: inspect(reason)
-                })
-
-                {:error, reason}
-            end
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for delivery event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
-
-            {:error, :email_log_not_found}
-        end
+              {:error, reason}
+          end
+        end)
     end
   end
 
@@ -596,30 +543,17 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         end
 
       {:error, :not_found} ->
-        Logger.warning("Open event for unknown email - attempting to create placeholder log", %{
-          message_id: message_id
-        })
+        handle_placeholder_creation(event_data, message_id, "open", "opened", fn log ->
+          # Create event record for created log
+          create_open_event(log, open_data, open_timestamp)
 
-        case create_placeholder_log_from_event(event_data, "opened") do
-          {:ok, log} ->
-            # Create event record for created log
-            create_open_event(log, open_data, open_timestamp)
+          Logger.info("Created placeholder log for open event", %{
+            log_id: log.id,
+            message_id: message_id
+          })
 
-            Logger.info("Created placeholder log for open event", %{
-              log_id: log.id,
-              message_id: message_id
-            })
-
-            {:ok, %{type: "open", log_id: log.id, updated: true, created_placeholder: true}}
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for open event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
-
-            {:error, :email_log_not_found}
-        end
+          {:ok, %{type: "open", log_id: log.id, updated: true}}
+        end)
     end
   end
 
@@ -662,52 +596,33 @@ defmodule PhoenixKit.Emails.SQSProcessor do
         end
 
       {:error, :not_found} ->
-        Logger.warning("Click event for unknown email - attempting to create placeholder log", %{
-          message_id: message_id
-        })
+        handle_placeholder_creation(event_data, message_id, "click", "clicked", fn log ->
+          # Click - highest engagement level
+          update_attrs = %{status: "clicked"}
 
-        case create_placeholder_log_from_event(event_data, "clicked") do
-          {:ok, log} ->
-            # Click - highest engagement level
-            update_attrs = %{status: "clicked"}
+          case Log.update_log(log, update_attrs) do
+            {:ok, updated_log} ->
+              # Create event record
+              create_click_event(updated_log, click_data, click_timestamp)
 
-            case Log.update_log(log, update_attrs) do
-              {:ok, updated_log} ->
-                # Create event record
-                create_click_event(updated_log, click_data, click_timestamp)
+              Logger.info("Created placeholder log for click event", %{
+                log_id: updated_log.id,
+                message_id: message_id,
+                link_url: get_in(click_data, ["link"]),
+                ip_address: get_in(click_data, ["ipAddress"])
+              })
 
-                Logger.info("Created placeholder log for click event", %{
-                  log_id: updated_log.id,
-                  message_id: message_id,
-                  link_url: get_in(click_data, ["link"]),
-                  ip_address: get_in(click_data, ["ipAddress"])
-                })
+              {:ok, %{type: "click", log_id: updated_log.id, updated: true}}
 
-                {:ok,
-                 %{
-                   type: "click",
-                   log_id: updated_log.id,
-                   updated: true,
-                   created_placeholder: true
-                 }}
+            {:error, reason} ->
+              Logger.error("Failed to update placeholder log for click", %{
+                log_id: log.id,
+                reason: inspect(reason)
+              })
 
-              {:error, reason} ->
-                Logger.error("Failed to update placeholder log for click", %{
-                  log_id: log.id,
-                  reason: inspect(reason)
-                })
-
-                {:error, reason}
-            end
-
-          {:error, reason} ->
-            Logger.error("Failed to create placeholder log for click event", %{
-              message_id: message_id,
-              reason: inspect(reason)
-            })
-
-            {:error, :email_log_not_found}
-        end
+              {:error, reason}
+          end
+        end)
     end
   end
 
