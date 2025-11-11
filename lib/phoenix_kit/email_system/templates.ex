@@ -328,6 +328,11 @@ defmodule PhoenixKit.EmailSystem.Templates do
   Returns a map with `:subject`, `:html_body`, and `:text_body` keys containing
   the rendered content with variables substituted.
 
+  This function performs validation to ensure all template variables are properly substituted:
+  - Checks for missing required variables
+  - Warns if any unreplaced `{{variable}}` placeholders remain
+  - Logs information about unused variables
+
   ## Examples
 
       iex> Templates.render_template(template, %{"user_name" => "John"})
@@ -337,15 +342,69 @@ defmodule PhoenixKit.EmailSystem.Templates do
         text_body: "Welcome John!"
       }
 
+  ## Validation
+
+  If required variables are missing or templates contain unreplaced variables,
+  warnings will be logged but the function will still return the rendered content.
+  This allows for graceful degradation in production.
+
   """
   def render_template(%EmailTemplate{} = template, variables \\ %{}) do
+    # Extract required variables from the template
+    required_vars = EmailTemplate.extract_variables(template)
+    provided_vars = Map.keys(variables)
+
+    # Check for missing variables
+    missing_vars = required_vars -- provided_vars
+
+    if missing_vars != [] do
+      Logger.warning(
+        "Template '#{template.name}' is missing required variables: #{Enum.join(missing_vars, ", ")}"
+      )
+    end
+
+    # Check for unused variables (provided but not used in template)
+    unused_vars = provided_vars -- required_vars
+
+    if unused_vars != [] do
+      Logger.info(
+        "Template '#{template.name}' has unused variables: #{Enum.join(unused_vars, ", ")}"
+      )
+    end
+
+    # Perform variable substitution
     rendered_template = EmailTemplate.substitute_variables(template, variables)
+
+    # Check for unreplaced variables in rendered output
+    validate_rendered_content(template.name, rendered_template)
 
     %{
       subject: rendered_template.subject,
       html_body: rendered_template.html_body,
       text_body: rendered_template.text_body
     }
+  end
+
+  # Private helper to validate rendered content for unreplaced variables
+  defp validate_rendered_content(template_name, rendered) do
+    # Check each field for unreplaced {{variable}} patterns
+    fields_with_issues =
+      [
+        {:subject, rendered.subject},
+        {:html_body, rendered.html_body},
+        {:text_body, rendered.text_body}
+      ]
+      |> Enum.filter(fn {_field, content} ->
+        String.contains?(content, "{{")
+      end)
+
+    if fields_with_issues != [] do
+      field_names = Enum.map(fields_with_issues, fn {field, _} -> field end)
+
+      Logger.warning(
+        "Template '#{template_name}' contains unreplaced variables in: #{Enum.join(field_names, ", ")}"
+      )
+    end
   end
 
   @doc """
