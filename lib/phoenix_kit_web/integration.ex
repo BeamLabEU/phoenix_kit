@@ -534,14 +534,6 @@ defmodule PhoenixKitWeb.Integration do
         get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
         get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
       end
-
-      # Single-language blog routes without language prefix (for backward compatibility)
-      scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-        get "/:blog", BlogController, :show
-        get "/:blog/*path", BlogController, :show
-      end
     end
   end
 
