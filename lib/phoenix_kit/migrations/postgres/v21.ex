@@ -36,9 +36,9 @@ defmodule PhoenixKit.Migrations.Postgres.V21 do
     # Add composite index on (message_id, aws_message_id) for optimized dual searches
     # This index supports queries that search either message_id, aws_message_id, or both
     create_if_not_exists index(:phoenix_kit_email_logs, [:message_id, :aws_message_id],
-                         prefix: prefix,
-                         name: "phoenix_kit_email_logs_message_ids_idx"
-                       )
+                           prefix: prefix,
+                           name: "phoenix_kit_email_logs_message_ids_idx"
+                         )
 
     # Set version comment on phoenix_kit table for version tracking
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '21'"
@@ -50,9 +50,9 @@ defmodule PhoenixKit.Migrations.Postgres.V21 do
   def down(%{prefix: prefix} = _opts) do
     # Remove composite index
     drop_if_exists index(:phoenix_kit_email_logs, [:message_id, :aws_message_id],
-                     prefix: prefix,
-                     name: "phoenix_kit_email_logs_message_ids_idx"
-                   )
+                       prefix: prefix,
+                       name: "phoenix_kit_email_logs_message_ids_idx"
+                     )
 
     # Update version comment on phoenix_kit table
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '20'"

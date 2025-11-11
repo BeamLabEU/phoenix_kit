@@ -1170,41 +1170,56 @@ defmodule PhoenixKit.Emails.SQSProcessor do
 
   # Creates event record for delivery delay
   defp create_delivery_delay_event(log, delay_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "delivery_delay",
-      event_data: delay_data,
-      occurred_at: parse_timestamp(get_in(delay_data, ["timestamp"])),
-      delay_type: get_in(delay_data, ["delayType"])
-    }
+    # Check if delivery_delay event already exists to prevent duplicates
+    if Event.event_exists?(log.id, "delivery_delay") do
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "delivery_delay",
+        event_data: delay_data,
+        occurred_at: parse_timestamp(get_in(delay_data, ["timestamp"])),
+        delay_type: get_in(delay_data, ["delayType"])
+      }
 
-    PhoenixKit.Emails.create_event(event_attrs)
+      PhoenixKit.Emails.create_event(event_attrs)
+    end
   end
 
   # Creates event record for subscription
   defp create_subscription_event(log, subscription_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "subscription",
-      event_data: subscription_data,
-      occurred_at: parse_timestamp(get_in(subscription_data, ["timestamp"])),
-      subscription_type: get_in(subscription_data, ["subscriptionType"])
-    }
+    # Check if subscription event already exists to prevent duplicates
+    if Event.event_exists?(log.id, "subscription") do
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "subscription",
+        event_data: subscription_data,
+        occurred_at: parse_timestamp(get_in(subscription_data, ["timestamp"])),
+        subscription_type: get_in(subscription_data, ["subscriptionType"])
+      }
 
-    PhoenixKit.Emails.create_event(event_attrs)
+      PhoenixKit.Emails.create_event(event_attrs)
+    end
   end
 
   # Creates event record for rendering failure
   defp create_rendering_failure_event(log, failure_data) do
-    event_attrs = %{
-      email_log_id: log.id,
-      event_type: "rendering_failure",
-      event_data: failure_data,
-      occurred_at: parse_timestamp(get_in(failure_data, ["timestamp"])),
-      failure_reason: get_in(failure_data, ["errorMessage"])
-    }
+    # Check if rendering_failure event already exists to prevent duplicates
+    if Event.event_exists?(log.id, "rendering_failure") do
+      {:ok, :duplicate_event}
+    else
+      event_attrs = %{
+        email_log_id: log.id,
+        event_type: "rendering_failure",
+        event_data: failure_data,
+        occurred_at: parse_timestamp(get_in(failure_data, ["timestamp"])),
+        failure_reason: get_in(failure_data, ["errorMessage"])
+      }
 
-    PhoenixKit.Emails.create_event(event_attrs)
+      PhoenixKit.Emails.create_event(event_attrs)
+    end
   end
 
   # Parses timestamp string to DateTime
