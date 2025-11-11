@@ -54,6 +54,125 @@
             <% end %>
           </div>
 
+          <%!-- Metadata Section --%>
+          <div class="mb-6">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-lg font-semibold text-base-content">Media Information</h3>
+              <button
+                type="button"
+                phx-click="toggle_edit"
+                class={["btn btn-sm", (@edit_mode && "btn-warning") || "btn-outline"]}
+              >
+                <%= if @edit_mode do %>
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+                <% else %>
+                  <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+                <% end %>
+              </button>
+            </div>
+
+            <%= if @edit_mode do %>
+              <form phx-submit="save_metadata" class="space-y-4">
+                <div>
+                  <label for="title" class="block text-sm font-semibold text-base-content mb-1">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    id="title"
+                    name="title"
+                    value={@file_data.title}
+                    class="input input-bordered w-full"
+                    placeholder="Enter title"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for="description"
+                    class="block text-sm font-semibold text-base-content mb-1"
+                  >
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    name="description"
+                    class="textarea textarea-bordered w-full"
+                    rows="4"
+                    placeholder="Enter description"
+                  >{@file_data.description}</textarea>
+                </div>
+
+                <div>
+                  <label for="tags" class="block text-sm font-semibold text-base-content mb-1">
+                    Tags (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    id="tags"
+                    name="tags"
+                    value={Enum.join(@file_data.tags, ", ")}
+                    class="input input-bordered w-full"
+                    placeholder="e.g., photo, landscape, 2024"
+                  />
+                </div>
+
+                <div class="flex gap-2">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <.icon name="hero-check" class="w-4 h-4" /> Save
+                  </button>
+                  <button type="button" phx-click="cancel_edit" class="btn btn-outline btn-sm">
+                    <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+                  </button>
+                </div>
+              </form>
+            <% else %>
+              <div class="text-sm space-y-1">
+                <div class="flex gap-4">
+                  <div>
+                    <span class="font-semibold text-base-content/70">Title</span>
+                    <span class="text-base-content ml-2">
+                      <%= if String.length(@file_data.title) > 0 do %>
+                        {@file_data.title}
+                      <% else %>
+                        <span class="text-base-content/50 italic">—</span>
+                      <% end %>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex gap-4">
+                  <div>
+                    <span class="font-semibold text-base-content/70">Description</span>
+                    <span class="text-base-content ml-2">
+                      <%= if String.length(@file_data.description) > 0 do %>
+                        {@file_data.description}
+                      <% else %>
+                        <span class="text-base-content/50 italic">—</span>
+                      <% end %>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex gap-4 items-start">
+                  <span class="font-semibold text-base-content/70">Tags</span>
+                  <div class="flex flex-wrap gap-1">
+                    <%= if Enum.empty?(@file_data.tags) do %>
+                      <span class="text-base-content/50 italic">—</span>
+                    <% else %>
+                      <%= for tag <- @file_data.tags do %>
+                        <span class="badge badge-sm">{tag}</span>
+                      <% end %>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+
+          <%!-- Divider --%>
+          <div class="divider my-4"></div>
+
           <%!-- File Information --%>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
@@ -119,8 +238,6 @@
 
           <%!-- Download Links --%>
           <%= if map_size(@file_data.urls) > 0 do %>
-            <div class="divider my-4"></div>
-
             <div>
               <p class="text-sm font-semibold text-base-content mb-3">Download Variants:</p>
               <div class="flex gap-2 flex-wrap">

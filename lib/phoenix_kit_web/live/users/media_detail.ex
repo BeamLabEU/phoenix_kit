@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   require Logger
 
   alias PhoenixKit.Settings
+  alias PhoenixKit.Storage
   alias PhoenixKit.Storage.File
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.URLSigner
@@ -43,6 +44,56 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     {:ok, socket}
   end
 
+  def handle_event("toggle_edit", _params, socket) do
+    {:noreply, assign(socket, :edit_mode, !socket.assigns.edit_mode)}
+  end
+
+  def handle_event("save_metadata", params, socket) do
+    %{"title" => title, "description" => description, "tags" => tags_input} = params
+
+    # Parse tags from comma-separated string
+    tags =
+      tags_input
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.filter(&(String.length(&1) > 0))
+
+    # Update metadata
+    updated_metadata =
+      (socket.assigns.file.metadata || %{})
+      |> Map.put("title", title)
+      |> Map.put("description", description)
+      |> Map.put("tags", tags)
+
+    case Storage.update_file(socket.assigns.file, %{metadata: updated_metadata}) do
+      {:ok, updated_file} ->
+        # Update file_data with new metadata
+        updated_file_data =
+          socket.assigns.file_data
+          |> Map.put(:title, title)
+          |> Map.put(:description, description)
+          |> Map.put(:tags, tags)
+          |> Map.put(:metadata, updated_metadata)
+
+        socket =
+          socket
+          |> assign(:file, updated_file)
+          |> assign(:file_data, updated_file_data)
+          |> assign(:edit_mode, false)
+          |> put_flash(:info, "Metadata saved successfully!")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to save metadata")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply, assign(socket, :edit_mode, false)}
+  end
+
   defp load_file_data(socket, file_id) do
     repo = Application.get_env(:phoenix_kit, :repo)
     import Ecto.Query
@@ -63,6 +114,12 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         # Generate URLs from instances
         urls = generate_urls_from_instances(instances, file_id)
 
+        # Extract metadata
+        metadata = file.metadata || %{}
+        title = metadata["title"] || ""
+        description = metadata["description"] || ""
+        tags = metadata["tags"] || []
+
         # Build file data map
         file_data = %{
           file_id: file.id,
@@ -73,6 +130,10 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
           size: file.size || 0,
           status: file.status,
           urls: urls,
+          title: title,
+          description: description,
+          tags: tags,
+          metadata: metadata,
           inserted_at: file.inserted_at,
           updated_at: file.updated_at
         }
@@ -80,6 +141,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         socket
         |> assign(:file, file)
         |> assign(:file_data, file_data)
+        |> assign(:edit_mode, false)
     end
   end
 
