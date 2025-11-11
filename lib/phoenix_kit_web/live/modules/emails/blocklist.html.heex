@@ -1,0 +1,427 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Email Blocklist"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={Routes.path("/admin/emails")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon_arrow_left /> Back to Emails
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Email Blocklist</h1>
+        <p class="text-lg text-base-content">Manage blocked email addresses</p>
+      </div>
+    </header>
+
+    <%!-- Statistics Cards --%>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@statistics[:total_blocks] || 0}
+        title="Total Blocks"
+        subtitle="All blocked email addresses"
+      >
+        <:icon>
+          <.icon name="hero-no-symbol" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@statistics[:active_blocks] || 0}
+        title="Active Blocks"
+        subtitle="Currently enforced blocks"
+      >
+        <:icon>
+          <.icon name="hero-shield-exclamation" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@statistics[:expired_today] || 0}
+        title="Expired Today"
+        subtitle="Blocks that expired today"
+      >
+        <:icon>
+          <.icon name="hero-clock" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+    </div>
+
+    <%!-- Filters & Actions --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <div class="flex flex-col lg:flex-row gap-4 justify-between">
+        <%!-- Search & Filters --%>
+        <div class="flex gap-2 flex-1">
+          <%!-- Search --%>
+          <input
+            type="text"
+            name="search"
+            value={@search_term}
+            placeholder="Search email..."
+            class="input input-bordered input-sm flex-1"
+            phx-change="filter_search"
+            phx-debounce="300"
+          />
+
+          <%!-- Reason Filter --%>
+          <select
+            phx-change="filter_reason"
+            name="reason"
+            class="select select-bordered select-sm"
+          >
+            <option value="">All Reasons</option>
+            <%= for {reason, _count} <- Map.to_list(@statistics[:by_reason] || %{}) do %>
+              <option value={reason} selected={@reason_filter == reason}>
+                {String.capitalize(String.replace(reason, "_", " "))}
+              </option>
+            <% end %>
+          </select>
+
+          <%!-- Status Filter --%>
+          <select
+            phx-change="filter_status"
+            name="status"
+            class="select select-bordered select-sm"
+          >
+            <option value="all" selected={@status_filter == "all"}>Active Only</option>
+            <option value="expired" selected={@status_filter == "expired"}>
+              Include Expired
+            </option>
+          </select>
+        </div>
+
+        <%!-- Action Buttons --%>
+        <div class="flex gap-2">
+          <button phx-click="toggle_add_form" class="btn btn-sm btn-success">
+            <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Block
+          </button>
+          <button phx-click="toggle_import_form" class="btn btn-sm btn-info">
+            <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Import CSV
+          </button>
+          <button
+            phx-click="export_blocklist"
+            phx-value-format="csv"
+            class="btn btn-sm btn-outline"
+          >
+            <.icon name="hero-arrow-up-tray" class="w-4 h-4 mr-1" /> Export CSV
+          </button>
+          <button phx-click="refresh" class="btn btn-sm btn-outline">
+            <.icon name="hero-arrow-path" class="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Add Block Form Modal --%>
+    <%= if @show_add_form do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="card-title">Add Email to Blocklist</h3>
+            <button phx-click="toggle_add_form" class="btn btn-sm btn-ghost">
+              <.icon name="hero-x-mark" class="w-4 h-4" />
+            </button>
+          </div>
+
+          <form phx-submit="add_block" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Email Address</span>
+              </label>
+              <input
+                type="email"
+                name="email"
+                placeholder="blocked@example.com"
+                class="input input-bordered"
+                required
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Reason</span>
+              </label>
+              <select name="reason" class="select select-bordered" required>
+                <option value="manual_block">Manual Block</option>
+                <option value="spam">Spam</option>
+                <option value="bounce_limit">Bounce Limit Exceeded</option>
+                <option value="complaint">Complaint</option>
+                <option value="abuse">Abuse</option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Expires At (Optional)</span>
+              </label>
+              <input type="date" name="expires_at" class="input input-bordered" />
+            </div>
+
+            <div class="col-span-full flex justify-end gap-2">
+              <button type="button" phx-click="toggle_add_form" class="btn btn-ghost">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-success">
+                <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add to Blocklist
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Import CSV Form Modal --%>
+    <%= if @show_import_form do %>
+      <div class="card bg-base-100 shadow-sm mb-6">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="card-title">Import Blocklist from CSV</h3>
+            <button phx-click="toggle_import_form" class="btn btn-sm btn-ghost">
+              <.icon name="hero-x-mark" class="w-4 h-4" />
+            </button>
+          </div>
+
+          <div class="alert alert-info mb-4">
+            <.icon name="hero-information-circle" class="w-5 h-5" />
+            <div class="text-sm">
+              <p class="font-semibold">CSV Format:</p>
+              <p>email,reason,expires_at (optional)</p>
+              <p class="mt-1 font-mono text-xs">
+                spam@example.com,spam,2025-12-31
+              </p>
+            </div>
+          </div>
+
+          <form phx-submit="import_csv">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">CSV Content</span>
+              </label>
+              <textarea
+                name="csv_content"
+                class="textarea textarea-bordered font-mono"
+                rows="8"
+                placeholder="email,reason,expires_at&#10;spam@example.com,spam,&#10;abuse@test.com,abuse,2025-12-31"
+                required
+              >
+                  </textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+              <button type="button" phx-click="toggle_import_form" class="btn btn-ghost">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-info">
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" /> Import
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Bulk Actions Bar --%>
+    <%= if length(@selected_emails) > 0 do %>
+      <div class="alert alert-warning mb-6">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        <div class="flex-1">
+          <p class="font-semibold">{length(@selected_emails)} email(s) selected</p>
+        </div>
+        <div class="flex gap-2">
+          <%= if @bulk_action do %>
+            <span class="text-sm">Confirm: {String.upcase(@bulk_action)}?</span>
+            <button phx-click="execute_bulk_action" class="btn btn-sm btn-warning">
+              Confirm
+            </button>
+            <button phx-click="clear_selection" class="btn btn-sm btn-ghost">
+              Cancel
+            </button>
+          <% else %>
+            <button
+              phx-click="set_bulk_action"
+              phx-value-action="remove"
+              class="btn btn-sm btn-error"
+            >
+              Remove Selected
+            </button>
+            <button
+              phx-click="set_bulk_action"
+              phx-value-action="export"
+              class="btn btn-sm btn-info"
+            >
+              Export Selected
+            </button>
+            <button phx-click="clear_selection" class="btn btn-sm btn-ghost">
+              Clear
+            </button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Blocklist Table --%>
+    <div class="bg-base-100">
+      <div class="flex justify-between items-center mb-4 px-6 pt-6">
+        <h2 class="text-lg font-semibold">
+          Blocked Emails ({@total_blocked})
+        </h2>
+        <%= if length(@blocked_emails) > 0 do %>
+          <button phx-click="select_all_visible" class="btn btn-xs btn-outline">
+            Select All on Page
+          </button>
+        <% end %>
+      </div>
+
+      <%= if @loading do %>
+        <div class="flex justify-center items-center h-32">
+          <span class="loading loading-spinner loading-md"></span>
+          <span class="ml-2">Loading blocklist...</span>
+        </div>
+      <% else %>
+        <%= if length(@blocked_emails) > 0 do %>
+          <.table_default variant="zebra" size="sm" class="w-full">
+            <.table_default_header>
+              <.table_default_row>
+                <.table_default_header_cell>
+                  <input type="checkbox" class="checkbox checkbox-sm" disabled />
+                </.table_default_header_cell>
+                <.table_default_header_cell>Email Address</.table_default_header_cell>
+                <.table_default_header_cell>Reason</.table_default_header_cell>
+                <.table_default_header_cell>Added</.table_default_header_cell>
+                <.table_default_header_cell>Expires</.table_default_header_cell>
+                <.table_default_header_cell>Status</.table_default_header_cell>
+                <.table_default_header_cell>Actions</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+
+            <.table_default_body>
+              <%= for blocked <- @blocked_emails do %>
+                <% is_expired =
+                  blocked.expires_at &&
+                    DateTime.compare(blocked.expires_at, DateTime.utc_now()) == :lt %>
+                <.table_default_row class={is_expired && "opacity-50"}>
+                  <.table_default_cell>
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm"
+                      checked={blocked.email in @selected_emails}
+                      phx-click="toggle_email_selection"
+                      phx-value-email={blocked.email}
+                    />
+                  </.table_default_cell>
+                  <.table_default_cell class="font-mono text-xs">
+                    {blocked.email}
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <span class="badge badge-sm badge-outline">
+                      {String.replace(blocked.reason, "_", " ")}
+                    </span>
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs">
+                    {UtilsDate.format_date_with_user_format(DateTime.to_date(blocked.inserted_at))}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs">
+                    <%= if blocked.expires_at do %>
+                      {UtilsDate.format_date_with_user_format(
+                        DateTime.to_date(blocked.expires_at)
+                      )}
+                    <% else %>
+                      <span class="text-base-content/50">Never</span>
+                    <% end %>
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <%= if is_expired do %>
+                      <span class="badge badge-xs badge-ghost">Expired</span>
+                    <% else %>
+                      <span class="badge badge-xs badge-error">Active</span>
+                    <% end %>
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <button
+                      phx-click="remove_block"
+                      phx-value-email={blocked.email}
+                      class="btn btn-xs btn-outline btn-success"
+                      title="Remove from blocklist"
+                    >
+                      <.icon name="hero-check" class="w-3 h-3" /> Unblock
+                    </button>
+                  </.table_default_cell>
+                </.table_default_row>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
+
+          <%!-- Pagination --%>
+          <%= if @total_pages > 1 do %>
+            <div class="flex justify-center p-4 border-t border-base-300">
+              <div class="join">
+                <%= if @page > 1 do %>
+                  <button
+                    phx-click="change_page"
+                    phx-value-page={@page - 1}
+                    class="join-item btn btn-sm"
+                  >
+                    «
+                  </button>
+                <% end %>
+
+                <%= for page_num <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+                  <button
+                    phx-click="change_page"
+                    phx-value-page={page_num}
+                    class={[
+                      "join-item btn btn-sm",
+                      page_num == @page && "btn-active"
+                    ]}
+                  >
+                    {page_num}
+                  </button>
+                <% end %>
+
+                <%= if @page < @total_pages do %>
+                  <button
+                    phx-click="change_page"
+                    phx-value-page={@page + 1}
+                    class="join-item btn btn-sm"
+                  >
+                    »
+                  </button>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+        <% else %>
+          <%!-- Empty state --%>
+          <div class="text-center py-12">
+            <.icon name="hero-shield-check" class="w-16 h-16 mx-auto mb-4 opacity-30" />
+            <h3 class="text-lg font-medium text-base-content mb-2">
+              No blocked emails found
+            </h3>
+            <p class="text-base-content/70 mb-4">
+              <%= if @search_term != "" || @reason_filter != "" do %>
+                Try adjusting your filters
+              <% else %>
+                Your blocklist is empty
+              <% end %>
+            </p>
+          </div>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -19,8 +19,6 @@ defmodule PhoenixKitWeb.Components.Core.Textarea do
   attr :rest, :global,
     include: ~w(autocomplete cols maxlength disabled placeholder readonly required rows)
 
-  slot :inner_block
-
   def textarea(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns
     |> assign(field: nil, id: assigns.id || field.id)

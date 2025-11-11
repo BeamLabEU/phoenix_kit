@@ -1,0 +1,329 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Session Management"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Session Management</h1>
+        <p class="text-lg text-base-content">Monitor and manage active user sessions</p>
+      </div>
+    </header>
+
+    <%!-- Session Statistics --%>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats.total_active}
+        title="Active Sessions"
+        subtitle="Currently logged in"
+      >
+        <:icon>
+          <.icon name="hero-bolt" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats.unique_users}
+        title="Unique Users"
+        subtitle="With active sessions"
+      >
+        <:icon>
+          <.icon name="hero-user" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats.sessions_today}
+        title="Today's Sessions"
+        subtitle="New login activity"
+      >
+        <:icon>
+          <.icon name="hero-clock" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats.expired_sessions}
+        title="Expired Sessions"
+        subtitle="Need cleanup"
+      >
+        <:icon>
+          <.icon name="hero-no-symbol" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+    </div>
+
+    <%!-- Revoke Session Modal --%>
+    <%= if @show_revoke_modal do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <%= if @revoke_type == :single and @selected_session do %>
+            <h3 class="font-bold text-lg mb-4">Revoke Session</h3>
+            <p class="mb-4">
+              Are you sure you want to revoke this session for <strong>{@selected_session.user_email}</strong>?
+            </p>
+            <div class="bg-base-200 rounded p-3 mb-4">
+              <div class="text-sm">
+                <div><strong>Token:</strong> {@selected_session.token_preview}...</div>
+                <div>
+                  <strong>Created:</strong> {UtilsDate.format_datetime_with_user_format(
+                    @selected_session.created_at
+                  )}
+                </div>
+                <div><strong>Age:</strong> {@selected_session.age_in_days} days</div>
+              </div>
+            </div>
+          <% end %>
+
+          <%= if @revoke_type == :user_all and @selected_user do %>
+            <h3 class="font-bold text-lg mb-4">Revoke All User Sessions</h3>
+            <p class="mb-4">
+              Are you sure you want to revoke
+              <strong>all {@user_sessions_count} session(s)</strong>
+              for user <strong>{@selected_user.email}</strong>?
+            </p>
+            <div class="alert alert-warning">
+              <.icon name="hero-exclamation-triangle" class="stroke-current shrink-0 h-6 w-6" />
+              <span>This will log out the user from all devices and sessions.</span>
+            </div>
+          <% end %>
+
+          <div class="modal-action">
+            <button type="button" phx-click="hide_revoke_modal" class="btn btn-outline">
+              Cancel
+            </button>
+            <button type="button" phx-click="confirm_revoke_session" class="btn btn-error">
+              Revoke Session{if @revoke_type == :user_all, do: "s", else: ""}
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Controls --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <div class="flex flex-col lg:flex-row gap-4 items-end">
+        <%!-- Search --%>
+        <div class="flex-1">
+          <label class="label">
+            <span class="label-text">Search by email or token</span>
+          </label>
+          <input
+            type="text"
+            value={@search_query}
+            phx-change="search"
+            phx-debounce="300"
+            name="search"
+            placeholder="Enter email address or token prefix..."
+            class="input input-bordered w-full"
+          />
+        </div>
+
+        <%!-- Filter by User Status --%>
+        <div>
+          <label class="label">
+            <span class="label-text">Filter by User Status</span>
+          </label>
+          <select
+            phx-change="filter_by_user_status"
+            name="status"
+            class="select select-bordered w-full max-w-xs"
+          >
+            <option value="all" selected={@filter_user_status == "all"}>All Users</option>
+            <option value="active" selected={@filter_user_status == "active"}>
+              Active Users
+            </option>
+            <option value="inactive" selected={@filter_user_status == "inactive"}>
+              Inactive Users
+            </option>
+            <option value="confirmed" selected={@filter_user_status == "confirmed"}>
+              Confirmed Email
+            </option>
+            <option value="pending" selected={@filter_user_status == "pending"}>
+              Pending Email
+            </option>
+          </select>
+        </div>
+
+        <%!-- Refresh Button --%>
+        <button
+          phx-click="refresh_sessions"
+          class="btn btn-primary"
+        >
+          <.icon name="hero-arrow-path" class="w-4 h-4 mr-2" /> Refresh
+        </button>
+      </div>
+    </div>
+
+    <%!-- Sessions Table --%>
+    <div class="bg-base-100 mb-6">
+      <.table_default variant="zebra" class="w-full">
+        <.table_default_header>
+          <.table_default_row>
+            <.table_default_header_cell>User</.table_default_header_cell>
+            <.table_default_header_cell>Token</.table_default_header_cell>
+            <.table_default_header_cell>Status</.table_default_header_cell>
+            <.table_default_header_cell>Created</.table_default_header_cell>
+            <.table_default_header_cell>Age</.table_default_header_cell>
+            <.table_default_header_cell>Expires</.table_default_header_cell>
+            <.table_default_header_cell>Actions</.table_default_header_cell>
+          </.table_default_row>
+        </.table_default_header>
+        <.table_default_body>
+          <%= if Enum.empty?(@sessions) do %>
+            <.table_default_row>
+              <.table_default_cell class="text-center py-8 text-base-content/70">
+                <%= if @total_count == 0 do %>
+                  No active sessions found.
+                <% else %>
+                  No sessions match your current filters.
+                <% end %>
+              </.table_default_cell>
+            </.table_default_row>
+          <% else %>
+            <%= for session <- @sessions do %>
+              <.table_default_row>
+                <%!-- User --%>
+                <.table_default_cell>
+                  <div class="flex flex-col">
+                    <span class="font-medium">{session.user_email}</span>
+                    <span class="text-xs text-base-content/70">ID: {session.user_id}</span>
+                  </div>
+                </.table_default_cell>
+
+                <%!-- Token --%>
+                <.table_default_cell>
+                  <code class="bg-base-200 px-2 py-1 rounded text-sm">
+                    {session.token_preview}...
+                  </code>
+                </.table_default_cell>
+
+                <%!-- User Status --%>
+                <.table_default_cell>
+                  <.user_status_badge
+                    is_active={session.user_is_active}
+                    confirmed_at={session.user_confirmed_at}
+                    size={:sm}
+                  />
+                </.table_default_cell>
+
+                <%!-- Created --%>
+                <.table_default_cell class="text-sm">
+                  <div class="flex flex-col gap-1">
+                    <div>{UtilsDate.format_date_with_user_format(session.created_at)}</div>
+                    <div class="text-xs text-base-content/70">
+                      {UtilsDate.format_time_with_user_format(session.created_at)}
+                    </div>
+                  </div>
+                </.table_default_cell>
+
+                <%!-- Age --%>
+                <.table_default_cell>
+                  <.age_badge days={session.age_in_days} class="badge-sm" />
+                </.table_default_cell>
+
+                <%!-- Expires --%>
+                <.table_default_cell class="text-sm">
+                  <div class="flex flex-col gap-1">
+                    <div>{UtilsDate.format_date_with_user_format(session.expires_at)}</div>
+                    <div class="text-xs text-base-content/70">
+                      {UtilsDate.format_time_with_user_format(session.expires_at)}
+                    </div>
+                  </div>
+                </.table_default_cell>
+
+                <%!-- Actions --%>
+                <.table_default_cell>
+                  <div class="flex gap-2">
+                    <%!-- Revoke Single Session --%>
+                    <button
+                      phx-click="show_revoke_session"
+                      phx-value-token_id={session.token_id}
+                      class="btn btn-error btn-xs"
+                      title="Revoke this session"
+                    >
+                      <.icon name="hero-x-mark" class="w-3 h-3" />
+                    </button>
+
+                    <%!-- Revoke All User Sessions --%>
+                    <button
+                      phx-click="show_revoke_user_sessions"
+                      phx-value-user_id={session.user_id}
+                      class="btn btn-warning btn-xs"
+                      title="Revoke all sessions for this user"
+                    >
+                      <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
+                    </button>
+                  </div>
+                </.table_default_cell>
+              </.table_default_row>
+            <% end %>
+          <% end %>
+        </.table_default_body>
+      </.table_default>
+    </div>
+
+    <%!-- Pagination --%>
+    <%= if @total_pages > 1 do %>
+      <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="text-sm text-base-content/70">
+          Showing {(@page - 1) * @per_page + 1} to {min(@page * @per_page, @total_count)} of {@total_count} sessions
+        </div>
+
+        <div class="join">
+          <%= if @page > 1 do %>
+            <button
+              phx-click="change_page"
+              phx-value-page={@page - 1}
+              class="join-item btn btn-outline"
+            >
+              « Previous
+            </button>
+          <% end %>
+
+          <%= for page_num <- max(1, @page - 2)..min(@total_pages, @page + 2) do %>
+            <button
+              phx-click="change_page"
+              phx-value-page={page_num}
+              class={"join-item btn #{if page_num == @page, do: "btn-primary", else: "btn-outline"}"}
+            >
+              {page_num}
+            </button>
+          <% end %>
+
+          <%= if @page < @total_pages do %>
+            <button
+              phx-click="change_page"
+              phx-value-page={@page + 1}
+              class="join-item btn btn-outline"
+            >
+              Next »
+            </button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
