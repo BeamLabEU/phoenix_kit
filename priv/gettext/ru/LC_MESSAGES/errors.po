@@ -1,0 +1,109 @@
+## `msgid`s in this file come from POT (.pot) files.
+##
+## Do not add, change, or remove `msgid`s manually here as
+## they're tied to the ones in the corresponding POT file
+## (with the same domain).
+##
+## Use `mix gettext.extract --merge` or `mix gettext.merge`
+## to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: ru\n"
+
+## From Ecto.Changeset.cast/4
+msgid "can't be blank"
+msgstr "не может быть пустым"
+
+## From Ecto.Changeset.unique_constraint/3
+msgid "has already been taken"
+msgstr "уже занято"
+
+## From Ecto.Changeset.put_change/3
+msgid "is invalid"
+msgstr "недействительно"
+
+## From Ecto.Changeset.validate_acceptance/3
+msgid "must be accepted"
+msgstr "должно быть принято"
+
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match confirmation"
+msgstr "не совпадает с подтверждением"
+
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match"
+msgstr "не совпадает"
+
+## From Ecto.Changeset.validate_exclusion/3
+msgid "is reserved"
+msgstr "зарезервировано"
+
+## From Ecto.Changeset.validate_format/3
+msgid "has invalid format"
+msgstr "имеет неверный формат"
+
+## From Ecto.Changeset.validate_inclusion/3
+msgid "is not included in the list"
+msgstr "не входит в список"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "должно быть %{count} байт"
+msgstr[1] "должно быть %{count} байта"
+msgstr[2] "должно быть %{count} байт"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :codepoints]
+msgid "should be %{count} codepoint(s)"
+msgid_plural "should be %{count} codepoint(s)"
+msgstr[0] "должно быть %{count} символ"
+msgstr[1] "должно быть %{count} символа"
+msgstr[2] "должно быть %{count} символов"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :graphemes]
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "должно быть %{count} символ"
+msgstr[1] "должно быть %{count} символа"
+msgstr[2] "должно быть %{count} символов"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _, max: _]
+msgid "should be between %{min} and %{max} character(s)"
+msgid_plural "should be between %{min} and %{max} character(s)"
+msgstr[0] "должно быть от %{min} до %{max} символов"
+msgstr[1] "должно быть от %{min} до %{max} символов"
+msgstr[2] "должно быть от %{min} до %{max} символов"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
+msgid "should be at least %{min} character(s)"
+msgid_plural "should be at least %{min} character(s)"
+msgstr[0] "должно быть не менее %{min} символов"
+msgstr[1] "должно быть не менее %{min} символов"
+msgstr[2] "должно быть не менее %{min} символов"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
+msgid "should be at most %{max} character(s)"
+msgid_plural "should be at most %{max} character(s)"
+msgstr[0] "должно быть не более %{max} символов"
+msgstr[1] "должно быть не более %{max} символов"
+msgstr[2] "должно быть не более %{max} символов"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be less than %{number}"
+msgstr "должно быть меньше %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be greater than %{number}"
+msgstr "должно быть больше %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be less than or equal to %{number}"
+msgstr "должно быть меньше или равно %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be greater than or equal to %{number}"
+msgstr "должно быть больше или равно %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be equal to %{number}"
+msgstr "должно быть равно %{number}"

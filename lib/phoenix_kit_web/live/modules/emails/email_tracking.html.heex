@@ -1,0 +1,240 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Email Tracking"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Email Tracking Settings</h1>
+        <p class="text-lg text-base-content">
+          Configure email tracking system behavior and data retention
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-4xl mx-auto space-y-8">
+      <%!-- System Status Card --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> System Status
+          </h2>
+
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text text-lg">
+                <span class="font-semibold">Enable Email Tracking System</span>
+                <div class="text-sm text-base-content/70 mt-1">
+                  Track email delivery, opens, clicks, and other events
+                </div>
+              </span>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@email_tracking_enabled}
+                phx-click="toggle_email_tracking"
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%= if @email_tracking_enabled do %>
+        <%!-- Tracking Options Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-adjustments-horizontal" class="w-6 h-6" /> Tracking Options
+            </h2>
+
+            <%!-- Save Email Bodies --%>
+            <div class="form-control mb-4">
+              <label class="label cursor-pointer">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Save Email Bodies</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Store the full content of sent emails for debugging and analysis
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-secondary"
+                  checked={@email_tracking_save_body}
+                  phx-click="toggle_email_tracking_save_body"
+                />
+              </label>
+            </div>
+
+            <div class="divider"></div>
+
+            <%!-- AWS SES Events --%>
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">AWS SES Events Tracking</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Track delivery, bounce, and complaint events from Amazon SES
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-accent"
+                  checked={@email_tracking_ses_events}
+                  phx-click="toggle_email_tracking_ses_events"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Data Retention Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-archive-box" class="w-6 h-6" /> Data Retention
+            </h2>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text text-lg font-semibold">Email Retention Period</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  placeholder="Enter retention days"
+                  class="input input-bordered w-full max-w-xs"
+                  value={@email_tracking_retention_days}
+                  min="1"
+                  max="365"
+                  phx-blur="update_email_tracking_retention"
+                  phx-value-retention_days={assigns[:email_tracking_retention_days]}
+                />
+                <span class="bg-base-200 px-4 py-3 text-sm">days</span>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  How long to keep email tracking data before automatic cleanup (1-365 days)
+                </span>
+              </label>
+            </div>
+
+            <div class="alert alert-warning mt-4">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+              <div>
+                <h3 class="font-bold">Data Privacy Notice</h3>
+                <p class="text-sm mt-1">
+                  Email tracking data will be automatically deleted after the retention period expires.
+                  This helps maintain privacy compliance and reduces storage requirements.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Current Configuration Summary --%>
+        <div class="alert alert-info">
+          <.icon name="hero-information-circle" class="w-5 h-5" />
+          <div>
+            <h3 class="font-bold">Current Configuration</h3>
+            <div class="text-sm mt-1">
+              <p>System: <span class="font-semibold">Enabled</span></p>
+              <p>
+                Save email bodies:
+                <span class="font-semibold">
+                  {if @email_tracking_save_body, do: "Yes", else: "No"}
+                </span>
+              </p>
+              <p>
+                AWS SES events:
+                <span class="font-semibold">
+                  {if @email_tracking_ses_events, do: "Yes", else: "No"}
+                </span>
+              </p>
+              <p>
+                Retention period:
+                <span class="font-semibold">{@email_tracking_retention_days} days</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      <% else %>
+        <%!-- Disabled State Information --%>
+        <div class="alert alert-warning">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <div>
+            <h3 class="font-bold">Email Tracking Disabled</h3>
+            <p class="text-sm mt-1">
+              Enable the email tracking system above to access configuration options and start tracking email delivery events.
+            </p>
+          </div>
+        </div>
+
+        <%!-- Benefits Card when Disabled --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-light-bulb" class="w-6 h-6" /> Email Tracking Benefits
+            </h2>
+
+            <div class="space-y-3">
+              <div class="flex items-start gap-3">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
+                <div>
+                  <h3 class="font-semibold">Delivery Monitoring</h3>
+                  <p class="text-sm text-base-content/70">
+                    Track successful email deliveries and identify issues
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
+                <div>
+                  <h3 class="font-semibold">Engagement Analytics</h3>
+                  <p class="text-sm text-base-content/70">
+                    Monitor email opens, clicks, and user engagement
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
+                <div>
+                  <h3 class="font-semibold">Debugging Support</h3>
+                  <p class="text-sm text-base-content/70">
+                    Store email content for troubleshooting delivery issues
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3">
+                <.icon name="hero-check-circle" class="w-5 h-5 text-success mt-0.5" />
+                <div>
+                  <h3 class="font-semibold">AWS SES Integration</h3>
+                  <p class="text-sm text-base-content/70">
+                    Automatic webhook handling for bounce and complaint events
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

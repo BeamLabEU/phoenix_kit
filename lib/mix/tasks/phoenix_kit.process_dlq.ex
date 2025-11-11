@@ -30,7 +30,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessDlq do
 
   use Mix.Task
 
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
   alias PhoenixKit.Settings
 
   @default_limit 100
@@ -74,7 +74,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessDlq do
   end
 
   defp process_dlq(_limit, _delete_after, verbose, summary_only) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       if verbose, do: IO.puts("✅ Email module is enabled")
 
       dlq_url = Settings.get_setting("aws_sqs_dlq_url")

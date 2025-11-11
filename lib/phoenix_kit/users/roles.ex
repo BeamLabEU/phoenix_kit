@@ -44,7 +44,7 @@ defmodule PhoenixKit.Users.Roles do
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Users.Auth.User
-  alias PhoenixKit.Users.{Role, RoleAssignment}
+  alias PhoenixKit.Users.{Role, RoleAssignment, ScopeNotifier}
 
   @doc """
   Assigns a role to a user.
@@ -74,22 +74,24 @@ defmodule PhoenixKit.Users.Roles do
       iex> assign_role(user, "NonexistentRole")
       {:error, :role_not_found}
   """
-  def assign_role(%User{} = user, role_name, assigned_by \\ nil) when is_binary(role_name) do
+  def assign_role(%User{} = user, role_name, assigned_by \\ nil, opts \\ [])
+      when is_binary(role_name) do
     roles = Role.system_roles()
 
     # Prevent manual assignment of Owner role
     if role_name == roles.owner do
       {:error, :owner_role_protected}
     else
-      assign_role_internal(user, role_name, assigned_by)
+      assign_role_internal(user, role_name, assigned_by, opts)
     end
   end
 
   # Internal function for assigning roles without Owner protection
   # Used by system functions like ensure_first_user_is_owner/1
-  defp assign_role_internal(%User{} = user, role_name, assigned_by \\ nil)
+  defp assign_role_internal(%User{} = user, role_name, assigned_by \\ nil, opts \\ [])
        when is_binary(role_name) do
     repo = RepoHelper.repo()
+    broadcast? = Keyword.get(opts, :broadcast, true)
 
     case get_role_by_name(role_name) do
       nil ->
@@ -112,12 +114,12 @@ defmodule PhoenixKit.Users.Roles do
         )
         |> case do
           {:ok, assignment} ->
-            # Broadcast role assignment event
-            Events.broadcast_user_role_assigned(user, role_name)
-
-            # Log out user from all sessions to refresh their permissions
-            alias PhoenixKitWeb.Users.Auth, as: WebAuth
-            WebAuth.log_out_user_from_all_sessions(user)
+            if broadcast? do
+              # Broadcast role assignment event
+              Events.broadcast_user_role_assigned(user, role_name)
+              # Notify active LiveView sessions to refresh cached scope
+              ScopeNotifier.broadcast_roles_updated(user)
+            end
 
             {:ok, assignment}
 
@@ -143,8 +145,9 @@ defmodule PhoenixKit.Users.Roles do
       iex> remove_role(user, "NonexistentRole")
       {:error, :assignment_not_found}
   """
-  def remove_role(%User{} = user, role_name) when is_binary(role_name) do
+  def remove_role(%User{} = user, role_name, opts \\ []) when is_binary(role_name) do
     repo = RepoHelper.repo()
+    broadcast? = Keyword.get(opts, :broadcast, true)
 
     case get_assignment(user.id, role_name) do
       nil ->
@@ -153,12 +156,12 @@ defmodule PhoenixKit.Users.Roles do
       assignment ->
         case repo.delete(assignment) do
           {:ok, deleted_assignment} ->
-            # Broadcast role removal event
-            Events.broadcast_user_role_removed(user, role_name)
-
-            # Log out user from all sessions to refresh their permissions
-            alias PhoenixKitWeb.Users.Auth, as: WebAuth
-            WebAuth.log_out_user_from_all_sessions(user)
+            if broadcast? do
+              # Broadcast role removal event
+              Events.broadcast_user_role_removed(user, role_name)
+              # Notify active LiveView sessions to refresh cached scope
+              ScopeNotifier.broadcast_roles_updated(user)
+            end
 
             {:ok, deleted_assignment}
 
@@ -740,11 +743,52 @@ defmodule PhoenixKit.Users.Roles do
           else: String.to_atom(String.downcase(default_role_name))
 
       case assign_role_internal(user, role_name) do
-        {:ok, _assignment} -> role_type
-        {:error, reason} -> repo.rollback(reason)
+        {:ok, _assignment} ->
+          maybe_activate_first_owner(user, is_nil(existing_owner), role_type, repo)
+
+        {:error, reason} ->
+          repo.rollback(reason)
       end
     end)
   end
+
+  # Activate and confirm first owner if needed
+  defp maybe_activate_first_owner(user, is_first_owner, role_type, repo) do
+    if is_first_owner do
+      changes = build_owner_changes(user)
+      apply_owner_changes(user, changes, role_type, repo)
+    else
+      role_type
+    end
+  end
+
+  # Build changes map for first owner (activation and email confirmation)
+  defp build_owner_changes(user) do
+    %{}
+    |> maybe_add_is_active(user.is_active)
+    |> maybe_add_confirmed_at(user.confirmed_at)
+  end
+
+  # Add is_active flag if user is not active
+  defp maybe_add_is_active(changes, true), do: changes
+  defp maybe_add_is_active(changes, false), do: Map.put(changes, :is_active, true)
+
+  # Add confirmed_at timestamp if user email is not confirmed
+  defp maybe_add_confirmed_at(changes, nil) do
+    Map.put(changes, :confirmed_at, NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second))
+  end
+
+  defp maybe_add_confirmed_at(changes, _confirmed_at), do: changes
+
+  # Apply changes to user if any exist
+  defp apply_owner_changes(user, changes, role_type, repo) when map_size(changes) > 0 do
+    case repo.update(Ecto.Changeset.change(user, changes)) do
+      {:ok, _updated_user} -> role_type
+      {:error, reason} -> repo.rollback(reason)
+    end
+  end
+
+  defp apply_owner_changes(_user, _changes, role_type, _repo), do: role_type
 
   @doc """
   Safely removes role with Owner protection.
@@ -929,30 +973,33 @@ defmodule PhoenixKit.Users.Roles do
   def sync_user_roles(%User{} = user, role_names) when is_list(role_names) do
     repo = RepoHelper.repo()
 
-    repo.transaction(fn ->
-      # Get current user roles
-      current_roles = get_user_roles(user)
+    case repo.transaction(fn ->
+           # Get current user roles
+           current_roles = get_user_roles(user)
 
-      # Determine roles to add and remove
-      roles_to_add = role_names -- current_roles
-      roles_to_remove = current_roles -- role_names
+           # Determine roles to add and remove
+           roles_to_add = role_names -- current_roles
+           roles_to_remove = current_roles -- role_names
 
-      # Remove roles that should not be present
-      Enum.each(roles_to_remove, &remove_role_or_rollback(user, &1, repo))
+           # Remove roles that should not be present
+           Enum.each(roles_to_remove, &remove_role_or_rollback(user, &1, repo))
 
-      # Add roles that should be present
-      assignments = Enum.map(roles_to_add, &assign_role_or_rollback(user, &1, repo))
+           # Add roles that should be present
+           assignments = Enum.map(roles_to_add, &assign_role_or_rollback(user, &1, repo))
 
-      # Broadcast role synchronization event
-      new_user_roles = get_user_roles(user)
-      Events.broadcast_user_roles_synced(user, new_user_roles)
+           new_user_roles = get_user_roles(user)
 
-      # Log out user from all sessions to refresh their permissions
-      alias PhoenixKitWeb.Users.Auth, as: WebAuth
-      WebAuth.log_out_user_from_all_sessions(user)
+           %{assignments: assignments, new_user_roles: new_user_roles}
+         end) do
+      {:ok, %{assignments: assignments, new_user_roles: new_user_roles}} ->
+        Events.broadcast_user_roles_synced(user, new_user_roles)
+        ScopeNotifier.broadcast_roles_updated(user)
 
-      assignments
-    end)
+        {:ok, assignments}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
   end
 
   @doc """
@@ -977,14 +1024,14 @@ defmodule PhoenixKit.Users.Roles do
   # Private helper functions
 
   defp remove_role_or_rollback(user, role_name, repo) do
-    case remove_role(user, role_name) do
+    case remove_role(user, role_name, broadcast: false) do
       {:ok, _} -> :ok
       {:error, reason} -> repo.rollback(reason)
     end
   end
 
   defp assign_role_or_rollback(user, role_name, repo) do
-    case assign_role(user, role_name) do
+    case assign_role(user, role_name, nil, broadcast: false) do
       {:ok, assignment} -> assignment
       {:error, reason} -> repo.rollback(reason)
     end

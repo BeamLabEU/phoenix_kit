@@ -76,7 +76,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Dual storage model: string OR JSON values
   - Enhanced cache system for JSON data
 
-  ### V13 - Enhanced Email Tracking with AWS SES Integration ⚡ LATEST
+  ### V13 - Enhanced Email Tracking with AWS SES Integration
   - AWS message ID correlation (aws_message_id column)
   - Specific timestamp tracking (bounced_at, complained_at, opened_at, clicked_at)
   - Extended event types (reject, delivery_delay, subscription, rendering_failure)
@@ -84,20 +84,76 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Unique constraint on aws_message_id for duplicate prevention
   - Additional event fields (reject_reason, delay_type, subscription_type, failure_reason)
 
+  ### V14 - Modules and Referral Codes System
+  - Phoenix_kit_modules for feature management
+  - Phoenix_kit_referral_codes for user referrals
+  - Module-based feature toggles
+  - Referral tracking and analytics
+
+  ### V15 - Email Templates System
+  - Phoenix_kit_email_templates for template storage and management
+  - Template variables with {{variable}} syntax
+  - Template categories (system, marketing, transactional)
+  - Template versioning and usage tracking
+  - Integration with email logging system
+
+  ### V16 - OAuth Providers System & Magic Link Registration
+  - Phoenix_kit_user_oauth_providers for OAuth integration
+  - Support for Google, Apple, GitHub authentication
+  - Account linking by email address
+  - OAuth token storage with encryption support
+  - Multiple providers per user support
+  - Magic link registration tokens with nullable user_id
+
+  ### V17 - Entities System (WordPress ACF-like)
+  - Phoenix_kit_entities for dynamic content type definitions
+  - Phoenix_kit_entity_data for entity records
+  - JSONB storage for flexible field schemas
+  - Plural display names for better UI wording
+  - 13 field types support (text, number, date, select, etc.)
+  - Admin interfaces for entity and data management
+  - Settings integration (entities_enabled, entities_max_per_user, etc.)
+
+  ### V18 - User Custom Fields
+  - JSONB custom_fields column in phoenix_kit_users table
+  - Flexible key-value storage for user metadata
+  - API functions for custom field management
+  - Support for arbitrary user data without schema changes
+
+  ### V19 - Distributed File Storage System ⚡ LATEST
+  - Phoenix_kit_buckets for storage provider configurations (local, S3, B2, R2)
+  - Phoenix_kit_files for original file uploads with metadata
+  - Phoenix_kit_file_instances for file variants (thumbnails, resizes, video qualities)
+  - Phoenix_kit_file_locations for physical storage locations (multi-location redundancy)
+  - Phoenix_kit_storage_dimensions for admin-configurable dimension presets
+  - UUIDv7 primary keys for time-sortable identifiers
+  - Smart bucket selection with priority system (0 = random/emptiest, >0 = specific priority)
+  - Token-based URL security to prevent enumeration attacks
+  - Support for images, videos, documents, and archives
+  - Automatic variant generation system (8 default dimensions seeded)
+  - Storage settings (redundancy_copies, auto_generate_variants, default_bucket_id)
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V13 in sequence.
+  Runs all migrations V01 through V19 in sequence.
 
   ### Incremental Updates
-  - V01 → V13: Runs V02, V03, V04, V05, V06, V07, V08, V09, V10, V11, V12, V13
-  - V12 → V13: Runs V13 only (adds enhanced email tracking with AWS SES)
-  - V11 → V13: Runs V12, V13 (adds JSON settings and enhanced email tracking)
-  - V10 → V13: Runs V11, V12, V13 (adds timezones, JSON settings, and email tracking)
-  - V09 → V13: Runs V10, V11, V12, V13 (adds analytics, timezones, JSON, and email tracking)
-  - V08 → V13: Runs V09, V10, V11, V12, V13 (adds blocklist, analytics, timezones, JSON, and email tracking)
+  - V01 → V19: Runs V02 through V19 in sequence
+  - V18 → V19: Runs V19 only (adds distributed storage system)
+  - V17 → V19: Runs V18, V19 (adds custom fields, then storage system)
+  - V16 → V19: Runs V17, V18, V19 (adds entities, custom fields, storage)
+  - V15 → V19: Runs V16, V17, V18, V19 (adds OAuth, entities, custom fields, storage)
+  - V14 → V19: Runs V15, V16, V17, V18, V19 (adds templates, OAuth, entities, custom fields, storage)
+  - V13 → V19: Runs V14, V15, V16, V17, V18, V19 (adds modules, templates, OAuth, entities, custom fields, storage)
 
   ### Rollback Support
+  - V19 → V18: Removes distributed storage system
+  - V18 → V17: Removes user custom fields
+  - V17 → V16: Removes entities system
+  - V16 → V15: Removes OAuth providers system
+  - V15 → V14: Removes email templates system
+  - V14 → V13: Removes modules and referral codes
   - V13 → V12: Removes enhanced email tracking and AWS SES integration
   - V12 → V11: Removes JSON settings support and restores NOT NULL constraint
   - V11 → V10: Removes per-user timezone settings
@@ -133,8 +189,10 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   use Ecto.Migration
 
+  alias PhoenixKit.Config
+
   @initial_version 1
-  @current_version 15
+  @current_version 20
   @default_prefix "public"
 
   @doc false
@@ -443,7 +501,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   # Hybrid repo detection with fallback strategies (shared with status command)
   defp get_repo_with_fallback do
     # Strategy 1: Try to get from PhoenixKit application config
-    case Application.get_env(:phoenix_kit, :repo) do
+    case Config.get(:repo, nil) do
       nil ->
         # Strategy 2: Try to ensure PhoenixKit application is started
         case ensure_phoenix_kit_started() do
@@ -463,7 +521,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   # Try to start PhoenixKit application and get repo config
   defp ensure_phoenix_kit_started do
     Application.ensure_all_started(:phoenix_kit)
-    Application.get_env(:phoenix_kit, :repo)
+    Config.get(:repo, nil)
   rescue
     _ -> nil
   end
