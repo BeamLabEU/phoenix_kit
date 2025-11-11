@@ -1,4 +1,4 @@
-## 1.2.14 - 2025-11-11
+## 1.6.1 - 2025-11-11
 
 ### Added
 - **Rate Limiting System** - Protection for authentication endpoints using Hammer library (login: 5/min, magic link: 3/5min, password reset: 3/5min, registration: 3/hour per email + 10/hour per IP)
