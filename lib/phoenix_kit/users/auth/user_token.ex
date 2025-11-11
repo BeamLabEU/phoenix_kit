@@ -16,7 +16,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   - Tokens are hashed using SHA256 before storage
   - Different expiry policies for different token types
-  - Secure random token generation (32 bytes)
+  - Secure random token generation (48 bytes for enhanced security)
   - Context-based token management for isolation
   """
   use Ecto.Schema
@@ -24,7 +24,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   alias PhoenixKit.Users.Auth.UserToken
 
   @hash_algorithm :sha256
-  @rand_size 32
+  @rand_size 48  # 48 bytes = ~64 chars after base64 - enhanced security for passwordless auth
 
   # It is very important to keep the reset password token expiry short,
   # since someone with access to the email may take over the account.
