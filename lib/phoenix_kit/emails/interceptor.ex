@@ -54,7 +54,6 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   alias PhoenixKit.Emails.Event
   alias PhoenixKit.Emails.Log
-  alias PhoenixKit.Emails.Utils
   alias Swoosh.Email
 
   @doc """
