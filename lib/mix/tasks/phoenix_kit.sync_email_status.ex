@@ -49,8 +49,8 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   use Mix.Task
 
-  alias PhoenixKit.EmailSystem
-  alias PhoenixKit.EmailSystem.{EmailLog, SQSProcessor}
+  alias PhoenixKit.Emails
+  alias PhoenixKit.Emails.{Log, SQSProcessor}
 
   @impl Mix.Task
   def run(args) do
@@ -93,7 +93,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   defp sync_email_status(message_id, verbose) do
     # Check if tracking is enabled
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       if verbose, do: IO.puts("✅ Email system is enabled")
 
       # Step 1: Find existing email log
@@ -149,8 +149,8 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
   end
 
   defp find_existing_log(message_id, verbose) do
-    case EmailLog.get_log_by_message_id(message_id) do
-      %PhoenixKit.EmailSystem.EmailLog{} = log ->
+    case Log.get_log_by_message_id(message_id) do
+      %PhoenixKit.Emails.Log{} = log ->
         if verbose do
           IO.puts("📧 Found existing email log: ID=#{log.id}, Status=#{log.status}")
         end
@@ -166,8 +166,8 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
   defp fetch_events_from_queues(message_id, verbose) do
     if verbose, do: IO.puts("🔍 Searching for events in SQS queues...")
 
-    sqs_events = EmailSystem.fetch_sqs_events_for_message(message_id)
-    dlq_events = EmailSystem.fetch_dlq_events_for_message(message_id)
+    sqs_events = Emails.fetch_sqs_events_for_message(message_id)
+    dlq_events = Emails.fetch_dlq_events_for_message(message_id)
 
     {sqs_events, dlq_events}
   end

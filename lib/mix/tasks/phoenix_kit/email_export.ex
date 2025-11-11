@@ -58,14 +58,15 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailSystem.enabled?() do
+    unless Emails.enabled?() do
       Mix.shell().error("Email is not enabled.")
       exit({:shutdown, 1})
     end
@@ -167,12 +168,12 @@ defmodule Mix.Tasks.PhoenixKit.Email.Export do
   end
 
   defp fetch_logs(filters, options) do
-    logs = EmailSystem.list_logs(filters)
+    logs = Emails.list_logs(filters)
 
     if options[:include_events] do
       # Load events for each log
       Enum.map(logs, fn log ->
-        events = EmailSystem.list_events_for_log(log.id)
+        events = Emails.list_events_for_log(log.id)
         Map.put(log, :events, events)
       end)
     else
