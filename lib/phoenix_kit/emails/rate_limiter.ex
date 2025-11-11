@@ -105,6 +105,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
 
   alias PhoenixKit.Emails.{EmailBlocklist, Log}
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   import Ecto.Query
   require Logger
 
@@ -719,7 +720,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
     Logger.warning("Blocking email addresses for user #{user_id}: #{reason}")
 
     # Get user's email address
-    case PhoenixKit.Users.Auth.get_user(user_id) do
+    case Auth.get_user(user_id) do
       nil ->
         Logger.error("Cannot block emails for non-existent user #{user_id}")
         {:error, :user_not_found}
