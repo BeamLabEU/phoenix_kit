@@ -13,8 +13,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   alias PhoenixKit.Storage.File
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.URLSigner
-  alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Date, as: UtilsDate
+  alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
