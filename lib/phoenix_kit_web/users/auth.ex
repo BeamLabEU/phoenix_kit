@@ -34,6 +34,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   alias PhoenixKit.Users.Auth.{Scope, User}
   alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.SessionFingerprint
 
   # Make the remember me cookie valid for 60 days.
   # If you want bump or reduce this value, also change
@@ -61,8 +62,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   detect session hijacking attempts.
   """
   def log_in_user(conn, user, params \\ %{}) do
-    alias PhoenixKit.Utils.SessionFingerprint
-
     # Create session fingerprint if enabled
     opts =
       if SessionFingerprint.fingerprinting_enabled?() do
@@ -196,7 +195,7 @@ defmodule PhoenixKitWeb.Users.Auth do
             Logger.warning("PhoenixKit: Session fingerprint warning: #{reason} for token")
 
             # In non-strict mode, allow access despite warning
-            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+            not SessionFingerprint.strict_mode?()
 
           {:error, :fingerprint_mismatch} ->
             # Both IP and UA changed - likely hijacking
@@ -207,7 +206,7 @@ defmodule PhoenixKitWeb.Users.Auth do
             )
 
             # Strict mode: deny access; non-strict: log but allow
-            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+            not SessionFingerprint.strict_mode?()
 
           {:error, :token_not_found} ->
             # Token expired or invalid
@@ -270,7 +269,7 @@ defmodule PhoenixKitWeb.Users.Auth do
             Logger.warning("PhoenixKit: Session fingerprint warning: #{reason} for token (scope)")
 
             # In non-strict mode, allow access despite warning
-            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+            not SessionFingerprint.strict_mode?()
 
           {:error, :fingerprint_mismatch} ->
             # Both IP and UA changed - likely hijacking
@@ -281,7 +280,7 @@ defmodule PhoenixKitWeb.Users.Auth do
             )
 
             # Strict mode: deny access; non-strict: log but allow
-            not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
+            not SessionFingerprint.strict_mode?()
 
           {:error, :token_not_found} ->
             # Token expired or invalid

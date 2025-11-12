@@ -504,9 +504,7 @@ defmodule PhoenixKit.Users.Auth do
     alias PhoenixKit.Utils.SessionFingerprint
 
     # Skip verification if fingerprinting is disabled
-    unless SessionFingerprint.fingerprinting_enabled?() do
-      :ok
-    else
+    if SessionFingerprint.fingerprinting_enabled?() do
       case get_session_token_record(token) do
         nil ->
           # Token not found or expired
@@ -519,6 +517,8 @@ defmodule PhoenixKit.Users.Auth do
             token_record.user_agent_hash
           )
       end
+    else
+      :ok
     end
   end
 
