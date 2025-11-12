@@ -29,9 +29,23 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
   attr :icon, :string, default: "hero-cloud-arrow-up"
   attr :accept_description, :string, default: nil
   attr :max_size_description, :string, default: nil
-  attr :uploaded_file_ids, :list, default: nil, doc: "List of file IDs from last upload (for external use)"
+
+  attr :uploaded_file_ids, :list,
+    default: nil,
+    doc: "List of file IDs from last upload (for external use)"
+
+  attr :variant, :string,
+    default: "full",
+    doc: "Display variant - 'full' for drag-drop zone, 'button' for simple button only"
 
   def file_upload(assigns) do
+    case assigns.variant do
+      "button" -> button_upload(assigns)
+      _ -> full_upload(assigns)
+    end
+  end
+
+  defp full_upload(assigns) do
     ~H"""
     <div class="space-y-4">
       <form phx-change="validate" id={"upload-form-" <> @upload.ref}>
@@ -88,6 +102,53 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
                     {entry.progress}%
                   </span>
                 </div>
+              </div>
+
+              <%!-- Cancel Button --%>
+              <button
+                type="button"
+                phx-click="cancel_upload"
+                phx-value-ref={entry.ref}
+                class="btn btn-xs btn-ghost text-error"
+                title="Cancel upload"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4" />
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp button_upload(assigns) do
+    ~H"""
+    <div class="space-y-3">
+      <form phx-change="validate" id={"button-upload-form-" <> @upload.ref}>
+        <label
+          for={@upload.ref}
+          class="btn btn-primary btn-block"
+        >
+          <.icon name={@icon} class="w-5 h-5" /> {@label}
+        </label>
+        <.live_file_input upload={@upload} class="hidden" />
+      </form>
+
+      <%!-- Active Uploads --%>
+      <%= if length(@upload.entries) > 0 do %>
+        <div class="space-y-2">
+          <%= for entry <- @upload.entries do %>
+            <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-50">
+              <div class="flex-1">
+                <p class="font-medium text-sm truncate">{entry.client_name}</p>
+                <progress
+                  value={entry.progress}
+                  max="100"
+                  class="progress progress-primary progress-sm w-full mt-1"
+                >
+                  {entry.progress}%
+                </progress>
               </div>
 
               <%!-- Cancel Button --%>
