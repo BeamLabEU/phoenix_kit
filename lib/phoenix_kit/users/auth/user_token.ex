@@ -8,7 +8,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   - **Session tokens**: For maintaining user sessions (60 days validity)
   - **Email confirmation tokens**: For account verification (7 days validity)
-  - **Password reset tokens**: For secure password recovery (1 day validity)
+  - **Password reset tokens**: For secure password recovery (1 hour validity)
   - **Email change tokens**: For confirming new email addresses (7 days validity)
   - **Magic link tokens**: For passwordless authentication (15 minutes validity)
 
@@ -28,7 +28,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   # It is very important to keep the reset password token expiry short,
   # since someone with access to the email may take over the account.
-  @reset_password_validity_in_days 1
+  @reset_password_validity_in_hours 1
   @confirm_validity_in_days 7
   @change_email_validity_in_days 7
   @session_validity_in_days 60
@@ -157,12 +157,12 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
-        days = days_for_context(context)
+        {amount, unit} = validity_for_context(context)
 
         query =
           from token in by_token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
-            where: token.inserted_at > ago(^days, "day") and token.sent_to == user.email,
+            where: token.inserted_at > ago(^amount, ^unit) and token.sent_to == user.email,
             select: user
 
         {:ok, query}
@@ -172,9 +172,9 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     end
   end
 
-  defp days_for_context("confirm"), do: @confirm_validity_in_days
-  defp days_for_context("reset_password"), do: @reset_password_validity_in_days
-  defp days_for_context("magic_link"), do: @magic_link_validity_in_days
+  defp validity_for_context("confirm"), do: {@confirm_validity_in_days, "day"}
+  defp validity_for_context("reset_password"), do: {@reset_password_validity_in_hours, "hour"}
+  defp validity_for_context("magic_link"), do: {@magic_link_validity_in_days, "day"}
 
   @doc """
   Checks if the token is valid and returns its underlying lookup query.
