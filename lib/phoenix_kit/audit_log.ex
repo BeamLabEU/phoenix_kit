@@ -25,7 +25,7 @@ defmodule PhoenixKit.AuditLog do
 
   import Ecto.Query, warn: false
   alias PhoenixKit.AuditLog.Entry
-  alias PhoenixKit.Repo
+  alias PhoenixKit.RepoHelper, as: Repo
 
   @doc """
   Logs a password change action performed by an admin.
@@ -226,6 +226,6 @@ defmodule PhoenixKit.AuditLog do
           query
       end)
 
-    Repo.aggregate(query, :count)
+    Repo.aggregate(query, :count, :id)
   end
 end
