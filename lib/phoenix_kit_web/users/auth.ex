@@ -24,9 +24,15 @@ defmodule PhoenixKitWeb.Users.Auth do
   import Phoenix.Controller
   import Phoenix.LiveView, only: [attach_hook: 4]
 
+  require Logger
+
+  alias Phoenix.LiveView
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
-  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Auth.{Scope, User}
+  alias PhoenixKit.Users.ScopeNotifier
   alias PhoenixKit.Utils.Routes
 
   # Make the remember me cookie valid for 60 days.
@@ -226,8 +232,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     active_user =
       case user do
         %{is_active: false} = inactive_user ->
-          require Logger
-
           Logger.warning(
             "PhoenixKit: Inactive user #{inactive_user.id} attempted access, logging out"
           )
@@ -305,8 +309,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     active_user =
       case user do
         %{is_active: false} = inactive_user ->
-          require Logger
-
           Logger.warning(
             "PhoenixKit: Inactive user #{inactive_user.id} attempted scope access, logging out"
           )
@@ -405,36 +407,66 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   def on_mount(:phoenix_kit_mount_current_scope, _params, session, socket) do
-    {:cont, mount_phoenix_kit_current_scope(socket, session)}
+    socket = mount_phoenix_kit_current_scope(socket, session)
+    socket = check_maintenance_mode(socket)
+    {:cont, socket}
   end
 
   def on_mount(:phoenix_kit_ensure_authenticated, _params, session, socket) do
     socket = mount_phoenix_kit_current_user(socket, session)
 
-    if socket.assigns.phoenix_kit_current_user do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+    case socket.assigns.phoenix_kit_current_user do
+      %{confirmed_at: nil} ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      %{} ->
+        {:cont, socket}
+
+      nil ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+
+        {:halt, socket}
     end
   end
 
   def on_mount(:phoenix_kit_ensure_authenticated_scope, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
+    socket = check_maintenance_mode(socket)
+    scope = socket.assigns.phoenix_kit_current_scope
 
-    if Scope.authenticated?(socket.assigns.phoenix_kit_current_scope) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      true ->
+        {:cont, socket}
     end
   end
 
@@ -450,6 +482,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_redirect_if_authenticated_scope, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
+    socket = check_maintenance_mode(socket)
 
     if Scope.authenticated?(socket.assigns.phoenix_kit_current_scope) do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
@@ -460,33 +493,80 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   def on_mount(:phoenix_kit_ensure_owner, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
+    socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
-    if Scope.owner?(scope) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must be an owner to access this page.")
-        |> Phoenix.LiveView.redirect(to: "/")
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      not Scope.owner?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must be an owner to access this page.")
+          |> Phoenix.LiveView.redirect(to: "/")
+
+        {:halt, socket}
+
+      true ->
+        {:cont, socket}
     end
   end
 
   def on_mount(:phoenix_kit_ensure_admin, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
+    socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
-    if Scope.admin?(scope) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must be an admin to access this page.")
-        |> Phoenix.LiveView.redirect(to: "/")
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      Scope.admin?(scope) ->
+        {:cont, socket}
+
+      true ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "You do not have the required role to access this page."
+          )
+          |> Phoenix.LiveView.redirect(to: "/")
+
+        {:halt, socket}
     end
   end
 
@@ -520,8 +600,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     case user do
       %{is_active: false} = inactive_user ->
-        require Logger
-
         Logger.warning(
           "PhoenixKit: Inactive user #{inactive_user.id} attempted LiveView mount, blocking access"
         )
@@ -534,11 +612,156 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp mount_phoenix_kit_current_scope(socket, session) do
-    socket = mount_phoenix_kit_current_user(socket, session)
+    socket =
+      socket
+      |> mount_phoenix_kit_current_user(session)
+      |> maybe_attach_scope_refresh_hook()
+
     user = socket.assigns.phoenix_kit_current_user
     scope = Scope.for_user(user)
 
-    Phoenix.Component.assign(socket, :phoenix_kit_current_scope, scope)
+    socket
+    |> maybe_manage_scope_subscription(user)
+    |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+  end
+
+  defp maybe_attach_scope_refresh_hook(
+         %{assigns: %{phoenix_kit_scope_hook_attached?: true}} = socket
+       ),
+       do: socket
+
+  defp maybe_attach_scope_refresh_hook(socket) do
+    socket
+    |> attach_hook(:phoenix_kit_scope_refresh, :handle_info, &handle_scope_refresh/2)
+    |> Phoenix.Component.assign(:phoenix_kit_scope_hook_attached?, true)
+  end
+
+  defp maybe_manage_scope_subscription(socket, %User{id: user_id}) when is_integer(user_id) do
+    case socket.assigns[:phoenix_kit_scope_subscription_user_id] do
+      ^user_id ->
+        socket
+
+      previous_id when is_integer(previous_id) ->
+        ScopeNotifier.unsubscribe(previous_id)
+        ScopeNotifier.subscribe(user_id)
+
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+
+      _ ->
+        ScopeNotifier.subscribe(user_id)
+        Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, user_id)
+    end
+  end
+
+  defp maybe_manage_scope_subscription(socket, _user) do
+    maybe_unsubscribe_scope_updates(socket)
+  end
+
+  defp maybe_unsubscribe_scope_updates(socket) do
+    if previous_id = socket.assigns[:phoenix_kit_scope_subscription_user_id] do
+      ScopeNotifier.unsubscribe(previous_id)
+    end
+
+    Phoenix.Component.assign(socket, :phoenix_kit_scope_subscription_user_id, nil)
+  end
+
+  defp handle_scope_refresh({:phoenix_kit_scope_roles_updated, user_id}, socket) do
+    current_scope = socket.assigns[:phoenix_kit_current_scope]
+
+    if Scope.user_id(current_scope) == user_id do
+      was_admin = Scope.admin?(current_scope)
+      {socket, new_scope} = refresh_scope_assigns(socket)
+
+      socket =
+        if was_admin and not Scope.admin?(new_scope) do
+          socket
+          |> LiveView.put_flash(:error, "You must be an admin to access this page.")
+          |> LiveView.push_navigate(to: "/")
+        else
+          socket
+        end
+
+      {:halt, socket}
+    else
+      {:cont, socket}
+    end
+  end
+
+  defp handle_scope_refresh(_msg, socket), do: {:cont, socket}
+
+  defp check_maintenance_mode(socket) do
+    # Check if maintenance mode is enabled
+    if Maintenance.enabled?() do
+      scope = socket.assigns[:phoenix_kit_current_scope]
+
+      # Check if this is an authentication route that should bypass maintenance
+      is_auth_route = auth_route?(socket)
+
+      cond do
+        # Authentication routes (login, reset-password, etc.) always bypass maintenance
+        is_auth_route ->
+          Phoenix.Component.assign(socket, :show_maintenance, false)
+
+        # Admins and owners can bypass maintenance mode
+        scope && (Scope.admin?(scope) || Scope.owner?(scope)) ->
+          Phoenix.Component.assign(socket, :show_maintenance, false)
+
+        # All other users see maintenance page
+        true ->
+          Phoenix.Component.assign(socket, :show_maintenance, true)
+      end
+    else
+      # Maintenance mode disabled - show normal content
+      Phoenix.Component.assign(socket, :show_maintenance, false)
+    end
+  end
+
+  # Check if the current socket is for an authentication route
+  defp auth_route?(socket) do
+    case socket.view do
+      PhoenixKitWeb.Users.Login -> true
+      PhoenixKitWeb.Users.ForgotPassword -> true
+      PhoenixKitWeb.Users.ResetPassword -> true
+      PhoenixKitWeb.Users.MagicLink -> true
+      PhoenixKitWeb.Users.MagicLinkRegistrationRequest -> true
+      PhoenixKitWeb.Users.MagicLinkRegistration -> true
+      PhoenixKitWeb.Users.Confirmation -> true
+      PhoenixKitWeb.Users.ConfirmationInstructions -> true
+      _ -> false
+    end
+  end
+
+  defp refresh_scope_assigns(socket) do
+    case socket.assigns[:phoenix_kit_current_user] do
+      %User{id: user_id} ->
+        case Auth.get_user(user_id) do
+          %User{} = user ->
+            scope = Scope.for_user(user)
+
+            socket =
+              socket
+              |> Phoenix.Component.assign(:phoenix_kit_current_user, user)
+              |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+              |> maybe_manage_scope_subscription(user)
+
+            {socket, scope}
+
+          nil ->
+            scope = Scope.for_user(nil)
+
+            socket =
+              socket
+              |> Phoenix.Component.assign(:phoenix_kit_current_user, nil)
+              |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+              |> maybe_unsubscribe_scope_updates()
+
+            {socket, scope}
+        end
+
+      _ ->
+        scope = socket.assigns[:phoenix_kit_current_scope] || Scope.for_user(nil)
+        {socket, scope}
+    end
   end
 
   @doc false
@@ -564,6 +787,14 @@ defmodule PhoenixKitWeb.Users.Auth do
   def call(conn, :phoenix_kit_require_authenticated_scope),
     do: require_authenticated_scope(conn, [])
 
+  @doc false
+  def call(conn, :phoenix_kit_validate_and_set_locale),
+    do: validate_and_set_locale(conn, [])
+
+  @doc false
+  def call(conn, :phoenix_kit_require_admin),
+    do: require_admin(conn, [])
+
   @doc """
   Used for routes that require the user to not be authenticated.
   """
@@ -580,18 +811,25 @@ defmodule PhoenixKitWeb.Users.Auth do
   @doc """
   Used for routes that require the user to be authenticated.
 
-  If you want to enforce the user email is confirmed before
-  they use the application at all, here would be a good place.
+  Enforces email confirmation before allowing access to the application.
   """
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns[:phoenix_kit_current_user] do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: Routes.path("/users/log-in"))
-      |> halt()
+    case conn.assigns[:phoenix_kit_current_user] do
+      %{confirmed_at: nil} ->
+        conn
+        |> put_flash(:error, "Please confirm your email before accessing the application.")
+        |> redirect(to: Routes.path("/users/confirm"))
+        |> halt()
+
+      %{} ->
+        conn
+
+      nil ->
+        conn
+        |> put_flash(:error, "You must log in to access this page.")
+        |> maybe_store_return_to()
+        |> redirect(to: Routes.path("/users/log-in"))
+        |> halt()
     end
   end
 
@@ -601,20 +839,27 @@ defmodule PhoenixKitWeb.Users.Auth do
   This function checks authentication status through the scope system,
   providing a more structured approach to authentication checks.
 
-  If you want to enforce the user email is confirmed before
-  they use the application at all, here would be a good place.
+  Enforces email confirmation before allowing access to the application.
   """
   def require_authenticated_scope(conn, _opts) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        if Scope.authenticated?(scope) do
-          conn
-        else
-          conn
-          |> put_flash(:error, "You must log in to access this page.")
-          |> maybe_store_return_to()
-          |> redirect(to: Routes.path("/users/log-in"))
-          |> halt()
+        cond do
+          not Scope.authenticated?(scope) ->
+            conn
+            |> put_flash(:error, "You must log in to access this page.")
+            |> maybe_store_return_to()
+            |> redirect(to: Routes.path("/users/log-in"))
+            |> halt()
+
+          Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+            conn
+            |> put_flash(:error, "Please confirm your email before accessing the application.")
+            |> redirect(to: Routes.path("/users/confirm"))
+            |> halt()
+
+          true ->
+            conn
         end
 
       _ ->
@@ -624,6 +869,12 @@ defmodule PhoenixKitWeb.Users.Auth do
         |> require_authenticated_scope([])
     end
   end
+
+  defp email_confirmed?(%Scope{user: %{confirmed_at: confirmed_at}})
+       when not is_nil(confirmed_at),
+       do: true
+
+  defp email_confirmed?(_), do: false
 
   @doc """
   Used for routes that require the user to be an owner.
@@ -662,17 +913,24 @@ defmodule PhoenixKitWeb.Users.Auth do
   def require_admin(conn, _opts) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        if Scope.admin?(scope) do
-          conn
-        else
-          conn
-          |> put_flash(:error, "You must be an admin to access this page.")
-          |> redirect(to: "/")
-          |> halt()
+        cond do
+          Scope.admin?(scope) ->
+            conn
+
+          Scope.authenticated?(scope) ->
+            conn
+            |> put_flash(:error, "You do not have the required role to access this page.")
+            |> redirect(to: "/")
+            |> halt()
+
+          true ->
+            conn
+            |> put_flash(:error, "You must log in to access this page.")
+            |> redirect(to: Routes.path("/users/log-in"))
+            |> halt()
         end
 
       _ ->
-        # Scope not found, try to create it from current_user
         conn
         |> fetch_phoenix_kit_current_scope([])
         |> require_admin([])
@@ -716,6 +974,88 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp signed_in_path(_conn), do: "/"
 
+  @doc """
+  Validates and sets the locale from the URL path parameter.
+
+  Extracts the locale from the `:locale` path parameter, validates it against
+  enabled language codes from the database, and either sets the locale or
+  redirects to the default locale URL if invalid.
+
+  ## Examples
+
+      # Valid locale in URL
+      conn = validate_and_set_locale(conn, [])  # Sets Gettext locale
+
+      # Invalid locale in URL
+      conn = validate_and_set_locale(conn, [])  # Redirects to default locale URL
+  """
+  def validate_and_set_locale(conn, _opts) do
+    case conn.path_params do
+      %{"locale" => locale} when is_binary(locale) ->
+        # Accept any valid predefined language code
+        # get_predefined_language() checks the static list of 80+ languages
+        # regardless of whether the Language Module is enabled
+        if Languages.get_predefined_language(locale) do
+          # Valid language - set it and continue
+          Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
+          assign(conn, :current_locale, locale)
+        else
+          # Invalid locale - redirect to default locale URL
+          redirect_invalid_locale(conn, locale)
+        end
+
+      _ ->
+        # No locale in URL - set default locale
+        Gettext.put_locale(PhoenixKitWeb.Gettext, "en")
+        assign(conn, :current_locale, "en")
+    end
+  end
+
+  @doc """
+  Redirects invalid locale URLs to the default locale.
+
+  Takes the current URL path and replaces the invalid locale with the default
+  locale ("en"), then redirects the user to the corrected URL.
+  """
+  def redirect_invalid_locale(conn, invalid_locale) do
+    # Get the default locale (first enabled locale or "en")
+    default_locale = Languages.enabled_locale_codes() |> List.first() || "en"
+
+    # If default is "en", remove locale prefix entirely; otherwise replace
+    corrected_path =
+      if default_locale == "en" do
+        # Remove the locale prefix completely for English
+        String.replace(conn.request_path, "/#{invalid_locale}/", "/", global: false)
+      else
+        # Replace with non-English default locale
+        String.replace(conn.request_path, "/#{invalid_locale}/", "/#{default_locale}/",
+          global: false
+        )
+      end
+
+    # If the invalid locale was at the end of the path, handle that case too
+    corrected_path =
+      if String.ends_with?(conn.request_path, "/#{invalid_locale}") do
+        if default_locale == "en" do
+          String.replace_suffix(corrected_path, "/#{invalid_locale}", "")
+        else
+          String.replace_suffix(corrected_path, "/#{invalid_locale}", "/#{default_locale}")
+        end
+      else
+        corrected_path
+      end
+
+    # Log the invalid locale attempt for debugging
+    Logger.warning(
+      "Invalid locale '#{invalid_locale}' requested, redirecting to '#{default_locale}'. Path: #{conn.request_path}"
+    )
+
+    # Redirect to the corrected URL
+    conn
+    |> redirect(to: corrected_path)
+    |> halt()
+  end
+
   defp extract_session_id_from_live_socket_id(live_socket_id) do
     case live_socket_id do
       "phoenix_kit_sessions:" <> encoded_token ->
@@ -734,12 +1074,10 @@ defmodule PhoenixKitWeb.Users.Auth do
           endpoint.broadcast(live_socket_id, "disconnect", %{})
         rescue
           error ->
-            require Logger
             Logger.warning("[PhoenixKit] Failed to broadcast disconnect: #{inspect(error)}")
         end
 
       {:error, reason} ->
-        require Logger
         Logger.warning("[PhoenixKit] Could not find parent endpoint for broadcast: #{reason}")
     end
   end

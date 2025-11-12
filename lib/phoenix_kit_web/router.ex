@@ -1,4 +1,21 @@
 defmodule PhoenixKitWeb.Router do
+  @moduledoc """
+  PhoenixKit library router.
+
+  This router is used only for development and testing purposes.
+  In production, parent applications should use `phoenix_kit_routes()` macro
+  to integrate PhoenixKit routes into their own router.
+
+  ## Usage in Parent Application
+
+      defmodule MyAppWeb.Router do
+        use MyAppWeb, :router
+        import PhoenixKitWeb.Integration
+
+        # Add PhoenixKit routes
+        phoenix_kit_routes()
+      end
+  """
   use PhoenixKitWeb, :router
 
   import PhoenixKitWeb.Integration
@@ -11,29 +28,26 @@ defmodule PhoenixKitWeb.Router do
     plug :put_root_layout, html: PhoenixKit.LayoutConfig.get_root_layout()
     plug :protect_from_forgery
     plug :put_secure_browser_headers
+    plug :ensure_session_uuid
     plug :fetch_phoenix_kit_current_user
   end
 
-  pipeline :api do
-    plug :accepts, ["json"]
-  end
-
-  scope "/", PhoenixKitWeb do
-    pipe_through :browser
-
-    get "/", PageController, :home
-  end
-
+  # PhoenixKit routes - main integration point
   phoenix_kit_routes()
 
-  # Other scopes may use custom stacks.
-  # scope "/api", PhoenixKitWeb do
-  #   pipe_through :api
-  # end
+  defp ensure_session_uuid(conn, _opts) do
+    case Plug.Conn.get_session(conn, :phoenix_kit_session_uuid) do
+      nil ->
+        Plug.Conn.put_session(conn, :phoenix_kit_session_uuid, Ecto.UUID.generate())
 
-  # LiveDashboard routes removed - this is a library module
-  # Parent applications should include their own LiveDashboard configuration
+      _ ->
+        conn
+    end
+  end
 
-  ## Authentication routes are now handled by AuthRouter via forward
-  ## All PhoenixKit routes are available under your configured URL prefix (default: /phoenix_kit/)
+  # Note: This is a library module - parent applications should:
+  # 1. Use phoenix_kit_routes() macro in their own router
+  # 2. Provide their own home page routes
+  # 3. Configure their own LiveDashboard if needed
+  # 4. Handle their own API routes
 end

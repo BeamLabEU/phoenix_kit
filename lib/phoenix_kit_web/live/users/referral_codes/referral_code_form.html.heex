@@ -1,0 +1,219 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} #{@page_title}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Referral Codes
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
+        <p class="text-lg text-base-content">
+          <%= if @mode == :new do %>
+            Create a new referral code for user registration
+          <% else %>
+            Edit referral code details
+          <% end %>
+        </p>
+      </div>
+    </header>
+
+    <%!-- Referral Code Form --%>
+    <div class="max-w-2xl mx-auto">
+      <div class="bg-base-100 rounded-lg shadow-md p-6">
+        <.form
+          :let={form}
+          for={@changeset}
+          id="referral_code_form"
+          phx-submit="save_code"
+          phx-change="validate_code"
+          class="space-y-6"
+        >
+          <%!-- Code Field with Generate Button --%>
+          <div class="form-control">
+            <.input
+              field={form[:code]}
+              type="text"
+              label="Referral Code *"
+              placeholder="Enter code or generate random"
+              required
+            />
+            <button
+              type="button"
+              class="mt-5 btn btn-outline btn-secondary"
+              phx-click="generate_code"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-1" /> Generate
+            </button>
+          </div>
+
+          <%!-- Description Field --%>
+          <div class="form-control">
+            <.input
+              field={form[:description]}
+              type="text"
+              label="Description *"
+              placeholder="Brief description of this referral code"
+              required
+            />
+          </div>
+
+          <%!-- Beneficiary Field --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-semibold">Beneficiary User</span>
+            </label>
+
+            <%= if @selected_beneficiary do %>
+              <%!-- Selected Beneficiary Display --%>
+              <div class="flex items-center gap-2 p-3 bg-base-200 rounded-lg border">
+                <div class="flex-1">
+                  <div class="font-medium">{@selected_beneficiary.email}</div>
+                  <%= if @selected_beneficiary.username do %>
+                    <div class="text-sm text-base-content/60">
+                      @{@selected_beneficiary.username}
+                    </div>
+                  <% end %>
+                  <%= if @selected_beneficiary.first_name || @selected_beneficiary.last_name do %>
+                    <div class="text-sm text-base-content/70">
+                      {@selected_beneficiary.first_name} {@selected_beneficiary.last_name}
+                    </div>
+                  <% end %>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost btn-circle"
+                  phx-click="clear_beneficiary"
+                  title="Clear selection"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" />
+                </button>
+              </div>
+              <%!-- Hidden field to store the beneficiary ID --%>
+              <input
+                type="hidden"
+                name="referral_code[beneficiary]"
+                value={@selected_beneficiary.id}
+              />
+            <% else %>
+              <%!-- Search Input --%>
+              <div class="relative">
+                <input
+                  type="text"
+                  class="input input-bordered w-full"
+                  placeholder="Search users by email, username, or name..."
+                  phx-change="search_beneficiary"
+                  phx-debounce="300"
+                  name="search"
+                  autocomplete="off"
+                />
+
+                <%!-- Search Results Dropdown --%>
+                <%= if length(@search_results) > 0 do %>
+                  <div class="absolute z-50 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    <%= for user <- @search_results do %>
+                      <button
+                        type="button"
+                        class="w-full p-3 text-left hover:bg-base-200 border-b border-base-300 last:border-b-0 focus:bg-base-200 focus:outline-none"
+                        phx-click="select_beneficiary"
+                        phx-value-user_id={user.id}
+                      >
+                        <div class="font-medium">{user.email}</div>
+                        <%= if user.username do %>
+                          <div class="text-sm text-base-content/60">
+                            @{user.username}
+                          </div>
+                        <% end %>
+                        <%= if user.first_name || user.last_name do %>
+                          <div class="text-sm text-base-content/70">
+                            {user.first_name} {user.last_name}
+                          </div>
+                        <% end %>
+                      </button>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <label class="mt-2 label">
+              <span class="label-text-alt text-base-content/70">
+                Optional: Search and select a user who will benefit from this code
+              </span>
+            </label>
+          </div>
+
+          <%!-- Maximum Uses Field --%>
+          <div class="form-control">
+            <.input
+              field={form[:max_uses]}
+              type="number"
+              min="1"
+              label="Maximum Uses *"
+              placeholder="How many times can this code be used?"
+              required
+            />
+            <label class="mt-2 label">
+              <span class="label-text-alt text-base-content/70">
+                Set how many users can register using this code
+              </span>
+            </label>
+          </div>
+
+          <%!-- Expiration Date Field --%>
+          <div class="form-control">
+            <.input
+              field={form[:expiration_date]}
+              type="datetime-local"
+              label="Expiration Date"
+            />
+            <label class="mt-2 label">
+              <span class="label-text-alt text-base-content/70">
+                Leave empty for no expiration
+              </span>
+            </label>
+          </div>
+
+          <%!-- Active Status Toggle --%>
+          <div class="form-control">
+            <.checkbox field={form[:status]} label="Is active?" />
+
+            <span class="mt-2 label text-base-content/70">
+              Inactive codes cannot be used for registration
+            </span>
+          </div>
+
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-4 pt-6 border-t">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              disabled={!@changeset.valid?}
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 mr-2" />
+              {if @mode == :edit, do: "Update Code", else: "Create Code"}
+            </button>
+            <button
+              type="button"
+              class="btn btn-ghost"
+              phx-click="cancel"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4 mr-2" /> Cancel
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

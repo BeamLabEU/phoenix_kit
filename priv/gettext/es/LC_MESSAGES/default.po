@@ -1,0 +1,307 @@
+## `msgid`s in this file come from POT (.pot) files.
+##
+## Do not add, change, or remove `msgid`s manually here as
+## they're tied to the ones in the corresponding POT file
+## (with the same domain).
+##
+## Use `mix gettext.extract --merge` or `mix gettext.merge`
+## to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: es\n"
+
+## Dashboard page translations
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:11
+#, elixir-autogen
+msgid "Dashboard"
+msgstr "Panel de Control"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:14
+#, elixir-autogen
+msgid "Welcome to the %{project_title} administration panel"
+msgstr "Bienvenido al panel de administración de %{project_title}"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:133
+#, elixir-autogen
+msgid "Platform Statistics"
+msgstr "Estadísticas de la Plataforma"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:371
+#, elixir-autogen
+msgid "System Information"
+msgstr "Información del Sistema"
+
+## Navigation menu items
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:30
+#, elixir-autogen
+msgid "Users"
+msgstr "Usuarios"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:31
+#, elixir-autogen
+msgid "User management"
+msgstr "Gestión de usuarios"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:45
+#, elixir-autogen
+msgid "Roles"
+msgstr "Roles"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:46
+#, elixir-autogen
+msgid "Role management"
+msgstr "Gestión de roles"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:60
+#, elixir-autogen
+msgid "Sessions"
+msgstr "Sesiones"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:61
+#, elixir-autogen
+msgid "Active sessions"
+msgstr "Sesiones activas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:75
+#, elixir-autogen
+msgid "Live Activity"
+msgstr "Actividad en Vivo"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:76
+#, elixir-autogen
+msgid "Real-time visitors"
+msgstr "Visitantes en tiempo real"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:90
+#, elixir-autogen
+msgid "Add User"
+msgstr "Agregar Usuario"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:91
+#, elixir-autogen
+msgid "Create new account"
+msgstr "Crear nueva cuenta"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:106
+#, elixir-autogen
+msgid "Email"
+msgstr "Correo Electrónico"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:107
+#, elixir-autogen
+msgid "Email logs & analytics"
+msgstr "Registros de correo y analíticas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:122
+#, elixir-autogen
+msgid "Refresh"
+msgstr "Actualizar"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:123
+#, elixir-autogen
+msgid "Update statistics"
+msgstr "Actualizar estadísticas"
+
+## Statistics cards
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:148
+#, elixir-autogen
+msgid "System Owners"
+msgstr "Propietarios del Sistema"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:151
+#, elixir-autogen
+msgid "Complete system authority"
+msgstr "Autoridad completa del sistema"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:166
+#, elixir-autogen
+msgid "Administrators"
+msgstr "Administradores"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:169
+#, elixir-autogen
+msgid "Management privileges"
+msgstr "Privilegios de gestión"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:184
+#, elixir-autogen
+msgid "Total Users"
+msgstr "Total de Usuarios"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:187
+#, elixir-autogen
+msgid "Registered accounts"
+msgstr "Cuentas registradas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:195
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:205
+#, elixir-autogen
+msgid "Active Sessions"
+msgstr "Sesiones Activas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:206
+#, elixir-autogen
+msgid "Currently logged in"
+msgstr "Actualmente conectados"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:217
+#, elixir-autogen
+msgid "Unique Users"
+msgstr "Usuarios Únicos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:218
+#, elixir-autogen
+msgid "With active sessions"
+msgstr "Con sesiones activas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:229
+#, elixir-autogen
+msgid "Today's Sessions"
+msgstr "Sesiones de Hoy"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:230
+#, elixir-autogen
+msgid "New login activity"
+msgstr "Nueva actividad de inicio de sesión"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:241
+#, elixir-autogen
+msgid "Expired Sessions"
+msgstr "Sesiones Expiradas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:242
+#, elixir-autogen
+msgid "Need cleanup"
+msgstr "Necesitan limpieza"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:249
+#, elixir-autogen
+msgid "Real-Time Activity"
+msgstr "Actividad en Tiempo Real"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:259
+#, elixir-autogen
+msgid "Active Visitors"
+msgstr "Visitantes Activos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:260
+#, elixir-autogen
+msgid "Real-time connections"
+msgstr "Conexiones en tiempo real"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:271
+#, elixir-autogen
+msgid "Anonymous"
+msgstr "Anónimos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:272
+#, elixir-autogen
+msgid "Unregistered visitors"
+msgstr "Visitantes no registrados"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:283
+#, elixir-autogen
+msgid "Authenticated"
+msgstr "Autenticados"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:284
+#, elixir-autogen
+msgid "Logged in users"
+msgstr "Usuarios conectados"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:298
+#, elixir-autogen
+msgid "Unique Visitors"
+msgstr "Visitantes Únicos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:299
+#, elixir-autogen
+msgid "Individual connections"
+msgstr "Conexiones individuales"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:314
+#, elixir-autogen
+msgid "Active Users"
+msgstr "Usuarios Activos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:315
+#, elixir-autogen
+msgid "Currently online"
+msgstr "Actualmente en línea"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:326
+#, elixir-autogen
+msgid "Inactive Users"
+msgstr "Usuarios Inactivos"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:327
+#, elixir-autogen
+msgid "Disabled accounts"
+msgstr "Cuentas deshabilitadas"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:338
+#, elixir-autogen
+msgid "Email Confirmed"
+msgstr "Correo Confirmado"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:339
+#, elixir-autogen
+msgid "Verified emails"
+msgstr "Correos verificados"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:350
+#, elixir-autogen
+msgid "Pending Email"
+msgstr "Correo Pendiente"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:351
+#, elixir-autogen
+msgid "Awaiting confirmation"
+msgstr "Esperando confirmación"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:362
+#, elixir-autogen
+msgid "Regular Users"
+msgstr "Usuarios Regulares"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:363
+#, elixir-autogen
+msgid "Standard access level"
+msgstr "Nivel de acceso estándar"
+
+## System information
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:380
+#, elixir-autogen
+msgid "%{project_title} Version"
+msgstr "Versión de %{project_title}"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:385
+#, elixir-autogen
+msgid "Role System"
+msgstr "Sistema de Roles"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:389
+#, elixir-autogen
+msgid "Authentication"
+msgstr "Autenticación"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:384
+#, elixir-autogen
+msgid "Active"
+msgstr "Activo"
+
+#: lib/phoenix_kit_web/live/dashboard_live.html.heex:388
+#, elixir-autogen
+msgid "Enabled"
+msgstr "Habilitado"
+
+## Flash messages
+#: lib/phoenix_kit_web/live/dashboard_live.ex:69
+#, elixir-autogen
+msgid "Statistics refreshed successfully"
+msgstr "Estadísticas actualizadas exitosamente"
+
+#: lib/phoenix_kit_web/components/core/flash.ex:53
+#, elixir-autogen, elixir-format
+msgid "close"
+msgstr "cerrar"

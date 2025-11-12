@@ -51,11 +51,14 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 ### PhoenixKit Installation System
 
 - `mix phoenix_kit.install` - Install PhoenixKit using igniter (for new projects)
+- `mix phoenix_kit.install --help` - Show detailed installation help and options
 - `mix phoenix_kit.update` - Update existing PhoenixKit installation to latest version
+- `mix phoenix_kit.update --help` - Show detailed update help and options
 - `mix phoenix_kit.update --status` - Check current version and available updates
 - `mix phoenix_kit.gen.migration` - Generate custom migration files
 
 **Key Features:**
+
 - **Professional versioned migrations** - Oban-style migration system with version tracking
 - **Prefix support** - Isolate PhoenixKit tables using PostgreSQL schemas
 - **Idempotent operations** - Safe to run migrations multiple times
@@ -63,16 +66,81 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 - **PostgreSQL Validation** - Automatic database adapter detection with warnings for non-PostgreSQL setups
 - **Production Mailer Templates** - Auto-generated configuration examples for SMTP, SendGrid, Mailgun, Amazon SES
 - **Interactive Migration Runner** - Optional automatic migration execution with smart CI detection
+- **Built-in Help System** - Comprehensive help documentation accessible via `--help` flag
+
+**Installation Help:**
+
+```bash
+# Show detailed installation options and examples
+mix phoenix_kit.install --help
+
+# Quick examples from help:
+mix phoenix_kit.install                                   # Basic installation with auto-detection
+mix phoenix_kit.install --repo MyApp.Repo                 # Specify repository
+mix phoenix_kit.install --prefix auth                     # Custom schema prefix
+```
+
+**Update Help:**
+
+```bash
+# Show detailed update options and examples
+mix phoenix_kit.update --help
+
+# Quick examples from help:
+mix phoenix_kit.update                                    # Update to latest version
+mix phoenix_kit.update --status                           # Check current version
+mix phoenix_kit.update --prefix auth                      # Update with custom prefix
+mix phoenix_kit.update -y                                 # Skip confirmation prompts (CI/CD)
+mix phoenix_kit.update --force -y                         # Force update with auto-migration
+```
 
 ### Testing & Code Quality
 
-- `mix test` - Run all tests (52 tests, no database required)
+- `mix test` - Run smoke tests (module loading and configuration)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
 - `mix dialyzer` - Type checking (requires PLT setup)
-- `mix quality` - Run all quality checks (format, credo, dialyzer, test)
+- `mix quality` - Run all quality checks (format, credo, dialyzer)
 
-⚠️ Ecto warnings are normal for library - tests focus on API validation
+**Testing Philosophy for Library Modules:**
+
+PhoenixKit is a **library module**, not a standalone application. Testing approach:
+
+- ✅ **Smoke Tests** - Verify modules are loadable and properly structured
+- ✅ **Static Analysis** - Credo and Dialyzer catch logic and type errors
+- ✅ **Integration Testing** - Should be performed in parent Phoenix applications
+
+**Why Minimal Unit Tests?**
+- Library code requires database, configuration, and runtime context
+- Unit tests would need complex mocking of Repo, Settings, and other dependencies
+- Real-world usage testing in parent applications provides better coverage
+- Smoke tests ensure library compiles and modules load correctly
+
+**For Contributors:**
+Test your changes by integrating PhoenixKit into a real Phoenix application.
+See CONTRIBUTING.md for development workflow with live reloading.
+
+### CI/CD
+
+PhoenixKit uses GitHub Actions for continuous integration:
+
+**Automated Checks:**
+- ✅ Code formatting validation (`mix format --check-formatted`)
+- ✅ Static analysis with Credo (`mix credo --strict`)
+- ✅ Type checking with Dialyzer
+- ✅ Compilation with warnings as errors (production code)
+- ✅ Dependency audit (non-blocking for transitive deps)
+- 📝 Smoke tests (optional - basic module loading verification)
+
+**CI Workflow:**
+- Runs on push to `main`, `dev`, and `claude/**` branches
+- Runs on all pull requests
+- Uses caching for dependencies and PLT files
+- Parallel execution for faster feedback
+
+**View CI Status:**
+- GitHub Actions: Check the "Actions" tab in the repository
+- Badge: See README.md for CI status badge
 
 ### ⚠️ IMPORTANT: Pre-commit Checklist
 
@@ -113,9 +181,9 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management Protocol
 
-**Current Version**: 1.2.3 (in mix.exs)
+**Current Version**: 1.3.3 (in mix.exs)
 **Version Strategy**: Semantic versioning (MAJOR.MINOR.PATCH)
-**Migration Version**: V16 (latest migration version with session fingerprinting)
+**Migration Version**: V23 (latest migration version with session fingerprinting)
 
 **MANDATORY steps for version updates:**
 
@@ -137,18 +205,20 @@ This ensures consistent code formatting across the project.
 #### 3. Update Process Checklist
 
 **Step 1: Update mix.exs**
+
 ```elixir
 @version "1.0.1"  # Increment from current version
 ```
 
 **Step 2: Update CHANGELOG.md**
+
 ```markdown
 ## [1.0.1] - 2025-08-20
 
 ### Added
 - Description of new features
 
-### Changed  
+### Changed
 - Description of modifications
 
 ### Fixed
@@ -159,6 +229,7 @@ This ensures consistent code formatting across the project.
 ```
 
 **Step 3: Commit Version Changes**
+
 ```bash
 git add mix.exs CHANGELOG.md README.md
 git commit -m "Update version to 1.0.1 with comprehensive changelog"
@@ -167,15 +238,19 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 #### 4. Version Validation
 
 **Before committing version changes:**
+
 - ✅ Mix compiles without errors: `mix compile`
-- ✅ Tests pass: `mix test`
+- ✅ Tests pass: `mix test` (run existing tests to ensure no regressions)
 - ✅ Code formatted: `mix format`
+- ✅ Credo passes: `mix credo --strict`
+- ✅ CI checks pass: Verify GitHub Actions workflow succeeds
 - ✅ CHANGELOG.md includes current date
 - ✅ Version number incremented correctly
 
 **⚠️ Critical Notes:**
+
 - **NEVER ship without updating CHANGELOG.md**
-- **ALWAYS validate version number increments**  
+- **ALWAYS validate version number increments**
 - **NEVER reference old version in new documentation**
 
 ### Publishing
@@ -257,7 +332,187 @@ def my_function do
 end
 ```
 
+### Helper Functions: Use Components, Not Private Functions
+
+**CRITICAL RULE**: Never create private helper functions (`defp`) that are called directly from HEEX templates.
+
+**❌ WRONG - Compiler Cannot See Usage:**
+
+```elixir
+# lib/my_app_web/live/users_live.ex
+defmodule MyAppWeb.UsersLive do
+  use MyAppWeb, :live_view
+
+  # ❌ BAD: Compiler shows "function format_date/1 is unused"
+  defp format_date(date) do
+    Calendar.strftime(date, "%B %d, %Y")
+  end
+end
+```
+
+```heex
+<!-- lib/my_app_web/live/users_live.html.heex -->
+{format_date(user.created_at)}  <%!-- ❌ Compiler doesn't see this call --%>
+```
+
+**✅ CORRECT - Use Phoenix Components:**
+
+```elixir
+# lib/phoenix_kit_web/components/core/time_display.ex
+defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
+  use Phoenix.Component
+
+  @doc """
+  Displays formatted date.
+
+  ## Examples
+      <.formatted_date date={user.created_at} />
+  """
+  attr :date, :any, required: true
+  attr :format, :string, default: "%B %d, %Y"
+
+  def formatted_date(assigns) do
+    ~H"""
+    <span>{Calendar.strftime(@date, @format)}</span>
+    """
+  end
+
+  # ✅ GOOD: Private helper INSIDE component
+  defp format_time(time), do: ...
+end
+```
+
+```heex
+<!-- lib/my_app_web/live/users_live.html.heex -->
+<.formatted_date date={user.created_at} />  <%!-- ✅ Compiler sees component usage --%>
+```
+
+**Why This Matters:**
+
+1. **Compiler Visibility**: Component calls (`<.component />`) are visible to Elixir compiler, function calls in templates are not
+2. **Type Safety**: Components use `attr` macros for compile-time validation
+3. **Reusability**: Components work across all LiveView modules without duplication
+4. **Documentation**: Components have structured `@doc` with examples
+5. **No Warnings**: Prevents false-positive "unused function" warnings
+
+**Where to Put Components:**
+
+- **New helper component**: `lib/phoenix_kit_web/components/core/[category].ex`
+- **Import in**: `lib/phoenix_kit_web.ex` → `core_components()` function
+- **Available everywhere**: Automatically imported in all LiveViews
+
+**Existing Core Component Categories:**
+
+- `badge.ex` - Role badges, status badges, code status badges
+- `time_display.ex` - Relative time, expiration dates, age badges
+- `user_info.ex` - User roles, user counts, user statistics
+- `button.ex`, `input.ex`, `select.ex`, etc. - Form components
+
+**Adding New Component Category:**
+
+1. Create file: `lib/phoenix_kit_web/components/core/my_category.ex`
+2. Add import: `lib/phoenix_kit_web.ex` → `import PhoenixKitWeb.Components.Core.MyCategory`
+3. Use in templates: `<.my_component attr={value} />`
+
+**Example: Adding New Helper Component:**
+
+```elixir
+# 1. Create component file
+# lib/phoenix_kit_web/components/core/currency.ex
+defmodule PhoenixKitWeb.Components.Core.Currency do
+  use Phoenix.Component
+
+  attr :amount, :integer, required: true
+  attr :currency, :string, default: "USD"
+
+  def price(assigns) do
+    ~H"""
+    <span class="font-semibold">{format_price(@amount, @currency)}</span>
+    """
+  end
+
+  defp format_price(amount, "USD"), do: "$#{amount / 100}"
+  defp format_price(amount, "EUR"), do: "€#{amount / 100}"
+end
+
+# 2. Add import to lib/phoenix_kit_web.ex
+def core_components do
+  quote do
+    # ... existing imports ...
+    import PhoenixKitWeb.Components.Core.Currency  # ← Add this
+  end
+end
+
+# 3. Use in any LiveView template
+# <.price amount={product.price_cents} currency="USD" />
+```
+
+**Component Best Practices:**
+
+1. **One category per file**: Group related helpers (time, currency, badges, etc.)
+2. **Document everything**: Use `@doc`, `attr`, examples
+3. **Private helpers OK**: Use `defp` INSIDE components for internal logic
+4. **Validation**: Use `attr` with `:required`, `:default`, `:values`
+5. **Naming**: Use clear, semantic names (`<.time_ago />` not `<.format_t />`)
+
+**Migration Pattern:**
+
+```elixir
+# BEFORE (helper function)
+defp format_time_ago(datetime) do
+  # logic...
+end
+
+# Template: {format_time_ago(session.connected_at)}
+
+# AFTER (component)
+# Move to lib/phoenix_kit_web/components/core/time_display.ex
+attr :datetime, :any, required: true
+def time_ago(assigns) do
+  ~H"""
+  <span>{format_time_ago(@datetime)}</span>
+  """
+end
+defp format_time_ago(datetime), do: # logic...
+
+# Template: <.time_ago datetime={session.connected_at} />
+```
+
 ## Architecture
+
+### Config Architecture
+
+- PhoenixKit basic configuration via default Config module in a parent project
+- **PhoenixKit.Config** - Used to work with static configuration instead of `Application.get_env/3`
+
+### Settings System Architecture
+
+- **PhoenixKit.Settings** - Settings context for system-wide configuration management
+- **PhoenixKit.Settings.Setting** - Settings schema with key/value storage and timestamps
+- **PhoenixKitWeb.Live.Settings** - Settings management interface at `{prefix}/admin/settings`
+
+**Core Settings:**
+
+- **time_zone** - System timezone offset (UTC-12 to UTC+12)
+- **date_format** - Date display format (Y-m-d, m/d/Y, d/m/Y, d.m.Y, d-m-Y, F j, Y)
+- **time_format** - Time display format (H:i for 24-hour, h:i A for 12-hour)
+
+**Email Settings:**
+
+- **email_enabled** - Enable/disable email system (default: false)
+- **email_save_body** - Save full email content vs preview only (default: false)
+- **email_ses_events** - Enable AWS SES event processing (default: false)
+- **email_retention_days** - Data retention period (default: 90 days)
+- **email_sampling_rate** - Percentage of emails to fully track (default: 100%)
+
+**Key Features:**
+
+- **Database Storage** - Settings persisted in phoenix_kit_settings table
+- **Admin Interface** - Complete settings management at `{prefix}/admin/settings`
+- **Default Values** - Fallback defaults for all settings (UTC+0, Y-m-d, H:i)
+- **Validation** - Form validation with real-time preview examples
+- **Integration** - Automatic integration with date formatting utilities
+- **Email System UI** - Dedicated section for email system configuration
 
 ### Authentication Structure
 
@@ -272,7 +527,7 @@ end
 - **PhoenixKit.Utils.SessionFingerprint** - Session fingerprinting utilities for hijacking prevention
 - **PhoenixKit.Users.Auth.UserToken** - Extended with ip_address and user_agent_hash fields
 - **PhoenixKitWeb.Users.Auth** - Integrated fingerprint verification in authentication plugs
-- **Migration V16** - Database migration adding fingerprinting columns
+- **Migration V23** - Database migration adding fingerprinting columns
 
 **Security Features:**
 - **IP Address Tracking** - Detects when session is used from different IP address
@@ -305,11 +560,12 @@ config :phoenix_kit,
 - **PhoenixKit.Users.Role** - Role schema with system role protection
 - **PhoenixKit.Users.RoleAssignment** - Many-to-many role assignments with audit trail
 - **PhoenixKit.Users.Roles** - Role management API and business logic
-- **PhoenixKitWeb.Live.DashboardLive** - Admin dashboard with system statistics
-- **PhoenixKitWeb.Live.UsersLive** - User management interface with role controls
+- **PhoenixKitWeb.Live.Dashboard** - Admin dashboard with system statistics
+- **PhoenixKitWeb.Live.Users** - User management interface with role controls
 - **PhoenixKit.Users.Auth.register_user/1** - User registration with integrated role assignment
 
 **Key Features:**
+
 - **Three System Roles** - Owner, Admin, User with automatic assignment
 - **Elixir Logic** - First user automatically becomes Owner
 - **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
@@ -318,32 +574,6 @@ config :phoenix_kit,
 - **Security Features** - Owner protection, audit trail, self-modification prevention
 - **Scope Integration** - Role checks via `PhoenixKit.Users.Auth.Scope`
 
-### Settings System Architecture
-
-- **PhoenixKit.Settings** - Settings context for system-wide configuration management
-- **PhoenixKit.Settings.Setting** - Settings schema with key/value storage and timestamps
-- **PhoenixKitWeb.Live.SettingsLive** - Settings management interface at `{prefix}/admin/settings`
-
-**Core Settings:**
-- **time_zone** - System timezone offset (UTC-12 to UTC+12)
-- **date_format** - Date display format (Y-m-d, m/d/Y, d/m/Y, d.m.Y, d-m-Y, F j, Y)
-- **time_format** - Time display format (H:i for 24-hour, h:i A for 12-hour)
-
-**Email Settings:**
-- **email_enabled** - Enable/disable email system (default: false)
-- **email_save_body** - Save full email content vs preview only (default: false)
-- **email_ses_events** - Enable AWS SES event processing (default: false)
-- **email_retention_days** - Data retention period (default: 90 days)
-- **email_sampling_rate** - Percentage of emails to fully track (default: 100%)
-
-**Key Features:**
-- **Database Storage** - Settings persisted in phoenix_kit_settings table
-- **Admin Interface** - Complete settings management at `{prefix}/admin/settings`
-- **Default Values** - Fallback defaults for all settings (UTC+0, Y-m-d, H:i)
-- **Validation** - Form validation with real-time preview examples
-- **Integration** - Automatic integration with date formatting utilities
-- **Email System UI** - Dedicated section for email system configuration
-
 ### Date Formatting Architecture
 
 - **PhoenixKit.Utils.Date** - Date and time formatting utilities using Timex
@@ -351,6 +581,7 @@ config :phoenix_kit,
 - **Template Integration** - Direct usage in LiveView templates with UtilsDate alias
 
 **Core Functions:**
+
 - **format_date/2** - Format dates with PHP-style format codes
 - **format_time/2** - Format times with PHP-style format codes
 - **format_datetime/2** - Format datetime values with date formats
@@ -359,12 +590,14 @@ config :phoenix_kit,
 - **format_time_with_user_format/1** - Auto-load user's time_format setting
 
 **Supported Formats:**
+
 - **Date Formats** - Y-m-d (ISO), m/d/Y (US), d/m/Y (European), d.m.Y (German), d-m-Y, F j, Y (Long)
 - **Time Formats** - H:i (24-hour), h:i A (12-hour with AM/PM)
 - **Examples** - Dynamic format preview with current date/time examples
 - **Timex Integration** - Robust internationalized formatting with extensive format support
 
 **Template Usage:**
+
 ```heex
 <!-- Settings-aware formatting (recommended) -->
 {UtilsDate.format_datetime_with_user_format(user.inserted_at)}
@@ -376,99 +609,9 @@ config :phoenix_kit,
 {UtilsDate.format_time(Time.utc_now(), "h:i A")}
 ```
 
-### Email System Architecture
+**Emails module:** See `lib/phoenix_kit_web/live/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
 
-- **PhoenixKit.EmailSystem** - Main API module for email system functionality
-- **PhoenixKit.EmailSystem.EmailLog** - Core email logging schema with analytics
-- **PhoenixKit.EmailSystem.EmailEvent** - Event management (delivery, bounce, click, open)
-- **PhoenixKit.EmailSystem.EmailInterceptor** - Swoosh integration for automatic logging
-- **PhoenixKit.EmailSystem.SQSWorker** - AWS SQS polling for real-time events
-- **PhoenixKit.EmailSystem.SQSProcessor** - Message parsing and event handling
-- **PhoenixKit.EmailSystem.RateLimiter** - Anti-spam and rate limiting
-- **PhoenixKit.EmailSystem.Archiver** - Data lifecycle and S3 archival
-- **PhoenixKit.EmailSystem.Metrics** - CloudWatch integration and analytics
-
-**Core Features:**
-- **Comprehensive Logging** - All outgoing emails logged with metadata
-- **Event Management** - Real-time delivery, bounce, complaint, open, click events
-- **AWS SES Integration** - Deep integration with SES webhooks and CloudWatch
-- **Analytics Dashboard** - Engagement metrics, campaign analysis, geographic data
-- **Rate Limiting** - Multi-layer protection against abuse and spam patterns
-- **Data Lifecycle** - Automatic archival, compression, and cleanup
-- **Settings Integration** - Configurable via admin settings interface
-
-**Database Tables:**
-- **phoenix_kit_email_logs** - Main email logging with extended metadata
-- **phoenix_kit_email_events** - Event management (delivery, engagement)
-- **phoenix_kit_email_blocklist** - Blocked addresses for rate limiting
-
-**LiveView Interfaces:**
-- **EmailLogsLive** - Email log browsing at `{prefix}/admin/emails`
-- **EmailDetailsLive** - Individual email details at `{prefix}/admin/emails/email/:id`
-- **EmailMetricsLive** - Analytics dashboard at `{prefix}/admin/emails/dashboard`
-- **EmailQueueLive** - Queue management at `{prefix}/admin/emails/queue`
-- **EmailBlocklistLive** - Blocklist management at `{prefix}/admin/emails/blocklist`
-
-**Mailer Integration:**
-```elixir
-# PhoenixKit.Mailer automatically intercepts emails
-email = new()
-  |> to("user@example.com")
-  |> from("app@example.com")
-  |> subject("Welcome!")
-  |> html_body("<h1>Welcome!</h1>")
-
-# Emails are automatically logged when sent
-PhoenixKit.Mailer.deliver_email(email,
-  user_id: user.id,
-  template_name: "welcome",
-  campaign_id: "onboarding"
-)
-```
-
-**AWS SES Configuration:**
-```bash
-# Run the setup script to configure AWS infrastructure
-./scripts/aws_ses_sqs_setup.sh
-
-# Script creates:
-# - SES configuration set with event publishing
-# - SNS topic for SES events
-# - SQS queue with proper permissions
-# - IAM policies and roles
-# - Saves configuration to PhoenixKit settings
-```
-
-**Key Settings:**
-- **email_enabled** - Master toggle for the entire system
-- **email_save_body** - Store full email content (increases storage)
-- **email_ses_events** - Enable AWS SES event processing
-- **email_retention_days** - Data retention period (30-365 days)
-- **email_sampling_rate** - Percentage of emails to fully log
-
-**Security Features:**
-- **Sampling Rate** - Reduce storage load by logging percentage of emails
-- **Rate Limiting** - Per-recipient, per-sender, and global limits
-- **Automatic Blocklist** - Dynamic blocking of suspicious patterns
-- **Data Compression** - Automatic compression of old email bodies
-- **S3 Archival** - Long-term storage with automatic cleanup
-
-**Analytics Capabilities:**
-- **Engagement Metrics** - Open rates, click rates, bounce rates
-- **Campaign Analysis** - Performance by template and campaign
-- **Geographic Data** - Engagement by country and region
-- **Provider Performance** - Deliverability by email provider
-- **Real-time Dashboards** - Live statistics and trending data
-
-**Production Deployment:**
-```elixir
-# Enable email system in production
-config :phoenix_kit,
-  email_enabled: true,
-  email_save_body: false,  # Recommended for storage efficiency
-  email_retention_days: 90,
-  email_sampling_rate: 100
-```
+**Blogging module:** See `lib/phoenix_kit_web/live/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
 
 ### Migration Architecture
 
@@ -482,9 +625,14 @@ config :phoenix_kit,
 ### Key Design Principles
 
 - **No Circular Dependencies** - Optional Phoenix deps prevent import cycles
-- **Library-First** - No OTP application, can be used as dependency
+- **Library-First Architecture** - No OTP application, no supervision tree, can be used as dependency
+  - No `Application.start/2` callback
+  - No Telemetry supervisor (uses `Plug.Telemetry` in endpoint)
+  - No dev-only routes (PageController removed)
+  - Parent apps provide their own home pages and layouts
 - **Professional Testing** - DataCase pattern with database sandbox
 - **Production Ready** - Complete authentication system with security best practices
+- **Clean Codebase** - Removed standard Phoenix template boilerplate (telemetry.ex, page controllers, API pipeline)
 
 ### Database Integration
 
@@ -508,13 +656,13 @@ config :phoenix_kit,
 ### Setup Steps
 
 1. **Install PhoenixKit**: Run `mix phoenix_kit.install --repo YourApp.Repo`
-2. **Configure Layout**: Optionally set custom layouts in `config/config.exs`
+2. **Run Migrations**: Database tables created automatically (V16 includes OAuth providers and magic link registration)
 3. **Add Routes**: Use `phoenix_kit_routes()` macro in your router
 4. **Configure Mailer**: PhoenixKit auto-detects and uses your app's mailer, or set up email delivery in `config/config.exs`
-5. **Run Migrations**: Database tables created automatically
-6. **Theme Support**: Optionally enable with `--theme-enabled` flag
+5. **Configure Layout** (Optional): Set custom layouts in `config/config.exs`
+6. **Theme Support**: DaisyUI 5 theme system with 35+ themes is automatically enabled
 7. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
-8. **Email System**: Optionally enable email system and AWS SES integration
+8. **Email System** (Optional): Enable email system and AWS SES integration
 
 > **Note**: `{prefix}` represents your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 > This can be customized via `config :phoenix_kit, url_prefix: "/your_custom_prefix"`.
@@ -541,7 +689,6 @@ config :phoenix_kit,
 
 # Configure DaisyUI 5 Theme System (optional)
 config :phoenix_kit,
-  theme_enabled: true,
   theme: %{
     theme: "auto",                   # Any of 35+ daisyUI themes or "auto"
     primary_color: "#3b82f6",       # Primary brand color (OKLCH format supported)
@@ -568,35 +715,20 @@ def deps do
   ]
 end
 
-# Date Formatting in Templates
-# Use Settings-aware functions for automatic user preference integration:
-{UtilsDate.format_datetime_with_user_format(user.inserted_at)}
-{UtilsDate.format_date_with_user_format(user.confirmed_at)}
-{UtilsDate.format_time_with_user_format(Time.utc_now())}
+### Date Formatting Helpers
 
-# Manual formatting for specific use cases:
-{UtilsDate.format_date(Date.utc_today(), "F j, Y")}  # "September 3, 2025"
-{UtilsDate.format_time(Time.utc_now(), "h:i A")}     # "3:30 PM"
+- Use `UtilsDate.format_datetime_with_user_format/1`, `format_date_with_user_format/1`, and
+  `format_time_with_user_format/1` in templates to respect admin-configured formats.
+- For hard-coded output, `UtilsDate.format_date/2` and `format_time/2` accept PHP-style format
+  strings such as `"F j, Y"` or `"h:i A"`.
 
-# Email Configuration (optional)
-config :phoenix_kit,
-  # Enable email system
-  email_enabled: true,
-  email_save_body: false,  # Save preview only to reduce storage
-  email_retention_days: 90,
-  email_sampling_rate: 100,
+### Optional Authentication Modules
 
-  # AWS SES integration for event management
-  email_ses_events: true,
-  aws_ses_configuration_set: "your-app-system"
+- **OAuth & Magic Link registration:** Setup instructions, environment variables, and feature
+  details now live in `guides/oauth_and_magic_link_setup.md`. Review that guide when enabling the
+  optional authentication flows in a host application.
 
-# Email system provides:
-# - Comprehensive email logging and analytics
-# - Real-time delivery, bounce, and engagement management
-# - Anti-spam and rate limiting features
-# - Admin interfaces at {prefix}/admin/emails/*
-# - Automatic integration with PhoenixKit.Mailer
-```
+
 
 ## Key File Structure
 
@@ -607,27 +739,39 @@ config :phoenix_kit,
 - `lib/phoenix_kit/users/auth/user.ex` - User schema
 - `lib/phoenix_kit/users/auth/user_token.ex` - Token management
 - `lib/phoenix_kit/users/magic_link.ex` - Magic link authentication
+- `lib/phoenix_kit/users/magic_link_registration.ex` - Magic link registration (V16+)
+- `lib/phoenix_kit/users/oauth.ex` - OAuth authentication context (V16+)
+- `lib/phoenix_kit/users/oauth_provider.ex` - OAuth provider schema (V16+)
 - `lib/phoenix_kit/users/role*.ex` - Role system (Role, RoleAssignment, Roles)
 - `lib/phoenix_kit/settings.ex` - Settings context and management
 - `lib/phoenix_kit/utils/date.ex` - Date formatting utilities with Settings integration
-- `lib/phoenix_kit/email_system/*.ex` - Email system modules
+- `lib/phoenix_kit/emails/*.ex` - Email system modules
 - `lib/phoenix_kit/mailer.ex` - Mailer with automatic email system integration
 
 ### Web Integration
 
-- `lib/phoenix_kit_web/integration.ex` - Router integration macro
+- `lib/phoenix_kit_web/router.ex` - Library router (dev/test only, parent apps use `phoenix_kit_routes()`)
+- `lib/phoenix_kit_web/integration.ex` - Router integration macro for parent applications
+- `lib/phoenix_kit_web/endpoint.ex` - Phoenix endpoint (uses `Plug.Telemetry`, no custom supervisor)
+- `lib/phoenix_kit_web/users/oauth_controller.ex` - OAuth authentication controller (V16+)
+- `lib/phoenix_kit_web/users/magic_link_registration_controller.ex` - Magic link registration controller (V16+)
+- `lib/phoenix_kit_web/users/magic_link_registration.ex` - Registration completion LiveView (V16+)
 - `lib/phoenix_kit_web/users/auth.ex` - Web authentication plugs
-- `lib/phoenix_kit_web/users/*_live.ex` - LiveView components
-- `lib/phoenix_kit_web/live/*_live.ex` - Admin interfaces (Dashboard, Users, Sessions, Settings)
-- `lib/phoenix_kit_web/live/settings_live.ex` - Settings management interface
-- `lib/phoenix_kit_web/live/email_system/*_live.ex` - Email system LiveView interfaces
+- `lib/phoenix_kit_web/users/*.ex` - LiveView components (login, registration, settings, etc.)
+- `lib/phoenix_kit_web/live/*.ex` - Admin interfaces (dashboard, users, sessions, settings, modules)
+- `lib/phoenix_kit_web/live/settings.ex` - Settings management interface
+- `lib/phoenix_kit_web/live/modules/emails/*.ex` - Email system LiveView interfaces
 - `lib/phoenix_kit_web/components/core_components.ex` - UI components
+- `lib/phoenix_kit_web/components/layouts.ex` - Layout module (fallback for parent apps)
+- `lib/phoenix_kit_web/controllers/error_html.ex` - HTML error rendering
+- `lib/phoenix_kit_web/controllers/error_json.ex` - JSON error rendering
 
 ### Migration & Config
 
 - `lib/phoenix_kit/migrations/postgres/v01.ex` - V01 migration (basic auth)
 - `lib/phoenix_kit/migrations/postgres/v07.ex` - V07 migration (email system tables)
 - `lib/phoenix_kit/migrations/postgres/v09.ex` - V09 migration (email blocklist)
+- `lib/phoenix_kit/migrations/postgres/v16.ex` - V16 migration (OAuth providers table)
 - `lib/mix/tasks/phoenix_kit.migrate_to_daisyui5.ex` - DaisyUI 5 migration tool
 - `config/config.exs` - Library configuration
 - `mix.exs` - Project and package configuration
@@ -649,3 +793,4 @@ PhoenixKit supports a complete professional development workflow:
 3. **Quality** - Static analysis and type checking
 4. **Documentation** - Generated docs with usage examples
 5. **Publishing** - Ready for Hex.pm with proper versioning
+```

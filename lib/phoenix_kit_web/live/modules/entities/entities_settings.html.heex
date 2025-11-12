@@ -1,0 +1,106 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={
+    gettext("%{project_title} %{section}",
+      project_title: @project_title,
+      section: gettext("Entities Settings")
+    )
+  }
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> {gettext("Back to Modules")}
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Entities Settings")}</h1>
+        <p class="text-lg text-base-content">
+          {gettext("Configure the entities system behavior and preferences")}
+        </p>
+      </div>
+    </header>
+
+    <%!-- System Status Card --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> {gettext("System Status")}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- System Toggle --%>
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold">{gettext("Entities System")}</h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext("Enable or disable the entire entities module")}
+                </p>
+              </div>
+              <span class={"badge #{setting_status_class(@settings.entities_enabled)}"}>
+                {setting_status_text(@settings.entities_enabled)}
+              </span>
+            </div>
+
+            <div class="flex gap-2">
+              <%= if @settings.entities_enabled do %>
+                <button
+                  class="btn btn-error btn-sm"
+                  phx-click="disable_entities"
+                  data-confirm={
+                    gettext(
+                      "Are you sure you want to disable the entities system? This will make all entities and data inaccessible."
+                    )
+                  }
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> {gettext("Disable System")}
+                </button>
+              <% else %>
+                <button
+                  class="btn btn-success btn-sm"
+                  phx-click="enable_entities"
+                >
+                  <.icon name="hero-check" class="w-4 h-4 mr-1" /> {gettext("Enable System")}
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Quick Stats --%>
+          <div>
+            <h3 class="text-lg font-semibold mb-4">{gettext("Quick Stats")}</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Entities")}</div>
+                <div class="stat-value text-lg">{@entities_stats.total_entities}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Data Records")}</div>
+                <div class="stat-value text-lg">{@entities_stats.total_data_records}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Published")}</div>
+                <div class="stat-value text-lg">{@entities_stats.published_records}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Drafts")}</div>
+                <div class="stat-value text-lg">{@entities_stats.draft_records}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
