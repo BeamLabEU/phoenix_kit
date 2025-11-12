@@ -84,18 +84,17 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Unique constraint on aws_message_id for duplicate prevention
   - Additional event fields (reject_reason, delay_type, subscription_type, failure_reason)
 
-  ### V14 - Modules and Referral Codes System
-  - Phoenix_kit_modules for feature management
-  - Phoenix_kit_referral_codes for user referrals
-  - Module-based feature toggles
-  - Referral tracking and analytics
+  ### V14 - Email Body Compression Support
+  - Adds body_compressed boolean field to phoenix_kit_email_logs
+  - Enables efficient archival and storage management
+  - Backward compatible with existing data
 
   ### V15 - Email Templates System
-  - Phoenix_kit_email_templates for template storage and management
-  - Template variables with {{variable}} syntax
+  - Phoenix_kit_email_templates table for template storage and management
+  - Template variables with {{variable}} syntax support
   - Template categories (system, marketing, transactional)
   - Template versioning and usage tracking
-  - Integration with email logging system
+  - Integration with existing email logging system
 
   ### V16 - OAuth Providers System & Magic Link Registration
   - Phoenix_kit_user_oauth_providers for OAuth integration
@@ -120,40 +119,62 @@ defmodule PhoenixKit.Migrations.Postgres do
   - API functions for custom field management
   - Support for arbitrary user data without schema changes
 
-  ### V19 - Distributed File Storage System ⚡ LATEST
+  ### V19 - Storage System Tables (Part 1)
+  - Initial storage system infrastructure
+  - See V20 for complete distributed storage system
+
+  ### V20 - Distributed File Storage System
   - Phoenix_kit_buckets for storage provider configurations (local, S3, B2, R2)
   - Phoenix_kit_files for original file uploads with metadata
   - Phoenix_kit_file_instances for file variants (thumbnails, resizes, video qualities)
   - Phoenix_kit_file_locations for physical storage locations (multi-location redundancy)
   - Phoenix_kit_storage_dimensions for admin-configurable dimension presets
   - UUIDv7 primary keys for time-sortable identifiers
-  - Smart bucket selection with priority system (0 = random/emptiest, >0 = specific priority)
+  - Smart bucket selection with priority system
   - Token-based URL security to prevent enumeration attacks
-  - Support for images, videos, documents, and archives
-  - Automatic variant generation system (8 default dimensions seeded)
-  - Storage settings (redundancy_copies, auto_generate_variants, default_bucket_id)
+  - Automatic variant generation system
+
+  ### V21 - Message ID Search Performance Optimization
+  - Composite index on (message_id, aws_message_id) for faster lookups
+  - Improved performance of AWS SES event correlation
+  - Optimized message ID search queries throughout email system
+
+  ### V22 - Email System Improvements & Audit Logging
+  - AWS message ID tracking with aws_message_id field in phoenix_kit_email_logs
+  - Enhanced event management with composite indexes for faster duplicate checking
+  - Phoenix_kit_email_orphaned_events table for tracking unmatched SQS events
+  - Phoenix_kit_email_metrics table for system metrics tracking
+  - Phoenix_kit_audit_logs table for comprehensive administrative action tracking
+  - Complete audit trail for admin password resets (WHO, WHAT, WHEN, WHERE)
+  - Metadata storage for additional context in audit logs
+  - Performance indexes for efficient querying by user, action, and date
+
+  ### V23 - Session Fingerprinting ⚡ LATEST
+  - Session fingerprinting columns (ip_address, user_agent_hash) in phoenix_kit_users_tokens
+  - Prevents session hijacking by detecting suspicious session usage patterns
+  - IP address tracking: Detects when session is used from different IP
+  - User agent hashing: Detects when session is used from different browser/device
+  - Backward compatible: Existing sessions without fingerprints remain valid
+  - Configurable strictness: Can log warnings or force re-authentication
+  - Performance indexes for efficient fingerprint verification
 
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V19 in sequence.
+  Runs all migrations V01 through V23 in sequence.
 
   ### Incremental Updates
-  - V01 → V19: Runs V02 through V19 in sequence
-  - V18 → V19: Runs V19 only (adds distributed storage system)
-  - V17 → V19: Runs V18, V19 (adds custom fields, then storage system)
-  - V16 → V19: Runs V17, V18, V19 (adds entities, custom fields, storage)
-  - V15 → V19: Runs V16, V17, V18, V19 (adds OAuth, entities, custom fields, storage)
-  - V14 → V19: Runs V15, V16, V17, V18, V19 (adds templates, OAuth, entities, custom fields, storage)
-  - V13 → V19: Runs V14, V15, V16, V17, V18, V19 (adds modules, templates, OAuth, entities, custom fields, storage)
+  - V01 → V23: Runs V02 through V23 in sequence
+  - V22 → V23: Runs V23 only (adds session fingerprinting)
+  - V21 → V23: Runs V22 and V23 in sequence
+  - V20 → V23: Runs V21, V22, and V23 in sequence
 
   ### Rollback Support
-  - V19 → V18: Removes distributed storage system
-  - V18 → V17: Removes user custom fields
-  - V17 → V16: Removes entities system
-  - V16 → V15: Removes OAuth providers system
+  - V23 → V22: Removes session fingerprinting columns and indexes
+  - V22 → V21: Removes audit logging system, email orphaned events, and email metrics
+  - V21 → V20: Removes composite message ID index
   - V15 → V14: Removes email templates system
-  - V14 → V13: Removes modules and referral codes
+  - V14 → V13: Removes body compression support
   - V13 → V12: Removes enhanced email tracking and AWS SES integration
   - V12 → V11: Removes JSON settings support and restores NOT NULL constraint
   - V11 → V10: Removes per-user timezone settings
@@ -165,14 +186,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version
+      # Update to latest version (V23)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 12)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 23)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 11)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 22)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -189,10 +210,8 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   use Ecto.Migration
 
-  alias PhoenixKit.Config
-
   @initial_version 1
-  @current_version 20
+  @current_version 23
   @default_prefix "public"
 
   @doc false
@@ -501,7 +520,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   # Hybrid repo detection with fallback strategies (shared with status command)
   defp get_repo_with_fallback do
     # Strategy 1: Try to get from PhoenixKit application config
-    case Config.get(:repo, nil) do
+    case Application.get_env(:phoenix_kit, :repo) do
       nil ->
         # Strategy 2: Try to ensure PhoenixKit application is started
         case ensure_phoenix_kit_started() do
@@ -521,7 +540,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   # Try to start PhoenixKit application and get repo config
   defp ensure_phoenix_kit_started do
     Application.ensure_all_started(:phoenix_kit)
-    Config.get(:repo, nil)
+    Application.get_env(:phoenix_kit, :repo)
   rescue
     _ -> nil
   end

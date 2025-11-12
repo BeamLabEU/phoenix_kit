@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -271,7 +272,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp create_user(socket, user_params) do
-    case Auth.register_user(user_params) do
+    ip_address = IpAddress.extract_from_socket(socket)
+
+    case Auth.register_user(user_params, ip_address) do
       {:ok, user} ->
         # Optionally send confirmation email
         case Auth.deliver_user_confirmation_instructions(
@@ -344,7 +347,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
         String.trim(profile_params["password"]) != ""
 
     if password_provided do
-      update_profile_and_password(user, profile_params)
+      update_profile_and_password(socket, user, profile_params)
     else
       cleaned_params = Map.delete(profile_params, "password")
       Auth.update_user_profile(user, cleaned_params)
@@ -501,7 +504,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     assign(socket, :changeset, changeset)
   end
 
-  defp update_profile_and_password(user, user_params) do
+  defp update_profile_and_password(socket, user, user_params) do
     # First validate profile update
     profile_params = Map.delete(user_params, "password")
 
@@ -510,7 +513,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
         # If profile update succeeded, update password
         password_params = Map.take(user_params, ["password"])
 
-        case Auth.admin_update_user_password(updated_user, password_params) do
+        # Build audit context from socket
+        context = build_audit_context(socket)
+
+        case Auth.admin_update_user_password(updated_user, password_params, context) do
           {:ok, final_user} ->
             {:ok, final_user}
 
@@ -525,6 +531,31 @@ defmodule PhoenixKitWeb.Users.UserForm do
         # Profile update failed, return the profile changeset with password field
         {:error, profile_changeset}
     end
+  end
+
+  defp build_audit_context(socket) do
+    # Get admin user from socket assigns (set by on_mount)
+    admin_user = Map.get(socket.assigns, :phoenix_kit_current_user)
+
+    # Get IP address from socket metadata
+    ip_address =
+      case Phoenix.LiveView.get_connect_info(socket, :peer_data) do
+        %{address: address} -> :inet.ntoa(address) |> to_string()
+        _ -> nil
+      end
+
+    # Get user agent from socket metadata
+    user_agent =
+      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
+        ua when is_binary(ua) -> ua
+        _ -> nil
+      end
+
+    %{
+      admin_user: admin_user,
+      ip_address: ip_address,
+      user_agent: user_agent
+    }
   end
 
   defp merge_password_errors(profile_changeset, password_changeset) do

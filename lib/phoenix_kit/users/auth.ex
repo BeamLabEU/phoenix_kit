@@ -42,8 +42,9 @@ defmodule PhoenixKit.Users.Auth do
 
       # Authenticate user
       case PhoenixKit.Users.Auth.get_user_by_email_and_password(email, password) do
-        %User{} = user -> {:ok, user}
-        nil -> {:error, :invalid_credentials}
+        {:ok, user} -> {:ok, user}
+        {:error, :invalid_credentials} -> {:error, :invalid_credentials}
+        {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
       end
 
       # Send confirmation email
@@ -67,7 +68,7 @@ defmodule PhoenixKit.Users.Auth do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.{RateLimiter, Roles}
   alias PhoenixKit.Utils.Geolocation
 
   ## Database getters
@@ -91,21 +92,43 @@ defmodule PhoenixKit.Users.Auth do
   @doc """
   Gets a user by email and password.
 
+  This function includes rate limiting protection to prevent brute-force attacks.
+  After exceeding the rate limit (default: 5 attempts per minute), subsequent
+  attempts will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
+      {:ok, %User{}}
 
       iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
-      nil
+      {:error, :invalid_credentials}
+
+      iex> get_user_by_email_and_password("foo@example.com", "password", "192.168.1.1")
+      {:ok, %User{}}
 
   """
-  def get_user_by_email_and_password(email, password)
+  def get_user_by_email_and_password(email, password, ip_address \\ nil)
       when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email: email)
-    # Return user if password is valid, regardless of is_active status
-    # The session controller will handle inactive status check separately
-    if User.valid_password?(user, password), do: user
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email, ip_address) do
+      :ok ->
+        user = Repo.get_by(User, email: email)
+        # Return user if password is valid, regardless of is_active status
+        # The session controller will handle inactive status check separately
+        if User.valid_password?(user, password) do
+          # Successful login
+          {:ok, user}
+        else
+          # Invalid credentials - rate limit counter incremented
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        # Return error immediately without checking credentials
+        # This prevents timing attacks and reduces load
+        {:error, :rate_limit_exceeded}
+    end
   end
 
   @doc """
@@ -150,6 +173,9 @@ defmodule PhoenixKit.Users.Auth do
   - Subsequent users receive User role
   - Uses database transactions to prevent race conditions
 
+  This function includes rate limiting protection to prevent spam account creation.
+  Rate limits apply per email address and optionally per IP address.
+
   ## Examples
 
       iex> register_user(%{field: value})
@@ -158,8 +184,33 @@ defmodule PhoenixKit.Users.Auth do
       iex> register_user(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+      iex> register_user(%{email: "user@example.com"}, "192.168.1.1")
+      {:ok, %User{}}
+
   """
-  def register_user(attrs) do
+  def register_user(attrs, ip_address \\ nil) do
+    # Check rate limit before attempting registration
+    email = attrs["email"] || attrs[:email] || ""
+
+    case RateLimiter.check_registration_rate_limit(email, ip_address) do
+      :ok ->
+        do_register_user(attrs)
+
+      {:error, :rate_limit_exceeded} ->
+        # Return changeset error for rate limit
+        changeset =
+          %User{}
+          |> User.registration_changeset(attrs)
+          |> Ecto.Changeset.add_error(
+            :email,
+            "Too many registration attempts. Please try again later."
+          )
+
+        {:error, changeset}
+    end
+  end
+
+  defp do_register_user(attrs) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
@@ -198,6 +249,8 @@ defmodule PhoenixKit.Users.Auth do
   based on the provided IP address and includes it in the user registration.
   If geolocation lookup fails, the user is still registered with just the IP address.
 
+  This function automatically applies rate limiting based on the IP address.
+
   ## Examples
 
       iex> register_user_with_geolocation(%{email: "user@example.com", password: "password"}, "192.168.1.1")
@@ -222,20 +275,21 @@ defmodule PhoenixKit.Users.Auth do
 
         Logger.info("PhoenixKit: Successful geolocation lookup for IP #{ip_address}")
 
-        register_user(enhanced_attrs)
+        # Pass IP address for rate limiting
+        register_user(enhanced_attrs, ip_address)
 
       {:error, reason} ->
         # Log the error but continue with registration
         Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
 
         # Register user with just IP address
-        register_user(enhanced_attrs)
+        register_user(enhanced_attrs, ip_address)
     end
   end
 
   def register_user_with_geolocation(attrs, _invalid_ip) do
     # Invalid IP provided, register without geolocation data
-    register_user(attrs)
+    register_user(attrs, nil)
   end
 
   @doc """
@@ -390,22 +444,62 @@ defmodule PhoenixKit.Users.Auth do
   @doc """
   Updates the user password as an admin (bypasses current password validation).
 
+  ## Parameters
+    * `user` - The user whose password is being updated
+    * `attrs` - Password attributes (password, password_confirmation)
+    * `context` - Optional context map containing:
+      * `:admin_user` - The admin performing the action (for audit logging)
+      * `:ip_address` - IP address of the admin (for audit logging)
+      * `:user_agent` - User agent of the admin (for audit logging)
+
   ## Examples
 
       iex> admin_update_user_password(user, %{password: "new_password", password_confirmation: "new_password"})
+      {:ok, %User{}}
+
+      iex> admin_update_user_password(user, %{password: "new_password", password_confirmation: "new_password"}, %{admin_user: admin, ip_address: "192.168.1.1"})
       {:ok, %User{}}
 
       iex> admin_update_user_password(user, %{password: "short"})
       {:error, %Ecto.Changeset{}}
 
   """
-  def admin_update_user_password(user, attrs) do
+  def admin_update_user_password(user, attrs, context \\ %{}) do
     changeset = User.password_changeset(user, attrs)
 
     multi = Ecto.Multi.new()
     multi = Ecto.Multi.update(multi, :user, changeset)
 
-    Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
+    multi =
+      Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
+
+    # Add audit logging if context is provided
+    multi =
+      if admin_user = Map.get(context, :admin_user) do
+        Ecto.Multi.run(multi, :audit_log, fn _repo, %{user: updated_user} ->
+          log_attrs = %{
+            target_user_id: updated_user.id,
+            admin_user_id: admin_user.id,
+            action: :admin_password_reset,
+            ip_address: Map.get(context, :ip_address),
+            user_agent: Map.get(context, :user_agent),
+            metadata: %{
+              target_email: updated_user.email,
+              admin_email: admin_user.email
+            }
+          }
+
+          case PhoenixKit.AuditLog.log_password_change(log_attrs) do
+            {:ok, log_entry} -> {:ok, log_entry}
+            # Don't fail password update if logging fails
+            {:error, _} -> {:ok, nil}
+          end
+        end)
+      else
+        multi
+      end
+
+    multi
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}
@@ -417,9 +511,23 @@ defmodule PhoenixKit.Users.Auth do
 
   @doc """
   Generates a session token.
+
+  ## Options
+
+    * `:fingerprint` - Optional session fingerprint map with `:ip_address` and `:user_agent_hash`
+
+  ## Examples
+
+      # Without fingerprinting (backward compatible)
+      token = generate_user_session_token(user)
+
+      # With fingerprinting
+      fingerprint = PhoenixKit.Utils.SessionFingerprint.create_fingerprint(conn)
+      token = generate_user_session_token(user, fingerprint: fingerprint)
+
   """
-  def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
+  def generate_user_session_token(user, opts \\ []) do
+    {token, user_token} = UserToken.build_session_token(user, opts)
     inserted_token = Repo.insert!(user_token)
 
     # Broadcast session creation event
@@ -440,6 +548,102 @@ defmodule PhoenixKit.Users.Auth do
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
     Repo.one(query)
+  end
+
+  # Define session validity for query
+  @session_validity_in_days 60
+
+  @doc """
+  Gets the user token record for the given session token.
+
+  This is useful for accessing fingerprint data stored with the token.
+
+  ## Examples
+
+      iex> get_session_token_record("valid_token")
+      %UserToken{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+
+      iex> get_session_token_record("invalid_token")
+      nil
+
+  """
+  def get_session_token_record(token) do
+    import Ecto.Query
+
+    from(t in UserToken,
+      where: t.token == ^token and t.context == "session",
+      where: t.inserted_at > ago(@session_validity_in_days, "day")
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Verifies a session fingerprint against the stored token data.
+
+  Returns:
+  - `:ok` if fingerprint matches or fingerprinting is disabled
+  - `{:warning, reason}` if there's a partial mismatch (IP or UA changed)
+  - `{:error, :fingerprint_mismatch}` if both IP and UA changed
+
+  ## Examples
+
+      iex> verify_session_fingerprint(conn, token)
+      :ok
+
+      iex> verify_session_fingerprint(conn, token)
+      {:warning, :ip_mismatch}
+
+  """
+  def verify_session_fingerprint(conn, token) do
+    alias PhoenixKit.Utils.SessionFingerprint
+
+    # Skip verification if fingerprinting is disabled
+    if SessionFingerprint.fingerprinting_enabled?() do
+      case get_session_token_record(token) do
+        nil ->
+          # Token not found or expired
+          {:error, :token_not_found}
+
+        token_record ->
+          SessionFingerprint.verify_fingerprint(
+            conn,
+            token_record.ip_address,
+            token_record.user_agent_hash
+          )
+      end
+    else
+      :ok
+    end
+  end
+
+  @doc """
+  Ensures the user is active by checking the is_active field.
+
+  Returns nil for inactive users and logs a warning.
+  Returns the user for active users or nil input.
+
+  ## Examples
+
+      iex> ensure_active_user(%User{is_active: true})
+      %User{is_active: true}
+
+      iex> ensure_active_user(%User{is_active: false, id: 123})
+      nil
+
+      iex> ensure_active_user(nil)
+      nil
+
+  """
+  def ensure_active_user(user) do
+    case user do
+      %User{is_active: false} = inactive_user ->
+        require Logger
+        Logger.warning("PhoenixKit: Inactive user #{inactive_user.id} attempted access")
+        nil
+
+      active_user ->
+        active_user
+    end
   end
 
   @doc """
@@ -594,17 +798,35 @@ defmodule PhoenixKit.Users.Auth do
   @doc ~S"""
   Delivers the reset password email to the given user.
 
+  This function includes rate limiting protection to prevent mass password reset attacks.
+  After exceeding the rate limit (default: 3 requests per 5 minutes), subsequent
+  requests will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
+      iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
+      {:error, :rate_limit_exceeded}
+
   """
   def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+    # Check rate limit before sending reset email
+    case RateLimiter.check_password_reset_rate_limit(user.email) do
+      :ok ->
+        {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+        Repo.insert!(user_token)
+
+        UserNotifier.deliver_reset_password_instructions(
+          user,
+          reset_password_url_fun.(encoded_token)
+        )
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
   end
 
   @doc """
