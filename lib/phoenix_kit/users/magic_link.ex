@@ -121,7 +121,6 @@ defmodule PhoenixKit.Users.MagicLink do
       {:error, :rate_limit_exceeded} ->
         {:error, :rate_limit_exceeded}
     end
-    end
   end
 
   @doc """
