@@ -26,7 +26,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   """
   import Swoosh.Email
 
-  alias PhoenixKit.EmailSystem.Templates
+  alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Mailer
 
   # Delivers the email using the appropriate mailer.
@@ -246,7 +246,6 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       <title>Confirm Your Account</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
         .button:hover { background-color: #2563eb; }
@@ -295,7 +294,7 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       <title>Reset Your Password</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
         .button:hover { background-color: #b91c1c; }
@@ -344,7 +343,6 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
       <title>Confirm Email Change</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { text-align: center; margin-bottom: 30px; }
         .button { display: inline-block; padding: 12px 24px; background-color: #059669; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
         .button:hover { background-color: #047857; }
@@ -371,6 +369,119 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
         </div>
 
         <p>If you didn't request this email change, you can safely ignore this message. Your current email address will remain unchanged.</p>
+
+        <div class="footer">
+          <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>
+          <p><a href="#{url}">#{url}</a></p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  @doc """
+  Deliver magic link registration instructions.
+
+  Uses the 'magic_link_registration' template from the database if available,
+  falls back to hardcoded template if not found.
+  """
+  def deliver_magic_link_registration(user_or_email, url) do
+    # Handle both user struct and plain email string
+    email =
+      case user_or_email do
+        %{email: email} -> email
+        email when is_binary(email) -> email
+      end
+
+    # Variables for template substitution
+    template_variables = %{
+      "user_email" => email,
+      "registration_url" => url
+    }
+
+    # Try to get template from database, fallback to hardcoded
+    {subject, html_body, text_body} =
+      case Templates.get_active_template_by_name("magic_link_registration") do
+        nil ->
+          # Fallback to hardcoded templates
+          fallback_text = """
+
+          ==============================
+
+          Hi #{email},
+
+          Welcome! To complete your registration, please click the link below:
+
+          #{url}
+
+          This link will expire in 30 minutes for your security.
+
+          If you didn't request this registration, please ignore this email.
+
+          ==============================
+          """
+
+          {
+            "Complete Your Registration",
+            magic_link_registration_html_body(email, url),
+            fallback_text
+          }
+
+        template ->
+          # Use database template with variable substitution
+          rendered = Templates.render_template(template, template_variables)
+          {rendered.subject, rendered.html_body, rendered.text_body}
+      end
+
+    # Track template usage if using database template
+    case Templates.get_active_template_by_name("magic_link_registration") do
+      # No template to track
+      nil -> :ok
+      template -> Templates.track_usage(template)
+    end
+
+    deliver(email, subject, text_body, html_body)
+  end
+
+  # HTML template for magic link registration email
+  defp magic_link_registration_html_body(email, url) do
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Complete Your Registration</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; }
+        .button:hover { background-color: #2563eb; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 14px; color: #6b7280; }
+        .info-box { background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 16px; margin: 20px 0; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome! Complete Your Registration</h1>
+        </div>
+
+        <p>Hi #{email},</p>
+
+        <p>Thank you for starting your registration! Click the button below to complete your account setup:</p>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="#{url}" class="button">Complete Registration</a>
+        </p>
+
+        <div class="info-box">
+          <strong>ℹ️ Security Note:</strong> This registration link will expire in 30 minutes and can only be used once.
+        </div>
+
+        <p>If you didn't request this registration, you can safely ignore this email.</p>
 
         <div class="footer">
           <p>If the button above doesn't work, you can copy and paste this link into your browser:</p>

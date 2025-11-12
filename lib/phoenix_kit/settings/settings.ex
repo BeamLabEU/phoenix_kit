@@ -27,6 +27,7 @@ defmodule PhoenixKit.Settings do
   - `project_title`: Application/project title
   - `site_url`: Website URL for the application (optional)
   - `allow_registration`: Allow public user registration (default: true)
+  - `oauth_enabled`: Enable OAuth authentication (default: false)
   - `time_zone`: System timezone offset
   - `date_format`: Date display format
   - `time_format`: Time display format
@@ -60,10 +61,13 @@ defmodule PhoenixKit.Settings do
   The context uses PhoenixKit's configured repository and respects table prefixes
   set during installation.
   """
+  require Logger
 
   import Ecto.Query, warn: false
   import Ecto.Changeset, only: [add_error: 3]
 
+  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm
   alias PhoenixKit.Users.Role
@@ -98,7 +102,15 @@ defmodule PhoenixKit.Settings do
       "project_title" => "PhoenixKit",
       "site_url" => "",
       "allow_registration" => "true",
+      "oauth_enabled" => "false",
+      "oauth_google_enabled" => "false",
+      "oauth_apple_enabled" => "false",
+      "oauth_github_enabled" => "false",
+      "oauth_facebook_enabled" => "false",
+      "magic_link_login_enabled" => "true",
+      "magic_link_registration_enabled" => "true",
       "new_user_default_role" => "User",
+      "new_user_default_status" => "true",
       "week_start_day" => "1",
       "time_zone" => "0",
       "date_format" => "Y-m-d",
@@ -112,7 +124,6 @@ defmodule PhoenixKit.Settings do
       "email_sampling_rate" => "100",
       "email_compress_body" => "30",
       "email_archive_to_s3" => "false",
-      "email_cloudwatch_metrics" => "false",
       # AWS Configuration for SQS Integration
       "aws_access_key_id" => "",
       "aws_secret_access_key" => "",
@@ -126,7 +137,20 @@ defmodule PhoenixKit.Settings do
       "sqs_polling_enabled" => "false",
       "sqs_polling_interval_ms" => "5000",
       "sqs_max_messages_per_poll" => "10",
-      "sqs_visibility_timeout" => "300"
+      "sqs_visibility_timeout" => "300",
+      # OAuth Provider Credentials
+      "oauth_google_client_id" => "",
+      "oauth_google_client_secret" => "",
+      "oauth_apple_client_id" => "",
+      "oauth_apple_team_id" => "",
+      "oauth_apple_key_id" => "",
+      "oauth_apple_private_key" => "",
+      "oauth_github_client_id" => "",
+      "oauth_github_client_secret" => "",
+      "oauth_facebook_app_id" => "",
+      "oauth_facebook_app_secret" => "",
+      # Admin Panel Languages
+      "admin_languages" => Jason.encode!(["en", "ru", "es"])
     }
   end
 
@@ -184,8 +208,6 @@ defmodule PhoenixKit.Settings do
       "default"
   """
   def get_setting_cached(key, default \\ nil) when is_binary(key) do
-    ensure_cache_started()
-
     case PhoenixKit.Cache.get(@cache_name, key) do
       nil ->
         # Cache miss - query database and cache result
@@ -198,7 +220,6 @@ defmodule PhoenixKit.Settings do
   rescue
     error ->
       # Cache system unavailable, fallback to regular database query
-      require Logger
       Logger.warning("Settings cache error: #{inspect(error)}, falling back to database")
       get_setting(key, default)
   end
@@ -219,20 +240,52 @@ defmodule PhoenixKit.Settings do
       %{"date_format" => "F j, Y", "time_format" => "h:i A"}
   """
   def get_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
-    ensure_cache_started()
     PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
   rescue
     error ->
-      # Cache system unavailable, fallback to individual database queries
-      require Logger
-
       Logger.warning(
-        "Settings cache error: #{inspect(error)}, falling back to individual queries"
+        "Settings cache error: #{inspect(error)}, falling back to batch database query"
       )
 
+      # Batch query all keys in a single database operation
+      batch_results = query_settings_batch(keys)
+
+      # Merge with defaults for any missing keys
       Enum.reduce(keys, %{}, fn key, acc ->
-        default = Map.get(defaults, key)
-        value = get_setting(key, default)
+        value = Map.get(batch_results, key) || Map.get(defaults, key)
+        Map.put(acc, key, value)
+      end)
+  end
+
+  @doc """
+  Gets multiple JSON settings from cache in a single operation.
+
+  More efficient than multiple individual get_json_setting_cached/2 calls
+  when you need several JSON settings at once.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_json_settings_cached(["app_config", "feature_flags"])
+      %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
+
+      iex> defaults = %{"app_config" => %{}, "feature_flags" => %{}}
+      iex> PhoenixKit.Settings.get_json_settings_cached(["app_config", "feature_flags"], defaults)
+      %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
+  """
+  def get_json_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
+    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+  rescue
+    error ->
+      Logger.warning(
+        "Settings cache error: #{inspect(error)}, falling back to batch database query"
+      )
+
+      # Batch query all keys in a single database operation
+      batch_results = query_json_settings_batch(keys)
+
+      # Merge with defaults for any missing keys
+      Enum.reduce(keys, %{}, fn key, acc ->
+        value = Map.get(batch_results, key) || Map.get(defaults, key)
         Map.put(acc, key, value)
       end)
   end
@@ -309,8 +362,6 @@ defmodule PhoenixKit.Settings do
       %{"default" => true}
   """
   def get_json_setting_cached(key, default \\ nil) when is_binary(key) do
-    ensure_cache_started()
-
     case PhoenixKit.Cache.get(@cache_name, key) do
       nil ->
         # Cache miss - query database and cache result
@@ -323,7 +374,6 @@ defmodule PhoenixKit.Settings do
   rescue
     error ->
       # Cache system unavailable, fallback to regular database query
-      require Logger
       Logger.warning("Settings cache error: #{inspect(error)}, falling back to database")
       get_json_setting(key, default)
   end
@@ -408,6 +458,129 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Gets OAuth credentials for a specific provider.
+
+  Returns a map with all credentials for the given provider.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_oauth_credentials(:google)
+      %{client_id: "google-client-id", client_secret: "google-client-secret"}
+
+      iex> PhoenixKit.Settings.get_oauth_credentials(:apple)
+      %{
+        client_id: "apple-client-id",
+        team_id: "apple-team-id",
+        key_id: "apple-key-id",
+        private_key: "-----BEGIN PRIVATE KEY-----..."
+      }
+  """
+  def get_oauth_credentials(provider) when provider in [:google, :apple, :github, :facebook] do
+    case provider do
+      :google -> get_google_oauth_credentials()
+      :apple -> get_apple_oauth_credentials()
+      :github -> get_github_oauth_credentials()
+      :facebook -> get_facebook_oauth_credentials()
+    end
+  end
+
+  defp get_google_oauth_credentials do
+    keys = ["oauth_google_client_id", "oauth_google_client_secret"]
+    defaults = %{"oauth_google_client_id" => "", "oauth_google_client_secret" => ""}
+    settings = get_settings_cached(keys, defaults)
+
+    %{
+      client_id: settings["oauth_google_client_id"] || "",
+      client_secret: settings["oauth_google_client_secret"] || ""
+    }
+  end
+
+  defp get_apple_oauth_credentials do
+    keys = [
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key"
+    ]
+
+    defaults = %{
+      "oauth_apple_client_id" => "",
+      "oauth_apple_team_id" => "",
+      "oauth_apple_key_id" => "",
+      "oauth_apple_private_key" => ""
+    }
+
+    settings = get_settings_cached(keys, defaults)
+
+    %{
+      client_id: settings["oauth_apple_client_id"] || "",
+      team_id: settings["oauth_apple_team_id"] || "",
+      key_id: settings["oauth_apple_key_id"] || "",
+      private_key: settings["oauth_apple_private_key"] || ""
+    }
+  end
+
+  defp get_github_oauth_credentials do
+    keys = ["oauth_github_client_id", "oauth_github_client_secret"]
+    defaults = %{"oauth_github_client_id" => "", "oauth_github_client_secret" => ""}
+    settings = get_settings_cached(keys, defaults)
+
+    %{
+      client_id: settings["oauth_github_client_id"] || "",
+      client_secret: settings["oauth_github_client_secret"] || ""
+    }
+  end
+
+  defp get_facebook_oauth_credentials do
+    keys = ["oauth_facebook_app_id", "oauth_facebook_app_secret"]
+    defaults = %{"oauth_facebook_app_id" => "", "oauth_facebook_app_secret" => ""}
+    settings = get_settings_cached(keys, defaults)
+
+    %{
+      app_id: settings["oauth_facebook_app_id"] || "",
+      app_secret: settings["oauth_facebook_app_secret"] || ""
+    }
+  end
+
+  @doc """
+  Checks if OAuth credentials are configured for a provider.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.has_oauth_credentials?(:google)
+      true
+  """
+  def has_oauth_credentials?(provider) when provider in [:google, :apple, :github, :facebook] do
+    credentials = get_oauth_credentials(provider)
+
+    case provider do
+      :google -> validate_google_credentials(credentials)
+      :apple -> validate_apple_credentials(credentials)
+      :github -> validate_github_credentials(credentials)
+      :facebook -> validate_facebook_credentials(credentials)
+    end
+  end
+
+  defp validate_google_credentials(credentials) do
+    credentials.client_id != "" and credentials.client_secret != ""
+  end
+
+  defp validate_apple_credentials(credentials) do
+    credentials.client_id != "" and
+      credentials.team_id != "" and
+      credentials.key_id != "" and
+      credentials.private_key != ""
+  end
+
+  defp validate_github_credentials(credentials) do
+    credentials.client_id != "" and credentials.client_secret != ""
+  end
+
+  defp validate_facebook_credentials(credentials) do
+    credentials.app_id != "" and credentials.app_secret != ""
+  end
+
+  @doc """
   Gets a boolean setting value by key with a default fallback.
 
   Converts string values "true"/"false" to actual boolean values.
@@ -422,7 +595,7 @@ defmodule PhoenixKit.Settings do
       true
   """
   def get_boolean_setting(key, default \\ false) when is_binary(key) and is_boolean(default) do
-    raw_value = get_setting(key)
+    raw_value = get_setting_cached(key, nil)
 
     case raw_value do
       "true" -> true
@@ -430,6 +603,9 @@ defmodule PhoenixKit.Settings do
       nil -> default
       _ -> default
     end
+  rescue
+    # During compilation or when infrastructure isn't ready, return default silently
+    _error -> default
   end
 
   @doc """
@@ -447,7 +623,7 @@ defmodule PhoenixKit.Settings do
       25  # if "25" is stored in database
   """
   def get_integer_setting(key, default \\ 0) when is_binary(key) and is_integer(default) do
-    raw_value = get_setting(key)
+    raw_value = get_setting_cached(key, nil)
 
     case raw_value do
       nil ->
@@ -546,6 +722,10 @@ defmodule PhoenixKit.Settings do
   def get_setting_options do
     %{
       "new_user_default_role" => get_role_options(),
+      "new_user_default_status" => [
+        {"Active", "true"},
+        {"Inactive", "false"}
+      ],
       "week_start_day" => [
         {"Monday", "1"},
         {"Tuesday", "2"},
@@ -645,6 +825,72 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Updates or creates multiple settings in a single transaction.
+
+  More efficient version for batch updating settings.
+  Loads all settings in a single query and updates them in a transaction.
+
+  Accepts a map of key-value settings to update.
+  Returns `{:ok, results}` on success, where results is a list of results.
+  Returns `{:error, reason}` on transaction error.
+
+  ## Examples
+
+      iex> settings = %{"aws_region" => "eu-north-1", "aws_access_key_id" => "AKIAIOSFODNN7EXAMPLE"}
+      iex> PhoenixKit.Settings.update_settings_batch(settings)
+      {:ok, [ok: %Setting{}, ok: %Setting{}]}
+
+      iex> PhoenixKit.Settings.update_settings_batch(%{})
+      {:ok, []}
+  """
+  def update_settings_batch(settings_map) when is_map(settings_map) do
+    keys = Map.keys(settings_map)
+
+    # Load all existing settings in a single query
+    existing_settings =
+      Setting
+      |> where([s], s.key in ^keys)
+      |> repo().all()
+      |> Map.new(fn setting -> {setting.key, setting} end)
+
+    # Perform all updates/inserts in a transaction
+    result =
+      Ecto.Multi.new()
+      |> add_batch_operations(settings_map, existing_settings)
+      |> repo().transaction()
+
+    case result do
+      {:ok, _changes} ->
+        # Invalidate cache for all updated keys in a single call
+        PhoenixKit.Cache.invalidate_multiple(@cache_name, keys)
+        result
+
+      {:error, _failed_operation, _failed_value, _changes} ->
+        result
+    end
+  end
+
+  # Helper function to add operations to Multi
+  defp add_batch_operations(multi, settings_map, existing_settings) do
+    Enum.reduce(settings_map, multi, fn {key, value}, acc ->
+      # Convert nil to empty string
+      stored_value = value || ""
+
+      case Map.get(existing_settings, key) do
+        %Setting{} = setting ->
+          # Update existing setting
+          changeset = Setting.update_changeset(setting, %{value: stored_value})
+          Ecto.Multi.update(acc, {:update, key}, changeset)
+
+        nil ->
+          # Create new setting
+          changeset = Setting.changeset(%Setting{}, %{key: key, value: stored_value})
+          Ecto.Multi.insert(acc, {:insert, key}, changeset)
+      end
+    end)
+  end
+
+  @doc """
   Updates or creates a boolean setting with the given key and boolean value.
 
   Converts boolean values to "true"/"false" strings for storage.
@@ -717,6 +963,137 @@ defmodule PhoenixKit.Settings do
       when is_binary(key) and is_boolean(boolean_value) and is_binary(module) do
     string_value = if boolean_value, do: "true", else: "false"
     update_setting_with_module(key, string_value, module)
+  end
+
+  ## Content Language Functions
+
+  @doc """
+  Gets the site content language.
+
+  This represents the primary language of website content (not UI language).
+  Falls back to "en" if not configured or Languages module is disabled.
+
+  This function uses batch caching for optimal performance when called
+  alongside other settings queries.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_content_language()
+      "en"
+
+      iex> PhoenixKit.Settings.get_content_language()
+      "es"  # if configured as Spanish
+  """
+  def get_content_language do
+    # If Languages module is enabled, use the configured setting
+    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
+      # Use batch cached settings for better performance
+      settings =
+        get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
+
+      settings["site_content_language"]
+    else
+      # Languages module disabled - force "en"
+      "en"
+    end
+  end
+
+  @doc """
+  Sets the site content language.
+
+  Validates against enabled languages if Languages module is active.
+  Broadcasts change event for live updates to connected admin sessions.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.set_content_language("es")
+      {:ok, %Setting{}}
+
+      iex> PhoenixKit.Settings.set_content_language("invalid")
+      {:error, "Language not enabled"}
+  """
+  def set_content_language(language_code) when is_binary(language_code) do
+    # Validate if Languages module is enabled
+    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
+      enabled_codes = Languages.enabled_locale_codes()
+
+      if language_code in enabled_codes do
+        case update_setting("site_content_language", language_code) do
+          {:ok, setting} ->
+            # Broadcast change for live updates
+            SettingsEvents.broadcast_content_language_changed(language_code)
+            {:ok, setting}
+
+          error ->
+            error
+        end
+      else
+        {:error, "Language '#{language_code}' is not enabled in Languages module"}
+      end
+    else
+      # Languages module disabled - only allow "en"
+      if language_code == "en" do
+        case update_setting("site_content_language", "en") do
+          {:ok, setting} ->
+            # Broadcast change for live updates
+            SettingsEvents.broadcast_content_language_changed("en")
+            {:ok, setting}
+
+          error ->
+            error
+        end
+      else
+        {:error, "Enable Languages module to use non-English content languages"}
+      end
+    end
+  end
+
+  @doc """
+  Gets content language with full details.
+
+  Returns a map with code, name, and native name if Languages module is enabled.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_content_language_details()
+      %{
+        code: "en",
+        name: "English",
+        native: "English",
+        from_languages_module: false
+      }
+  """
+  def get_content_language_details do
+    code = get_content_language()
+
+    if Code.ensure_loaded?(Languages) and Languages.enabled?() do
+      case Languages.get_language(code) do
+        %{"code" => lang_code, "name" => name} = lang ->
+          %{
+            code: lang_code,
+            name: name,
+            native: get_in(lang, ["native"]) || name,
+            from_languages_module: true
+          }
+
+        nil ->
+          # Fallback if language not found
+          %{
+            code: code,
+            name: String.capitalize(code),
+            native: String.capitalize(code),
+            from_languages_module: false
+          }
+      end
+    else
+      # Languages module disabled - return English
+      %{
+        code: "en",
+        name: "English",
+        native: "English",
+        from_languages_module: false
+      }
+    end
   end
 
   ## Settings Form Functions
@@ -808,50 +1185,117 @@ defmodule PhoenixKit.Settings do
     settings_to_update =
       changeset_data
       |> Map.from_struct()
-      |> Map.new(fn {k, v} -> {Atom.to_string(k), v || ""} end)
+      # Convert nil to empty string for storage (optional fields are allowed to be empty)
+      |> Enum.map(fn {k, v} -> {Atom.to_string(k), v || ""} end)
+      |> Map.new()
+      # Auto-enable OAuth providers when credentials are saved
+      |> auto_enable_oauth_providers()
 
-    # Update each setting in the database
-    updated_settings =
-      Enum.reduce(settings_to_update, %{}, fn {key, value}, acc ->
+    # Update each setting in the database and collect errors
+    {updated_settings, failed_settings} =
+      Enum.reduce(settings_to_update, {%{}, []}, fn {key, value}, {acc_success, acc_failed} ->
         case update_setting(key, value) do
-          {:ok, _setting} -> Map.put(acc, key, value)
-          {:error, _changeset} -> acc
+          {:ok, _setting} ->
+            {Map.put(acc_success, key, value), acc_failed}
+
+          {:error, changeset} ->
+            error_msg = extract_setting_error_message(changeset)
+            Logger.warning("Failed to save setting #{key}: #{error_msg}")
+            {acc_success, [{key, error_msg} | acc_failed]}
         end
       end)
 
     # Check if all settings were updated successfully
-    if map_size(updated_settings) == map_size(settings_to_update) do
+    if failed_settings == [] do
       {:ok, updated_settings}
     else
-      {:error, "Some settings failed to update"}
+      # Format detailed error message with specific fields that failed
+      failed_keys =
+        Enum.map_join(failed_settings, ", ", fn {key, error} -> "#{key} (#{error})" end)
+
+      error_msg = "Failed to save settings: #{failed_keys}"
+      Logger.error("Settings batch update error: #{error_msg}")
+      {:error, error_msg}
     end
   end
 
-  ## Private Cache Management Functions
-
-  # Ensures the settings cache is started via the generic cache system
-  defp ensure_cache_started do
-    # First ensure the registry is started if using registry
-    case Registry.start_link(keys: :unique, name: PhoenixKit.Cache.Registry) do
-      {:ok, _pid} -> :ok
-      {:error, {:already_started, _pid}} -> :ok
-      _ -> :ok
-    end
-
-    # Start the settings cache with warmer function
-    case PhoenixKit.Cache.start_link(name: @cache_name, warmer: &warm_cache_data/0) do
-      {:ok, _pid} -> :ok
-      {:error, {:already_started, _pid}} -> :ok
-      _ -> :ok
-    end
-  rescue
-    # Cache system optional, continue without it
-    _error -> :ok
+  # Helper function to extract error messages from Setting changeset
+  defp extract_setting_error_message(changeset) do
+    changeset
+    |> Ecto.Changeset.traverse_errors(fn {msg, _opts} -> msg end)
+    |> Map.values()
+    |> List.flatten()
+    |> Enum.join(", ")
   end
 
-  # Warms the cache by loading all settings from database
-  # This function is called by the generic cache system
-  defp warm_cache_data do
+  # Auto-enable OAuth providers when credentials are saved
+  defp auto_enable_oauth_providers(settings_map) do
+    settings_map
+    # Auto-enable Google if credentials are being saved
+    |> auto_enable_if_has_credentials("google")
+    # Auto-enable Apple if credentials are being saved
+    |> auto_enable_if_has_credentials("apple")
+    # Auto-enable GitHub if credentials are being saved
+    |> auto_enable_if_has_credentials("github")
+    # Auto-enable Facebook if credentials are being saved
+    |> auto_enable_if_has_credentials("facebook")
+  end
+
+  # Helper to auto-enable a provider if it has credentials
+  defp auto_enable_if_has_credentials(settings_map, provider) do
+    enable_key = "oauth_#{provider}_enabled"
+    cred_keys = oauth_credential_keys(provider)
+
+    # Check if any credential field for this provider is non-empty
+    has_credentials? =
+      Enum.any?(cred_keys, fn key ->
+        value = Map.get(settings_map, key, "")
+        value && value != ""
+      end)
+
+    # Auto-enable if it has credentials and isn't already set to something else
+    if has_credentials? && Map.get(settings_map, enable_key, "false") != "false" do
+      settings_map
+    else
+      if has_credentials? do
+        Map.put(settings_map, enable_key, "true")
+      else
+        settings_map
+      end
+    end
+  end
+
+  # Get credential keys for a given OAuth provider
+  defp oauth_credential_keys("google") do
+    ["oauth_google_client_id", "oauth_google_client_secret"]
+  end
+
+  defp oauth_credential_keys("apple") do
+    [
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key"
+    ]
+  end
+
+  defp oauth_credential_keys("github") do
+    ["oauth_github_client_id", "oauth_github_client_secret"]
+  end
+
+  defp oauth_credential_keys("facebook") do
+    ["oauth_facebook_app_id", "oauth_facebook_app_secret"]
+  end
+
+  defp oauth_credential_keys(_), do: []
+
+  @doc """
+  Warms the cache by loading all settings from database.
+
+  Called by PhoenixKit.Cache to pre-populate cache with all existing settings.
+  Prioritizes JSON values over string values for cache storage.
+  """
+  def warm_cache_data do
     settings = repo().all(Setting)
 
     settings
@@ -869,51 +1313,143 @@ defmodule PhoenixKit.Settings do
     |> Map.new()
   rescue
     error ->
-      require Logger
       Logger.error("Failed to warm settings cache: #{inspect(error)}")
       %{}
   end
 
+  ## Private Batch Query Functions
+
+  # Batch query multiple string settings from database in a single operation
+  defp query_settings_batch(keys) do
+    Setting
+    |> where([s], s.key in ^keys)
+    |> select([s], {s.key, s.value})
+    |> repo().all()
+    |> Map.new()
+  rescue
+    _error ->
+      # If query fails, return empty map
+      %{}
+  end
+
+  # Batch query multiple JSON settings from database in a single operation
+  defp query_json_settings_batch(keys) do
+    Setting
+    |> where([s], s.key in ^keys)
+    |> repo().all()
+    |> Enum.reduce(%{}, fn setting, acc ->
+      # Prioritize JSON value over string value (same logic as warm_cache_data)
+      value = if setting.value_json, do: setting.value_json, else: nil
+      Map.put(acc, setting.key, value)
+    end)
+  rescue
+    _error ->
+      # If query fails, return empty map
+      %{}
+  end
+
+  ## Private Cache Management Functions
+
   # Queries database for a single setting and caches the result
   defp query_and_cache_setting(key) do
-    case repo().get_by(Setting, key: key) do
-      %Setting{value: value} ->
-        PhoenixKit.Cache.put(@cache_name, key, value)
-        value
+    # Check if repository is available before attempting query
+    if repo_available?() do
+      case repo().get_by(Setting, key: key) do
+        %Setting{value: value} ->
+          PhoenixKit.Cache.put(@cache_name, key, value)
+          value
 
-      nil ->
-        # Cache the fact that this setting doesn't exist to avoid repeated queries
-        PhoenixKit.Cache.put(@cache_name, key, nil)
-        nil
+        nil ->
+          # Cache the fact that this setting doesn't exist to avoid repeated queries
+          PhoenixKit.Cache.put(@cache_name, key, nil)
+          nil
+      end
+    else
+      # Repository not started yet - return nil silently
+      nil
     end
   rescue
     error ->
-      require Logger
-      Logger.error("Failed to query setting #{key}: #{inspect(error)}")
+      # Only log if we're in runtime (not compilation or test setup)
+      unless compilation_mode?() do
+        Logger.error("Failed to query setting #{key}: #{inspect(error)}")
+      end
+
       nil
   end
 
   # Queries database for a single JSON setting and caches the result
   defp query_and_cache_json_setting(key) do
-    case repo().get_by(Setting, key: key) do
-      %Setting{value_json: value_json} when not is_nil(value_json) ->
-        PhoenixKit.Cache.put(@cache_name, key, value_json)
-        value_json
+    # Check if repository is available before attempting query
+    if repo_available?() do
+      case repo().get_by(Setting, key: key) do
+        %Setting{value_json: value_json} when not is_nil(value_json) ->
+          PhoenixKit.Cache.put(@cache_name, key, value_json)
+          value_json
 
-      %Setting{value: value} when not is_nil(value) and value != "" ->
-        # Has meaningful string value but no JSON - cache nil for JSON lookup
-        PhoenixKit.Cache.put(@cache_name, key, nil)
-        nil
+        %Setting{value: value} when not is_nil(value) and value != "" ->
+          # Has meaningful string value but no JSON - cache nil for JSON lookup
+          PhoenixKit.Cache.put(@cache_name, key, nil)
+          nil
 
-      nil ->
-        # Cache the fact that this setting doesn't exist to avoid repeated queries
-        PhoenixKit.Cache.put(@cache_name, key, nil)
-        nil
+        nil ->
+          # Cache the fact that this setting doesn't exist to avoid repeated queries
+          PhoenixKit.Cache.put(@cache_name, key, nil)
+          nil
+      end
+    else
+      # Repository not started yet - return nil silently
+      nil
     end
   rescue
     error ->
-      require Logger
-      Logger.error("Failed to query JSON setting #{key}: #{inspect(error)}")
+      # Only log if we're in runtime (not compilation or test setup)
+      unless compilation_mode?() do
+        Logger.error("Failed to query JSON setting #{key}: #{inspect(error)}")
+      end
+
       nil
+  end
+
+  # Check if we're in compilation mode where database/cache infrastructure isn't available
+  defp compilation_mode? do
+    # During compilation, Config module may not be fully loaded
+    # Check if repo is configured AND available - if not, we're in compilation mode
+    case PhoenixKit.Config.get(:repo, nil) do
+      nil ->
+        true
+
+      _repo_module ->
+        # Even if repo is configured, it might not be started yet
+        # In that case, we're effectively in "compilation mode" for queries
+        not repo_available?()
+    end
+  rescue
+    # If we can't even check the config, we're definitely in compilation mode
+    _ -> true
+  end
+
+  # Check if the repository is available and ready to accept queries
+  defp repo_available? do
+    # First check if repo is configured
+    case PhoenixKit.Config.get(:repo, nil) do
+      nil ->
+        false
+
+      repo_module ->
+        # Check if the repo process is started and available
+        try do
+          # Try to get the repo's PID to verify it's running
+          # This will raise if the repo isn't started
+          pid = GenServer.whereis(repo_module)
+          pid != nil
+        rescue
+          # Repo not started or not accessible
+          _ -> false
+        end
+    end
+  rescue
+    # Config not available
+    _ -> false
   end
 end

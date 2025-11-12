@@ -50,14 +50,15 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   """
 
   use Mix.Task
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailSystem.enabled?() do
+    unless Emails.enabled?() do
       Mix.shell().error("Email is not enabled.")
       exit({:shutdown, 1})
     end
@@ -144,11 +145,11 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
   end
 
   defp ensure_test_log(message_id) do
-    case EmailSystem.get_log_by_message_id(message_id) do
+    case Emails.get_log_by_message_id(message_id) do
       {:error, :not_found} ->
         # Create a test log
         {:ok, log} =
-          EmailSystem.create_log(%{
+          Emails.create_log(%{
             message_id: message_id,
             to: "test@example.com",
             from: "noreply@phoenixkit.dev",
@@ -301,7 +302,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.TestWebhook do
 
   defp test_webhook_processing(webhook_data, _options) do
     # Process the webhook event using EmailTracking
-    case EmailSystem.process_webhook_event(webhook_data) do
+    case Emails.process_webhook_event(webhook_data) do
       {:ok, _event} ->
         :ok
 

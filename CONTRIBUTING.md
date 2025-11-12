@@ -71,9 +71,9 @@ mix phx.server
 ```
 
 You can now visit [`http://localhost:4000`](http://localhost:4000) to see your development app running with PhoenixKit, and you can visit PhoenixKit powered pages:
-- http://localhost:4000/phoenix_kit/users/register (first registered user will become admin and a product owner)
-- http://localhost:4000/phoenix_kit/users/log-in (you should be able to login)
-- http://localhost:4000/phoenix_kit/admin/dashboard (and access phoenix_kit admin panel)
+- http://localhost:4000{prefix}/users/register (first registered user will become admin and a product owner)
+- http://localhost:4000{prefix}/users/log-in (you should be able to login)
+- http://localhost:4000{prefix}/admin/dashboard (and access phoenix_kit admin panel)
 
 Keep in mind, that any changes you make to files in the `phoenix_kit` directory will require manually running `mix deps.compile phoenix_kit --force` and refreshing your browser to see the changes, so let's configure live reloading for a better development experience.
 
@@ -137,6 +137,93 @@ mix phx.server
 - When you edit phoenix_kit files, Phoenix.LiveReloader detects changes and triggers browser refresh
 - During the refresh request, Phoenix.CodeReloader automatically recompiles changed files
 - You see updated code immediately without manual recompilation
+
+## Continuous Integration (CI)
+
+PhoenixKit uses GitHub Actions for automated testing and quality checks. Every push and pull request triggers the CI pipeline.
+
+### CI Checks
+
+The following checks must pass before your PR can be merged:
+
+1. **Code Formatting**
+   ```bash
+   mix format --check-formatted
+   ```
+   Ensures code follows Elixir formatting standards.
+
+2. **Static Analysis (Credo)**
+   ```bash
+   mix credo --strict
+   ```
+   Checks for code quality, consistency, and potential issues.
+
+3. **Type Checking (Dialyzer)**
+   ```bash
+   mix dialyzer
+   ```
+   Performs static type analysis to catch type errors.
+
+4. **Test Suite**
+   ```bash
+   mix test
+   ```
+   Runs all tests with PostgreSQL database. Tests must pass without errors.
+
+5. **Compilation Warnings**
+   ```bash
+   mix compile --warnings-as-errors
+   ```
+   Ensures code compiles without warnings.
+
+6. **Dependency Audit**
+   ```bash
+   mix deps.unlock --check-unused
+   ```
+   Verifies no unused dependencies.
+
+### Running CI Checks Locally
+
+Before pushing your changes, run these commands locally to catch issues early:
+
+```bash
+# Format code
+mix format
+
+# Run quality checks
+mix credo --strict
+
+# Run tests (if database is configured)
+mix test
+
+# Compile with warnings as errors
+mix compile --force --warnings-as-errors
+
+# Or run all quality checks at once
+mix quality
+```
+
+### CI Workflow
+
+- **Triggers**: Runs on push to `main`, `dev`, and `claude/**` branches, and on all pull requests
+- **Parallel Execution**: Different checks run in parallel for faster feedback
+- **Caching**: Dependencies and PLT files are cached to speed up subsequent runs
+- **Coverage**: Test coverage is automatically reported to Codecov
+
+### Viewing CI Results
+
+1. **In Pull Requests**: CI status appears at the bottom of your PR
+2. **GitHub Actions Tab**: View detailed logs at https://github.com/BeamLabEU/phoenix_kit/actions
+3. **Status Badges**: Check README.md for current build status
+
+### Troubleshooting CI Failures
+
+If CI fails on your PR:
+
+1. **Check the logs**: Click "Details" next to the failed check
+2. **Reproduce locally**: Run the failing command on your machine
+3. **Fix and push**: Commit the fix and push - CI will re-run automatically
+4. **Ask for help**: If stuck, comment on your PR for assistance
 
 ## Contribution Workflow
 

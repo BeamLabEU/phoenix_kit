@@ -191,6 +191,27 @@ defmodule PhoenixKit.Module.Languages do
     ]
   }
 
+  # Top 10 most common languages for permanent display in admin
+  @top_10_languages [
+    %{"code" => "en", "name" => "English", "is_default" => true, "is_enabled" => true},
+    %{"code" => "es", "name" => "Spanish", "is_default" => false, "is_enabled" => true},
+    %{"code" => "fr", "name" => "French", "is_default" => false, "is_enabled" => true},
+    %{"code" => "de", "name" => "German", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ja", "name" => "Japanese", "is_default" => false, "is_enabled" => true},
+    %{"code" => "pt", "name" => "Portuguese", "is_default" => false, "is_enabled" => true},
+    %{"code" => "it", "name" => "Italian", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ko", "name" => "Korean", "is_default" => false, "is_enabled" => true},
+    %{"code" => "ru", "name" => "Russian", "is_default" => false, "is_enabled" => true},
+    %{"code" => "nl", "name" => "Dutch", "is_default" => false, "is_enabled" => true},
+    %{
+      "code" => "zh-CN",
+      "name" => "Chinese (Mandarin)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
+    %{"code" => "ar", "name" => "Arabic", "is_default" => false, "is_enabled" => true}
+  ]
+
   ## --- System Management Functions ---
 
   @doc """
@@ -211,6 +232,7 @@ defmodule PhoenixKit.Module.Languages do
   Enables the language module and creates default configuration.
 
   Creates the initial module configuration with English as the default language.
+  If a previous configuration exists, it will be restored instead of reset.
   Updates both the enabled flag and the JSON configuration.
 
   Returns `{:ok, config}` on success, `{:error, reason}` on failure.
@@ -224,9 +246,13 @@ defmodule PhoenixKit.Module.Languages do
     # Enable the system
     case Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name) do
       {:ok, _setting} ->
-        # Create initial JSON configuration with default English
-        case Settings.update_json_setting_with_module(@config_key, @default_config, @module_name) do
-          {:ok, _setting} -> {:ok, @default_config}
+        # Check if a previous configuration exists to preserve languages
+        existing_config = Settings.get_json_setting(@config_key, nil)
+        config_to_save = if is_nil(existing_config), do: @default_config, else: existing_config
+
+        # Save the configuration (either existing or new default)
+        case Settings.update_json_setting_with_module(@config_key, config_to_save, @module_name) do
+          {:ok, _setting} -> {:ok, config_to_save}
           {:error, changeset} -> {:error, changeset}
         end
 
@@ -300,7 +326,7 @@ defmodule PhoenixKit.Module.Languages do
   """
   def get_languages do
     if enabled?() do
-      case Settings.get_json_setting(@config_key) do
+      case Settings.get_json_setting_cached(@config_key, nil) do
         %{"languages" => languages} when is_list(languages) -> languages
         _ -> []
       end
@@ -401,6 +427,80 @@ defmodule PhoenixKit.Module.Languages do
   end
 
   @doc """
+  Gets enabled language codes for locale-based routing.
+
+  Returns a list of enabled language codes that can be used in URL routing.
+  Falls back to ["en"] when the language module is disabled.
+
+  ## Examples
+
+      iex> PhoenixKit.Module.Languages.enabled_locale_codes()
+      ["en", "es", "fr"]
+
+      # When system is disabled:
+      iex> PhoenixKit.Module.Languages.enabled_locale_codes()
+      ["en"]
+  """
+  def enabled_locale_codes do
+    # Return enabled language codes from the frontend language module only
+    # Admin navbar languages are managed separately in settings
+    if enabled?() do
+      codes = get_enabled_language_codes()
+      # Ensure we always have at least "en" as a fallback
+      if Enum.empty?(codes), do: ["en"], else: codes
+    else
+      ["en"]
+    end
+  end
+
+  @doc """
+  Gets the appropriate language list for frontend display.
+
+  Returns the configured languages if the module is enabled.
+  Otherwise, returns the permanent top 12 most common languages for display.
+
+  This allows the frontend to always show a language list, reverting to the top 12 when
+  the module is disabled.
+
+  ## Examples
+
+      # When enabled (any number of languages)
+      iex> PhoenixKit.Module.Languages.get_display_languages()
+      [%{"code" => "en", "name" => "English", ...}]
+
+      # When disabled
+      iex> PhoenixKit.Module.Languages.get_display_languages()
+      [%{"code" => "en", ...}, %{"code" => "es", ...}, ...]  # Top 12 default
+  """
+  def get_display_languages do
+    if enabled?() do
+      # Show configured languages when enabled (even if just 1)
+      get_languages()
+    else
+      # Show top 12 default languages when disabled
+      @top_10_languages
+    end
+  end
+
+  @doc """
+  Checks if currently in configured mode (showing user-configured languages vs defaults).
+
+  Returns true if the module is enabled and has 2+ configured languages.
+  Returns false if showing the default top 10 languages.
+
+  ## Examples
+
+      iex> PhoenixKit.Module.Languages.in_configured_mode?()
+      true  # When enabled with 2+ languages
+
+      iex> PhoenixKit.Module.Languages.in_configured_mode?()
+      false  # When disabled or only 1 language
+  """
+  def in_configured_mode? do
+    enabled?() and length(get_languages()) >= 2
+  end
+
+  @doc """
   Checks if a language code is valid (exists in configuration).
 
   Returns true if the language exists, false otherwise.
@@ -436,6 +536,22 @@ defmodule PhoenixKit.Module.Languages do
         %{"is_enabled" => true} -> true
         _ -> false
       end
+  end
+
+  @doc """
+  Gets the 12 default popular languages for admin panel display.
+
+  Returns a list of the most commonly used language codes that should
+  be available in the admin panel language selector.
+
+  ## Examples
+
+      iex> PhoenixKit.Module.Languages.get_default_language_codes()
+      ["en", "es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh-CN", "ar"]
+  """
+  def get_default_language_codes do
+    @top_10_languages
+    |> Enum.map(& &1["code"])
   end
 
   @doc """

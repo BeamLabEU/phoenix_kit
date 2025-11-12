@@ -6,9 +6,7 @@ defmodule PhoenixKitWeb.Components.Core.Input do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias Phoenix.HTML.Form
-
-  import PhoenixKitWeb.Components.Core.Icon, only: [icon: 1]
+  import PhoenixKitWeb.Components.Core.FormFieldError, only: [error: 1]
 
   @doc """
   Renders an input with label and error messages.
@@ -20,10 +18,6 @@ defmodule PhoenixKitWeb.Components.Core.Input do
   ## Types
 
   This function accepts all HTML input types, considering that:
-
-    * You may also set `type="select"` to render a `<select>` tag
-
-    * `type="checkbox"` is used exclusively to render boolean values
 
     * For live file uploads, see `Phoenix.Component.live_file_input/1`
 
@@ -42,8 +36,10 @@ defmodule PhoenixKitWeb.Components.Core.Input do
 
   attr :type, :string,
     default: "text",
-    values: ~w(checkbox color date datetime-local email file hidden month number password
-               range radio search select tel text textarea time url week)
+    values:
+      ~w(color date datetime-local email file hidden month number password range search tel text time url week)
+
+  attr :class, :string, default: nil
 
   attr :field, Phoenix.HTML.FormField,
     doc: "a form field struct retrieved from the form, for example: @form[:email]"
@@ -70,74 +66,9 @@ defmodule PhoenixKitWeb.Components.Core.Input do
     |> input()
   end
 
-  def input(%{type: "checkbox", value: value} = assigns) do
-    assigns =
-      assign_new(assigns, :checked, fn -> Form.normalize_value("checkbox", value) end)
-
-    ~H"""
-    <div phx-feedback-for={@name}>
-      <label class="flex items-center gap-4 text-sm leading-6 text-base-content">
-        <input type="hidden" name={@name} value="false" />
-        <input
-          type="checkbox"
-          id={@id}
-          name={@name}
-          value="true"
-          checked={@checked}
-          class="checkbox checkbox-primary"
-          {@rest}
-        />
-        {@label}
-      </label>
-      <.error :for={msg <- @errors}>{msg}</.error>
-    </div>
-    """
-  end
-
-  def input(%{type: "select"} = assigns) do
-    ~H"""
-    <div phx-feedback-for={@name}>
-      <.label :if={@label && @label != ""} for={@id} class="block mb-2">{@label}</.label>
-      <select
-        id={@id}
-        name={@name}
-        class={[
-          "select select-bordered w-full",
-          @errors != [] && "select-error"
-        ]}
-        multiple={@multiple}
-        {@rest}
-      >
-        <option :if={@prompt} value="">{@prompt}</option>
-        {Phoenix.HTML.Form.options_for_select(@options, @value)}
-      </select>
-      <.error :for={msg <- @errors}>{msg}</.error>
-    </div>
-    """
-  end
-
-  def input(%{type: "textarea"} = assigns) do
-    ~H"""
-    <div phx-feedback-for={@name}>
-      <.label :if={@label && @label != ""} for={@id} class="block mb-2">{@label}</.label>
-      <textarea
-        id={@id}
-        name={@name}
-        class={[
-          "textarea textarea-bordered min-h-[6rem] w-full",
-          @errors != [] && "textarea-error"
-        ]}
-        {@rest}
-      ><%= Phoenix.HTML.Form.normalize_value("textarea", @value) %></textarea>
-      <.error :for={msg <- @errors}>{msg}</.error>
-    </div>
-    """
-  end
-
-  # All other inputs text, datetime-local, url, password, etc. are handled here...
   def input(assigns) do
     ~H"""
-    <div phx-feedback-for={@name}>
+    <div phx-feedback-for={@name} class={@class}>
       <label :if={@label && @label != ""} class="label mb-2" for={@id}>
         <span :if={@icon != []} class="label-text flex items-center">
           {render_slot(@icon)}
@@ -158,35 +89,6 @@ defmodule PhoenixKitWeb.Components.Core.Input do
       />
       <.error :for={msg <- @errors}>{msg}</.error>
     </div>
-    """
-  end
-
-  @doc """
-  Renders a label.
-  """
-  attr :for, :string, default: nil
-  attr :class, :string, default: nil
-  slot :inner_block, required: true
-
-  def label(assigns) do
-    ~H"""
-    <label for={@for} class={["label", @class]}>
-      <span class="label-text font-semibold">{render_slot(@inner_block)}</span>
-    </label>
-    """
-  end
-
-  @doc """
-  Generates a generic error message.
-  """
-  slot :inner_block, required: true
-
-  def error(assigns) do
-    ~H"""
-    <p class="mt-2 flex gap-2 text-sm text-error phx-no-feedback:hidden">
-      <.icon name="hero-exclamation-circle-mini" class="mt-0.5 h-4 w-4 flex-none" />
-      {render_slot(@inner_block)}
-    </p>
     """
   end
 
