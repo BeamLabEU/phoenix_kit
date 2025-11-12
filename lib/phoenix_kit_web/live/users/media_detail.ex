@@ -128,6 +128,18 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         description = metadata["description"] || ""
         tags = metadata["tags"] || []
 
+        # Get user information if available
+        user_name =
+          case file.user_id do
+            nil -> "Unknown"
+            user_id ->
+              alias_module = Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+              case repo.get(alias_module, user_id) do
+                nil -> "Unknown"
+                user -> user.email
+              end
+          end
+
         # Build file data map
         file_data = %{
           file_id: file.id,
@@ -144,7 +156,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
           metadata: metadata,
           inserted_at: file.inserted_at,
           updated_at: file.updated_at,
-          locations: locations
+          locations: locations,
+          user_name: user_name
         }
 
         socket
