@@ -598,11 +598,7 @@ defmodule PhoenixKit.Users.Auth do
     case user do
       %User{is_active: false} = inactive_user ->
         require Logger
-
-        Logger.warning(
-          "PhoenixKit: Inactive user #{inactive_user.id} attempted access"
-        )
-
+        Logger.warning("PhoenixKit: Inactive user #{inactive_user.id} attempted access")
         nil
 
       active_user ->
