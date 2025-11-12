@@ -888,7 +888,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
 
   ## Settings Storage
 
-  Stored in JSON setting with key: `user_rate_limits_#{user_id}`
+  Stored in JSON setting with key: `user_rate_limits_<user_id>`
 
   Structure:
   ```elixir
@@ -1024,7 +1024,7 @@ defmodule PhoenixKit.Emails.RateLimiter do
 
   ## Event Tracking
 
-  Events are stored in JSON setting with key: `user_monitoring_#{user_id}`
+  Events are stored in JSON setting with key: `user_monitoring_<user_id>`
 
   Structure:
   ```elixir
