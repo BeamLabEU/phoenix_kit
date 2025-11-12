@@ -1,3 +1,30 @@
+## 1.6.2 - Unreleased
+
+### Added
+- **Audit Logging System** - Comprehensive audit trail for administrative actions with detailed context tracking
+- **Migration V22 Enhancement** - Added audit log entries table with optimized indexes
+  - Added `phoenix_kit_audit_logs` table for tracking administrative actions
+  - Records admin user, target user, action type, IP address, and user agent
+  - JSONB metadata field for flexible additional context
+  - Optimized indexes for querying by user, action, and timestamp
+  - Composite indexes for common query patterns
+- **Admin Password Reset Logging** - Automatic logging of password resets with full audit trail
+  - WHO: Admin user ID and email
+  - WHAT: Password reset action
+  - WHEN: Timestamp with microsecond precision
+  - WHERE: IP address of the admin
+  - HOW: User agent string
+
+### Changed
+- **Admin Password Update** - Enhanced `admin_update_user_password/3` to accept optional context parameter
+  - Backward compatible - context parameter is optional
+  - Non-failing design - logging errors don't prevent password updates
+  - Records complete audit trail when context is provided
+- **User Form** - Updated to pass admin user and IP context when updating user passwords
+  - New `build_audit_context/1` helper extracts context from LiveView socket
+  - Automatically captures admin user, IP address, and user agent
+  - Seamless integration with existing password update workflow
+
 ## 1.6.1 - 2025-11-11
 
 ### Added
