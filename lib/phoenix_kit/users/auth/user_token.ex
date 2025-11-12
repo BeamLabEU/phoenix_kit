@@ -10,7 +10,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   - **Email confirmation tokens**: For account verification (7 days validity)
   - **Password reset tokens**: For secure password recovery (1 hour validity)
   - **Email change tokens**: For confirming new email addresses (7 days validity)
-  - **Magic link tokens**: For passwordless authentication (15 minutes validity)
+  - **Magic link tokens**: For passwordless authentication (15 minutes validity per industry security standards)
 
   ## Security Features
 
@@ -18,6 +18,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   - Different expiry policies for different token types
   - Secure random token generation (48 bytes for enhanced security)
   - Context-based token management for isolation
+  - Short-lived magic links (15 minutes) minimize security exposure
   """
   use Ecto.Schema
   import Ecto.Query
@@ -33,7 +34,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   @confirm_validity_in_days 7
   @change_email_validity_in_days 7
   @session_validity_in_days 60
-  @magic_link_validity_in_days 1
+  # Magic links expire in 15 minutes for security (actual verification in MagicLink module)
+  @magic_link_validity_in_minutes 15
 
   schema "phoenix_kit_users_tokens" do
     field :token, :binary
@@ -207,7 +209,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   defp validity_for_context("confirm"), do: {@confirm_validity_in_days, "day"}
   defp validity_for_context("reset_password"), do: {@reset_password_validity_in_hours, "hour"}
-  defp validity_for_context("magic_link"), do: {@magic_link_validity_in_days, "day"}
+  # Magic link expires in 15 minutes per industry security standards
+  defp validity_for_context("magic_link"), do: {@magic_link_validity_in_minutes, "minute"}
 
   @doc """
   Checks if the token is valid and returns its underlying lookup query.
