@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Emails
+  alias PhoenixKit.Utils.Routes
 
   ## --- Email Logs Export ---
 
@@ -64,7 +65,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: Routes.path("/admin/dashboard"))
     end
   end
 
@@ -102,7 +103,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: Routes.path("/admin/dashboard"))
     end
   end
 
@@ -131,7 +132,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: Routes.path("/admin/dashboard"))
     end
   end
 
@@ -169,17 +170,17 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
         Ecto.NoResultsError ->
           conn
           |> put_flash(:error, "Email not found")
-          |> redirect(to: "/phoenix_kit/admin/emails")
+          |> redirect(to: Routes.path("/admin/emails"))
 
         ArgumentError ->
           conn
           |> put_flash(:error, "Invalid email ID")
-          |> redirect(to: "/phoenix_kit/admin/emails")
+          |> redirect(to: Routes.path("/admin/emails"))
       end
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: Routes.path("/admin/dashboard"))
     end
   end
 
