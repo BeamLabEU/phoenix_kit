@@ -128,13 +128,76 @@ defmodule PhoenixKit.Users.Auth.User do
   defp validate_password(changeset, opts) do
     changeset
     |> validate_required([:password])
-    |> validate_length(:password, min: 8, max: 72)
-    # Examples of additional password validation:
-    # |> validate_format(:password, ~r/[a-z]/, message: "at least one lower case character")
-    # |> validate_format(:password, ~r/[A-Z]/, message: "at least one upper case character")
-    # |> validate_format(:password, ~r/[!?@#$%^&*_0-9]/, message: "at least one digit or punctuation character")
+    |> apply_password_requirements()
     |> maybe_hash_password(opts)
   end
+
+  # Apply configurable password requirements from application config.
+  #
+  # Password requirements can be configured via:
+  #
+  #     config :phoenix_kit, :password_requirements,
+  #       min_length: 8,
+  #       max_length: 72,
+  #       require_uppercase: false,
+  #       require_lowercase: false,
+  #       require_digit: false,
+  #       require_special: false
+  #
+  # Default Requirements:
+  # - min_length: 8 characters (minimum recommended)
+  # - max_length: 72 characters (bcrypt limit)
+  # - require_uppercase: false
+  # - require_lowercase: false
+  # - require_digit: false
+  # - require_special: false
+  defp apply_password_requirements(changeset) do
+    requirements = Application.get_env(:phoenix_kit, :password_requirements, [])
+
+    changeset
+    |> validate_length(:password,
+      min: Keyword.get(requirements, :min_length, 8),
+      max: Keyword.get(requirements, :max_length, 72)
+    )
+    |> maybe_validate_uppercase(Keyword.get(requirements, :require_uppercase, false))
+    |> maybe_validate_lowercase(Keyword.get(requirements, :require_lowercase, false))
+    |> maybe_validate_digit(Keyword.get(requirements, :require_digit, false))
+    |> maybe_validate_special(Keyword.get(requirements, :require_special, false))
+  end
+
+  # Conditionally validate uppercase requirement
+  defp maybe_validate_uppercase(changeset, true) do
+    validate_format(changeset, :password, ~r/[A-Z]/,
+      message: "must contain at least one uppercase character"
+    )
+  end
+
+  defp maybe_validate_uppercase(changeset, _), do: changeset
+
+  # Conditionally validate lowercase requirement
+  defp maybe_validate_lowercase(changeset, true) do
+    validate_format(changeset, :password, ~r/[a-z]/,
+      message: "must contain at least one lowercase character"
+    )
+  end
+
+  defp maybe_validate_lowercase(changeset, _), do: changeset
+
+  # Conditionally validate digit requirement
+  defp maybe_validate_digit(changeset, true) do
+    validate_format(changeset, :password, ~r/[0-9]/, message: "must contain at least one digit")
+  end
+
+  defp maybe_validate_digit(changeset, _), do: changeset
+
+  # Conditionally validate special character requirement
+  defp maybe_validate_special(changeset, true) do
+    validate_format(changeset, :password, ~r/[!?@#$%^&*_]/,
+      message: "must contain at least one special character (!?@#$%^&*_)"
+    )
+  end
+
+  defp maybe_validate_special(changeset, _), do: changeset
 
   defp maybe_hash_password(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
