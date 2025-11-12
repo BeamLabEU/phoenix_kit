@@ -18,6 +18,8 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @doc """
   Displays a blog post, blog listing, or all blogs overview.
@@ -313,14 +315,10 @@ defmodule PhoenixKitWeb.BlogController do
 
     # Filter available languages to only show enabled ones
     languages =
-      if Enum.empty?(post.available_languages) do
-        [current_language]
-      else
-        # Only show translations that are both available AND enabled
-        Enum.filter(post.available_languages, fn lang ->
-          lang in enabled_languages
-        end)
-      end
+      post.available_languages
+      |> normalize_languages(current_language)
+      |> Enum.filter(&language_enabled?(&1, enabled_languages))
+      |> Enum.filter(&translation_published?(post, &1))
 
     Enum.map(languages, fn lang ->
       %{
@@ -330,6 +328,40 @@ defmodule PhoenixKitWeb.BlogController do
         current: lang == current_language
       }
     end)
+  end
+
+  defp normalize_languages(nil, current_language), do: [current_language]
+  defp normalize_languages([], current_language), do: [current_language]
+  defp normalize_languages(languages, _current_language), do: languages
+
+  defp language_enabled?(language, enabled_languages), do: language in enabled_languages
+
+  defp translation_published?(post, language) when language == post.language do
+    Map.get(post.metadata, :status) == "published"
+  end
+
+  defp translation_published?(post, language) do
+    case fetch_translation_metadata(post, language) do
+      {:ok, metadata} -> Map.get(metadata, :status) == "published"
+      _ -> false
+    end
+  end
+
+  defp fetch_translation_metadata(post, language) do
+    post.full_path
+    |> Path.dirname()
+    |> Path.join(Storage.language_filename(language))
+    |> read_metadata()
+  end
+
+  defp read_metadata(path) do
+    with true <- File.exists?(path),
+         {:ok, contents} <- File.read(path),
+         {:ok, metadata, _content} <- Metadata.parse_with_content(contents) do
+      {:ok, metadata}
+    else
+      _ -> :error
+    end
   end
 
   defp build_breadcrumbs(blog_slug, post, language) do
