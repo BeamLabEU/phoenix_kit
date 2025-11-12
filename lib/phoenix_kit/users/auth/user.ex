@@ -194,6 +194,7 @@ defmodule PhoenixKit.Users.Auth.User do
     user
     |> cast(attrs, [:password])
     |> validate_confirmation(:password, message: "does not match password")
+    |> validate_password_different_from_current()
     |> validate_password(opts)
   end
 
@@ -238,6 +239,21 @@ defmodule PhoenixKit.Users.Auth.User do
       changeset
     else
       add_error(changeset, :current_password, "is not valid")
+    end
+  end
+
+  # Validates that the new password is different from the current password
+  defp validate_password_different_from_current(changeset) do
+    new_password = get_change(changeset, :password)
+
+    if new_password && changeset.data.hashed_password do
+      if Bcrypt.verify_pass(new_password, changeset.data.hashed_password) do
+        add_error(changeset, :password, "must be different from current password")
+      else
+        changeset
+      end
+    else
+      changeset
     end
   end
 
