@@ -383,7 +383,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp update_custom_fields(user, custom_fields_params) do
-    case Auth.update_user_custom_fields(user, custom_fields_params) do
+    # Use update_user_fields instead of update_user_custom_fields to preserve existing fields (like avatar_file_id)
+    case Auth.update_user_fields(user, custom_fields_params) do
       {:ok, updated_user} -> {:ok, updated_user}
       {:error, _changeset} -> {:error, :custom_fields_save}
     end
