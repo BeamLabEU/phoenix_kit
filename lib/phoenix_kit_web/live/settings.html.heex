@@ -1,0 +1,1357 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Settings"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Settings</h1>
+        <p class="text-lg text-base-content">Configure system preferences and options</p>
+      </div>
+    </header>
+
+    <%!-- Settings Form --%>
+    <div class="max-w-2xl mx-auto">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-6">System Configuration</h2>
+
+          <.form
+            :let={_form}
+            for={@changeset}
+            id="settings_form"
+            phx-submit="save_settings"
+            phx-change="validate_settings"
+            class="space-y-6"
+          >
+            <%!-- Hidden fields for required settings from Users page --%>
+            <%!-- Use @saved_settings to preserve database values, not @settings which may have incorrect form state --%>
+            <input
+              type="hidden"
+              name="settings[allow_registration]"
+              value={@saved_settings["allow_registration"]}
+            />
+            <input
+              type="hidden"
+              name="settings[new_user_default_role]"
+              value={@saved_settings["new_user_default_role"]}
+            />
+            <input
+              type="hidden"
+              name="settings[new_user_default_status]"
+              value={@saved_settings["new_user_default_status"]}
+            />
+            <input
+              type="hidden"
+              name="settings[track_registration_geolocation]"
+              value={@saved_settings["track_registration_geolocation"]}
+            />
+
+            <%!-- Project Title Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Project Title</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Application name display
+                </span>
+              </label>
+              <input
+                name="settings[project_title]"
+                type="text"
+                value={@settings["project_title"]}
+                class="input input-bordered w-full focus:input-primary"
+                placeholder="Enter project title"
+                phx-debounce="500"
+              />
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["project_title"] != @saved_settings["project_title"] do %>
+                    <span class="text-warning">
+                      Selected: {@settings["project_title"]}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {@saved_settings["project_title"]}
+                    </span>
+                  <% else %>
+                    Saved: {@settings["project_title"]}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Site Address URL Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Site Address (URL)</span>
+              </label>
+              <input
+                name="settings[site_url]"
+                type="url"
+                value={@settings["site_url"]}
+                class="input input-bordered w-full focus:input-primary"
+                placeholder="https://site.com"
+                phx-debounce="500"
+              />
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["site_url"] != @saved_settings["site_url"] do %>
+                    <span class="text-warning">
+                      Selected: {if @settings["site_url"] != "",
+                        do: @settings["site_url"],
+                        else: "(empty)"}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {if @saved_settings["site_url"] != "",
+                        do: @saved_settings["site_url"],
+                        else: "(empty)"}
+                    </span>
+                  <% else %>
+                    Saved: {if @settings["site_url"] != "",
+                      do: @settings["site_url"],
+                      else: "(empty)"}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Authentication Methods Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Authentication Methods</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Control available login/registration methods
+                </span>
+              </label>
+
+              <%!-- Magic Link Methods --%>
+              <div class="mb-3">
+                <div class="text-sm font-semibold text-base-content/70 mb-2">Magic Link</div>
+                <div class="flex items-center gap-3 mb-2 ml-4">
+                  <input
+                    name="settings[magic_link_login_enabled]"
+                    type="hidden"
+                    value="false"
+                  />
+                  <input
+                    name="settings[magic_link_login_enabled]"
+                    type="checkbox"
+                    value="true"
+                    checked={@settings["magic_link_login_enabled"] == "true"}
+                    class="checkbox checkbox-primary"
+                  />
+                  <span class="label-text">Enable Magic Link for login</span>
+                </div>
+                <div class="flex items-center gap-3 ml-4">
+                  <input
+                    name="settings[magic_link_registration_enabled]"
+                    type="hidden"
+                    value="false"
+                  />
+                  <input
+                    name="settings[magic_link_registration_enabled]"
+                    type="checkbox"
+                    value="true"
+                    checked={@settings["magic_link_registration_enabled"] == "true"}
+                    class="checkbox checkbox-primary"
+                  />
+                  <span class="label-text">Enable Magic Link for registration</span>
+                </div>
+              </div>
+
+              <%!-- OAuth Methods --%>
+              <div>
+                <div class="text-sm font-semibold text-base-content/70 mb-2">OAuth Providers</div>
+                <div class="flex items-center gap-3 mb-2 ml-4">
+                  <input name="settings[oauth_enabled]" type="hidden" value="false" />
+                  <input
+                    name="settings[oauth_enabled]"
+                    type="checkbox"
+                    value="true"
+                    checked={@settings["oauth_enabled"] == "true"}
+                    class="checkbox checkbox-primary"
+                  />
+                  <span class="label-text font-semibold">Enable OAuth (Master Switch)</span>
+                </div>
+
+                <%!-- Individual OAuth Providers (disabled if master is off) --%>
+                <div class={[
+                  "ml-8 space-y-2",
+                  if(@settings["oauth_enabled"] != "true", do: "opacity-50", else: "")
+                ]}>
+                  <div class="flex items-center gap-3">
+                    <input
+                      name="settings[oauth_google_enabled]"
+                      type="hidden"
+                      value="false"
+                    />
+                    <input
+                      name="settings[oauth_google_enabled]"
+                      type="checkbox"
+                      value="true"
+                      checked={@settings["oauth_google_enabled"] == "true"}
+                      class={[
+                        "checkbox checkbox-primary",
+                        if(@settings["oauth_enabled"] != "true",
+                          do: "pointer-events-none",
+                          else: ""
+                        )
+                      ]}
+                    />
+                    <span class="label-text">Google Sign-In</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input name="settings[oauth_apple_enabled]" type="hidden" value="false" />
+                    <input
+                      name="settings[oauth_apple_enabled]"
+                      type="checkbox"
+                      value="true"
+                      checked={@settings["oauth_apple_enabled"] == "true"}
+                      class={[
+                        "checkbox checkbox-primary",
+                        if(@settings["oauth_enabled"] != "true",
+                          do: "pointer-events-none",
+                          else: ""
+                        )
+                      ]}
+                    />
+                    <span class="label-text">Apple Sign-In</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input
+                      name="settings[oauth_github_enabled]"
+                      type="hidden"
+                      value="false"
+                    />
+                    <input
+                      name="settings[oauth_github_enabled]"
+                      type="checkbox"
+                      value="true"
+                      checked={@settings["oauth_github_enabled"] == "true"}
+                      class={[
+                        "checkbox checkbox-primary",
+                        if(@settings["oauth_enabled"] != "true",
+                          do: "pointer-events-none",
+                          else: ""
+                        )
+                      ]}
+                    />
+                    <span class="label-text">GitHub Sign-In</span>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <input
+                      name="settings[oauth_facebook_enabled]"
+                      type="hidden"
+                      value="false"
+                    />
+                    <input
+                      name="settings[oauth_facebook_enabled]"
+                      type="checkbox"
+                      value="true"
+                      checked={@settings["oauth_facebook_enabled"] == "true"}
+                      class={[
+                        "checkbox checkbox-primary",
+                        if(@settings["oauth_enabled"] != "true",
+                          do: "pointer-events-none",
+                          else: ""
+                        )
+                      ]}
+                    />
+                    <span class="label-text">Facebook Sign-In</span>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- OAuth Provider Credential Forms --%>
+              <%= if @settings["oauth_enabled"] == "true" do %>
+                <%!-- Google OAuth Credentials --%>
+                <div class={[
+                  if(@settings["oauth_google_enabled"] != "true", do: "hidden", else: "")
+                ]}>
+                  <div class="card bg-base-200 p-4 mt-3">
+                    <h3 class="font-semibold mb-3 flex items-center gap-2">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_google class="h-5 w-5" />
+                      Google OAuth Credentials
+                    </h3>
+
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text">Client ID</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="settings[oauth_google_client_id]"
+                        value={@settings["oauth_google_client_id"] || ""}
+                        placeholder="Your Google OAuth Client ID"
+                        class="input input-bordered"
+                      />
+                    </div>
+
+                    <div class="form-control mt-2">
+                      <label class="label">
+                        <span class="label-text">Client Secret</span>
+                      </label>
+                      <input
+                        type="password"
+                        name="settings[oauth_google_client_secret]"
+                        value={@settings["oauth_google_client_secret"] || ""}
+                        placeholder="Your Google OAuth Client Secret"
+                        class="input input-bordered"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      phx-click="test_oauth"
+                      phx-value-provider="google"
+                      class="btn btn-sm btn-outline mt-3 w-fit"
+                    >
+                      Test Credentials
+                    </button>
+
+                    <%!-- Google OAuth Setup Instructions --%>
+                    <div class="collapse collapse-arrow bg-base-200 mt-4">
+                      <input type="checkbox" class="peer" />
+                      <div class="collapse-title text-sm font-medium">
+                        Setup Instructions
+                      </div>
+                      <div class="collapse-content text-sm space-y-4">
+                        <%!-- Callback URL Section --%>
+                        <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                          <div class="flex items-start gap-3">
+                            <.icon
+                              name="hero-information-circle"
+                              class="stroke-current shrink-0 h-5 w-5 text-info mt-0.5"
+                            />
+                            <div class="flex-1 min-w-0">
+                              <div class="text-sm font-semibold text-base-content mb-2">
+                                Callback URL
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <code class="flex-1 px-3 py-2 bg-base-200 text-base-content border border-base-300 rounded font-mono text-xs break-all">
+                                  {get_oauth_callback_url(@settings, "google")}
+                                </code>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-square btn-outline"
+                                  onclick={"navigator.clipboard.writeText('#{get_oauth_callback_url(@settings, "google")}')"}
+                                  title="Copy to clipboard"
+                                >
+                                  <.icon name="hero-clipboard" class="h-4 w-4" />
+                                </button>
+                              </div>
+                              <div class="text-xs text-base-content/60 mt-2">
+                                Copy this URL to Google Cloud Console
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <%!-- Step-by-step Instructions --%>
+                        <div class="space-y-3">
+                          <ol class="list-decimal list-inside space-y-2 text-base-content/80">
+                            <li>
+                              Visit
+                              <a
+                                href="https://console.cloud.google.com/apis/credentials"
+                                target="_blank"
+                                class="link link-primary"
+                              >
+                                Google Cloud Console
+                              </a>
+                            </li>
+                            <li>Create project or select existing one</li>
+                            <li>
+                              Go to <strong>Credentials</strong>
+                              → <strong>Create Credentials</strong>
+                              → <strong>OAuth client ID</strong>
+                            </li>
+                            <li>
+                              Select <strong>Web application</strong> type
+                            </li>
+                            <li>
+                              Add callback URL above to <strong>Authorized redirect URIs</strong>
+                            </li>
+                            <li>Copy Client ID and Secret to fields above</li>
+                            <li>
+                              Click <strong>Test Credentials</strong> to verify setup
+                            </li>
+                          </ol>
+                        </div>
+
+                        <%!-- Reverse Proxy Notice --%>
+                        <div class="bg-base-200 border border-base-300 rounded-lg p-3 text-xs">
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-information-circle"
+                              class="h-4 w-4 text-info shrink-0 mt-0.5"
+                            />
+                            <div class="text-base-content/80">
+                              <strong class="text-base-content">Reverse Proxy Users:</strong>
+                              If behind nginx/apache, ensure
+                              <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                                X-Forwarded-Proto
+                              </code>
+                              header is set to
+                              <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                                https
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Apple OAuth Credentials --%>
+                <div class={[
+                  if(@settings["oauth_apple_enabled"] != "true", do: "hidden", else: "")
+                ]}>
+                  <div class="card bg-base-200 p-4 mt-3">
+                    <h3 class="font-semibold mb-3 flex items-center gap-2">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_apple class="h-5 w-5" />
+                      Apple OAuth Credentials
+                    </h3>
+
+                    <div class="form-control">
+                      <label class="label">
+                        <span class="label-text">Client ID</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="settings[oauth_apple_client_id]"
+                        value={@settings["oauth_apple_client_id"] || ""}
+                        placeholder="com.yourapp.service"
+                        class="input input-bordered"
+                      />
+                    </div>
+
+                    <div class="form-control mt-2">
+                      <label class="label">
+                        <span class="label-text">Team ID</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="settings[oauth_apple_team_id]"
+                        value={@settings["oauth_apple_team_id"] || ""}
+                        placeholder="Your Apple Team ID"
+                        class="input input-bordered"
+                      />
+                    </div>
+
+                    <div class="form-control mt-2">
+                      <label class="label">
+                        <span class="label-text">Key ID</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="settings[oauth_apple_key_id]"
+                        value={@settings["oauth_apple_key_id"] || ""}
+                        placeholder="Your Apple Key ID"
+                        class="input input-bordered"
+                      />
+                    </div>
+
+                    <div class="form-control mt-2">
+                      <label class="label">
+                        <span class="label-text">Private Key</span>
+                      </label>
+                      <textarea
+                        name="settings[oauth_apple_private_key]"
+                        rows="5"
+                        placeholder="-----BEGIN PRIVATE KEY-----&#10;Your Apple private key content&#10;-----END PRIVATE KEY-----"
+                        class="textarea textarea-bordered font-mono text-xs"
+                      >{@settings["oauth_apple_private_key"] || ""}</textarea>
+                    </div>
+
+                    <button
+                      type="button"
+                      phx-click="test_oauth"
+                      phx-value-provider="apple"
+                      class="btn btn-sm btn-outline mt-3 w-fit"
+                    >
+                      Test Credentials
+                    </button>
+
+                    <%!-- Apple OAuth Setup Instructions --%>
+                    <div class="collapse collapse-arrow bg-base-200 mt-4">
+                      <input type="checkbox" class="peer" />
+                      <div class="collapse-title text-sm font-medium">
+                        Setup Instructions
+                      </div>
+                      <div class="collapse-content text-sm space-y-4">
+                        <%!-- Callback URL Section --%>
+                        <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                          <div class="flex items-start gap-3">
+                            <.icon
+                              name="hero-information-circle"
+                              class="stroke-current shrink-0 h-5 w-5 text-info mt-0.5"
+                            />
+                            <div class="flex-1 min-w-0">
+                              <div class="text-sm font-semibold text-base-content mb-2">
+                                Callback URL
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <code class="flex-1 px-3 py-2 bg-base-200 text-base-content border border-base-300 rounded font-mono text-xs break-all">
+                                  {get_oauth_callback_url(@settings, "apple")}
+                                </code>
+                                <button
+                                  type="button"
+                                  class="btn btn-sm btn-square btn-outline"
+                                  onclick={"navigator.clipboard.writeText('#{get_oauth_callback_url(@settings, "apple")}')"}
+                                  title="Copy to clipboard"
+                                >
+                                  <.icon name="hero-clipboard" class="h-4 w-4" />
+                                </button>
+                              </div>
+                              <div class="text-xs text-base-content/60 mt-2">
+                                Copy this URL to Apple Developer Console
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <%!-- Step-by-step Instructions --%>
+                        <div class="space-y-3">
+                          <ol class="list-decimal list-inside space-y-2 text-base-content/80">
+                            <li>
+                              Visit
+                              <a
+                                href="https://developer.apple.com/account/resources/identifiers/list"
+                                target="_blank"
+                                class="link link-primary"
+                              >
+                                Apple Developer Console
+                              </a>
+                            </li>
+                            <li>Create an App ID or select existing one</li>
+                            <li>
+                              Enable <strong>Sign in with Apple</strong> capability
+                            </li>
+                            <li>
+                              Create a <strong>Services ID</strong> for web authentication
+                            </li>
+                            <li>
+                              Configure <strong>Sign in with Apple</strong> for the Services ID
+                            </li>
+                            <li>
+                              Add callback URL above to <strong>Return URLs</strong>
+                            </li>
+                            <li>
+                              Create a <strong>Private Key</strong>
+                              with Sign in with Apple enabled
+                            </li>
+                            <li>
+                              Copy <strong>Team ID</strong>, <strong>Key ID</strong>,
+                              <strong>Client ID</strong>
+                              (Services ID), and <strong>Private Key</strong>
+                              to fields above
+                            </li>
+                            <li>
+                              Click <strong>Test Credentials</strong> to verify setup
+                            </li>
+                          </ol>
+                        </div>
+
+                        <%!-- Reverse Proxy Notice --%>
+                        <div class="bg-base-200 border border-base-300 rounded-lg p-3 text-xs">
+                          <div class="flex items-start gap-2">
+                            <.icon
+                              name="hero-information-circle"
+                              class="h-4 w-4 text-info shrink-0 mt-0.5"
+                            />
+                            <div class="text-base-content/80">
+                              <strong class="text-base-content">Reverse Proxy Users:</strong>
+                              If behind nginx/apache, ensure
+                              <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                                X-Forwarded-Proto
+                              </code>
+                              header is set to
+                              <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                                https
+                              </code>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- GitHub OAuth Credentials --%>
+                <div class={[
+                  "card bg-base-200 p-4 mt-3",
+                  if(@settings["oauth_github_enabled"] != "true", do: "hidden", else: "")
+                ]}>
+                  <h3 class="font-semibold mb-3 flex items-center gap-2">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_github class="h-5 w-5" />
+                    GitHub OAuth Credentials
+                  </h3>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">Client ID</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="settings[oauth_github_client_id]"
+                      value={@settings["oauth_github_client_id"] || ""}
+                      placeholder="Your GitHub OAuth Client ID"
+                      class="input input-bordered"
+                    />
+                  </div>
+
+                  <div class="form-control mt-2">
+                    <label class="label">
+                      <span class="label-text">Client Secret</span>
+                    </label>
+                    <input
+                      type="password"
+                      name="settings[oauth_github_client_secret]"
+                      value={@settings["oauth_github_client_secret"] || ""}
+                      placeholder="Your GitHub OAuth Client Secret"
+                      class="input input-bordered"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    phx-click="test_oauth"
+                    phx-value-provider="github"
+                    class="btn btn-sm btn-outline mt-3 w-fit"
+                  >
+                    Test Credentials
+                  </button>
+
+                  <%!-- GitHub OAuth Setup Instructions --%>
+                  <div class="collapse collapse-arrow bg-base-200 mt-4">
+                    <input type="checkbox" class="peer" />
+                    <div class="collapse-title text-sm font-medium">
+                      Setup Instructions
+                    </div>
+                    <div class="collapse-content text-sm space-y-4">
+                      <%!-- Callback URL Section --%>
+                      <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                          <.icon
+                            name="hero-information-circle"
+                            class="stroke-current shrink-0 h-5 w-5 text-info mt-0.5"
+                          />
+                          <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-base-content mb-2">
+                              Callback URL
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <code class="flex-1 px-3 py-2 bg-base-200 text-base-content border border-base-300 rounded font-mono text-xs break-all">
+                                {get_oauth_callback_url(@settings, "github")}
+                              </code>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-square btn-outline"
+                                onclick={"navigator.clipboard.writeText('#{get_oauth_callback_url(@settings, "github")}')"}
+                                title="Copy to clipboard"
+                              >
+                                <.icon name="hero-clipboard" class="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div class="text-xs text-base-content/60 mt-2">
+                              Copy this URL to GitHub OAuth Apps
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <%!-- Step-by-step Instructions --%>
+                      <div class="space-y-3">
+                        <ol class="list-decimal list-inside space-y-2 text-base-content/80">
+                          <li>
+                            Visit
+                            <a
+                              href="https://github.com/settings/developers"
+                              target="_blank"
+                              class="link link-primary"
+                            >
+                              GitHub Developer Settings
+                            </a>
+                          </li>
+                          <li>
+                            Go to <strong>OAuth Apps</strong> → <strong>New OAuth App</strong>
+                          </li>
+                          <li>
+                            Enter <strong>Application name</strong>
+                            and <strong>Homepage URL</strong>
+                          </li>
+                          <li>
+                            Add callback URL above to <strong>Authorization callback URL</strong>
+                          </li>
+                          <li>
+                            Click <strong>Register application</strong>
+                          </li>
+                          <li>
+                            Copy <strong>Client ID</strong>
+                            and generate/copy <strong>Client Secret</strong>
+                          </li>
+                          <li>
+                            Click <strong>Test Credentials</strong> to verify setup
+                          </li>
+                        </ol>
+                      </div>
+
+                      <%!-- Reverse Proxy Notice --%>
+                      <div class="bg-base-200 border border-base-300 rounded-lg p-3 text-xs">
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-information-circle"
+                            class="h-4 w-4 text-info shrink-0 mt-0.5"
+                          />
+                          <div class="text-base-content/80">
+                            <strong class="text-base-content">Reverse Proxy Users:</strong>
+                            If behind nginx/apache, ensure
+                            <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                              X-Forwarded-Proto
+                            </code>
+                            header is set to
+                            <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                              https
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Facebook OAuth Credentials --%>
+                <div class={[
+                  "card bg-base-200 p-4 mt-3",
+                  if(@settings["oauth_facebook_enabled"] != "true", do: "hidden", else: "")
+                ]}>
+                  <h3 class="font-semibold mb-3 flex items-center gap-2">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_facebook class="h-5 w-5" />
+                    Facebook OAuth Credentials
+                  </h3>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">App ID</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="settings[oauth_facebook_app_id]"
+                      value={@settings["oauth_facebook_app_id"] || ""}
+                      placeholder="Your Facebook App ID"
+                      class="input input-bordered"
+                    />
+                  </div>
+
+                  <div class="form-control mt-2">
+                    <label class="label">
+                      <span class="label-text">App Secret</span>
+                    </label>
+                    <input
+                      type="password"
+                      name="settings[oauth_facebook_app_secret]"
+                      value={@settings["oauth_facebook_app_secret"] || ""}
+                      placeholder="Your Facebook App Secret"
+                      class="input input-bordered"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    phx-click="test_oauth"
+                    phx-value-provider="facebook"
+                    class="btn btn-sm btn-outline mt-3 w-fit"
+                  >
+                    Test Credentials
+                  </button>
+
+                  <%!-- Facebook OAuth Setup Instructions --%>
+                  <div class="collapse collapse-arrow bg-base-200 mt-4">
+                    <input type="checkbox" class="peer" />
+                    <div class="collapse-title text-sm font-medium">
+                      Setup Instructions
+                    </div>
+                    <div class="collapse-content text-sm space-y-4">
+                      <%!-- Callback URL Section --%>
+                      <div class="bg-base-100 border border-base-300 rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                          <.icon
+                            name="hero-information-circle"
+                            class="stroke-current shrink-0 h-5 w-5 text-info mt-0.5"
+                          />
+                          <div class="flex-1 min-w-0">
+                            <div class="text-sm font-semibold text-base-content mb-2">
+                              Callback URL
+                            </div>
+                            <div class="flex items-center gap-2">
+                              <code class="flex-1 px-3 py-2 bg-base-200 text-base-content border border-base-300 rounded font-mono text-xs break-all">
+                                {get_oauth_callback_url(@settings, "facebook")}
+                              </code>
+                              <button
+                                type="button"
+                                class="btn btn-sm btn-square btn-outline"
+                                onclick={"navigator.clipboard.writeText('#{get_oauth_callback_url(@settings, "facebook")}')"}
+                                title="Copy to clipboard"
+                              >
+                                <.icon name="hero-clipboard" class="h-4 w-4" />
+                              </button>
+                            </div>
+                            <div class="text-xs text-base-content/60 mt-2">
+                              Copy this URL to Facebook App Settings
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <%!-- Step-by-step Instructions --%>
+                      <div class="space-y-3">
+                        <ol class="list-decimal list-inside space-y-2 text-base-content/80">
+                          <li>
+                            Visit
+                            <a
+                              href="https://developers.facebook.com/apps"
+                              target="_blank"
+                              class="link link-primary"
+                            >
+                              Facebook Developers Console
+                            </a>
+                          </li>
+                          <li>
+                            Create a new app or select existing one
+                          </li>
+                          <li>
+                            Add <strong>Facebook Login</strong> product
+                          </li>
+                          <li>
+                            Go to <strong>Facebook Login</strong> → <strong>Settings</strong>
+                          </li>
+                          <li>
+                            Add callback URL above to <strong>Valid OAuth Redirect URIs</strong>
+                          </li>
+                          <li>
+                            Go to <strong>Settings</strong> → <strong>Basic</strong>
+                          </li>
+                          <li>
+                            Copy <strong>App ID</strong>
+                            and <strong>App Secret</strong>
+                            to fields above
+                          </li>
+                          <li>
+                            Switch app from <strong>Development</strong>
+                            to <strong>Live</strong>
+                            mode
+                          </li>
+                          <li>
+                            Click <strong>Test Credentials</strong> to verify setup
+                          </li>
+                        </ol>
+                      </div>
+
+                      <%!-- Reverse Proxy Notice --%>
+                      <div class="bg-base-200 border border-base-300 rounded-lg p-3 text-xs">
+                        <div class="flex items-start gap-2">
+                          <.icon
+                            name="hero-information-circle"
+                            class="h-4 w-4 text-info shrink-0 mt-0.5"
+                          />
+                          <div class="text-base-content/80">
+                            <strong class="text-base-content">Reverse Proxy Users:</strong>
+                            If behind nginx/apache, ensure
+                            <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                              X-Forwarded-Proto
+                            </code>
+                            header is set to
+                            <code class="px-1 py-0.5 bg-base-300 text-base-content rounded text-xs">
+                              https
+                            </code>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- OAuth Configuration Notice --%>
+                <div class="alert alert-info text-sm mt-3">
+                  <.icon name="hero-information-circle" class="stroke-current shrink-0 h-5 w-5" />
+                  <div>
+                    <div class="font-semibold">OAuth Setup Instructions</div>
+                    <div class="text-xs">
+                      <p>1. Enable the provider above and save settings</p>
+                      <p>2. Enter your OAuth credentials in the form that appears</p>
+                      <p>3. Save settings again to store credentials</p>
+                      <p>4. Click "Test Credentials" to verify configuration</p>
+                      <p class="mt-1">
+                        Note: OAuth providers require ueberauth dependencies to be installed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Reload OAuth Configuration Button --%>
+                <button
+                  type="button"
+                  phx-click="reload_oauth_config"
+                  class="btn btn-sm btn-outline btn-secondary mt-3"
+                >
+                  <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="h-4 w-4" />
+                  Reload OAuth Configuration
+                </button>
+              <% end %>
+            </div>
+
+            <%!-- Week Start Day Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Week Start On</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  First day of the week
+                </span>
+              </label>
+              <select
+                name="settings[week_start_day]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["week_start_day"] do %>
+                  <option value={value} selected={value == @settings["week_start_day"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["week_start_day"] != @saved_settings["week_start_day"] do %>
+                    <span class="text-warning">
+                      Selected: {get_option_label(
+                        @settings["week_start_day"],
+                        @setting_options["week_start_day"]
+                      )}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_option_label(
+                        @saved_settings["week_start_day"],
+                        @setting_options["week_start_day"]
+                      )}
+                    </span>
+                  <% else %>
+                    Saved: {get_option_label(
+                      @settings["week_start_day"],
+                      @setting_options["week_start_day"]
+                    )}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Time Zone Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Time Zone</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  System default timezone
+                </span>
+              </label>
+              <select
+                name="settings[time_zone]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["time_zone"] do %>
+                  <option value={value} selected={value == @settings["time_zone"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["time_zone"] != @saved_settings["time_zone"] do %>
+                    <span class="text-warning">
+                      Selected: {get_timezone_label(@settings["time_zone"], @setting_options)}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_timezone_label(@saved_settings["time_zone"], @setting_options)}
+                    </span>
+                  <% else %>
+                    Saved: {get_timezone_label(@settings["time_zone"], @setting_options)}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Date Format Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Date Format</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  How dates are displayed
+                </span>
+              </label>
+              <select
+                name="settings[date_format]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["date_format"] do %>
+                  <option value={value} selected={value == @settings["date_format"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["date_format"] != @saved_settings["date_format"] do %>
+                    <span class="text-warning">
+                      Selected: {get_option_label(
+                        @settings["date_format"],
+                        @setting_options["date_format"]
+                      )}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_option_label(
+                        @saved_settings["date_format"],
+                        @setting_options["date_format"]
+                      )}
+                    </span>
+                  <% else %>
+                    Saved: {get_option_label(
+                      @settings["date_format"],
+                      @setting_options["date_format"]
+                    )}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Time Format Setting --%>
+            <div class="form-control w-full">
+              <label class="label">
+                <span class="label-text text-base font-medium">Time Format</span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  How times are displayed
+                </span>
+              </label>
+              <select
+                name="settings[time_format]"
+                class="select select-bordered w-full focus:select-primary"
+              >
+                <%= for {label, value} <- @setting_options["time_format"] do %>
+                  <option value={value} selected={value == @settings["time_format"]}>
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+              <div class="label">
+                <span class="label-text-alt text-xs text-base-content/50">
+                  <%= if @settings["time_format"] != @saved_settings["time_format"] do %>
+                    <span class="text-warning">
+                      Selected: {get_option_label(
+                        @settings["time_format"],
+                        @setting_options["time_format"]
+                      )}
+                    </span>
+                    <span class="text-base-content/40">
+                      | Saved: {get_option_label(
+                        @saved_settings["time_format"],
+                        @setting_options["time_format"]
+                      )}
+                    </span>
+                  <% else %>
+                    Saved: {get_option_label(
+                      @settings["time_format"],
+                      @setting_options["time_format"]
+                    )}
+                  <% end %>
+                </span>
+              </div>
+            </div>
+
+            <%!-- Content Language Section --%>
+            <div class="form-control w-full pt-6 border-t border-base-300">
+              <label class="label">
+                <span class="label-text text-base font-medium flex items-center gap-2">
+                  <.icon name="hero-language" class="w-5 h-5" /> Content Language
+                </span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Primary language of website content
+                </span>
+              </label>
+
+              <%!-- Info Alert --%>
+              <div class="alert alert-info text-sm mb-4">
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                <div>
+                  <h3 class="font-bold text-sm">Content Language vs Interface Language</h3>
+                  <div class="text-xs mt-1 space-y-1">
+                    <p>
+                      <strong>Content Language:</strong>
+                      The language your website content is written in (blog posts, pages, etc.)
+                    </p>
+                    <p>
+                      <strong>Interface Language:</strong>
+                      The language of buttons, menus, and labels (managed in Languages module)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <%= if @languages_enabled do %>
+                <%!-- Languages Module Enabled - Show Dropdown --%>
+                <select
+                  class="select select-bordered w-full focus:select-primary"
+                  phx-change="update_content_language"
+                  name="language"
+                >
+                  <%= for language <- @available_content_languages do %>
+                    <option
+                      value={language["code"]}
+                      selected={language["code"] == @content_language}
+                    >
+                      {language["name"]} ({language["code"]})
+                    </option>
+                  <% end %>
+                </select>
+
+                <div class="label">
+                  <span class="label-text-alt text-xs text-base-content/50">
+                    Current content language: <strong>{@content_language_details.name}</strong>
+                  </span>
+                </div>
+              <% else %>
+                <%!-- Languages Module Disabled - Show Greyed Out Field --%>
+                <input
+                  type="text"
+                  class="input input-bordered w-full bg-base-200 cursor-not-allowed"
+                  value="English (en)"
+                  disabled
+                  readonly
+                />
+
+                <div class="label">
+                  <span class="label-text-alt text-xs text-warning flex items-center gap-1">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4" /> Enable the
+                    <.link
+                      navigate={PhoenixKit.Utils.Routes.path("/admin/modules/languages")}
+                      class="link link-primary"
+                    >
+                      Languages module
+                    </.link>
+                    to change or add content languages
+                  </span>
+                </div>
+              <% end %>
+
+              <%!-- Current Setting Display --%>
+              <div class="stats shadow bg-base-200 mt-4">
+                <div class="stat py-3">
+                  <div class="stat-title text-xs">Content Language Code</div>
+                  <div class="stat-value text-2xl text-primary">{@content_language}</div>
+                  <div class="stat-desc text-xs">
+                    Used in HTML lang attribute: &lt;html lang="{@content_language}"&gt;
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Admin Navbar Languages Section --%>
+            <div class="form-control w-full pt-6 border-t border-base-300">
+              <label class="label">
+                <span class="label-text text-base font-medium flex items-center gap-2">
+                  <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Admin Panel Languages
+                </span>
+                <span class="label-text-alt text-sm text-base-content/60">
+                  Languages available in the admin panel navbar
+                </span>
+              </label>
+
+              <%!-- Info Alert --%>
+              <div class="alert alert-info text-sm mb-4">
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                <div>
+                  <h3 class="font-bold text-sm">Admin Panel Languages</h3>
+                  <div class="text-xs mt-1 space-y-1">
+                    <p>
+                      Select which languages are available in the admin panel navbar language switcher.
+                      This is independent from the website's content languages.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Admin Languages Selection --%>
+              <div class="mb-4">
+                <%!-- Multi-select Dropdown for Admin Languages --%>
+                <div class="dropdown w-full" id="admin_languages-dropdown">
+                  <div
+                    tabindex="0"
+                    role="button"
+                    class="btn btn-outline w-full justify-between"
+                  >
+                    <div class="flex gap-2 items-center overflow-hidden">
+                      <%= if Enum.empty?(@admin_languages) do %>
+                        <span class="text-base-content/60">Select languages...</span>
+                      <% else %>
+                        <% {shown_languages, remaining_count} =
+                          case @admin_languages do
+                            [a, b, c | rest] -> {[a, b, c], length(rest)}
+                            other -> {other, 0}
+                          end %>
+                        <%= for language_code <- shown_languages do %>
+                          <% language =
+                            PhoenixKit.Module.Languages.get_predefined_language(language_code) %>
+                          <% language_flag = if language, do: language.flag, else: "🌐" %>
+                          <div class="badge badge-primary gap-1 px-2">
+                            <span class="text-lg">{language_flag}</span>
+                          </div>
+                        <% end %>
+                        <%= if remaining_count > 0 do %>
+                          <div class="badge badge-neutral gap-1 px-2">
+                            +{remaining_count}
+                          </div>
+                        <% end %>
+                      <% end %>
+                    </div>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      class="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </div>
+
+                  <div
+                    tabindex="0"
+                    class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full mt-2 max-h-96 overflow-y-auto border border-base-300"
+                  >
+                    <ul class="space-y-1">
+                      <%!-- Popular Languages Section --%>
+                      <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code in PhoenixKit.Module.Languages.get_default_language_codes()) do %>
+                        <% is_selected = language.code in @admin_languages %>
+                        <li>
+                          <a
+                            class="flex items-center gap-3 p-3 rounded hover:bg-base-200"
+                            phx-click="add_admin_language_to_form"
+                            phx-value-admin_language_code_input={language.code}
+                          >
+                            <div class="flex-shrink-0">
+                              <input
+                                type="checkbox"
+                                class="checkbox checkbox-primary pointer-events-none"
+                                checked={is_selected}
+                              />
+                            </div>
+                            <div class="flex-1 flex flex-wrap items-center gap-2">
+                              <span class="text-xl">{language.flag}</span>
+                              <div class="flex flex-col">
+                                <span class="font-medium">{language.name}</span>
+                                <span class="text-xs text-base-content/60">
+                                  {language.code} - {language.native}
+                                </span>
+                              </div>
+                            </div>
+                          </a>
+                        </li>
+                      <% end %>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Hidden field to store admin languages as JSON --%>
+              <input
+                type="hidden"
+                name="settings[admin_languages]"
+                value={Jason.encode!(@admin_languages || ["en", "ru", "es"])}
+              />
+
+              <%!-- Warning if no languages selected --%>
+              <%= if Enum.empty?(@admin_languages || []) do %>
+                <div class="alert alert-warning text-sm mt-3">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_warning class="w-5 h-5" />
+                  <span>
+                    No admin languages selected. At least one language is recommended.
+                  </span>
+                </div>
+              <% end %>
+            </div>
+
+            <%!-- Action Buttons --%>
+            <div class="flex gap-3 pt-4">
+              <button
+                type="submit"
+                class={[
+                  "btn btn-primary flex-1",
+                  if(@saving, do: "loading", else: "")
+                ]}
+                disabled={@saving}
+              >
+                <%= if @saving do %>
+                  Saving...
+                <% else %>
+                  Save All Settings
+                <% end %>
+              </button>
+
+              <button
+                type="button"
+                class="btn btn-outline"
+                phx-click="reset_to_defaults"
+              >
+                <PhoenixKitWeb.Components.Core.Icons.icon_refresh class="w-4 h-4 mr-2" /> Reset
+              </button>
+            </div>
+          </.form>
+
+          <%!-- Information Panel --%>
+          <div class="divider">Information</div>
+
+          <div class="bg-base-200 rounded-lg p-4 mt-6">
+            <div class="flex items-start gap-3">
+              <div class="text-2xl">💡</div>
+              <div class="flex-1">
+                <h3 class="font-semibold text-base-content mb-2">About System Settings</h3>
+                <ul class="text-sm text-base-content/70 space-y-1">
+                  <li>• Make changes to dropdowns and click "Save All Settings" to apply</li>
+                  <li>• Changes show "Selected" vs "Saved" values until you click Save</li>
+                  <li>
+                    • User settings (registration, defaults, custom fields) are managed separately
+                  </li>
+                  <li>
+                    • Week start day controls which day begins the week (useful for calendar features)
+                  </li>
+                  <li>• Time zone affects date/time display throughout the system</li>
+                  <li>
+                    • Date formats control how dates appear (e.g. Users dashboard "Registered" field)
+                  </li>
+                  <li>• Time formats control 12-hour vs 24-hour time display</li>
+                  <li>• Settings are applied system-wide and use Timex for robust formatting</li>
+                  <li>• Currently supports 6 date formats including "September 2, 2025" style</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

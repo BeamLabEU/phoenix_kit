@@ -39,6 +39,8 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   use Mix.Task
   alias Ecto.Adapters.SQL
+
+  alias PhoenixKit.Config
   alias PhoenixKit.Install.Common
   alias PhoenixKit.Migrations.Postgres
 
@@ -317,7 +319,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
 
   # Show detailed repo detection information
   defp show_repo_detection_info do
-    phoenix_kit_repo = Application.get_env(:phoenix_kit, :repo)
+    phoenix_kit_repo = Config.get(:repo, nil)
 
     IO.puts("  PhoenixKit repo config: #{inspect(phoenix_kit_repo)}")
 
@@ -397,7 +399,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     parent_app_name = Mix.Project.config()[:app]
 
     IO.puts("  Fallback attempts:")
-    IO.puts("    - PhoenixKit config: #{inspect(Application.get_env(:phoenix_kit, :repo))}")
+    IO.puts("    - PhoenixKit config: #{inspect(Config.get(:repo, nil))}")
 
     IO.puts(
       "    - App :ecto_repos: #{inspect(Application.get_env(parent_app_name, :ecto_repos, []))}"
@@ -417,10 +419,6 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     layout_config = Application.get_env(:phoenix_kit, :layout)
     IO.puts("  Layout integration: #{if layout_config, do: "Configured", else: "Using defaults"}")
 
-    # Check theme configuration
-    theme_config = Application.get_env(:phoenix_kit, :theme_enabled, false)
-    IO.puts("  Theme system: #{if theme_config, do: "Enabled", else: "Disabled"}")
-
     # Check mailer configuration
     mailer_config = Application.get_env(:phoenix_kit, PhoenixKit.Mailer)
     IO.puts("  Mailer: #{if mailer_config, do: "Configured", else: "Not configured"}")
@@ -429,7 +427,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   # Hybrid repo detection with fallback strategies
   defp get_repo_with_fallback do
     # Strategy 1: Try to get from PhoenixKit application config
-    case Application.get_env(:phoenix_kit, :repo) do
+    case Config.get(:repo, nil) do
       nil ->
         # Strategy 2: Try to ensure PhoenixKit application is started
         case ensure_phoenix_kit_started() do
@@ -449,7 +447,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   # Try to start PhoenixKit application and get repo config
   defp ensure_phoenix_kit_started do
     Application.ensure_all_started(:phoenix_kit)
-    Application.get_env(:phoenix_kit, :repo)
+    Config.get(:repo, nil)
   rescue
     _ -> nil
   end

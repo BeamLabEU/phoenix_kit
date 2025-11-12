@@ -1,0 +1,979 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="User Management"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">User Management</h1>
+        <p class="text-lg text-base-content">Manage user accounts and roles</p>
+      </div>
+    </header>
+
+    <%!-- Role Management Modal --%>
+    <%= if @show_role_modal && @managing_user do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-xl mb-4">
+            Manage Roles for {@managing_user.email}
+          </h3>
+
+          <form phx-submit="sync_user_roles" class="space-y-4">
+            <div class="space-y-2">
+              <%= for role <- @all_roles do %>
+                <% owner_role? = role.name == PhoenixKit.Users.Role.system_roles().owner %>
+                <div class="form-control">
+                  <label
+                    class={[
+                      "label justify-start gap-3",
+                      owner_role? && "cursor-not-allowed opacity-70"
+                    ]}
+                    title={if owner_role?, do: "Owner role cannot be modified", else: nil}
+                  >
+                    <input
+                      type="checkbox"
+                      name={"roles[#{role.name}]"}
+                      value={role.name}
+                      class="checkbox"
+                      checked={role.name in @user_roles}
+                      disabled={owner_role?}
+                    />
+                    <div class="flex flex-wrap items-center gap-2">
+                      <.role_badge role={role} size={:sm} />
+                      <%= if role.is_system_role do %>
+                        <span class="badge badge-outline badge-xs">System</span>
+                      <% end %>
+                      <%= if role.description do %>
+                        <span class="text-sm text-base-content/70">- {role.description}</span>
+                      <% end %>
+                    </div>
+                  </label>
+                </div>
+              <% end %>
+            </div>
+
+            <%= if Enum.empty?(@all_roles) do %>
+              <div class="text-center py-8 text-base-content/70">
+                <p>No roles available. Create roles first in Role Management.</p>
+              </div>
+            <% end %>
+
+            <div class="modal-action">
+              <button type="submit" class="btn btn-primary">
+                Update Roles
+              </button>
+              <button type="button" phx-click="hide_role_management" class="btn btn-outline">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Controls --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <div class="flex flex-col lg:flex-row gap-4">
+        <%!-- Search --%>
+        <div class="flex-1">
+          <label class="label">
+            <span class="label-text">Search by email, username, or name</span>
+          </label>
+          <form phx-submit="search" phx-change="search">
+            <input
+              type="text"
+              name="search"
+              value={@search_query}
+              placeholder="Enter email, username, or name to search..."
+              class="input input-bordered w-full"
+            />
+          </form>
+        </div>
+
+        <%!-- Role Filter --%>
+        <div class="w-full lg:w-48">
+          <label class="label">
+            <span class="label-text">Filter by role</span>
+          </label>
+          <form phx-change="filter_by_role">
+            <select class="select select-bordered w-full" name="role" value={@filter_role}>
+              <option value="all">All Users</option>
+              <option value="Owner">Owners Only</option>
+              <option value="Admin">Admins Only</option>
+              <option value="User">Regular Users</option>
+            </select>
+          </form>
+        </div>
+
+        <%!-- Quick Actions --%>
+        <div class="w-full lg:w-auto">
+          <label class="label">
+            <span class="label-text">Quick Actions</span>
+          </label>
+          <div class="flex gap-2">
+            <button
+              class="btn btn-info"
+              phx-click="show_column_modal"
+              title="Customize columns"
+            >
+              <.icon name="hero-view-columns" class="h-5 w-5" />
+            </button>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/users/new")}
+              class="btn btn-primary"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="h-5 w-5" /> Add New User
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Users Table --%>
+    <div class="bg-base-100">
+      <%= if length(@users) > 0 do %>
+        <.table_default variant="zebra" class="w-full">
+          <.table_default_header>
+            <.table_default_row>
+              <%= for column_id <- @selected_columns do %>
+                <%= if should_render_column?(column_id) do %>
+                  <.table_default_header_cell>
+                    {render_column_header(column_id)}
+                  </.table_default_header_cell>
+                <% end %>
+              <% end %>
+            </.table_default_row>
+          </.table_default_header>
+
+          <.table_default_body>
+            <%= for user <- @users do %>
+              <.table_default_row>
+                <%= for column_id <- @selected_columns do %>
+                  <%= if should_render_column?(column_id) do %>
+                    <.table_default_cell>
+                      <%= cond do %>
+                        <% column_id == "email" -> %>
+                          <div class="flex flex-col gap-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                              <span class="font-medium">{user.email}</span>
+                              <%= if user.id == @phoenix_kit_current_user.id do %>
+                                <span class="badge badge-info badge-xs">you</span>
+                              <% end %>
+                            </div>
+                            <%= if user.username do %>
+                              <div class="text-sm text-base-content/60">
+                                @{user.username}
+                              </div>
+                            <% end %>
+                          </div>
+                        <% column_id == "full_name" -> %>
+                          <div class="flex flex-col gap-1">
+                            <%= if user.first_name || user.last_name do %>
+                              <div>{PhoenixKit.Users.Auth.User.full_name(user)}</div>
+                            <% else %>
+                              <div class="text-base-content/50">-</div>
+                            <% end %>
+                          </div>
+                        <% column_id == "role" -> %>
+                          <% user_roles = get_user_roles(user) %>
+                          <div class="flex flex-wrap gap-1">
+                            <%= for role_name <- user_roles do %>
+                              <.role_badge
+                                role={%{name: role_name, is_system_role: false}}
+                                size={:sm}
+                              />
+                            <% end %>
+                            <%= if Enum.empty?(user_roles) do %>
+                              <span class="badge badge-ghost badge-sm">No roles</span>
+                            <% end %>
+                          </div>
+                        <% column_id == "status" -> %>
+                          <div class="flex flex-col gap-1">
+                            <%= if user.confirmed_at do %>
+                              <span class="badge badge-success badge-sm">Confirmed</span>
+                            <% else %>
+                              <span class="badge badge-warning badge-sm">Pending</span>
+                            <% end %>
+                            <%= if user.is_active do %>
+                              <span class="badge badge-outline badge-xs">Active</span>
+                            <% else %>
+                              <span class="badge badge-error badge-xs">Inactive</span>
+                            <% end %>
+                          </div>
+                        <% column_id == "registered" -> %>
+                          <div class="text-sm">
+                            <div class="flex flex-col gap-1">
+                              <div>
+                                {UtilsDate.format_date_with_user_timezone_cached(
+                                  user.inserted_at,
+                                  @phoenix_kit_current_user,
+                                  @date_time_settings
+                                )}
+                              </div>
+                              <div class="text-xs text-base-content/70">
+                                {UtilsDate.format_time_with_user_timezone_cached(
+                                  user.inserted_at,
+                                  @phoenix_kit_current_user,
+                                  @date_time_settings
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        <% column_id == "location" -> %>
+                          <div class="text-sm">
+                            <div class="flex flex-col gap-1">
+                              <%= if user.registration_country || user.registration_region || user.registration_city || user.registration_ip do %>
+                                <%= if user.registration_country do %>
+                                  <div class="flex items-center gap-1">
+                                    <span class="badge badge-outline badge-xs">
+                                      {user.registration_country}
+                                    </span>
+                                  </div>
+                                <% end %>
+                                <%= if user.registration_region || user.registration_city do %>
+                                  <div class="text-xs text-base-content/70">
+                                    <%= if user.registration_region && user.registration_city do %>
+                                      {user.registration_region}, {user.registration_city}
+                                    <% else %>
+                                      {user.registration_region || user.registration_city}
+                                    <% end %>
+                                  </div>
+                                <% end %>
+                                <%= if user.registration_ip do %>
+                                  <div class="text-xs text-base-content/50 font-mono">
+                                    {user.registration_ip}
+                                  </div>
+                                <% end %>
+                              <% else %>
+                                <div class="text-xs text-base-content/50">No data</div>
+                              <% end %>
+                            </div>
+                          </div>
+                        <% column_id == "last_confirmed" -> %>
+                          <div class="text-sm">
+                            <div class="flex flex-col gap-1">
+                              <%= if user.confirmed_at do %>
+                                <div>
+                                  {UtilsDate.format_date_with_user_timezone_cached(
+                                    user.confirmed_at,
+                                    @phoenix_kit_current_user,
+                                    @date_time_settings
+                                  )}
+                                </div>
+                                <div class="text-xs text-base-content/70">
+                                  {UtilsDate.format_time_with_user_timezone_cached(
+                                    user.confirmed_at,
+                                    @phoenix_kit_current_user,
+                                    @date_time_settings
+                                  )}
+                                </div>
+                              <% else %>
+                                <div>Never</div>
+                              <% end %>
+                            </div>
+                          </div>
+                        <% column_id == "actions" -> %>
+                          <div class="flex flex-wrap gap-1">
+                            <%!-- Edit User --%>
+                            <.link
+                              navigate={
+                                PhoenixKit.Utils.Routes.path("/admin/users/edit/#{user.id}")
+                              }
+                              class="btn btn-xs btn-outline btn-secondary"
+                              title="Edit user"
+                            >
+                              <.icon name="hero-pencil" class="h-4 w-4" />
+                            </.link>
+
+                            <%!-- Role Management --%>
+                            <%= if user.id != @phoenix_kit_current_user.id do %>
+                              <button
+                                class="btn btn-xs btn-outline btn-primary"
+                                phx-click="show_role_management"
+                                phx-value-user_id={user.id}
+                                title="Manage roles"
+                              >
+                                <.icon name="hero-user-group" class="h-4 w-4" />
+                              </button>
+                            <% end %>
+
+                            <%!-- Email Confirmation Toggle --%>
+                            <%= if user.id != @phoenix_kit_current_user.id && get_primary_role_name_unsafe(user) != "Owner" do %>
+                              <button
+                                class={"btn btn-xs btn-outline #{if user.confirmed_at, do: "btn-success", else: "btn-warning"}"}
+                                phx-click="request_confirmation_toggle"
+                                phx-value-user_id={user.id}
+                                phx-value-is_confirmed={to_string(!!user.confirmed_at)}
+                                title={
+                                  if user.confirmed_at,
+                                    do: "Unconfirm email",
+                                    else: "Confirm email"
+                                }
+                              >
+                                <%= if user.confirmed_at do %>
+                                  <.icon name="hero-envelope-open" class="h-4 w-4" />
+                                <% else %>
+                                  <.icon name="hero-envelope" class="h-4 w-4" />
+                                <% end %>
+                              </button>
+
+                              <%!-- Status Toggle --%>
+                              <button
+                                class={"btn btn-xs btn-outline #{if user.is_active, do: "btn-success", else: "btn-warning"}"}
+                                phx-click="request_status_toggle"
+                                phx-value-user_id={user.id}
+                                phx-value-is_active={to_string(user.is_active)}
+                                title={
+                                  if user.is_active, do: "Deactivate user", else: "Activate user"
+                                }
+                              >
+                                <%= if user.is_active do %>
+                                  <.icon name="hero-check-circle" class="h-4 w-4" />
+                                <% else %>
+                                  <.icon name="hero-x-circle" class="h-4 w-4" />
+                                <% end %>
+                              </button>
+                            <% else %>
+                              <%= if user.id == @phoenix_kit_current_user.id do %>
+                                <.link
+                                  navigate={PhoenixKit.Utils.Routes.path("/users/settings")}
+                                  class="btn btn-xs btn-outline btn-info"
+                                  title="User settings"
+                                >
+                                  <.icon name="hero-cog-6-tooth" class="h-4 w-4" />
+                                </.link>
+                              <% else %>
+                                <span class="text-xs text-base-content/50">Protected</span>
+                              <% end %>
+                            <% end %>
+                          </div>
+                        <% true -> %>
+                          <%!-- Handle custom fields and other columns --%>
+                          {render_column_cell(
+                            user,
+                            column_id,
+                            @phoenix_kit_current_user,
+                            @date_time_settings
+                          )}
+                      <% end %>
+                    </.table_default_cell>
+                  <% end %>
+                <% end %>
+              </.table_default_row>
+            <% end %>
+          </.table_default_body>
+        </.table_default>
+
+        <%!-- Pagination --%>
+        <%= if @total_pages > 1 do %>
+          <div class="flex justify-center p-4 border-t border-base-300">
+            <div class="join">
+              <%= for page <- 1..@total_pages do %>
+                <button
+                  class={"join-item btn btn-sm #{if page == @page, do: "btn-active", else: ""}"}
+                  phx-click="change_page"
+                  phx-value-page={page}
+                >
+                  {page}
+                </button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      <% else %>
+        <%!-- Empty state --%>
+        <div class="text-center py-12">
+          <PhoenixKitWeb.Components.Core.Icons.icon_users_multiple class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
+          <h3 class="text-lg font-medium text-base-content mb-2">
+            No users found
+          </h3>
+          <p class="text-base-content/70 mb-4">
+            <%= if @search_query != "" or @filter_role != "all" do %>
+              Try adjusting your search or filter criteria.
+            <% else %>
+              No users are registered yet.
+            <% end %>
+          </p>
+          <%= if @search_query != "" or @filter_role != "all" do %>
+            <button
+              class="btn btn-outline btn-sm"
+              phx-click="search"
+              phx-value-search=""
+              onclick="document.querySelector('input[name=&quot;search&quot;]').value = ''"
+            >
+              Clear Filters
+            </button>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Enhanced Stats --%>
+    <div class="mt-8">
+      <h3 class="text-lg font-semibold text-base-content mb-6">User Statistics</h3>
+
+      <%!-- Main Role Stats --%>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={@total_users}
+          title="Total Users"
+          subtitle="All registered accounts"
+        >
+          <:icon>
+            <.icon name="hero-users" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={@total_owners}
+          title="System Owners"
+          subtitle="Complete system authority"
+        >
+          <:icon>
+            <.icon name="hero-shield-check" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={@total_admins}
+          title="Administrators"
+          subtitle="Management privileges"
+        >
+          <:icon>
+            <.icon name="hero-star" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="xl"
+          value={@total_regular_users}
+          title="Regular Users"
+          subtitle="Standard access level"
+        >
+          <:icon>
+            <.icon name="hero-user" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+      </div>
+
+      <%!-- Secondary Stats --%>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <%!-- Active Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="2xl"
+          value={@active_users}
+          title="Active Users"
+          subtitle="Currently online"
+        >
+          <:icon>
+            <.icon name="hero-check-circle-solid" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Inactive Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="2xl"
+          value={@inactive_users}
+          title="Inactive Users"
+          subtitle="Disabled accounts"
+        >
+          <:icon>
+            <.icon name="hero-x-circle-solid" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Confirmed Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="2xl"
+          value={@confirmed_users}
+          title="Email Confirmed"
+          subtitle="Verified emails"
+        >
+          <:icon>
+            <.icon name="hero-envelope" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Pending Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          compact={true}
+          rounded="2xl"
+          value={@pending_users}
+          title="Pending Email"
+          subtitle="Awaiting confirmation"
+        >
+          <:icon>
+            <.icon name="hero-information-circle-solid" class="w-5 h-5" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+      </div>
+    </div>
+
+    <%!-- Column Selection Modal --%>
+    <%= if @show_column_modal do %>
+      <div class="modal modal-open" id="column-modal">
+        <div class="modal-box max-w-5xl max-h-[90vh] overflow-hidden">
+          <h3 class="font-bold text-xl mb-4">Customize Table Columns</h3>
+          <p class="text-base-content/70 mb-6">
+            Drag to reorder selected columns above, or add new columns from the options below. Actions column is always included.
+          </p>
+
+          <form phx-submit="update_table_columns" id="column-form">
+            <%!-- Hidden input to store the column order for form submission --%>
+            <input
+              type="hidden"
+              name="column_order"
+              id="column-order-input"
+              value={Enum.join(@temp_selected_columns || @selected_columns, ",")}
+            />
+
+            <%!-- Hidden input specifically for reordering --%>
+            <input
+              type="hidden"
+              name="reorder_order"
+              id="reorder-order-input"
+              value=""
+            />
+
+            <%!-- Hidden button for triggering LiveView reorders --%>
+            <button
+              id="reorder-trigger-button"
+              type="button"
+              phx-click="reorder_selected_columns"
+              style="display: none;"
+            >
+              Trigger Reorder
+            </button>
+            <div class="flex flex-col lg:flex-row gap-6 mb-6">
+              <%!-- Selected Columns Section (Left/Top) --%>
+              <div class="flex-1">
+                <div class="flex items-center justify-between mb-3">
+                  <h4 class="text-sm font-semibold text-base-content/80 uppercase tracking-wide">
+                    Selected Columns
+                  </h4>
+                  <span class="text-xs text-base-content/60">
+                    Drag to reorder
+                  </span>
+                </div>
+                <div
+                  id="selected-columns-container"
+                  class="min-h-[200px] max-h-[400px] overflow-y-auto border-2 border-dashed border-base-300 rounded-lg p-3 bg-base-50 space-y-2"
+                >
+                  <%= for column_id <- (@temp_selected_columns || @selected_columns) do %>
+                    <%= unless column_id == "actions" do %>
+                      <% column_meta =
+                        PhoenixKit.Users.TableColumns.get_column_metadata(column_id) %>
+                      <div
+                        class="draggable-selected-field flex items-center p-3 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors cursor-move"
+                        draggable="true"
+                        data-column-id={column_id}
+                        data-section="selected"
+                      >
+                        <div class="drag-handle text-primary/60 mr-3 cursor-grab">
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M4 6h16M4 12h16M4 18h16"
+                            />
+                          </svg>
+                        </div>
+                        <div class="flex flex-col flex-1">
+                          <span class="label-text font-medium text-base-content">
+                            {(column_meta && column_meta.label) || column_id}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-xs btn-circle text-error/60 hover:text-error hover:bg-error/10"
+                          phx-click="remove_column"
+                          phx-value-column_id={column_id}
+                          title="Remove column"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    <% end %>
+                  <% end %>
+
+                  <%!-- Empty state for selected columns --%>
+                  <%= if length(@temp_selected_columns || @selected_columns) <= 1 do %>
+                    <div class="text-center py-12 text-base-content/40">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-12 w-12 mx-auto mb-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="1.5"
+                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                        />
+                      </svg>
+                      <p class="text-sm">No columns selected yet</p>
+                      <p class="text-xs mt-1">Add columns from the options below</p>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Available Fields Section (Right/Bottom) --%>
+              <div class="flex-1">
+                <div class="flex items-center justify-between mb-3">
+                  <h4 class="text-sm font-semibold text-base-content/80 uppercase tracking-wide">
+                    Available Fields
+                  </h4>
+                  <span class="text-xs text-base-content/60">
+                    Click to add
+                  </span>
+                </div>
+                <div class="max-h-[400px] overflow-y-auto border border-base-200 rounded-lg bg-base-100">
+                  <!-- Standard Fields Section -->
+                  <%= if map_size(@available_columns.standard) > 0 do %>
+                    <div class="p-3">
+                      <h5 class="text-xs font-semibold text-base-content/60 mb-2 uppercase tracking-wide">
+                        Standard Fields
+                      </h5>
+                      <div class="space-y-1">
+                        <%= for {column_id, column_meta} <- @available_columns.standard do %>
+                          <%= unless column_id in (@temp_selected_columns || @selected_columns) or column_id == "actions" do %>
+                            <button
+                              type="button"
+                              class="available-field w-full flex items-center p-2 rounded-lg hover:bg-base-200 transition-colors text-left border border-transparent hover:border-base-300"
+                              phx-click="add_column"
+                              phx-value-column_id={column_id}
+                              data-column-id={column_id}
+                              data-section="available-standard"
+                            >
+                              <div class="flex flex-col flex-1">
+                                <span class="label-text font-medium text-sm text-base-content">
+                                  {column_meta.label}
+                                </span>
+                              </div>
+                              <div class="text-success/60">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  class="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 4v16m8-8H4"
+                                  />
+                                </svg>
+                              </div>
+                            </button>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                  
+<!-- Separator Line -->
+                  <%= if map_size(@available_columns.standard) > 0 and map_size(@available_columns.custom) > 0 do %>
+                    <div class="border-t border-base-200"></div>
+                  <% end %>
+                  
+<!-- Custom Fields Section -->
+                  <%= if map_size(@available_columns.custom) > 0 do %>
+                    <div class="p-3">
+                      <h5 class="text-xs font-semibold text-base-content/60 mb-2 uppercase tracking-wide">
+                        Custom Fields
+                      </h5>
+                      <div class="space-y-1">
+                        <%= for {column_id, column_meta} <- @available_columns.custom do %>
+                          <%= unless column_id in (@temp_selected_columns || @selected_columns) do %>
+                            <button
+                              type="button"
+                              class="available-field w-full flex items-center p-2 rounded-lg hover:bg-base-200 transition-colors text-left border border-transparent hover:border-base-300"
+                              phx-click="add_column"
+                              phx-value-column_id={column_id}
+                              data-column-id={column_id}
+                              data-section="available-custom"
+                            >
+                              <div class="flex flex-col flex-1">
+                                <span class="label-text font-medium text-sm text-base-content">
+                                  {column_meta.label}
+                                </span>
+                              </div>
+                              <div class="text-success/60">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  class="h-4 w-4"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M12 4v16m8-8H4"
+                                  />
+                                </svg>
+                              </div>
+                            </button>
+                          <% end %>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                  
+<!-- No Available Fields Message -->
+                  <%= if get_available_fields_count(@available_columns, @temp_selected_columns || @selected_columns) == 0 do %>
+                    <div class="text-center py-8 text-base-content/40">
+                      <p class="text-sm">All fields are already selected</p>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-action">
+              <button type="submit" class="btn btn-primary">
+                Apply Changes
+              </button>
+              <button type="button" class="btn btn-outline" phx-click="reset_to_defaults">
+                Default
+              </button>
+              <button type="button" class="btn btn-ghost" phx-click="hide_column_modal">
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+        <div class="modal-backdrop" phx-click="hide_column_modal"></div>
+      </div>
+    <% end %>
+
+    <%!-- Confirmation Modal --%>
+    <%= if assigns[:confirmation_modal] && @confirmation_modal.show do %>
+      <div class="modal modal-open">
+        <div class="modal-box">
+          <h3 class="font-bold text-lg">{@confirmation_modal.title}</h3>
+          <p class="py-4">{@confirmation_modal.message}</p>
+          <div class="modal-action">
+            <button class="btn btn-ghost" phx-click="cancel_confirmation">
+              Cancel
+            </button>
+            <button
+              class="btn btn-primary"
+              phx-click="confirm_action"
+              phx-value-action={@confirmation_modal.action}
+              phx-value-user_id={@confirmation_modal.user_id}
+            >
+              {@confirmation_modal.button_text}
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    initColumnDragDrop();
+  });
+
+  // Also initialize when modal becomes visible (for LiveView updates)
+  document.addEventListener('click', function(e) {
+    const customizeButton = e.target.closest('[phx-click="show_column_modal"]');
+    if (customizeButton) {
+      // Give LiveView a moment to render the modal
+      setTimeout(() => {
+        initColumnDragDrop();
+      }, 100);
+    }
+  });
+
+  function initColumnDragDrop() {
+    const selectedContainer = document.getElementById('selected-columns-container');
+    if (!selectedContainer) return;
+
+    // Check if already initialized to avoid duplicate listeners
+    if (selectedContainer.dataset.dragInitialized === 'true') return;
+    selectedContainer.dataset.dragInitialized = 'true';
+
+    let draggedElement = null;
+    let placeholder = null;
+
+    function createPlaceholder() {
+      const div = document.createElement('div');
+      div.className = 'draggable-placeholder border-2 border-dashed border-primary rounded-lg p-3 mb-2 opacity-50 bg-primary/5';
+      div.innerHTML = '<div class="text-center text-primary text-sm">Drop here to reorder</div>';
+      return div;
+    }
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.draggable-selected-field:not([data-is-dragging="true"])')];
+
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        }
+        return closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function collectSelectedColumnOrder() {
+      if (!selectedContainer) return [];
+
+      const fields = selectedContainer.querySelectorAll('.draggable-selected-field');
+      const order = [];
+
+      fields.forEach(field => {
+        const columnId = field.dataset.columnId;
+        if (columnId) {
+          order.push(columnId);
+        }
+      });
+
+      return order;
+    }
+
+    function handleDragStart(e) {
+      draggedElement = e.target.closest('.draggable-selected-field');
+      if (!draggedElement) return;
+
+      placeholder = createPlaceholder();
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', draggedElement.innerHTML);
+
+      draggedElement.classList.add('opacity-50', 'scale-95', 'shadow-lg');
+      draggedElement.dataset.isDragging = 'true';
+    }
+
+    function handleDragEnd(e) {
+      if (draggedElement) {
+        draggedElement.classList.remove('opacity-50', 'scale-95', 'shadow-lg');
+        delete draggedElement.dataset.isDragging;
+      }
+
+      if (placeholder && placeholder.parentElement) {
+        placeholder.remove();
+      }
+
+      draggedElement = null;
+      placeholder = null;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+
+      if (!draggedElement || !placeholder) return;
+
+      const afterElement = getDragAfterElement(selectedContainer, e.clientY);
+
+      if (placeholder && placeholder.parentElement) {
+        placeholder.remove();
+      }
+
+      if (afterElement == null) {
+        selectedContainer.appendChild(placeholder);
+      } else {
+        selectedContainer.insertBefore(placeholder, afterElement);
+      }
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!draggedElement || !placeholder) return;
+
+      draggedElement.classList.remove('opacity-50', 'scale-95', 'shadow-lg');
+      delete draggedElement.dataset.isDragging;
+
+      if (placeholder && placeholder.parentElement) {
+        const parent = placeholder.parentElement;
+        parent.insertBefore(draggedElement, placeholder);
+        parent.removeChild(placeholder);
+      }
+
+      const newOrder = collectSelectedColumnOrder();
+
+      const hiddenInput = document.getElementById('column-order-input');
+      if (hiddenInput) {
+        hiddenInput.value = newOrder.join(',');
+      }
+
+      const reorderButton = document.getElementById('reorder-trigger-button');
+      const reorderInput = document.getElementById('reorder-order-input');
+
+      if (reorderButton && reorderInput) {
+        reorderInput.value = newOrder.join(',');
+        reorderButton.click();
+      }
+
+      draggedElement = null;
+      placeholder = null;
+    }
+
+    // Attach event listeners using delegation
+    selectedContainer.addEventListener('dragover', handleDragOver);
+    selectedContainer.addEventListener('drop', handleDrop);
+
+    // Attach dragstart/dragend to draggable elements
+    const draggables = selectedContainer.querySelectorAll('.draggable-selected-field');
+    draggables.forEach(element => {
+      element.addEventListener('dragstart', handleDragStart);
+      element.addEventListener('dragend', handleDragEnd);
+    });
+  }
+</script>

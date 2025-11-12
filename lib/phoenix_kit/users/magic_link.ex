@@ -51,10 +51,12 @@ defmodule PhoenixKit.Users.MagicLink do
   Magic link expiry can be configured in your application:
 
       # config/config.exs
-      config :phoenix_kit, PhoenixKit.Users.MagicLink,
-        expiry_minutes: 15  # Default: 15 minutes
+      config :phoenix_kit,
+        magic_link_for_login_expiry_minutes: 15
   """
 
+  alias Ecto.Adapters.SQL
+  alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
   alias PhoenixKit.Utils.Routes
@@ -62,7 +64,6 @@ defmodule PhoenixKit.Users.MagicLink do
   import Ecto.Query
 
   @magic_link_context "magic_link"
-  @default_expiry_minutes 15
 
   @doc """
   Generates a magic link for the given email address.
@@ -98,9 +99,16 @@ defmodule PhoenixKit.Users.MagicLink do
         end
 
       nil ->
-        # Perform a fake token generation to prevent timing attacks
-        # This takes similar time as real token generation
-        _fake_token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+        # Prevent timing attacks by simulating the same operations as the success case
+        # This ensures constant-time behavior regardless of whether user exists
+
+        # 1. Simulate database insert timing (typical insert: 1-3ms)
+        # Using pg_sleep to match the cost of an actual database write operation
+        SQL.query(repo(), "SELECT pg_sleep(0.002)", [])
+
+        # 2. Add consistent computational cost similar to password hashing operations
+        # This prevents CPU-based timing attacks and matches authentication flow timing
+        Bcrypt.no_user_verify()
 
         {:error, :user_not_found}
     end
@@ -260,17 +268,11 @@ defmodule PhoenixKit.Users.MagicLink do
 
   # Get configured expiry time in minutes
   defp get_expiry_minutes do
-    Application.get_env(:phoenix_kit, __MODULE__, [])
-    |> Keyword.get(:expiry_minutes, @default_expiry_minutes)
+    Config.get(:magic_link_for_login_expiry_minutes, 15)
   end
 
   # Get configured repo module
   defp repo do
-    Application.get_env(:phoenix_kit, :repo) ||
-      raise """
-      No repo configured for PhoenixKit. Please add to your config:
-
-      config :phoenix_kit, repo: YourApp.Repo
-      """
+    Config.get(:repo, nil)
   end
 end

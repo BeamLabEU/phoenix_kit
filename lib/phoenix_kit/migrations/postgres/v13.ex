@@ -11,7 +11,7 @@ defmodule PhoenixKit.Migrations.Postgres.V13 do
   - Adds aws_message_id column for improved AWS SES message correlation
   - Adds timestamp columns for detailed event tracking (bounced_at, complained_at, opened_at, clicked_at)
   - Expands status enum to include all AWS SES event types
-  - Adds unique constraint on aws_message_id for duplicate prevention
+  - Adds partial unique index on aws_message_id for duplicate prevention (only for non-NULL values)
 
   ### Email Event Enhancements
   - Adds support for reject, delivery_delay, subscription, and rendering_failure events
@@ -55,10 +55,13 @@ defmodule PhoenixKit.Migrations.Postgres.V13 do
       add :clicked_at, :utc_datetime_usec, null: true
     end
 
-    # Add unique constraint on aws_message_id to prevent duplicates
+    # Add partial unique constraint on aws_message_id to prevent duplicates
+    # Only applies when aws_message_id IS NOT NULL (for AWS SES emails)
+    # Allows multiple NULL values for non-AWS providers (SMTP, Local, Mailgun, etc.)
     create unique_index(:phoenix_kit_email_logs, [:aws_message_id],
              prefix: prefix,
-             name: "phoenix_kit_email_logs_aws_message_id_index"
+             name: "phoenix_kit_email_logs_aws_message_id_index",
+             where: "aws_message_id IS NOT NULL"
            )
 
     # Enhance phoenix_kit_email_events table
@@ -86,10 +89,11 @@ defmodule PhoenixKit.Migrations.Postgres.V13 do
   Rollback the V13 migration.
   """
   def down(%{prefix: prefix} = _opts) do
-    # Remove unique constraint on aws_message_id
+    # Remove partial unique constraint on aws_message_id
     drop_if_exists unique_index(:phoenix_kit_email_logs, [:aws_message_id],
                      prefix: prefix,
-                     name: "phoenix_kit_email_logs_aws_message_id_index"
+                     name: "phoenix_kit_email_logs_aws_message_id_index",
+                     where: "aws_message_id IS NOT NULL"
                    )
 
     # Remove enhancements from phoenix_kit_email_logs table
