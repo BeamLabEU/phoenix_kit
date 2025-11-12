@@ -164,6 +164,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
           component_open?(line) ->
             {acc, depth + 1}
 
+          depth > 0 and multiline_self_close?(raw_line) ->
+            {acc, max(depth - 1, 0)}
+
           component_close?(line) and depth > 0 ->
             {acc, max(depth - 1, 0)}
 
@@ -192,6 +195,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
 
   defp component_self_closing?(line) do
     component_open?(line) and String.ends_with?(line, "/>")
+  end
+
+  defp multiline_self_close?(line) do
+    line
+    |> String.trim()
+    |> case do
+      "/>" -> true
+      ">" -> false
+      other -> String.ends_with?(other, "/>")
+    end
   end
 
   # Extract metadata from YAML-style frontmatter
