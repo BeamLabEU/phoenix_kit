@@ -96,19 +96,6 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Template versioning and usage tracking
   - Integration with existing email logging system
 
-  ### V14 - Modules and Referral Codes System
-  - Phoenix_kit_modules for feature management
-  - Phoenix_kit_referral_codes for user referrals
-  - Module-based feature toggles
-  - Referral tracking and analytics
-
-  ### V15 - Email Templates System
-  - Phoenix_kit_email_templates for template storage and management
-  - Template variables with {{variable}} syntax
-  - Template categories (system, marketing, transactional)
-  - Template versioning and usage tracking
-  - Integration with email logging system
-
   ### V16 - OAuth Providers System & Magic Link Registration
   - Phoenix_kit_user_oauth_providers for OAuth integration
   - Support for Google, Apple, GitHub authentication
@@ -152,7 +139,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Improved performance of AWS SES event correlation
   - Optimized message ID search queries throughout email system
 
-  ### V22 - Email System Improvements & Audit Logging ⚡ LATEST
+  ### V22 - Email System Improvements & Audit Logging
   - AWS message ID tracking with aws_message_id field in phoenix_kit_email_logs
   - Enhanced event management with composite indexes for faster duplicate checking
   - Phoenix_kit_email_orphaned_events table for tracking unmatched SQS events
@@ -162,17 +149,28 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Metadata storage for additional context in audit logs
   - Performance indexes for efficient querying by user, action, and date
 
+  ### V23 - Session Fingerprinting ⚡ LATEST
+  - Session fingerprinting columns (ip_address, user_agent_hash) in phoenix_kit_users_tokens
+  - Prevents session hijacking by detecting suspicious session usage patterns
+  - IP address tracking: Detects when session is used from different IP
+  - User agent hashing: Detects when session is used from different browser/device
+  - Backward compatible: Existing sessions without fingerprints remain valid
+  - Configurable strictness: Can log warnings or force re-authentication
+  - Performance indexes for efficient fingerprint verification
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V22 in sequence.
+  Runs all migrations V01 through V23 in sequence.
 
   ### Incremental Updates
-  - V01 → V22: Runs V02 through V22 in sequence
-  - V21 → V22: Runs V22 only (adds email system improvements and audit logging)
-  - V20 → V21: Runs V21 and V22 in sequence
+  - V01 → V23: Runs V02 through V23 in sequence
+  - V22 → V23: Runs V23 only (adds session fingerprinting)
+  - V21 → V23: Runs V22 and V23 in sequence
+  - V20 → V23: Runs V21, V22, and V23 in sequence
 
   ### Rollback Support
+  - V23 → V22: Removes session fingerprinting columns and indexes
   - V22 → V21: Removes audit logging system, email orphaned events, and email metrics
   - V21 → V20: Removes composite message ID index
   - V15 → V14: Removes email templates system
@@ -188,14 +186,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version
+      # Update to latest version (V23)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 12)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 23)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 11)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 22)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -213,7 +211,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 22
+  @current_version 23
   @default_prefix "public"
 
   @doc false

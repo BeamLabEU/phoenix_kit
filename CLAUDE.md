@@ -525,7 +525,7 @@ defp format_time_ago(datetime), do: # logic...
 
 ### Rate Limiting Architecture
 
-Protection against brute-force attacks, token enumeration, and spam using Hammer library.
+Protection against brute-force attacks, token enumeration, and spam using Hammer library. Configuration is automatically added to parent app's `config.exs` during installation.
 
 **Protected Endpoints:**
 - Login: 5/min per email + IP limiting
