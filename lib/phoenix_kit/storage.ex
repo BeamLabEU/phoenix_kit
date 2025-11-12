@@ -28,6 +28,7 @@ defmodule PhoenixKit.Storage do
   # The dedicated storage/media APIs under development should replace this fallback once available.
   alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Storage.VariantGenerator
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
 
   # ===== BUCKETS =====
 
@@ -818,11 +819,9 @@ defmodule PhoenixKit.Storage do
   end
 
   defp signed_file_url(file_id, variant_name) do
-    try do
-      URLSigner.signed_url(file_id, variant_name, locale: :none)
-    rescue
-      _ -> nil
-    end
+    URLSigner.signed_url(file_id, variant_name, locale: :none)
+  rescue
+    _ -> nil
   end
 
   @doc """
@@ -922,7 +921,7 @@ defmodule PhoenixKit.Storage do
                 # Queue background job for variant processing
                 _ =
                   %{file_id: file.id, user_id: user_id, filename: orig_filename}
-                  |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+                  |> ProcessFileJob.new()
                   |> Oban.insert()
 
                 {:ok, file}
