@@ -132,40 +132,25 @@ defmodule PhoenixKit.Users.Auth.User do
     |> maybe_hash_password(opts)
   end
 
-  @doc """
-  Apply configurable password requirements from application config.
-
-  Password requirements can be configured via:
-
-      config :phoenix_kit, :password_requirements,
-        min_length: 8,
-        max_length: 72,
-        require_uppercase: false,
-        require_lowercase: false,
-        require_digit: false,
-        require_special: false
-
-  ## Default Requirements
-
-  - `min_length`: 8 characters (minimum recommended)
-  - `max_length`: 72 characters (bcrypt limit)
-  - `require_uppercase`: false
-  - `require_lowercase`: false
-  - `require_digit`: false
-  - `require_special`: false
-
-  ## Examples
-
-      # Basic length validation only (default)
-      iex> changeset = registration_changeset(%User{}, %{email: "test@example.com", password: "password"})
-      iex> changeset.valid?
-      true
-
-      # With uppercase requirement enabled in config
-      iex> changeset = registration_changeset(%User{}, %{email: "test@example.com", password: "password"})
-      iex> changeset.valid?
-      false
-  """
+  # Apply configurable password requirements from application config.
+  #
+  # Password requirements can be configured via:
+  #
+  #     config :phoenix_kit, :password_requirements,
+  #       min_length: 8,
+  #       max_length: 72,
+  #       require_uppercase: false,
+  #       require_lowercase: false,
+  #       require_digit: false,
+  #       require_special: false
+  #
+  # Default Requirements:
+  # - min_length: 8 characters (minimum recommended)
+  # - max_length: 72 characters (bcrypt limit)
+  # - require_uppercase: false
+  # - require_lowercase: false
+  # - require_digit: false
+  # - require_special: false
   defp apply_password_requirements(changeset) do
     requirements = Application.get_env(:phoenix_kit, :password_requirements, [])
 
