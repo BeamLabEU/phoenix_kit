@@ -96,14 +96,51 @@ mix phoenix_kit.update --force -y                         # Force update with au
 
 ### Testing & Code Quality
 
-- `mix compile` - Run to confirm the project is working after changes
-- `mix test` - Run all tests (52 tests, no database required)
+- `mix test` - Run smoke tests (module loading and configuration)
 - `mix format` - Format code according to .formatter.exs
 - `mix credo --strict` - Static code analysis
 - `mix dialyzer` - Type checking (requires PLT setup)
-- `mix quality` - Run all quality checks (format, credo, dialyzer, test)
+- `mix quality` - Run all quality checks (format, credo, dialyzer)
 
-⚠️ Ecto warnings are normal for library - tests focus on API validation
+**Testing Philosophy for Library Modules:**
+
+PhoenixKit is a **library module**, not a standalone application. Testing approach:
+
+- ✅ **Smoke Tests** - Verify modules are loadable and properly structured
+- ✅ **Static Analysis** - Credo and Dialyzer catch logic and type errors
+- ✅ **Integration Testing** - Should be performed in parent Phoenix applications
+
+**Why Minimal Unit Tests?**
+- Library code requires database, configuration, and runtime context
+- Unit tests would need complex mocking of Repo, Settings, and other dependencies
+- Real-world usage testing in parent applications provides better coverage
+- Smoke tests ensure library compiles and modules load correctly
+
+**For Contributors:**
+Test your changes by integrating PhoenixKit into a real Phoenix application.
+See CONTRIBUTING.md for development workflow with live reloading.
+
+### CI/CD
+
+PhoenixKit uses GitHub Actions for continuous integration:
+
+**Automated Checks:**
+- ✅ Code formatting validation (`mix format --check-formatted`)
+- ✅ Static analysis with Credo (`mix credo --strict`)
+- ✅ Type checking with Dialyzer
+- ✅ Compilation with warnings as errors (production code)
+- ✅ Dependency audit (non-blocking for transitive deps)
+- 📝 Smoke tests (optional - basic module loading verification)
+
+**CI Workflow:**
+- Runs on push to `main`, `dev`, and `claude/**` branches
+- Runs on all pull requests
+- Uses caching for dependencies and PLT files
+- Parallel execution for faster feedback
+
+**View CI Status:**
+- GitHub Actions: Check the "Actions" tab in the repository
+- Badge: See README.md for CI status badge
 
 ### ⚠️ IMPORTANT: Pre-commit Checklist
 
@@ -146,7 +183,7 @@ This ensures consistent code formatting across the project.
 
 **Current Version**: 1.3.3 (in mix.exs)
 **Version Strategy**: Semantic versioning (MAJOR.MINOR.PATCH)
-**Migration Version**: V17 (latest migration version with entities system and plural display names)
+**Migration Version**: V23 (latest migration version with session fingerprinting)
 
 **MANDATORY steps for version updates:**
 
@@ -203,8 +240,10 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 **Before committing version changes:**
 
 - ✅ Mix compiles without errors: `mix compile`
-- ✅ Tests pass: `mix test`
+- ✅ Tests pass: `mix test` (run existing tests to ensure no regressions)
 - ✅ Code formatted: `mix format`
+- ✅ Credo passes: `mix credo --strict`
+- ✅ CI checks pass: Verify GitHub Actions workflow succeeds
 - ✅ CHANGELOG.md includes current date
 - ✅ Version number incremented correctly
 
@@ -482,6 +521,66 @@ defp format_time_ago(datetime), do: # logic...
 - **PhoenixKit.Users.Auth.UserToken** - Token management for email confirmation and password reset
 - **PhoenixKit.Users.MagicLink** - Magic link authentication system
 - **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
+- **PhoenixKit.Users.RateLimiter** - Rate limiting protection for authentication endpoints
+
+### Rate Limiting Architecture
+
+Protection against brute-force attacks, token enumeration, and spam using Hammer library. Configuration is automatically added to parent app's `config.exs` during installation.
+
+**Protected Endpoints:**
+- Login: 5/min per email + IP limiting
+- Magic Link: 3/5min per email
+- Password Reset: 3/5min per email
+- Registration: 3/hour per email + 10/hour per IP
+
+**Configuration:**
+```elixir
+# config/config.exs
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+
+config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+  login_limit: 5, login_window_ms: 60_000,
+  magic_link_limit: 3, magic_link_window_ms: 300_000,
+  password_reset_limit: 3, password_reset_window_ms: 300_000,
+  registration_limit: 3, registration_window_ms: 3_600_000,
+  registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
+```
+
+**Production:** Use `hammer_backend_redis` for distributed systems.
+
+### Session Fingerprinting Architecture
+
+- **PhoenixKit.Utils.SessionFingerprint** - Session fingerprinting utilities for hijacking prevention
+- **PhoenixKit.Users.Auth.UserToken** - Extended with ip_address and user_agent_hash fields
+- **PhoenixKitWeb.Users.Auth** - Integrated fingerprint verification in authentication plugs
+- **Migration V23** - Database migration adding fingerprinting columns
+
+**Security Features:**
+- **IP Address Tracking** - Detects when session is used from different IP address
+- **User Agent Hashing** - Detects when session is used from different browser/device
+- **Configurable Strictness** - Can log warnings or force re-authentication
+- **Backward Compatible** - Existing sessions without fingerprints remain valid
+- **Privacy Focused** - User agents are hashed for storage efficiency
+
+**Configuration:**
+```elixir
+# In your config/config.exs
+config :phoenix_kit,
+  session_fingerprint_enabled: true,  # Enable fingerprinting (default: true)
+  session_fingerprint_strict: false   # Strict mode forces re-auth on mismatch (default: false)
+```
+
+**Verification Behavior:**
+- **Non-strict mode (default)**: Logs warnings but allows access when fingerprints change
+- **Strict mode**: Forces re-authentication if both IP and user agent change
+- **Partial changes**: Single changes (IP or UA) logged as warnings but allowed
+
+**Use Cases:**
+- Detect stolen session tokens being used from different locations
+- Identify suspicious session activity patterns
+- Provide audit trail for security investigations
+- Balance security with user experience (mobile users, VPNs)
 
 ### Role System Architecture
 
@@ -635,6 +734,24 @@ config :phoenix_kit,
     date_format: "Y-m-d",    # ISO format: 2025-09-03
     time_format: "H:i"       # 24-hour format: 15:30
   }
+
+# Password Requirements Configuration (optional)
+# Configure password strength requirements for user registration and password changes
+config :phoenix_kit, :password_requirements,
+  min_length: 8,            # Minimum password length (default: 8)
+  max_length: 72,           # Maximum password length (default: 72, bcrypt limit)
+  require_uppercase: false, # Require at least one uppercase letter (default: false)
+  require_lowercase: false, # Require at least one lowercase letter (default: false)
+  require_digit: false,     # Require at least one digit (default: false)
+  require_special: false    # Require at least one special character (!?@#$%^&*_) (default: false)
+
+# Example: Strong password requirements for production
+# config :phoenix_kit, :password_requirements,
+#   min_length: 12,
+#   require_uppercase: true,
+#   require_lowercase: true,
+#   require_digit: true,
+#   require_special: true
 
 # In your Phoenix app's mix.exs
 def deps do

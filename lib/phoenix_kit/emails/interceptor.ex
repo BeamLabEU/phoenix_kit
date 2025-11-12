@@ -54,7 +54,6 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   alias PhoenixKit.Emails.Event
   alias PhoenixKit.Emails.Log
-  alias PhoenixKit.Emails.Utils
   alias Swoosh.Email
 
   @doc """
@@ -143,7 +142,7 @@ defmodule PhoenixKit.Emails.Interceptor do
         "smtp"
 
       true ->
-        Utils.detect_provider_from_config()
+        detect_provider_from_config()
     end
   end
 
@@ -158,15 +157,7 @@ defmodule PhoenixKit.Emails.Interceptor do
   def create_email_log(%Email{} = email, opts \\ []) do
     log_attrs = extract_email_data(email, opts)
 
-    case PhoenixKit.Emails.create_log(log_attrs) do
-      {:ok, log} ->
-        # Create queued event
-        Event.create_queued_event(log.id)
-        {:ok, log}
-
-      error ->
-        error
-    end
+    PhoenixKit.Emails.create_log(log_attrs)
   end
 
   @doc """
@@ -246,7 +237,9 @@ defmodule PhoenixKit.Emails.Interceptor do
       {:ok, %Log{}}
   """
   def update_after_send(%Log{} = log, provider_response \\ %{}) do
-    Logger.info("Updating email log after send", %{
+    require Logger
+
+    Logger.info("EmailInterceptor: Updating email log after send", %{
       log_id: log.id,
       current_message_id: log.message_id,
       response_keys:
@@ -259,22 +252,29 @@ defmodule PhoenixKit.Emails.Interceptor do
     }
 
     # Extract additional data from provider response
+    extraction_result = extract_provider_data(provider_response, log.id)
+
     update_attrs =
-      case extract_provider_data(provider_response) do
+      case extraction_result do
         %{message_id: aws_message_id} = provider_data when is_binary(aws_message_id) ->
-          Logger.info("Storing AWS message_id in aws_message_id field", %{
+          Logger.info("EmailInterceptor: Storing AWS message_id in aws_message_id field", %{
             log_id: log.id,
             internal_message_id: log.message_id,
             aws_message_id: aws_message_id
           })
 
+          # Log successful extraction metric
+          log_extraction_metric(true, log.id, aws_message_id)
+
           # Store the AWS message_id in the dedicated aws_message_id field
           # Keep internal pk_ message_id in the message_id field for compatibility
-          # Store internal IDs in message_tags (not in headers)
+          # Store internal IDs and provider response in message_tags for debugging
           updated_message_tags =
             Map.merge(log.message_tags || %{}, %{
               "internal_message_id" => log.message_id,
-              "aws_message_id" => aws_message_id
+              "aws_message_id" => aws_message_id,
+              # Store sanitized provider response for manual analysis
+              "provider_response_debug" => sanitize_provider_response(provider_response)
             })
 
           provider_data
@@ -286,20 +286,43 @@ defmodule PhoenixKit.Emails.Interceptor do
           |> Map.put(:message_tags, updated_message_tags)
 
         %{} = provider_data when map_size(provider_data) > 0 ->
+          # Log failed extraction metric - provider data exists but no message_id
+          log_extraction_metric(false, log.id, nil)
+
+          # Store full provider response for manual analysis
+          updated_message_tags =
+            Map.merge(log.message_tags || %{}, %{
+              "internal_message_id" => log.message_id,
+              "extraction_failed" => true,
+              "provider_response_debug" => sanitize_provider_response(provider_response)
+            })
+
           Map.merge(update_attrs, provider_data)
+          |> Map.put(:message_tags, updated_message_tags)
 
         _ ->
-          Logger.warning("No provider data extracted", %{
+          # Log failed extraction metric - no provider data at all
+          log_extraction_metric(false, log.id, nil)
+
+          Logger.warning("EmailInterceptor: No provider data extracted", %{
             log_id: log.id,
             response: inspect(provider_response) |> String.slice(0, 300)
           })
 
-          update_attrs
+          # Store full provider response for manual analysis
+          updated_message_tags =
+            Map.merge(log.message_tags || %{}, %{
+              "internal_message_id" => log.message_id,
+              "extraction_failed" => true,
+              "provider_response_debug" => sanitize_provider_response(provider_response)
+            })
+
+          Map.put(update_attrs, :message_tags, updated_message_tags)
       end
 
     case Log.update_log(log, update_attrs) do
       {:ok, updated_log} ->
-        Logger.info("Successfully updated email log", %{
+        Logger.info("EmailInterceptor: Successfully updated email log", %{
           log_id: updated_log.id,
           internal_message_id: updated_log.message_id,
           aws_message_id: updated_log.aws_message_id,
@@ -312,7 +335,7 @@ defmodule PhoenixKit.Emails.Interceptor do
         {:ok, updated_log}
 
       {:error, reason} ->
-        Logger.error("Failed to update email log", %{
+        Logger.error("EmailInterceptor: Failed to update email log", %{
           log_id: log.id,
           reason: inspect(reason),
           update_attrs: update_attrs
@@ -391,15 +414,17 @@ defmodule PhoenixKit.Emails.Interceptor do
   defp extract_sender(email) when is_binary(email), do: email
   defp extract_sender(_), do: "unknown@example.com"
 
-  # Extract and clean headers if enabled
-  # Note: Headers will be populated from AWS SES events via SQS
-  # Swoosh.Email headers are usually empty before sending
+  # Extract and clean headers
   defp extract_headers(%Email{headers: headers}, _opts) when is_map(headers) do
-    # Return empty map - headers will be populated from SES events
-    %{}
+    # Remove sensitive headers and normalize
+    headers
+    |> Enum.reject(fn {key, _} ->
+      key in ["Authorization", "Authentication-Results", "X-Password", "X-API-Key"]
+    end)
+    |> Enum.into(%{})
   end
 
-  defp extract_headers(_email, _opts), do: %{}
+  defp extract_headers(_, _opts), do: %{}
 
   # Extract body preview (first 500+ characters)
   defp extract_body_preview(%Email{} = email) do
@@ -538,12 +563,7 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   # Build message tags for categorization
   defp build_message_tags(%Email{} = email, opts) do
-    # Ensure message_tags is always a map, even if passed as list or other type
-    base_tags =
-      case Keyword.get(opts, :message_tags, %{}) do
-        tags when is_map(tags) -> tags
-        _ -> %{}
-      end
+    base_tags = Keyword.get(opts, :message_tags, %{})
 
     auto_tags = %{}
 
@@ -610,29 +630,64 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   defp has_smtp_headers?(_), do: false
 
+  # Detect provider from configuration
+  defp detect_provider_from_config do
+    # Try to detect from application configuration
+    case PhoenixKit.Config.get(:mailer) do
+      {:ok, mailer} when not is_nil(mailer) ->
+        # Try to determine provider from mailer configuration
+        config = Application.get_env(:phoenix_kit, mailer, [])
+        adapter = Keyword.get(config, :adapter)
+
+        case adapter do
+          Swoosh.Adapters.AmazonSES -> "aws_ses"
+          Swoosh.Adapters.SMTP -> "smtp"
+          Swoosh.Adapters.Sendgrid -> "sendgrid"
+          Swoosh.Adapters.Mailgun -> "mailgun"
+          Swoosh.Adapters.Local -> "local"
+          _ -> "unknown"
+        end
+
+      _ ->
+        "unknown"
+    end
+  end
+
   # Extract data from provider response
-  defp extract_provider_data(%{} = response) do
+  defp extract_provider_data(%{} = response, log_id) do
+    require Logger
+
     # Extract message ID from various response formats
     extracted_data = extract_message_id_from_response(response)
 
     if Map.has_key?(extracted_data, :message_id) do
-      Logger.info("Successfully extracted AWS MessageId", %{
+      Logger.info("EmailInterceptor: Successfully extracted AWS MessageId", %{
+        log_id: log_id,
         message_id: extracted_data.message_id,
         response_format: detect_response_format(response),
         found_in_key: find_message_id_key(response)
       })
     else
-      Logger.warning("No MessageId found in response", %{
+      # Enhanced warning with more details for troubleshooting
+      Logger.warning("EmailInterceptor: Failed to extract AWS MessageId", %{
+        log_id: log_id,
         response_keys: Map.keys(response),
-        response: inspect(response),
-        checked_keys: [":id", "\"id\"", "\"MessageId\"", "\"messageId\"", ":message_id"]
+        response_structure: inspect_response_structure(response),
+        response_sample: inspect(response) |> String.slice(0, 500),
+        checked_formats: [
+          "direct: :id, \"id\", \"MessageId\", \"messageId\", :message_id",
+          "nested: body.id, body.MessageId",
+          "aws_soap: SendEmailResponse.SendEmailResult.MessageId"
+        ],
+        recommendation:
+          "Check if Swoosh adapter format changed. Full response saved in message_tags.provider_response_debug"
       })
     end
 
     extracted_data
   end
 
-  defp extract_provider_data(_), do: %{}
+  defp extract_provider_data(_, _log_id), do: %{}
 
   # Extract message ID from different response formats
   defp extract_message_id_from_response(response) when is_map(response) do
@@ -716,7 +771,7 @@ defmodule PhoenixKit.Emails.Interceptor do
   defp strip_html_tags(_), do: ""
 
   # Helper function to identify which key contained the message ID
-  defp find_message_id_key(response) when is_map(response) do
+  defp find_message_id_key(response) do
     cond do
       Map.has_key?(response, :id) -> ":id (Swoosh format)"
       Map.has_key?(response, "id") -> "\"id\" (string format)"
@@ -726,4 +781,74 @@ defmodule PhoenixKit.Emails.Interceptor do
       true -> "not_found"
     end
   end
+
+  # Log extraction metric for monitoring
+  defp log_extraction_metric(success?, log_id, aws_message_id) do
+    require Logger
+
+    metric_data = %{
+      metric: "aws_message_id_extraction_rate",
+      success: success?,
+      log_id: log_id,
+      aws_message_id: aws_message_id,
+      timestamp: DateTime.utc_now()
+    }
+
+    if success? do
+      Logger.info("EmailInterceptor Metric: AWS message_id extraction succeeded", metric_data)
+    else
+      Logger.warning("EmailInterceptor Metric: AWS message_id extraction failed", metric_data)
+    end
+
+    # Return metric for potential future use (e.g., sending to monitoring service)
+    metric_data
+  end
+
+  # Sanitize provider response for safe storage
+  defp sanitize_provider_response(response) when is_map(response) do
+    # Limit response size to prevent bloating database
+    # Keep only essential fields for debugging
+    response
+    |> inspect(limit: 1000, printable_limit: 1000)
+    |> String.slice(0, 2000)
+  end
+
+  defp sanitize_provider_response(response) do
+    inspect(response) |> String.slice(0, 2000)
+  end
+
+  # Inspect response structure for detailed logging
+  defp inspect_response_structure(response) do
+    %{
+      top_level_keys: Map.keys(response),
+      has_body: Map.has_key?(response, :body) or Map.has_key?(response, "body"),
+      body_keys:
+        cond do
+          Map.has_key?(response, :body) and is_map(response.body) ->
+            Map.keys(response.body)
+
+          Map.has_key?(response, "body") and is_map(response["body"]) ->
+            Map.keys(response["body"])
+
+          true ->
+            []
+        end,
+      has_nested_response:
+        Map.has_key?(response, "SendEmailResponse") or Map.has_key?(response, :response) or
+          Map.has_key?(response, "response"),
+      value_types:
+        response
+        |> Enum.take(10)
+        |> Enum.map(fn {k, v} -> {k, type_of(v)} end)
+        |> Map.new()
+    }
+  end
+
+  # Helper to get type of value
+  defp type_of(value) when is_map(value), do: "map"
+  defp type_of(value) when is_list(value), do: "list"
+  defp type_of(value) when is_binary(value), do: "string"
+  defp type_of(value) when is_atom(value), do: "atom"
+  defp type_of(value) when is_integer(value), do: "integer"
+  defp type_of(_), do: "other"
 end
