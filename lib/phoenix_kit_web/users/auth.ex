@@ -761,8 +761,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  defp email_confirmed?(%Scope{user: %{confirmed_at: confirmed_at}}) when not is_nil(confirmed_at),
-    do: true
+  defp email_confirmed?(%Scope{user: %{confirmed_at: confirmed_at}})
+       when not is_nil(confirmed_at),
+       do: true
 
   defp email_confirmed?(_), do: false
 
