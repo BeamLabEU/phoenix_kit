@@ -24,7 +24,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   alias PhoenixKit.Users.Auth.UserToken
 
   @hash_algorithm :sha256
-  @rand_size 48  # 48 bytes = ~64 chars after base64 - enhanced security for passwordless auth
+  # 48 bytes = ~64 chars after base64 - enhanced security for passwordless auth
+  @rand_size 48
 
   # It is very important to keep the reset password token expiry short,
   # since someone with access to the email may take over the account.
