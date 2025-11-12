@@ -26,8 +26,7 @@ defmodule PhoenixKit.AuditLog.Entry do
           ip_address: String.t() | nil,
           user_agent: String.t() | nil,
           metadata: map() | nil,
-          inserted_at: DateTime.t() | nil,
-          updated_at: DateTime.t() | nil
+          inserted_at: DateTime.t() | nil
         }
 
   @valid_actions [

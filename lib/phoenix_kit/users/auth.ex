@@ -469,7 +469,9 @@ defmodule PhoenixKit.Users.Auth do
 
     multi = Ecto.Multi.new()
     multi = Ecto.Multi.update(multi, :user, changeset)
-    multi = Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
+
+    multi =
+      Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
 
     # Add audit logging if context is provided
     multi =
@@ -489,7 +491,8 @@ defmodule PhoenixKit.Users.Auth do
 
           case PhoenixKit.AuditLog.log_password_change(log_attrs) do
             {:ok, log_entry} -> {:ok, log_entry}
-            {:error, _} -> {:ok, nil}  # Don't fail password update if logging fails
+            # Don't fail password update if logging fails
+            {:error, _} -> {:ok, nil}
           end
         end)
       else

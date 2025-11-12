@@ -183,18 +183,14 @@ defmodule PhoenixKit.Migrations.Postgres.V22 do
     # Composite indexes for common query patterns
     # Query logs for specific user and action type
     create_if_not_exists index(:phoenix_kit_audit_logs, [:target_user_id, :action],
-                         prefix: prefix
-                       )
+                           prefix: prefix
+                         )
 
     # Query logs by admin and action type
-    create_if_not_exists index(:phoenix_kit_audit_logs, [:admin_user_id, :action],
-                         prefix: prefix
-                       )
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:admin_user_id, :action], prefix: prefix)
 
     # Query logs by action and date range
-    create_if_not_exists index(:phoenix_kit_audit_logs, [:action, :inserted_at],
-                         prefix: prefix
-                       )
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:action, :inserted_at], prefix: prefix)
 
     # Set version comment on phoenix_kit table for version tracking
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '22'"
