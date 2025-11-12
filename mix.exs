@@ -113,9 +113,8 @@ defmodule PhoenixKit.MixProject do
       {:uuidv7, "~> 1.0"},
       {:oban, "~> 2.20"},
 
-      # Rate limiting
+      # Rate limiting (ETS backend is built into Hammer 6.x)
       {:hammer, "~> 6.2"},
-      {:hammer_backend_ets, "~> 6.2"},
 
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},
