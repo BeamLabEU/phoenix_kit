@@ -147,21 +147,33 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Token-based URL security to prevent enumeration attacks
   - Automatic variant generation system
 
-  ### V21 - Message ID Search Performance Optimization ⚡ LATEST
+  ### V21 - Message ID Search Performance Optimization
   - Composite index on (message_id, aws_message_id) for faster lookups
   - Improved performance of AWS SES event correlation
   - Optimized message ID search queries throughout email system
 
+  ### V22 - Email System Improvements & Audit Logging ⚡ LATEST
+  - AWS message ID tracking with aws_message_id field in phoenix_kit_email_logs
+  - Enhanced event management with composite indexes for faster duplicate checking
+  - Phoenix_kit_email_orphaned_events table for tracking unmatched SQS events
+  - Phoenix_kit_email_metrics table for system metrics tracking
+  - Phoenix_kit_audit_logs table for comprehensive administrative action tracking
+  - Complete audit trail for admin password resets (WHO, WHAT, WHEN, WHERE)
+  - Metadata storage for additional context in audit logs
+  - Performance indexes for efficient querying by user, action, and date
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V21 in sequence.
+  Runs all migrations V01 through V22 in sequence.
 
   ### Incremental Updates
-  - V01 → V21: Runs V02 through V21 in sequence
-  - V20 → V21: Runs V21 only (adds composite message ID index)
+  - V01 → V22: Runs V02 through V22 in sequence
+  - V21 → V22: Runs V22 only (adds email system improvements and audit logging)
+  - V20 → V21: Runs V21 and V22 in sequence
 
   ### Rollback Support
+  - V22 → V21: Removes audit logging system, email orphaned events, and email metrics
   - V21 → V20: Removes composite message ID index
   - V15 → V14: Removes email templates system
   - V14 → V13: Removes body compression support
@@ -201,7 +213,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 21
+  @current_version 22
   @default_prefix "public"
 
   @doc false
