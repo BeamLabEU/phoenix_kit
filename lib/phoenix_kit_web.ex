@@ -94,11 +94,33 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Flash
       import PhoenixKitWeb.Components.Core.Header
       import PhoenixKitWeb.Components.Core.Icon
+      import PhoenixKitWeb.Components.Core.FormFieldLabel
+      import PhoenixKitWeb.Components.Core.FormFieldError
       import PhoenixKitWeb.Components.Core.Input
       import PhoenixKitWeb.Components.Core.Textarea
+      import PhoenixKitWeb.Components.Core.Select
       import PhoenixKitWeb.Components.Core.Checkbox
       import PhoenixKitWeb.Components.Core.SimpleForm
       import PhoenixKitWeb.Components.Core.ThemeSwitcher
+      import PhoenixKitWeb.Components.Core.Badge
+      import PhoenixKitWeb.Components.Core.EmailStatusBadge
+      import PhoenixKitWeb.Components.Core.TimeDisplay
+      import PhoenixKitWeb.Components.Core.EventTimelineItem
+      import PhoenixKitWeb.Components.Core.UserInfo
+      import PhoenixKitWeb.Components.Core.Pagination
+      import PhoenixKitWeb.Components.Core.FileDisplay
+      import PhoenixKitWeb.Components.Core.EmailActivityBadges
+      import PhoenixKitWeb.Components.Core.MessageTagBadge
+      import PhoenixKitWeb.Components.Core.NumberFormatter
+      import PhoenixKitWeb.Components.Core.TableDefault
+      import PhoenixKitWeb.Components.Core.OAuthUtils
+      import PhoenixKitWeb.Components.Core.OAuthProvider
+      import PhoenixKitWeb.Components.Core.OAuthCheckbox
+      import PhoenixKitWeb.Components.Core.AWSRegionSelect
+      import PhoenixKitWeb.Components.Core.AWSCredentialsVerify
+      import PhoenixKitWeb.Components.Core.Accordion
+      import PhoenixKitWeb.Components.Core.FileUpload
+      import PhoenixKitWeb.Components.Core.LanguageSwitcher
     end
   end
 

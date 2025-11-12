@@ -49,29 +49,35 @@ defmodule PhoenixKitWeb.AuthRouter do
     # Test LiveView routes moved to integration.ex for proper parent app support
 
     # LiveView routes for authentication
-    live "/register", PhoenixKitWeb.Users.RegistrationLive, :new
-    live "/log_in", PhoenixKitWeb.Users.LoginLive, :new
+    live "/register", PhoenixKitWeb.Users.Registration, :new, as: :user_registration
+    live "/log_in", PhoenixKitWeb.Users.Login, :new, as: :user_login
 
-    post "/log_in", PhoenixKitWeb.Users.SessionController, :create
+    post "/log_in", PhoenixKitWeb.Users.Session, :create
 
-    live "/reset_password", PhoenixKitWeb.Users.ForgotPasswordLive, :new
-    live "/reset_password/:token", PhoenixKitWeb.Users.ResetPasswordLive, :edit
+    live "/reset_password", PhoenixKitWeb.Users.ForgotPassword, :new, as: :user_reset_password
+
+    live "/reset_password/:token", PhoenixKitWeb.Users.ResetPassword, :edit,
+      as: :user_reset_password
   end
 
   scope "/" do
     pipe_through [:browser]
 
-    delete "/log_out", PhoenixKitWeb.Users.SessionController, :delete
-    get "/log_out", PhoenixKitWeb.Users.SessionController, :get_logout
+    delete "/log_out", PhoenixKitWeb.Users.Session, :delete
+    get "/log_out", PhoenixKitWeb.Users.Session, :get_logout
 
-    live "/confirm/:token", PhoenixKitWeb.Users.ConfirmationLive, :edit
-    live "/confirm", PhoenixKitWeb.Users.ConfirmationInstructionsLive, :new
+    live "/confirm/:token", PhoenixKitWeb.Users.Confirmation, :edit, as: :user_confirmation
+
+    live "/confirm", PhoenixKitWeb.Users.ConfirmationInstructions, :new,
+      as: :user_confirmation_instructions
   end
 
   scope "/" do
     pipe_through [:browser, :require_authenticated]
 
-    live "/settings", PhoenixKitWeb.Users.SettingsLive, :edit
-    live "/settings/confirm_email/:token", PhoenixKitWeb.Users.SettingsLive, :confirm_email
+    live "/settings", PhoenixKitWeb.Users.Settings, :edit, as: :user_settings
+
+    live "/settings/confirm_email/:token", PhoenixKitWeb.Users.Settings, :confirm_email,
+      as: :user_settings
   end
 end

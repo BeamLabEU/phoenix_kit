@@ -1,0 +1,137 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+>
+  <div class="flex items-center justify-center py-8 min-h-[80vh]">
+    <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+      <div class="card-body">
+        <h1 class="text-2xl font-bold text-center mb-2">Complete Your Registration</h1>
+        <p class="text-center text-base-content/60 text-sm mb-6">
+          Email: <strong>{@email}</strong>
+        </p>
+
+        <.form
+          for={@form}
+          id="registration_completion_form"
+          phx-submit="save"
+          phx-change="validate"
+          phx-trigger-action={@trigger_submit}
+          action={Routes.path("/users/log-in?_action=registered")}
+          method="post"
+        >
+          <%!-- Hidden email field for session controller --%>
+          <input type="hidden" name="user[email]" value={@email} />
+
+          <fieldset class="fieldset">
+            <legend class="fieldset-legend sr-only">Account Information</legend>
+
+            <div :if={@check_errors} class="alert alert-error text-sm mb-4">
+              <PhoenixKitWeb.Components.Core.Icons.icon_error_circle class="stroke-current shrink-0 h-6 w-6" />
+              <span>Oops, something went wrong! Please check the errors below.</span>
+            </div>
+
+            <%!-- Username Field --%>
+            <div phx-feedback-for="user[username]">
+              <label class="label" for="user_username">
+                <span class="label-text flex items-center">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                  Username
+                </span>
+              </label>
+              <.input
+                field={@form[:username]}
+                type="text"
+                placeholder="Choose a unique username"
+                autocomplete="username"
+                class="transition-colors focus:input-primary"
+              />
+            </div>
+
+            <%!-- Password Field --%>
+            <div phx-feedback-for="user[password]">
+              <label class="label" for="user_password">
+                <span class="label-text flex items-center">
+                  <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> Password
+                </span>
+              </label>
+              <.input
+                field={@form[:password]}
+                type="password"
+                placeholder="Choose a secure password"
+                autocomplete="new-password"
+                class="transition-colors focus:input-primary"
+                required
+              />
+            </div>
+
+            <%!-- First Name Field (optional) --%>
+            <div phx-feedback-for="user[first_name]">
+              <label class="label" for="user_first_name">
+                <span class="label-text">First Name</span>
+              </label>
+              <.input
+                field={@form[:first_name]}
+                type="text"
+                placeholder="Your first name (optional)"
+                autocomplete="given-name"
+                class="transition-colors focus:input-primary"
+              />
+            </div>
+
+            <%!-- Last Name Field (optional) --%>
+            <div phx-feedback-for="user[last_name]">
+              <label class="label" for="user_last_name">
+                <span class="label-text">Last Name</span>
+              </label>
+              <.input
+                field={@form[:last_name]}
+                type="text"
+                placeholder="Your last name (optional)"
+                autocomplete="family-name"
+                class="transition-colors focus:input-primary"
+              />
+            </div>
+
+            <%!-- Referral Code Field --%>
+            <%= if @referral_codes_enabled do %>
+              <div phx-feedback-for="referral_code">
+                <.label for="referral_code">
+                  Referral Code<%= if @referral_codes_required do %>
+                    *
+                  <% end %>
+                </.label>
+                <input
+                  id="referral_code"
+                  name="referral_code"
+                  type="text"
+                  class={[
+                    "input input-bordered",
+                    (@referral_code_error ||
+                       (@check_errors && @referral_codes_required &&
+                          (is_nil(@referral_code) || @referral_code == ""))) && "input-error"
+                  ]}
+                  placeholder="Enter your referral code"
+                  value={@referral_code || ""}
+                  required={@referral_codes_required}
+                />
+                <%= if @referral_code_error do %>
+                  <.error>{@referral_code_error}</.error>
+                <% end %>
+              </div>
+            <% end %>
+
+            <button
+              type="submit"
+              phx-disable-with="Creating account..."
+              class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_user_add class="w-5 h-5 mr-2" />
+              Complete Registration <span aria-hidden="true">→</span>
+            </button>
+          </fieldset>
+        </.form>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -8,6 +8,7 @@ defmodule PhoenixKit.Install.MigrationStrategy do
   - Handle interactive migration prompts
   - Generate appropriate migration notices
   """
+  use PhoenixKit.Install.IgniterCompat
 
   alias Igniter.Project.Application
   alias PhoenixKit.Install.Common
