@@ -5,6 +5,7 @@ defmodule PhoenixKit.Pages do
   Provides filesystem operations for creating, editing, and organizing
   files and folders in a web-based interface.
   """
+  require Logger
 
   alias PhoenixKit.Config
   alias PhoenixKit.Pages.FileOperations
@@ -133,10 +134,9 @@ defmodule PhoenixKit.Pages do
       "/path/to/app/priv/static/pages"
   """
   def root_path do
-    parent_app = get_parent_app()
+    parent_app = Config.get_parent_app()
     path = resolve_pages_path(parent_app)
 
-    require Logger
     Logger.debug("Pages root_path: parent_app=#{inspect(parent_app)}, path=#{inspect(path)}")
 
     case File.mkdir_p(path) do
@@ -146,23 +146,6 @@ defmodule PhoenixKit.Pages do
   end
 
   # Private Helpers
-
-  defp get_parent_app do
-    case Config.get(:repo, nil) do
-      nil ->
-        # Fallback to phoenix_kit if no repo configured
-        :phoenix_kit
-
-      repo_module ->
-        # Extract app name from repo module
-        # e.g., PhoenixKitTesting.Repo -> :phoenix_kit_testing
-        repo_module
-        |> Module.split()
-        |> List.first()
-        |> Macro.underscore()
-        |> String.to_atom()
-    end
-  end
 
   defp resolve_pages_path(parent_app) do
     priv_dir = :code.priv_dir(parent_app) |> to_string()

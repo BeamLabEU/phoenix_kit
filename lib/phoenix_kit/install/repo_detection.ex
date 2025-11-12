@@ -10,6 +10,7 @@ defmodule PhoenixKit.Install.RepoDetection do
   use PhoenixKit.Install.IgniterCompat
 
   alias Igniter.Libs.Ecto
+  alias Igniter.Project.Config
   alias Igniter.Project.Module, as: IgniterModule
   alias PhoenixKit.Install.IgniterHelpers
 
@@ -150,8 +151,6 @@ defmodule PhoenixKit.Install.RepoDetection do
 
   # Add repo configuration to config files
   defp add_repo_config_to_files(igniter, repo_module) do
-    alias Igniter.Project.Config
-
     try do
       igniter
       # Add repo config to main config.exs
