@@ -112,10 +112,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   def extract_title_from_content(content) when is_binary(content) do
     content
     |> String.trim()
-    |> extract_title_from_lines()
+    |> do_extract_title()
   end
 
   def extract_title_from_content(_), do: "Untitled"
+
+  defp do_extract_title(""), do: "Untitled"
+
+  defp do_extract_title(content) do
+    content
+    |> extract_title_from_lines()
+    |> case do
+      "Untitled" ->
+        extract_title_from_components(content) || "Untitled"
+
+      title ->
+        title
+    end
+  end
 
   defp extract_title_from_lines(""), do: "Untitled"
 
@@ -204,6 +218,46 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       "/>" -> true
       ">" -> false
       other -> String.ends_with?(other, "/>")
+    end
+  end
+
+  defp extract_title_from_components(content) do
+    component_title(content, "Headline") ||
+      component_attribute(content, "Hero", "title") ||
+      component_title(content, "Title")
+  end
+
+  defp component_title(content, tag) do
+    regex = ~r/<#{tag}\b[^>]*>(.*?)<\/#{tag}>/is
+
+    content
+    |> Regex.run(regex, capture: :all_but_first)
+    |> case do
+      [inner | _] -> sanitize_component_text(inner)
+      _ -> nil
+    end
+  end
+
+  defp component_attribute(content, tag, attr) do
+    regex = ~r/<#{tag}\b[^>]*#{attr}="([^"]+)"[^>]*>/i
+
+    content
+    |> Regex.run(regex, capture: :all_but_first)
+    |> case do
+      [value | _] -> sanitize_component_text(value)
+      _ -> nil
+    end
+  end
+
+  defp sanitize_component_text(text) do
+    text
+    |> String.trim()
+    |> String.replace(~r/<[^>]+>/, "")
+    |> String.replace(~r/\s+/, " ")
+    |> String.trim()
+    |> case do
+      "" -> nil
+      cleaned -> String.slice(cleaned, 0, 100)
     end
   end
 
