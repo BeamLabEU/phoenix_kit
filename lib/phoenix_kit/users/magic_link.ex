@@ -12,6 +12,7 @@ defmodule PhoenixKit.Users.MagicLink do
   - **Time-Limited Links**: Magic links expire after a configurable period
   - **Optional Integration**: Works alongside existing password authentication
   - **Email Verification**: Links are sent to the user's email address
+  - **Auto-Confirmation**: Unconfirmed users are automatically confirmed upon magic link use
 
   ## Usage
 
@@ -127,6 +128,9 @@ defmodule PhoenixKit.Users.MagicLink do
 
   The token is automatically deleted after successful verification (single-use).
 
+  If the user's email is not yet confirmed, this function will automatically
+  confirm the user, since clicking the magic link proves email ownership.
+
   Returns `{:ok, user}` if the token is valid, or `{:error, :invalid_token}`
   if the token is invalid, expired, or already used.
 
@@ -160,7 +164,8 @@ defmodule PhoenixKit.Users.MagicLink do
             # Delete the token to make it single-use
             repo().delete(user_token)
 
-            {:ok, user}
+            # Auto-confirm user on magic link authentication
+            confirm_user_if_needed(user)
 
           nil ->
             {:error, :invalid_token}
@@ -278,6 +283,17 @@ defmodule PhoenixKit.Users.MagicLink do
   defp get_expiry_minutes do
     Config.get(:magic_link_for_login_expiry_minutes, 15)
   end
+
+  # Auto-confirm user if not yet confirmed
+  # If user can click the magic link, they have proven email ownership
+  defp confirm_user_if_needed(%User{confirmed_at: nil} = user) do
+    case Auth.admin_confirm_user(user) do
+      {:ok, confirmed_user} -> {:ok, confirmed_user}
+      {:error, _changeset} -> {:ok, user}
+    end
+  end
+
+  defp confirm_user_if_needed(%User{} = user), do: {:ok, user}
 
   # Get configured repo module
   defp repo do
