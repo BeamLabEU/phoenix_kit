@@ -33,29 +33,40 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
   def file_upload(assigns) do
     ~H"""
     <div class="space-y-4">
-      <%!-- Upload Form with phx-change on form not file input --%>
       <form phx-change="validate" id={"upload-form-" <> @upload.ref}>
-        <label for={@upload.ref} class="btn btn-primary cursor-pointer">
-          <.icon name={@icon} class="w-4 h-4 mr-2" />
-          {@label}
-        </label>
-        <.live_file_input upload={@upload} class="hidden" />
-      </form>
+        <%!-- Drag and Drop Zone --%>
+        <div
+          class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center transition-colors cursor-pointer hover:border-primary hover:bg-primary/5"
+          phx-drop-target={@upload.ref}
+          id={"drop-zone-" <> @upload.ref}
+        >
+          <label for={@upload.ref} class="cursor-pointer block">
+            <div class="flex flex-col items-center gap-2">
+              <.icon name={@icon} class="w-8 h-8 text-primary" />
+              <div>
+                <p class="font-semibold text-base-content">Drag files here or click to browse</p>
+                <p class="text-sm text-base-content/70 mt-1">
+                  <%= if @accept_description do %>
+                    {@accept_description}
+                  <% else %>
+                    Drop your files to upload
+                  <% end %>
+                </p>
+              </div>
+            </div>
+          </label>
+          <.live_file_input upload={@upload} class="hidden" />
+        </div>
 
-      <%!-- File Type and Size Info --%>
-      <%= if @accept_description != nil or @max_size_description != nil do %>
-        <p class="text-sm text-base-content/70">
-          <%= if @accept_description do %>
-            Supported formats: {@accept_description}
+        <%!-- File Type and Size Info --%>
+        <%= if @accept_description != nil or @max_size_description != nil do %>
+          <p class="text-sm text-base-content/70 text-center">
             <%= if @max_size_description do %>
-              <br />
+              Maximum file size: {@max_size_description}
             <% end %>
-          <% end %>
-          <%= if @max_size_description do %>
-            Maximum file size: {@max_size_description}
-          <% end %>
-        </p>
-      <% end %>
+          </p>
+        <% end %>
+      </form>
 
       <%!-- Active Uploads --%>
       <%= if length(@upload.entries) > 0 do %>

@@ -40,6 +40,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
+      |> assign(:show_upload, false)
 
     {:ok, socket}
   end
@@ -62,6 +63,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:total_count, total_count)
 
     {:noreply, socket}
+  end
+
+  def handle_event("toggle_upload", _params, socket) do
+    {:noreply, assign(socket, :show_upload, !socket.assigns.show_upload)}
   end
 
   def handle_event("validate", _params, socket) do
