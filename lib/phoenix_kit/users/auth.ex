@@ -444,22 +444,62 @@ defmodule PhoenixKit.Users.Auth do
   @doc """
   Updates the user password as an admin (bypasses current password validation).
 
+  ## Parameters
+    * `user` - The user whose password is being updated
+    * `attrs` - Password attributes (password, password_confirmation)
+    * `context` - Optional context map containing:
+      * `:admin_user` - The admin performing the action (for audit logging)
+      * `:ip_address` - IP address of the admin (for audit logging)
+      * `:user_agent` - User agent of the admin (for audit logging)
+
   ## Examples
 
       iex> admin_update_user_password(user, %{password: "new_password", password_confirmation: "new_password"})
+      {:ok, %User{}}
+
+      iex> admin_update_user_password(user, %{password: "new_password", password_confirmation: "new_password"}, %{admin_user: admin, ip_address: "192.168.1.1"})
       {:ok, %User{}}
 
       iex> admin_update_user_password(user, %{password: "short"})
       {:error, %Ecto.Changeset{}}
 
   """
-  def admin_update_user_password(user, attrs) do
+  def admin_update_user_password(user, attrs, context \\ %{}) do
     changeset = User.password_changeset(user, attrs)
 
     multi = Ecto.Multi.new()
     multi = Ecto.Multi.update(multi, :user, changeset)
 
-    Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
+    multi =
+      Ecto.Multi.delete_all(multi, :tokens, UserToken.by_user_and_contexts_query(user, :all))
+
+    # Add audit logging if context is provided
+    multi =
+      if admin_user = Map.get(context, :admin_user) do
+        Ecto.Multi.run(multi, :audit_log, fn _repo, %{user: updated_user} ->
+          log_attrs = %{
+            target_user_id: updated_user.id,
+            admin_user_id: admin_user.id,
+            action: :admin_password_reset,
+            ip_address: Map.get(context, :ip_address),
+            user_agent: Map.get(context, :user_agent),
+            metadata: %{
+              target_email: updated_user.email,
+              admin_email: admin_user.email
+            }
+          }
+
+          case PhoenixKit.AuditLog.log_password_change(log_attrs) do
+            {:ok, log_entry} -> {:ok, log_entry}
+            # Don't fail password update if logging fails
+            {:error, _} -> {:ok, nil}
+          end
+        end)
+      else
+        multi
+      end
+
+    multi
     |> Repo.transaction()
     |> case do
       {:ok, %{user: user}} -> {:ok, user}

@@ -1,8 +1,8 @@
 defmodule PhoenixKit.Migrations.Postgres.V22 do
   @moduledoc """
-  PhoenixKit V22 Migration: Email System Improvements
+  PhoenixKit V22 Migration: Email System Improvements & Audit Logging
 
-  This migration addresses critical issues in the email system:
+  This migration addresses critical issues in the email system and adds comprehensive audit logging:
 
   ## Changes
 
@@ -13,14 +13,22 @@ defmodule PhoenixKit.Migrations.Postgres.V22 do
   - Creates phoenix_kit_email_orphaned_events table for tracking unmatched SQS events
   - Adds phoenix_kit_email_metrics table for system metrics tracking
 
+  ### Audit Logging System
+  - Adds phoenix_kit_audit_logs table for comprehensive action tracking
+  - Records admin actions with complete context (who, what, when, where)
+  - Supports metadata storage for additional context
+  - Indexed for efficient querying by user, action, and date
+
   ### New Tables
   - **phoenix_kit_email_orphaned_events**: Tracks SQS events without matching email logs
   - **phoenix_kit_email_metrics**: Tracks email system metrics (extraction rates, placeholder logs, etc.)
+  - **phoenix_kit_audit_logs**: Immutable audit trail for administrative actions
 
   ### Database Improvements
   - Improved email log searching with dual message_id strategy
   - Better duplicate prevention for events
   - Enhanced debugging capabilities for AWS SES integration
+  - Complete audit trail for admin password resets and other sensitive operations
 
   ## Migration Strategy
   The aws_message_id field addition is idempotent - it's added only if it doesn't exist.
@@ -143,6 +151,47 @@ defmodule PhoenixKit.Migrations.Postgres.V22 do
                            name: :phoenix_kit_email_metrics_date_idx
                          )
 
+    # Create audit logs table for tracking administrative actions
+    create_if_not_exists table(:phoenix_kit_audit_logs, prefix: prefix) do
+      # ID of the user affected by the action
+      add :target_user_id, :integer, null: false
+      # ID of the admin who performed the action
+      add :admin_user_id, :integer, null: false
+      # Action type (admin_password_reset, user_created, etc.)
+      add :action, :string, null: false
+      # IP address from which the action was performed
+      add :ip_address, :string, null: true
+      # User agent string of the client
+      add :user_agent, :text, null: true
+      # Additional metadata (JSONB for flexibility)
+      add :metadata, :map, null: true, default: %{}
+
+      # Timestamp for when the action occurred (immutable, no updated_at)
+      timestamps(type: :utc_datetime_usec, updated_at: false)
+    end
+
+    # Create performance indexes for audit logs
+    # Index for querying logs by target user
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:target_user_id], prefix: prefix)
+    # Index for querying logs by admin user
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:admin_user_id], prefix: prefix)
+    # Index for querying logs by action type
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:action], prefix: prefix)
+    # Index for chronological queries
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:inserted_at], prefix: prefix)
+
+    # Composite indexes for common query patterns
+    # Query logs for specific user and action type
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:target_user_id, :action],
+                           prefix: prefix
+                         )
+
+    # Query logs by admin and action type
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:admin_user_id, :action], prefix: prefix)
+
+    # Query logs by action and date range
+    create_if_not_exists index(:phoenix_kit_audit_logs, [:action, :inserted_at], prefix: prefix)
+
     # Set version comment on phoenix_kit table for version tracking
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '22'"
   end
@@ -151,6 +200,18 @@ defmodule PhoenixKit.Migrations.Postgres.V22 do
   Rollback the V22 migration.
   """
   def down(%{prefix: prefix} = _opts) do
+    # Drop audit logs indexes first
+    drop_if_exists index(:phoenix_kit_audit_logs, [:action, :inserted_at], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:admin_user_id, :action], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:target_user_id, :action], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:inserted_at], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:action], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:admin_user_id], prefix: prefix)
+    drop_if_exists index(:phoenix_kit_audit_logs, [:target_user_id], prefix: prefix)
+
+    # Drop audit logs table
+    drop_if_exists table(:phoenix_kit_audit_logs, prefix: prefix)
+
     # Drop metrics table and indexes
     drop_if_exists index(
                      :phoenix_kit_email_metrics,
