@@ -834,6 +834,13 @@ defmodule PhoenixKit.Storage do
               {:ok, instance} ->
                 # Create file location records for each bucket where the file was stored
                 _ = create_file_locations(instance.id, storage_info.bucket_ids, original_path)
+
+                # Queue background job for variant processing
+                _ =
+                  %{file_id: file.id, user_id: user_id, filename: orig_filename}
+                  |> PhoenixKit.Storage.Workers.ProcessFileJob.new()
+                  |> Oban.insert()
+
                 {:ok, file}
 
               {:error, changeset} ->
