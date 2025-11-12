@@ -732,7 +732,7 @@ defmodule PhoenixKit.Users.Roles do
           case assign_role_internal(user, roles.owner) do
             {:ok, _assignment} ->
               # Activate and confirm first owner
-              maybe_activate_first_owner(user, true, :owner, repo)
+              activate_first_owner(user, :owner, repo)
 
             {:error, reason} ->
               repo.rollback(reason)
@@ -753,14 +753,10 @@ defmodule PhoenixKit.Users.Roles do
     end)
   end
 
-  # Activate and confirm first owner if needed
-  defp maybe_activate_first_owner(user, is_first_owner, role_type, repo) do
-    if is_first_owner do
-      changes = build_owner_changes(user)
-      apply_owner_changes(user, changes, role_type, repo)
-    else
-      role_type
-    end
+  # Activate and confirm first owner
+  defp activate_first_owner(user, role_type, repo) do
+    changes = build_owner_changes(user)
+    apply_owner_changes(user, changes, role_type, repo)
   end
 
   # Build changes map for first owner (activation and email confirmation)
