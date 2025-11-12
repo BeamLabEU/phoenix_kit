@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   alias PhoenixKit.Settings
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.URLSigner
-  alias PhoenixKit.Storage.Workers.ProcessFileJob
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -132,7 +132,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         file_size = stat.size
 
         # Calculate hash
-        file_hash = calculate_file_hash(path)
+        file_hash = Auth.calculate_file_hash(path)
 
         # Store file in storage
         case PhoenixKit.Storage.store_file_in_buckets(
@@ -144,14 +144,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                entry.client_name
              ) do
           {:ok, file} ->
-            # Queue background job for processing
-            _job =
-              %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-              |> ProcessFileJob.new()
-              |> Oban.insert()
-
-            # Generate URLs for available variants (start with original)
-            urls = generate_file_urls(file.id)
+            # Note: ProcessFileJob is now automatically queued in Storage.store_file_in_buckets
+            # Variants will be generated asynchronously and loaded when page data is refreshed
 
             {:ok,
              %{
@@ -161,7 +155,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
                mime_type: mime_type,
                size: file_size,
                status: file.status,
-               urls: urls
+               urls: %{}
              }}
 
           {:error, reason} ->
@@ -199,27 +193,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       url = URLSigner.signed_url(file_id, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
     end)
-  end
-
-  # Legacy function for cases where we need to query a single file's instances
-  defp generate_file_urls(file_id) do
-    import Ecto.Query
-
-    repo = Application.get_env(:phoenix_kit, :repo)
-
-    instances =
-      FileInstance
-      |> where([fi], fi.file_id == ^file_id)
-      |> repo.all()
-
-    generate_urls_from_instances(instances, file_id)
-  end
-
-  defp calculate_file_hash(file_path) do
-    file_path
-    |> Elixir.File.read!()
-    |> then(fn data -> :crypto.hash(:sha256, data) end)
-    |> Base.encode16(case: :lower)
   end
 
   defp determine_file_type(mime_type) do
