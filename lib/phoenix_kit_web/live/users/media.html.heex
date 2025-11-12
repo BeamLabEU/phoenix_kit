@@ -41,7 +41,7 @@
               <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
               <button
                 phx-click="toggle_upload"
-                class={["btn btn-sm gap-2", @show_upload && "btn-error" || "btn-primary"]}
+                class={["btn btn-sm gap-2", (@show_upload && "btn-error") || "btn-primary"]}
               >
                 <%= if @show_upload do %>
                   <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
@@ -109,7 +109,7 @@
             <h2 class="card-title text-xl">Uploaded Files</h2>
             <button
               phx-click="toggle_upload"
-              class={["btn btn-sm gap-2", @show_upload && "btn-error" || "btn-primary"]}
+              class={["btn btn-sm gap-2", (@show_upload && "btn-error") || "btn-primary"]}
             >
               <%= if @show_upload do %>
                 <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
@@ -119,7 +119,9 @@
             </button>
           </div>
           <div class="bg-base-200 rounded-lg p-8 text-center">
-            <p class="text-base-content/70">No media uploaded yet. Upload your first file above!</p>
+            <p class="text-base-content/70">
+              No media uploaded yet. Upload your first file above!
+            </p>
           </div>
         </div>
       </div>

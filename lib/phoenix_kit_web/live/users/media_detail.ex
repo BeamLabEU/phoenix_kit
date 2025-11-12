@@ -131,9 +131,13 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         # Get user information if available
         user_name =
           case file.user_id do
-            nil -> "Unknown"
+            nil ->
+              "Unknown"
+
             user_id ->
-              alias_module = Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+              alias_module =
+                Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+
               case repo.get(alias_module, user_id) do
                 nil -> "Unknown"
                 user -> user.email

@@ -34,7 +34,8 @@ defmodule PhoenixKit.Storage.Manager do
     _generate_variants = Keyword.get(opts, :generate_variants, get_auto_generate_variants())
 
     # Use force_bucket_ids if provided, otherwise use priority_buckets
-    buckets_to_use = if Enum.empty?(force_bucket_ids), do: priority_buckets, else: force_bucket_ids
+    buckets_to_use =
+      if Enum.empty?(force_bucket_ids), do: priority_buckets, else: force_bucket_ids
 
     # Select buckets for storage
     buckets = select_buckets_for_storage(redundancy_copies, buckets_to_use)

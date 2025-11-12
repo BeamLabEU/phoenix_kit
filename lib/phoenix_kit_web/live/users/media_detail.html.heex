@@ -244,15 +244,21 @@
           <%!-- Storage Locations --%>
           <%= if not Enum.empty?(@file_data.locations) do %>
             <div class="mb-6">
-              <label class="text-sm font-semibold text-base-content mb-3 block">Storage Locations</label>
+              <label class="text-sm font-semibold text-base-content mb-3 block">
+                Storage Locations
+              </label>
               <div class="space-y-2">
                 <%= for location <- @file_data.locations do %>
                   <div class="bg-base-200 rounded p-3 text-sm">
                     <div class="flex items-start gap-2">
                       <div class="flex-1">
                         <p class="font-semibold text-base-content">{location.bucket_name}</p>
-                        <p class="text-base-content/70 text-xs mt-1 break-all font-mono">{location.path}</p>
-                        <p class="text-base-content/50 text-xs mt-1">Provider: {String.upcase(location.bucket_provider)}</p>
+                        <p class="text-base-content/70 text-xs mt-1 break-all font-mono">
+                          {location.path}
+                        </p>
+                        <p class="text-base-content/50 text-xs mt-1">
+                          Provider: {String.upcase(location.bucket_provider)}
+                        </p>
                       </div>
                     </div>
                   </div>
