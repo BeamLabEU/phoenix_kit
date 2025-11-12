@@ -41,6 +41,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
       |> assign(:show_upload, false)
+      |> assign(:last_uploaded_file_ids, [])
 
     {:ok, socket}
   end
@@ -84,6 +85,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :media_files, ref)}
+  end
+
+  def handle_info({:file_uploaded, file_id}, socket) do
+    # This event can be used by other modules listening to uploaded files
+    # For example, avatar upload systems can listen for this event
+    Logger.info("File uploaded with ID: #{file_id}")
+    {:noreply, socket}
   end
 
   def handle_info(:check_uploads_complete, socket) do
@@ -168,15 +176,22 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {refreshed_files, total_count} = load_existing_files(page, per_page)
     total_pages = ceil(total_count / per_page)
 
+    # Extract file IDs for callbacks
+    file_ids = Enum.map(uploaded_files, &get_file_id/1)
+
     socket =
       socket
       |> assign(:uploaded_files, refreshed_files)
       |> assign(:total_count, total_count)
       |> assign(:total_pages, total_pages)
+      |> assign(:last_uploaded_file_ids, file_ids)
       |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
 
     {:noreply, socket}
   end
+
+  defp get_file_id({:ok, %{file_id: file_id}}), do: file_id
+  defp get_file_id(_), do: nil
 
   # Generate URLs from pre-loaded instances (no database query needed)
   defp generate_urls_from_instances(instances, file_id) do

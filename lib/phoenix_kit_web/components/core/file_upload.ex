@@ -29,6 +29,7 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
   attr :icon, :string, default: "hero-cloud-arrow-up"
   attr :accept_description, :string, default: nil
   attr :max_size_description, :string, default: nil
+  attr :uploaded_file_ids, :list, default: nil, doc: "List of file IDs from last upload (for external use)"
 
   def file_upload(assigns) do
     ~H"""
