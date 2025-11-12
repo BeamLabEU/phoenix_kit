@@ -52,8 +52,8 @@ defmodule PhoenixKit.Emails.RateLimiter do
   - `email_blocklist_enabled` - Enable automatic blocklisting (default: true)
 
   User-specific settings (stored as JSON):
-  - `user_rate_limits_#{user_id}` - Temporary reduced limits for specific users
-  - `user_monitoring_#{user_id}` - Event tracking log for user behavior
+  - `user_rate_limits_<user_id>` - Temporary reduced limits for specific users
+  - `user_monitoring_<user_id>` - Event tracking log for user behavior
 
   ## Usage Examples
 
@@ -1135,31 +1135,21 @@ defmodule PhoenixKit.Emails.RateLimiter do
     monitoring_key = "user_rate_limits_#{user_id}"
     user_limits = Settings.get_json_setting(monitoring_key)
 
-    case user_limits do
-      nil ->
+    with limits when not is_nil(limits) <- user_limits,
+         expires_at_str when not is_nil(expires_at_str) <- Map.get(limits, "expires_at"),
+         {:ok, expires_at, _} <- DateTime.from_iso8601(expires_at_str) do
+      if DateTime.compare(DateTime.utc_now(), expires_at) == :lt do
+        limits
+      else
+        # Limits expired, clean them up
+        clear_user_limits(user_id)
         nil
-
-      limits ->
-        # Check if limits have expired
-        case Map.get(limits, "expires_at") do
-          nil ->
-            limits
-
-          expires_at_str ->
-            case DateTime.from_iso8601(expires_at_str) do
-              {:ok, expires_at, _} ->
-                if DateTime.compare(DateTime.utc_now(), expires_at) == :lt do
-                  limits
-                else
-                  # Limits expired, clean them up
-                  clear_user_limits(user_id)
-                  nil
-                end
-
-              _ ->
-                limits
-            end
-        end
+      end
+    else
+      nil -> nil
+      # No expiration or invalid format - return limits as-is
+      limits when is_map(limits) -> limits
+      _ -> user_limits
     end
   rescue
     _error ->
