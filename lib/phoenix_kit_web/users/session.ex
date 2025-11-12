@@ -36,9 +36,10 @@ defmodule PhoenixKitWeb.Users.Session do
 
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
+    ip_address = get_ip_address(conn)
 
-    case Auth.get_user_by_email_and_password(email, password) do
-      %Auth.User{is_active: false} ->
+    case Auth.get_user_by_email_and_password(email, password, ip_address) do
+      {:ok, %Auth.User{is_active: false}} ->
         # Valid credentials but account is inactive
         conn
         |> put_flash(
@@ -48,19 +49,33 @@ defmodule PhoenixKitWeb.Users.Session do
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
 
-      %Auth.User{} = user ->
+      {:ok, user} ->
         # Valid credentials and active account
         conn
         |> put_flash(:info, info)
         |> UserAuth.log_in_user(user, user_params)
 
-      nil ->
+      {:error, :rate_limit_exceeded} ->
+        # Rate limit exceeded - show specific error message
+        conn
+        |> put_flash(:error, "Too many login attempts. Please try again later.")
+        |> put_flash(:email, String.slice(email, 0, 160))
+        |> redirect(to: Routes.path("/users/log-in"))
+
+      {:error, :invalid_credentials} ->
         # Invalid credentials (wrong email or password)
         # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
         conn
         |> put_flash(:error, "Invalid email or password")
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
+    end
+  end
+
+  defp get_ip_address(conn) do
+    case Plug.Conn.get_peer_data(conn) do
+      %{address: {a, b, c, d}} -> "#{a}.#{b}.#{c}.#{d}"
+      %{address: address} -> to_string(address)
     end
   end
 

@@ -521,6 +521,33 @@ defp format_time_ago(datetime), do: # logic...
 - **PhoenixKit.Users.Auth.UserToken** - Token management for email confirmation and password reset
 - **PhoenixKit.Users.MagicLink** - Magic link authentication system
 - **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
+- **PhoenixKit.Users.RateLimiter** - Rate limiting protection for authentication endpoints
+
+### Rate Limiting Architecture
+
+Protection against brute-force attacks, token enumeration, and spam using Hammer library.
+
+**Protected Endpoints:**
+- Login: 5/min per email + IP limiting
+- Magic Link: 3/5min per email
+- Password Reset: 3/5min per email
+- Registration: 3/hour per email + 10/hour per IP
+
+**Configuration:**
+```elixir
+# config/config.exs
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+
+config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+  login_limit: 5, login_window_ms: 60_000,
+  magic_link_limit: 3, magic_link_window_ms: 300_000,
+  password_reset_limit: 3, password_reset_window_ms: 300_000,
+  registration_limit: 3, registration_window_ms: 3_600_000,
+  registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
+```
+
+**Production:** Use `hammer_backend_redis` for distributed systems.
 
 ### Role System Architecture
 

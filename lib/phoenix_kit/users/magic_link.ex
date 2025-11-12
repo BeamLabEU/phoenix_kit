@@ -55,10 +55,10 @@ defmodule PhoenixKit.Users.MagicLink do
         magic_link_for_login_expiry_minutes: 15
   """
 
-  alias Ecto.Adapters.SQL
   alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
+  alias PhoenixKit.Users.RateLimiter
   alias PhoenixKit.Utils.Routes
 
   import Ecto.Query
@@ -68,8 +68,13 @@ defmodule PhoenixKit.Users.MagicLink do
   @doc """
   Generates a magic link for the given email address.
 
-  Returns `{:ok, user, token}` if the user exists, or `{:error, :user_not_found}`
-  if no user is found with that email.
+  This function includes rate limiting protection to prevent token enumeration attacks.
+  After exceeding the rate limit (default: 3 requests per 5 minutes), subsequent
+  requests will be rejected with `{:error, :rate_limit_exceeded}`.
+
+  Returns `{:ok, user, token}` if the user exists and rate limit is not exceeded,
+  `{:error, :user_not_found}` if no user is found with that email, or
+  `{:error, :rate_limit_exceeded}` if the rate limit has been exceeded.
 
   ## Examples
 
@@ -78,39 +83,42 @@ defmodule PhoenixKit.Users.MagicLink do
 
       iex> PhoenixKit.Users.MagicLink.generate_magic_link("nonexistent@example.com")
       {:error, :user_not_found}
+
+      iex> PhoenixKit.Users.MagicLink.generate_magic_link("user@example.com")
+      {:error, :rate_limit_exceeded}
   """
   def generate_magic_link(email) when is_binary(email) do
     email = String.trim(email) |> String.downcase()
 
-    case Auth.get_user_by_email(email) do
-      %User{} = user ->
-        # Revoke any existing magic link tokens for this user
-        revoke_magic_links(user)
+    # Check rate limit before attempting to generate magic link
+    case RateLimiter.check_magic_link_rate_limit(email) do
+      :ok ->
+        case Auth.get_user_by_email(email) do
+          %User{} = user ->
+            # Revoke any existing magic link tokens for this user
+            revoke_magic_links(user)
 
-        # Generate new magic link token
-        {token, user_token} = UserToken.build_email_token(user, @magic_link_context)
+            # Generate new magic link token
+            {token, user_token} = UserToken.build_email_token(user, @magic_link_context)
 
-        case repo().insert(user_token) do
-          {:ok, _} ->
-            {:ok, user, token}
+            case repo().insert(user_token) do
+              {:ok, _} ->
+                {:ok, user, token}
 
-          {:error, changeset} ->
-            {:error, changeset}
+              {:error, changeset} ->
+                {:error, changeset}
+            end
+
+          nil ->
+            # Perform a fake token generation to prevent timing attacks
+            # This takes similar time as real token generation
+            _fake_token = :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
+
+            {:error, :user_not_found}
         end
 
-      nil ->
-        # Prevent timing attacks by simulating the same operations as the success case
-        # This ensures constant-time behavior regardless of whether user exists
-
-        # 1. Simulate database insert timing (typical insert: 1-3ms)
-        # Using pg_sleep to match the cost of an actual database write operation
-        SQL.query(repo(), "SELECT pg_sleep(0.002)", [])
-
-        # 2. Add consistent computational cost similar to password hashing operations
-        # This prevents CPU-based timing attacks and matches authentication flow timing
-        Bcrypt.no_user_verify()
-
-        {:error, :user_not_found}
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
     end
   end
 
