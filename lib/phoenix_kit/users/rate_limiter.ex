@@ -335,8 +335,7 @@ defmodule PhoenixKit.Users.RateLimiter do
            Keyword.get(config, :password_reset_window_ms)}
 
         :registration ->
-          {Keyword.get(config, :registration_limit),
-           Keyword.get(config, :registration_window_ms)}
+          {Keyword.get(config, :registration_limit), Keyword.get(config, :registration_window_ms)}
       end
 
     case Hammer.inspect_bucket(key, window, limit) do
@@ -381,7 +380,7 @@ defmodule PhoenixKit.Users.RateLimiter do
 
     Logger.warning(
       "PhoenixKit.RateLimiter: Rate limit exceeded for #{action} - " <>
-      "#{identifier} exceeded #{limit} attempts in #{window_description}"
+        "#{identifier} exceeded #{limit} attempts in #{window_description}"
     )
   end
 

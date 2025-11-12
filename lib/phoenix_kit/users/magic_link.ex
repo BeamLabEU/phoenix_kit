@@ -55,7 +55,6 @@ defmodule PhoenixKit.Users.MagicLink do
         magic_link_for_login_expiry_minutes: 15
   """
 
-  alias Ecto.Adapters.SQL
   alias PhoenixKit.Config
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}

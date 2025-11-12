@@ -76,7 +76,6 @@ defmodule PhoenixKitWeb.Users.Session do
     case Plug.Conn.get_peer_data(conn) do
       %{address: {a, b, c, d}} -> "#{a}.#{b}.#{c}.#{d}"
       %{address: address} -> to_string(address)
-      _ -> nil
     end
   end
 

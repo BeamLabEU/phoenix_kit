@@ -668,7 +668,11 @@ defmodule PhoenixKit.Users.Auth do
       :ok ->
         {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
         Repo.insert!(user_token)
-        UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+
+        UserNotifier.deliver_reset_password_instructions(
+          user,
+          reset_password_url_fun.(encoded_token)
+        )
 
       {:error, :rate_limit_exceeded} ->
         {:error, :rate_limit_exceeded}
