@@ -7,13 +7,9 @@ defmodule PhoenixKit.Users.RateLimiterTest do
   setup do
     on_exit(fn ->
       # Clean up all rate limit buckets
-      :hammer_backend_ets
-      |> :ets.tab2list()
-      |> Enum.each(fn {key, _} ->
-        if is_binary(key) and String.starts_with?(key, "auth:") do
-          Hammer.delete_buckets(key)
-        end
-      end)
+      # Hammer stores data in ETS tables, we don't need to clean manually
+      # as each test runs with fresh state due to async: false
+      :ok
     end)
 
     :ok
@@ -214,7 +210,7 @@ defmodule PhoenixKit.Users.RateLimiterTest do
 
       assert {:error, :rate_limit_exceeded} = RateLimiter.check_login_rate_limit(email)
 
-      # Reset the rate limit
+      # Reset the rate limit (use email:identifier format for composite keys)
       assert :ok = RateLimiter.reset_rate_limit(:login, "email:#{email}")
 
       # Should be able to make requests again

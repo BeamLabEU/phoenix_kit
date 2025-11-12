@@ -258,17 +258,25 @@ defmodule PhoenixKit.Users.RateLimiter do
   - Testing purposes
   - Post-successful authentication cleanup
 
+  For login and registration, the identifier should already include the prefix (e.g., "email:user@example.com" or "ip:192.168.1.1").
+  For magic_link and password_reset, use just the email.
+
   ## Examples
 
-      iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:login, "user@example.com")
+      iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:login, "email:user@example.com")
+      :ok
+
+      iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:magic_link, "user@example.com")
       :ok
   """
   def reset_rate_limit(action, identifier) when is_atom(action) and is_binary(identifier) do
-    identifier = if action in [:login, :magic_link, :password_reset, :registration] do
-      normalize_email(identifier)
-    else
-      identifier
-    end
+    # Normalize email if identifier doesn't already have a prefix (email: or ip:)
+    identifier =
+      if action in [:magic_link, :password_reset] and not String.contains?(identifier, ":") do
+        normalize_email(identifier)
+      else
+        identifier
+      end
 
     key = "auth:#{action}:#{identifier}"
 
@@ -278,7 +286,10 @@ defmodule PhoenixKit.Users.RateLimiter do
         :ok
 
       {:error, reason} ->
-        Logger.error("PhoenixKit.RateLimiter: Failed to reset rate limit for #{action}:#{identifier}: #{inspect(reason)}")
+        Logger.error(
+          "PhoenixKit.RateLimiter: Failed to reset rate limit for #{action}:#{identifier}: #{inspect(reason)}"
+        )
+
         {:error, reason}
     end
   end
@@ -288,31 +299,45 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   Returns the number of attempts remaining before rate limit is exceeded.
 
+  For login and registration actions, returns the email-based limit.
+  For magic_link and password_reset, returns the limit for the email.
+
   ## Examples
 
       iex> PhoenixKit.Users.RateLimiter.get_remaining_attempts(:login, "user@example.com")
       5
+
+      iex> PhoenixKit.Users.RateLimiter.get_remaining_attempts(:magic_link, "user@example.com")
+      3
   """
   def get_remaining_attempts(action, identifier) when is_atom(action) and is_binary(identifier) do
-    identifier = if action in [:login, :magic_link, :password_reset, :registration] do
-      normalize_email(identifier)
-    else
-      identifier
-    end
+    identifier =
+      if action in [:magic_link, :password_reset] do
+        normalize_email(identifier)
+      else
+        # For login and registration, assume email identifier and add prefix
+        "email:#{normalize_email(identifier)}"
+      end
 
     config = get_config()
     key = "auth:#{action}:#{identifier}"
 
-    {limit, window} = case action do
-      :login ->
-        {Keyword.get(config, :login_limit), Keyword.get(config, :login_window_ms)}
-      :magic_link ->
-        {Keyword.get(config, :magic_link_limit), Keyword.get(config, :magic_link_window_ms)}
-      :password_reset ->
-        {Keyword.get(config, :password_reset_limit), Keyword.get(config, :password_reset_window_ms)}
-      :registration ->
-        {Keyword.get(config, :registration_limit), Keyword.get(config, :registration_window_ms)}
-    end
+    {limit, window} =
+      case action do
+        :login ->
+          {Keyword.get(config, :login_limit), Keyword.get(config, :login_window_ms)}
+
+        :magic_link ->
+          {Keyword.get(config, :magic_link_limit), Keyword.get(config, :magic_link_window_ms)}
+
+        :password_reset ->
+          {Keyword.get(config, :password_reset_limit),
+           Keyword.get(config, :password_reset_window_ms)}
+
+        :registration ->
+          {Keyword.get(config, :registration_limit),
+           Keyword.get(config, :registration_window_ms)}
+      end
 
     case Hammer.inspect_bucket(key, window, limit) do
       {:ok, {count, _count_remaining, _ms_to_next_bucket, _created_at, _updated_at}} ->

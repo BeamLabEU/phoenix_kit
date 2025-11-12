@@ -83,14 +83,13 @@ defmodule PhoenixKitWeb.Users.Registration do
       {:ok, validated_code} ->
         # Check if geolocation tracking is enabled
         track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
+        ip_address = socket.assigns.user_ip_address
 
         # Use appropriate registration function based on geolocation setting
         registration_result =
           if track_geolocation do
-            ip_address = socket.assigns.user_ip_address
             Auth.register_user_with_geolocation(user_params, ip_address)
           else
-            ip_address = socket.assigns.user_ip_address
             Auth.register_user(user_params, ip_address)
           end
 
