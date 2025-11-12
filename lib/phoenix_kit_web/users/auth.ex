@@ -306,31 +306,58 @@ defmodule PhoenixKitWeb.Users.Auth do
   def on_mount(:phoenix_kit_ensure_authenticated, _params, session, socket) do
     socket = mount_phoenix_kit_current_user(socket, session)
 
-    if socket.assigns.phoenix_kit_current_user do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+    case socket.assigns.phoenix_kit_current_user do
+      %{confirmed_at: nil} ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      %{} ->
+        {:cont, socket}
+
+      nil ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+
+        {:halt, socket}
     end
   end
 
   def on_mount(:phoenix_kit_ensure_authenticated_scope, _params, session, socket) do
     socket = mount_phoenix_kit_current_scope(socket, session)
     socket = check_maintenance_mode(socket)
+    scope = socket.assigns.phoenix_kit_current_scope
 
-    if Scope.authenticated?(socket.assigns.phoenix_kit_current_scope) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-        |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      true ->
+        {:cont, socket}
     end
   end
 
@@ -360,15 +387,36 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
-    if Scope.owner?(scope) do
-      {:cont, socket}
-    else
-      socket =
-        socket
-        |> Phoenix.LiveView.put_flash(:error, "You must be an owner to access this page.")
-        |> Phoenix.LiveView.redirect(to: "/")
+    cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
-      {:halt, socket}
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
+      not Scope.owner?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must be an owner to access this page.")
+          |> Phoenix.LiveView.redirect(to: "/")
+
+        {:halt, socket}
+
+      true ->
+        {:cont, socket}
     end
   end
 
@@ -378,10 +426,29 @@ defmodule PhoenixKitWeb.Users.Auth do
     scope = socket.assigns.phoenix_kit_current_scope
 
     cond do
+      not Scope.authenticated?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
+
+        {:halt, socket}
+
+      Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+        socket =
+          socket
+          |> Phoenix.LiveView.put_flash(
+            :error,
+            "Please confirm your email before accessing the application."
+          )
+          |> Phoenix.LiveView.redirect(to: Routes.path("/users/confirm"))
+
+        {:halt, socket}
+
       Scope.admin?(scope) ->
         {:cont, socket}
 
-      Scope.authenticated?(scope) ->
+      true ->
         socket =
           socket
           |> Phoenix.LiveView.put_flash(
@@ -389,14 +456,6 @@ defmodule PhoenixKitWeb.Users.Auth do
             "You do not have the required role to access this page."
           )
           |> Phoenix.LiveView.redirect(to: "/")
-
-        {:halt, socket}
-
-      true ->
-        socket =
-          socket
-          |> Phoenix.LiveView.put_flash(:error, "You must log in to access this page.")
-          |> Phoenix.LiveView.redirect(to: Routes.path("/users/log-in"))
 
         {:halt, socket}
     end
@@ -643,18 +702,25 @@ defmodule PhoenixKitWeb.Users.Auth do
   @doc """
   Used for routes that require the user to be authenticated.
 
-  If you want to enforce the user email is confirmed before
-  they use the application at all, here would be a good place.
+  Enforces email confirmation before allowing access to the application.
   """
   def require_authenticated_user(conn, _opts) do
-    if conn.assigns[:phoenix_kit_current_user] do
-      conn
-    else
-      conn
-      |> put_flash(:error, "You must log in to access this page.")
-      |> maybe_store_return_to()
-      |> redirect(to: Routes.path("/users/log-in"))
-      |> halt()
+    case conn.assigns[:phoenix_kit_current_user] do
+      %{confirmed_at: nil} ->
+        conn
+        |> put_flash(:error, "Please confirm your email before accessing the application.")
+        |> redirect(to: Routes.path("/users/confirm"))
+        |> halt()
+
+      %{} ->
+        conn
+
+      nil ->
+        conn
+        |> put_flash(:error, "You must log in to access this page.")
+        |> maybe_store_return_to()
+        |> redirect(to: Routes.path("/users/log-in"))
+        |> halt()
     end
   end
 
@@ -664,20 +730,27 @@ defmodule PhoenixKitWeb.Users.Auth do
   This function checks authentication status through the scope system,
   providing a more structured approach to authentication checks.
 
-  If you want to enforce the user email is confirmed before
-  they use the application at all, here would be a good place.
+  Enforces email confirmation before allowing access to the application.
   """
   def require_authenticated_scope(conn, _opts) do
     case conn.assigns[:phoenix_kit_current_scope] do
       %Scope{} = scope ->
-        if Scope.authenticated?(scope) do
-          conn
-        else
-          conn
-          |> put_flash(:error, "You must log in to access this page.")
-          |> maybe_store_return_to()
-          |> redirect(to: Routes.path("/users/log-in"))
-          |> halt()
+        cond do
+          not Scope.authenticated?(scope) ->
+            conn
+            |> put_flash(:error, "You must log in to access this page.")
+            |> maybe_store_return_to()
+            |> redirect(to: Routes.path("/users/log-in"))
+            |> halt()
+
+          Scope.authenticated?(scope) and not email_confirmed?(scope) ->
+            conn
+            |> put_flash(:error, "Please confirm your email before accessing the application.")
+            |> redirect(to: Routes.path("/users/confirm"))
+            |> halt()
+
+          true ->
+            conn
         end
 
       _ ->
@@ -687,6 +760,12 @@ defmodule PhoenixKitWeb.Users.Auth do
         |> require_authenticated_scope([])
     end
   end
+
+  defp email_confirmed?(%Scope{user: %{confirmed_at: confirmed_at}})
+       when not is_nil(confirmed_at),
+       do: true
+
+  defp email_confirmed?(_), do: false
 
   @doc """
   Used for routes that require the user to be an owner.
