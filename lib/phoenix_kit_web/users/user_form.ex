@@ -87,6 +87,16 @@ defmodule PhoenixKitWeb.Users.UserForm do
         user_params
       end
 
+    # In edit mode, ensure username is preserved to prevent regeneration from email
+    filtered_params =
+      if socket.assigns.mode == :edit do
+        filtered_params = Map.put_new(filtered_params, "username", socket.assigns.user.username)
+        Logger.info("validate_user - user_params username: #{inspect(Map.get(user_params, "username"))}, filtered_params username: #{inspect(Map.get(filtered_params, "username"))}")
+        filtered_params
+      else
+        filtered_params
+      end
+
     changeset =
       case socket.assigns.mode do
         :new -> Auth.change_user_registration(%Auth.User{}, filtered_params)
@@ -97,7 +107,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     socket =
       socket
       |> assign(:changeset, changeset)
-      |> assign(:form_data, user_params)
+      |> assign(:form_data, filtered_params)
       |> assign(
         :custom_fields_data,
         Map.get(user_params, "custom_fields", socket.assigns.custom_fields_data)
@@ -376,7 +386,25 @@ defmodule PhoenixKitWeb.Users.UserForm do
       update_profile_and_password(socket, user, profile_params)
     else
       cleaned_params = Map.delete(profile_params, "password")
-      Auth.update_user_profile(user, cleaned_params)
+      # Pass validate_email: false to skip uniqueness validation for username/email
+      # This allows users to keep their current username without it being regenerated
+      update_user_profile_without_validation(user, cleaned_params)
+    end
+  end
+
+  defp update_user_profile_without_validation(user, attrs) do
+    Logger.info("update_user_profile_without_validation - attrs username: #{inspect(Map.get(attrs, "username"))}")
+    changeset = Auth.User.profile_changeset(user, attrs, validate_email: false)
+    Logger.info("After profile_changeset, changeset changes username: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}")
+
+    case changeset |> PhoenixKit.RepoHelper.repo().update() do
+      {:ok, updated_user} ->
+        Logger.info("After DB update, saved username: #{inspect(updated_user.username)}")
+        PhoenixKit.Admin.Events.broadcast_user_updated(updated_user)
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -393,9 +421,17 @@ defmodule PhoenixKitWeb.Users.UserForm do
     end
   end
 
-  defp handle_update_result(socket, {:ok, _}) do
+  defp handle_update_result(socket, {:ok, _result}) do
+    # _result could be either the updated user or role assignments (from sync_user_roles)
+    # In both cases, we need to reload the user from the database to get the fresh data
+    user_id = socket.assigns.user.id
+    fresh_user = Auth.get_user!(user_id)
+    Logger.info("handle_update_result - fresh_user username from DB: #{inspect(fresh_user.username)}")
+
     socket =
       socket
+      |> assign(:user, fresh_user)
+      |> reload_changeset_with_updated_user(fresh_user)
       |> put_flash(:info, "User updated successfully.")
       |> push_navigate(to: Routes.path("/admin/users"))
 
@@ -411,6 +447,15 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> push_navigate(to: Routes.path("/admin/users"))
 
     {:noreply, socket}
+  end
+
+  defp reload_changeset_with_updated_user(socket, updated_user) do
+    form_data = socket.assigns.form_data || %{}
+    # Ensure username is in form_data to prevent regeneration from email
+    form_data = Map.put_new(form_data, "username", updated_user.username)
+    # Use profile_changeset for edit mode to avoid username regeneration
+    changeset = Auth.User.profile_changeset(updated_user, form_data, validate_email: false)
+    assign(socket, :changeset, changeset)
   end
 
   defp format_role_update_error(:owner_role_protected) do
@@ -485,12 +530,17 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp load_form_data(%{assigns: %{mode: :edit, user: user}} = socket) do
-    changeset = Auth.change_user_registration(user, %{})
+    # For edit mode, use profile_changeset instead of registration_changeset
+    # profile_changeset doesn't call maybe_generate_username_from_email like registration_changeset does
+    Logger.info("Loading form for user #{user.id}: DB username=#{inspect(user.username)}")
+    changeset = Auth.User.profile_changeset(user, %{"username" => user.username}, validate_email: false)
+    Logger.info("After creating changeset, changeset changes: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, changeset field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}")
 
     socket
     |> assign(:changeset, changeset)
     |> assign(:form_data, %{
       "email" => user.email || "",
+      "username" => user.username || "",
       "first_name" => user.first_name || "",
       "last_name" => user.last_name || ""
     })
