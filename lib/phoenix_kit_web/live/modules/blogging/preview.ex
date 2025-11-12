@@ -5,7 +5,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
   alias Phoenix.HTML
+  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKitWeb.Live.Modules.Blogging
   # alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder  # COMMENTED OUT: Component system
   alias PhoenixKit.Settings
@@ -151,35 +153,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
   # Related to: lib/phoenix_kit/blogging/page_builder.ex
   # ============================================================================
 
-  defp render_markdown_content(content) do
-    case Earmark.as_html(content) do
-      {:ok, html, _warnings} ->
-        {:ok, HTML.raw(html)}
-
-      {:error, _html, errors} ->
-        message =
-          errors
-          |> Enum.map_join("; ", &format_markdown_error/1)
-          |> case do
-            "" -> gettext("An unknown error occurred while rendering markdown.")
-            err -> gettext("Failed to render markdown: %{message}", message: err)
-          end
-
-        {:error, message}
-    end
+  defp render_markdown_content(content) when is_binary(content) do
+    content
+    |> Renderer.render_markdown()
+    |> HTML.raw()
+    |> then(&{:ok, &1})
+  rescue
+    error ->
+      Logger.error("Preview markdown rendering failed", error: inspect(error))
+      {:error, gettext("Failed to render markdown preview.")}
   end
-
-  defp format_markdown_error({severity, line, message})
-       when is_atom(severity) and is_integer(line) and is_binary(message) do
-    "#{severity} (line #{line}): #{message}"
-  end
-
-  defp format_markdown_error(%{line: line, message: message})
-       when is_integer(line) and is_binary(message) do
-    "line #{line}: #{message}"
-  end
-
-  defp format_markdown_error(other), do: inspect(other)
 
   defp build_preview_post(data, fallback_blog_slug, fallback_locale) do
     blog_slug = data[:blog_slug] || fallback_blog_slug

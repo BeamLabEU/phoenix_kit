@@ -70,6 +70,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     alias PhoenixKit.Install.{
       ApplicationSupervisor,
       AssetRebuild,
+      BasicConfiguration,
       Common,
       CssIntegration,
       RateLimiterConfig
@@ -111,6 +112,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         igniter
       else
         igniter
+        |> BasicConfiguration.add_basic_config()
         |> ApplicationSupervisor.add_supervisor()
         |> perform_igniter_update(opts)
       end

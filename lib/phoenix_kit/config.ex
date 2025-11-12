@@ -25,6 +25,8 @@ defmodule PhoenixKit.Config do
   """
 
   @default_config [
+    parent_app_name: nil,
+    parent_module: nil,
     repo: nil,
     mailer: nil,
     scheme: "http",
@@ -204,16 +206,11 @@ defmodule PhoenixKit.Config do
   """
   @spec get_parent_endpoint() :: {:ok, module()} | :error
   def get_parent_endpoint do
-    case get_parent_app() do
-      nil ->
-        :error
-
-      app_name ->
-        base_module = app_name |> to_string() |> Macro.camelize()
-
+    case get(:parent_module) do
+      {:ok, parent_module} ->
         potential_endpoints = [
-          Module.concat([base_module <> "Web", "Endpoint"]),
-          Module.concat([base_module, "Endpoint"])
+          Module.concat([String.to_atom("#{parent_module}Web"), Endpoint]),
+          Module.concat([parent_module, Endpoint])
         ]
 
         Enum.reduce_while(potential_endpoints, :error, fn endpoint, _acc ->
@@ -223,6 +220,9 @@ defmodule PhoenixKit.Config do
             {:cont, :error}
           end
         end)
+
+      _ ->
+        :error
     end
   end
 
@@ -246,30 +246,12 @@ defmodule PhoenixKit.Config do
   """
   @spec get_parent_app() :: atom() | nil
   def get_parent_app do
-    # Get the application of the configured repo to determine parent app
-    case get(:repo) do
-      {:ok, repo_module} when is_atom(repo_module) ->
-        # Extract app name from repo module (e.g. MyApp.Repo -> :my_app)
-        repo_module
-        |> Module.split()
-        |> hd()
-        |> Macro.underscore()
-        |> String.to_atom()
+    case get(:parent_app_name) do
+      {:ok, app_name} ->
+        app_name
 
       _ ->
-        # Fallback: try to find the main application from the loaded applications
-        Application.loaded_applications()
-        |> Enum.find(fn {app, _, _} ->
-          app != :phoenix_kit and
-            app != :kernel and
-            app != :stdlib and
-            app != :elixir and
-            not String.starts_with?(to_string(app), "ex_")
-        end)
-        |> case do
-          {app, _, _} -> app
-          nil -> nil
-        end
+        get_parent_app_fallback()
     end
   end
 
@@ -303,5 +285,91 @@ defmodule PhoenixKit.Config do
     end
 
     :ok
+  end
+
+  # Fallback method to determine the parent application when explicit configuration is not available.
+  #
+  # This function implements a two-stage detection strategy:
+  #
+  # 1. **Primary Strategy**: Extract the application name from the configured repository module.
+  #    For example, if `:repo` is configured as `MyApp.Repo`, this will return `:my_app`.
+  #
+  # 2. **Fallback Strategy**: Search through loaded applications to find the most likely
+  #    parent application by filtering out system applications and dependencies.
+  #
+  # ## Detection Logic
+  #
+  # ### Repository-based Detection
+  # - Converts repository module names like `MyApp.Repo` to application atoms like `:my_app`
+  # - Uses Module.split() to break down the module name
+  # - Extracts the first segment and converts it to underscore format
+  #
+  # ### Application Search
+  # - Filters out system applications (`:kernel`, `:stdlib`, `:elixir`)
+  # - Excludes PhoenixKit itself (`:phoenix_kit`)
+  # - Excludes standard library applications (those starting with "ex_")
+  # - Returns the first remaining application, which is typically the parent app
+  #
+  # ## Examples
+  #
+  #     # When repo is configured as MyApp.Repo
+  #     # get_parent_app_fallback() -> :my_app
+  #
+  #     # When no repo is configured, searches loaded applications
+  #     # get_parent_app_fallback() -> :my_parent_app  # First non-system application found
+  #
+  #     # Returns nil if no suitable application is found
+  #     # get_parent_app_fallback() -> nil
+  #
+  # ## Return Values
+  #
+  # - `atom()` - The detected parent application name
+  # - `nil` - No suitable parent application could be determined
+  #
+  # ## ⚠️ Reliability Warning
+  #
+  # **This function is not reliable and should not be depended upon for critical functionality.**
+  #
+  # The detection logic makes several assumptions that may not hold true in all environments:
+  #
+  # - Repository modules may not follow the `MyApp.Repo` convention
+  # - Application search may return incorrect results in complex dependency trees
+  # - Order of loaded applications is not guaranteed to be predictable
+  # - May return dependency applications instead of the actual parent application
+  #
+  # **For reliable behavior, always configure `:parent_app_name` explicitly** in your application
+  # configuration instead of relying on this fallback detection.
+  #
+  # ## Notes
+  #
+  # This function is used as a fallback when explicit `:parent_app_name` configuration
+  # is not provided. It enables PhoenixKit to automatically integrate with parent
+  # applications without requiring additional configuration in most cases.
+  defp get_parent_app_fallback() do
+    # Get the application of the configured repo to determine parent app
+    case get(:repo) do
+      {:ok, repo_module} when is_atom(repo_module) ->
+        # Extract app name from repo module (e.g. MyApp.Repo -> :my_app)
+        repo_module
+        |> Module.split()
+        |> hd()
+        |> Macro.underscore()
+        |> String.to_atom()
+
+      _ ->
+        # Fallback: try to find the main application from the loaded applications
+        Application.loaded_applications()
+        |> Enum.find(fn {app, _, _} ->
+          app != :phoenix_kit and
+            app != :kernel and
+            app != :stdlib and
+            app != :elixir and
+            not String.starts_with?(to_string(app), "ex_")
+        end)
+        |> case do
+          {app, _, _} -> app
+          nil -> nil
+        end
+    end
   end
 end
