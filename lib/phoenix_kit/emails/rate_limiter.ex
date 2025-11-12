@@ -863,44 +863,12 @@ defmodule PhoenixKit.Emails.RateLimiter do
 
   ## --- User Management Helpers ---
 
-  @doc """
-  Reduces rate limits for a specific user temporarily.
-
-  Creates a JSON setting with reduced limits for the user. The limits
-  automatically expire after a configured duration (default: 24 hours).
-
-  ## Parameters
-
-  - `user_id` - User ID to apply reduced limits
-  - `reason` - Reason for reduction (e.g., "high_bounce_rate")
-
-  ## Examples
-
-      iex> RateLimiter.reduce_user_limits(123, "high_bounce_rate")
-      :ok
-
-  ## Reduced Limits
-
-  When applied, the user's limits are set to:
-  - Per-recipient limit: 10 (vs default 100)
-  - Per-sender limit: 50 (vs default 1000)
-  - Duration: 24 hours
-
-  ## Settings Storage
-
-  Stored in JSON setting with key: `user_rate_limits_<user_id>`
-
-  Structure:
-  ```elixir
-  %{
-    "recipient_limit" => 10,
-    "sender_limit" => 50,
-    "reason" => "high_bounce_rate",
-    "applied_at" => "2025-01-15T12:00:00Z",
-    "expires_at" => "2025-01-16T12:00:00Z"
-  }
-  ```
-  """
+  # Reduces rate limits for a specific user temporarily.
+  #
+  # Creates a JSON setting with reduced limits for the user. The limits
+  # automatically expire after a configured duration (default: 24 hours).
+  #
+  # Stored in JSON setting with key: `user_rate_limits_<user_id>`
   defp reduce_user_limits(user_id, reason) when is_integer(user_id) and is_binary(reason) do
     # Get default limits
     default_recipient_limit = get_recipient_limit()
@@ -941,33 +909,10 @@ defmodule PhoenixKit.Emails.RateLimiter do
       :ok
   end
 
-  @doc """
-  Blocks all email addresses associated with a user.
-
-  Retrieves the user's email address and adds it to the blocklist
-  with a temporary block duration (default: 7 days).
-
-  ## Parameters
-
-  - `user_id` - User ID whose email should be blocked
-  - `reason` - Reason for blocking (e.g., "complaint_spam")
-
-  ## Examples
-
-      iex> RateLimiter.block_user_emails(123, "complaint_spam")
-      :ok
-
-  ## Blocklist Integration
-
-  Uses the existing `phoenix_kit_email_blocklist` table via `add_to_blocklist/3`.
-  The block automatically expires after 7 days unless the user continues suspicious activity.
-
-  ## Side Effects
-
-  - Adds user's email to blocklist
-  - Logs warning with block details
-  - Creates monitoring entry for the user
-  """
+  # Blocks all email addresses associated with a user.
+  #
+  # Retrieves the user's email address and adds it to the blocklist
+  # with a temporary block duration (default: 7 days).
   defp block_user_emails(user_id, reason) when is_integer(user_id) and is_binary(reason) do
     # Get user from database
     case Auth.get_user(user_id) do
@@ -1001,57 +946,14 @@ defmodule PhoenixKit.Emails.RateLimiter do
       :ok
   end
 
-  @doc """
-  Monitors user behavior by tracking events.
-
-  Creates or updates a monitoring log for the user, storing events
-  that indicate suspicious patterns. This data can be used for
-  future analysis and automatic enforcement.
-
-  ## Parameters
-
-  - `user_id` - User ID to monitor
-  - `event_type` - Type of event (atom or string)
-  - `metadata` - Additional event data (map)
-
-  ## Examples
-
-      iex> RateLimiter.monitor_user(123, :bulk_sending, %{count: 500})
-      :ok
-
-      iex> RateLimiter.monitor_user(123, "high_bounce_rate", %{rate: 0.45})
-      :ok
-
-  ## Event Tracking
-
-  Events are stored in JSON setting with key: `user_monitoring_<user_id>`
-
-  Structure:
-  ```elixir
-  %{
-    "events" => [
-      %{
-        "event_type" => "bulk_sending",
-        "metadata" => %{"count" => 500},
-        "timestamp" => "2025-01-15T12:00:00Z"
-      },
-      %{
-        "event_type" => "high_bounce_rate",
-        "metadata" => %{"rate" => 0.45},
-        "timestamp" => "2025-01-15T13:30:00Z"
-      }
-    ],
-    "first_event_at" => "2025-01-15T12:00:00Z",
-    "last_event_at" => "2025-01-15T13:30:00Z",
-    "event_count" => 2
-  }
-  ```
-
-  ## Event Retention
-
-  Events older than 30 days are automatically pruned when new events are added.
-  """
-  defp monitor_user(user_id, event_type, metadata \\ %{})
+  # Monitors user behavior by tracking events.
+  #
+  # Creates or updates a monitoring log for the user, storing events
+  # that indicate suspicious patterns. Events older than 30 days are
+  # automatically pruned when new events are added.
+  #
+  # Stored in JSON setting with key: `user_monitoring_<user_id>`
+  defp monitor_user(user_id, event_type, metadata)
        when is_integer(user_id) and (is_atom(event_type) or is_binary(event_type)) do
     # Convert event_type to string
     event_type_str = to_string(event_type)
@@ -1113,24 +1015,8 @@ defmodule PhoenixKit.Emails.RateLimiter do
       :ok
   end
 
-  @doc """
-  Gets user-specific rate limits if they exist and are not expired.
-
-  Returns a map with user's custom limits or nil if no limits are set or they expired.
-
-  ## Examples
-
-      iex> RateLimiter.get_user_limits(123)
-      %{
-        "recipient_limit" => 10,
-        "sender_limit" => 50,
-        "reason" => "high_bounce_rate",
-        "expires_at" => "2025-01-16T12:00:00Z"
-      }
-
-      iex> RateLimiter.get_user_limits(999)
-      nil
-  """
+  # Gets user-specific rate limits if they exist and are not expired.
+  # Returns a map with user's custom limits or nil if no limits are set or they expired.
   defp get_user_limits(user_id) when is_integer(user_id) do
     monitoring_key = "user_rate_limits_#{user_id}"
     user_limits = Settings.get_json_setting(monitoring_key)
@@ -1156,59 +1042,9 @@ defmodule PhoenixKit.Emails.RateLimiter do
       nil
   end
 
-  @doc """
-  Gets the recipient limit for a specific user.
-
-  If user has custom limits set, returns the custom limit.
-  Otherwise returns the default system limit.
-
-  ## Examples
-
-      iex> RateLimiter.get_user_recipient_limit(123)
-      10  # User has reduced limits
-
-      iex> RateLimiter.get_user_recipient_limit(999)
-      100  # Default limit
-  """
-  defp get_user_recipient_limit(user_id) when is_integer(user_id) do
-    case get_user_limits(user_id) do
-      %{"recipient_limit" => limit} when is_integer(limit) -> limit
-      _ -> get_recipient_limit()
-    end
-  end
-
-  @doc """
-  Gets the sender limit for a specific user.
-
-  If user has custom limits set, returns the custom limit.
-  Otherwise returns the default system limit.
-
-  ## Examples
-
-      iex> RateLimiter.get_user_sender_limit(123)
-      50  # User has reduced limits
-
-      iex> RateLimiter.get_user_sender_limit(999)
-      1000  # Default limit
-  """
-  defp get_user_sender_limit(user_id) when is_integer(user_id) do
-    case get_user_limits(user_id) do
-      %{"sender_limit" => limit} when is_integer(limit) -> limit
-      _ -> get_sender_limit()
-    end
-  end
-
-  @doc """
-  Clears user-specific rate limits.
-
-  Removes the JSON setting for user's custom limits.
-  Used when limits expire or are manually cleared.
-
-  ## Examples
-
-      iex> RateLimiter.clear_user_limits(123)
-      :ok
-  """
+  # Clears user-specific rate limits.
+  # Removes the JSON setting for user's custom limits.
+  # Used when limits expire or are manually cleared.
   defp clear_user_limits(user_id) when is_integer(user_id) do
     monitoring_key = "user_rate_limits_#{user_id}"
 
@@ -1227,24 +1063,8 @@ defmodule PhoenixKit.Emails.RateLimiter do
       :ok
   end
 
-  @doc """
-  Gets monitoring data for a specific user.
-
-  Returns the monitoring events and statistics for a user, or nil if no monitoring exists.
-
-  ## Examples
-
-      iex> RateLimiter.get_user_monitoring(123)
-      %{
-        "events" => [...],
-        "event_count" => 5,
-        "first_event_at" => "2025-01-15T12:00:00Z",
-        "last_event_at" => "2025-01-15T18:00:00Z"
-      }
-
-      iex> RateLimiter.get_user_monitoring(999)
-      nil
-  """
+  # Gets monitoring data for a specific user.
+  # Returns the monitoring events and statistics for a user, or nil if no monitoring exists.
   defp get_user_monitoring(user_id) when is_integer(user_id) do
     monitoring_key = "user_monitoring_#{user_id}"
     Settings.get_json_setting(monitoring_key)
