@@ -193,10 +193,7 @@ defmodule PhoenixKitWeb.Users.Auth do
           {:warning, reason} ->
             # Log warning but allow access (IP/UA can legitimately change)
             require Logger
-
-            Logger.warning(
-              "PhoenixKit: Session fingerprint warning: #{reason} for token"
-            )
+            Logger.warning("PhoenixKit: Session fingerprint warning: #{reason} for token")
 
             # In non-strict mode, allow access despite warning
             not PhoenixKit.Utils.SessionFingerprint.strict_mode?()
@@ -270,10 +267,7 @@ defmodule PhoenixKitWeb.Users.Auth do
           {:warning, reason} ->
             # Log warning but allow access (IP/UA can legitimately change)
             require Logger
-
-            Logger.warning(
-              "PhoenixKit: Session fingerprint warning: #{reason} for token (scope)"
-            )
+            Logger.warning("PhoenixKit: Session fingerprint warning: #{reason} for token (scope)")
 
             # In non-strict mode, allow access despite warning
             not PhoenixKit.Utils.SessionFingerprint.strict_mode?()

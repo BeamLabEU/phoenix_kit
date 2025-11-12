@@ -456,6 +456,9 @@ defmodule PhoenixKit.Users.Auth do
     Repo.one(query)
   end
 
+  # Define session validity for query
+  @session_validity_in_days 60
+
   @doc """
   Gets the user token record for the given session token.
 
@@ -479,9 +482,6 @@ defmodule PhoenixKit.Users.Auth do
     )
     |> Repo.one()
   end
-
-  # Define session validity for query
-  @session_validity_in_days 60
 
   @doc """
   Verifies a session fingerprint against the stored token data.
