@@ -81,6 +81,7 @@ You can mix **bold text** and inline components:
 | `<Headline>…</Headline>` | Renders a hero-style heading. |
 | `<Subheadline>…</Subheadline>` | Medium-sized supporting text. |
 | `<CTA primary="true|false" action="/path-or-anchor">Label</CTA>` | Button styled by the admin theme. |
+| `<Video …>Caption</Video>` | Responsive YouTube embeds. Provide either `video_id="dQw4w9WgXcQ"` or a `url="https://youtu.be/dQw4w9WgXcQ"`. Optional attributes: `autoplay`, `muted`, `controls`, `loop`, `start` (seconds), and `ratio` (`16:9`, `4:3`, `1:1`, `21:9`). Use the component body (or `caption="..."` when self-closing) to show a caption. |
 
 Additional components can be introduced by adding Phoenix components under `lib/phoenix_kit_web/components/blogging/` and registering them in the PageBuilder renderer.
 
@@ -185,6 +186,24 @@ published_at: 2025-07-01T10:00:00Z
     alt="Styled Image"
   />
 </Hero>
+```
+
+---
+
+## Example – embedding a YouTube video
+
+```markdown
+## Watch the launch recap
+
+<Video
+  url="https://youtu.be/dQw4w9WgXcQ"
+  autoplay="false"
+  muted="false"
+  ratio="16:9"
+  start="42"
+>
+  Highlights from our community livestream.
+</Video>
 ```
 
 ---

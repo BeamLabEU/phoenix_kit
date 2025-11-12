@@ -10,7 +10,7 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   @cache_name :blog_posts
   @cache_version "v1"
-  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline)\s+([^>]*?)\/>/s
+  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video)\s+([^>]*?)\/>/s
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -191,6 +191,32 @@ defmodule PhoenixKit.Blogging.Renderer do
     error ->
       Logger.warning("Error rendering Image component: #{inspect(error)}")
       "<div class='error'>Error rendering image</div>"
+  end
+
+  defp render_inline_component("Video", attrs) do
+    attr_map = parse_xml_attributes(attrs)
+
+    assigns = %{
+      __changed__: nil,
+      attributes: attr_map,
+      variant: Map.get(attr_map, "variant", "default"),
+      content: Map.get(attr_map, "caption"),
+      children: []
+    }
+
+    case PhoenixKitWeb.Components.Blogging.Video.render(assigns) do
+      rendered when is_struct(rendered) ->
+        rendered
+        |> Phoenix.HTML.Safe.to_iodata()
+        |> IO.iodata_to_binary()
+
+      html when is_binary(html) ->
+        html
+    end
+  rescue
+    error ->
+      Logger.warning("Error rendering Video component: #{inspect(error)}")
+      "<div class='error'>Error rendering video</div>"
   end
 
   defp render_inline_component(tag, _attrs) do

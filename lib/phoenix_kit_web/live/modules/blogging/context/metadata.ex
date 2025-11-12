@@ -122,10 +122,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   defp extract_title_from_lines(content) do
     lines =
       content
-      |> String.split("\n")
-      |> Enum.take(10)
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
+      |> extract_candidate_lines()
+      |> Enum.take(15)
 
     # Look for first H1 heading (# Title)
     h1_line =
@@ -147,6 +145,53 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       true ->
         "Untitled"
     end
+  end
+
+  defp extract_candidate_lines(content) do
+    {lines, _depth} =
+      content
+      |> String.split("\n")
+      |> Enum.reduce({[], 0}, fn raw_line, {acc, depth} ->
+        line = String.trim(raw_line)
+
+        cond do
+          line == "" and depth == 0 ->
+            {acc, depth}
+
+          component_self_closing?(line) ->
+            {acc, depth}
+
+          component_open?(line) ->
+            {acc, depth + 1}
+
+          component_close?(line) and depth > 0 ->
+            {acc, max(depth - 1, 0)}
+
+          depth > 0 ->
+            {acc, depth}
+
+          true ->
+            {[line | acc], depth}
+        end
+      end)
+
+    lines
+    |> Enum.reverse()
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp component_open?(line) do
+    String.starts_with?(line, "<") and
+      not String.starts_with?(line, "</") and
+      Regex.match?(~r/^<[A-Z][\w-]*/, line)
+  end
+
+  defp component_close?(line) do
+    Regex.match?(~r{^</[A-Z][\w-]*>}, line)
+  end
+
+  defp component_self_closing?(line) do
+    component_open?(line) and String.ends_with?(line, "/>")
   end
 
   # Extract metadata from YAML-style frontmatter

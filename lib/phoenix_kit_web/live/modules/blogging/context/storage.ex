@@ -631,11 +631,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def update_post_slug_in_place(_blog_slug, post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
 
+    current_title =
+      metadata_value(post.metadata, :title) ||
+        Metadata.extract_title_from_content(post.content || "")
+
     metadata =
       post.metadata
-      |> Map.put(:title, Map.get(params, "title", post.metadata.title))
-      |> Map.put(:status, Map.get(params, "status", post.metadata.status))
-      |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
+      |> Map.put(:title, Map.get(params, "title", current_title))
+      |> Map.put(
+        :status,
+        Map.get(params, "status", metadata_value(post.metadata, :status, "draft"))
+      )
+      |> Map.put(
+        :published_at,
+        Map.get(params, "published_at", metadata_value(post.metadata, :published_at))
+      )
       |> Map.put(:created_at, Map.get(post.metadata, :created_at))
       |> Map.put(:slug, post.slug)
       |> apply_update_audit_metadata(audit_meta)
@@ -1120,5 +1130,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   defp floor_to_minute(%DateTime{} = datetime) do
     %DateTime{datetime | second: 0, microsecond: {0, 0}}
+  end
+
+  defp metadata_value(metadata, key, fallback \\ nil) do
+    Map.get(metadata, key) ||
+      Map.get(metadata, Atom.to_string(key)) ||
+      fallback
   end
 end
