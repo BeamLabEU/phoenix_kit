@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
 
   use PhoenixKitWeb, :controller
 
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
 
   ## --- Email Logs Export ---
 
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
   Returns CSV file with appropriate headers for browser download.
   """
   def export_logs(conn, params) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       # Build filters from query parameters
       filters = build_export_filters(params)
 
@@ -51,7 +51,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
       filename = "email_logs_#{Date.utc_today()}.csv"
 
       # Get logs data
-      logs = EmailSystem.list_logs(filters)
+      logs = Emails.list_logs(filters)
 
       # Generate CSV content
       csv_content = generate_logs_csv(logs)
@@ -81,7 +81,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
   Returns CSV file with email metrics and analytics data.
   """
   def export_metrics(conn, params) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       # Get metrics based on parameters
       period = params["period"] || "last_30_days"
       group_by = params["group_by"] || "day"
@@ -89,7 +89,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
       filename = "email_metrics_#{period}_#{Date.utc_today()}.csv"
 
       # Get metrics data
-      metrics = EmailSystem.get_engagement_metrics(String.to_atom(period))
+      metrics = Emails.get_engagement_metrics(String.to_atom(period))
 
       # Generate CSV content
       csv_content = generate_metrics_csv(metrics, group_by)
@@ -118,7 +118,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
   Returns CSV file with blocked email addresses and metadata.
   """
   def export_blocklist(conn, _params) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       # For now, return empty CSV as blocklist API is not fully implemented
       filename = "email_blocklist_#{Date.utc_today()}.csv"
       csv_content = "Email,Reason,Blocked At,Block Count,Last Attempt,Notes\n"
@@ -147,13 +147,13 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
   Returns CSV file with detailed email information and events.
   """
   def export_email_details(conn, %{"id" => email_id}) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       try do
         # Convert string ID to integer
         email_id = String.to_integer(email_id)
-        log = EmailSystem.get_log!(email_id)
+        log = Emails.get_log!(email_id)
         # Get events for this email
-        events = EmailSystem.list_events_for_log(email_id)
+        events = Emails.list_events_for_log(email_id)
 
         filename = "email_#{email_id}_details_#{Date.utc_today()}.csv"
 

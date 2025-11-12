@@ -1,0 +1,371 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Dashboard"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold text-base-content mb-2">
+        {@project_title} {gettext("Dashboard")}
+      </h1>
+      <p class="text-base-content/70">
+        {gettext("Welcome to the %{project_title} administration panel",
+          project_title: @project_title
+        )}
+      </p>
+    </div>
+
+    <%!-- Admin Menu Actions --%>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users")}
+        class="card bg-secondary text-secondary-content hover:shadow-lg transition-all"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-users" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Users")}</h3>
+              <p class="text-sm opacity-75">{gettext("User management")}</p>
+            </div>
+          </div>
+        </div>
+      </.link>
+
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/roles")}
+        class="card bg-info text-info-content hover:shadow-lg transition-all"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-shield-check" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Roles")}</h3>
+              <p class="text-sm opacity-75">{gettext("Role management")}</p>
+            </div>
+          </div>
+        </div>
+      </.link>
+
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/sessions")}
+        class="card bg-success text-success-content hover:shadow-lg transition-all"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-computer-desktop" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Sessions")}</h3>
+              <p class="text-sm opacity-75">{gettext("Active sessions")}</p>
+            </div>
+          </div>
+        </div>
+      </.link>
+
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/live_sessions")}
+        class="card bg-warning text-warning-content hover:shadow-lg transition-all"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-eye" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Live Activity")}</h3>
+              <p class="text-sm opacity-75">{gettext("Real-time visitors")}</p>
+            </div>
+          </div>
+        </div>
+      </.link>
+
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/users/new")}
+        class="card bg-primary text-primary-content hover:shadow-lg transition-all"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-user-plus" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Add User")}</h3>
+              <p class="text-sm opacity-75">{gettext("Create new account")}</p>
+            </div>
+          </div>
+        </div>
+      </.link>
+
+      <%= if PhoenixKit.Emails.enabled?() do %>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/emails")}
+          class="card bg-purple-500 text-white hover:shadow-lg transition-all"
+        >
+          <div class="card-body">
+            <div class="flex items-center">
+              <.icon name="hero-envelope" class="w-8 h-8 mr-3" />
+              <div>
+                <h3 class="card-title text-lg">{gettext("Email")}</h3>
+                <p class="text-sm opacity-75">{gettext("Email logs & analytics")}</p>
+              </div>
+            </div>
+          </div>
+        </.link>
+      <% end %>
+
+      <button
+        phx-click="refresh_stats"
+        class="card bg-accent text-accent-content hover:shadow-lg transition-all cursor-pointer"
+      >
+        <div class="card-body">
+          <div class="flex items-center">
+            <.icon name="hero-arrow-path" class="w-8 h-8 mr-3" />
+            <div>
+              <h3 class="card-title text-lg">{gettext("Refresh")}</h3>
+              <p class="text-sm opacity-75">{gettext("Update statistics")}</p>
+            </div>
+          </div>
+        </div>
+      </button>
+    </div>
+
+    <%!-- Platform Statistics --%>
+    <div class="mb-12">
+      <h2 class="text-2xl font-bold text-base-content mb-8">
+        {gettext("Platform Statistics")}
+      </h2>
+
+      <%!-- Main Statistics Cards --%>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <%!-- System Owners Card --%>
+        <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
+          circle_size="20"
+          value={@stats.owner_count}
+          title={gettext("System Owners")}
+          subtitle={gettext("Complete system authority")}
+        >
+          <:icon>
+            <.icon name="hero-shield-check" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card>
+
+        <%!-- Administrators Card --%>
+        <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
+          circle_size="16"
+          value={@stats.admin_count}
+          title={gettext("Administrators")}
+          subtitle={gettext("Management privileges")}
+        >
+          <:icon>
+            <.icon name="hero-star" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card>
+
+        <%!-- Total Users Card --%>
+        <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
+          circle_size="24"
+          value={@stats.total_users}
+          title={gettext("Total Users")}
+          subtitle={gettext("Registered accounts")}
+        >
+          <:icon>
+            <.icon name="hero-users" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card>
+      </div>
+
+      <%!-- Sessions Statistics --%>
+      <div class="mb-8">
+        <h3 class="text-xl font-bold text-base-content mb-4">{gettext("Active Sessions")}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <%!-- Total Active Sessions --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@session_stats.total_active}
+            title={gettext("Active Sessions")}
+            subtitle={gettext("Currently logged in")}
+          >
+            <:icon>
+              <.icon name="hero-bolt" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Unique Users --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@session_stats.unique_users}
+            title={gettext("Unique Users")}
+            subtitle={gettext("With active sessions")}
+          >
+            <:icon>
+              <.icon name="hero-user" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Today's Sessions --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@session_stats.sessions_today}
+            title={gettext("Today's Sessions")}
+            subtitle={gettext("New login activity")}
+          >
+            <:icon>
+              <.icon name="hero-clock" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Expired Sessions --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@session_stats.expired_sessions}
+            title={gettext("Expired Sessions")}
+            subtitle={gettext("Need cleanup")}
+          >
+            <:icon>
+              <.icon name="hero-no-symbol" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+        </div>
+      </div>
+
+      <%!-- Real-Time Presence Statistics --%>
+      <div class="mb-8">
+        <h3 class="text-xl font-bold text-base-content mb-4">{gettext("Real-Time Activity")}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <%!-- Total Active Visitors --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@presence_stats.total_sessions}
+            title={gettext("Active Visitors")}
+            subtitle={gettext("Real-time connections")}
+          >
+            <:icon>
+              <.icon name="hero-user-circle" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Anonymous Visitors --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@presence_stats.anonymous_sessions}
+            title={gettext("Anonymous")}
+            subtitle={gettext("Unregistered visitors")}
+          >
+            <:icon>
+              <.icon name="hero-user" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Authenticated Users --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={@presence_stats.authenticated_sessions}
+            title={gettext("Authenticated")}
+            subtitle={gettext("Logged in users")}
+          >
+            <:icon>
+              <.icon name="hero-check-circle" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+          <%!-- Unique Visitors --%>
+          <PhoenixKitWeb.Components.Core.StatCard.stat_card
+            value={
+              @presence_stats.unique_anonymous_visitors +
+                @presence_stats.active_authenticated_users
+            }
+            title={gettext("Unique Visitors")}
+            subtitle={gettext("Individual connections")}
+          >
+            <:icon>
+              <.icon name="hero-user-group" class="w-6 h-6" />
+            </:icon>
+          </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+        </div>
+      </div>
+
+      <%!-- Secondary Statistics - Gradient Cards --%>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <%!-- Active Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          rounded="2xl"
+          value={@stats.active_users}
+          title={gettext("Active Users")}
+          subtitle={gettext("Currently online")}
+        >
+          <:icon>
+            <.icon name="hero-check-circle-solid" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Inactive Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          rounded="2xl"
+          value={@stats.inactive_users}
+          title={gettext("Inactive Users")}
+          subtitle={gettext("Disabled accounts")}
+        >
+          <:icon>
+            <.icon name="hero-x-circle-solid" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Email Confirmed --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          rounded="2xl"
+          value={@stats.confirmed_users}
+          title={gettext("Email Confirmed")}
+          subtitle={gettext("Verified emails")}
+        >
+          <:icon>
+            <.icon name="hero-envelope" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Pending Email --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          rounded="2xl"
+          value={@stats.pending_users}
+          title={gettext("Pending Email")}
+          subtitle={gettext("Awaiting confirmation")}
+        >
+          <:icon>
+            <.icon name="hero-information-circle-solid" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+        <%!-- Regular Users --%>
+        <PhoenixKitWeb.Components.Core.StatCard.stat_card
+          rounded="2xl"
+          value={@stats.user_count}
+          title={gettext("Regular Users")}
+          subtitle={gettext("Standard access level")}
+        >
+          <:icon>
+            <.icon name="hero-user" class="w-6 h-6" />
+          </:icon>
+        </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+      </div>
+    </div>
+
+    <%!-- System Information --%>
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-base-content mb-6">
+        {gettext("System Information")}
+      </h2>
+
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-primary mb-2">{@phoenix_kit_version}</div>
+              <div class="text-sm text-base-content/70">
+                {gettext("%{project_title} Version", project_title: @project_title)}
+              </div>
+            </div>
+            <div class="text-center">
+              <div class="badge badge-success badge-lg mb-2">{gettext("Active")}</div>
+              <div class="text-sm text-base-content/70">{gettext("Role System")}</div>
+            </div>
+            <div class="text-center">
+              <div class="badge badge-success badge-lg mb-2">{gettext("Enabled")}</div>
+              <div class="text-sm text-base-content/70">{gettext("Authentication")}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

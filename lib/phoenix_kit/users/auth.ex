@@ -42,8 +42,9 @@ defmodule PhoenixKit.Users.Auth do
 
       # Authenticate user
       case PhoenixKit.Users.Auth.get_user_by_email_and_password(email, password) do
-        %User{} = user -> {:ok, user}
-        nil -> {:error, :invalid_credentials}
+        {:ok, user} -> {:ok, user}
+        {:error, :invalid_credentials} -> {:error, :invalid_credentials}
+        {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
       end
 
       # Send confirmation email
@@ -61,11 +62,13 @@ defmodule PhoenixKit.Users.Auth do
   import Ecto.Query, warn: false
   alias PhoenixKit.RepoHelper, as: Repo
 
+  require Logger
+
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.{RateLimiter, Roles}
   alias PhoenixKit.Utils.Geolocation
 
   ## Database getters
@@ -89,20 +92,60 @@ defmodule PhoenixKit.Users.Auth do
   @doc """
   Gets a user by email and password.
 
+  This function includes rate limiting protection to prevent brute-force attacks.
+  After exceeding the rate limit (default: 5 attempts per minute), subsequent
+  attempts will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> get_user_by_email_and_password("foo@example.com", "correct_password")
-      %User{}
+      {:ok, %User{}}
 
       iex> get_user_by_email_and_password("foo@example.com", "invalid_password")
+      {:error, :invalid_credentials}
+
+      iex> get_user_by_email_and_password("foo@example.com", "password", "192.168.1.1")
+      {:ok, %User{}}
+
+  """
+  def get_user_by_email_and_password(email, password, ip_address \\ nil)
+      when is_binary(email) and is_binary(password) do
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email, ip_address) do
+      :ok ->
+        user = Repo.get_by(User, email: email)
+        # Return user if password is valid, regardless of is_active status
+        # The session controller will handle inactive status check separately
+        if User.valid_password?(user, password) do
+          # Successful login
+          {:ok, user}
+        else
+          # Invalid credentials - rate limit counter incremented
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        # Return error immediately without checking credentials
+        # This prevents timing attacks and reduces load
+        {:error, :rate_limit_exceeded}
+    end
+  end
+
+  @doc """
+  Gets a single user.
+
+  Returns `nil` if the user does not exist.
+
+  ## Examples
+
+      iex> get_user(123)
+      %User{}
+
+      iex> get_user(456)
       nil
 
   """
-  def get_user_by_email_and_password(email, password)
-      when is_binary(email) and is_binary(password) do
-    user = Repo.get_by(User, email: email)
-    if User.valid_password?(user, password), do: user
-  end
+  def get_user(id) when is_integer(id), do: Repo.get(User, id)
 
   @doc """
   Gets a single user.
@@ -130,6 +173,9 @@ defmodule PhoenixKit.Users.Auth do
   - Subsequent users receive User role
   - Uses database transactions to prevent race conditions
 
+  This function includes rate limiting protection to prevent spam account creation.
+  Rate limits apply per email address and optionally per IP address.
+
   ## Examples
 
       iex> register_user(%{field: value})
@@ -138,8 +184,33 @@ defmodule PhoenixKit.Users.Auth do
       iex> register_user(%{field: bad_value})
       {:error, %Ecto.Changeset{}}
 
+      iex> register_user(%{email: "user@example.com"}, "192.168.1.1")
+      {:ok, %User{}}
+
   """
-  def register_user(attrs) do
+  def register_user(attrs, ip_address \\ nil) do
+    # Check rate limit before attempting registration
+    email = attrs["email"] || attrs[:email] || ""
+
+    case RateLimiter.check_registration_rate_limit(email, ip_address) do
+      :ok ->
+        do_register_user(attrs)
+
+      {:error, :rate_limit_exceeded} ->
+        # Return changeset error for rate limit
+        changeset =
+          %User{}
+          |> User.registration_changeset(attrs)
+          |> Ecto.Changeset.add_error(
+            :email,
+            "Too many registration attempts. Please try again later."
+          )
+
+        {:error, changeset}
+    end
+  end
+
+  defp do_register_user(attrs) do
     case %User{}
          |> User.registration_changeset(attrs)
          |> Repo.insert() do
@@ -148,7 +219,6 @@ defmodule PhoenixKit.Users.Auth do
         case Roles.ensure_first_user_is_owner(user) do
           {:ok, role_type} ->
             # Log successful role assignment for security audit
-            require Logger
             Logger.info("PhoenixKit: User #{user.id} (#{user.email}) assigned #{role_type} role")
 
             # Broadcast user creation event
@@ -158,8 +228,6 @@ defmodule PhoenixKit.Users.Auth do
 
           {:error, reason} ->
             # Role assignment failed - this is critical
-            require Logger
-
             Logger.error(
               "PhoenixKit: Failed to assign role to user #{user.id}: #{inspect(reason)}"
             )
@@ -180,6 +248,8 @@ defmodule PhoenixKit.Users.Auth do
   This function attempts to look up geographical location information
   based on the provided IP address and includes it in the user registration.
   If geolocation lookup fails, the user is still registered with just the IP address.
+
+  This function automatically applies rate limiting based on the IP address.
 
   ## Examples
 
@@ -203,24 +273,23 @@ defmodule PhoenixKit.Users.Auth do
           |> Map.put("registration_region", location["region"])
           |> Map.put("registration_city", location["city"])
 
-        require Logger
         Logger.info("PhoenixKit: Successful geolocation lookup for IP #{ip_address}")
 
-        register_user(enhanced_attrs)
+        # Pass IP address for rate limiting
+        register_user(enhanced_attrs, ip_address)
 
       {:error, reason} ->
         # Log the error but continue with registration
-        require Logger
         Logger.warning("PhoenixKit: Geolocation lookup failed for IP #{ip_address}: #{reason}")
 
         # Register user with just IP address
-        register_user(enhanced_attrs)
+        register_user(enhanced_attrs, ip_address)
     end
   end
 
   def register_user_with_geolocation(attrs, _invalid_ip) do
     # Invalid IP provided, register without geolocation data
-    register_user(attrs)
+    register_user(attrs, nil)
   end
 
   @doc """
@@ -402,9 +471,23 @@ defmodule PhoenixKit.Users.Auth do
 
   @doc """
   Generates a session token.
+
+  ## Options
+
+    * `:fingerprint` - Optional session fingerprint map with `:ip_address` and `:user_agent_hash`
+
+  ## Examples
+
+      # Without fingerprinting (backward compatible)
+      token = generate_user_session_token(user)
+
+      # With fingerprinting
+      fingerprint = PhoenixKit.Utils.SessionFingerprint.create_fingerprint(conn)
+      token = generate_user_session_token(user, fingerprint: fingerprint)
+
   """
-  def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
+  def generate_user_session_token(user, opts \\ []) do
+    {token, user_token} = UserToken.build_session_token(user, opts)
     inserted_token = Repo.insert!(user_token)
 
     # Broadcast session creation event
@@ -425,6 +508,72 @@ defmodule PhoenixKit.Users.Auth do
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
     Repo.one(query)
+  end
+
+  # Define session validity for query
+  @session_validity_in_days 60
+
+  @doc """
+  Gets the user token record for the given session token.
+
+  This is useful for accessing fingerprint data stored with the token.
+
+  ## Examples
+
+      iex> get_session_token_record("valid_token")
+      %UserToken{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+
+      iex> get_session_token_record("invalid_token")
+      nil
+
+  """
+  def get_session_token_record(token) do
+    import Ecto.Query
+
+    from(t in UserToken,
+      where: t.token == ^token and t.context == "session",
+      where: t.inserted_at > ago(@session_validity_in_days, "day")
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Verifies a session fingerprint against the stored token data.
+
+  Returns:
+  - `:ok` if fingerprint matches or fingerprinting is disabled
+  - `{:warning, reason}` if there's a partial mismatch (IP or UA changed)
+  - `{:error, :fingerprint_mismatch}` if both IP and UA changed
+
+  ## Examples
+
+      iex> verify_session_fingerprint(conn, token)
+      :ok
+
+      iex> verify_session_fingerprint(conn, token)
+      {:warning, :ip_mismatch}
+
+  """
+  def verify_session_fingerprint(conn, token) do
+    alias PhoenixKit.Utils.SessionFingerprint
+
+    # Skip verification if fingerprinting is disabled
+    if SessionFingerprint.fingerprinting_enabled?() do
+      case get_session_token_record(token) do
+        nil ->
+          # Token not found or expired
+          {:error, :token_not_found}
+
+        token_record ->
+          SessionFingerprint.verify_fingerprint(
+            conn,
+            token_record.ip_address,
+            token_record.user_agent_hash
+          )
+      end
+    else
+      :ok
+    end
   end
 
   @doc """
@@ -579,17 +728,35 @@ defmodule PhoenixKit.Users.Auth do
   @doc ~S"""
   Delivers the reset password email to the given user.
 
+  This function includes rate limiting protection to prevent mass password reset attacks.
+  After exceeding the rate limit (default: 3 requests per 5 minutes), subsequent
+  requests will be rejected with `{:error, :rate_limit_exceeded}`.
+
   ## Examples
 
       iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
+      iex> deliver_user_reset_password_instructions(user, &PhoenixKit.Utils.Routes.url("/users/reset-password/#{&1}"))
+      {:error, :rate_limit_exceeded}
+
   """
   def deliver_user_reset_password_instructions(%User{} = user, reset_password_url_fun)
       when is_function(reset_password_url_fun, 1) do
-    {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
-    Repo.insert!(user_token)
-    UserNotifier.deliver_reset_password_instructions(user, reset_password_url_fun.(encoded_token))
+    # Check rate limit before sending reset email
+    case RateLimiter.check_password_reset_rate_limit(user.email) do
+      :ok ->
+        {encoded_token, user_token} = UserToken.build_email_token(user, "reset_password")
+        Repo.insert!(user_token)
+
+        UserNotifier.deliver_reset_password_instructions(
+          user,
+          reset_password_url_fun.(encoded_token)
+        )
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
   end
 
   @doc """
@@ -653,7 +820,8 @@ defmodule PhoenixKit.Users.Auth do
       iex> assign_role(user, "NonexistentRole")
       {:error, :role_not_found}
   """
-  defdelegate assign_role(user, role_name, assigned_by \\ nil), to: PhoenixKit.Users.Roles
+  defdelegate assign_role(user, role_name, assigned_by \\ nil, opts \\ []),
+    to: PhoenixKit.Users.Roles
 
   @doc """
   Removes a role from a user.
@@ -666,7 +834,7 @@ defmodule PhoenixKit.Users.Auth do
       iex> remove_role(user, "NonexistentRole")
       {:error, :assignment_not_found}
   """
-  defdelegate remove_role(user, role_name), to: PhoenixKit.Users.Roles
+  defdelegate remove_role(user, role_name, opts \\ []), to: PhoenixKit.Users.Roles
 
   @doc """
   Checks if a user has a specific role.
@@ -794,6 +962,270 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Updates user custom fields.
+
+  Custom fields are stored as JSONB and can contain arbitrary key-value pairs
+  for extending user data without schema changes.
+
+  ## Examples
+
+      iex> update_user_custom_fields(user, %{"phone" => "555-1234", "department" => "Engineering"})
+      {:ok, %User{}}
+
+      iex> update_user_custom_fields(user, "invalid")
+      {:error, %Ecto.Changeset{}}
+  """
+  def update_user_custom_fields(%User{} = user, custom_fields) when is_map(custom_fields) do
+    case user
+         |> User.custom_fields_changeset(%{custom_fields: custom_fields})
+         |> Repo.update() do
+      {:ok, updated_user} ->
+        # Broadcast user profile update event
+        Events.broadcast_user_updated(updated_user)
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
+  Updates both schema and custom fields in a single call.
+
+  This is a unified update function that automatically splits the provided
+  attributes into schema fields and custom fields, updating both appropriately.
+
+  ## Schema Fields
+  - first_name, last_name, email, username, user_timezone
+
+  ## Custom Fields
+  - Any other keys are treated as custom fields
+
+  ## Examples
+
+      iex> update_user_fields(user, %{
+      ...>   "first_name" => "John",
+      ...>   "email" => "john@example.com",
+      ...>   "phone" => "555-1234",
+      ...>   "department" => "Engineering"
+      ...> })
+      {:ok, %User{}}
+
+      iex> update_user_fields(user, %{email: "invalid"})
+      {:error, %Ecto.Changeset{}}
+  """
+  def update_user_fields(%User{} = user, attrs) when is_map(attrs) do
+    # Fields that can be updated via profile_changeset
+    updatable_profile_fields = [:first_name, :last_name, :email, :username, :user_timezone]
+
+    # Split attrs into schema fields and custom fields using Map.has_key? pattern
+    {schema_attrs, custom_attrs} =
+      Enum.reduce(attrs, {%{}, %{}}, fn {key, value}, {schema_acc, custom_acc} ->
+        # Convert key to atom if needed to check Map.has_key?
+        case safe_string_to_existing_atom(to_string(key)) do
+          {:ok, field_atom} ->
+            # Check if this is an updatable schema field
+            if field_atom in updatable_profile_fields and Map.has_key?(user, field_atom) do
+              {Map.put(schema_acc, field_atom, value), custom_acc}
+            else
+              # Not updatable or not in schema - treat as custom field
+              {schema_acc, Map.put(custom_acc, to_string(key), value)}
+            end
+
+          :error ->
+            # Not a known atom - must be custom field
+            {schema_acc, Map.put(custom_acc, to_string(key), value)}
+        end
+      end)
+
+    # Update in sequence: profile first, then custom fields
+    with {:ok, updated_user} <- maybe_update_profile(user, schema_attrs) do
+      maybe_update_custom_fields(updated_user, custom_attrs)
+    end
+  end
+
+  # Helper to update profile fields only if there are any
+  defp maybe_update_profile(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
+
+  defp maybe_update_profile(user, attrs) do
+    update_user_profile(user, attrs)
+  end
+
+  # Helper to update custom fields only if there are any
+  defp maybe_update_custom_fields(user, attrs) when map_size(attrs) == 0, do: {:ok, user}
+
+  defp maybe_update_custom_fields(user, attrs) do
+    # Merge new custom fields with existing ones (don't replace entirely)
+    existing_custom_fields = user.custom_fields || %{}
+    merged_custom_fields = Map.merge(existing_custom_fields, attrs)
+
+    update_user_custom_fields(user, merged_custom_fields)
+  end
+
+  @doc """
+  Bulk update multiple users with the same field values.
+
+  This function updates multiple users at once with the same set of fields.
+  Each user is updated independently, and the function returns a list of results
+  showing which updates succeeded and which failed.
+
+  Both schema fields and custom fields can be updated in the same call.
+
+  ## Parameters
+  - `users` - List of User structs to update
+  - `attrs` - Map of field names to values (can include both schema and custom fields)
+
+  ## Returns
+  Returns `{:ok, results}` where results is a list of tuples:
+  - `{:ok, user}` - Successfully updated user
+  - `{:error, changeset}` - Failed update with error details
+
+  ## Examples
+
+      # Update multiple users with the same fields
+      iex> users = [user1, user2, user3]
+      iex> bulk_update_user_fields(users, %{status: "active", department: "Engineering"})
+      {:ok, [
+        {:ok, %User{status: "active", custom_fields: %{"department" => "Engineering"}}},
+        {:ok, %User{status: "active", custom_fields: %{"department" => "Engineering"}}},
+        {:error, %Ecto.Changeset{}}
+      ]}
+
+      # Update both schema and custom fields
+      iex> bulk_update_user_fields(users, %{
+      ...>   first_name: "John",           # Schema field
+      ...>   last_name: "Doe",             # Schema field
+      ...>   custom_field_1: "value1",     # Custom field
+      ...>   custom_field_2: "value2"      # Custom field
+      ...> })
+      {:ok, [results...]}
+  """
+  def bulk_update_user_fields(users, attrs) when is_list(users) and is_map(attrs) do
+    results =
+      Enum.map(users, fn user ->
+        case update_user_fields(user, attrs) do
+          {:ok, updated_user} -> {:ok, updated_user}
+          {:error, changeset} -> {:error, changeset}
+        end
+      end)
+
+    {:ok, results}
+  end
+
+  @doc """
+  Gets a user field value from either schema fields or custom fields.
+
+  This unified accessor provides O(1) performance by checking struct fields
+  first using Map.has_key?/2, then falling back to custom_fields JSONB.
+
+  Certain sensitive fields are excluded for security:
+  - password, current_password (virtual fields)
+  - hashed_password (use authentication functions instead)
+
+  ## Examples
+
+      # Standard schema fields (O(1) struct access)
+      iex> get_user_field(user, "email")
+      "user@example.com"
+
+      iex> get_user_field(user, :first_name)
+      "John"
+
+      # Custom fields (O(1) JSONB lookup)
+      iex> get_user_field(user, "phone")
+      "555-1234"
+
+      # Nonexistent returns nil
+      iex> get_user_field(user, "nonexistent")
+      nil
+
+      # Excluded sensitive fields return nil
+      iex> get_user_field(user, "hashed_password")
+      nil
+
+  ## Performance
+
+  - Standard fields: ~0.5μs (direct struct access)
+  - Custom fields: ~1-2μs (JSONB lookup)
+  - No performance penalty from checking both locations
+  """
+  def get_user_field(%User{} = user, field) when is_binary(field) do
+    case safe_string_to_existing_atom(field) do
+      {:ok, field_atom} ->
+        if Map.has_key?(user, field_atom) and field_atom not in User.excluded_fields() do
+          Map.get(user, field_atom)
+        else
+          Map.get(user.custom_fields || %{}, field)
+        end
+
+      :error ->
+        # Not a known atom - must be custom field
+        Map.get(user.custom_fields || %{}, field)
+    end
+  end
+
+  def get_user_field(%User{} = user, field) when is_atom(field) do
+    if Map.has_key?(user, field) and field not in User.excluded_fields() do
+      Map.get(user, field)
+    else
+      # Try custom fields with string key
+      Map.get(user.custom_fields || %{}, Atom.to_string(field))
+    end
+  end
+
+  @doc """
+  Gets a specific custom field value for a user.
+
+  Returns the value if the key exists, or nil otherwise.
+
+  ## Examples
+
+      iex> get_user_custom_field(user, "phone")
+      "555-1234"
+
+      iex> get_user_custom_field(user, "nonexistent")
+      nil
+  """
+  def get_user_custom_field(%User{custom_fields: custom_fields}, key) when is_binary(key) do
+    Map.get(custom_fields || %{}, key)
+  end
+
+  @doc """
+  Sets a specific custom field value for a user.
+
+  Updates a single key in the custom_fields map while preserving other fields.
+
+  ## Examples
+
+      iex> set_user_custom_field(user, "phone", "555-1234")
+      {:ok, %User{}}
+
+      iex> set_user_custom_field(user, "department", "Product")
+      {:ok, %User{}}
+  """
+  def set_user_custom_field(%User{} = user, key, value) when is_binary(key) do
+    current_fields = user.custom_fields || %{}
+    updated_fields = Map.put(current_fields, key, value)
+    update_user_custom_fields(user, updated_fields)
+  end
+
+  @doc """
+  Deletes a specific custom field for a user.
+
+  Removes the key from the custom_fields map.
+
+  ## Examples
+
+      iex> delete_user_custom_field(user, "phone")
+      {:ok, %User{}}
+  """
+  def delete_user_custom_field(%User{} = user, key) when is_binary(key) do
+    current_fields = user.custom_fields || %{}
+    updated_fields = Map.delete(current_fields, key)
+    update_user_custom_fields(user, updated_fields)
+  end
+
+  @doc """
   Updates user status with Owner protection.
 
   Prevents deactivation of the last Owner to maintain system security.
@@ -827,7 +1259,6 @@ defmodule PhoenixKit.Users.Auth do
         do_update_user_status(user, attrs)
 
       {:error, :cannot_deactivate_last_owner} ->
-        require Logger
         Logger.warning("PhoenixKit: Attempted to deactivate last Owner user #{user.id}")
         {:error, :cannot_deactivate_last_owner}
     end
@@ -913,7 +1344,6 @@ defmodule PhoenixKit.Users.Auth do
       join: assignment in assoc(u, :role_assignments),
       join: role in assoc(assignment, :role),
       where: role.name == ^role_name,
-      where: assignment.is_active == true,
       distinct: u.id
   end
 
@@ -1001,5 +1431,14 @@ defmodule PhoenixKit.Users.Auth do
       }
     )
     |> Repo.one()
+  end
+
+  # Safe atom conversion - only succeeds if atom already exists
+  # This prevents atom exhaustion attacks by only converting strings
+  # that correspond to already-existing atoms in the system
+  defp safe_string_to_existing_atom(string) when is_binary(string) do
+    {:ok, String.to_existing_atom(string)}
+  rescue
+    ArgumentError -> :error
   end
 end

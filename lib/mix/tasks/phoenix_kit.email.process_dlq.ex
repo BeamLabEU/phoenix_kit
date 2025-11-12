@@ -38,8 +38,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.ProcessDlq do
 
   require Logger
 
-  alias PhoenixKit.EmailSystem
-  alias PhoenixKit.EmailSystem.SQSProcessor
+  alias PhoenixKit.Emails
+  alias PhoenixKit.Emails.SQSProcessor
   alias PhoenixKit.Settings
 
   @shortdoc "Process accumulated DLQ messages"
@@ -67,7 +67,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.ProcessDlq do
     delete_after = Keyword.get(options, :delete_after, false)
     dry_run = Keyword.get(options, :dry_run, false)
 
-    if not EmailSystem.enabled?() do
+    if not Emails.enabled?() do
       Mix.shell().error("❌ Email system is not enabled")
       exit(:shutdown)
     end

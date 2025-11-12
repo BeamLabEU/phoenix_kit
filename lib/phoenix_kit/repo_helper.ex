@@ -8,14 +8,16 @@ defmodule PhoenixKit.RepoHelper do
   the built-in PhoenixKit.Repo for development/testing.
   """
 
+  alias PhoenixKit.Config
+
   @doc """
   Gets the repository module to use.
 
-  Expects repo to be configured via Application.get_env(:phoenix_kit, :repo).
+  Expects repo to be configured via PhoenixKit.Config.get(:repo).
   Raises an error if no repo is configured.
   """
   def repo do
-    case Application.get_env(:phoenix_kit, :repo) do
+    case Config.get(:repo, nil) do
       nil ->
         raise """
         No repository configured for PhoenixKit.
@@ -140,5 +142,14 @@ defmodule PhoenixKit.RepoHelper do
   """
   def preload(struct_or_structs, preloads, opts \\ []) do
     repo().preload(struct_or_structs, preloads, opts)
+  end
+
+  @doc """
+  Delegates to the configured repo's rollback function.
+
+  This function is used within transactions to rollback and return an error value.
+  """
+  def rollback(value) do
+    repo().rollback(value)
   end
 end

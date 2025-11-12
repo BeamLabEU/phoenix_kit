@@ -29,7 +29,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqsQueue do
 
   use Mix.Task
 
-  alias PhoenixKit.EmailSystem
+  alias PhoenixKit.Emails
   alias PhoenixKit.Settings
 
   @default_limit 50
@@ -73,7 +73,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqsQueue do
   end
 
   defp process_sqs_queue(_limit, _delete_after, verbose, _filter, dry_run) do
-    if EmailSystem.enabled?() do
+    if Emails.enabled?() do
       if verbose, do: IO.puts("✅ Email module is enabled")
 
       queue_url = Settings.get_setting("aws_sqs_queue_url")

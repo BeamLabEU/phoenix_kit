@@ -60,15 +60,16 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
   use Mix.Task
   require Logger
 
-  alias PhoenixKit.EmailSystem
-  alias PhoenixKit.EmailSystem.SQSProcessor
+  alias PhoenixKit.Emails
+  alias PhoenixKit.Emails.SQSProcessor
 
+  @impl Mix.Task
   def run(args) do
     Mix.Task.run("app.start")
 
     {options, _remaining} = parse_options(args)
 
-    unless EmailSystem.enabled?() do
+    unless Emails.enabled?() do
       Mix.shell().error("Email system is not enabled.")
       exit({:shutdown, 1})
     end
@@ -76,7 +77,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
     Mix.shell().info(IO.ANSI.cyan() <> "\n🔍 SQS Queue Debug Analysis" <> IO.ANSI.reset())
     Mix.shell().info(String.duplicate("=", 50))
 
-    sqs_config = EmailSystem.get_sqs_config()
+    sqs_config = Emails.get_sqs_config()
 
     unless sqs_config.queue_url do
       Mix.shell().error("SQS queue URL is not configured.")
@@ -267,13 +268,13 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
 
   defp check_email_log_match(aws_message_id) when is_binary(aws_message_id) do
     # Try to find by AWS message ID
-    case EmailSystem.get_log_by_message_id(aws_message_id) do
+    case Emails.get_log_by_message_id(aws_message_id) do
       {:ok, log} ->
         {:found_by_aws_id, log}
 
       {:error, :not_found} ->
         # Try to find by internal message ID pattern (if AWS ID was stored as internal)
-        case EmailSystem.EmailLog.find_by_aws_message_id(aws_message_id) do
+        case Emails.Log.find_by_aws_message_id(aws_message_id) do
           {:ok, log} ->
             {:found_by_aws_field, log}
 
@@ -480,7 +481,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
     if Enum.empty?(successful_messages) do
       Mix.shell().info("   ℹ️  No successfully processed messages to delete.")
     else
-      sqs_config = EmailSystem.get_sqs_config()
+      sqs_config = Emails.get_sqs_config()
 
       deleted_count =
         Enum.count(successful_messages, fn message ->
