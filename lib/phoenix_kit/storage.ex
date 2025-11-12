@@ -24,6 +24,9 @@ defmodule PhoenixKit.Storage do
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.FileLocation
   alias PhoenixKit.Storage.Manager
+  # NOTE: Temporary helper for blogging component system.
+  # The dedicated storage/media APIs under development should replace this fallback once available.
+  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Storage.VariantGenerator
 
   # ===== BUCKETS =====
@@ -720,10 +723,91 @@ defmodule PhoenixKit.Storage do
     # Look up the actual file path from file_instances where "original" variant is stored
     case get_file_instance_by_name(file.id, "original") do
       %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
-        Manager.public_url(file_path)
+        Manager.public_url(file_path) || signed_file_url(file.id, "original")
 
       nil ->
         nil
+    end
+  end
+
+  @doc """
+  Gets a public URL for a specific file variant.
+
+  ## Variants
+
+  For images: "original", "thumbnail", "small", "medium", "large"
+  For videos: "original", "360p", "720p", "1080p", "video_thumbnail"
+
+  ## Examples
+
+      iex> get_public_url_by_variant(file, "thumbnail")
+      "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
+
+      iex> get_public_url_by_variant(file, "medium")
+      "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_medium.jpg"
+
+  """
+  def get_public_url_by_variant(%PhoenixKit.Storage.File{} = file, variant_name) do
+    case get_file_instance_by_name(file.id, variant_name) do
+      %PhoenixKit.Storage.FileInstance{file_name: file_path} ->
+        Manager.public_url(file_path) || signed_file_url(file.id, variant_name)
+
+      nil ->
+        # Fallback to original if variant doesn't exist
+        get_public_url(file)
+    end
+  end
+
+  @doc """
+  Gets a public URL for a file by file ID.
+
+  Convenience function that fetches the file and returns its URL.
+
+  ## Examples
+
+      iex> get_public_url_by_id("018e3c4a-9f6b-7890-abcd-ef1234567890")
+      "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_original.jpg"
+
+      iex> get_public_url_by_id("invalid-id")
+      nil
+
+  """
+  def get_public_url_by_id(file_id) when is_binary(file_id) do
+    case get_file(file_id) do
+      %PhoenixKit.Storage.File{} = file ->
+        get_public_url(file)
+
+      nil ->
+        nil
+    end
+  end
+
+  def get_public_url_by_id(_), do: nil
+
+  @doc """
+  Gets a public URL for a specific file variant by file ID.
+
+  ## Examples
+
+      iex> get_public_url_by_id("018e3c4a-9f6b-7890-abcd-ef1234567890", "thumbnail")
+      "https://cdn.example.com/12/a1/a1b2c3d4e5f6/a1b2c3d4e5f6_thumbnail.jpg"
+
+  """
+  def get_public_url_by_id(file_id, variant_name) when is_binary(file_id) do
+    case get_file(file_id) do
+      %PhoenixKit.Storage.File{} = file ->
+        get_public_url_by_variant(file, variant_name)
+
+      nil ->
+        nil
+    end
+  end
+
+  defp signed_file_url(file_id, variant_name) do
+    try do
+      URLSigner.signed_url(file_id, variant_name, locale: :none)
+    rescue
+      _ -> nil
     end
   end
 

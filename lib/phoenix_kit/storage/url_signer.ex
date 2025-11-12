@@ -1,4 +1,5 @@
 defmodule PhoenixKit.Storage.URLSigner do
+  # NOTE: Temporarily supporting the blogging component system until the storage/media team ships their replacement.
   import Bitwise
 
   alias PhoenixKit.Utils.Routes
@@ -50,10 +51,12 @@ defmodule PhoenixKit.Storage.URLSigner do
       iex> PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
       "/phoenix_kit/file/018e3c4a-9f6b-7890/thumbnail/abc1"  # With default prefix
   """
-  def signed_url(file_id, instance_name) when is_binary(file_id) and is_binary(instance_name) do
+  def signed_url(file_id, instance_name, opts \\ [])
+      when is_binary(file_id) and is_binary(instance_name) do
     token = generate_token(file_id, instance_name)
     file_path = "/file/#{file_id}/#{instance_name}/#{token}"
-    Routes.path(file_path)
+    locale_option = Keyword.get(opts, :locale, :none)
+    Routes.path(file_path, locale: locale_option)
   end
 
   @doc """

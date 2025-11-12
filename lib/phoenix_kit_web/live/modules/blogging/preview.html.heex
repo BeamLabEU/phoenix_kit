@@ -89,6 +89,15 @@
               margin-top: 1rem;
               margin-bottom: 1rem;
               padding-left: 1.5rem;
+              list-style-position: outside;
+            }
+
+            .blogging-markdown ul {
+              list-style-type: disc;
+            }
+
+            .blogging-markdown ol {
+              list-style-type: decimal;
             }
 
             .blogging-markdown li {
@@ -171,7 +180,7 @@
             }
           </style>
           <div class="blogging-markdown prose prose-lg max-w-none">
-            {@rendered_content}
+            {raw(@rendered_content)}
           </div>
         </div>
       <% else %>
