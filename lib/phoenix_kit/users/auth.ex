@@ -911,6 +911,89 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Update a user's avatar by storing the file and saving the file ID.
+
+  This function handles the complete avatar upload workflow:
+  1. Stores the file in configured storage buckets
+  2. Automatically queues background job for variant generation
+  3. Saves the file ID to the user's custom_fields
+
+  This is a convenience function that combines file storage with user update.
+  Can be called from any context (LiveView, controllers, scripts, etc.) outside
+  of the PhoenixKit project.
+
+  ## Parameters
+  - `user` - The User struct to update
+  - `file_path` - Path to the uploaded file (temporary location)
+  - `filename` - Original filename for the upload
+  - `user_id` - The user ID owning this file (defaults to user.id)
+
+  ## Returns
+  - `{:ok, user}` - Avatar saved successfully
+  - `{:error, reason}` - File storage or update failed
+
+  ## Examples
+
+      # Store avatar in default location with automatic variant generation
+      {:ok, updated_user} = Auth.update_user_avatar(user, "/tmp/upload_xyz", "avatar.jpg")
+
+      # Store with explicit user_id (for custom workflows)
+      {:ok, updated_user} = Auth.update_user_avatar(user, "/tmp/upload_xyz", "avatar.jpg", custom_user_id)
+
+  ## Automatically Generated Variants
+  The storage layer automatically generates these image variants:
+  - original - Full-size image
+  - large - 800x800px
+  - medium - 400x400px
+  - small - 200x200px
+  - thumbnail - 100x100px
+  """
+  def update_user_avatar(%User{} = user, file_path, filename, user_id \\ nil) do
+    user_id = user_id || user.id
+
+    # Calculate file hash
+    file_hash = calculate_file_hash(file_path)
+
+    # Get file extension
+    ext = Path.extname(filename) |> String.replace_leading(".", "")
+
+    # Store file in buckets (automatically queues ProcessFileJob for variants)
+    case PhoenixKit.Storage.store_file_in_buckets(
+           file_path,
+           "image",
+           user_id,
+           file_hash,
+           ext,
+           filename
+         ) do
+      {:ok, file} ->
+        # Save the file ID to user's custom fields
+        update_user_fields(user, %{"avatar_file_id" => file.id})
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Calculate SHA256 hash of a file.
+
+  Used internally for file integrity verification.
+
+  ## Parameters
+  - `file_path` - Path to the file
+
+  ## Returns
+  - String containing the lowercase hexadecimal SHA256 hash
+  """
+  def calculate_file_hash(file_path) do
+    file_path
+    |> File.read!()
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
+    |> Base.encode16(case: :lower)
+  end
+
+  @doc """
   Bulk update multiple users with the same field values.
 
   This function updates multiple users at once with the same set of fields.
