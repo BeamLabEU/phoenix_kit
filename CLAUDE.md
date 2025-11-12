@@ -183,7 +183,7 @@ This ensures consistent code formatting across the project.
 
 **Current Version**: 1.3.3 (in mix.exs)
 **Version Strategy**: Semantic versioning (MAJOR.MINOR.PATCH)
-**Migration Version**: V17 (latest migration version with entities system and plural display names)
+**Migration Version**: V23 (latest migration version with session fingerprinting)
 
 **MANDATORY steps for version updates:**
 
@@ -548,6 +548,39 @@ config :phoenix_kit, PhoenixKit.Users.RateLimiter,
 ```
 
 **Production:** Use `hammer_backend_redis` for distributed systems.
+
+### Session Fingerprinting Architecture
+
+- **PhoenixKit.Utils.SessionFingerprint** - Session fingerprinting utilities for hijacking prevention
+- **PhoenixKit.Users.Auth.UserToken** - Extended with ip_address and user_agent_hash fields
+- **PhoenixKitWeb.Users.Auth** - Integrated fingerprint verification in authentication plugs
+- **Migration V23** - Database migration adding fingerprinting columns
+
+**Security Features:**
+- **IP Address Tracking** - Detects when session is used from different IP address
+- **User Agent Hashing** - Detects when session is used from different browser/device
+- **Configurable Strictness** - Can log warnings or force re-authentication
+- **Backward Compatible** - Existing sessions without fingerprints remain valid
+- **Privacy Focused** - User agents are hashed for storage efficiency
+
+**Configuration:**
+```elixir
+# In your config/config.exs
+config :phoenix_kit,
+  session_fingerprint_enabled: true,  # Enable fingerprinting (default: true)
+  session_fingerprint_strict: false   # Strict mode forces re-auth on mismatch (default: false)
+```
+
+**Verification Behavior:**
+- **Non-strict mode (default)**: Logs warnings but allows access when fingerprints change
+- **Strict mode**: Forces re-authentication if both IP and user agent change
+- **Partial changes**: Single changes (IP or UA) logged as warnings but allowed
+
+**Use Cases:**
+- Detect stolen session tokens being used from different locations
+- Identify suspicious session activity patterns
+- Provide audit trail for security investigations
+- Balance security with user experience (mobile users, VPNs)
 
 ### Role System Architecture
 

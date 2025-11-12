@@ -39,6 +39,8 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     field :token, :binary
     field :context, :string
     field :sent_to, :string
+    field :ip_address, :string
+    field :user_agent_hash, :string
     belongs_to :user, PhoenixKit.Users.Auth.User
 
     timestamps(updated_at: false)
@@ -62,10 +64,40 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   You could then use this information to display all valid sessions
   and devices in the UI and allow users to explicitly expire any
   session they deem invalid.
+
+  ## Session Fingerprinting
+
+  The token can optionally include session fingerprinting data to prevent
+  session hijacking. Pass a `fingerprint` option with `ip_address` and
+  `user_agent_hash` to enable this feature.
+
+  ## Options
+
+    * `:fingerprint` - A map with `:ip_address` and `:user_agent_hash` keys
+
+  ## Examples
+
+      # Without fingerprinting (backward compatible)
+      {token, user_token} = build_session_token(user)
+
+      # With fingerprinting
+      fingerprint = %{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+      {token, user_token} = build_session_token(user, fingerprint: fingerprint)
+
   """
-  def build_session_token(user) do
+  def build_session_token(user, opts \\ []) do
     token = :crypto.strong_rand_bytes(@rand_size)
-    {token, %UserToken{token: token, context: "session", user_id: user.id}}
+    fingerprint = Keyword.get(opts, :fingerprint)
+
+    user_token = %UserToken{
+      token: token,
+      context: "session",
+      user_id: user.id,
+      ip_address: fingerprint && fingerprint[:ip_address],
+      user_agent_hash: fingerprint && fingerprint[:user_agent_hash]
+    }
+
+    {token, user_token}
   end
 
   @doc """

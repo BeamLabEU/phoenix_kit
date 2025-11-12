@@ -471,9 +471,23 @@ defmodule PhoenixKit.Users.Auth do
 
   @doc """
   Generates a session token.
+
+  ## Options
+
+    * `:fingerprint` - Optional session fingerprint map with `:ip_address` and `:user_agent_hash`
+
+  ## Examples
+
+      # Without fingerprinting (backward compatible)
+      token = generate_user_session_token(user)
+
+      # With fingerprinting
+      fingerprint = PhoenixKit.Utils.SessionFingerprint.create_fingerprint(conn)
+      token = generate_user_session_token(user, fingerprint: fingerprint)
+
   """
-  def generate_user_session_token(user) do
-    {token, user_token} = UserToken.build_session_token(user)
+  def generate_user_session_token(user, opts \\ []) do
+    {token, user_token} = UserToken.build_session_token(user, opts)
     inserted_token = Repo.insert!(user_token)
 
     # Broadcast session creation event
@@ -494,6 +508,72 @@ defmodule PhoenixKit.Users.Auth do
   def get_user_by_session_token(token) do
     {:ok, query} = UserToken.verify_session_token_query(token)
     Repo.one(query)
+  end
+
+  # Define session validity for query
+  @session_validity_in_days 60
+
+  @doc """
+  Gets the user token record for the given session token.
+
+  This is useful for accessing fingerprint data stored with the token.
+
+  ## Examples
+
+      iex> get_session_token_record("valid_token")
+      %UserToken{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+
+      iex> get_session_token_record("invalid_token")
+      nil
+
+  """
+  def get_session_token_record(token) do
+    import Ecto.Query
+
+    from(t in UserToken,
+      where: t.token == ^token and t.context == "session",
+      where: t.inserted_at > ago(@session_validity_in_days, "day")
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Verifies a session fingerprint against the stored token data.
+
+  Returns:
+  - `:ok` if fingerprint matches or fingerprinting is disabled
+  - `{:warning, reason}` if there's a partial mismatch (IP or UA changed)
+  - `{:error, :fingerprint_mismatch}` if both IP and UA changed
+
+  ## Examples
+
+      iex> verify_session_fingerprint(conn, token)
+      :ok
+
+      iex> verify_session_fingerprint(conn, token)
+      {:warning, :ip_mismatch}
+
+  """
+  def verify_session_fingerprint(conn, token) do
+    alias PhoenixKit.Utils.SessionFingerprint
+
+    # Skip verification if fingerprinting is disabled
+    if SessionFingerprint.fingerprinting_enabled?() do
+      case get_session_token_record(token) do
+        nil ->
+          # Token not found or expired
+          {:error, :token_not_found}
+
+        token_record ->
+          SessionFingerprint.verify_fingerprint(
+            conn,
+            token_record.ip_address,
+            token_record.user_agent_hash
+          )
+      end
+    else
+      :ok
+    end
   end
 
   @doc """
