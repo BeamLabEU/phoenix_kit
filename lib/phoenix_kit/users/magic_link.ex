@@ -149,15 +149,7 @@ defmodule PhoenixKit.Users.MagicLink do
             repo().delete(user_token)
 
             # Auto-confirm user on magic link authentication
-            # If user can click the magic link, they have proven email ownership
-            if is_nil(user.confirmed_at) do
-              case Auth.admin_confirm_user(user) do
-                {:ok, confirmed_user} -> {:ok, confirmed_user}
-                {:error, _changeset} -> {:ok, user}
-              end
-            else
-              {:ok, user}
-            end
+            confirm_user_if_needed(user)
 
           nil ->
             {:error, :invalid_token}
@@ -276,6 +268,17 @@ defmodule PhoenixKit.Users.MagicLink do
     Application.get_env(:phoenix_kit, __MODULE__, [])
     |> Keyword.get(:expiry_minutes, @default_expiry_minutes)
   end
+
+  # Auto-confirm user if not yet confirmed
+  # If user can click the magic link, they have proven email ownership
+  defp confirm_user_if_needed(%User{confirmed_at: nil} = user) do
+    case Auth.admin_confirm_user(user) do
+      {:ok, confirmed_user} -> {:ok, confirmed_user}
+      {:error, _changeset} -> {:ok, user}
+    end
+  end
+
+  defp confirm_user_if_needed(%User{} = user), do: {:ok, user}
 
   # Get configured repo module
   defp repo do
