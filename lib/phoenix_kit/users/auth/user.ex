@@ -435,17 +435,38 @@ defmodule PhoenixKit.Users.Auth.User do
   end
 
   defp maybe_generate_username_from_email(changeset) do
-    username = get_change(changeset, :username)
-    email = get_change(changeset, :email) || get_field(changeset, :email)
+    case get_change(changeset, :username) do
+      nil ->
+        email = get_change(changeset, :email) || get_field(changeset, :email)
 
-    # Only generate username if not provided and email is present
-    case {username, email} do
-      {nil, email} when is_binary(email) ->
-        generated_username = generate_username_from_email(email)
-        put_change(changeset, :username, generated_username)
+        if email do
+          generated_username = generate_unique_username_from_email(email)
+          put_change(changeset, :username, generated_username)
+        else
+          changeset
+        end
 
       _ ->
         changeset
+    end
+  end
+
+  # Generate a unique username from email by checking for collisions
+  defp generate_unique_username_from_email(email) do
+    base_username = generate_username_from_email(email)
+    ensure_unique_username(base_username, 0)
+  end
+
+  # Recursively ensure username is unique by adding numeric suffix if needed
+  defp ensure_unique_username(base_username, attempt) do
+    username = if attempt == 0, do: base_username, else: "#{base_username}_#{attempt}"
+
+    repo = PhoenixKit.RepoHelper.repo()
+
+    if repo.get_by(__MODULE__, username: username) do
+      ensure_unique_username(base_username, attempt + 1)
+    else
+      username
     end
   end
 
