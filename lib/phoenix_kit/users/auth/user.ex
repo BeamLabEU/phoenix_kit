@@ -200,9 +200,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   # Conditionally validate digit requirement
   defp maybe_validate_digit(changeset, true) do
-    validate_format(changeset, :password, ~r/[0-9]/,
-      message: "must contain at least one digit"
-    )
+    validate_format(changeset, :password, ~r/[0-9]/, message: "must contain at least one digit")
   end
 
   defp maybe_validate_digit(changeset, _), do: changeset
