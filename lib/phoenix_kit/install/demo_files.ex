@@ -7,9 +7,12 @@ defmodule PhoenixKit.Install.DemoFiles do
   - Transform module names to match parent app
   - Generate appropriate demo file notices
   """
+  use PhoenixKit.Install.IgniterCompat
 
   alias Igniter.Project.Application
   alias Mix.Tasks.PhoenixKitTemplates
+
+  alias PhoenixKit.Install.IgniterHelpers
 
   @doc """
   Copies test demo files to the parent project.
@@ -30,7 +33,7 @@ defmodule PhoenixKit.Install.DemoFiles do
         igniter
 
       app_name ->
-        app_web_module = Module.concat([Macro.camelize(to_string(app_name)) <> "Web"])
+        app_web_module = IgniterHelpers.get_parent_app_module_web(igniter)
 
         # Create demo directory path - directly in app_web as phoenix_kit_live
         app_web_dir = Macro.underscore(to_string(app_name)) <> "_web"

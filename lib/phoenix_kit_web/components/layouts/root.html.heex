@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html
-  lang="en"
+  lang={@content_language}
   class="[scrollbar-gutter:stable]"
   data-theme="light"
 >
@@ -120,11 +120,16 @@
       <.link href={PhoenixKit.Utils.Routes.path("/users/register")}>Create an account</.link>
     <% end %> --%>
 
-    <main class="py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <.flash_group flash={@flash} />
-        {@inner_content}
-      </div>
-    </main>
+    <%= if assigns[:show_maintenance] do %>
+      <%!-- Maintenance mode active for non-admin users --%>
+      <PhoenixKitWeb.Components.Core.MaintenancePage.maintenance_page />
+    <% else %>
+      <main class="py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <.flash_group flash={@flash} />
+          {@inner_content}
+        </div>
+      </main>
+    <% end %>
   </body>
 </html>

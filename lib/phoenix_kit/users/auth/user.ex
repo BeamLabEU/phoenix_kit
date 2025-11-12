@@ -25,6 +25,9 @@ defmodule PhoenixKit.Users.Auth.User do
 
   alias PhoenixKit.Users.Roles
 
+  # Fields excluded from get_user_field for security/internal reasons
+  @excluded_fields ~w(password current_password hashed_password __meta__ __struct__)a
+
   @type t :: %__MODULE__{
           id: integer() | nil,
           email: String.t(),
@@ -41,6 +44,7 @@ defmodule PhoenixKit.Users.Auth.User do
           registration_country: String.t() | nil,
           registration_region: String.t() | nil,
           registration_city: String.t() | nil,
+          custom_fields: map() | nil,
           inserted_at: NaiveDateTime.t(),
           updated_at: NaiveDateTime.t()
         }
@@ -60,6 +64,7 @@ defmodule PhoenixKit.Users.Auth.User do
     field :registration_country, :string
     field :registration_region, :string
     field :registration_city, :string
+    field :custom_fields, :map, default: %{}
 
     has_many :role_assignments, PhoenixKit.Users.RoleAssignment
     many_to_many :roles, PhoenixKit.Users.Role, join_through: PhoenixKit.Users.RoleAssignment
@@ -109,6 +114,7 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_names()
     |> validate_registration_fields()
     |> maybe_generate_username_from_email()
+    |> set_default_active_status()
   end
 
   defp validate_email(changeset, opts) do
@@ -122,13 +128,76 @@ defmodule PhoenixKit.Users.Auth.User do
   defp validate_password(changeset, opts) do
     changeset
     |> validate_required([:password])
-    |> validate_length(:password, min: 8, max: 72)
-    # Examples of additional password validation:
-    # |> validate_format(:password, ~r/[a-z]/, message: "at least one lower case character")
-    # |> validate_format(:password, ~r/[A-Z]/, message: "at least one upper case character")
-    # |> validate_format(:password, ~r/[!?@#$%^&*_0-9]/, message: "at least one digit or punctuation character")
+    |> apply_password_requirements()
     |> maybe_hash_password(opts)
   end
+
+  # Apply configurable password requirements from application config.
+  #
+  # Password requirements can be configured via:
+  #
+  #     config :phoenix_kit, :password_requirements,
+  #       min_length: 8,
+  #       max_length: 72,
+  #       require_uppercase: false,
+  #       require_lowercase: false,
+  #       require_digit: false,
+  #       require_special: false
+  #
+  # Default Requirements:
+  # - min_length: 8 characters (minimum recommended)
+  # - max_length: 72 characters (bcrypt limit)
+  # - require_uppercase: false
+  # - require_lowercase: false
+  # - require_digit: false
+  # - require_special: false
+  defp apply_password_requirements(changeset) do
+    requirements = Application.get_env(:phoenix_kit, :password_requirements, [])
+
+    changeset
+    |> validate_length(:password,
+      min: Keyword.get(requirements, :min_length, 8),
+      max: Keyword.get(requirements, :max_length, 72)
+    )
+    |> maybe_validate_uppercase(Keyword.get(requirements, :require_uppercase, false))
+    |> maybe_validate_lowercase(Keyword.get(requirements, :require_lowercase, false))
+    |> maybe_validate_digit(Keyword.get(requirements, :require_digit, false))
+    |> maybe_validate_special(Keyword.get(requirements, :require_special, false))
+  end
+
+  # Conditionally validate uppercase requirement
+  defp maybe_validate_uppercase(changeset, true) do
+    validate_format(changeset, :password, ~r/[A-Z]/,
+      message: "must contain at least one uppercase character"
+    )
+  end
+
+  defp maybe_validate_uppercase(changeset, _), do: changeset
+
+  # Conditionally validate lowercase requirement
+  defp maybe_validate_lowercase(changeset, true) do
+    validate_format(changeset, :password, ~r/[a-z]/,
+      message: "must contain at least one lowercase character"
+    )
+  end
+
+  defp maybe_validate_lowercase(changeset, _), do: changeset
+
+  # Conditionally validate digit requirement
+  defp maybe_validate_digit(changeset, true) do
+    validate_format(changeset, :password, ~r/[0-9]/, message: "must contain at least one digit")
+  end
+
+  defp maybe_validate_digit(changeset, _), do: changeset
+
+  # Conditionally validate special character requirement
+  defp maybe_validate_special(changeset, true) do
+    validate_format(changeset, :password, ~r/[!?@#$%^&*_]/,
+      message: "must contain at least one special character (!?@#$%^&*_)"
+    )
+  end
+
+  defp maybe_validate_special(changeset, _), do: changeset
 
   defp maybe_hash_password(changeset, opts) do
     hash_password? = Keyword.get(opts, :hash_password, true)
@@ -188,6 +257,7 @@ defmodule PhoenixKit.Users.Auth.User do
     user
     |> cast(attrs, [:password])
     |> validate_confirmation(:password, message: "does not match password")
+    |> validate_password_different_from_current()
     |> validate_password(opts)
   end
 
@@ -232,6 +302,21 @@ defmodule PhoenixKit.Users.Auth.User do
       changeset
     else
       add_error(changeset, :current_password, "is not valid")
+    end
+  end
+
+  # Validates that the new password is different from the current password
+  defp validate_password_different_from_current(changeset) do
+    new_password = get_change(changeset, :password)
+
+    if new_password && changeset.data.hashed_password do
+      if Bcrypt.verify_pass(new_password, changeset.data.hashed_password) do
+        add_error(changeset, :password, "must be different from current password")
+      else
+        changeset
+      end
+    else
+      changeset
     end
   end
 
@@ -280,6 +365,25 @@ defmodule PhoenixKit.Users.Auth.User do
     user
     |> cast(attrs, [:user_timezone])
     |> validate_user_timezone()
+  end
+
+  @doc """
+  A user changeset for updating custom fields.
+
+  Custom fields are stored as JSONB and can contain arbitrary key-value pairs.
+
+  ## Examples
+
+      iex> custom_fields_changeset(user, %{custom_fields: %{"phone" => "555-1234"}})
+      %Ecto.Changeset{valid?: true}
+
+      iex> custom_fields_changeset(user, %{custom_fields: "invalid"})
+      %Ecto.Changeset{valid?: false}
+  """
+  def custom_fields_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:custom_fields])
+    |> validate_custom_fields()
   end
 
   @doc """
@@ -332,6 +436,19 @@ defmodule PhoenixKit.Users.Auth.User do
   def get_roles(%__MODULE__{} = user) do
     Roles.get_user_roles(user)
   end
+
+  @doc """
+  Returns list of fields excluded from get_user_field for security.
+
+  These fields contain sensitive or internal data and should not be
+  accessed via the generic field accessor.
+
+  ## Examples
+
+      iex> excluded_fields()
+      [:password, :current_password, :hashed_password, :__meta__, :__struct__]
+  """
+  def excluded_fields, do: @excluded_fields
 
   @doc """
   Gets the user's full name by combining first and last name.
@@ -397,17 +514,38 @@ defmodule PhoenixKit.Users.Auth.User do
   end
 
   defp maybe_generate_username_from_email(changeset) do
-    username = get_change(changeset, :username)
-    email = get_change(changeset, :email) || get_field(changeset, :email)
+    case get_change(changeset, :username) do
+      nil ->
+        email = get_change(changeset, :email) || get_field(changeset, :email)
 
-    # Only generate username if not provided and email is present
-    case {username, email} do
-      {nil, email} when is_binary(email) ->
-        generated_username = generate_username_from_email(email)
-        put_change(changeset, :username, generated_username)
+        if email do
+          generated_username = generate_unique_username_from_email(email)
+          put_change(changeset, :username, generated_username)
+        else
+          changeset
+        end
 
       _ ->
         changeset
+    end
+  end
+
+  # Generate a unique username from email by checking for collisions
+  defp generate_unique_username_from_email(email) do
+    base_username = generate_username_from_email(email)
+    ensure_unique_username(base_username, 0)
+  end
+
+  # Recursively ensure username is unique by adding numeric suffix if needed
+  defp ensure_unique_username(base_username, attempt) do
+    username = if attempt == 0, do: base_username, else: "#{base_username}_#{attempt}"
+
+    repo = PhoenixKit.RepoHelper.repo()
+
+    if repo.get_by(__MODULE__, username: username) do
+      ensure_unique_username(base_username, attempt + 1)
+    else
+      username
     end
   end
 
@@ -507,6 +645,29 @@ defmodule PhoenixKit.Users.Auth.User do
           :user_timezone,
           "must be a valid timezone offset between -12 and +12"
         )
+    end
+  end
+
+  # Sets the default active status for new user registrations based on system settings
+  # Reads from "new_user_default_status" setting, defaults to true if not set
+  defp set_default_active_status(changeset) do
+    # Get the default status from settings (string "true" or "false")
+    default_status_str = PhoenixKit.Settings.get_setting("new_user_default_status", "true")
+    default_status = default_status_str == "true"
+
+    # Set is_active field if not already set
+    case get_change(changeset, :is_active) do
+      nil -> put_change(changeset, :is_active, default_status)
+      _ -> changeset
+    end
+  end
+
+  # Validates custom_fields is a map
+  defp validate_custom_fields(changeset) do
+    case get_change(changeset, :custom_fields) do
+      nil -> changeset
+      value when is_map(value) -> changeset
+      _ -> add_error(changeset, :custom_fields, "must be a valid map")
     end
   end
 end

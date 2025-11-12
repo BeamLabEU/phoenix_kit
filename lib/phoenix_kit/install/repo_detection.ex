@@ -7,9 +7,11 @@ defmodule PhoenixKit.Install.RepoDetection do
   - Validate PostgreSQL adapter usage
   - Handle custom repository specifications
   """
+  use PhoenixKit.Install.IgniterCompat
 
   alias Igniter.Libs.Ecto
   alias Igniter.Project.Module, as: IgniterModule
+  alias PhoenixKit.Install.IgniterHelpers
 
   @doc """
   Adds PhoenixKit configuration with detected or specified repository.
@@ -65,7 +67,7 @@ defmodule PhoenixKit.Install.RepoDetection do
 
   # Method 2: Try Application config directly
   defp try_application_config(igniter) do
-    parent_app_name = Mix.Project.config()[:app]
+    parent_app_name = IgniterHelpers.get_parent_app_name(igniter)
 
     case Elixir.Application.get_env(parent_app_name, :ecto_repos, []) do
       [repo | _] -> validate_postgres_adapter(igniter, repo)
@@ -77,7 +79,7 @@ defmodule PhoenixKit.Install.RepoDetection do
 
   # Method 3: Try common naming patterns
   defp try_naming_patterns(igniter) do
-    parent_app_name = Mix.Project.config()[:app]
+    parent_app_name = IgniterHelpers.get_parent_app_name(igniter)
 
     case parent_app_name do
       nil ->
@@ -150,21 +152,129 @@ defmodule PhoenixKit.Install.RepoDetection do
   defp add_repo_config_to_files(igniter, repo_module) do
     alias Igniter.Project.Config
 
-    igniter
-    # Add repo config to main config.exs
-    |> Config.configure_new(
-      "config.exs",
-      :phoenix_kit,
-      [:repo],
-      repo_module
-    )
-    # Also add repo config to test.exs for testing
-    |> Config.configure_new(
-      "test.exs",
-      :phoenix_kit,
-      [:repo],
-      repo_module
-    )
+    try do
+      igniter
+      # Add repo config to main config.exs
+      |> Config.configure_new(
+        "config.exs",
+        :phoenix_kit,
+        [:repo],
+        repo_module
+      )
+      # Also add repo config to test.exs for testing
+      |> Config.configure_new(
+        "test.exs",
+        :phoenix_kit,
+        [:repo],
+        repo_module
+      )
+    rescue
+      _ ->
+        # Fallback to simple file operations
+        add_repo_config_simple(igniter, repo_module)
+    end
+  end
+
+  # Simple file append for repo configuration when Igniter fails
+  defp add_repo_config_simple(igniter, repo_module) do
+    repo_config = """
+
+    # PhoenixKit repo configuration
+    config :phoenix_kit, repo: #{inspect(repo_module)}
+    """
+
+    try do
+      # Try appending to config.exs using Igniter
+      igniter =
+        Igniter.update_file(igniter, "config/config.exs", fn source ->
+          content = Rewrite.Source.get(source, :content)
+
+          # Check if already configured
+          if String.contains?(content, "config :phoenix_kit, repo:") do
+            source
+          else
+            # Find insertion point before import_config
+            updated_content =
+              case find_import_config_location_simple(content) do
+                {:before_import, before_content, after_content} ->
+                  before_content <> repo_config <> "\n" <> after_content
+
+                :append_to_end ->
+                  content <> repo_config
+              end
+
+            Rewrite.Source.update(source, :content, updated_content)
+          end
+        end)
+
+      # Try appending to test.exs using Igniter
+      igniter =
+        Igniter.update_file(igniter, "config/test.exs", fn source ->
+          content = Rewrite.Source.get(source, :content)
+
+          if String.contains?(content, "config :phoenix_kit, repo:") do
+            source
+          else
+            updated_content = content <> repo_config
+            Rewrite.Source.update(source, :content, updated_content)
+          end
+        end)
+
+      igniter
+    rescue
+      e ->
+        IO.warn("Failed to configure repo automatically: #{inspect(e)}")
+        add_repo_config_manual_notice(igniter, repo_module)
+    end
+  end
+
+  # Helper to find import_config location (simplified version)
+  defp find_import_config_location_simple(content) do
+    if String.contains?(content, "import_config") do
+      lines = String.split(content, "\n")
+
+      import_index =
+        Enum.find_index(lines, fn line ->
+          String.contains?(line, "import_config")
+        end)
+
+      case import_index do
+        nil ->
+          :append_to_end
+
+        index ->
+          # Find start of import block
+          start_index = max(0, index - 3)
+          before_lines = Enum.take(lines, start_index)
+          after_lines = Enum.drop(lines, start_index)
+
+          before_content = Enum.join(before_lines, "\n")
+          after_content = Enum.join(after_lines, "\n")
+
+          {:before_import, before_content, after_content}
+      end
+    else
+      :append_to_end
+    end
+  end
+
+  # Manual configuration notice for repo
+  defp add_repo_config_manual_notice(igniter, repo_module) do
+    notice = """
+    ⚠️  Manual Repo Configuration Required
+
+    PhoenixKit couldn't automatically configure the repository.
+
+    Please add this to config/config.exs:
+
+      config :phoenix_kit, repo: #{inspect(repo_module)}
+
+    And also add to config/test.exs:
+
+      config :phoenix_kit, repo: #{inspect(repo_module)}
+    """
+
+    Igniter.add_notice(igniter, notice)
   end
 
   # Create warning message when repository cannot be found

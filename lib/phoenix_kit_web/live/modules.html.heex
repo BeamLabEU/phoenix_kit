@@ -1,0 +1,462 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Modules"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Modules</h1>
+        <p class="text-lg text-base-content">Manage modules</p>
+      </div>
+    </header>
+
+    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <%!-- Storage Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Storage"
+        description="Distributed file storage system with multi-location redundancy and automatic failover"
+        icon="💾"
+        enabled={@storage_enabled}
+        toggle_event="storage_always_enabled"
+        show_toggle={false}
+      >
+        <:status_badges>
+          <span class="badge badge-success">Always Enabled</span>
+          <span class="badge badge-info">Core System</span>
+        </:status_badges>
+
+        <:action_buttons>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+            class="btn btn-primary btn-sm"
+          >
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+          </.link>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Total Buckets:</span>
+              <span class="font-medium">{@storage_buckets_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Active:</span>
+              <span class="font-medium">{@storage_active_buckets_count}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Referral Codes Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Referral Codes"
+        description="Manage referral codes for user registration and monitoring"
+        icon="🎫"
+        enabled={@referral_codes_enabled}
+        toggle_event="toggle_referral_codes"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@referral_codes_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @referral_codes_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @referral_codes_enabled do %>
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
+              {if @referral_codes_required, do: "Required", else: "Optional"}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <%= if @referral_codes_enabled do %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/referral-codes")}
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/users/referral-codes")}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-users" class="w-4 h-4 mr-1" /> Manage Codes
+            </.link>
+          <% else %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/referral-codes")}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+          <% end %>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Max per user:</span>
+              <span class="font-medium">{@max_codes_per_user}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Max uses:</span>
+              <span class="font-medium">{@max_uses_per_code}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Email Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Emails"
+        description="Track and analyze all outgoing emails with delivery events"
+        icon="📧"
+        enabled={@email_enabled}
+        toggle_event="toggle_emails"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@email_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @email_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @email_enabled do %>
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
+              {if @email_save_body, do: "Body Saved", else: "Headers Only"}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col items-stretch space-y-2">
+            <%= if @email_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/emails")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+              <div class="flex gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/emails")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-envelope" class="w-4 h-4 mr-1" /> Emails
+                </.link>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/modules/emails/templates")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Templates
+                </.link>
+              </div>
+            <% else %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/emails")}
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">SES Events:</span>
+              <span class="font-medium">
+                {if @email_ses_events, do: "On", else: "Off"}
+              </span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Retention:</span>
+              <span class="font-medium">{@email_retention_days} days</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Languages Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Languages"
+        description="Manage language module and translations"
+        icon="🌐"
+        enabled={@languages_enabled}
+        toggle_event="toggle_languages"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@languages_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @languages_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @languages_enabled do %>
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
+              {if @languages_default,
+                do: @languages_default["name"],
+                else: "No Default"}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <%= if @languages_enabled do %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+          <% else %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+          <% end %>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Total languages:</span>
+              <span class="font-medium">{@languages_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Enabled:</span>
+              <span class="font-medium">{@languages_enabled_count}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Entities Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title={gettext("Entities")}
+        description={gettext("Dynamic content types with custom fields (WordPress ACF)")}
+        icon="📦"
+        enabled={@entities_enabled}
+        toggle_event="toggle_entities"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@entities_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @entities_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/entities")}
+            class={[
+              "btn btn-sm",
+              if(@entities_enabled, do: "btn-primary", else: "btn-outline")
+            ]}
+          >
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />
+            {gettext("Configure")}
+          </.link>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">{gettext("Total Entities:")}</span>
+              <span class="font-medium">{@entities_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">{gettext("Data Records:")}</span>
+              <span class="font-medium">{@entities_total_data}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Blogging"
+        description="Publish date-based blog posts and company updates with multi-language support"
+        icon="📰"
+        enabled={@blogging_enabled}
+        toggle_event="toggle_blogging"
+      >
+        <:info>
+          <% url_prefix =
+            PhoenixKit.Config.get_url_prefix()
+            |> case do
+              "/" -> ""
+              prefix -> prefix
+            end %>
+
+          <div class="space-y-2">
+            <p class="text-xs font-medium text-base-content">
+              {gettext("Key paths & URLs")}
+            </p>
+            <ul class="list-disc ml-4 space-y-1">
+              <li>
+                <span class="font-medium text-base-content">
+                  {gettext("Post files on disk:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
+                  priv/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
+                </code>
+              </li>
+              <li>
+                <span class="font-medium text-base-content">
+                  {gettext("Public URL pattern:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
+                  {url_prefix}/:locale/:blog_slug/:post_slug
+                </code>
+              </li>
+            </ul>
+          </div>
+        </:info>
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@blogging_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @blogging_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <.link
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/blogging", locale: @current_locale || "en")
+              }
+              class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
+            >
+              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Blogging")}
+            </.link>
+            <.link
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
+                  locale: @current_locale || "en"
+                )
+              }
+              class="btn btn-sm btn-outline"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogging")}
+            </.link>
+          </div>
+        </:action_buttons>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Pages module remains disabled but code retained for future use --%>
+
+      <%!-- Under Construction (Maintenance Mode) Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Maintenance Mode"
+        description="Show maintenance page to non-admin users while you work on the site"
+        icon="🚧"
+        enabled={@under_construction_module_enabled}
+        toggle_event="toggle_under_construction"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@under_construction_module_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @under_construction_module_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @under_construction_module_enabled do %>
+            <span class={[
+              "badge badge-outline ml-2 whitespace-nowrap",
+              if(@under_construction_enabled, do: "badge-warning", else: "badge-info")
+            ]}>
+              {if @under_construction_enabled, do: "Maintenance Active", else: "Maintenance Off"}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @under_construction_module_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/maintenance")}
+                class="btn btn-sm btn-primary"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+              <div class="text-xs text-base-content/70 mt-2">
+                <strong>Header:</strong>
+                {@under_construction_header}
+              </div>
+              <div class="text-xs text-base-content/70">
+                <strong>Message:</strong>
+                {@under_construction_subtext}
+              </div>
+            <% else %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/maintenance")}
+                class="btn btn-sm btn-outline"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="text-xs text-base-content/70">
+            {if @under_construction_module_enabled,
+              do: "Activate maintenance mode in settings to block non-admin users",
+              else: "Enable module to access maintenance mode settings"}
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+    </div>
+
+    <%!-- Future Modules Section --%>
+    <div class="mt-8">
+      <div class="card bg-base-100 shadow-xl border-2 border-dashed border-base-300">
+        <div class="card-body text-center py-8">
+          <div class="text-4xl mb-4 opacity-50">📦</div>
+          <h3 class="text-xl font-semibold text-base-content/60 mb-2">
+            More Modules Coming Soon
+          </h3>
+          <p class="text-base-content/50">
+            Additional system modules and extensions will be available here as they're developed.
+            Each module will have its own dedicated configuration page for scalable management.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Module Management Help --%>
+    <div class="alert alert-info mt-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Module Management</h3>
+        <p class="text-sm">
+          Each module can be enabled or disabled using the toggle switches above.
+          Click "Configure" to access detailed settings for each module on dedicated pages.
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
