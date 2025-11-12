@@ -10,6 +10,7 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   @cache_name :blog_posts
   @cache_version "v1"
+  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline)\s+([^>]*?)\/>/s
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -40,7 +41,10 @@ defmodule PhoenixKit.Blogging.Renderer do
   end
 
   @doc """
-  Renders markdown content directly without caching.
+  Renders markdown or .phk content directly without caching.
+
+  Automatically detects .phk XML format and routes to PageBuilder.
+  Falls back to Earmark markdown rendering for non-XML content.
 
   ## Examples
 
@@ -50,21 +54,160 @@ defmodule PhoenixKit.Blogging.Renderer do
   def render_markdown(content) when is_binary(content) do
     {time, result} =
       :timer.tc(fn ->
-        case Earmark.as_html(content, %Earmark.Options{
-               code_class_prefix: "language-",
-               smartypants: true,
-               gfm: true
-             }) do
-          {:ok, html, _warnings} -> html
-          {:error, _html, _errors} -> "<p>Error rendering markdown</p>"
+        cond do
+          is_pure_phk_content?(content) ->
+            render_phk_content(content)
+
+          has_embedded_components?(content) ->
+            render_mixed_content(content)
+
+          true ->
+            render_earmark_markdown(content)
         end
       end)
 
-    Logger.debug("Markdown render time: #{time}μs", content_size: byte_size(content))
+    Logger.debug("Content render time: #{time}μs", content_size: byte_size(content))
     result
   end
 
   def render_markdown(_), do: ""
+
+  # Detect if content is pure .phk XML format (starts with <Page> or <Hero>)
+  defp is_pure_phk_content?(content) do
+    trimmed = String.trim(content)
+    String.starts_with?(trimmed, "<Page") || String.starts_with?(trimmed, "<Hero")
+  end
+
+  # Detect if markdown content has embedded XML components
+  defp has_embedded_components?(content) do
+    String.contains?(content, "<Image ") ||
+      String.contains?(content, "<Hero ") ||
+      String.contains?(content, "<CTA ")
+  end
+
+  # Render .phk content using PageBuilder
+  defp render_phk_content(content) do
+    case PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.render_content(content) do
+      {:ok, html} ->
+        # Convert Phoenix.LiveView.Rendered to string
+        html
+        |> Phoenix.HTML.Safe.to_iodata()
+        |> IO.iodata_to_binary()
+
+      {:error, reason} ->
+        Logger.warning("PHK render error: #{inspect(reason)}")
+        "<p>Error rendering page content</p>"
+    end
+  end
+
+  # Render markdown using Earmark
+  defp render_earmark_markdown(content) do
+    content = normalize_markdown(content)
+
+    case Earmark.as_html(content, %Earmark.Options{
+           code_class_prefix: "language-",
+           smartypants: true,
+           gfm: true,
+           escape: false
+         }) do
+      {:ok, html, _warnings} -> html
+      {:error, _html, _errors} -> "<p>Error rendering markdown</p>"
+    end
+  end
+
+  defp normalize_markdown(content) when is_binary(content) do
+    # Remove leading indentation before Markdown headings (e.g., "  ## Title")
+    Regex.replace(~r/^[ \t]+(?=#)/m, content, "")
+  end
+
+  defp normalize_markdown(content), do: content
+
+  # Render mixed content: markdown with embedded XML components
+  defp render_mixed_content(content) when content == "" or is_nil(content), do: ""
+
+  defp render_mixed_content(content) do
+    content
+    |> render_mixed_segments([])
+    |> Enum.reverse()
+    |> Enum.join()
+  end
+
+  defp render_mixed_segments("", acc), do: acc
+
+  defp render_mixed_segments(content, acc) do
+    case Regex.run(@component_regex, content, return: :index) do
+      nil ->
+        [render_earmark_markdown(content) | acc]
+
+      [{match_start, match_len}, {tag_start, tag_len}, {attrs_start, attrs_len}] ->
+        before = binary_part(content, 0, match_start)
+        after_index = match_start + match_len
+        rest_content = binary_part(content, after_index, byte_size(content) - after_index)
+        tag = binary_part(content, tag_start, tag_len)
+        attrs = binary_part(content, attrs_start, attrs_len)
+
+        acc =
+          acc
+          |> maybe_add_markdown(before)
+          |> add_component(tag, attrs)
+
+        render_mixed_segments(rest_content, acc)
+    end
+  end
+
+  defp maybe_add_markdown(acc, ""), do: acc
+
+  defp maybe_add_markdown(acc, text) do
+    [render_earmark_markdown(text) | acc]
+  end
+
+  defp add_component(acc, tag, attrs) do
+    [render_inline_component(tag, attrs) | acc]
+  end
+
+  # Render individual inline component
+  defp render_inline_component("Image", attrs) do
+    # Parse attributes
+    attr_map = parse_xml_attributes(attrs)
+
+    assigns = %{
+      __changed__: nil,
+      attributes: attr_map,
+      variant: "default",
+      content: nil,
+      children: []
+    }
+
+    case PhoenixKitWeb.Components.Blogging.Image.render(assigns) do
+      rendered when is_struct(rendered) ->
+        rendered
+        |> Phoenix.HTML.Safe.to_iodata()
+        |> IO.iodata_to_binary()
+
+      html when is_binary(html) ->
+        html
+    end
+  rescue
+    error ->
+      Logger.warning("Error rendering Image component: #{inspect(error)}")
+      "<div class='error'>Error rendering image</div>"
+  end
+
+  defp render_inline_component(tag, _attrs) do
+    # Fallback for other components
+    Logger.warning("Inline component not supported yet: #{tag}")
+    ""
+  end
+
+  # Parse XML attribute string into a map
+  defp parse_xml_attributes(attrs_string) do
+    # Match key="value" or key='value' patterns
+    attr_regex = ~r/(\w+)=["']([^"']+)["']/
+
+    Regex.scan(attr_regex, attrs_string)
+    |> Enum.map(fn [_, key, value] -> {key, value} end)
+    |> Enum.into(%{})
+  end
 
   @doc """
   Invalidates cache for a specific post.
