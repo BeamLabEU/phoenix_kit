@@ -90,7 +90,8 @@ defmodule PhoenixKitWeb.Users.Registration do
             ip_address = socket.assigns.user_ip_address
             Auth.register_user_with_geolocation(user_params, ip_address)
           else
-            Auth.register_user(user_params)
+            ip_address = socket.assigns.user_ip_address
+            Auth.register_user(user_params, ip_address)
           end
 
         case registration_result do

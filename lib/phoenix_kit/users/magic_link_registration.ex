@@ -170,7 +170,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
       if track_geolocation && ip_address do
         Auth.register_user_with_geolocation(attrs, ip_address)
       else
-        Auth.register_user(attrs)
+        Auth.register_user(attrs, ip_address)
       end
 
     case result do

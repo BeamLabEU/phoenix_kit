@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -271,7 +272,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp create_user(socket, user_params) do
-    case Auth.register_user(user_params) do
+    ip_address = IpAddress.extract_from_socket(socket)
+
+    case Auth.register_user(user_params, ip_address) do
       {:ok, user} ->
         # Optionally send confirmation email
         case Auth.deliver_user_confirmation_instructions(

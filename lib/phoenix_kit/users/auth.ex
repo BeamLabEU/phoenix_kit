@@ -42,8 +42,9 @@ defmodule PhoenixKit.Users.Auth do
 
       # Authenticate user
       case PhoenixKit.Users.Auth.get_user_by_email_and_password(email, password) do
-        %User{} = user -> {:ok, user}
-        nil -> {:error, :invalid_credentials}
+        {:ok, user} -> {:ok, user}
+        {:error, :invalid_credentials} -> {:error, :invalid_credentials}
+        {:error, :rate_limit_exceeded} -> {:error, :rate_limit_exceeded}
       end
 
       # Send confirmation email
@@ -288,7 +289,7 @@ defmodule PhoenixKit.Users.Auth do
 
   def register_user_with_geolocation(attrs, _invalid_ip) do
     # Invalid IP provided, register without geolocation data
-    register_user(attrs)
+    register_user(attrs, nil)
   end
 
   @doc """
