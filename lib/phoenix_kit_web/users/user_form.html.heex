@@ -179,6 +179,15 @@
                 />
               </div>
             </div>
+
+            <%!-- Personal Timezone --%>
+            <div class="form-control">
+              <.select
+                field={form[:user_timezone]}
+                label="Personal Timezone"
+                options={@timezone_options}
+              />
+            </div>
           </div>
 
           <%!-- Password Change Section (Edit mode, Admin/Owner only) --%>

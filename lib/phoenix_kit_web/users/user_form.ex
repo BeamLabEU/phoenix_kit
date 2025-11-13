@@ -35,6 +35,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Load default role for new user creation
     default_role = Settings.get_setting("new_user_default_role", "User")
 
+    # Load timezone options
+    setting_options = Settings.get_setting_options()
+    timezone_options = [{"Use System Default", nil} | setting_options["time_zone"]]
+
     socket =
       socket
       |> allow_upload(:avatar,
@@ -54,6 +58,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:all_roles, all_roles)
       |> assign(:pending_roles, [])
       |> assign(:default_role, default_role)
+      |> assign(:timezone_options, timezone_options)
       |> assign(:last_uploaded_avatar_id, nil)
       |> load_user_data(mode, user_id)
       |> load_form_data()
@@ -100,7 +105,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     changeset =
       case socket.assigns.mode do
         :new -> Auth.change_user_registration(%Auth.User{}, filtered_params)
-        :edit -> Auth.change_user_registration(socket.assigns.user, filtered_params)
+        :edit -> Auth.User.profile_changeset(socket.assigns.user, filtered_params, validate_email: false)
       end
       |> Map.put(:action, :validate)
 
@@ -542,7 +547,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
       "email" => user.email || "",
       "username" => user.username || "",
       "first_name" => user.first_name || "",
-      "last_name" => user.last_name || ""
+      "last_name" => user.last_name || "",
+      "user_timezone" => user.user_timezone || "0"
     })
     |> assign(:custom_fields_data, user.custom_fields || %{})
   end
