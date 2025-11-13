@@ -188,20 +188,29 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp create_variant_instance(file, variant_name, storage_path, mime_type, ext, stats) do
-    instance_attrs = %{
-      variant_name: variant_name,
-      file_name: storage_path,
-      mime_type: mime_type,
-      ext: ext,
-      checksum: stats.checksum,
-      size: stats.size,
-      width: stats.width,
-      height: stats.height,
-      processing_status: "completed",
-      file_id: file.id
-    }
+    # Check if variant already exists
+    case Storage.get_file_instance_by_name(file.id, variant_name) do
+      %Storage.FileInstance{} = existing_instance ->
+        # Variant already exists, return it
+        {:ok, existing_instance}
 
-    Storage.create_file_instance(instance_attrs)
+      nil ->
+        # Create new variant instance
+        instance_attrs = %{
+          variant_name: variant_name,
+          file_name: storage_path,
+          mime_type: mime_type,
+          ext: ext,
+          checksum: stats.checksum,
+          size: stats.size,
+          width: stats.width,
+          height: stats.height,
+          processing_status: "completed",
+          file_id: file.id
+        }
+
+        Storage.create_file_instance(instance_attrs)
+    end
   end
 
   defp cleanup_temp_files(paths) do

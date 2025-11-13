@@ -149,7 +149,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Metadata storage for additional context in audit logs
   - Performance indexes for efficient querying by user, action, and date
 
-  ### V23 - Session Fingerprinting ⚡ LATEST
+  ### V23 - Session Fingerprinting
   - Session fingerprinting columns (ip_address, user_agent_hash) in phoenix_kit_users_tokens
   - Prevents session hijacking by detecting suspicious session usage patterns
   - IP address tracking: Detects when session is used from different IP
@@ -158,18 +158,25 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Configurable strictness: Can log warnings or force re-authentication
   - Performance indexes for efficient fingerprint verification
 
+  ### V24 - File Checksum Unique Index ⚡ LATEST
+  - Unique index on phoenix_kit_files.checksum for O(1) duplicate detection
+  - Enables automatic deduplication of uploaded files
+  - Prevents redundant storage of identical files
+  - Improves performance of duplicate file lookups
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V23 in sequence.
+  Runs all migrations V01 through V24 in sequence.
 
   ### Incremental Updates
-  - V01 → V23: Runs V02 through V23 in sequence
-  - V22 → V23: Runs V23 only (adds session fingerprinting)
-  - V21 → V23: Runs V22 and V23 in sequence
-  - V20 → V23: Runs V21, V22, and V23 in sequence
+  - V01 → V24: Runs V02 through V24 in sequence
+  - V23 → V24: Runs V24 only (adds file checksum unique index)
+  - V22 → V24: Runs V23 and V24 in sequence
+  - V20 → V24: Runs V21, V22, V23, and V24 in sequence
 
   ### Rollback Support
+  - V24 → V23: Removes unique index on checksum
   - V23 → V22: Removes session fingerprinting columns and indexes
   - V22 → V21: Removes audit logging system, email orphaned events, and email metrics
   - V21 → V20: Removes composite message ID index
@@ -186,14 +193,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version (V23)
+      # Update to latest version (V24)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 23)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 24)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 22)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 23)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -211,7 +218,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 23
+  @current_version 24
   @default_prefix "public"
 
   @doc false

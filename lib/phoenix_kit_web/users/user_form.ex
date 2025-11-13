@@ -714,6 +714,17 @@ defmodule PhoenixKitWeb.Users.UserForm do
                ext,
                entry.client_name
              ) do
+          {:ok, file, :duplicate} ->
+            Logger.info("Avatar file is duplicate with ID: #{file.id}")
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               size: file_size,
+               duplicate: true
+             }}
+
           {:ok, file} ->
             Logger.info("Avatar file stored with ID: #{file.id}")
 

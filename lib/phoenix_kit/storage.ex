@@ -415,7 +415,7 @@ defmodule PhoenixKit.Storage do
   Gets a file by its hash.
   """
   def get_file_by_hash(hash) do
-    repo().get_by(PhoenixKit.Storage.File, hash: hash)
+    repo().get_by(PhoenixKit.Storage.File, checksum: hash)
   end
 
   @doc """
@@ -861,6 +861,36 @@ defmodule PhoenixKit.Storage do
         ext,
         original_filename \\ nil
       ) do
+    # Check if file already exists by hash
+    case get_file_by_hash(file_hash) do
+      %PhoenixKit.Storage.File{} = existing_file ->
+        # File already exists, return existing file with duplicate flag
+        # Ensure variants are generated for this file (in case it's old and missing variants)
+        _ = queue_variant_generation(existing_file, user_id, original_filename)
+
+        {:ok, existing_file, :duplicate}
+
+      nil ->
+        # File is new, proceed with storage
+        store_new_file_in_buckets(
+          source_path,
+          file_type,
+          user_id,
+          file_hash,
+          ext,
+          original_filename
+        )
+    end
+  end
+
+  defp store_new_file_in_buckets(
+        source_path,
+        file_type,
+        user_id,
+        file_hash,
+        ext,
+        original_filename
+      ) do
     # Calculate MD5 hash for path structure
     md5_hash =
       source_path
@@ -944,6 +974,15 @@ defmodule PhoenixKit.Storage do
   end
 
   # ===== HELPER FUNCTIONS =====
+
+  defp queue_variant_generation(file, user_id, original_filename) do
+    # Queue variant generation to ensure all variants exist for this file
+    Task.start(fn ->
+      %{file_id: file.id, user_id: user_id, filename: original_filename}
+      |> ProcessFileJob.new()
+      |> Oban.insert()
+    end)
+  end
 
   defp generate_uuidv7 do
     UUIDv7.generate()
