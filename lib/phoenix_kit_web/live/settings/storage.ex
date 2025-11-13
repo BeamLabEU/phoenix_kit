@@ -256,6 +256,31 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     end
   end
 
+  def handle_event("delete_bucket", %{"id" => bucket_id}, socket) do
+    bucket = PhoenixKit.Storage.get_bucket(bucket_id)
+
+    case PhoenixKit.Storage.delete_bucket(bucket) do
+      {:ok, _bucket} ->
+        # Reload buckets and recalculate max redundancy
+        buckets = PhoenixKit.Storage.list_buckets()
+        active_buckets_count = Enum.count(buckets, & &1.enabled)
+        max_redundancy = max(1, active_buckets_count)
+
+        socket =
+          socket
+          |> assign(:buckets, buckets)
+          |> assign(:active_buckets_count, active_buckets_count)
+          |> assign(:max_redundancy, max_redundancy)
+          |> put_flash(:info, "Bucket deleted successfully")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to delete bucket")
+        {:noreply, socket}
+    end
+  end
+
   defp get_current_path(_socket, _session) do
     # For Storage settings page
     Routes.path("/admin/settings/storage")
