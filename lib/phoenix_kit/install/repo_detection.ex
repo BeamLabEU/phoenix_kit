@@ -151,27 +151,25 @@ defmodule PhoenixKit.Install.RepoDetection do
 
   # Add repo configuration to config files
   defp add_repo_config_to_files(igniter, repo_module) do
-    try do
-      igniter
-      # Add repo config to main config.exs
-      |> Config.configure_new(
-        "config.exs",
-        :phoenix_kit,
-        [:repo],
-        repo_module
-      )
-      # Also add repo config to test.exs for testing
-      |> Config.configure_new(
-        "test.exs",
-        :phoenix_kit,
-        [:repo],
-        repo_module
-      )
-    rescue
-      _ ->
-        # Fallback to simple file operations
-        add_repo_config_simple(igniter, repo_module)
-    end
+    igniter
+    # Add repo config to main config.exs
+    |> Config.configure_new(
+      "config.exs",
+      :phoenix_kit,
+      [:repo],
+      repo_module
+    )
+    # Also add repo config to test.exs for testing
+    |> Config.configure_new(
+      "test.exs",
+      :phoenix_kit,
+      [:repo],
+      repo_module
+    )
+  rescue
+    _ ->
+      # Fallback to simple file operations
+      add_repo_config_simple(igniter, repo_module)
   end
 
   # Simple file append for repo configuration when Igniter fails

@@ -8,9 +8,14 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   require Logger
 
+  alias Phoenix.HTML.Safe
+  alias PhoenixKitWeb.Components.Blogging.Image
+  alias PhoenixKitWeb.Components.Blogging.Video
+  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder
+
   @cache_name :blog_posts
   @cache_version "v1"
-  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline)\s+([^>]*?)\/>/s
+  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video)\s+([^>]*?)\/>/s
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -55,7 +60,7 @@ defmodule PhoenixKit.Blogging.Renderer do
     {time, result} =
       :timer.tc(fn ->
         cond do
-          is_pure_phk_content?(content) ->
+          pure_phk_content?(content) ->
             render_phk_content(content)
 
           has_embedded_components?(content) ->
@@ -73,7 +78,7 @@ defmodule PhoenixKit.Blogging.Renderer do
   def render_markdown(_), do: ""
 
   # Detect if content is pure .phk XML format (starts with <Page> or <Hero>)
-  defp is_pure_phk_content?(content) do
+  defp pure_phk_content?(content) do
     trimmed = String.trim(content)
     String.starts_with?(trimmed, "<Page") || String.starts_with?(trimmed, "<Hero")
   end
@@ -87,11 +92,11 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   # Render .phk content using PageBuilder
   defp render_phk_content(content) do
-    case PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.render_content(content) do
+    case PageBuilder.render_content(content) do
       {:ok, html} ->
         # Convert Phoenix.LiveView.Rendered to string
         html
-        |> Phoenix.HTML.Safe.to_iodata()
+        |> Safe.to_iodata()
         |> IO.iodata_to_binary()
 
       {:error, reason} ->
@@ -119,8 +124,6 @@ defmodule PhoenixKit.Blogging.Renderer do
     # Remove leading indentation before Markdown headings (e.g., "  ## Title")
     Regex.replace(~r/^[ \t]+(?=#)/m, content, "")
   end
-
-  defp normalize_markdown(content), do: content
 
   # Render mixed content: markdown with embedded XML components
   defp render_mixed_content(content) when content == "" or is_nil(content), do: ""
@@ -178,19 +181,33 @@ defmodule PhoenixKit.Blogging.Renderer do
       children: []
     }
 
-    case PhoenixKitWeb.Components.Blogging.Image.render(assigns) do
-      rendered when is_struct(rendered) ->
-        rendered
-        |> Phoenix.HTML.Safe.to_iodata()
-        |> IO.iodata_to_binary()
-
-      html when is_binary(html) ->
-        html
-    end
+    Image.render(assigns)
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
   rescue
     error ->
       Logger.warning("Error rendering Image component: #{inspect(error)}")
       "<div class='error'>Error rendering image</div>"
+  end
+
+  defp render_inline_component("Video", attrs) do
+    attr_map = parse_xml_attributes(attrs)
+
+    assigns = %{
+      __changed__: nil,
+      attributes: attr_map,
+      variant: Map.get(attr_map, "variant", "default"),
+      content: Map.get(attr_map, "caption"),
+      children: []
+    }
+
+    Video.render(assigns)
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
+  rescue
+    error ->
+      Logger.warning("Error rendering Video component: #{inspect(error)}")
+      "<div class='error'>Error rendering video</div>"
   end
 
   defp render_inline_component(tag, _attrs) do

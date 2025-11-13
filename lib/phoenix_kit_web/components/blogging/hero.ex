@@ -20,6 +20,8 @@ defmodule PhoenixKitWeb.Components.Blogging.Hero do
   """
   use Phoenix.Component
 
+  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer
+
   attr :variant, :string, default: "centered"
   attr :children, :list, default: []
   attr :attributes, :map, default: %{}
@@ -91,7 +93,7 @@ defmodule PhoenixKitWeb.Components.Blogging.Hero do
   end
 
   defp render_child(child, assigns) do
-    case PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer.render(child, assigns) do
+    case Renderer.render(child, assigns) do
       {:ok, html} -> html
       {:error, _} -> ""
     end

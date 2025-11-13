@@ -20,14 +20,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
   def render(ast, _assigns) when is_list(ast) do
     {:ok,
      Phoenix.HTML.raw(
-       ast
-       |> Enum.map(fn node ->
+       Enum.map_join(ast, fn node ->
          case render(node, %{}) do
            {:ok, html} -> Phoenix.HTML.safe_to_string(html)
            {:error, _} -> ""
          end
        end)
-       |> Enum.join()
      )}
   end
 
@@ -45,6 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
 
   defp resolve_component(:cta), do: {:ok, PhoenixKitWeb.Components.Blogging.CTA}
   defp resolve_component(:image), do: {:ok, PhoenixKitWeb.Components.Blogging.Image}
+  defp resolve_component(:video), do: {:ok, PhoenixKitWeb.Components.Blogging.Video}
   defp resolve_component(_), do: {:error, :not_found}
 
   # Render using the component module
@@ -81,14 +80,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
           ast.content
 
         ast[:children] ->
-          ast.children
-          |> Enum.map(fn child ->
+          Enum.map_join(ast.children, fn child ->
             case render(child, assigns) do
               {:ok, html} -> Phoenix.HTML.safe_to_string(html)
               _ -> ""
             end
           end)
-          |> Enum.join()
 
         true ->
           ""

@@ -431,15 +431,21 @@ Admin chooses mode at creation time:
 
 ### Shared Test Helper
 
-**File:** `test/support/blogging_fake_settings.exs`
+**Status:** Future Implementation
 
-In-memory settings double used across all blogging tests to avoid database dependencies:
+**Planned File:** `test/support/blogging_fake_settings.ex`
+
+When blogging tests are implemented, an in-memory settings stub will be used to avoid database dependencies. Configuration should be done via `config/test.exs`, NOT runtime `Application.put_env/2`:
 
 ```elixir
-# In tests
-start_supervised!(FakeSettings)
-Application.put_env(:phoenix_kit, :blogging_settings_module, FakeSettings)
+# config/test.exs (CORRECT approach)
+import Config
 
+config :phoenix_kit,
+  blogging_settings_module: PhoenixKit.Test.FakeSettings
+
+# In test files - FakeSettings will be pre-configured
+# No need for Application.put_env calls
 FakeSettings.update_json_setting("blogging_blogs", %{
   "blogs" => [%{"name" => "Docs", "slug" => "docs", "mode" => "slug"}]
 })
@@ -447,8 +453,12 @@ FakeSettings.update_json_setting("blogging_blogs", %{
 
 ### Running Tests
 
+**Status:** Tests not yet implemented
+
+When implemented, tests will be run as follows:
+
 ```bash
-# Run all blogging tests (76 tests total)
+# Run all blogging tests
 mix test test/phoenix_kit_web/live/modules/blogging/
 
 # Run specific test suites
@@ -616,29 +626,29 @@ To change modes, you must:
 
 ### Problem: FakeSettings module not found in tests
 
-**Symptoms:**
-```
-** (ArgumentError) The module PhoenixKitWeb.Live.Modules.Blogging.BloggingModeTest.FakeSettings
-was given as a child to a supervisor but it does not exist
-```
+**Status:** Not applicable - FakeSettings not yet implemented
 
-**Root Cause:**
+**Future Implementation:**
 
-Test file is trying to reference `FakeSettings` from wrong module namespace.
+When blogging tests are added, the FakeSettings module will be:
 
-**Solution:**
+1. **Defined in:** `test/support/fake_settings.ex` (standard Phoenix test support location)
+2. **Configured in:** `config/test.exs` (NOT runtime in test files)
+3. **Used as:** `PhoenixKit.Test.FakeSettings` (standard namespace)
 
-Use the shared test helper:
+**Correct pattern:**
 
 ```elixir
-# ✅ Correct
-alias PhoenixKitWeb.Live.Modules.Blogging.FakeSettings
+# config/test.exs
+config :phoenix_kit,
+  blogging_settings_module: PhoenixKit.Test.FakeSettings
 
-# ❌ Wrong
-alias PhoenixKitWeb.Live.Modules.Blogging.BloggingModeTest.FakeSettings
+# test/support/fake_settings.ex
+defmodule PhoenixKit.Test.FakeSettings do
+  use Agent
+  # Implementation details...
+end
 ```
-
-The `FakeSettings` module is defined in `test/support/blogging_fake_settings.exs` and is available to all test files.
 
 ## Getting Help
 

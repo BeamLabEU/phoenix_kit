@@ -20,13 +20,13 @@ defmodule PhoenixKit.Install.BasicConfiguration do
     |> Config.configure_new(
       "config.exs",
       :phoenix_kit,
-      :parent_app_name,
+      [:parent_app_name],
       parent_app_name
     )
     |> Config.configure_new(
       "config.exs",
       :phoenix_kit,
-      :parent_module,
+      [:parent_module],
       parent_module
     )
   end
