@@ -125,8 +125,6 @@ defmodule PhoenixKit.Blogging.Renderer do
     Regex.replace(~r/^[ \t]+(?=#)/m, content, "")
   end
 
-  defp normalize_markdown(content), do: content
-
   # Render mixed content: markdown with embedded XML components
   defp render_mixed_content(content) when content == "" or is_nil(content), do: ""
 
@@ -183,15 +181,9 @@ defmodule PhoenixKit.Blogging.Renderer do
       children: []
     }
 
-    case Image.render(assigns) do
-      rendered when is_struct(rendered) ->
-        rendered
-        |> Safe.to_iodata()
-        |> IO.iodata_to_binary()
-
-      html when is_binary(html) ->
-        html
-    end
+    Image.render(assigns)
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
   rescue
     error ->
       Logger.warning("Error rendering Image component: #{inspect(error)}")
@@ -209,15 +201,9 @@ defmodule PhoenixKit.Blogging.Renderer do
       children: []
     }
 
-    case Video.render(assigns) do
-      rendered when is_struct(rendered) ->
-        rendered
-        |> Safe.to_iodata()
-        |> IO.iodata_to_binary()
-
-      html when is_binary(html) ->
-        html
-    end
+    Video.render(assigns)
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
   rescue
     error ->
       Logger.warning("Error rendering Video component: #{inspect(error)}")

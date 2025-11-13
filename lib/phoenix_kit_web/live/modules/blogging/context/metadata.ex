@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
           description: String.t() | nil,
           slug: String.t(),
           published_at: String.t(),
+          featured_image_id: String.t() | nil,
           created_at: String.t() | nil,
           created_by_id: String.t() | nil,
           created_by_email: String.t() | nil,
@@ -238,9 +239,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   defp component_title(content, tag) do
     regex = ~r/<#{tag}\b[^>]*>(.*?)<\/#{tag}>/is
 
-    content
-    |> Regex.run(regex, capture: :all_but_first)
-    |> case do
+    case Regex.run(regex, content, capture: :all_but_first) do
       [inner | _] -> sanitize_component_text(inner)
       _ -> nil
     end
@@ -249,9 +248,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   defp component_attribute(content, tag, attr) do
     regex = ~r/<#{tag}\b[^>]*#{attr}="([^"]+)"[^>]*>/i
 
-    content
-    |> Regex.run(regex, capture: :all_but_first)
-    |> case do
+    case Regex.run(regex, content, capture: :all_but_first) do
       [value | _] -> sanitize_component_text(value)
       _ -> nil
     end

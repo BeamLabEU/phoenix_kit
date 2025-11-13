@@ -1131,10 +1131,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     end
   end
 
-  defp current_language(socket) do
-    editor_language(socket.assigns)
-  end
-
   defp editor_language(assigns) do
     assigns[:current_language] ||
       assigns |> Map.get(:post, %{}) |> Map.get(:language) ||

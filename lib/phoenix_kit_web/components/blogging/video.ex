@@ -211,8 +211,6 @@ defmodule PhoenixKitWeb.Components.Blogging.Video do
     end
   end
 
-  defp parse_uri(_), do: :error
-
   defp classify_host(host) when is_binary(host) do
     host = String.downcase(host)
 
@@ -222,8 +220,6 @@ defmodule PhoenixKitWeb.Components.Blogging.Video do
       true -> :error
     end
   end
-
-  defp classify_host(_), do: :error
 
   defp extract_short_id(nil), do: nil
 

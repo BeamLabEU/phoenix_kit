@@ -331,9 +331,8 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  defp normalize_languages(nil, current_language), do: [current_language]
   defp normalize_languages([], current_language), do: [current_language]
-  defp normalize_languages(languages, _current_language), do: languages
+  defp normalize_languages(languages, _current_language) when is_list(languages), do: languages
 
   defp language_enabled?(language, enabled_languages), do: language in enabled_languages
 
