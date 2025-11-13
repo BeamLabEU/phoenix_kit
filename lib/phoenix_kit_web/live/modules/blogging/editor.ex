@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
+  alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -129,6 +130,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:public_url, nil)
             |> push_event("changes-status", %{has_changes: false})
           else
+            language = post.language || editor_language(socket.assigns)
+
             socket
             |> assign(:blog_mode, blog_mode)
             |> assign(:post, %{post | blog: blog_slug})
@@ -145,7 +148,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               )
             )
             |> assign(:has_pending_changes, false)
-            |> assign(:public_url, build_public_url(post, socket.assigns.current_locale))
+            |> assign(:public_url, build_public_url(post, language))
             |> push_event("changes-status", %{has_changes: false})
           end
 
@@ -181,7 +184,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
     }
 
-    public_url = build_public_url(updated_post, socket.assigns.current_locale)
+    language = editor_language(socket.assigns)
+    public_url = build_public_url(updated_post, language)
 
     {:noreply,
      socket
@@ -278,7 +282,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_event("save", _params, socket) do
     params =
       socket.assigns.form
-      |> Map.take(["status", "published_at", "slug"])
+      |> Map.take(["status", "published_at", "slug", "featured_image_id"])
       |> Map.put("content", socket.assigns.content)
 
     params =
@@ -646,7 +650,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         post.metadata.published_at ||
           DateTime.utc_now()
           |> floor_datetime_to_minute()
-          |> DateTime.to_iso8601()
+          |> DateTime.to_iso8601(),
+      "featured_image_id" => post.metadata.featured_image_id || ""
     }
 
     form =
@@ -678,10 +683,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_form(form) when is_map(form) do
+    featured_image_id =
+      form
+      |> Map.get("featured_image_id", "")
+      |> to_string()
+      |> String.trim()
+
     base =
       %{
         "status" => Map.get(form, "status", "draft") || "draft",
-        "published_at" => normalize_published_at(Map.get(form, "published_at"))
+        "published_at" => normalize_published_at(Map.get(form, "published_at")),
+        "featured_image_id" => featured_image_id
       }
 
     case Map.fetch(form, "slug") do
@@ -694,7 +706,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_form(_),
-    do: %{"status" => "draft", "published_at" => "", "slug" => ""}
+    do: %{
+      "status" => "draft",
+      "published_at" => "",
+      "slug" => "",
+      "featured_image_id" => ""
+    }
 
   defp datetime_local_value(nil), do: ""
 
@@ -737,6 +754,27 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp normalize_published_at(_), do: ""
+
+  defp featured_image_preview_url(value) do
+    case sanitize_featured_image_id(value) do
+      nil ->
+        nil
+
+      file_id ->
+        BlogHTML.featured_image_url(%{metadata: %{featured_image_id: file_id}}, "medium")
+    end
+  end
+
+  defp sanitize_featured_image_id(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp sanitize_featured_image_id(_), do: nil
 
   defp build_preview_payload(socket) do
     form = socket.assigns.form || %{}
@@ -999,7 +1037,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         title: "",
         status: "draft",
         published_at: DateTime.to_iso8601(now),
-        slug: ""
+        slug: "",
+        featured_image_id: nil
       },
       content: "",
       language: primary_language,
@@ -1031,7 +1070,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       metadata: %{
         title: "",
         status: "draft",
-        published_at: DateTime.to_iso8601(now)
+        published_at: DateTime.to_iso8601(now),
+        featured_image_id: nil
       },
       content: "",
       language: primary_language,
@@ -1089,6 +1129,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     else
       nil
     end
+  end
+
+  defp current_language(socket) do
+    editor_language(socket.assigns)
+  end
+
+  defp editor_language(assigns) do
+    assigns[:current_language] ||
+      assigns |> Map.get(:post, %{}) |> Map.get(:language) ||
+      hd(Storage.enabled_language_codes())
   end
 
   defp invalidate_post_cache(blog_slug, post) do

@@ -57,7 +57,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   @spec serialize(metadata()) :: String.t()
   def serialize(metadata) do
     optional_lines =
-      [:created_at, :created_by_id, :created_by_email, :updated_by_id, :updated_by_email]
+      [
+        :featured_image_id,
+        :created_at,
+        :created_by_id,
+        :created_by_email,
+        :updated_by_id,
+        :updated_by_email
+      ]
       |> Enum.flat_map(fn key ->
         case metadata_value(metadata, key) do
           nil -> []
@@ -95,6 +102,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       description: nil,
       slug: "",
       published_at: DateTime.to_iso8601(now),
+      featured_image_id: nil,
       created_at: nil,
       created_by_id: nil,
       created_by_email: nil,
@@ -300,6 +308,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       status: Map.get(metadata, "status", default.status),
       slug: Map.get(metadata, "slug", default.slug),
       published_at: Map.get(metadata, "published_at", default.published_at),
+      featured_image_id: Map.get(metadata, "featured_image_id", default.featured_image_id),
       description: Map.get(metadata, "description"),
       created_at: Map.get(metadata, "created_at", default.created_at),
       created_by_id: Map.get(metadata, "created_by_id", default.created_by_id),

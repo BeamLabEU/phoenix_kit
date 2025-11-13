@@ -635,6 +635,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       metadata_value(post.metadata, :title) ||
         Metadata.extract_title_from_content(post.content || "")
 
+    featured_image_id = resolve_featured_image_id(params, post.metadata)
+
     metadata =
       post.metadata
       |> Map.put(:title, Map.get(params, "title", current_title))
@@ -646,6 +648,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
         :published_at,
         Map.get(params, "published_at", metadata_value(post.metadata, :published_at))
       )
+      |> Map.put(:featured_image_id, featured_image_id)
       |> Map.put(:created_at, Map.get(post.metadata, :created_at))
       |> Map.put(:slug, post.slug)
       |> apply_update_audit_metadata(audit_meta)
@@ -695,11 +698,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
         {final_metadata, final_content} =
           if lang_code == post.language do
+            featured_image_id = resolve_featured_image_id(params, metadata)
+
             updated_metadata =
               base_metadata
               |> Map.put(:title, Map.get(params, "title", metadata.title))
               |> Map.put(:status, Map.get(params, "status", metadata.status))
               |> Map.put(:published_at, Map.get(params, "published_at", metadata.published_at))
+              |> Map.put(:featured_image_id, featured_image_id)
 
             {updated_metadata, Map.get(params, "content", content)}
           else
@@ -930,11 +936,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def update_post(_blog_slug, post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
 
+    featured_image_id = resolve_featured_image_id(params, post.metadata)
+
     new_metadata =
       post.metadata
       |> Map.put(:title, Map.get(params, "title", post.metadata.title))
       |> Map.put(:status, Map.get(params, "status", post.metadata.status))
       |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
+      |> Map.put(:featured_image_id, featured_image_id)
       |> apply_update_audit_metadata(audit_meta)
 
     new_content = Map.get(params, "content", post.content)
@@ -1131,6 +1140,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   defp floor_to_minute(%DateTime{} = datetime) do
     %DateTime{datetime | second: 0, microsecond: {0, 0}}
   end
+
+  defp resolve_featured_image_id(params, metadata) do
+    case Map.fetch(params, "featured_image_id") do
+      {:ok, value} -> normalize_featured_image_id(value)
+      :error -> metadata_value(metadata, :featured_image_id)
+    end
+  end
+
+  defp normalize_featured_image_id(value) when is_binary(value) do
+    value
+    |> String.trim()
+    |> case do
+      "" -> nil
+      trimmed -> trimmed
+    end
+  end
+
+  defp normalize_featured_image_id(_), do: nil
 
   defp metadata_value(metadata, key, fallback \\ nil) do
     Map.get(metadata, key) ||

@@ -7,8 +7,9 @@ defmodule PhoenixKitWeb.BlogHTML do
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
   alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Storage
 
-  embed_templates "blog_html/*"
+  embed_templates("blog_html/*")
 
   @doc """
   Builds the public URL for a blog listing page.
@@ -182,5 +183,24 @@ defmodule PhoenixKitWeb.BlogHTML do
       end
 
     enabled_count == 1
+  end
+
+  @doc """
+  Resolves a featured image URL for a post, falling back to the original variant.
+  """
+  def featured_image_url(post, variant \\ "medium") do
+    post.metadata
+    |> Map.get(:featured_image_id)
+    |> resolve_featured_image_url(variant)
+  end
+
+  defp resolve_featured_image_url(nil, _variant), do: nil
+  defp resolve_featured_image_url("", _variant), do: nil
+
+  defp resolve_featured_image_url(file_id, variant) when is_binary(file_id) do
+    Storage.get_public_url_by_id(file_id, variant) ||
+      Storage.get_public_url_by_id(file_id)
+  rescue
+    _ -> nil
   end
 end

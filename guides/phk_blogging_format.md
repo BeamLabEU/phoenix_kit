@@ -49,6 +49,7 @@ Only a subset is required, but the blogging UI will populate everything shown ab
 - `title` – displayed in admin tables and public templates.
 - `status` – controls whether the post is discoverable publicly (`published` only).
 - `published_at` – timestamp used for ordering and for timestamp-mode folders.
+- `featured_image_id` – optional PhoenixKit Storage file ID used for the public listing thumbnail.
 - `created_by_* / updated_by_*` – audit metadata; the editor manages these.
 
 ---
