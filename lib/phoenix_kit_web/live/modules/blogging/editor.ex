@@ -130,8 +130,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:public_url, nil)
             |> push_event("changes-status", %{has_changes: false})
           else
-            language = post.language || editor_language(socket.assigns)
-
             socket
             |> assign(:blog_mode, blog_mode)
             |> assign(:post, %{post | blog: blog_slug})
@@ -148,7 +146,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               )
             )
             |> assign(:has_pending_changes, false)
-            |> assign(:public_url, build_public_url(post, language))
+            |> assign(:public_url, build_public_url(post, post.language))
             |> push_event("changes-status", %{has_changes: false})
           end
 
