@@ -311,30 +311,37 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
   defp process_image_variant(input_path, output_path, _mime_type, dimension) do
     Logger.info(
-      "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}"
+      "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height} maintain_aspect=#{dimension.maintain_aspect_ratio}"
     )
 
     quality = dimension.quality || 85
     format = dimension.format
 
-    # Use center-crop for dimensions with both width and height (e.g., thumbnails)
-    # Use regular resize for dimensions with only one specified (maintains aspect ratio)
-    case {dimension.width, dimension.height} do
-      {w, h} when w != nil and h != nil ->
-        # Both dimensions specified - use center-crop with gravity
-        Logger.info("Using center-crop for #{dimension.name} (#{w}x#{h})")
+    # Decision based on maintain_aspect_ratio setting
+    case dimension.maintain_aspect_ratio do
+      true ->
+        # Maintain aspect ratio - use only width
+        Logger.info("Using responsive resize for #{dimension.name} (width: #{dimension.width}px)")
 
-        ImageProcessor.resize_and_crop_center(input_path, output_path, w, h,
+        ImageProcessor.resize(input_path, output_path, dimension.width, nil,
+          quality: quality,
+          format: format
+        )
+
+      false ->
+        # Fixed dimensions - use center-crop with gravity
+        Logger.info(
+          "Using center-crop for #{dimension.name} (#{dimension.width}x#{dimension.height})"
+        )
+
+        ImageProcessor.resize_and_crop_center(
+          input_path,
+          output_path,
+          dimension.width,
+          dimension.height,
           quality: quality,
           format: format,
           background: "white"
-        )
-
-      _ ->
-        # Only one dimension specified - use regular resize to maintain aspect ratio
-        ImageProcessor.resize(input_path, output_path, dimension.width, dimension.height,
-          quality: quality,
-          format: format
         )
     end
   end

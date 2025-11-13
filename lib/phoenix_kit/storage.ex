@@ -885,16 +885,35 @@ defmodule PhoenixKit.Storage do
               :missing ->
                 # File record exists but actual file is missing from storage
                 # Need to re-store the file and recreate instances
-                Logger.warning("Duplicate file detected but missing from storage: #{existing_file.id}")
-                restore_missing_file(existing_file, source_path, file_hash, user_id, original_filename)
+                Logger.warning(
+                  "Duplicate file detected but missing from storage: #{existing_file.id}"
+                )
+
+                restore_missing_file(
+                  existing_file,
+                  source_path,
+                  file_hash,
+                  user_id,
+                  original_filename
+                )
             end
 
           nil ->
             # File record exists but instance record is missing
             # Need to recreate instances from the stored file
-            Logger.warning("Duplicate file detected but missing instance record: #{existing_file.id}")
+            Logger.warning(
+              "Duplicate file detected but missing instance record: #{existing_file.id}"
+            )
+
             Logger.info("Attempting to recreate instances...")
-            recreate_file_instances(existing_file, source_path, file_hash, user_id, original_filename)
+
+            recreate_file_instances(
+              existing_file,
+              source_path,
+              file_hash,
+              user_id,
+              original_filename
+            )
         end
 
       nil ->
@@ -912,13 +931,13 @@ defmodule PhoenixKit.Storage do
   end
 
   defp store_new_file_in_buckets(
-        source_path,
-        file_type,
-        user_id,
-        file_hash,
-        ext,
-        original_filename
-      ) do
+         source_path,
+         file_type,
+         user_id,
+         file_hash,
+         ext,
+         original_filename
+       ) do
     # Calculate MD5 hash for path structure
     md5_hash =
       source_path
@@ -1052,7 +1071,9 @@ defmodule PhoenixKit.Storage do
     # File record exists but instances are missing or broken
     # First store the file in buckets, then recreate the instance record
 
-    Logger.info("Starting recreate_file_instances for file: #{file.id}, file_path: #{file.file_path}")
+    Logger.info(
+      "Starting recreate_file_instances for file: #{file.id}, file_path: #{file.file_path}"
+    )
 
     {:ok, stat} = Elixir.File.stat(source_path)
     file_size = stat.size
@@ -1064,12 +1085,17 @@ defmodule PhoenixKit.Storage do
     original_path = "#{file.file_path}/#{md5_hash}_original.#{file.ext}"
 
     Logger.info("Reconstructed original path for instance: #{original_path}")
-    Logger.info("About to store file from source_path: #{source_path} to storage path: #{original_path}")
+
+    Logger.info(
+      "About to store file from source_path: #{source_path} to storage path: #{original_path}"
+    )
 
     # First, store the file in buckets using Manager
     case Manager.store_file(source_path, path_prefix: original_path) do
       {:ok, storage_info} ->
-        Logger.info("File stored in buckets: #{original_path}, bucket_ids: #{inspect(storage_info.bucket_ids)}")
+        Logger.info(
+          "File stored in buckets: #{original_path}, bucket_ids: #{inspect(storage_info.bucket_ids)}"
+        )
 
         # Now create the file instance record pointing to the stored file
         original_instance_attrs = %{
@@ -1085,11 +1111,18 @@ defmodule PhoenixKit.Storage do
 
         case create_file_instance(original_instance_attrs) do
           {:ok, _instance} ->
-            Logger.info("Recreated original instance for file: #{file.id}, path: #{original_path}")
+            Logger.info(
+              "Recreated original instance for file: #{file.id}, path: #{original_path}"
+            )
+
             # Delete any remaining broken variant instances BEFORE queuing ProcessFileJob
             # This ensures ProcessFileJob creates fresh instances with correct paths
             deleted_variants = delete_variant_instances(file.id)
-            Logger.info("Deleted #{deleted_variants} broken variant instances before regeneration")
+
+            Logger.info(
+              "Deleted #{deleted_variants} broken variant instances before regeneration"
+            )
+
             # Queue variant generation for the recovered file
             _ = queue_variant_generation(file, user_id, original_filename)
             {:ok, file, :duplicate}
@@ -1097,26 +1130,42 @@ defmodule PhoenixKit.Storage do
           {:error, reason} ->
             # Instance creation failed, might be duplicate constraint
             # Try deleting old broken instances and recreating
-            Logger.warning("Instance creation failed for file #{file.id}: #{inspect(reason)}, attempting cleanup and retry")
+            Logger.warning(
+              "Instance creation failed for file #{file.id}: #{inspect(reason)}, attempting cleanup and retry"
+            )
+
             _ = delete_file_instances_for_file(file.id)
 
             case create_file_instance(original_instance_attrs) do
               {:ok, _instance} ->
-                Logger.info("Recreated original instance for file (after cleanup): #{file.id}, path: #{original_path}")
+                Logger.info(
+                  "Recreated original instance for file (after cleanup): #{file.id}, path: #{original_path}"
+                )
+
                 # Delete any remaining broken variant instances
                 deleted_variants = delete_variant_instances(file.id)
-                Logger.info("Deleted #{deleted_variants} broken variant instances before regeneration")
+
+                Logger.info(
+                  "Deleted #{deleted_variants} broken variant instances before regeneration"
+                )
+
                 _ = queue_variant_generation(file, user_id, original_filename)
                 {:ok, file, :duplicate}
 
               {:error, final_reason} ->
-                Logger.error("Failed to recreate instance for file #{file.id}: #{inspect(final_reason)}")
+                Logger.error(
+                  "Failed to recreate instance for file #{file.id}: #{inspect(final_reason)}"
+                )
+
                 {:error, final_reason}
             end
         end
 
       {:error, store_error} ->
-        Logger.error("Failed to store file in buckets for recreate_file_instances: #{inspect(store_error)}")
+        Logger.error(
+          "Failed to store file in buckets for recreate_file_instances: #{inspect(store_error)}"
+        )
+
         {:error, store_error}
     end
   end

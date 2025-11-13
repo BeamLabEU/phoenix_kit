@@ -188,10 +188,12 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     file_ids = Enum.map(uploaded_files, &get_file_id/1)
 
     # Check for duplicates and create appropriate flash message
-    duplicate_count = Enum.count(uploaded_files, fn
-      %{duplicate: true} -> true
-      _ -> false
-    end)
+    duplicate_count =
+      Enum.count(uploaded_files, fn
+        %{duplicate: true} -> true
+        _ -> false
+      end)
+
     new_count = length(uploaded_files) - duplicate_count
 
     flash_message =

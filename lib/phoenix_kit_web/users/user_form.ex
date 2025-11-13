@@ -96,7 +96,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
     filtered_params =
       if socket.assigns.mode == :edit do
         filtered_params = Map.put_new(filtered_params, "username", socket.assigns.user.username)
-        Logger.info("validate_user - user_params username: #{inspect(Map.get(user_params, "username"))}, filtered_params username: #{inspect(Map.get(filtered_params, "username"))}")
+
+        Logger.info(
+          "validate_user - user_params username: #{inspect(Map.get(user_params, "username"))}, filtered_params username: #{inspect(Map.get(filtered_params, "username"))}"
+        )
+
         filtered_params
       else
         filtered_params
@@ -104,8 +108,11 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     changeset =
       case socket.assigns.mode do
-        :new -> Auth.change_user_registration(%Auth.User{}, filtered_params)
-        :edit -> Auth.User.profile_changeset(socket.assigns.user, filtered_params, validate_email: false)
+        :new ->
+          Auth.change_user_registration(%Auth.User{}, filtered_params)
+
+        :edit ->
+          Auth.User.profile_changeset(socket.assigns.user, filtered_params, validate_email: false)
       end
       |> Map.put(:action, :validate)
 
@@ -398,9 +405,15 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp update_user_profile_without_validation(user, attrs) do
-    Logger.info("update_user_profile_without_validation - attrs username: #{inspect(Map.get(attrs, "username"))}")
+    Logger.info(
+      "update_user_profile_without_validation - attrs username: #{inspect(Map.get(attrs, "username"))}"
+    )
+
     changeset = Auth.User.profile_changeset(user, attrs, validate_email: false)
-    Logger.info("After profile_changeset, changeset changes username: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}")
+
+    Logger.info(
+      "After profile_changeset, changeset changes username: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}"
+    )
 
     case changeset |> PhoenixKit.RepoHelper.repo().update() do
       {:ok, updated_user} ->
@@ -431,7 +444,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # In both cases, we need to reload the user from the database to get the fresh data
     user_id = socket.assigns.user.id
     fresh_user = Auth.get_user!(user_id)
-    Logger.info("handle_update_result - fresh_user username from DB: #{inspect(fresh_user.username)}")
+
+    Logger.info(
+      "handle_update_result - fresh_user username from DB: #{inspect(fresh_user.username)}"
+    )
 
     socket =
       socket
@@ -538,8 +554,13 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # For edit mode, use profile_changeset instead of registration_changeset
     # profile_changeset doesn't call maybe_generate_username_from_email like registration_changeset does
     Logger.info("Loading form for user #{user.id}: DB username=#{inspect(user.username)}")
-    changeset = Auth.User.profile_changeset(user, %{"username" => user.username}, validate_email: false)
-    Logger.info("After creating changeset, changeset changes: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, changeset field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}")
+
+    changeset =
+      Auth.User.profile_changeset(user, %{"username" => user.username}, validate_email: false)
+
+    Logger.info(
+      "After creating changeset, changeset changes: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, changeset field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}"
+    )
 
     socket
     |> assign(:changeset, changeset)
