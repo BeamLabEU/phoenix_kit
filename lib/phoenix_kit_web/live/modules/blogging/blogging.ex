@@ -364,7 +364,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   defp settings_module do
-    Application.get_env(:phoenix_kit, :blogging_settings_module, PhoenixKit.Settings)
+    PhoenixKit.Config.get(:blogging_settings_module, PhoenixKit.Settings)
   end
 
   defp settings_call(fun, args) do

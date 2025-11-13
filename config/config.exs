@@ -53,3 +53,9 @@ config :logger, :console,
 #   password: System.get_env("SMTP_PASSWORD"),
 #   tls: :if_available,
 #   retries: 1
+
+# Import environment-specific config
+# This allows config/test.exs to override settings for test environment
+if File.exists?("#{__DIR__}/#{Mix.env()}.exs") do
+  import_config "#{Mix.env()}.exs"
+end
