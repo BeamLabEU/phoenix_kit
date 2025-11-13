@@ -235,16 +235,14 @@ defmodule PhoenixKitWeb.Components.Blogging.Video do
   end
 
   defp extract_standard_id(%URI{path: path} = uri) do
-    cond do
-      is_binary(path) and String.starts_with?(path, "/embed/") ->
-        path
-        |> String.split("/", trim: true)
-        |> List.last()
-
-      true ->
-        uri.query
-        |> decode_query()
-        |> Map.get("v")
+    if is_binary(path) and String.starts_with?(path, "/embed/") do
+      path
+      |> String.split("/", trim: true)
+      |> List.last()
+    else
+      uri.query
+      |> decode_query()
+      |> Map.get("v")
     end
   end
 

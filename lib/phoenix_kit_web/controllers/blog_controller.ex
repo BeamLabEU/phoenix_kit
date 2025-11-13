@@ -317,8 +317,9 @@ defmodule PhoenixKitWeb.BlogController do
     languages =
       post.available_languages
       |> normalize_languages(current_language)
-      |> Enum.filter(&language_enabled?(&1, enabled_languages))
-      |> Enum.filter(&translation_published?(post, &1))
+      |> Enum.filter(fn lang ->
+        language_enabled?(lang, enabled_languages) and translation_published?(post, lang)
+      end)
 
     Enum.map(languages, fn lang ->
       %{

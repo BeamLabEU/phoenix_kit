@@ -804,11 +804,9 @@ defmodule PhoenixKit.Storage do
   end
 
   defp signed_file_url(file_id, variant_name) do
-    try do
-      URLSigner.signed_url(file_id, variant_name, locale: :none)
-    rescue
-      _ -> nil
-    end
+    URLSigner.signed_url(file_id, variant_name, locale: :none)
+  rescue
+    _ -> nil
   end
 
   @doc """

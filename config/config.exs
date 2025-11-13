@@ -41,7 +41,8 @@ config :logger, :console,
     :path,
     :blog,
     :pattern,
-    :content_size
+    :content_size,
+    :error
   ]
 
 # For development/testing with real SMTP (when available)
