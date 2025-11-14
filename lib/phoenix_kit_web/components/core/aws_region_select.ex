@@ -80,12 +80,14 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
             ]}
             disabled={@verifying}
           >
-            <%!-- Empty option with placeholder text (only when no value selected) --%>
-            <%= if @value == "" do %>
-              <option value="">
-                Select a region...
-              </option>
-            <% end %>
+            <%!-- Empty option with placeholder text (always available) --%>
+            <option value="">
+              <%= if Enum.empty?(@regions) do %>
+                Not required - can be selected after saving credentials
+              <% else %>
+                Select a region (optional)
+              <% end %>
+            </option>
 
             <%!-- Show currently selected region first if it exists and not in regions list --%>
             <%= if @value != "" and @value not in @regions do %>
@@ -129,7 +131,7 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
         <% end %>
       </div>
       
-    <!-- Helper text below the select -->
+    <%!-- Helper text below the select --%>
       <label class="label">
         <span class="label-text-alt text-sm text-base-content/70">
           <%= if @verified == :success do %>
@@ -140,12 +142,20 @@ defmodule PhoenixKitWeb.Components.Core.AWSRegionSelect do
             ❌ Unable to verify region. Please check your credentials.
           <% end %>
 
-          <%= if @verified == :pending do %>
-            Select a region to verify connectivity.
+          <%= if @verified == :pending and @value != "" do %>
+            Region selected. Verify credentials to confirm connectivity.
           <% end %>
 
-          <%= if Enum.empty?(@regions) do %>
-            Click to refresh regions list. Requires valid AWS credentials.
+          <%= if @verified == :pending and @value == "" do %>
+            💡 Optional: Save credentials first, then select region and refresh list.
+          <% end %>
+
+          <%= if Enum.empty?(@regions) and @value == "" do %>
+            First save your Access Key and Secret Key, then click "Refresh regions".
+          <% end %>
+
+          <%= if Enum.empty?(@regions) and @value != "" do %>
+            Current region: {@value}. Click "Refresh regions" to load more options.
           <% end %>
         </span>
       </label>
