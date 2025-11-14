@@ -12,7 +12,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   alias PhoenixKit.Settings
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.URLSigner
-  alias PhoenixKit.Storage.Workers.ProcessFileJob
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -40,6 +40,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
+      |> assign(:show_upload, false)
+      |> assign(:last_uploaded_file_ids, [])
 
     {:ok, socket}
   end
@@ -64,6 +66,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {:noreply, socket}
   end
 
+  def handle_event("toggle_upload", _params, socket) do
+    {:noreply, assign(socket, :show_upload, !socket.assigns.show_upload)}
+  end
+
   def handle_event("validate", _params, socket) do
     # File selection event - files will auto-upload
     entries = socket.assigns.uploads.media_files.entries
@@ -79,6 +85,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   def handle_event("cancel_upload", %{"ref" => ref}, socket) do
     {:noreply, cancel_upload(socket, :media_files, ref)}
+  end
+
+  def handle_info({:file_uploaded, file_id}, socket) do
+    # This event can be used by other modules listening to uploaded files
+    # For example, avatar upload systems can listen for this event
+    Logger.info("File uploaded with ID: #{file_id}")
+    {:noreply, socket}
   end
 
   def handle_info(:check_uploads_complete, socket) do
@@ -105,56 +118,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     # Process uploaded files
     uploaded_files =
       consume_uploaded_entries(socket, :media_files, fn %{path: path}, entry ->
-        # Get file info
-        ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
-        mime_type = entry.client_type || MIME.from_path(entry.client_name)
-        file_type = determine_file_type(mime_type)
-
-        # Get current user
-        current_user = socket.assigns.phoenix_kit_current_user
-        user_id = if current_user, do: current_user.id, else: 1
-
-        # Get file size
-        {:ok, stat} = Elixir.File.stat(path)
-        file_size = stat.size
-
-        # Calculate hash
-        file_hash = calculate_file_hash(path)
-
-        # Store file in storage
-        case PhoenixKit.Storage.store_file_in_buckets(
-               path,
-               file_type,
-               user_id,
-               file_hash,
-               ext,
-               entry.client_name
-             ) do
-          {:ok, file} ->
-            # Queue background job for processing
-            _job =
-              %{file_id: file.id, user_id: user_id, filename: entry.client_name}
-              |> ProcessFileJob.new()
-              |> Oban.insert()
-
-            # Generate URLs for available variants (start with original)
-            urls = generate_file_urls(file.id)
-
-            {:ok,
-             %{
-               file_id: file.id,
-               filename: entry.client_name,
-               file_type: file_type,
-               mime_type: mime_type,
-               size: file_size,
-               status: file.status,
-               urls: urls
-             }}
-
-          {:error, reason} ->
-            Logger.error("Storage Error: #{inspect(reason)}")
-            {:error, reason}
-        end
+        process_single_upload(socket, path, entry)
       end)
 
     # Reload paginated data from database to show newly uploaded files
@@ -163,15 +127,25 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {refreshed_files, total_count} = load_existing_files(page, per_page)
     total_pages = ceil(total_count / per_page)
 
+    # Extract file IDs for callbacks
+    file_ids = Enum.map(uploaded_files, &get_file_id/1)
+
+    # Build flash message based on upload results
+    flash_message = build_upload_flash_message(uploaded_files)
+
     socket =
       socket
       |> assign(:uploaded_files, refreshed_files)
       |> assign(:total_count, total_count)
       |> assign(:total_pages, total_pages)
-      |> put_flash(:info, "Upload successful! #{length(uploaded_files)} file(s) processed")
+      |> assign(:last_uploaded_file_ids, file_ids)
+      |> put_flash(:info, flash_message)
 
     {:noreply, socket}
   end
+
+  defp get_file_id({:ok, %{file_id: file_id}}), do: file_id
+  defp get_file_id(_), do: nil
 
   # Generate URLs from pre-loaded instances (no database query needed)
   defp generate_urls_from_instances(instances, file_id) do
@@ -179,27 +153,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       url = URLSigner.signed_url(file_id, instance.variant_name)
       Map.put(acc, instance.variant_name, url)
     end)
-  end
-
-  # Legacy function for cases where we need to query a single file's instances
-  defp generate_file_urls(file_id) do
-    import Ecto.Query
-
-    repo = Application.get_env(:phoenix_kit, :repo)
-
-    instances =
-      FileInstance
-      |> where([fi], fi.file_id == ^file_id)
-      |> repo.all()
-
-    generate_urls_from_instances(instances, file_id)
-  end
-
-  defp calculate_file_hash(file_path) do
-    file_path
-    |> Elixir.File.read!()
-    |> then(fn data -> :crypto.hash(:sha256, data) end)
-    |> Base.encode16(case: :lower)
   end
 
   defp determine_file_type(mime_type) do
@@ -283,5 +236,82 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       end)
 
     {existing_files, total_count}
+  end
+
+  defp process_single_upload(socket, path, entry) do
+    # Get file info
+    ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+    mime_type = entry.client_type || MIME.from_path(entry.client_name)
+    file_type = determine_file_type(mime_type)
+
+    # Get current user
+    current_user = socket.assigns.phoenix_kit_current_user
+    user_id = if current_user, do: current_user.id, else: 1
+
+    # Get file size
+    {:ok, stat} = Elixir.File.stat(path)
+    file_size = stat.size
+
+    # Calculate hash
+    file_hash = Auth.calculate_file_hash(path)
+
+    # Store file in storage
+    case PhoenixKit.Storage.store_file_in_buckets(
+           path,
+           file_type,
+           user_id,
+           file_hash,
+           ext,
+           entry.client_name
+         ) do
+      {:ok, file, :duplicate} ->
+        build_upload_result(file, entry, file_type, mime_type, file_size, true)
+
+      {:ok, file} ->
+        build_upload_result(file, entry, file_type, mime_type, file_size, false)
+
+      {:error, reason} ->
+        Logger.error("Storage Error: #{inspect(reason)}")
+        {:error, reason}
+    end
+  end
+
+  defp build_upload_result(file, entry, file_type, mime_type, file_size, is_duplicate) do
+    result = %{
+      file_id: file.id,
+      filename: entry.client_name,
+      file_type: file_type,
+      mime_type: mime_type,
+      size: file_size,
+      status: file.status,
+      urls: %{}
+    }
+
+    result = if is_duplicate, do: Map.put(result, :duplicate, true), else: result
+    {:ok, result}
+  end
+
+  defp build_upload_flash_message(uploaded_files) do
+    duplicate_count =
+      Enum.count(uploaded_files, fn
+        %{duplicate: true} -> true
+        _ -> false
+      end)
+
+    new_count = length(uploaded_files) - duplicate_count
+
+    case {new_count, duplicate_count} do
+      {0, n} when n > 0 ->
+        "Already have #{n} duplicate file(s). No new files were added."
+
+      {n, 0} when n > 0 ->
+        "Upload successful! #{n} new file(s) processed"
+
+      {n, d} when n > 0 and d > 0 ->
+        "Upload successful! #{n} new file(s) added. #{d} file(s) were already uploaded."
+
+      _ ->
+        "Upload processed"
+    end
   end
 end

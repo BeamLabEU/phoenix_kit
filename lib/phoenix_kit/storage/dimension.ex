@@ -83,6 +83,7 @@ defmodule PhoenixKit.Storage.Dimension do
     field :format, :string
     field :applies_to, :string
     field :enabled, :boolean, default: true
+    field :maintain_aspect_ratio, :boolean, default: true
     field :order, :integer, default: 0
 
     timestamps(type: :naive_datetime)
@@ -95,11 +96,18 @@ defmodule PhoenixKit.Storage.Dimension do
 
   - `name`
   - `applies_to`
+  - `width` - Required when `maintain_aspect_ratio` is true or false
+
+  ## Optional Fields
+
+  - `height` - Required when `maintain_aspect_ratio` is false (fixed dimensions)
+  - `maintain_aspect_ratio` - Whether to preserve aspect ratio (default: true)
 
   ## Validation Rules
 
   - Name must be unique
-  - At least width or height must be specified
+  - Width must be specified (always required)
+  - Height must be specified when `maintain_aspect_ratio` is false
   - Width and height must be positive integers
   - Quality must be between 1-100 for images or 0-51 for videos
   - Applies to must be one of: "image", "video", "both"
@@ -116,6 +124,7 @@ defmodule PhoenixKit.Storage.Dimension do
       :format,
       :applies_to,
       :enabled,
+      :maintain_aspect_ratio,
       :order
     ])
     |> validate_required([:name, :applies_to])
@@ -133,15 +142,21 @@ defmodule PhoenixKit.Storage.Dimension do
     |> unique_constraint(:name, name: :phoenix_kit_storage_dimensions_name_index)
   end
 
-  # Validate that at least width or height is specified
+  # Validate dimensions based on maintain_aspect_ratio setting
   defp validate_dimension_size(changeset) do
     width = get_field(changeset, :width)
     height = get_field(changeset, :height)
+    maintain_aspect = get_field(changeset, :maintain_aspect_ratio)
 
-    if is_nil(width) && is_nil(height) do
-      add_error(changeset, :width, "at least width or height must be specified")
-    else
-      changeset
+    cond do
+      is_nil(width) ->
+        add_error(changeset, :width, "width is required")
+
+      maintain_aspect == false && is_nil(height) ->
+        add_error(changeset, :height, "height is required when not maintaining aspect ratio")
+
+      true ->
+        changeset
     end
   end
 
@@ -224,18 +239,25 @@ defmodule PhoenixKit.Storage.Dimension do
   def applies_to_videos?(_), do: false
 
   @doc """
-  Returns whether this dimension preserves aspect ratio (only one dimension specified).
+  Returns whether this dimension preserves aspect ratio.
   """
-  def preserve_aspect_ratio?(%__MODULE__{width: width, height: height}) do
-    is_nil(width) || is_nil(height)
+  def preserve_aspect_ratio?(%__MODULE__{maintain_aspect_ratio: maintain_aspect}) do
+    maintain_aspect == true
   end
 
   @doc """
   Returns a human-readable description of this dimension.
   """
-  def description(%__MODULE__{name: name, width: width, height: height, format: format}) do
+  def description(%__MODULE__{
+        name: name,
+        width: width,
+        height: height,
+        format: format,
+        maintain_aspect_ratio: maintain_aspect
+      }) do
     size_desc =
       cond do
+        maintain_aspect && width -> "#{width}px wide (aspect ratio maintained)"
         width && height -> "#{width}×#{height}"
         width -> "#{width}px wide"
         height -> "#{height}px tall"
