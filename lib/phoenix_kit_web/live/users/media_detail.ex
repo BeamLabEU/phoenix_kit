@@ -97,7 +97,6 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   defp load_file_data(socket, file_id) do
     repo = Application.get_env(:phoenix_kit, :repo)
-    import Ecto.Query
 
     case repo.get(File, file_id) do
       nil ->
@@ -106,69 +105,75 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
         |> assign(:file_data, nil)
 
       file ->
-        # Load file instances for this file
-        instances =
-          FileInstance
-          |> where([fi], fi.file_id == ^file_id)
-          |> repo.all()
-
-        # Generate URLs from instances
+        instances = load_file_instances(file_id, repo)
         urls = generate_urls_from_instances(instances, file_id)
+        locations = load_original_locations(instances, repo)
+        {title, description, tags} = extract_metadata_fields(file.metadata)
+        user_name = get_user_name(file.user_id, repo)
 
-        # Load file locations for the original instance
-        locations =
-          case Enum.find(instances, &(&1.variant_name == "original")) do
-            nil -> []
-            original_instance -> load_file_locations(original_instance.id, repo)
-          end
-
-        # Extract metadata
-        metadata = file.metadata || %{}
-        title = metadata["title"] || ""
-        description = metadata["description"] || ""
-        tags = metadata["tags"] || []
-
-        # Get user information if available
-        user_name =
-          case file.user_id do
-            nil ->
-              "Unknown"
-
-            user_id ->
-              alias_module =
-                Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
-
-              case repo.get(alias_module, user_id) do
-                nil -> "Unknown"
-                user -> user.email
-              end
-          end
-
-        # Build file data map
-        file_data = %{
-          file_id: file.id,
-          filename: file.original_file_name || file.file_name || "Unknown",
-          original_filename: file.original_file_name,
-          file_type: file.file_type,
-          mime_type: file.mime_type,
-          size: file.size || 0,
-          status: file.status,
-          urls: urls,
-          title: title,
-          description: description,
-          tags: tags,
-          metadata: metadata,
-          inserted_at: file.inserted_at,
-          updated_at: file.updated_at,
-          locations: locations,
-          user_name: user_name
-        }
+        file_data =
+          build_file_data(file, urls, locations, {title, description, tags}, user_name)
 
         socket
         |> assign(:file, file)
         |> assign(:file_data, file_data)
         |> assign(:edit_mode, false)
     end
+  end
+
+  defp load_file_instances(file_id, repo) do
+    import Ecto.Query
+
+    FileInstance
+    |> where([fi], fi.file_id == ^file_id)
+    |> repo.all()
+  end
+
+  defp load_original_locations(instances, repo) do
+    case Enum.find(instances, &(&1.variant_name == "original")) do
+      nil -> []
+      original_instance -> load_file_locations(original_instance.id, repo)
+    end
+  end
+
+  defp extract_metadata_fields(metadata) do
+    metadata = metadata || %{}
+    title = metadata["title"] || ""
+    description = metadata["description"] || ""
+    tags = metadata["tags"] || []
+    {title, description, tags}
+  end
+
+  defp get_user_name(nil, _repo), do: "Unknown"
+
+  defp get_user_name(user_id, repo) do
+    alias_module = Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+
+    case repo.get(alias_module, user_id) do
+      nil -> "Unknown"
+      user -> user.email
+    end
+  end
+
+  defp build_file_data(file, urls, locations, {title, description, tags}, user_name) do
+    %{
+      file_id: file.id,
+      filename: file.original_file_name || file.file_name || "Unknown",
+      original_filename: file.original_file_name,
+      file_type: file.file_type,
+      mime_type: file.mime_type,
+      size: file.size || 0,
+      status: file.status,
+      urls: urls,
+      title: title,
+      description: description,
+      tags: tags,
+      metadata: file.metadata || %{},
+      inserted_at: file.inserted_at,
+      updated_at: file.updated_at,
+      locations: locations,
+      user_name: user_name
+    }
   end
 
   # Generate URLs from pre-loaded instances (no database query needed)

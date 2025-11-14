@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
   require Logger
 
+  alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
@@ -418,7 +419,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     case changeset |> PhoenixKit.RepoHelper.repo().update() do
       {:ok, updated_user} ->
         Logger.info("After DB update, saved username: #{inspect(updated_user.username)}")
-        PhoenixKit.Admin.Events.broadcast_user_updated(updated_user)
+        Events.broadcast_user_updated(updated_user)
         {:ok, updated_user}
 
       {:error, changeset} ->

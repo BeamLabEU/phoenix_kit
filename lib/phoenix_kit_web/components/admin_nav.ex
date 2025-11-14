@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.ThemeConfig
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon
@@ -270,7 +271,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_user_dropdown(assigns) do
-    user = PhoenixKit.Users.Auth.Scope.user(assigns.scope)
+    user = Scope.user(assigns.scope)
     avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
 
     assigns =
@@ -403,7 +404,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:scope, :any, default: nil)
 
   def admin_user_info(assigns) do
-    user = PhoenixKit.Users.Auth.Scope.user(assigns.scope)
+    user = Scope.user(assigns.scope)
     avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
 
     assigns =
