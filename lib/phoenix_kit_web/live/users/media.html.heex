@@ -12,180 +12,44 @@
       <p class="text-base-content/70 mt-1">Manage user media and uploads</p>
     </div>
 
-    <%!-- Upload Section --%>
-    <div class="card bg-base-100 shadow-xl mb-8">
-      <div class="card-body">
-        <h2 class="card-title text-xl mb-4">Upload Media</h2>
-        <p class="text-sm text-base-content/70 mb-4">
-          Upload images, videos, or PDFs. Files are automatically processed and optimized.
-        </p>
+    <%!-- Upload Section (Hidden by default) --%>
+    <%= if @show_upload do %>
+      <div class="card bg-base-100 shadow-xl mb-8 animate-in fade-in duration-200">
+        <div class="card-body">
+          <h2 class="card-title text-xl mb-4">Upload Media</h2>
+          <p class="text-sm text-base-content/70 mb-4">
+            Upload images, videos, or PDFs. Files are automatically processed and optimized.
+          </p>
 
-        <.file_upload
-          upload={@uploads.media_files}
-          label="Upload Media Files"
-          icon="hero-cloud-arrow-up"
-          accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
-          max_size_description="100MB per file"
-        />
-      </div>
-    </div>
-
-    <%!-- Image Preview Modal (Client-side controlled) --%>
-    <dialog id="image-modal" class="modal">
-      <div class="modal-box max-w-4xl">
-        <%!-- Large Image Preview --%>
-        <figure class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4 relative min-h-96">
-          <img
-            id="modal-image"
-            src=""
-            alt="Image preview"
-            class="max-h-96 w-auto rounded"
-            onerror="this.style.display='none'; document.getElementById('modal-image-error').style.display='flex';"
+          <.file_upload
+            upload={@uploads.media_files}
+            label="Upload Media Files"
+            icon="hero-cloud-arrow-up"
+            accept_description="JPG, PNG, WebP, MP4, WebM, PDF"
+            max_size_description="100MB per file"
           />
-          <div
-            id="modal-image-error"
-            class="hidden flex-col items-center justify-center w-full h-full absolute inset-0"
-            style="display: none;"
-          >
-            <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
-            <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
-            <p class="text-sm text-base-content/70 mt-2">The image file could not be loaded</p>
-          </div>
-        </figure>
-
-        <%!-- File Info --%>
-        <h3 id="modal-filename" class="font-bold text-xl mb-2"></h3>
-        <div class="flex gap-3 mb-6">
-          <span id="modal-file-type" class="badge badge-lg"></span>
-          <span id="modal-file-status" class="badge badge-lg"></span>
-          <span id="modal-file-size" class="badge badge-lg"></span>
-        </div>
-
-        <%!-- Download Links --%>
-        <div class="mb-6">
-          <p class="text-sm font-semibold text-base-content mb-3">Download variants:</p>
-          <div id="modal-variants" class="flex gap-2 flex-wrap"></div>
-        </div>
-
-        <%!-- Close Button --%>
-        <div class="modal-action">
-          <button
-            type="button"
-            class="btn btn-primary"
-            onclick="document.getElementById('image-modal').close()"
-          >
-            Close
-          </button>
         </div>
       </div>
-      <form method="dialog" class="modal-backdrop">
-        <button>close</button>
-      </form>
-    </dialog>
-
-    <%!-- Modal Control Script --%>
-    <script>
-      const fileBadgeMap = {
-        'image': 'badge-info',
-        'video': 'badge-warning',
-        'pdf': 'badge-error',
-        'document': 'badge-ghost'
-      };
-
-      const statusBadgeMap = {
-        'active': 'badge-success',
-        'processing': 'badge-info',
-        'failed': 'badge-error'
-      };
-
-      // Format file size
-      function formatFileSize(bytes) {
-        if (bytes >= 1_000_000_000) return (bytes / 1_000_000_000).toFixed(2) + ' GB';
-        if (bytes >= 1_000_000) return (bytes / 1_000_000).toFixed(2) + ' MB';
-        if (bytes >= 1_000) return (bytes / 1_000).toFixed(2) + ' KB';
-        return bytes + ' B';
-      }
-
-      // Show modal with file data
-      function showImageModal(fileData) {
-        const modal = document.getElementById('image-modal');
-        const imageEl = document.getElementById('modal-image');
-        const imageErrorEl = document.getElementById('modal-image-error');
-        const filenameEl = document.getElementById('modal-filename');
-        const fileTypeEl = document.getElementById('modal-file-type');
-        const statusEl = document.getElementById('modal-file-status');
-        const sizeEl = document.getElementById('modal-file-size');
-        const variantsEl = document.getElementById('modal-variants');
-
-        // Reset image error state
-        imageEl.style.display = 'block';
-        imageErrorEl.style.display = 'none';
-
-        // Set image and basic info
-        imageEl.src = fileData.urls.original || fileData.urls.medium || '';
-        imageEl.alt = fileData.filename;
-        filenameEl.textContent = fileData.filename;
-
-        // Set badges
-        const badgeClass = fileBadgeMap[fileData.file_type] || 'badge-ghost';
-        fileTypeEl.className = `badge badge-lg ${badgeClass}`;
-        fileTypeEl.textContent = fileData.file_type.toUpperCase();
-
-        const statusBadgeClass = statusBadgeMap[fileData.status] || 'badge-warning';
-        statusEl.className = `badge badge-lg ${statusBadgeClass}`;
-        statusEl.textContent = fileData.status.charAt(0).toUpperCase() + fileData.status.slice(1);
-
-        sizeEl.textContent = formatFileSize(fileData.size);
-
-        // Generate download links - sorted with original first
-        const variantOrder = ['original', 'large', 'medium', 'small', 'thumbnail'];
-        const sortedEntries = Object.entries(fileData.urls).sort(([a], [b]) => {
-          const aIndex = variantOrder.indexOf(a);
-          const bIndex = variantOrder.indexOf(b);
-          return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
-        });
-
-        variantsEl.innerHTML = sortedEntries.map(([variant, url]) => {
-          const isOriginal = variant === 'original';
-          const buttonClass = isOriginal ? 'btn btn-md btn-primary' : 'btn btn-sm btn-outline';
-
-          return `
-            <a
-              href="${url}"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="${buttonClass}"
-            >
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
-              </svg>
-              ${variant.charAt(0).toUpperCase() + variant.slice(1)}
-            </a>
-          `;
-        }).join('');
-
-        // Show modal
-        modal.showModal();
-      }
-
-      // Attach click handlers to file thumbnails
-      document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('[data-file-id]').forEach(el => {
-          el.addEventListener('click', function(e) {
-            e.preventDefault();
-            const fileData = JSON.parse(this.getAttribute('data-file-data'));
-            showImageModal(fileData);
-          });
-        });
-      });
-    </script>
+    <% end %>
 
     <%!-- Uploaded Files --%>
     <%= if @total_count > 0 do %>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
           <div class="flex justify-between items-center mb-4">
-            <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+            <div class="flex items-center gap-3">
+              <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
+              <button
+                phx-click="toggle_upload"
+                class={["btn btn-sm gap-2", (@show_upload && "btn-error") || "btn-primary"]}
+              >
+                <%= if @show_upload do %>
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+                <% else %>
+                  <.icon name="hero-plus" class="w-4 h-4" /> Add Media
+                <% end %>
+              </button>
+            </div>
             <.pagination_info
               page={@current_page}
               per_page={@per_page}
@@ -198,8 +62,6 @@
               <.link
                 navigate={PhoenixKit.Utils.Routes.path("/admin/users/media/#{file.file_id}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
-                data-file-id={file.file_id}
-                data-file-data={Jason.encode!(file)}
               >
                 <% image_url = file.urls["medium"] || file.urls["original"] %>
                 <%= if image_url do %>
@@ -241,8 +103,27 @@
         </div>
       </div>
     <% else %>
-      <div class="bg-base-200 rounded-lg p-8 text-center">
-        <p class="text-base-content/70">No media uploaded yet. Upload your first file above!</p>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center gap-3 mb-4">
+            <h2 class="card-title text-xl">Uploaded Files</h2>
+            <button
+              phx-click="toggle_upload"
+              class={["btn btn-sm gap-2", (@show_upload && "btn-error") || "btn-primary"]}
+            >
+              <%= if @show_upload do %>
+                <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+              <% else %>
+                <.icon name="hero-plus" class="w-4 h-4" /> Add Media
+              <% end %>
+            </button>
+          </div>
+          <div class="bg-base-200 rounded-lg p-8 text-center">
+            <p class="text-base-content/70">
+              No media uploaded yet. Upload your first file above!
+            </p>
+          </div>
+        </div>
       </div>
     <% end %>
   </div>

@@ -345,7 +345,7 @@ defmodule PhoenixKit.Config do
   # This function is used as a fallback when explicit `:parent_app_name` configuration
   # is not provided. It enables PhoenixKit to automatically integrate with parent
   # applications without requiring additional configuration in most cases.
-  defp get_parent_app_fallback() do
+  defp get_parent_app_fallback do
     # Get the application of the configured repo to determine parent app
     case get(:repo) do
       {:ok, repo_module} when is_atom(repo_module) ->

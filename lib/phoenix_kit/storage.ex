@@ -17,6 +17,7 @@ defmodule PhoenixKit.Storage do
   """
 
   import Ecto.Query, warn: false
+  require Logger
 
   alias PhoenixKit.Settings
   alias PhoenixKit.Storage.Bucket
@@ -28,6 +29,7 @@ defmodule PhoenixKit.Storage do
   # The dedicated storage/media APIs under development should replace this fallback once available.
   alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Storage.VariantGenerator
+  alias PhoenixKit.Storage.Workers.ProcessFileJob
 
   # ===== BUCKETS =====
 
@@ -414,7 +416,7 @@ defmodule PhoenixKit.Storage do
   Gets a file by its hash.
   """
   def get_file_by_hash(hash) do
-    repo().get_by(PhoenixKit.Storage.File, hash: hash)
+    repo().get_by(PhoenixKit.Storage.File, checksum: hash)
   end
 
   @doc """
@@ -477,6 +479,20 @@ defmodule PhoenixKit.Storage do
   """
   def get_file_instance_by_name(file_id, variant_name) do
     repo().get_by(FileInstance, file_id: file_id, variant_name: variant_name)
+  end
+
+  @doc """
+  Gets the bucket IDs where a file instance is stored.
+
+  Returns a list of bucket IDs from the file_locations for the given file instance.
+  """
+  def get_file_instance_bucket_ids(file_instance_id) do
+    import Ecto.Query
+
+    FileLocation
+    |> where([fl], fl.file_instance_id == ^file_instance_id and fl.status == "active")
+    |> select([fl], fl.bucket_id)
+    |> repo().all()
   end
 
   @doc """
@@ -804,11 +820,9 @@ defmodule PhoenixKit.Storage do
   end
 
   defp signed_file_url(file_id, variant_name) do
-    try do
-      URLSigner.signed_url(file_id, variant_name, locale: :none)
-    rescue
-      _ -> nil
-    end
+    URLSigner.signed_url(file_id, variant_name, locale: :none)
+  rescue
+    _ -> nil
   end
 
   @doc """
@@ -848,6 +862,82 @@ defmodule PhoenixKit.Storage do
         ext,
         original_filename \\ nil
       ) do
+    # Check if file already exists by hash
+    case get_file_by_hash(file_hash) do
+      %PhoenixKit.Storage.File{} = existing_file ->
+        Logger.info("=== DUPLICATE FILE DETECTED ===")
+        Logger.info("File ID: #{existing_file.id}, Checksum: #{file_hash}")
+        Logger.info("File path: #{existing_file.file_path}")
+
+        # File already exists, but check if instances and actual files are healthy
+        case get_file_instance_by_name(existing_file.id, "original") do
+          %FileInstance{file_name: stored_file_path} ->
+            Logger.info("Original instance record found: #{stored_file_path}")
+
+            # Instance record exists, verify actual file exists in storage
+            case verify_file_in_storage(stored_file_path) do
+              :exists ->
+                Logger.info("Duplicate file is healthy in storage. Queueing variant generation.")
+                # File is healthy in storage, ensure other variants are generated
+                _ = queue_variant_generation(existing_file, user_id, original_filename)
+                {:ok, existing_file, :duplicate}
+
+              :missing ->
+                # File record exists but actual file is missing from storage
+                # Need to re-store the file and recreate instances
+                Logger.warning(
+                  "Duplicate file detected but missing from storage: #{existing_file.id}"
+                )
+
+                restore_missing_file(
+                  existing_file,
+                  source_path,
+                  file_hash,
+                  user_id,
+                  original_filename
+                )
+            end
+
+          nil ->
+            # File record exists but instance record is missing
+            # Need to recreate instances from the stored file
+            Logger.warning(
+              "Duplicate file detected but missing instance record: #{existing_file.id}"
+            )
+
+            Logger.info("Attempting to recreate instances...")
+
+            recreate_file_instances(
+              existing_file,
+              source_path,
+              file_hash,
+              user_id,
+              original_filename
+            )
+        end
+
+      nil ->
+        Logger.info("New file detected (no existing hash match). Proceeding with storage.")
+        # File is new, proceed with storage
+        store_new_file_in_buckets(
+          source_path,
+          file_type,
+          user_id,
+          file_hash,
+          ext,
+          original_filename
+        )
+    end
+  end
+
+  defp store_new_file_in_buckets(
+         source_path,
+         file_type,
+         user_id,
+         file_hash,
+         ext,
+         original_filename
+       ) do
     # Calculate MD5 hash for path structure
     md5_hash =
       source_path
@@ -887,7 +977,7 @@ defmodule PhoenixKit.Storage do
         original_path = "#{file_path}/#{md5_hash}_original.#{ext}"
 
         case Manager.store_file(source_path, path_prefix: original_path) do
-          {:ok, _storage_info} ->
+          {:ok, storage_info} ->
             # Create file instance for original
             original_instance_attrs = %{
               variant_name: "original",
@@ -901,7 +991,16 @@ defmodule PhoenixKit.Storage do
             }
 
             case create_file_instance(original_instance_attrs) do
-              {:ok, _instance} ->
+              {:ok, instance} ->
+                # Create file location records for each bucket where the file was stored
+                _ = create_file_locations(instance.id, storage_info.bucket_ids, original_path)
+
+                # Queue background job for variant processing
+                _ =
+                  %{file_id: file.id, user_id: user_id, filename: orig_filename}
+                  |> ProcessFileJob.new()
+                  |> Oban.insert()
+
                 {:ok, file}
 
               {:error, changeset} ->
@@ -922,6 +1021,165 @@ defmodule PhoenixKit.Storage do
   end
 
   # ===== HELPER FUNCTIONS =====
+
+  defp queue_variant_generation(file, user_id, original_filename) do
+    # Queue variant generation to ensure all variants exist for this file
+    Task.start(fn ->
+      %{file_id: file.id, user_id: user_id, filename: original_filename}
+      |> ProcessFileJob.new()
+      |> Oban.insert()
+    end)
+  end
+
+  defp verify_file_in_storage(stored_file_path) do
+    # Check if file actually exists in storage buckets
+    Logger.info("Verifying file in storage: #{stored_file_path}")
+    exists = Manager.file_exists?(stored_file_path)
+    Logger.info("File exists? #{exists}")
+    if exists, do: :exists, else: :missing
+  end
+
+  defp restore_missing_file(existing_file, source_path, file_hash, user_id, original_filename) do
+    # File record exists but actual file is missing from storage
+    # Delete broken instances and recreate them (which will also store the file)
+
+    Logger.warning("=== RECOVERING MISSING FILE ===")
+    Logger.warning("File ID: #{existing_file.id}")
+    Logger.warning("File path: #{existing_file.file_path}")
+    Logger.warning("Source path: #{source_path}")
+
+    # First, delete all broken instances for this file
+    deleted_count = delete_file_instances_for_file(existing_file.id)
+    Logger.info("Deleted #{deleted_count} broken instances for file: #{existing_file.id}")
+
+    # Recreate instance and store the file (combined in one operation)
+    Logger.info("Recreating instances for file #{existing_file.id}")
+    recreate_file_instances(existing_file, source_path, file_hash, user_id, original_filename)
+  end
+
+  defp delete_file_instances_for_file(file_id) do
+    # Delete all file instances for a file (to clean up broken ones)
+    {deleted_count, _} =
+      from(fi in FileInstance, where: fi.file_id == ^file_id)
+      |> repo().delete_all()
+
+    Logger.info("Deleted #{deleted_count} file instances for file_id: #{file_id}")
+    deleted_count
+  end
+
+  defp recreate_file_instances(file, source_path, file_hash, user_id, original_filename) do
+    # File record exists but instances are missing or broken
+    # First store the file in buckets, then recreate the instance record
+
+    Logger.info(
+      "Starting recreate_file_instances for file: #{file.id}, file_path: #{file.file_path}"
+    )
+
+    {:ok, stat} = Elixir.File.stat(source_path)
+    file_size = stat.size
+
+    # Reconstruct the full storage path for the original instance
+    # file.file_path is "user_prefix/hash_prefix/md5_hash"
+    # We need to extract md5_hash and build the original path
+    [_user_prefix, _hash_prefix, md5_hash | _rest] = String.split(file.file_path, "/")
+    original_path = "#{file.file_path}/#{md5_hash}_original.#{file.ext}"
+
+    Logger.info("Reconstructed original path for instance: #{original_path}")
+
+    Logger.info(
+      "About to store file from source_path: #{source_path} to storage path: #{original_path}"
+    )
+
+    # First, store the file in buckets using Manager
+    case Manager.store_file(source_path, path_prefix: original_path) do
+      {:ok, storage_info} ->
+        Logger.info(
+          "File stored in buckets: #{original_path}, bucket_ids: #{inspect(storage_info.bucket_ids)}"
+        )
+
+        # Now create the file instance record pointing to the stored file
+        original_instance_attrs = %{
+          variant_name: "original",
+          file_name: original_path,
+          mime_type: file.mime_type,
+          ext: file.ext,
+          checksum: file_hash,
+          size: file_size,
+          processing_status: "completed",
+          file_id: file.id
+        }
+
+        case create_file_instance(original_instance_attrs) do
+          {:ok, _instance} ->
+            Logger.info(
+              "Recreated original instance for file: #{file.id}, path: #{original_path}"
+            )
+
+            # Delete any remaining broken variant instances BEFORE queuing ProcessFileJob
+            # This ensures ProcessFileJob creates fresh instances with correct paths
+            deleted_variants = delete_variant_instances(file.id)
+
+            Logger.info(
+              "Deleted #{deleted_variants} broken variant instances before regeneration"
+            )
+
+            # Queue variant generation for the recovered file
+            _ = queue_variant_generation(file, user_id, original_filename)
+            {:ok, file, :duplicate}
+
+          {:error, reason} ->
+            # Instance creation failed, might be duplicate constraint
+            # Try deleting old broken instances and recreating
+            Logger.warning(
+              "Instance creation failed for file #{file.id}: #{inspect(reason)}, attempting cleanup and retry"
+            )
+
+            _ = delete_file_instances_for_file(file.id)
+
+            case create_file_instance(original_instance_attrs) do
+              {:ok, _instance} ->
+                Logger.info(
+                  "Recreated original instance for file (after cleanup): #{file.id}, path: #{original_path}"
+                )
+
+                # Delete any remaining broken variant instances
+                deleted_variants = delete_variant_instances(file.id)
+
+                Logger.info(
+                  "Deleted #{deleted_variants} broken variant instances before regeneration"
+                )
+
+                _ = queue_variant_generation(file, user_id, original_filename)
+                {:ok, file, :duplicate}
+
+              {:error, final_reason} ->
+                Logger.error(
+                  "Failed to recreate instance for file #{file.id}: #{inspect(final_reason)}"
+                )
+
+                {:error, final_reason}
+            end
+        end
+
+      {:error, store_error} ->
+        Logger.error(
+          "Failed to store file in buckets for recreate_file_instances: #{inspect(store_error)}"
+        )
+
+        {:error, store_error}
+    end
+  end
+
+  defp delete_variant_instances(file_id) do
+    # Delete only the variant instances (not the original), to clean up broken ones
+    {deleted_count, _} =
+      from(fi in FileInstance,
+        where: fi.file_id == ^file_id and fi.variant_name != "original"
+      )
+      |> repo().delete_all()
+
+    deleted_count
+  end
 
   defp generate_uuidv7 do
     UUIDv7.generate()
@@ -1138,5 +1396,21 @@ defmodule PhoenixKit.Storage do
     temp_dir = System.tmp_dir!()
     random_name = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
     Path.join(temp_dir, "phoenix_kit_#{random_name}")
+  end
+
+  defp create_file_locations(file_instance_id, bucket_ids, file_path) do
+    Enum.each(bucket_ids, fn bucket_id ->
+      location_attrs = %{
+        path: file_path,
+        status: "active",
+        priority: 0,
+        file_instance_id: file_instance_id,
+        bucket_id: bucket_id
+      }
+
+      repo().insert(%FileLocation{} |> FileLocation.changeset(location_attrs))
+    end)
+
+    :ok
   end
 end

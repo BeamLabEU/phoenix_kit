@@ -7,8 +7,7 @@ defmodule PhoenixKitWeb.FileController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.Manager
-  alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Storage.{Manager, URLSigner, Workers.ProcessFileJob}
   alias PhoenixKit.Utils.Routes
 
   @doc """
@@ -154,9 +153,37 @@ defmodule PhoenixKitWeb.FileController do
 
   defp get_file_instance(file_id, variant) do
     case Storage.get_file_instance_by_name(file_id, variant) do
-      nil -> {:error, :not_found}
-      instance -> {:ok, instance}
+      nil ->
+        # Variant doesn't exist, try to get the original to queue generation
+        case Storage.get_file_instance_by_name(file_id, "original") do
+          nil ->
+            {:error, :not_found}
+
+          original_instance ->
+            # Queue the variant for generation if not already requested
+            queue_missing_variant(file_id, variant, original_instance)
+            # Return the original for now
+            {:ok, original_instance}
+        end
+
+      instance ->
+        {:ok, instance}
     end
+  end
+
+  defp queue_missing_variant(file_id, _variant, original_instance) do
+    # Queue background job to generate the missing variant
+    Task.start(fn ->
+      case Storage.get_file(file_id) do
+        nil ->
+          :error
+
+        file ->
+          %{file_id: file_id, user_id: file.user_id, filename: original_instance.file_name}
+          |> ProcessFileJob.new()
+          |> Oban.insert()
+      end
+    end)
   end
 
   defp verify_token(file_id, variant, token) do

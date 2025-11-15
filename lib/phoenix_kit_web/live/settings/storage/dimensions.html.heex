@@ -101,7 +101,14 @@
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Size</th>
+                    <th>
+                      <%= if Enum.any?(Enum.filter(@dimensions, & &1.applies_to in ["image", "both"]), & &1.maintain_aspect_ratio) do %>
+                        Target Width / Size
+                      <% else %>
+                        Size
+                      <% end %>
+                    </th>
+                    <th>Mode</th>
                     <th>Quality</th>
                     <th>Format</th>
                     <th>Status</th>
@@ -116,8 +123,19 @@
                       </td>
                       <td>
                         <span class="font-mono text-sm">
-                          {format_dimension_size(dimension.width, dimension.height)}
+                          <%= if dimension.maintain_aspect_ratio do %>
+                            {dimension.width}px
+                          <% else %>
+                            {format_dimension_size(dimension.width, dimension.height)}
+                          <% end %>
                         </span>
+                      </td>
+                      <td>
+                        <%= if dimension.maintain_aspect_ratio do %>
+                          <span class="badge badge-info badge-sm">Aspect Ratio</span>
+                        <% else %>
+                          <span class="badge badge-secondary badge-sm">Fixed</span>
+                        <% end %>
                       </td>
                       <td>
                         <span class="text-sm">{dimension.quality}%</span>
@@ -205,7 +223,14 @@
                 <thead>
                   <tr>
                     <th>Name</th>
-                    <th>Resolution</th>
+                    <th>
+                      <%= if Enum.any?(Enum.filter(@dimensions, & &1.applies_to in ["video", "both"]), & &1.maintain_aspect_ratio) do %>
+                        Target Width / Resolution
+                      <% else %>
+                        Resolution
+                      <% end %>
+                    </th>
+                    <th>Mode</th>
                     <th>Quality (CRF)</th>
                     <th>Codec</th>
                     <th>Status</th>
@@ -220,8 +245,19 @@
                       </td>
                       <td>
                         <span class="font-mono text-sm">
-                          {format_dimension_size(dimension.width, dimension.height)}
+                          <%= if dimension.maintain_aspect_ratio do %>
+                            {dimension.width}px
+                          <% else %>
+                            {format_dimension_size(dimension.width, dimension.height)}
+                          <% end %>
                         </span>
+                      </td>
+                      <td>
+                        <%= if dimension.maintain_aspect_ratio do %>
+                          <span class="badge badge-info badge-sm">Aspect Ratio</span>
+                        <% else %>
+                          <span class="badge badge-secondary badge-sm">Fixed</span>
+                        <% end %>
                       </td>
                       <td>
                         <span class="text-sm">{dimension.quality}</span>

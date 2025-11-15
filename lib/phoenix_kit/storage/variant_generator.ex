@@ -116,7 +116,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
            process_variant(original_path, variant_path, file.mime_type, dimension),
          {:ok, file_stats} <- get_variant_file_stats(variant_path),
          {:ok, _storage_info} <-
-           store_variant_file(variant_path, variant_name, variant_storage_path),
+           store_variant_file(variant_path, variant_name, variant_storage_path, file.id),
          {:ok, instance} <-
            create_variant_instance(
              file,
@@ -147,10 +147,37 @@ defmodule PhoenixKit.Storage.VariantGenerator do
     end
   end
 
-  defp store_variant_file(variant_path, variant_name, storage_path) do
+  defp store_variant_file(variant_path, variant_name, storage_path, file_id) do
     Logger.info("Storing variant #{variant_name} to storage buckets at path: #{storage_path}")
 
-    case Manager.store_file(variant_path, generate_variants: false, path_prefix: storage_path) do
+    # Get the bucket IDs from the original file instance if available
+    opts =
+      case file_id do
+        nil ->
+          [generate_variants: false, path_prefix: storage_path]
+
+        file_id ->
+          # Get the original instance's bucket IDs
+          case Storage.get_file_instance_by_name(file_id, "original") do
+            %Storage.FileInstance{id: original_instance_id} ->
+              bucket_ids = Storage.get_file_instance_bucket_ids(original_instance_id)
+
+              if Enum.empty?(bucket_ids) do
+                [generate_variants: false, path_prefix: storage_path]
+              else
+                [
+                  generate_variants: false,
+                  path_prefix: storage_path,
+                  force_bucket_ids: bucket_ids
+                ]
+              end
+
+            nil ->
+              [generate_variants: false, path_prefix: storage_path]
+          end
+      end
+
+    case Manager.store_file(variant_path, opts) do
       {:ok, _storage_info} = success ->
         Logger.info("Variant #{variant_name} stored successfully in buckets")
         success
@@ -161,20 +188,29 @@ defmodule PhoenixKit.Storage.VariantGenerator do
   end
 
   defp create_variant_instance(file, variant_name, storage_path, mime_type, ext, stats) do
-    instance_attrs = %{
-      variant_name: variant_name,
-      file_name: storage_path,
-      mime_type: mime_type,
-      ext: ext,
-      checksum: stats.checksum,
-      size: stats.size,
-      width: stats.width,
-      height: stats.height,
-      processing_status: "completed",
-      file_id: file.id
-    }
+    # Check if variant already exists
+    case Storage.get_file_instance_by_name(file.id, variant_name) do
+      %Storage.FileInstance{} = existing_instance ->
+        # Variant already exists, return it
+        {:ok, existing_instance}
 
-    Storage.create_file_instance(instance_attrs)
+      nil ->
+        # Create new variant instance
+        instance_attrs = %{
+          variant_name: variant_name,
+          file_name: storage_path,
+          mime_type: mime_type,
+          ext: ext,
+          checksum: stats.checksum,
+          size: stats.size,
+          width: stats.width,
+          height: stats.height,
+          processing_status: "completed",
+          file_id: file.id
+        }
+
+        Storage.create_file_instance(instance_attrs)
+    end
   end
 
   defp cleanup_temp_files(paths) do
@@ -275,30 +311,37 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
   defp process_image_variant(input_path, output_path, _mime_type, dimension) do
     Logger.info(
-      "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height}"
+      "process_image_variant: input=#{input_path} output=#{output_path} width=#{dimension.width} height=#{dimension.height} maintain_aspect=#{dimension.maintain_aspect_ratio}"
     )
 
     quality = dimension.quality || 85
     format = dimension.format
 
-    # Use center-crop for dimensions with both width and height (e.g., thumbnails)
-    # Use regular resize for dimensions with only one specified (maintains aspect ratio)
-    case {dimension.width, dimension.height} do
-      {w, h} when w != nil and h != nil ->
-        # Both dimensions specified - use center-crop with gravity
-        Logger.info("Using center-crop for #{dimension.name} (#{w}x#{h})")
+    # Decision based on maintain_aspect_ratio setting
+    case dimension.maintain_aspect_ratio do
+      true ->
+        # Maintain aspect ratio - use only width
+        Logger.info("Using responsive resize for #{dimension.name} (width: #{dimension.width}px)")
 
-        ImageProcessor.resize_and_crop_center(input_path, output_path, w, h,
+        ImageProcessor.resize(input_path, output_path, dimension.width, nil,
+          quality: quality,
+          format: format
+        )
+
+      false ->
+        # Fixed dimensions - use center-crop with gravity
+        Logger.info(
+          "Using center-crop for #{dimension.name} (#{dimension.width}x#{dimension.height})"
+        )
+
+        ImageProcessor.resize_and_crop_center(
+          input_path,
+          output_path,
+          dimension.width,
+          dimension.height,
           quality: quality,
           format: format,
           background: "white"
-        )
-
-      _ ->
-        # Only one dimension specified - use regular resize to maintain aspect ratio
-        ImageProcessor.resize(input_path, output_path, dimension.width, dimension.height,
-          quality: quality,
-          format: format
         )
     end
   end
