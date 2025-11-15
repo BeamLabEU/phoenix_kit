@@ -1,3 +1,24 @@
+## 1.6.4 - 2025-11-15
+
+### Fixed
+- **AWS Credentials Verification** - Fixed STS response parsing to support ExAws map format
+  - Added support for both XML string and parsed map responses from AWS STS
+  - Fixed `parse_sts_response/1` to handle ExAws automatic XML-to-map conversion
+  - Resolved `CaseClauseError` when verifying credentials with valid AWS keys
+  - Added comprehensive error handling for all AWS verification failure types
+
+### Changed
+- **AWS Region Selection UX** - Streamlined region input workflow from 7 steps to 4
+  - Replace dropdown-only region field with text input by default
+  - Add optional "Load regions" button to fetch and display region dropdown
+  - Enable manual region entry without waiting for region list loading
+  - Remove requirement for double-saving credentials and region
+  - Update setup instructions to reflect simplified workflow
+- **Code Quality** - Refactored AWS credentials verification handler
+  - Extract verification logic into separate helper functions
+  - Reduce cyclomatic complexity from 14 to acceptable level
+  - Improve code readability and maintainability
+
 ## 1.6.3 - 2025-11-12
 
 ### Added

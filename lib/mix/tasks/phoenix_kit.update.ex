@@ -7,6 +7,21 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     This task handles updating an existing PhoenixKit installation to the latest version
     by creating upgrade migrations that preserve existing data while adding new features.
 
+    ## Two-Pass Update Strategy
+
+    To prevent configuration timing issues, the update process uses a two-pass strategy:
+
+    1. **First Pass** (if configuration is missing): Adds required configuration (e.g.,
+       Ueberauth settings) via Igniter and prompts you to run the command again.
+
+    2. **Second Pass** (configuration present): Safely starts the application and
+       completes the update process.
+
+    This ensures that the application always starts with all required configuration
+    present, avoiding runtime errors from missing dependencies.
+
+    ## Automatic Updates
+
     The update process also automatically:
     - Updates CSS configuration (enables daisyUI themes if disabled)
     - Rebuilds assets using the Phoenix asset pipeline
@@ -148,22 +163,115 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           show_status(elem(opts, 0))
           :ok
         else
-          # CRITICAL: Check and add Hammer configuration BEFORE starting app
-          # Without this, app.start will fail if Hammer config is missing
-          ensure_hammer_config_before_start()
+          # CRITICAL: Check if required configuration exists BEFORE starting app
+          # This prevents configuration timing issues where config is added via Igniter
+          # but the app has already started with cached (missing) configuration
+          config_status = check_required_configuration()
 
-          # Ensure application is started for proper version detection
-          Mix.Task.run("app.start")
+          case config_status do
+            :missing ->
+              # First pass: Add configuration via Igniter without starting app
+              # Store config status in Process dictionary for igniter/1 to read
+              Process.put(:phoenix_kit_config_status, :missing)
+              show_missing_config_message(argv)
+              result = super(argv)
+              show_config_added_message(argv)
+              result
 
-          # Run standard igniter process
-          result = super(argv)
-
-          # After igniter is done, handle interactive migration and asset rebuild
-          post_igniter_tasks(elem(opts, 0))
-
-          result
+            :ok ->
+              # Second pass: Configuration exists, safe to start app and update
+              # Store config status in Process dictionary for igniter/1 to read
+              Process.put(:phoenix_kit_config_status, :ok)
+              Mix.Task.run("app.start")
+              result = super(argv)
+              post_igniter_tasks(elem(opts, 0))
+              result
+          end
         end
       end
+    end
+
+    # Display message about missing configuration
+    defp show_missing_config_message(argv) do
+      Mix.shell().info("""
+
+      ⚠️  Required configuration is missing from config/config.exs
+
+      PhoenixKit requires configuration for:
+      - Ueberauth (OAuth authentication)
+      - Hammer (rate limiting)
+
+      This configuration will be added now.
+
+      After this completes, please run the update command again:
+        mix phoenix_kit.update #{Enum.join(argv, " ")}
+      """)
+    end
+
+    # Display message after configuration is added
+    defp show_config_added_message(argv) do
+      Mix.shell().info("""
+
+      ✅ Configuration added successfully!
+
+      Next step: Run the update command again to complete the upgrade:
+        mix phoenix_kit.update #{Enum.join(argv, " ")}
+      """)
+    end
+
+    # Check if all required configuration exists
+    # Returns :ok if all config present, :missing if any config is missing
+    defp check_required_configuration do
+      config_file = "config/config.exs"
+
+      if File.exists?(config_file) do
+        content = File.read!(config_file)
+        lines = String.split(content, "\n")
+
+        cond do
+          # Missing Ueberauth configuration entirely
+          !String.contains?(content, "config :ueberauth") ->
+            :missing
+
+          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
+          String.contains?(content, "config :ueberauth, Ueberauth") &&
+              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
+            :missing
+
+          # Missing Hammer configuration (check for active, non-commented config)
+          !has_active_hammer_config?(lines) ->
+            :missing
+
+          # All required configuration present
+          true ->
+            :ok
+        end
+      else
+        # config.exs doesn't exist - let normal flow handle this error
+        :ok
+      end
+    rescue
+      # If we can't read config, proceed with normal flow
+      _ -> :ok
+    end
+
+    # Check if active (non-commented) Hammer configuration exists
+    defp has_active_hammer_config?(lines) do
+      has_hammer_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :hammer
+          !String.starts_with?(trimmed, "#") and String.starts_with?(trimmed, "config :hammer")
+        end)
+
+      has_expiry_ms =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains expiry_ms
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "expiry_ms")
+        end)
+
+      has_hammer_config and has_expiry_ms
     end
 
     # Perform the igniter-based update logic
@@ -177,29 +285,41 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Ensure Hammer rate limiter configuration exists
       igniter = validate_and_add_hammer_config(igniter)
 
-      case Common.check_installation_status(prefix) do
-        {:not_installed} ->
-          add_not_installed_notice(igniter)
+      # Check if this is the first pass (config missing) or second pass (config exists)
+      config_status = Process.get(:phoenix_kit_config_status, :ok)
 
-        {:current_version, current_version} ->
-          target_version = Common.current_version()
+      case config_status do
+        :missing ->
+          # First pass: Only add configuration, skip migration creation
+          # Migration will be created in second pass after app is started
+          igniter
 
-          cond do
-            current_version >= target_version && !force ->
-              add_already_up_to_date_notice(igniter, current_version)
+        :ok ->
+          # Second pass: Configuration exists, app is started, proceed with migration
+          case Common.check_installation_status(prefix) do
+            {:not_installed} ->
+              add_not_installed_notice(igniter)
 
-            current_version < target_version || force ->
-              create_update_migration_with_igniter(
-                igniter,
-                prefix,
-                current_version,
-                target_version,
-                force,
-                opts
-              )
+            {:current_version, current_version} ->
+              target_version = Common.current_version()
 
-            true ->
-              igniter
+              cond do
+                current_version >= target_version && !force ->
+                  add_already_up_to_date_notice(igniter, current_version)
+
+                current_version < target_version || force ->
+                  create_update_migration_with_igniter(
+                    igniter,
+                    prefix,
+                    current_version,
+                    target_version,
+                    force,
+                    opts
+                  )
+
+                true ->
+                  igniter
+              end
           end
       end
     end
@@ -489,6 +609,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         • Idempotent (safe to run multiple times)
         • Rollback-capable (can be reverted if needed)
 
+      TWO-PASS UPDATE STRATEGY
+        If required configuration is missing, the update process will:
+        1. First run: Add missing configuration (e.g., Ueberauth settings)
+        2. Prompt you to run the command again
+        3. Second run: Complete the update with all configuration present
+
+        This prevents configuration timing issues where the application
+        starts before new configuration is available.
+
       AFTER UPDATE
         1. If migrations weren't run automatically:
            mix ecto.migrate
@@ -730,99 +859,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
-    end
-
-    # Ensure Hammer configuration exists BEFORE app.start
-    # This is critical because app.start will fail without Hammer config
-    defp ensure_hammer_config_before_start do
-      config_path = "config/config.exs"
-
-      if File.exists?(config_path) do
-        content = File.read!(config_path)
-
-        # Check if Hammer config exists
-        unless String.contains?(content, "config :hammer") and
-                 String.contains?(content, "expiry_ms") do
-          # Add Hammer configuration
-          Mix.shell().info("⚠️  Adding missing Hammer configuration to config.exs...")
-          add_hammer_config_directly(config_path, content)
-          Mix.shell().info("✅ Hammer configuration added successfully")
-        end
-      end
-    rescue
-      e ->
-        Mix.shell().error("""
-        ⚠️  Failed to check/add Hammer configuration: #{inspect(e)}
-        Please add the configuration manually to config/config.exs:
-
-          config :hammer,
-            backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
-
-          config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-            login_limit: 5, login_window_ms: 60_000,
-            magic_link_limit: 3, magic_link_window_ms: 300_000,
-            password_reset_limit: 3, password_reset_window_ms: 300_000,
-            registration_limit: 3, registration_window_ms: 3_600_000,
-            registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
-        """)
-    end
-
-    # Add Hammer configuration directly to config file (without Igniter)
-    defp add_hammer_config_directly(config_path, content) do
-      hammer_config = """
-
-      # Configure rate limiting with Hammer
-      config :hammer,
-        backend:
-          {Hammer.Backend.ETS,
-           [
-             # Cleanup expired rate limit buckets every 60 seconds
-             expiry_ms: 60_000,
-             # Cleanup interval (1 minute)
-             cleanup_interval_ms: 60_000
-           ]}
-
-      # Configure rate limits for authentication endpoints
-      config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-        # Login: 5 attempts per minute per email
-        login_limit: 5,
-        login_window_ms: 60_000,
-        # Magic link: 3 requests per 5 minutes per email
-        magic_link_limit: 3,
-        magic_link_window_ms: 300_000,
-        # Password reset: 3 requests per 5 minutes per email
-        password_reset_limit: 3,
-        password_reset_window_ms: 300_000,
-        # Registration: 3 attempts per hour per email
-        registration_limit: 3,
-        registration_window_ms: 3_600_000,
-        # Registration IP: 10 attempts per hour per IP
-        registration_ip_limit: 10,
-        registration_ip_window_ms: 3_600_000
-      """
-
-      # Find insertion point before import_config
-      lines = String.split(content, "\n")
-
-      import_index =
-        Enum.find_index(lines, fn line ->
-          trimmed = String.trim(line)
-          String.starts_with?(trimmed, "import_config") or String.contains?(line, "import_config")
-        end)
-
-      updated_content =
-        case import_index do
-          nil ->
-            # No import_config, append to end
-            content <> hammer_config
-
-          index ->
-            # Insert before import_config
-            {before_lines, after_lines} = Enum.split(lines, index)
-            Enum.join(before_lines ++ [hammer_config] ++ after_lines, "\n")
-        end
-
-      File.write!(config_path, updated_content)
     end
   end
 

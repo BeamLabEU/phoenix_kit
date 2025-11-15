@@ -359,6 +359,25 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
       {:error, "Failed to create config: #{inspect(e)}"}
   end
 
+  # Handle already parsed map response from ExAws (modern behavior)
+  defp parse_sts_response(body) when is_map(body) do
+    # ExAws automatically parses the XML response into a map
+    # Structure: %{user_id: "...", account: "...", arn: "..."}
+    with {:user_id, user_id} when is_binary(user_id) <- {:user_id, Map.get(body, :user_id)},
+         {:account, account} when is_binary(account) <- {:account, Map.get(body, :account)},
+         {:arn, arn} when is_binary(arn) <- {:arn, Map.get(body, :arn)} do
+      {:ok, user_id, account, arn}
+    else
+      {:user_id, _} -> {:error, "Missing or invalid user_id in STS response"}
+      {:account, _} -> {:error, "Missing or invalid account in STS response"}
+      {:arn, _} -> {:error, "Missing or invalid arn in STS response"}
+    end
+  rescue
+    e ->
+      {:error, "Map parsing error: #{inspect(e)}"}
+  end
+
+  # Handle XML string response (legacy/fallback)
   defp parse_sts_response(body) when is_binary(body) do
     # Parse XML response from STS
     # Example structure:
