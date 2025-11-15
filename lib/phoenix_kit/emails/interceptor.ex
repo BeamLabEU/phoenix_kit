@@ -636,7 +636,7 @@ defmodule PhoenixKit.Emails.Interceptor do
     case PhoenixKit.Config.get(:mailer) do
       {:ok, mailer} when not is_nil(mailer) ->
         # Try to determine provider from mailer configuration
-        config = Application.get_env(:phoenix_kit, mailer, [])
+        config = PhoenixKit.Config.get_list(mailer, [])
         adapter = Keyword.get(config, :adapter)
 
         case adapter do

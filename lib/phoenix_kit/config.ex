@@ -2,7 +2,8 @@ defmodule PhoenixKit.Config do
   @moduledoc """
   Configuration management system for PhoenixKit.
 
-  This module provides a centralized way to manage PhoenixKit configuration.
+  This module provides a centralized way to manage PhoenixKit configuration
+  with type-safe getter functions for different data types.
 
   ## Usage
 
@@ -13,6 +14,11 @@ defmodule PhoenixKit.Config do
       repo = PhoenixKit.Config.get(:repo)
       mailer = PhoenixKit.Config.get(:mailer, PhoenixKit.Mailer)
 
+      # Type-safe getters
+      options = PhoenixKit.Config.get_list(:options, [])
+      enabled = PhoenixKit.Config.get_boolean(:enabled, false)
+      host = PhoenixKit.Config.get_string(:host, "localhost")
+
   ## Configuration Keys
 
   - `:repo` - Ecto repository module (required)
@@ -22,6 +28,15 @@ defmodule PhoenixKit.Config do
   - `:layout_module` - Custom layout configuration
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
+
+  ## Type-Safe Functions
+
+  - `get_list/2` - Gets configuration values with list type validation
+  - `get_boolean/2` - Gets configuration values with boolean type validation
+  - `get_string/2` - Gets configuration values with string type validation
+
+  These functions provide automatic type validation and fallback to defaults
+  when the configuration value is missing or has the wrong type.
   """
 
   @default_config [
@@ -38,7 +53,17 @@ defmodule PhoenixKit.Config do
     from_email: nil,
     from_name: "PhoenixKit",
     magic_link_for_login_expiry_minutes: 15,
-    magic_link_for_registration_expiry_minutes: 30
+    magic_link_for_registration_expiry_minutes: 30,
+    # Security and authentication settings
+    password_requirements: [],
+    session_fingerprint_enabled: true,
+    session_fingerprint_strict: false,
+    secret_key_base: nil,
+    oauth_base_url: nil,
+    # Module-specific settings
+    blogging_settings_module: PhoenixKit.Settings,
+    # OAuth and third-party settings
+    ueberauth: []
   ]
 
   @doc """
@@ -78,6 +103,72 @@ defmodule PhoenixKit.Config do
   def get(key, default) when is_atom(key) do
     case get(key) do
       {:ok, value} -> value
+      :not_found -> default
+    end
+  end
+
+  @doc """
+  Gets a configuration value as a list with type validation.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.get_list(:options, [])
+      []
+
+      iex> PhoenixKit.Config.get_list(:nonexistent, [:default])
+      [:default]
+
+  """
+  @spec get_list(atom(), list()) :: list()
+  def get_list(key, default \\ [])
+      when is_atom(key) and is_list(default) do
+    case get(key) do
+      {:ok, value} when is_list(value) -> value
+      {:ok, _} -> default
+      :not_found -> default
+    end
+  end
+
+  @doc """
+  Gets a configuration value as a boolean with type validation.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.get_boolean(:enabled, false)
+      true
+
+      iex> PhoenixKit.Config.get_boolean(:nonexistent, true)
+      true
+
+  """
+  @spec get_boolean(atom(), boolean()) :: boolean()
+  def get_boolean(key, default \\ false)
+      when is_atom(key) and is_boolean(default) do
+    case get(key) do
+      {:ok, value} when is_boolean(value) -> value
+      {:ok, _} -> default
+      :not_found -> default
+    end
+  end
+
+  @doc """
+  Gets a configuration value as a string with type validation.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.get_string(:host, "localhost")
+      "example.com"
+
+      iex> PhoenixKit.Config.get_string(:nonexistent, "default")
+      "default"
+
+  """
+  @spec get_string(atom(), String.t()) :: String.t()
+  def get_string(key, default \\ "")
+      when is_atom(key) and is_binary(default) do
+    case get(key) do
+      {:ok, value} when is_binary(value) -> value
+      {:ok, _} -> default
       :not_found -> default
     end
   end
@@ -130,17 +221,8 @@ defmodule PhoenixKit.Config do
   """
   @spec get_base_url() :: String.t()
   def get_base_url do
-    host =
-      case get(:host) do
-        {:ok, host} -> host
-        _ -> "localhost"
-      end
-
-    scheme =
-      case get(:scheme) do
-        {:ok, scheme} -> scheme
-        _ -> "http"
-      end
+    host = get_string(:host, "localhost")
+    scheme = get_string(:scheme, "http")
 
     port =
       case get(:port) do
@@ -231,10 +313,49 @@ defmodule PhoenixKit.Config do
   """
   @spec get_url_prefix() :: String.t()
   def get_url_prefix do
-    case get(:url_prefix, "/phoenix_kit") do
-      nil -> "/"
+    case get_string(:url_prefix, "/phoenix_kit") do
       "" -> "/"
       value -> value
+    end
+  end
+
+  @doc """
+  Gets the configured repository module.
+  """
+  @spec get_repo() :: module() | nil
+  def get_repo do
+    case get(:repo) do
+      {:ok, repo} when is_atom(repo) -> repo
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Gets the configured repository module, raising an error if not found.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.get_repo!()
+      MyApp.Repo
+
+      iex> PhoenixKit.Config.get_repo!()
+      ** (ArgumentError) PhoenixKit repository not configured. Please set config :phoenix_kit, repo: YourApp.Repo
+
+  """
+  @spec get_repo!() :: module()
+  def get_repo! do
+    case get(:repo) do
+      {:ok, repo} when is_atom(repo) ->
+        repo
+
+      _ ->
+        raise ArgumentError, """
+        PhoenixKit repository not configured. Please set:
+
+            config :phoenix_kit, repo: YourApp.Repo
+
+        in your application configuration.
+        """
     end
   end
 

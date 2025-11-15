@@ -370,8 +370,8 @@ defmodule PhoenixKit.Users.RateLimiter do
     |> String.downcase()
   end
 
-  defp get_config do
-    Application.get_env(:phoenix_kit, __MODULE__, [])
+  def get_config do
+    PhoenixKit.Config.get(__MODULE__, [])
     |> Keyword.merge(@default_config, fn _k, v1, _v2 -> v1 end)
   end
 

@@ -1237,8 +1237,7 @@ defmodule PhoenixKit.Storage do
   # ===== REPO HELPERS =====
 
   defp repo do
-    # Get the repository from application config or use a default
-    Application.get_env(:phoenix_kit, :repo) || PhoenixKit.Repo
+    PhoenixKit.Config.get_repo()
   end
 
   # Query builders for file listing
