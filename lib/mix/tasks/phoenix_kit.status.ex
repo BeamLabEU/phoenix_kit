@@ -416,12 +416,18 @@ defmodule Mix.Tasks.PhoenixKit.Status do
     IO.puts("\n#{IO.ANSI.bright()}Configuration:#{IO.ANSI.reset()}")
 
     # Check layout configuration
-    layout_config = Application.get_env(:phoenix_kit, :layout)
-    IO.puts("  Layout integration: #{if layout_config, do: "Configured", else: "Using defaults"}")
+    layout_config = PhoenixKit.Config.get(:layout)
+
+    IO.puts(
+      "  Layout integration: #{if layout_config != :not_found, do: "Configured", else: "Using defaults"}"
+    )
 
     # Check mailer configuration
-    mailer_config = Application.get_env(:phoenix_kit, PhoenixKit.Mailer)
-    IO.puts("  Mailer: #{if mailer_config, do: "Configured", else: "Not configured"}")
+    mailer_config = PhoenixKit.Config.get(PhoenixKit.Mailer)
+
+    IO.puts(
+      "  Mailer: #{if mailer_config != :not_found, do: "Configured", else: "Not configured"}"
+    )
   end
 
   # Hybrid repo detection with fallback strategies

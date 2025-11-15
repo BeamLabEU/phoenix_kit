@@ -152,7 +152,7 @@ defmodule PhoenixKit.Users.Auth.User do
   # - require_digit: false
   # - require_special: false
   defp apply_password_requirements(changeset) do
-    requirements = Application.get_env(:phoenix_kit, :password_requirements, [])
+    requirements = PhoenixKit.Config.get_list(:password_requirements, [])
 
     changeset
     |> validate_length(:password,

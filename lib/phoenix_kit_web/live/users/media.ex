@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   require Logger
 
+  import Ecto.Query
+
   alias PhoenixKit.Settings
   alias PhoenixKit.Storage.FileInstance
   alias PhoenixKit.Storage.URLSigner
@@ -183,9 +185,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   # Load existing files from database with pagination
   defp load_existing_files(page, per_page) do
-    import Ecto.Query
-
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = PhoenixKit.Config.get_repo()
 
     # Get total count
     total_count = repo.aggregate(PhoenixKit.Storage.File, :count, :id)
