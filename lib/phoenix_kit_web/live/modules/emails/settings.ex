@@ -104,6 +104,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
       |> assign(:credential_verification_status, :pending)
       |> assign(:credential_verification_message, "")
       |> assign(:available_regions, [])
+      |> assign(:regions_loaded, false)
       |> assign(:selected_region, "")
       |> assign(:aws_permissions, %{})
 
@@ -694,6 +695,33 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
                 |> assign(:credential_verification_status, :error)
                 |> assign(:credential_verification_message, "❌ Authentication failed: #{message}")
 
+              {:error, :configuration_error, message} ->
+                socket
+                |> assign(:verifying_credentials, false)
+                |> assign(:credential_verification_status, :error)
+                |> assign(:credential_verification_message, "❌ Configuration error: #{message}")
+
+              {:error, :rate_limited, message} ->
+                socket
+                |> assign(:verifying_credentials, false)
+                |> assign(:credential_verification_status, :error)
+                |> assign(:credential_verification_message, "❌ Rate limited: #{message}")
+
+              {:error, :network_error, message} ->
+                socket
+                |> assign(:verifying_credentials, false)
+                |> assign(:credential_verification_status, :error)
+                |> assign(:credential_verification_message, "❌ Network error: #{message}")
+
+              {:error, :response_error, message} ->
+                socket
+                |> assign(:verifying_credentials, false)
+                |> assign(:credential_verification_status, :error)
+                |> assign(
+                  :credential_verification_message,
+                  "❌ Response parsing error: #{message}"
+                )
+
               {:error, reason} ->
                 socket
                 |> assign(:verifying_credentials, false)
@@ -745,6 +773,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
         socket =
           socket
           |> assign(:available_regions, regions)
+          |> assign(:regions_loaded, true)
           |> assign(:selected_region, aws_settings.region)
 
         {:noreply, socket}
@@ -752,6 +781,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
       {:ok, {:error, reason}} ->
         socket =
           socket
+          |> assign(:regions_loaded, false)
           |> put_flash(:error, "Failed to load regions: #{reason}")
 
         {:noreply, socket}
@@ -759,6 +789,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
       nil ->
         socket =
           socket
+          |> assign(:regions_loaded, false)
           |> put_flash(:error, "Region loading timed out.")
 
         {:noreply, socket}
@@ -981,7 +1012,9 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
 
     case Task.yield(task, 10_000) || Task.shutdown(task) do
       {:ok, {:ok, regions}} ->
-        assign(socket, :available_regions, regions)
+        socket
+        |> assign(:available_regions, regions)
+        |> assign(:regions_loaded, true)
 
       _ ->
         # Silently fail - user can manually refresh regions

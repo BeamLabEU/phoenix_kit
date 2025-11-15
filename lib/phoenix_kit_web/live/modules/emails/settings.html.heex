@@ -439,14 +439,13 @@
                       Enter Access Key ID (20 characters, e.g., <code>AKIAIOSFODNN7EXAMPLE</code>)
                     </li>
                     <li>Enter Secret Access Key</li>
-                    <li>Click <strong>"Save AWS Settings"</strong> to save your credentials</li>
+                    <li>Enter AWS Region manually (e.g., eu-north-1)</li>
                     <li>Click <strong>"Verify Credentials"</strong> to test connectivity</li>
                     <li>
-                      Click <strong>"Refresh regions"</strong>
-                      button to load available regions
+                      <em>Optional:</em>
+                      Click <strong>"Load regions"</strong>
+                      to see all available regions
                     </li>
-                    <li>Select your AWS region from the dropdown (or use default eu-north-1)</li>
-                    <li>Click <strong>"Save AWS Settings"</strong> again to save the region</li>
                   </ol>
                 </div>
 
@@ -464,7 +463,10 @@
                     <li>
                       All created resources will be automatically filled in the form below
                     </li>
-                    <li>Click <strong>"Save AWS Settings"</strong> one more time to persist everything</li>
+                    <li>
+                      Click <strong>"Save AWS Settings"</strong>
+                      one more time to persist everything
+                    </li>
                   </ol>
                 </div>
 
@@ -588,6 +590,7 @@
                       name="aws_settings[region]"
                       value={@aws_settings.region}
                       regions={@available_regions}
+                      regions_loaded={@regions_loaded}
                       selected_region={@selected_region}
                       verifying={@verifying_credentials}
                       verified={@credential_verification_status}
@@ -595,7 +598,7 @@
                       class="flex-1"
                     />
 
-                    <%!-- Button to refresh regions --%>
+                    <%!-- Button to load/refresh regions --%>
                     <button
                       type="button"
                       phx-click="fetch_available_regions"
@@ -604,7 +607,11 @@
                           String.trim(@aws_settings.secret_access_key) == ""
                       }
                       class="btn btn-outline btn-sm h-fit"
-                      title="Refresh available regions"
+                      title={
+                        if @regions_loaded,
+                          do: "Refresh regions list",
+                          else: "Load available regions"
+                      }
                     >
                       <%= if @verifying_credentials do %>
                         <span class="loading loading-spinner loading-xs"></span>
@@ -614,20 +621,7 @@
                     </button>
                   </div>
 
-                  <%!-- Helper text for regions --%>
-                  <label class="label">
-                    <span class="label-text-alt text-sm text-base-content/70">
-                      <%= if Enum.empty?(@available_regions) do %>
-                        <%= if String.trim(@aws_settings.access_key_id) == "" or String.trim(@aws_settings.secret_access_key) == "" do %>
-                          💡 Save your credentials first, then click "Refresh regions" to load available AWS regions.
-                        <% else %>
-                          Click "Refresh regions" to load available AWS regions (or use default eu-north-1).
-                        <% end %>
-                      <% else %>
-                        ✅ Available AWS regions loaded. {length(@available_regions)} regions found.
-                      <% end %>
-                    </span>
-                  </label>
+                  <%!-- Helper text is now in the component itself --%>
                 </div>
               </div>
 
