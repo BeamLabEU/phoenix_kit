@@ -638,110 +638,26 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
     aws_settings = socket.assigns.aws_settings
 
     # Check if we have the required credentials
-    if String.trim(aws_settings.access_key_id) == "" or
-         String.trim(aws_settings.secret_access_key) == "" do
-      socket =
-        socket
-        |> assign(:credential_verification_status, :error)
-        |> assign(
-          :credential_verification_message,
-          "Please enter Access Key ID and Secret Access Key before verification."
-        )
-        |> assign(:verifying_credentials, false)
-
-      {:noreply, socket}
+    if credentials_missing?(aws_settings) do
+      {:noreply,
+       assign_verification_error(
+         socket,
+         "Please enter Access Key ID and Secret Access Key before verification."
+       )}
     else
       # Start verification
       socket = assign(socket, :verifying_credentials, true)
 
       # Run verification in a task to avoid blocking the LiveView
-      task =
-        Task.async(fn ->
-          # Verify credentials only (STS GetCallerIdentity)
-          # Actual permissions will be verified during "Setup AWS Infrastructure"
-          CredentialsVerifier.verify_credentials(
-            aws_settings.access_key_id,
-            aws_settings.secret_access_key,
-            aws_settings.region
-          )
-        end)
+      task = Task.async(fn -> verify_aws_credentials(aws_settings) end)
 
       case Task.yield(task, 15_000) || Task.shutdown(task) do
         {:ok, result} ->
-          updated_socket =
-            case result do
-              {:ok, credential_info} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :success)
-                |> assign(
-                  :credential_verification_message,
-                  "✅ Credentials verified! Account: #{credential_info.account_id}. Ready for Setup AWS Infrastructure."
-                )
-                |> assign(:aws_permissions, %{})
-
-              # Note: Don't reload regions here - user's selected region should be preserved
-              # If user wants to see available regions, they can manually trigger refresh
-
-              {:error, :invalid_credentials, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Invalid credentials: #{message}")
-
-              {:error, :authentication_failed, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Authentication failed: #{message}")
-
-              {:error, :configuration_error, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Configuration error: #{message}")
-
-              {:error, :rate_limited, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Rate limited: #{message}")
-
-              {:error, :network_error, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Network error: #{message}")
-
-              {:error, :response_error, message} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(
-                  :credential_verification_message,
-                  "❌ Response parsing error: #{message}"
-                )
-
-              {:error, reason} ->
-                socket
-                |> assign(:verifying_credentials, false)
-                |> assign(:credential_verification_status, :error)
-                |> assign(:credential_verification_message, "❌ Verification failed: #{reason}")
-            end
-
-          {:noreply, updated_socket}
+          {:noreply, handle_verification_result(socket, result)}
 
         nil ->
-          socket =
-            socket
-            |> assign(:verifying_credentials, false)
-            |> assign(:credential_verification_status, :error)
-            |> assign(
-              :credential_verification_message,
-              "❌ Verification timed out. Please try again."
-            )
-
-          {:noreply, socket}
+          {:noreply,
+           assign_verification_error(socket, "❌ Verification timed out. Please try again.")}
       end
     end
   end
@@ -984,6 +900,69 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
 
       {:noreply, socket}
     end
+  end
+
+  # Private helpers for AWS credentials verification
+
+  defp credentials_missing?(aws_settings) do
+    String.trim(aws_settings.access_key_id) == "" or
+      String.trim(aws_settings.secret_access_key) == ""
+  end
+
+  defp verify_aws_credentials(aws_settings) do
+    # Verify credentials only (STS GetCallerIdentity)
+    # Actual permissions will be verified during "Setup AWS Infrastructure"
+    CredentialsVerifier.verify_credentials(
+      aws_settings.access_key_id,
+      aws_settings.secret_access_key,
+      aws_settings.region
+    )
+  end
+
+  defp assign_verification_error(socket, message) do
+    socket
+    |> assign(:verifying_credentials, false)
+    |> assign(:credential_verification_status, :error)
+    |> assign(:credential_verification_message, message)
+  end
+
+  defp handle_verification_result(socket, {:ok, credential_info}) do
+    socket
+    |> assign(:verifying_credentials, false)
+    |> assign(:credential_verification_status, :success)
+    |> assign(
+      :credential_verification_message,
+      "✅ Credentials verified! Account: #{credential_info.account_id}. Ready for Setup AWS Infrastructure."
+    )
+    |> assign(:aws_permissions, %{})
+  end
+
+  defp handle_verification_result(socket, {:error, :invalid_credentials, message}) do
+    assign_verification_error(socket, "❌ Invalid credentials: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, :authentication_failed, message}) do
+    assign_verification_error(socket, "❌ Authentication failed: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, :configuration_error, message}) do
+    assign_verification_error(socket, "❌ Configuration error: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, :rate_limited, message}) do
+    assign_verification_error(socket, "❌ Rate limited: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, :network_error, message}) do
+    assign_verification_error(socket, "❌ Network error: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, :response_error, message}) do
+    assign_verification_error(socket, "❌ Response parsing error: #{message}")
+  end
+
+  defp handle_verification_result(socket, {:error, reason}) do
+    assign_verification_error(socket, "❌ Verification failed: #{reason}")
   end
 
   # Auto-load AWS regions when SES events are enabled
