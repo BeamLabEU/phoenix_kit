@@ -171,18 +171,24 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           case config_status do
             :missing ->
               # First pass: Add configuration via Igniter without starting app
-              handle_missing_configuration_pass(argv)
+              show_missing_config_message(argv)
+              result = super(argv)
+              show_config_added_message(argv)
+              result
 
             :ok ->
               # Second pass: Configuration exists, safe to start app and update
-              handle_normal_update_pass(argv, opts)
+              Mix.Task.run("app.start")
+              result = super(argv)
+              post_igniter_tasks(elem(opts, 0))
+              result
           end
         end
       end
     end
 
-    # Handle first pass: add missing configuration
-    defp handle_missing_configuration_pass(argv) do
+    # Display message about missing configuration
+    defp show_missing_config_message(argv) do
       Mix.shell().info("""
 
       ⚠️  Required configuration is missing from config/config.exs
@@ -193,10 +199,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       After this completes, please run the update command again:
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
+    end
 
-      # Run Igniter to add configuration (don't start app)
-      result = super(argv)
-
+    # Display message after configuration is added
+    defp show_config_added_message(argv) do
       Mix.shell().info("""
 
       ✅ Configuration added successfully!
@@ -204,22 +210,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Next step: Run the update command again to complete the upgrade:
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
-
-      result
-    end
-
-    # Handle second pass: normal update with all configuration present
-    defp handle_normal_update_pass(argv, opts) do
-      # Ensure application is started for proper version detection
-      Mix.Task.run("app.start")
-
-      # Run standard igniter process
-      result = super(argv)
-
-      # After igniter is done, handle interactive migration and asset rebuild
-      post_igniter_tasks(elem(opts, 0))
-
-      result
     end
 
     # Check if all required configuration exists
