@@ -43,7 +43,24 @@ defmodule PhoenixKit.Install.RateLimiterConfig do
 
     if File.exists?(config_path) do
       content = File.read!(config_path)
-      String.contains?(content, "config :hammer") and String.contains?(content, "expiry_ms")
+      lines = String.split(content, "\n")
+
+      # Check for active (non-commented) Hammer configuration
+      has_hammer_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :hammer
+          !String.starts_with?(trimmed, "#") and String.starts_with?(trimmed, "config :hammer")
+        end)
+
+      has_expiry_ms =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains expiry_ms
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "expiry_ms")
+        end)
+
+      has_hammer_config and has_expiry_ms
     else
       false
     end

@@ -90,6 +90,7 @@ defmodule PhoenixKit.MixProject do
       {:gen_smtp, "~> 1.2"},
 
       # OAuth authentication
+      {:oauth2, "~> 2.0"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
       {:ueberauth_apple, "~> 0.1"},

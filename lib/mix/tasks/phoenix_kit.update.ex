@@ -171,6 +171,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           case config_status do
             :missing ->
               # First pass: Add configuration via Igniter without starting app
+              # Store config status in Process dictionary for igniter/1 to read
+              Process.put(:phoenix_kit_config_status, :missing)
               show_missing_config_message(argv)
               result = super(argv)
               show_config_added_message(argv)
@@ -178,6 +180,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
             :ok ->
               # Second pass: Configuration exists, safe to start app and update
+              # Store config status in Process dictionary for igniter/1 to read
+              Process.put(:phoenix_kit_config_status, :ok)
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
@@ -222,6 +226,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       if File.exists?(config_file) do
         content = File.read!(config_file)
+        lines = String.split(content, "\n")
 
         cond do
           # Missing Ueberauth configuration entirely
@@ -233,9 +238,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
             :missing
 
-          # Missing Hammer configuration (required for rate limiting)
-          !String.contains?(content, "config :hammer") or
-              !String.contains?(content, "expiry_ms") ->
+          # Missing Hammer configuration (check for active, non-commented config)
+          !has_active_hammer_config?(lines) ->
             :missing
 
           # All required configuration present
@@ -251,6 +255,25 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       _ -> :ok
     end
 
+    # Check if active (non-commented) Hammer configuration exists
+    defp has_active_hammer_config?(lines) do
+      has_hammer_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :hammer
+          !String.starts_with?(trimmed, "#") and String.starts_with?(trimmed, "config :hammer")
+        end)
+
+      has_expiry_ms =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains expiry_ms
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "expiry_ms")
+        end)
+
+      has_hammer_config and has_expiry_ms
+    end
+
     # Perform the igniter-based update logic
     defp perform_igniter_update(igniter, opts) do
       prefix = opts[:prefix] || "public"
@@ -262,29 +285,41 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Ensure Hammer rate limiter configuration exists
       igniter = validate_and_add_hammer_config(igniter)
 
-      case Common.check_installation_status(prefix) do
-        {:not_installed} ->
-          add_not_installed_notice(igniter)
+      # Check if this is the first pass (config missing) or second pass (config exists)
+      config_status = Process.get(:phoenix_kit_config_status, :ok)
 
-        {:current_version, current_version} ->
-          target_version = Common.current_version()
+      case config_status do
+        :missing ->
+          # First pass: Only add configuration, skip migration creation
+          # Migration will be created in second pass after app is started
+          igniter
 
-          cond do
-            current_version >= target_version && !force ->
-              add_already_up_to_date_notice(igniter, current_version)
+        :ok ->
+          # Second pass: Configuration exists, app is started, proceed with migration
+          case Common.check_installation_status(prefix) do
+            {:not_installed} ->
+              add_not_installed_notice(igniter)
 
-            current_version < target_version || force ->
-              create_update_migration_with_igniter(
-                igniter,
-                prefix,
-                current_version,
-                target_version,
-                force,
-                opts
-              )
+            {:current_version, current_version} ->
+              target_version = Common.current_version()
 
-            true ->
-              igniter
+              cond do
+                current_version >= target_version && !force ->
+                  add_already_up_to_date_notice(igniter, current_version)
+
+                current_version < target_version || force ->
+                  create_update_migration_with_igniter(
+                    igniter,
+                    prefix,
+                    current_version,
+                    target_version,
+                    force,
+                    opts
+                  )
+
+                true ->
+                  igniter
+              end
           end
       end
     end

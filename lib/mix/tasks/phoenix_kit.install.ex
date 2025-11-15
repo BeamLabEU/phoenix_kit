@@ -129,18 +129,34 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             ]
           )
 
-        # Run standard igniter process
-        result = super(argv)
+        # CRITICAL: Check if required configuration exists BEFORE starting app
+        # This prevents configuration timing issues where config is added via Igniter
+        # but the app has already started with cached (missing) configuration
+        config_status = check_required_configuration()
 
-        # After igniter is done, handle interactive migration
-        MigrationStrategy.handle_interactive_migration_after_config(elem(opts, 1))
+        case config_status do
+          :missing ->
+            # First pass: Add configuration via Igniter without starting app
+            show_missing_config_message(argv)
+            result = super(argv)
+            show_config_added_message(argv)
+            result
 
-        # Always rebuild assets unless explicitly skipped
-        unless Keyword.get(elem(opts, 1), :skip_assets, false) do
-          AssetRebuild.check_and_rebuild(verbose: true)
+          :ok ->
+            # Second pass: Configuration exists, safe to start app and complete installation
+            # Run standard igniter process
+            result = super(argv)
+
+            # After igniter is done, handle interactive migration
+            MigrationStrategy.handle_interactive_migration_after_config(elem(opts, 1))
+
+            # Always rebuild assets unless explicitly skipped
+            unless Keyword.get(elem(opts, 1), :skip_assets, false) do
+              AssetRebuild.check_and_rebuild(verbose: true)
+            end
+
+            result
         end
-
-        result
       end
     end
 
@@ -247,6 +263,89 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         For more information, visit:
         https://hexdocs.pm/phoenix_kit
       """)
+    end
+
+    # Display message about missing configuration
+    defp show_missing_config_message(argv) do
+      Mix.shell().info("""
+
+      ⚠️  Required configuration is missing from config/config.exs
+
+      PhoenixKit requires configuration for:
+      - Ueberauth (OAuth authentication)
+      - Hammer (rate limiting)
+
+      This configuration will be added now.
+
+      After this completes, please run the install command again:
+        mix phoenix_kit.install #{Enum.join(argv, " ")}
+      """)
+    end
+
+    # Display message after configuration is added
+    defp show_config_added_message(argv) do
+      Mix.shell().info("""
+
+      ✅ Configuration added successfully!
+
+      Next step: Run the install command again to complete the installation:
+        mix phoenix_kit.install #{Enum.join(argv, " ")}
+      """)
+    end
+
+    # Check if all required configuration exists
+    # Returns :ok if all config present, :missing if any config is missing
+    defp check_required_configuration do
+      config_file = "config/config.exs"
+
+      if File.exists?(config_file) do
+        content = File.read!(config_file)
+        lines = String.split(content, "\n")
+
+        cond do
+          # Missing Ueberauth configuration entirely
+          !String.contains?(content, "config :ueberauth") ->
+            :missing
+
+          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
+          String.contains?(content, "config :ueberauth, Ueberauth") &&
+              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
+            :missing
+
+          # Missing Hammer configuration (check for active, non-commented config)
+          !has_active_hammer_config?(lines) ->
+            :missing
+
+          # All required configuration present
+          true ->
+            :ok
+        end
+      else
+        # config.exs doesn't exist - let normal flow handle this error
+        :ok
+      end
+    rescue
+      # If we can't read config, proceed with normal flow
+      _ -> :ok
+    end
+
+    # Check if active (non-commented) Hammer configuration exists
+    defp has_active_hammer_config?(lines) do
+      has_hammer_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :hammer
+          !String.starts_with?(trimmed, "#") and String.starts_with?(trimmed, "config :hammer")
+        end)
+
+      has_expiry_ms =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains expiry_ms
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "expiry_ms")
+        end)
+
+      has_hammer_config and has_expiry_ms
     end
 
     # Add completion notice with essential next steps (reduced duplication)
