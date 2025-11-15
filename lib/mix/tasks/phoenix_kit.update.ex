@@ -193,7 +193,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       ⚠️  Required configuration is missing from config/config.exs
 
-      PhoenixKit requires Ueberauth configuration for OAuth authentication.
+      PhoenixKit requires configuration for:
+      - Ueberauth (OAuth authentication)
+      - Hammer (rate limiting)
+
       This configuration will be added now.
 
       After this completes, please run the update command again:
@@ -228,6 +231,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
           String.contains?(content, "config :ueberauth, Ueberauth") &&
               Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
+            :missing
+
+          # Missing Hammer configuration (required for rate limiting)
+          !String.contains?(content, "config :hammer") or
+              !String.contains?(content, "expiry_ms") ->
             :missing
 
           # All required configuration present
@@ -816,99 +824,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
-    end
-
-    # Ensure Hammer configuration exists BEFORE app.start
-    # This is critical because app.start will fail without Hammer config
-    defp ensure_hammer_config_before_start do
-      config_path = "config/config.exs"
-
-      if File.exists?(config_path) do
-        content = File.read!(config_path)
-
-        # Check if Hammer config exists
-        unless String.contains?(content, "config :hammer") and
-                 String.contains?(content, "expiry_ms") do
-          # Add Hammer configuration
-          Mix.shell().info("⚠️  Adding missing Hammer configuration to config.exs...")
-          add_hammer_config_directly(config_path, content)
-          Mix.shell().info("✅ Hammer configuration added successfully")
-        end
-      end
-    rescue
-      e ->
-        Mix.shell().error("""
-        ⚠️  Failed to check/add Hammer configuration: #{inspect(e)}
-        Please add the configuration manually to config/config.exs:
-
-          config :hammer,
-            backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
-
-          config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-            login_limit: 5, login_window_ms: 60_000,
-            magic_link_limit: 3, magic_link_window_ms: 300_000,
-            password_reset_limit: 3, password_reset_window_ms: 300_000,
-            registration_limit: 3, registration_window_ms: 3_600_000,
-            registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
-        """)
-    end
-
-    # Add Hammer configuration directly to config file (without Igniter)
-    defp add_hammer_config_directly(config_path, content) do
-      hammer_config = """
-
-      # Configure rate limiting with Hammer
-      config :hammer,
-        backend:
-          {Hammer.Backend.ETS,
-           [
-             # Cleanup expired rate limit buckets every 60 seconds
-             expiry_ms: 60_000,
-             # Cleanup interval (1 minute)
-             cleanup_interval_ms: 60_000
-           ]}
-
-      # Configure rate limits for authentication endpoints
-      config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-        # Login: 5 attempts per minute per email
-        login_limit: 5,
-        login_window_ms: 60_000,
-        # Magic link: 3 requests per 5 minutes per email
-        magic_link_limit: 3,
-        magic_link_window_ms: 300_000,
-        # Password reset: 3 requests per 5 minutes per email
-        password_reset_limit: 3,
-        password_reset_window_ms: 300_000,
-        # Registration: 3 attempts per hour per email
-        registration_limit: 3,
-        registration_window_ms: 3_600_000,
-        # Registration IP: 10 attempts per hour per IP
-        registration_ip_limit: 10,
-        registration_ip_window_ms: 3_600_000
-      """
-
-      # Find insertion point before import_config
-      lines = String.split(content, "\n")
-
-      import_index =
-        Enum.find_index(lines, fn line ->
-          trimmed = String.trim(line)
-          String.starts_with?(trimmed, "import_config") or String.contains?(line, "import_config")
-        end)
-
-      updated_content =
-        case import_index do
-          nil ->
-            # No import_config, append to end
-            content <> hammer_config
-
-          index ->
-            # Insert before import_config
-            {before_lines, after_lines} = Enum.split(lines, index)
-            Enum.join(before_lines ++ [hammer_config] ++ after_lines, "\n")
-        end
-
-      File.write!(config_path, updated_content)
     end
   end
 
