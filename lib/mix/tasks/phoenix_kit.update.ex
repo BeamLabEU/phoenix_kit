@@ -7,6 +7,21 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     This task handles updating an existing PhoenixKit installation to the latest version
     by creating upgrade migrations that preserve existing data while adding new features.
 
+    ## Two-Pass Update Strategy
+
+    To prevent configuration timing issues, the update process uses a two-pass strategy:
+
+    1. **First Pass** (if configuration is missing): Adds required configuration (e.g.,
+       Ueberauth settings) via Igniter and prompts you to run the command again.
+
+    2. **Second Pass** (configuration present): Safely starts the application and
+       completes the update process.
+
+    This ensures that the application always starts with all required configuration
+    present, avoiding runtime errors from missing dependencies.
+
+    ## Automatic Updates
+
     The update process also automatically:
     - Updates CSS configuration (enables daisyUI themes if disabled)
     - Rebuilds assets using the Phoenix asset pipeline
@@ -138,18 +153,94 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           show_status(elem(opts, 0))
           :ok
         else
-          # Ensure application is started for proper version detection
-          Mix.Task.run("app.start")
+          # CRITICAL: Check if required configuration exists BEFORE starting app
+          # This prevents configuration timing issues where config is added via Igniter
+          # but the app has already started with cached (missing) configuration
+          config_status = check_required_configuration()
 
-          # Run standard igniter process
-          result = super(argv)
+          case config_status do
+            :missing ->
+              # First pass: Add configuration via Igniter without starting app
+              handle_missing_configuration_pass(argv)
 
-          # After igniter is done, handle interactive migration and asset rebuild
-          post_igniter_tasks(elem(opts, 0))
-
-          result
+            :ok ->
+              # Second pass: Configuration exists, safe to start app and update
+              handle_normal_update_pass(argv, opts)
+          end
         end
       end
+    end
+
+    # Handle first pass: add missing configuration
+    defp handle_missing_configuration_pass(argv) do
+      Mix.shell().info("""
+
+      ⚠️  Required configuration is missing from config/config.exs
+
+      PhoenixKit requires Ueberauth configuration for OAuth authentication.
+      This configuration will be added now.
+
+      After this completes, please run the update command again:
+        mix phoenix_kit.update #{Enum.join(argv, " ")}
+      """)
+
+      # Run Igniter to add configuration (don't start app)
+      result = super(argv)
+
+      Mix.shell().info("""
+
+      ✅ Configuration added successfully!
+
+      Next step: Run the update command again to complete the upgrade:
+        mix phoenix_kit.update #{Enum.join(argv, " ")}
+      """)
+
+      result
+    end
+
+    # Handle second pass: normal update with all configuration present
+    defp handle_normal_update_pass(argv, opts) do
+      # Ensure application is started for proper version detection
+      Mix.Task.run("app.start")
+
+      # Run standard igniter process
+      result = super(argv)
+
+      # After igniter is done, handle interactive migration and asset rebuild
+      post_igniter_tasks(elem(opts, 0))
+
+      result
+    end
+
+    # Check if all required configuration exists
+    # Returns :ok if all config present, :missing if any config is missing
+    defp check_required_configuration do
+      config_file = "config/config.exs"
+
+      if File.exists?(config_file) do
+        content = File.read!(config_file)
+
+        cond do
+          # Missing Ueberauth configuration entirely
+          !String.contains?(content, "config :ueberauth") ->
+            :missing
+
+          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
+          String.contains?(content, "config :ueberauth, Ueberauth") &&
+              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
+            :missing
+
+          # All required configuration present
+          true ->
+            :ok
+        end
+      else
+        # config.exs doesn't exist - let normal flow handle this error
+        :ok
+      end
+    rescue
+      # If we can't read config, proceed with normal flow
+      _ -> :ok
     end
 
     # Perform the igniter-based update logic
@@ -471,6 +562,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         • Backward compatible (existing code continues to work)
         • Idempotent (safe to run multiple times)
         • Rollback-capable (can be reverted if needed)
+
+      TWO-PASS UPDATE STRATEGY
+        If required configuration is missing, the update process will:
+        1. First run: Add missing configuration (e.g., Ueberauth settings)
+        2. Prompt you to run the command again
+        3. Second run: Complete the update with all configuration present
+
+        This prevents configuration timing issues where the application
+        starts before new configuration is available.
 
       AFTER UPDATE
         1. If migrations weren't run automatically:
