@@ -36,6 +36,14 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   end
 
   def handle_event("validate", %{"dimension" => dimension_params}, socket) do
+    # Convert maintain_aspect_ratio string to boolean
+    dimension_params =
+      case dimension_params["maintain_aspect_ratio"] do
+        "true" -> Map.put(dimension_params, "maintain_aspect_ratio", true)
+        "false" -> Map.put(dimension_params, "maintain_aspect_ratio", false)
+        _ -> dimension_params
+      end
+
     changeset =
       case socket.assigns.mode do
         :new ->
@@ -54,6 +62,14 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   end
 
   def handle_event("save", %{"dimension" => dimension_params}, socket) do
+    # Convert maintain_aspect_ratio string to boolean
+    dimension_params =
+      case dimension_params["maintain_aspect_ratio"] do
+        "true" -> Map.put(dimension_params, "maintain_aspect_ratio", true)
+        "false" -> Map.put(dimension_params, "maintain_aspect_ratio", false)
+        _ -> dimension_params
+      end
+
     case socket.assigns.mode do
       :new -> create_dimension(socket, dimension_params)
       :edit -> update_dimension(socket, dimension_params)
@@ -152,8 +168,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   # Helper function to get field value from changeset or data
   defp get_field_value(changeset, field) do
     case changeset do
-      %Ecto.Changeset{changes: changes, data: data} ->
-        Map.get(changes, field) || Map.get(data, field)
+      %Ecto.Changeset{} ->
+        Ecto.Changeset.get_field(changeset, field)
 
       _ ->
         nil

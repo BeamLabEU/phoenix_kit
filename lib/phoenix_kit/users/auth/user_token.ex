@@ -8,36 +8,41 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
   - **Session tokens**: For maintaining user sessions (60 days validity)
   - **Email confirmation tokens**: For account verification (7 days validity)
-  - **Password reset tokens**: For secure password recovery (1 day validity)
+  - **Password reset tokens**: For secure password recovery (1 hour validity)
   - **Email change tokens**: For confirming new email addresses (7 days validity)
-  - **Magic link tokens**: For passwordless authentication (15 minutes validity)
+  - **Magic link tokens**: For passwordless authentication (15 minutes validity per industry security standards)
 
   ## Security Features
 
   - Tokens are hashed using SHA256 before storage
   - Different expiry policies for different token types
-  - Secure random token generation (32 bytes)
+  - Secure random token generation (48 bytes for enhanced security)
   - Context-based token management for isolation
+  - Short-lived magic links (15 minutes) minimize security exposure
   """
   use Ecto.Schema
   import Ecto.Query
   alias PhoenixKit.Users.Auth.UserToken
 
   @hash_algorithm :sha256
-  @rand_size 32
+  # 48 bytes = ~64 chars after base64 - enhanced security for passwordless auth
+  @rand_size 48
 
   # It is very important to keep the reset password token expiry short,
   # since someone with access to the email may take over the account.
-  @reset_password_validity_in_days 1
+  @reset_password_validity_in_hours 1
   @confirm_validity_in_days 7
   @change_email_validity_in_days 7
   @session_validity_in_days 60
-  @magic_link_validity_in_days 1
+  # Magic links expire in 15 minutes for security (actual verification in MagicLink module)
+  @magic_link_validity_in_minutes 15
 
   schema "phoenix_kit_users_tokens" do
     field :token, :binary
     field :context, :string
     field :sent_to, :string
+    field :ip_address, :string
+    field :user_agent_hash, :string
     belongs_to :user, PhoenixKit.Users.Auth.User
 
     timestamps(updated_at: false)
@@ -61,10 +66,40 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   You could then use this information to display all valid sessions
   and devices in the UI and allow users to explicitly expire any
   session they deem invalid.
+
+  ## Session Fingerprinting
+
+  The token can optionally include session fingerprinting data to prevent
+  session hijacking. Pass a `fingerprint` option with `ip_address` and
+  `user_agent_hash` to enable this feature.
+
+  ## Options
+
+    * `:fingerprint` - A map with `:ip_address` and `:user_agent_hash` keys
+
+  ## Examples
+
+      # Without fingerprinting (backward compatible)
+      {token, user_token} = build_session_token(user)
+
+      # With fingerprinting
+      fingerprint = %{ip_address: "192.168.1.1", user_agent_hash: "abc123"}
+      {token, user_token} = build_session_token(user, fingerprint: fingerprint)
+
   """
-  def build_session_token(user) do
+  def build_session_token(user, opts \\ []) do
     token = :crypto.strong_rand_bytes(@rand_size)
-    {token, %UserToken{token: token, context: "session", user_id: user.id}}
+    fingerprint = Keyword.get(opts, :fingerprint)
+
+    user_token = %UserToken{
+      token: token,
+      context: "session",
+      user_id: user.id,
+      ip_address: fingerprint && fingerprint[:ip_address],
+      user_agent_hash: fingerprint && fingerprint[:user_agent_hash]
+    }
+
+    {token, user_token}
   end
 
   @doc """
@@ -157,12 +192,12 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded_token} ->
         hashed_token = :crypto.hash(@hash_algorithm, decoded_token)
-        days = days_for_context(context)
+        {amount, unit} = validity_for_context(context)
 
         query =
           from token in by_token_and_context_query(hashed_token, context),
             join: user in assoc(token, :user),
-            where: token.inserted_at > ago(^days, "day") and token.sent_to == user.email,
+            where: token.inserted_at > ago(^amount, ^unit) and token.sent_to == user.email,
             select: user
 
         {:ok, query}
@@ -172,9 +207,10 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     end
   end
 
-  defp days_for_context("confirm"), do: @confirm_validity_in_days
-  defp days_for_context("reset_password"), do: @reset_password_validity_in_days
-  defp days_for_context("magic_link"), do: @magic_link_validity_in_days
+  defp validity_for_context("confirm"), do: {@confirm_validity_in_days, "day"}
+  defp validity_for_context("reset_password"), do: {@reset_password_validity_in_hours, "hour"}
+  # Magic link expires in 15 minutes per industry security standards
+  defp validity_for_context("magic_link"), do: {@magic_link_validity_in_minutes, "minute"}
 
   @doc """
   Checks if the token is valid and returns its underlying lookup query.

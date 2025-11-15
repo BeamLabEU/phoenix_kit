@@ -4,8 +4,21 @@ import Config
 config :phoenix_kit,
   ecto_repos: []
 
+# Configure password requirements (optional - these are the defaults)
+# Uncomment and modify to enforce specific password strength requirements
+# config :phoenix_kit, :password_requirements,
+#   min_length: 8,            # Minimum password length (default: 8)
+#   max_length: 72,           # Maximum password length (default: 72, bcrypt limit)
+#   require_uppercase: false, # Require at least one uppercase letter (default: false)
+#   require_lowercase: false, # Require at least one lowercase letter (default: false)
+#   require_digit: false,     # Require at least one digit (default: false)
+#   require_special: false    # Require at least one special character (!?@#$%^&*_) (default: false)
+
 # Configure test mailer
 config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
+
+# Note: Hammer rate limiting configuration is automatically added to parent
+# applications via mix phoenix_kit.install/update tasks
 
 # Configure Ueberauth (minimal configuration for compilation)
 # Applications using PhoenixKit should configure their own providers
@@ -28,7 +41,8 @@ config :logger, :console,
     :path,
     :blog,
     :pattern,
-    :content_size
+    :content_size,
+    :error
   ]
 
 # For development/testing with real SMTP (when available)
@@ -40,3 +54,9 @@ config :logger, :console,
 #   password: System.get_env("SMTP_PASSWORD"),
 #   tls: :if_available,
 #   retries: 1
+
+# Import environment-specific config
+# This allows config/test.exs to override settings for test environment
+if File.exists?("#{__DIR__}/#{Mix.env()}.exs") do
+  import_config "#{Mix.env()}.exs"
+end

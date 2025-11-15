@@ -32,6 +32,85 @@
     <%!-- User Form --%>
     <div class="max-w-2xl mx-auto">
       <div class="bg-base-100 rounded-lg shadow-md p-6">
+        <%!-- Avatar Upload Section (Edit mode only) --%>
+        <%= if @mode == :edit do %>
+          <div class="mb-6">
+            <div class="flex gap-6">
+              <%!-- Avatar Preview (Left) --%>
+              <div class="flex-shrink-0">
+                <% avatar_file_id =
+                  @last_uploaded_avatar_id ||
+                    (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
+                <% variant = if @last_uploaded_avatar_id, do: "original", else: "medium" %>
+                <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center">
+                  <%= if avatar_file_id do %>
+                    <% avatar_url =
+                      PhoenixKit.Storage.URLSigner.signed_url(avatar_file_id, variant) %>
+                    <img
+                      src={avatar_url}
+                      alt="Avatar"
+                      class="w-full h-full object-cover"
+                      onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                    />
+                    <div class="hidden w-full h-full bg-primary flex items-center justify-center text-center">
+                      <div>
+                        <.icon
+                          name="hero-check-circle"
+                          class="w-12 h-12 text-success mx-auto mb-2"
+                        />
+                        <p class="text-xs text-primary-content">Avatar</p>
+                      </div>
+                    </div>
+                  <% else %>
+                    <% initials =
+                      (@user.first_name || @user.email)
+                      |> String.first()
+                      |> String.upcase() %>
+                    <div class="text-center">
+                      <p class="text-5xl font-bold text-primary-content">{initials}</p>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Upload Controls (Right) --%>
+              <div class="flex-1">
+                <div class="space-y-3">
+                  <div>
+                    <label class="label">
+                      <span class="label-text font-semibold">Upload Avatar</span>
+                    </label>
+                    <p class="text-sm text-base-content/70 mb-3">
+                      Supports JPG, PNG, WebP formats up to 10MB
+                    </p>
+                  </div>
+
+                  <%!-- Avatar Upload Component (Separate form to avoid validate_user conflict) --%>
+                  <.file_upload
+                    upload={@uploads.avatar}
+                    label="Choose Avatar"
+                    icon="hero-cloud-arrow-up"
+                    variant="button"
+                  />
+
+                  <%!-- Success Message --%>
+                  <%= if @last_uploaded_avatar_id do %>
+                    <div class="alert alert-success">
+                      <.icon name="hero-check-circle" class="w-5 h-5" />
+                      <div>
+                        <h4 class="font-bold">Avatar uploaded successfully!</h4>
+                        <p class="text-sm font-mono">{@last_uploaded_avatar_id}</p>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+        <% end %>
+
         <.form
           :let={form}
           for={@changeset}
@@ -99,6 +178,15 @@
                   placeholder="Optional"
                 />
               </div>
+            </div>
+
+            <%!-- Personal Timezone --%>
+            <div class="form-control">
+              <.select
+                field={form[:user_timezone]}
+                label="Personal Timezone"
+                options={@timezone_options}
+              />
             </div>
           </div>
 

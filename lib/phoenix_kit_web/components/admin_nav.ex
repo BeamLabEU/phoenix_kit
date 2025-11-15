@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKit.Module.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.ThemeConfig
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon
@@ -270,6 +271,14 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_user_dropdown(assigns) do
+    user = Scope.user(assigns.scope)
+    avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
+
+    assigns =
+      assigns
+      |> assign(:avatar_file_id, avatar_file_id)
+      |> assign(:user, user)
+
     ~H"""
     <%= if @scope && PhoenixKit.Users.Auth.Scope.authenticated?(@scope) do %>
       <div class="dropdown dropdown-end">
@@ -277,9 +286,22 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         <div
           tabindex="0"
           role="button"
-          class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-content font-bold cursor-pointer hover:opacity-80 transition-opacity"
+          class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-content font-bold cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
         >
-          {String.first(PhoenixKit.Users.Auth.Scope.user_email(@scope) || "?") |> String.upcase()}
+          <%= if @avatar_file_id do %>
+            <% avatar_url = PhoenixKit.Storage.URLSigner.signed_url(@avatar_file_id, "medium") %>
+            <img
+              src={avatar_url}
+              alt="Avatar"
+              class="w-full h-full object-cover"
+              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            />
+            <div class="hidden w-full h-full bg-primary flex items-center justify-center text-primary-content font-bold">
+              {String.first(@user.email || "?") |> String.upcase()}
+            </div>
+          <% else %>
+            {String.first(PhoenixKit.Users.Auth.Scope.user_email(@scope) || "?") |> String.upcase()}
+          <% end %>
         </div>
 
         <%!-- Dropdown Menu --%>
@@ -382,12 +404,33 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:scope, :any, default: nil)
 
   def admin_user_info(assigns) do
+    user = Scope.user(assigns.scope)
+    avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
+
+    assigns =
+      assigns
+      |> assign(:avatar_file_id, avatar_file_id)
+      |> assign(:user, user)
+
     ~H"""
     <%= if @scope && PhoenixKit.Users.Auth.Scope.authenticated?(@scope) do %>
       <div class="bg-base-200 rounded-lg p-3 text-sm">
         <div class="flex items-center gap-2 mb-2">
-          <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-content text-xs font-bold">
-            {String.first(PhoenixKit.Users.Auth.Scope.user_email(@scope) || "?") |> String.upcase()}
+          <div class="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-content text-xs font-bold overflow-hidden">
+            <%= if @avatar_file_id do %>
+              <% avatar_url = PhoenixKit.Storage.URLSigner.signed_url(@avatar_file_id, "small") %>
+              <img
+                src={avatar_url}
+                alt="Avatar"
+                class="w-full h-full object-cover"
+                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+              />
+              <div class="hidden w-full h-full bg-primary flex items-center justify-center text-primary-content text-xs font-bold">
+                {String.first(@user.email || "?") |> String.upcase()}
+              </div>
+            <% else %>
+              {String.first(PhoenixKit.Users.Auth.Scope.user_email(@scope) || "?") |> String.upcase()}
+            <% end %>
           </div>
           <div class="flex-1 min-w-0">
             <div class="truncate text-xs font-medium text-base-content">

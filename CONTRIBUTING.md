@@ -138,6 +138,93 @@ mix phx.server
 - During the refresh request, Phoenix.CodeReloader automatically recompiles changed files
 - You see updated code immediately without manual recompilation
 
+## Continuous Integration (CI)
+
+PhoenixKit uses GitHub Actions for automated testing and quality checks. Every push and pull request triggers the CI pipeline.
+
+### CI Checks
+
+The following checks must pass before your PR can be merged:
+
+1. **Code Formatting**
+   ```bash
+   mix format --check-formatted
+   ```
+   Ensures code follows Elixir formatting standards.
+
+2. **Static Analysis (Credo)**
+   ```bash
+   mix credo --strict
+   ```
+   Checks for code quality, consistency, and potential issues.
+
+3. **Type Checking (Dialyzer)**
+   ```bash
+   mix dialyzer
+   ```
+   Performs static type analysis to catch type errors.
+
+4. **Test Suite**
+   ```bash
+   mix test
+   ```
+   Runs all tests with PostgreSQL database. Tests must pass without errors.
+
+5. **Compilation Warnings**
+   ```bash
+   mix compile --warnings-as-errors
+   ```
+   Ensures code compiles without warnings.
+
+6. **Dependency Audit**
+   ```bash
+   mix deps.unlock --check-unused
+   ```
+   Verifies no unused dependencies.
+
+### Running CI Checks Locally
+
+Before pushing your changes, run these commands locally to catch issues early:
+
+```bash
+# Format code
+mix format
+
+# Run quality checks
+mix credo --strict
+
+# Run tests (if database is configured)
+mix test
+
+# Compile with warnings as errors
+mix compile --force --warnings-as-errors
+
+# Or run all quality checks at once
+mix quality
+```
+
+### CI Workflow
+
+- **Triggers**: Runs on push to `main`, `dev`, and `claude/**` branches, and on all pull requests
+- **Parallel Execution**: Different checks run in parallel for faster feedback
+- **Caching**: Dependencies and PLT files are cached to speed up subsequent runs
+- **Coverage**: Test coverage is automatically reported to Codecov
+
+### Viewing CI Results
+
+1. **In Pull Requests**: CI status appears at the bottom of your PR
+2. **GitHub Actions Tab**: View detailed logs at https://github.com/BeamLabEU/phoenix_kit/actions
+3. **Status Badges**: Check README.md for current build status
+
+### Troubleshooting CI Failures
+
+If CI fails on your PR:
+
+1. **Check the logs**: Click "Details" next to the failed check
+2. **Reproduce locally**: Run the failing command on your machine
+3. **Fix and push**: Commit the fix and push - CI will re-run automatically
+4. **Ask for help**: If stuck, comment on your PR for assistance
+
 ## Contribution Workflow
 
 Once you have your development environment set up with live reloading, follow these steps to contribute:

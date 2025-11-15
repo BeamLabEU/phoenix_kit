@@ -81,7 +81,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     use Igniter.Mix.Task
 
     alias Igniter.Project.Config
-    alias PhoenixKit.Install.{ApplicationSupervisor, AssetRebuild, Common, CssIntegration}
+
+    alias PhoenixKit.Install.{
+      ApplicationSupervisor,
+      AssetRebuild,
+      BasicConfiguration,
+      Common,
+      CssIntegration,
+      RateLimiterConfig
+    }
+
     alias PhoenixKit.Utils.Routes
 
     @shortdoc "Updates PhoenixKit to the latest version"
@@ -118,6 +127,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         igniter
       else
         igniter
+        |> BasicConfiguration.add_basic_config()
         |> ApplicationSupervisor.add_supervisor()
         |> perform_igniter_update(opts)
       end
@@ -250,6 +260,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Validate and fix Ueberauth configuration before update
       igniter = validate_and_fix_ueberauth_config(igniter)
+
+      # Ensure Hammer rate limiter configuration exists
+      igniter = validate_and_add_hammer_config(igniter)
 
       case Common.check_installation_status(prefix) do
         {:not_installed} ->
@@ -789,6 +802,123 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Validate and add Hammer rate limiter configuration if missing
+    defp validate_and_add_hammer_config(igniter) do
+      if RateLimiterConfig.hammer_config_exists?(igniter) do
+        # Configuration exists, no action needed
+        igniter
+      else
+        # Configuration missing, add it
+        igniter
+        |> RateLimiterConfig.add_rate_limiter_configuration()
+        |> add_hammer_config_added_notice()
+      end
+    end
+
+    # Add notice about Hammer configuration being added
+    defp add_hammer_config_added_notice(igniter) do
+      notice = """
+      ⚠️  Added missing Hammer rate limiter configuration to config.exs
+         IMPORTANT: Restart your server if it's currently running.
+         Without this configuration, the application will fail to start.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Ensure Hammer configuration exists BEFORE app.start
+    # This is critical because app.start will fail without Hammer config
+    defp ensure_hammer_config_before_start do
+      config_path = "config/config.exs"
+
+      if File.exists?(config_path) do
+        content = File.read!(config_path)
+
+        # Check if Hammer config exists
+        unless String.contains?(content, "config :hammer") and
+                 String.contains?(content, "expiry_ms") do
+          # Add Hammer configuration
+          Mix.shell().info("⚠️  Adding missing Hammer configuration to config.exs...")
+          add_hammer_config_directly(config_path, content)
+          Mix.shell().info("✅ Hammer configuration added successfully")
+        end
+      end
+    rescue
+      e ->
+        Mix.shell().error("""
+        ⚠️  Failed to check/add Hammer configuration: #{inspect(e)}
+        Please add the configuration manually to config/config.exs:
+
+          config :hammer,
+            backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+
+          config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+            login_limit: 5, login_window_ms: 60_000,
+            magic_link_limit: 3, magic_link_window_ms: 300_000,
+            password_reset_limit: 3, password_reset_window_ms: 300_000,
+            registration_limit: 3, registration_window_ms: 3_600_000,
+            registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
+        """)
+    end
+
+    # Add Hammer configuration directly to config file (without Igniter)
+    defp add_hammer_config_directly(config_path, content) do
+      hammer_config = """
+
+      # Configure rate limiting with Hammer
+      config :hammer,
+        backend:
+          {Hammer.Backend.ETS,
+           [
+             # Cleanup expired rate limit buckets every 60 seconds
+             expiry_ms: 60_000,
+             # Cleanup interval (1 minute)
+             cleanup_interval_ms: 60_000
+           ]}
+
+      # Configure rate limits for authentication endpoints
+      config :phoenix_kit, PhoenixKit.Users.RateLimiter,
+        # Login: 5 attempts per minute per email
+        login_limit: 5,
+        login_window_ms: 60_000,
+        # Magic link: 3 requests per 5 minutes per email
+        magic_link_limit: 3,
+        magic_link_window_ms: 300_000,
+        # Password reset: 3 requests per 5 minutes per email
+        password_reset_limit: 3,
+        password_reset_window_ms: 300_000,
+        # Registration: 3 attempts per hour per email
+        registration_limit: 3,
+        registration_window_ms: 3_600_000,
+        # Registration IP: 10 attempts per hour per IP
+        registration_ip_limit: 10,
+        registration_ip_window_ms: 3_600_000
+      """
+
+      # Find insertion point before import_config
+      lines = String.split(content, "\n")
+
+      import_index =
+        Enum.find_index(lines, fn line ->
+          trimmed = String.trim(line)
+          String.starts_with?(trimmed, "import_config") or String.contains?(line, "import_config")
+        end)
+
+      updated_content =
+        case import_index do
+          nil ->
+            # No import_config, append to end
+            content <> hammer_config
+
+          index ->
+            # Insert before import_config
+            {before_lines, after_lines} = Enum.split(lines, index)
+            Enum.join(before_lines ++ [hammer_config] ++ after_lines, "\n")
+        end
+
+      File.write!(config_path, updated_content)
     end
   end
 

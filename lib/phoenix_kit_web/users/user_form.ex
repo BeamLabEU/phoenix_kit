@@ -8,10 +8,14 @@ defmodule PhoenixKitWeb.Users.UserForm do
   """
   use PhoenixKitWeb, :live_view
 
+  require Logger
+
+  alias PhoenixKit.Admin.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
@@ -32,8 +36,18 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Load default role for new user creation
     default_role = Settings.get_setting("new_user_default_role", "User")
 
+    # Load timezone options
+    setting_options = Settings.get_setting_options()
+    timezone_options = [{"Use System Default", nil} | setting_options["time_zone"]]
+
     socket =
       socket
+      |> allow_upload(:avatar,
+        accept: ["image/*"],
+        max_entries: 1,
+        max_file_size: 10_000_000,
+        auto_upload: true
+      )
       |> assign(:current_locale, locale)
       |> assign(:mode, mode)
       |> assign(:user_id, user_id)
@@ -45,10 +59,29 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:all_roles, all_roles)
       |> assign(:pending_roles, [])
       |> assign(:default_role, default_role)
+      |> assign(:timezone_options, timezone_options)
+      |> assign(:last_uploaded_avatar_id, nil)
       |> load_user_data(mode, user_id)
       |> load_form_data()
 
     {:ok, socket}
+  end
+
+  def handle_event("validate", %{"_target" => ["avatar"]}, socket) do
+    # Avatar file selection event - files will auto-upload
+    entries = socket.assigns.uploads.avatar.entries
+    Logger.info("avatar validate event: entries=#{length(entries)}")
+
+    if entries != [] do
+      Logger.info("avatar validate: scheduling check_uploads_complete")
+      Process.send_after(self(), :check_avatar_uploads_complete, 500)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :avatar, ref)}
   end
 
   def handle_event("validate_user", %{"user" => user_params}, socket) do
@@ -60,17 +93,34 @@ defmodule PhoenixKitWeb.Users.UserForm do
         user_params
       end
 
+    # In edit mode, ensure username is preserved to prevent regeneration from email
+    filtered_params =
+      if socket.assigns.mode == :edit do
+        filtered_params = Map.put_new(filtered_params, "username", socket.assigns.user.username)
+
+        Logger.info(
+          "validate_user - user_params username: #{inspect(Map.get(user_params, "username"))}, filtered_params username: #{inspect(Map.get(filtered_params, "username"))}"
+        )
+
+        filtered_params
+      else
+        filtered_params
+      end
+
     changeset =
       case socket.assigns.mode do
-        :new -> Auth.change_user_registration(%Auth.User{}, filtered_params)
-        :edit -> Auth.change_user_registration(socket.assigns.user, filtered_params)
+        :new ->
+          Auth.change_user_registration(%Auth.User{}, filtered_params)
+
+        :edit ->
+          Auth.User.profile_changeset(socket.assigns.user, filtered_params, validate_email: false)
       end
       |> Map.put(:action, :validate)
 
     socket =
       socket
       |> assign(:changeset, changeset)
-      |> assign(:form_data, user_params)
+      |> assign(:form_data, filtered_params)
       |> assign(
         :custom_fields_data,
         Map.get(user_params, "custom_fields", socket.assigns.custom_fields_data)
@@ -271,7 +321,9 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp create_user(socket, user_params) do
-    case Auth.register_user(user_params) do
+    ip_address = IpAddress.extract_from_socket(socket)
+
+    case Auth.register_user(user_params, ip_address) do
       {:ok, user} ->
         # Optionally send confirmation email
         case Auth.deliver_user_confirmation_instructions(
@@ -344,10 +396,34 @@ defmodule PhoenixKitWeb.Users.UserForm do
         String.trim(profile_params["password"]) != ""
 
     if password_provided do
-      update_profile_and_password(user, profile_params)
+      update_profile_and_password(socket, user, profile_params)
     else
       cleaned_params = Map.delete(profile_params, "password")
-      Auth.update_user_profile(user, cleaned_params)
+      # Pass validate_email: false to skip uniqueness validation for username/email
+      # This allows users to keep their current username without it being regenerated
+      update_user_profile_without_validation(user, cleaned_params)
+    end
+  end
+
+  defp update_user_profile_without_validation(user, attrs) do
+    Logger.info(
+      "update_user_profile_without_validation - attrs username: #{inspect(Map.get(attrs, "username"))}"
+    )
+
+    changeset = Auth.User.profile_changeset(user, attrs, validate_email: false)
+
+    Logger.info(
+      "After profile_changeset, changeset changes username: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}"
+    )
+
+    case changeset |> PhoenixKit.RepoHelper.repo().update() do
+      {:ok, updated_user} ->
+        Logger.info("After DB update, saved username: #{inspect(updated_user.username)}")
+        Events.broadcast_user_updated(updated_user)
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
     end
   end
 
@@ -357,15 +433,27 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp update_custom_fields(user, custom_fields_params) do
-    case Auth.update_user_custom_fields(user, custom_fields_params) do
+    # Use update_user_fields instead of update_user_custom_fields to preserve existing fields (like avatar_file_id)
+    case Auth.update_user_fields(user, custom_fields_params) do
       {:ok, updated_user} -> {:ok, updated_user}
       {:error, _changeset} -> {:error, :custom_fields_save}
     end
   end
 
-  defp handle_update_result(socket, {:ok, _}) do
+  defp handle_update_result(socket, {:ok, _result}) do
+    # _result could be either the updated user or role assignments (from sync_user_roles)
+    # In both cases, we need to reload the user from the database to get the fresh data
+    user_id = socket.assigns.user.id
+    fresh_user = Auth.get_user!(user_id)
+
+    Logger.info(
+      "handle_update_result - fresh_user username from DB: #{inspect(fresh_user.username)}"
+    )
+
     socket =
       socket
+      |> assign(:user, fresh_user)
+      |> reload_changeset_with_updated_user(fresh_user)
       |> put_flash(:info, "User updated successfully.")
       |> push_navigate(to: Routes.path("/admin/users"))
 
@@ -381,6 +469,15 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> push_navigate(to: Routes.path("/admin/users"))
 
     {:noreply, socket}
+  end
+
+  defp reload_changeset_with_updated_user(socket, updated_user) do
+    form_data = socket.assigns.form_data || %{}
+    # Ensure username is in form_data to prevent regeneration from email
+    form_data = Map.put_new(form_data, "username", updated_user.username)
+    # Use profile_changeset for edit mode to avoid username regeneration
+    changeset = Auth.User.profile_changeset(updated_user, form_data, validate_email: false)
+    assign(socket, :changeset, changeset)
   end
 
   defp format_role_update_error(:owner_role_protected) do
@@ -455,14 +552,25 @@ defmodule PhoenixKitWeb.Users.UserForm do
   end
 
   defp load_form_data(%{assigns: %{mode: :edit, user: user}} = socket) do
-    changeset = Auth.change_user_registration(user, %{})
+    # For edit mode, use profile_changeset instead of registration_changeset
+    # profile_changeset doesn't call maybe_generate_username_from_email like registration_changeset does
+    Logger.info("Loading form for user #{user.id}: DB username=#{inspect(user.username)}")
+
+    changeset =
+      Auth.User.profile_changeset(user, %{"username" => user.username}, validate_email: false)
+
+    Logger.info(
+      "After creating changeset, changeset changes: #{inspect(Ecto.Changeset.get_change(changeset, :username))}, changeset field: #{inspect(Ecto.Changeset.get_field(changeset, :username))}"
+    )
 
     socket
     |> assign(:changeset, changeset)
     |> assign(:form_data, %{
       "email" => user.email || "",
+      "username" => user.username || "",
       "first_name" => user.first_name || "",
-      "last_name" => user.last_name || ""
+      "last_name" => user.last_name || "",
+      "user_timezone" => user.user_timezone || "0"
     })
     |> assign(:custom_fields_data, user.custom_fields || %{})
   end
@@ -501,7 +609,7 @@ defmodule PhoenixKitWeb.Users.UserForm do
     assign(socket, :changeset, changeset)
   end
 
-  defp update_profile_and_password(user, user_params) do
+  defp update_profile_and_password(socket, user, user_params) do
     # First validate profile update
     profile_params = Map.delete(user_params, "password")
 
@@ -510,7 +618,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
         # If profile update succeeded, update password
         password_params = Map.take(user_params, ["password"])
 
-        case Auth.admin_update_user_password(updated_user, password_params) do
+        # Build audit context from socket
+        context = build_audit_context(socket)
+
+        case Auth.admin_update_user_password(updated_user, password_params, context) do
           {:ok, final_user} ->
             {:ok, final_user}
 
@@ -525,6 +636,31 @@ defmodule PhoenixKitWeb.Users.UserForm do
         # Profile update failed, return the profile changeset with password field
         {:error, profile_changeset}
     end
+  end
+
+  defp build_audit_context(socket) do
+    # Get admin user from socket assigns (set by on_mount)
+    admin_user = Map.get(socket.assigns, :phoenix_kit_current_user)
+
+    # Get IP address from socket metadata
+    ip_address =
+      case Phoenix.LiveView.get_connect_info(socket, :peer_data) do
+        %{address: address} -> :inet.ntoa(address) |> to_string()
+        _ -> nil
+      end
+
+    # Get user agent from socket metadata
+    user_agent =
+      case Phoenix.LiveView.get_connect_info(socket, :user_agent) do
+        ua when is_binary(ua) -> ua
+        _ -> nil
+      end
+
+    %{
+      admin_user: admin_user,
+      ip_address: ip_address,
+      user_agent: user_agent
+    }
   end
 
   defp merge_password_errors(profile_changeset, password_changeset) do
@@ -558,4 +694,120 @@ defmodule PhoenixKitWeb.Users.UserForm do
         Roles.sync_user_roles(user, pending_roles)
     end
   end
+
+  def handle_info(:check_avatar_uploads_complete, socket) do
+    entries = socket.assigns.uploads.avatar.entries
+
+    Logger.info(
+      "check_avatar_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
+    )
+
+    # Check if all entries are done uploading
+    if entries != [] && Enum.all?(entries, & &1.done?) do
+      Logger.info("Avatar uploads done! Processing...")
+      # All done - process them
+      process_avatar_uploads(socket)
+    else
+      # Still uploading - check again later
+      Logger.info("Still uploading avatar, checking again...")
+      Process.send_after(self(), :check_avatar_uploads_complete, 500)
+      {:noreply, socket}
+    end
+  end
+
+  defp process_avatar_uploads(socket) do
+    # Process uploaded avatar files
+    uploaded_avatars =
+      consume_uploaded_entries(socket, :avatar, fn %{path: path}, entry ->
+        # Get file info
+        ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+
+        # Get current user
+        current_user = socket.assigns.phoenix_kit_current_user
+        user_id = if current_user, do: current_user.id, else: 1
+
+        # Get file size
+        {:ok, stat} = Elixir.File.stat(path)
+        file_size = stat.size
+
+        # Calculate hash
+        file_hash = Auth.calculate_file_hash(path)
+
+        # Store file in storage
+        case PhoenixKit.Storage.store_file_in_buckets(
+               path,
+               "image",
+               user_id,
+               file_hash,
+               ext,
+               entry.client_name
+             ) do
+          {:ok, file, :duplicate} ->
+            Logger.info("Avatar file is duplicate with ID: #{file.id}")
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               size: file_size,
+               duplicate: true
+             }}
+
+          {:ok, file} ->
+            Logger.info("Avatar file stored with ID: #{file.id}")
+
+            # Note: ProcessFileJob is now automatically queued in Storage.store_file_in_buckets
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               size: file_size
+             }}
+
+          {:error, reason} ->
+            Logger.error("Storage Error: #{inspect(reason)}")
+            {:error, reason}
+        end
+      end)
+
+    # Extract file IDs for use
+    Logger.info("Uploaded avatars: #{inspect(uploaded_avatars)}")
+    avatar_file_ids = Enum.map(uploaded_avatars, &get_avatar_file_id/1)
+    Logger.info("Avatar file IDs: #{inspect(avatar_file_ids)}")
+    avatar_file_id = List.first(avatar_file_ids)
+    Logger.info("First avatar file ID: #{inspect(avatar_file_id)}")
+
+    # Save the avatar file ID to the user's custom fields
+    socket =
+      if avatar_file_id && avatar_file_id != nil do
+        user = socket.assigns.user
+
+        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_id}) do
+          {:ok, updated_user} ->
+            Logger.info("Avatar file ID saved: #{avatar_file_id}")
+
+            socket
+            |> assign(:user, updated_user)
+            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> put_flash(:info, "Avatar uploaded successfully!")
+
+          {:error, changeset} ->
+            Logger.error("Failed to save avatar file ID: #{inspect(changeset)}")
+
+            socket
+            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> put_flash(:error, "Avatar uploaded but failed to save to profile")
+        end
+      else
+        socket
+        |> put_flash(:error, "Failed to upload avatar")
+      end
+
+    {:noreply, socket}
+  end
+
+  defp get_avatar_file_id(%{file_id: file_id}), do: file_id
+  defp get_avatar_file_id({:ok, %{file_id: file_id}}), do: file_id
+  defp get_avatar_file_id(_), do: nil
 end

@@ -1,331 +1,235 @@
-# .phk (PhoenixKit) Blogging Format Guide
+# .phk Blogging Format (Current Implementation)
 
-## Overview
+PhoenixKit’s blogging module stores every post as a `.phk` file. Each file is a **YAML frontmatter block** followed by regular **Markdown**. Authors can sprinkle inline PHK components (for example `<Image … />`) anywhere inside the Markdown, but there is no longer a root `<Post>` wrapper or XML layout.
 
-The `.phk` format is PhoenixKit's component-based post markup language. It allows you to create blog posts with structured content that can be styled with different design variants **without changing the content**.
+---
 
-## File Location
+## Where posts live
 
-Blog posts are stored at:
+Posts are kept under `priv/blogging/<blog>/…` inside your host application. The folder layout depends on the blog’s storage mode:
+
+| Blog mode | Path template | Example |
+|-----------|---------------|---------|
+| Timestamp (legacy/default) | `priv/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/<language>.phk` | `priv/blogging/news/2025-01-15/09:30/en.phk` |
+| Slug (new) | `priv/blogging/<blog>/<post-slug>/<language>.phk` | `priv/blogging/docs/getting-started/en.phk` |
+
+Each language/localisation of a post gets its own `.phk` file in the same directory.
+
+---
+
+## File anatomy
+
+```yaml
+---
+slug: simple-version-original-size
+title: Simple Version (Original Size)
+status: draft            # draft | published | archived
+published_at: 2025-11-07T22:42:00Z
+created_at: 2025-11-07T22:42:17.231679Z
+created_by_email: max@don.ee
+updated_by_email: max@don.ee
+---
+
+# Heading 1
+
+Standard **Markdown** lives here. Use `##` for subheadings, `-` for bullet lists, code fences, etc.
+
+Inline PHK components can appear anywhere in the Markdown body:
+
+<Image file_id="019a6f96-e895-74e2-a745-1b596ee235af" file_variant="medium" alt="Screenshot" />
+
+Continue writing Markdown below the component.
 ```
-priv/blogging/<blog>/<YYYY-MM-DD>/<HH:MM>/en.phk
+
+### Frontmatter keys
+
+Only a subset is required, but the blogging UI will populate everything shown above. Notable keys:
+
+- `slug` – used for slug-mode directories and public URLs.
+- `title` – displayed in admin tables and public templates.
+- `status` – controls whether the post is discoverable publicly (`published` only).
+- `published_at` – timestamp used for ordering and for timestamp-mode folders.
+- `featured_image_id` – optional PhoenixKit Storage file ID used for the public listing thumbnail.
+- `created_by_* / updated_by_*` – audit metadata; the editor manages these.
+
+---
+
+## Markdown + inline PHK components
+
+After the frontmatter, everything is standard Markdown. The renderer automatically:
+
+1. Runs Markdown through Earmark (GitHub-flavoured Markdown).
+2. Scans for inline PHK components (`<Image />`, `<Hero>…</Hero>`, `<CTA />`, `<Headline>`, `<Subheadline>`).
+3. Renders those components with Phoenix components before returning HTML.
+
+This means you can drop components alongside text:
+
+```markdown
+You can mix **bold text** and inline components:
+
+<CTA primary="true" action="/signup">Start Free Trial</CTA>
+
+- Bullet one
+- Bullet two
 ```
 
-Example:
-```
-priv/blogging/blog/2025-10-28/14:30/en.phk
-```
+### Supported inline components
 
-## Basic Structure
+| Component | Notes |
+|-----------|-------|
+| `<Image … />` | Works with either `src="/path/to/file.jpg"` or `file_id="…"`. Optional `file_variant="thumbnail" | "small" | "medium" | "large"` picks a specific variant from PhoenixKit Storage. The renderer now always returns the natural dimensions; add your own `class` if you want to constrain width. |
+| `<Hero variant="split-image|centered|minimal"> … </Hero>` | A layout block that can wrap `<Headline>`, `<Subheadline>`, `<CTA />`, `<Image />`. Use sparingly inside Markdown (usually near the top). |
+| `<Headline>…</Headline>` | Renders a hero-style heading. |
+| `<Subheadline>…</Subheadline>` | Medium-sized supporting text. |
+| `<CTA primary="true|false" action="/path-or-anchor">Label</CTA>` | Button styled by the admin theme. |
+| `<Video …>Caption</Video>` | Responsive YouTube embeds. Provide either `video_id="dQw4w9WgXcQ"` or a `url="https://youtu.be/dQw4w9WgXcQ"`. Optional attributes: `autoplay`, `muted`, `controls`, `loop`, `start` (seconds), and `ratio` (`16:9`, `4:3`, `1:1`, `21:9`). Use the component body (or `caption="..."` when self-closing) to show a caption. |
 
-Every `.phk` blog post starts with a root `<Post>` element containing metadata:
+Additional components can be introduced by adding Phoenix components under `lib/phoenix_kit_web/components/blogging/` and registering them in the PageBuilder renderer.
 
-```xml
-<Post slug="home" title="Welcome" status="published" published_at="2025-10-28T14:00:00Z">
-  <!-- Your content components go here -->
-</Post>
-```
+---
 
-### Post Attributes
+## Storage integration & variants
 
-- `slug` - URL-friendly identifier (e.g., "home", "about-us")
-- `title` - Post title for SEO and display
-- `status` - Publication status: `draft`, `published`, or `archived`
-- `published_at` - ISO8601 timestamp (changes folder location when updated)
-- `description` (optional) - Meta description for SEO
+When an `<Image>` references `file_id="…"`, the renderer calls `PhoenixKit.Storage.get_public_url_by_id/2`. The storage layer:
 
-## Available Components
+1. Looks for a matching file + variant (`original`, `thumbnail`, `small`, `medium`, `large`, etc.).
+2. Returns the provider’s public URL if available (S3, R2, CDN…).
+3. Falls back to PhoenixKit’s signed `/phoenix_kit/file/:id/:variant/:token` route for local/dev setups.
 
-### Hero Component
+If a variant does not exist yet (for example someone references `medium` before the variant generator runs), the renderer falls back to `original`. The `<Image>` component now *always* renders the file at its natural size; supply your own classes (e.g. `class="w-full"`) if you need to stretch or constraint it.
 
-The Hero section is typically the first visual element users see. It comes with **3 design variants** that can be switched without changing content.
+---
 
-#### Variant 1: Split Image (`variant="split-image"`)
+## Complete example
 
-**Best for:** Landing pages, product showcases, marketing pages
+```yaml
+---
+slug: product-updates-oct-2025
+title: Product Updates – October 2025
+status: published
+published_at: 2025-10-31T09:00:00Z
+---
 
-**Features:**
-- Content on the left side
-- Large image on the right side
-- Gradient background (primary/secondary colors)
-- Responsive grid layout
+# October Highlights
 
-**Example:**
-```xml
+Thanks for building with PhoenixKit! Here are the highlights from this month.
+
 <Hero variant="split-image">
-  <Headline>Build Your SaaS Faster</Headline>
-  <Subheadline>Start shipping in days, not months</Subheadline>
-  <CTA primary="true" action="/signup">Start Free Trial</CTA>
-  <CTA action="#features">Learn More</CTA>
-  <Image src="/assets/dashboard.png" alt="Dashboard Preview" />
+  <Headline>Maintenance Mode v2</Headline>
+  <Subheadline>Plan downtime with confidence.</Subheadline>
+  <CTA primary="true" action="/admin/modules">Enable Module</CTA>
+  <Image file_id="018e3c4a-9f6b-7890-abcd-ef1234567890" alt="Maintenance Mode Screenshot" />
 </Hero>
-```
 
-**Result:**
-- 2-column layout on desktop (content | image)
-- Stacked layout on mobile
-- Eye-catching gradient background
-- Primary and secondary CTAs side-by-side
+## New referral analytics
+
+- Multi-touch attribution
+- CSV exports
+- Improved fraud detection
+
+<Image
+  file_id="019a6f96-e895-74e2-a745-1b596ee235af"
+  file_variant="thumbnail"
+  class="w-full"
+  alt="Referral dashboard"
+/>
+```
 
 ---
 
-#### Variant 2: Centered (`variant="centered"`)
+## Reference example – storage-focused post
 
-**Best for:** Welcome pages, announcements, simple messaging
+```yaml
+---
+slug: storage-integration-example
+title: Storage Integration Example
+status: draft
+published_at: 2025-07-01T10:00:00Z
+---
 
-**Features:**
-- All content centered
-- Neutral background
-- Maximum width container (4xl)
-- Generous spacing
+# Working with PhoenixKit Storage
 
-**Example:**
-```xml
+<!-- Example 1: Using direct URL -->
+<Hero variant="split-image">
+  <Headline>Direct URL Image Example</Headline>
+  <Subheadline>This uses a direct asset path to display an image.</Subheadline>
+  <CTA primary="true" action="/signup">Get Started</CTA>
+  <Image src="/assets/dashboard-preview.png" alt="Dashboard Preview" />
+</Hero>
+
+<!-- Example 2: Using file_id -->
 <Hero variant="centered">
-  <Headline>Welcome to PhoenixKit</Headline>
-  <Subheadline>Everything you need to build modern web applications</Subheadline>
-  <CTA primary="true" action="/get-started">Get Started</CTA>
-  <CTA action="/docs">Read Documentation</CTA>
-  <Image src="/assets/logo-large.png" alt="PhoenixKit Logo" />
+  <Headline>Storage File ID Example</Headline>
+  <Subheadline>This pulls from PhoenixKit Storage.</Subheadline>
+  <CTA primary="true" action="/upload">Upload Image</CTA>
+  <Image file_id="018e3c4a-9f6b-7890-abcd-ef1234567890" alt="Uploaded Image" />
 </Hero>
-```
 
-**Result:**
-- Single centered column
-- Clean, professional look
-- Works great with or without images
-- Text-focused presentation
-
----
-
-#### Variant 3: Minimal (`variant="minimal"`)
-
-**Best for:** Documentation, blog posts, content pages
-
-**Features:**
-- Simple, distraction-free design
-- Smaller padding
-- Maximum width container (3xl)
-- Text-only focused (images optional)
-
-**Example:**
-```xml
+<!-- Example 3: Using file_id with variant -->
 <Hero variant="minimal">
-  <Headline>Getting Started Guide</Headline>
-  <Subheadline>Learn how to build with PhoenixKit in 5 minutes</Subheadline>
-  <CTA primary="true" action="#content">Start Reading</CTA>
+  <Headline>Thumbnail Variant</Headline>
+  <Subheadline>Great for small inline previews.</Subheadline>
+  <Image
+    file_id="018e3c4a-9f6b-7890-abcd-ef1234567890"
+    file_variant="thumbnail"
+    alt="Thumbnail Image"
+  />
 </Hero>
-```
 
-**Result:**
-- Compact, focused layout
-- Quick to scan
-- No distracting backgrounds
-- Perfect for content consumption
-
----
-
-### Child Components
-
-These components work inside Hero (and other container components):
-
-#### Headline
-```xml
-<Headline>Your Main Message Here</Headline>
-```
-- Renders as large, bold text (4xl to 6xl)
-- Responsive sizing
-- Base content color
-
-#### Subheadline
-```xml
-<Subheadline>Supporting description or value proposition</Subheadline>
-```
-- Renders as medium text (lg to xl)
-- Slightly muted color (70% opacity)
-- Good for explanations
-
-#### CTA (Call-to-Action)
-```xml
-<CTA primary="true" action="/signup">Button Text</CTA>
-<CTA action="#section">Secondary Button</CTA>
-```
-
-**Attributes:**
-- `primary` - Set to `"true"` for primary styling (default: `"false"`)
-- `action` - URL or anchor link
-
-**Styling:**
-- Primary: Bold, colored button (btn-primary)
-- Secondary: Outlined button (btn-outline)
-
-#### Image
-```xml
-<Image src="/assets/hero-image.png" alt="Descriptive text" />
-```
-
-**Attributes:**
-- `src` - Image path (relative or absolute)
-- `alt` - Accessibility description
-
-**Features:**
-- Lazy loading enabled
-- Rounded corners
-- Drop shadow
-- Responsive sizing
-
----
-
-## Dynamic Data Placeholders
-
-Use `{{variable}}` syntax to inject dynamic content:
-
-```xml
-<Headline>Welcome back, {{user.name}}</Headline>
-<Subheadline>You have {{stats.active_projects}} active projects</Subheadline>
-```
-
-**Nested values** are supported:
-- `{{user.name}}` → accesses `assigns.user.name`
-- `{{stats.total_users}}` → accesses `assigns.stats.total_users`
-- `{{framework}}` → accesses `assigns.framework`
-
-**Preview mode** provides sample data:
-```elixir
-%{
-  user: %{name: "Preview User", greeting_time: "Today"},
-  stats: %{total_users: "1,000", active_projects: 5},
-  framework: "Phoenix"
-}
-```
-
----
-
-## Switching Design Variants
-
-The power of `.phk` is that you can **change the entire design without touching content**. Just change the `variant` attribute:
-
-**Before (Split Image):**
-```xml
+<!-- Example 4: Custom classes -->
 <Hero variant="split-image">
-  <Headline>Build Your SaaS Faster</Headline>
-  <Subheadline>Start shipping in days, not months</Subheadline>
-  <CTA primary="true" action="/signup">Get Started</CTA>
-</Hero>
-```
-
-**After (Centered) - Same content, different design:**
-```xml
-<Hero variant="centered">
-  <Headline>Build Your SaaS Faster</Headline>
-  <Subheadline>Start shipping in days, not months</Subheadline>
-  <CTA primary="true" action="/signup">Get Started</CTA>
+  <Headline>Custom Styling</Headline>
+  <Subheadline>Combine variants with Tailwind utility classes.</Subheadline>
+  <Image
+    file_id="018e3c4a-9f6b-7890-abcd-ef1234567890"
+    file_variant="medium"
+    class="border-4 border-primary"
+    alt="Styled Image"
+  />
 </Hero>
 ```
 
 ---
 
-## Complete Example
+## Example – embedding a YouTube video
 
-See `priv/static/examples/sample_page.phk` for a complete example showing all three Hero variants in one file.
+```markdown
+## Watch the launch recap
 
----
-
-## How the Rendering Works
-
-When a `.phk` file is rendered:
-
-1. **Parse XML** → Convert to AST (Abstract Syntax Tree)
-2. **Inject Data** → Replace `{{placeholders}}` with actual values
-3. **Resolve Components** → Map `<Hero>` → `PhoenixKitWeb.Components.Blogging.Hero`
-4. **Apply Variant** → Select the correct rendering function based on `variant` attribute
-5. **Render HTML** → Generate final HTML output
-
----
-
-## Adding New Components (Future)
-
-The system is designed to be extensible. Future components might include:
-
-```xml
-<!-- Features Section -->
-<Features variant="grid">
-  <Feature icon="rocket">
-    <Title>Fast Development</Title>
-    <Description>Ship features quickly</Description>
-  </Feature>
-</Features>
-
-<!-- Testimonials -->
-<Testimonials variant="carousel">
-  <Testimonial author="Jane Doe" role="CTO" company="TechCorp">
-    This saved us months of development time.
-  </Testimonial>
-</Testimonials>
-
-<!-- CTA Section -->
-<CTASection variant="centered-form">
-  <Headline>Ready to get started?</Headline>
-  <EmailCapture button-text="Get Early Access" />
-</CTASection>
+<Video
+  url="https://youtu.be/dQw4w9WgXcQ"
+  autoplay="false"
+  muted="false"
+  ratio="16:9"
+  start="42"
+>
+  Highlights from our community livestream.
+</Video>
 ```
 
-Each component would have its own `.ex` file with multiple variant implementations.
+---
+
+## Rendering pipeline (current behaviour)
+
+1. **Frontmatter parsing** – YAML is parsed to capture metadata.
+2. **Markdown rendering** – Earmark converts the Markdown body to HTML.
+3. **Component pass** – the renderer finds inline PHK component tags and swaps them with Phoenix component output.
+4. **Storage resolution** – `<Image>` elements fetch URLs from `PhoenixKit.Storage`; caching and signed URLs ensure files are served even when only local storage exists.
+5. **Output** – the resulting HTML is cached for published posts to speed up public requests.
+
+There is no longer a pure-XML PageBuilder flow; Markdown is the primary content format. The legacy component pipeline still powers inline components, which is why the supporting modules remain in the codebase.
 
 ---
 
-## Best Practices
+## Best practices
 
-### Content Organization
-- ✅ Use semantic component names (`<Hero>`, not `<Section1>`)
-- ✅ Keep content and structure separate from design decisions
-- ✅ Use descriptive alt text for images
-- ✅ Choose variants based on page purpose, not content
-
-### Dynamic Data
-- ✅ Use placeholders for user-specific content (`{{user.name}}`)
-- ✅ Use placeholders for stats that change (`{{stats.count}}`)
-- ❌ Don't use placeholders for static marketing copy
-
-### Variant Selection
-- `split-image` → Marketing pages, product showcases, conversions
-- `centered` → Welcome pages, announcements, feature launches
-- `minimal` → Documentation, blog posts, content-heavy pages
-
-### Accessibility
-- ✅ Always provide meaningful `alt` text for images
-- ✅ Use descriptive CTA button text ("Start Free Trial" not "Click Here")
-- ✅ Structure content logically (Headline → Subheadline → CTA)
+- **Let Markdown do the heavy lifting.** Use inline components only when you need structured UI blocks.
+- **Always set `alt` text** for `<Image>` components.
+- **Reference the correct blog mode path.** If you switch a blog from timestamp to slug mode (or vice versa), migrate the files accordingly.
+- **Check variants in Storage.** If you expect `thumbnail` files, verify that automatic variant generation is enabled in Settings → Storage.
+- **Keep frontmatter clean.** Avoid adding arbitrary keys unless the blogging UI or your host app actually reads them.
+- **Preview before publishing.** The admin preview now uses the same renderer as the public site, so what you see there should match production output.
 
 ---
 
-## Troubleshooting
-
-### "Failed to render preview"
-- Check XML syntax (all tags must be closed: `<Hero>...</Hero>`)
-- Ensure `variant` attribute is valid (`split-image`, `centered`, or `minimal`)
-- Verify all attributes are quoted: `primary="true"` not `primary=true`
-
-### Dynamic placeholders not working
-- Check placeholder syntax: `{{user.name}}` not `{user.name}`
-- Ensure the variable exists in preview assigns
-- Nested paths must match exactly (case-sensitive)
-
-### Content not displaying
-- Verify you're using child components inside `<Hero>` (not plain text)
-- Check that `<Page>` is the root element
-- Ensure all opening tags have matching closing tags
-
----
-
-## Reference: Hero Variants Comparison
-
-| Variant | Layout | Background | Best For | Image Required |
-|---------|--------|------------|----------|----------------|
-| `split-image` | 2-column (content \| image) | Gradient (primary/secondary) | Landing pages, marketing | Recommended |
-| `centered` | Single column, centered | Neutral (base-200) | Announcements, welcome | Optional |
-| `minimal` | Single column, centered | None | Documentation, content | Optional |
-
----
-
-Built with ❤️ for PhoenixKit
+Built with ❤️ for PhoenixKit (updated early 2025)

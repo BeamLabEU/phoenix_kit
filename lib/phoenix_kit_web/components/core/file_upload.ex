@@ -30,32 +30,58 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
   attr :accept_description, :string, default: nil
   attr :max_size_description, :string, default: nil
 
+  attr :uploaded_file_ids, :list,
+    default: nil,
+    doc: "List of file IDs from last upload (for external use)"
+
+  attr :variant, :string,
+    default: "full",
+    doc: "Display variant - 'full' for drag-drop zone, 'button' for simple button only"
+
   def file_upload(assigns) do
+    case assigns.variant do
+      "button" -> button_upload(assigns)
+      _ -> full_upload(assigns)
+    end
+  end
+
+  defp full_upload(assigns) do
     ~H"""
     <div class="space-y-4">
-      <%!-- Upload Form with phx-change on form not file input --%>
       <form phx-change="validate" id={"upload-form-" <> @upload.ref}>
-        <label for={@upload.ref} class="btn btn-primary cursor-pointer">
-          <.icon name={@icon} class="w-4 h-4 mr-2" />
-          {@label}
-        </label>
-        <.live_file_input upload={@upload} class="hidden" />
-      </form>
+        <%!-- Drag and Drop Zone --%>
+        <div
+          class="border-2 border-dashed border-base-300 rounded-lg p-8 text-center transition-colors cursor-pointer hover:border-primary hover:bg-primary/5"
+          phx-drop-target={@upload.ref}
+          id={"drop-zone-" <> @upload.ref}
+        >
+          <label for={@upload.ref} class="cursor-pointer block">
+            <div class="flex flex-col items-center gap-2">
+              <.icon name={@icon} class="w-8 h-8 text-primary" />
+              <div>
+                <p class="font-semibold text-base-content">Drag files here or click to browse</p>
+                <p class="text-sm text-base-content/70 mt-1">
+                  <%= if @accept_description do %>
+                    {@accept_description}
+                  <% else %>
+                    Drop your files to upload
+                  <% end %>
+                </p>
+              </div>
+            </div>
+          </label>
+          <.live_file_input upload={@upload} class="hidden" />
+        </div>
 
-      <%!-- File Type and Size Info --%>
-      <%= if @accept_description != nil or @max_size_description != nil do %>
-        <p class="text-sm text-base-content/70">
-          <%= if @accept_description do %>
-            Supported formats: {@accept_description}
+        <%!-- File Type and Size Info --%>
+        <%= if @accept_description != nil or @max_size_description != nil do %>
+          <p class="text-sm text-base-content/70 text-center">
             <%= if @max_size_description do %>
-              <br />
+              Maximum file size: {@max_size_description}
             <% end %>
-          <% end %>
-          <%= if @max_size_description do %>
-            Maximum file size: {@max_size_description}
-          <% end %>
-        </p>
-      <% end %>
+          </p>
+        <% end %>
+      </form>
 
       <%!-- Active Uploads --%>
       <%= if length(@upload.entries) > 0 do %>
@@ -76,6 +102,53 @@ defmodule PhoenixKitWeb.Components.Core.FileUpload do
                     {entry.progress}%
                   </span>
                 </div>
+              </div>
+
+              <%!-- Cancel Button --%>
+              <button
+                type="button"
+                phx-click="cancel_upload"
+                phx-value-ref={entry.ref}
+                class="btn btn-xs btn-ghost text-error"
+                title="Cancel upload"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4" />
+              </button>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    """
+  end
+
+  defp button_upload(assigns) do
+    ~H"""
+    <div class="space-y-3">
+      <form phx-change="validate" id={"button-upload-form-" <> @upload.ref}>
+        <label
+          for={@upload.ref}
+          class="btn btn-primary btn-block"
+        >
+          <.icon name={@icon} class="w-5 h-5" /> {@label}
+        </label>
+        <.live_file_input upload={@upload} class="hidden" />
+      </form>
+
+      <%!-- Active Uploads --%>
+      <%= if length(@upload.entries) > 0 do %>
+        <div class="space-y-2">
+          <%= for entry <- @upload.entries do %>
+            <div class="flex items-center gap-3 p-3 border border-base-300 rounded-lg bg-base-50">
+              <div class="flex-1">
+                <p class="font-medium text-sm truncate">{entry.client_name}</p>
+                <progress
+                  value={entry.progress}
+                  max="100"
+                  class="progress progress-primary progress-sm w-full mt-1"
+                >
+                  {entry.progress}%
+                </progress>
               </div>
 
               <%!-- Cancel Button --%>

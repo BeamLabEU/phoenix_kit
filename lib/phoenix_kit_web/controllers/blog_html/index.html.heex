@@ -30,6 +30,16 @@
       <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <%= for post <- @posts do %>
           <article class="card bg-base-200 shadow-md hover:shadow-lg transition-shadow">
+            <%= if featured_image_url = featured_image_url(post, "medium") do %>
+              <figure class="h-40 w-full overflow-hidden rounded-t-2xl bg-base-300">
+                <img
+                  src={featured_image_url}
+                  alt={post.metadata.title || gettext("Featured image")}
+                  class="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </figure>
+            <% end %>
             <div class="card-body">
               <h2 class="card-title text-xl">
                 <a

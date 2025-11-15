@@ -58,7 +58,12 @@
   ~r/lib\/phoenix_kit\/emails\/archiver\.ex:.*pattern_match/,
   ~r/lib\/phoenix_kit\/emails\/archiver\.ex:.*unused_fun/,
 
-  # Ecto.Multi opaque type false positives (Dialyzer limitation with opaque types in pipelines)
-  # Note: Code uses proper pipe syntax, but Dialyzer loses opaque type info
-  ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/
+  # Ecto.Multi opaque type false positives (code works correctly)
+  ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
+
+  # Exact comparison warnings for nil checks (legacy warning format - Dialyzer bug)
+  # (No current warnings - exact_compare issue in configure_aws_ses.ex was fixed by using pattern matching)
+
+  # Ignore all test files - library tests are meant for integration testing
+  ~r|^test/.*|
 ]

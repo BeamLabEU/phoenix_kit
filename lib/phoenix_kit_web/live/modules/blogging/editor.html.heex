@@ -192,6 +192,64 @@
                 <div>
                   <label class="label">
                     <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Featured image file ID")}
+                    </span>
+                  </label>
+                  <input
+                    type="text"
+                    name="featured_image_id"
+                    value={@form["featured_image_id"]}
+                    class="input input-bordered w-full font-mono"
+                    placeholder={gettext("Paste a PhoenixKit Storage file ID")}
+                  />
+                  <p class="text-xs text-base-content/60 mt-1 space-x-1">
+                    <span>
+                      {gettext("Use the Media Manager to upload or copy a file ID.")}
+                    </span>
+                    <a
+                      href={
+                        PhoenixKit.Utils.Routes.path("/admin/users/media",
+                          locale: @current_locale
+                        )
+                      }
+                      target="_blank"
+                      class="link link-hover"
+                    >
+                      {gettext("Open Media Manager")}
+                    </a>
+                  </p>
+                  <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
+                    <div class="mt-3 space-y-2">
+                      <img
+                        src={preview_url}
+                        alt={@post.metadata.title || gettext("Featured image preview")}
+                        class="w-full rounded-lg border border-base-300 object-cover max-h-48"
+                        loading="lazy"
+                      />
+                      <p class="text-xs text-base-content/60">
+                        {gettext("Clear the field above to remove the featured image.")}
+                      </p>
+                      <p class="text-xs text-success">
+                        {gettext("Valid image ID")}
+                      </p>
+                    </div>
+                  <% else %>
+                    <% trimmed_id = @form["featured_image_id"] |> to_string() |> String.trim() %>
+                    <%= if trimmed_id == "" do %>
+                      <p class="text-xs text-base-content/60 mt-3">
+                        {gettext("No featured image selected.")}
+                      </p>
+                    <% else %>
+                      <p class="text-xs text-error mt-3">
+                        {gettext("Invalid image ID or file not found.")}
+                      </p>
+                    <% end %>
+                  <% end %>
+                </div>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
                       {gettext("Status")}
                     </span>
                   </label>

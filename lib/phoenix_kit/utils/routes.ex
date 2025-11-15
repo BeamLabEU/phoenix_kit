@@ -6,28 +6,37 @@ defmodule PhoenixKit.Utils.Routes do
   PhoenixKit prefix configured in the application.
   """
 
+  # NOTE: Locale override logic below exists for the temporary blogging component system integration.
+  # Switch to the upcoming media/storage helpers once they land.
   def path(url_path, opts \\ []) do
     if String.starts_with?(url_path, "/") do
       url_prefix = PhoenixKit.Config.get_url_prefix()
-
-      # Get locale from options, process dictionary, or Gettext
-      locale =
-        opts[:locale] ||
-          Process.get(:phoenix_kit_current_locale) ||
-          Gettext.get_locale(PhoenixKitWeb.Gettext)
-
       base_path = if url_prefix === "/", do: "", else: url_prefix
 
-      if locale == "en" do
-        "#{base_path}#{url_path}"
-      else
-        "#{base_path}/#{locale}#{url_path}"
+      locale =
+        case Keyword.fetch(opts, :locale) do
+          {:ok, :none} -> :none
+          {:ok, nil} -> determine_locale()
+          {:ok, locale_value} -> locale_value
+          :error -> determine_locale()
+        end
+
+      case locale do
+        :none -> "#{base_path}#{url_path}"
+        "en" -> "#{base_path}#{url_path}"
+        locale_value -> "#{base_path}/#{locale_value}#{url_path}"
       end
     else
       raise """
       Url path must start with "/".
       """
     end
+  end
+
+  defp determine_locale do
+    Process.get(:phoenix_kit_current_locale) ||
+      Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+      "en"
   end
 
   @doc """

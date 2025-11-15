@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.5.2"
+  @version "1.6.4"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -36,7 +36,19 @@ defmodule PhoenixKit.MixProject do
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
-      ]
+      ],
+
+      # Dialyzer configuration
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:ex_unit],
+        ignore_warnings: ".dialyzer_ignore.exs",
+        # Exclude test files from Dialyzer analysis
+        list_unused_filters: true
+      ],
+
+      # Aliases for development
+      aliases: aliases()
     ]
   end
 
@@ -100,6 +112,9 @@ defmodule PhoenixKit.MixProject do
       {:yaml_elixir, "~> 2.9"},
       {:uuidv7, "~> 1.0"},
       {:oban, "~> 2.20"},
+
+      # Rate limiting (ETS backend is built into Hammer 6.x)
+      {:hammer, "~> 6.2"},
 
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},

@@ -50,11 +50,49 @@
             {render_error(@changeset, :name)}
           </div>
 
+          <%!-- Aspect Ratio Toggle --%>
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text font-semibold">
+                <.icon name="hero-photo" class="w-4 h-4 inline mr-2" /> Maintain Aspect Ratio
+              </span>
+              <%!-- Hidden input sends "false" by default, checkbox overrides with "true" --%>
+              <input type="hidden" name="dimension[maintain_aspect_ratio]" value="false" />
+              <input
+                type="checkbox"
+                name="dimension[maintain_aspect_ratio]"
+                value="true"
+                checked={get_field_value(@changeset, :maintain_aspect_ratio) != false}
+                phx-change="validate"
+                class="checkbox checkbox-primary"
+              />
+            </label>
+            <p class="text-sm text-base-content/60 mt-1">
+              <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
+                When enabled: Only width is used, height is calculated automatically
+              <% else %>
+                When disabled: Both width and height are used for fixed dimensions (crops/thumbnails)
+              <% end %>
+            </p>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Width (px)</span>
-                <span class="label-text-alt">Target width in pixels</span>
+                <span class="label-text font-semibold">
+                  <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
+                    Target Width (px) *
+                  <% else %>
+                    Width (px) *
+                  <% end %>
+                </span>
+                <span class="label-text-alt">
+                  <%= if get_field_value(@changeset, :maintain_aspect_ratio) != false do %>
+                    Target width for responsive sizing
+                  <% else %>
+                    Width in pixels
+                  <% end %>
+                </span>
               </label>
               <input
                 type="number"
@@ -64,26 +102,30 @@
                 class={"input input-bordered #{input_class(@changeset, :width)}"}
                 placeholder="800"
                 min="1"
+                required
               />
               {render_error(@changeset, :width)}
             </div>
 
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-semibold">Height (px)</span>
-                <span class="label-text-alt">Target height in pixels</span>
-              </label>
-              <input
-                type="number"
-                name="dimension[height]"
-                phx-debounce="blur"
-                value={get_field_value(@changeset, :height)}
-                class={"input input-bordered #{input_class(@changeset, :height)}"}
-                placeholder="600"
-                min="1"
-              />
-              {render_error(@changeset, :height)}
-            </div>
+            <%= if get_field_value(@changeset, :maintain_aspect_ratio) == false do %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-semibold">Height (px) *</span>
+                  <span class="label-text-alt">Required for fixed dimensions</span>
+                </label>
+                <input
+                  type="number"
+                  name="dimension[height]"
+                  phx-debounce="blur"
+                  value={get_field_value(@changeset, :height)}
+                  class={"input input-bordered #{input_class(@changeset, :height)}"}
+                  placeholder="600"
+                  min="1"
+                  required
+                />
+                {render_error(@changeset, :height)}
+              </div>
+            <% end %>
           </div>
 
           <%!-- Quality and Format --%>
@@ -197,10 +239,10 @@
       <div>
         <h3 class="font-bold">Dimension Configuration Guide</h3>
         <p class="text-sm">
-          <strong>Size Settings:</strong>
-          Width and height define the target dimensions<br />
-          <strong>Aspect Ratio:</strong>
-          Leave one dimension empty to maintain aspect ratio<br />
+          <strong>Maintain Aspect Ratio (Default ON):</strong>
+          When enabled, only the width is used and height is calculated automatically to preserve the image's aspect ratio. Perfect for responsive images.<br />
+          <strong>Fixed Dimensions (When Aspect Ratio OFF):</strong>
+          Both width and height are used for exact dimensions. Images are center-cropped to fit. Great for thumbnails and square previews.<br />
           <strong>Quality Settings:</strong>
           Images use 1-100 (compression quality), Videos use CRF 0-51 (constant rate factor)<br />
           <strong>Format Override:</strong>

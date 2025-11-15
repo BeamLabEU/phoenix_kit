@@ -49,6 +49,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     alias PhoenixKit.Install.{
       ApplicationSupervisor,
       AssetRebuild,
+      BasicConfiguration,
       BrowserPipelineIntegration,
       CssIntegration,
       DemoFiles,
@@ -56,6 +57,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MailerConfig,
       MigrationStrategy,
       OAuthConfig,
+      RateLimiterConfig,
       RepoDetection,
       RouterIntegration
     }
@@ -88,8 +90,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       opts = igniter.args.options
 
       igniter
+      |> BasicConfiguration.add_basic_config()
       |> RepoDetection.add_phoenix_kit_configuration(opts[:repo])
       |> MailerConfig.add_mailer_configuration()
+      |> RateLimiterConfig.add_rate_limiter_configuration()
       |> OAuthConfig.add_oauth_configuration()
       |> ApplicationSupervisor.add_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
@@ -190,7 +194,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         # Install with custom PostgreSQL schema prefix for table isolation
         mix phoenix_kit.install --prefix "auth" --create-schema
 
-        
+
         # Install with custom router path
         mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 
