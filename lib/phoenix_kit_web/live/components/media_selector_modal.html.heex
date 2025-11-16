@@ -65,45 +65,64 @@
             <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
               <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Upload New Files
             </h3>
-            <.form
-              for={%{}}
-              phx-change="validate"
-              phx-submit="save"
-              phx-target={@myself}
-            >
-              <.live_file_input
-                upload={@uploads.media_files}
-                class="hidden"
-                id={"file-upload-input-#{@id}"}
-              />
-              <label
-                for={"file-upload-input-#{@id}"}
-                class="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-base-300 rounded-lg cursor-pointer hover:bg-base-300/50 transition-colors"
+            <form phx-change="validate" phx-submit="save" phx-target={@myself}>
+              <%!-- Drag and Drop Zone --%>
+              <div
+                class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center transition-colors cursor-pointer hover:border-primary hover:bg-primary/5"
                 phx-drop-target={@uploads.media_files.ref}
               >
-                <div class="flex flex-col items-center justify-center">
-                  <.icon name="hero-cloud-arrow-up" class="w-8 h-8 mb-2 text-base-content/50" />
-                  <p class="text-xs text-base-content/70">
-                    <span class="font-semibold">Click to upload</span> or drag and drop
-                  </p>
-                </div>
-              </label>
-              <%!-- Upload Progress --%>
-              <%= for entry <- @uploads.media_files.entries do %>
-                <div class="mt-3">
-                  <div class="flex items-center justify-between mb-1">
-                    <span class="text-xs text-base-content/70">{entry.client_name}</span>
-                    <span class="text-xs text-base-content/50">{entry.progress}%</span>
+                <label for={@uploads.media_files.ref} class="cursor-pointer block">
+                  <div class="flex flex-col items-center gap-2">
+                    <.icon name="hero-cloud-arrow-up" class="w-8 h-8 text-primary" />
+                    <div>
+                      <p class="font-semibold text-base-content text-sm">
+                        Drag files here or click to browse
+                      </p>
+                      <p class="text-xs text-base-content/70 mt-1">
+                        Images, videos, or documents
+                      </p>
+                    </div>
                   </div>
-                  <progress
-                    class="progress progress-primary w-full h-1"
-                    value={entry.progress}
-                    max="100"
-                  >
-                  </progress>
+                </label>
+                <.live_file_input upload={@uploads.media_files} class="hidden" />
+              </div>
+
+              <%!-- Active Uploads --%>
+              <%= if length(@uploads.media_files.entries) > 0 do %>
+                <div class="space-y-2 mt-3">
+                  <%= for entry <- @uploads.media_files.entries do %>
+                    <div class="flex items-center gap-3 p-2 border border-base-300 rounded-lg bg-base-50">
+                      <div class="flex-1">
+                        <p class="font-medium text-xs truncate">{entry.client_name}</p>
+                        <div class="flex gap-2 items-center mt-1">
+                          <progress
+                            value={entry.progress}
+                            max="100"
+                            class="progress progress-primary progress-sm flex-1"
+                          >
+                            {entry.progress}%
+                          </progress>
+                          <span class="text-xs text-base-content/60 min-w-max">
+                            {entry.progress}%
+                          </span>
+                        </div>
+                      </div>
+                      <%!-- Cancel Button --%>
+                      <button
+                        type="button"
+                        phx-click="cancel_upload"
+                        phx-value-ref={entry.ref}
+                        phx-target={@myself}
+                        class="btn btn-xs btn-ghost text-error"
+                        title="Cancel upload"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    </div>
+                  <% end %>
                 </div>
               <% end %>
-            </.form>
+            </form>
           </div>
         </div>
         <%!-- Search and Filter Section --%>

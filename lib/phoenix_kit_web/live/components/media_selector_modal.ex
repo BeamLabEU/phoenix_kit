@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
   import Ecto.Query
 
-  # Import core components for icon, etc.
+  # Import core components
   import PhoenixKitWeb.Components.Core.Icon
 
   @per_page 30
@@ -90,6 +90,11 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
         progress: &handle_progress/3
       )
     end
+  end
+
+  def handle_event("noop", _params, socket) do
+    # No-op event to prevent click propagation
+    {:noreply, socket}
   end
 
   def handle_event("toggle_selection", %{"file-id" => file_id}, socket) do
@@ -178,6 +183,10 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign(:total_pages, total_pages)
 
     {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :media_files, ref)}
   end
 
   def handle_event("validate", _params, socket) do
