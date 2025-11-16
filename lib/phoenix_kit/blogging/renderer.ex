@@ -16,6 +16,7 @@ defmodule PhoenixKit.Blogging.Renderer do
   @cache_name :blog_posts
   @cache_version "v1"
   @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video)\s+([^>]*?)\/>/s
+  @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video)\s*([^>]*)>(.*?)<\/\1>/s
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -86,8 +87,11 @@ defmodule PhoenixKit.Blogging.Renderer do
   # Detect if markdown content has embedded XML components
   defp has_embedded_components?(content) do
     String.contains?(content, "<Image ") ||
-      String.contains?(content, "<Hero ") ||
-      String.contains?(content, "<CTA ")
+      String.contains?(content, "<Hero") ||
+      String.contains?(content, "<CTA") ||
+      String.contains?(content, "<Headline") ||
+      String.contains?(content, "<Subheadline") ||
+      String.contains?(content, "<Video")
   end
 
   # Render .phk content using PageBuilder
@@ -138,11 +142,11 @@ defmodule PhoenixKit.Blogging.Renderer do
   defp render_mixed_segments("", acc), do: acc
 
   defp render_mixed_segments(content, acc) do
-    case Regex.run(@component_regex, content, return: :index) do
+    case next_component_match(content) do
       nil ->
         [render_earmark_markdown(content) | acc]
 
-      [{match_start, match_len}, {tag_start, tag_len}, {attrs_start, attrs_len}] ->
+      {:self_closing, [{match_start, match_len}, {tag_start, tag_len}, {attrs_start, attrs_len}]} ->
         before = binary_part(content, 0, match_start)
         after_index = match_start + match_len
         rest_content = binary_part(content, after_index, byte_size(content) - after_index)
@@ -155,6 +159,46 @@ defmodule PhoenixKit.Blogging.Renderer do
           |> add_component(tag, attrs)
 
         render_mixed_segments(rest_content, acc)
+
+      {:block, indexes} ->
+        [{match_start, match_len} | _rest] = indexes
+        before = binary_part(content, 0, match_start)
+        after_index = match_start + match_len
+        rest_content = binary_part(content, after_index, byte_size(content) - after_index)
+        fragment = binary_part(content, match_start, match_len)
+
+        acc =
+          acc
+          |> maybe_add_markdown(before)
+          |> add_block_component(fragment)
+
+        render_mixed_segments(rest_content, acc)
+    end
+  end
+
+  defp next_component_match(content) do
+    self_match = Regex.run(@component_regex, content, return: :index)
+    block_match = Regex.run(@component_block_regex, content, return: :index)
+
+    case {self_match, block_match} do
+      {nil, nil} ->
+        nil
+
+      {nil, block} ->
+        {:block, block}
+
+      {self, nil} ->
+        {:self_closing, self}
+
+      {self, block} ->
+        self_start = self |> hd() |> elem(0)
+        block_start = block |> hd() |> elem(0)
+
+        if self_start <= block_start do
+          {:self_closing, self}
+        else
+          {:block, block}
+        end
     end
   end
 
@@ -166,6 +210,10 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   defp add_component(acc, tag, attrs) do
     [render_inline_component(tag, attrs) | acc]
+  end
+
+  defp add_block_component(acc, fragment) do
+    [render_block_component(fragment) | acc]
   end
 
   # Render individual inline component
@@ -214,6 +262,21 @@ defmodule PhoenixKit.Blogging.Renderer do
     # Fallback for other components
     Logger.warning("Inline component not supported yet: #{tag}")
     ""
+  end
+
+  defp render_block_component(fragment) do
+    fragment
+    |> PageBuilder.render_content()
+    |> case do
+      {:ok, html} ->
+        html
+        |> Safe.to_iodata()
+        |> IO.iodata_to_binary()
+
+      {:error, reason} ->
+        Logger.warning("Error rendering block component: #{inspect(reason)}")
+        "<div class='error'>Error rendering component</div>"
+    end
   end
 
   # Parse XML attribute string into a map
