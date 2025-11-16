@@ -198,19 +198,14 @@
 
                   <%!-- Media Selector Button --%>
                   <div class="flex gap-2 mb-2">
-                    <.link
-                      navigate={
-                        PhoenixKitWeb.Helpers.MediaSelectorHelper.media_selector_url(
-                          @current_path,
-                          mode: :single,
-                          filter: :image
-                        )
-                      }
+                    <button
+                      type="button"
+                      phx-click="open_media_selector"
                       class="btn btn-primary btn-sm"
                     >
                       <.icon name="hero-photo" class="w-4 h-4 mr-1" />
                       {gettext("Select from Media Library")}
-                    </.link>
+                    </button>
                     <%= if @form["featured_image_id"] && @form["featured_image_id"] != "" do %>
                       <button
                         type="button"
@@ -347,4 +342,14 @@
       </div>
     </div>
   </div>
+
+  <%!-- Media Selector Modal --%>
+  <.live_component
+    module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+    id="media-selector-modal"
+    show={@show_media_selector}
+    mode={@media_selection_mode}
+    selected_ids={@media_selected_ids}
+    phoenix_kit_current_user={assigns[:phoenix_kit_current_user]}
+  />
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -10,7 +10,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
-  alias PhoenixKitWeb.Helpers.MediaSelectorHelper
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
@@ -28,6 +27,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Blogging Editor")
       |> assign(:blog_slug, blog_slug)
+      |> assign(:show_media_selector, false)
+      |> assign(:media_selection_mode, :single)
+      |> assign(:media_selected_ids, MapSet.new())
 
     {:ok, socket}
   end
@@ -52,7 +54,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     end
   end
 
-  def handle_params(%{"new" => "true"} = params, _uri, socket) do
+  def handle_params(%{"new" => "true"}, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Blogging.get_blog_mode(blog_slug)
     all_enabled_languages = Storage.enabled_language_codes()
@@ -81,20 +83,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:is_new_post, true)
       |> assign(:public_url, nil)
       |> push_event("changes-status", %{has_changes: false})
-
-    # Handle media selection from media selector
-    socket =
-      case MediaSelectorHelper.get_first_selected(params) do
-        {:ok, file_id} ->
-          socket
-          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-          |> assign(:has_pending_changes, true)
-          |> put_flash(:info, gettext("Featured image selected"))
-          |> push_event("changes-status", %{has_changes: true})
-
-        :none ->
-          socket
-      end
 
     {:noreply, socket}
   end
@@ -168,20 +156,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> push_event("changes-status", %{has_changes: false})
           end
 
-        # Handle media selection from media selector
-        socket =
-          case MediaSelectorHelper.get_first_selected(params) do
-            {:ok, file_id} ->
-              socket
-              |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-              |> assign(:has_pending_changes, true)
-              |> put_flash(:info, gettext("Featured image selected"))
-              |> push_event("changes-status", %{has_changes: true})
-
-            :none ->
-              socket
-          end
-
         {:noreply, socket}
 
       {:error, _reason} ->
@@ -231,16 +205,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> push_event("changes-status", %{has_changes: has_changes})}
   end
 
+  def handle_event("open_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, true)}
+  end
+
   def handle_event("clear_featured_image", _params, socket) do
-    # Clear the featured image from the form
-    current_form = socket.assigns.form
-
-    updated_params =
-      Map.update(current_form.params, "metadata", %{}, fn metadata ->
-        Map.delete(metadata, "featured_image_id")
-      end)
-
-    updated_form = %{current_form | params: updated_params}
+    # Clear the featured image from the form (form is a simple map, not a struct)
+    updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
 
     {:noreply,
      socket
@@ -458,6 +429,31 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        |> assign(:original_post_path, post.path || post.slug)
        |> push_event("changes-status", %{has_changes: false})}
     end
+  end
+
+  @impl true
+  def handle_info({:media_selected, file_ids}, socket) do
+    # Handle the selected file IDs from the media selector modal
+    file_id = List.first(file_ids)
+
+    socket =
+      if file_id do
+        socket
+        |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+        |> assign(:has_pending_changes, true)
+        |> assign(:show_media_selector, false)
+        |> put_flash(:info, gettext("Featured image selected"))
+        |> push_event("changes-status", %{has_changes: true})
+      else
+        socket
+        |> assign(:show_media_selector, false)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:media_selector_closed}, socket) do
+    {:noreply, assign(socket, :show_media_selector, false)}
   end
 
   defp create_new_post(socket, params) do
