@@ -209,6 +209,42 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     {:noreply, assign(socket, :show_media_selector, true)}
   end
 
+  def handle_event("open_image_component_selector", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, true)
+     |> assign(:inserting_image_component, true)}
+  end
+
+  def handle_event("insert_component", %{"component" => "video"}, socket) do
+    {:noreply,
+     push_event(socket, "phx:prompt-and-insert", %{
+       component: "video",
+       prompt: "Enter YouTube URL:",
+       placeholder: "https://youtu.be/dQw4w9WgXcQ"
+     })}
+  end
+
+  def handle_event("insert_component", %{"component" => "cta"}, socket) do
+    template = """
+    <CTA primary="true" action="/your-link">Button Text</CTA>
+    """
+
+    {:noreply, push_event(socket, "phx:insert-at-cursor", %{text: template})}
+  end
+
+  def handle_event("insert_video_component", %{"url" => url}, socket) do
+    template = """
+
+    <Video url="#{url}">
+      Optional caption text
+    </Video>
+
+    """
+
+    {:noreply, push_event(socket, "phx:insert-at-cursor", %{text: template})}
+  end
+
   def handle_event("clear_featured_image", _params, socket) do
     # Clear the featured image from the form (form is a simple map, not a struct)
     updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
@@ -435,25 +471,40 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_info({:media_selected, file_ids}, socket) do
     # Handle the selected file IDs from the media selector modal
     file_id = List.first(file_ids)
+    inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
 
     socket =
-      if file_id do
+      if file_id && inserting_image_component do
+        # Insert image component at cursor via JavaScript
+        js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
+
         socket
-        |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-        |> assign(:has_pending_changes, true)
         |> assign(:show_media_selector, false)
-        |> put_flash(:info, gettext("Featured image selected"))
-        |> push_event("changes-status", %{has_changes: true})
+        |> assign(:inserting_image_component, false)
+        |> put_flash(:info, gettext("Image component inserted"))
+        |> push_event("exec-js", %{js: js_code})
       else
-        socket
-        |> assign(:show_media_selector, false)
+        if file_id do
+          socket
+          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+          |> assign(:has_pending_changes, true)
+          |> assign(:show_media_selector, false)
+          |> put_flash(:info, gettext("Featured image selected"))
+          |> push_event("changes-status", %{has_changes: true})
+        else
+          socket
+          |> assign(:show_media_selector, false)
+        end
       end
 
     {:noreply, socket}
   end
 
   def handle_info({:media_selector_closed}, socket) do
-    {:noreply, assign(socket, :show_media_selector, false)}
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, false)
+     |> assign(:inserting_image_component, false)}
   end
 
   defp create_new_post(socket, params) do
@@ -701,7 +752,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           DateTime.utc_now()
           |> floor_datetime_to_minute()
           |> DateTime.to_iso8601(),
-      "featured_image_id" => post.metadata.featured_image_id || ""
+      "featured_image_id" => Map.get(post.metadata, :featured_image_id, "")
     }
 
     form =
