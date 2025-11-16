@@ -286,6 +286,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/sessions", Live.Users.Sessions, :index
           live "/admin/users/media", Live.Users.Media, :index
           live "/admin/users/media/:file_id", Live.Users.MediaDetail, :show
+          live "/admin/media/selector", Live.Users.MediaSelector, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index
@@ -417,6 +418,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/sessions", Live.Users.Sessions, :index
           live "/admin/users/media", Live.Users.Media, :index
           live "/admin/users/media/:file_id", Live.Users.MediaDetail, :show
+          live "/admin/media/selector", Live.Users.MediaSelector, :index
           live "/admin/settings", Live.Settings, :index
           live "/admin/settings/users", Live.Settings.Users, :index
           live "/admin/modules", Live.Modules, :index

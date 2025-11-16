@@ -195,29 +195,52 @@
                       {gettext("Featured image file ID")}
                     </span>
                   </label>
-                  <input
-                    type="text"
-                    name="featured_image_id"
-                    value={@form["featured_image_id"]}
-                    class="input input-bordered w-full font-mono"
-                    placeholder={gettext("Paste a PhoenixKit Storage file ID")}
-                  />
-                  <p class="text-xs text-base-content/60 mt-1 space-x-1">
-                    <span>
-                      {gettext("Use the Media Manager to upload or copy a file ID.")}
-                    </span>
-                    <a
-                      href={
-                        PhoenixKit.Utils.Routes.path("/admin/users/media",
-                          locale: @current_locale
+
+                  <%!-- Media Selector Button --%>
+                  <div class="flex gap-2 mb-2">
+                    <.link
+                      navigate={
+                        PhoenixKitWeb.Helpers.MediaSelectorHelper.media_selector_url(
+                          @current_path,
+                          mode: :single,
+                          filter: :image
                         )
                       }
-                      target="_blank"
-                      class="link link-hover"
+                      class="btn btn-primary btn-sm"
                     >
-                      {gettext("Open Media Manager")}
-                    </a>
-                  </p>
+                      <.icon name="hero-photo" class="w-4 h-4 mr-1" />
+                      {gettext("Select from Media Library")}
+                    </.link>
+                    <%= if @form["featured_image_id"] && @form["featured_image_id"] != "" do %>
+                      <button
+                        type="button"
+                        phx-click="clear_featured_image"
+                        class="btn btn-outline btn-sm"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4 mr-1" />
+                        {gettext("Clear")}
+                      </button>
+                    <% end %>
+                  </div>
+
+                  <%!-- Manual Input (Advanced) --%>
+                  <details class="collapse collapse-arrow bg-base-200">
+                    <summary class="collapse-title text-sm font-medium">
+                      {gettext("Advanced: Enter File ID Manually")}
+                    </summary>
+                    <div class="collapse-content">
+                      <input
+                        type="text"
+                        name="featured_image_id"
+                        value={@form["featured_image_id"]}
+                        class="input input-bordered w-full font-mono text-sm"
+                        placeholder={gettext("Paste a PhoenixKit Storage file ID")}
+                      />
+                      <p class="text-xs text-base-content/60 mt-1">
+                        {gettext("Enter a file ID directly if you know it.")}
+                      </p>
+                    </div>
+                  </details>
                   <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
                     <div class="mt-3 space-y-2">
                       <img

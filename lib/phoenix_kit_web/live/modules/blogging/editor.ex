@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
+  alias PhoenixKitWeb.Helpers.MediaSelectorHelper
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
@@ -51,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     end
   end
 
-  def handle_params(%{"new" => "true"}, _uri, socket) do
+  def handle_params(%{"new" => "true"} = params, _uri, socket) do
     blog_slug = socket.assigns.blog_slug
     blog_mode = Blogging.get_blog_mode(blog_slug)
     all_enabled_languages = Storage.enabled_language_codes()
@@ -72,12 +73,28 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:all_enabled_languages, all_enabled_languages)
       |> assign(
         :current_path,
-        Routes.path("/admin/blogging/#{blog_slug}/edit", locale: socket.assigns.current_locale)
+        Routes.path("/admin/blogging/#{blog_slug}/edit?new=true",
+          locale: socket.assigns.current_locale
+        )
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
       |> assign(:public_url, nil)
       |> push_event("changes-status", %{has_changes: false})
+
+    # Handle media selection from media selector
+    socket =
+      case MediaSelectorHelper.get_first_selected(params) do
+        {:ok, file_id} ->
+          socket
+          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+          |> assign(:has_pending_changes, true)
+          |> put_flash(:info, gettext("Featured image selected"))
+          |> push_event("changes-status", %{has_changes: true})
+
+        :none ->
+          socket
+      end
 
     {:noreply, socket}
   end
@@ -120,7 +137,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:all_enabled_languages, all_enabled_languages)
             |> assign(
               :current_path,
-              Routes.path("/admin/blogging/#{blog_slug}/edit",
+              Routes.path(
+                "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
                 locale: socket.assigns.current_locale
               )
             )
@@ -141,13 +159,27 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:all_enabled_languages, all_enabled_languages)
             |> assign(
               :current_path,
-              Routes.path("/admin/blogging/#{blog_slug}/edit",
+              Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
                 locale: socket.assigns.current_locale
               )
             )
             |> assign(:has_pending_changes, false)
             |> assign(:public_url, build_public_url(post, post.language))
             |> push_event("changes-status", %{has_changes: false})
+          end
+
+        # Handle media selection from media selector
+        socket =
+          case MediaSelectorHelper.get_first_selected(params) do
+            {:ok, file_id} ->
+              socket
+              |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+              |> assign(:has_pending_changes, true)
+              |> put_flash(:info, gettext("Featured image selected"))
+              |> push_event("changes-status", %{has_changes: true})
+
+            :none ->
+              socket
           end
 
         {:noreply, socket}
@@ -160,6 +192,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            to: Routes.path("/admin/blogging/#{blog_slug}", locale: socket.assigns.current_locale)
          )}
     end
+  end
+
+  # Catch-all for other param combinations (shouldn't normally be reached)
+  def handle_params(_params, _uri, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -192,6 +229,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> assign(:public_url, public_url)
      |> clear_flash()
      |> push_event("changes-status", %{has_changes: has_changes})}
+  end
+
+  def handle_event("clear_featured_image", _params, socket) do
+    # Clear the featured image from the form
+    current_form = socket.assigns.form
+
+    updated_params =
+      Map.update(current_form.params, "metadata", %{}, fn metadata ->
+        Map.delete(metadata, "featured_image_id")
+      end)
+
+    updated_form = %{current_form | params: updated_params}
+
+    {:noreply,
+     socket
+     |> assign(:form, updated_form)
+     |> assign(:has_pending_changes, true)
+     |> put_flash(:info, gettext("Featured image cleared"))
+     |> push_event("changes-status", %{has_changes: true})}
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
@@ -1160,5 +1216,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Remove blog name
     |> Enum.drop(1)
     |> Enum.join("/")
+  end
+
+  defp update_form_with_media(form, file_id) do
+    # Update the form with the selected file_id
+    # The form is a simple map with string keys
+    Map.put(form, "featured_image_id", file_id)
   end
 end

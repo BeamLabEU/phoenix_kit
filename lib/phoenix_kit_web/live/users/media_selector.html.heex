@@ -1,0 +1,247 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  current_locale={@current_locale}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-8 max-w-7xl">
+    <%!-- Header with Actions --%>
+    <header class="w-full mb-6">
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-4xl font-bold text-base-content mb-2">
+            Select Media
+          </h1>
+          <p class="text-base-content/70">
+            <%= if @selection_mode == :single do %>
+              Click on an image to select it
+            <% else %>
+              Select one or more images
+            <% end %>
+            <%= if MapSet.size(@selected_ids) > 0 do %>
+              <span class="badge badge-primary ml-2">
+                {MapSet.size(@selected_ids)} selected
+              </span>
+            <% end %>
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <button phx-click="cancel_selection" class="btn btn-outline">
+            <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> Cancel
+          </button>
+          <button
+            phx-click="confirm_selection"
+            class="btn btn-primary"
+            disabled={MapSet.size(@selected_ids) == 0}
+          >
+            <.icon name="hero-check" class="w-4 h-4 mr-1" /> Confirm Selection
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <%!-- Upload Section --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h3 class="card-title text-lg mb-4">
+          <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> Upload New Files
+        </h3>
+        <.form for={%{}} phx-change="validate" phx-submit="save">
+          <.live_file_input upload={@uploads.media_files} class="hidden" id="file-upload-input" />
+          <label
+            for="file-upload-input"
+            class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-base-300 rounded-lg cursor-pointer hover:bg-base-200 transition-colors"
+            phx-drop-target={@uploads.media_files.ref}
+          >
+            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+              <.icon name="hero-cloud-arrow-up" class="w-10 h-10 mb-3 text-base-content/50" />
+              <p class="mb-2 text-sm text-base-content/70">
+                <span class="font-semibold">Click to upload</span> or drag and drop
+              </p>
+              <p class="text-xs text-base-content/50">Images, videos, or documents</p>
+            </div>
+          </label>
+
+          <%!-- Upload Progress --%>
+          <%= for entry <- @uploads.media_files.entries do %>
+            <div class="mt-4">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-sm text-base-content/70">{entry.client_name}</span>
+                <span class="text-sm text-base-content/50">{entry.progress}%</span>
+              </div>
+              <progress
+                class="progress progress-primary w-full"
+                value={entry.progress}
+                max="100"
+              >
+              </progress>
+            </div>
+          <% end %>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- Search and Filter Section --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <div class="flex flex-col md:flex-row gap-4">
+          <%!-- Search --%>
+          <div class="flex-1">
+            <.form for={%{}} phx-submit="search" class="w-full">
+              <div class="join w-full">
+                <input
+                  type="text"
+                  name="search[query]"
+                  value={@search_query}
+                  placeholder="Search by filename..."
+                  class="input input-bordered join-item flex-1"
+                />
+                <button type="submit" class="btn btn-primary join-item">
+                  <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+                </button>
+              </div>
+            </.form>
+          </div>
+
+          <%!-- Filter by Type --%>
+          <div class="w-full md:w-48">
+            <select
+              phx-change="filter_type"
+              name="filter"
+              class="select select-bordered w-full"
+            >
+              <option value="all" selected={@file_type_filter == :all}>All Files</option>
+              <option value="image" selected={@file_type_filter == :image}>Images Only</option>
+              <option value="video" selected={@file_type_filter == :video}>Videos Only</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Media Grid --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <%= if Enum.empty?(@uploaded_files) do %>
+          <div class="text-center py-12">
+            <.icon name="hero-photo" class="w-16 h-16 mx-auto mb-4 text-base-content/30" />
+            <p class="text-lg text-base-content/70 mb-2">No media files found</p>
+            <p class="text-sm text-base-content/50">
+              Upload files using the area above or adjust your search filters
+            </p>
+          </div>
+        <% else %>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            <%= for file <- @uploaded_files do %>
+              <% is_selected = MapSet.member?(@selected_ids, file.file_id) %>
+              <div
+                phx-click="toggle_selection"
+                phx-value-file-id={file.file_id}
+                class={"card bg-base-200 shadow-md cursor-pointer transition-all hover:shadow-xl #{if is_selected, do: "ring-4 ring-primary", else: ""}"}
+              >
+                <%!-- Thumbnail --%>
+                <figure class="aspect-square bg-base-300 relative">
+                  <%= if file.file_type == "image" do %>
+                    <img
+                      src={file.urls["thumbnail"] || file.urls["small"] || file.urls["original"]}
+                      alt={file.filename}
+                      class="object-cover w-full h-full"
+                    />
+                  <% else %>
+                    <div class="flex items-center justify-center w-full h-full">
+                      <%= if file.file_type == "video" do %>
+                        <.icon name="hero-video-camera" class="w-16 h-16 text-base-content/30" />
+                      <% else %>
+                        <.icon name="hero-document" class="w-16 h-16 text-base-content/30" />
+                      <% end %>
+                    </div>
+                  <% end %>
+
+                  <%!-- Selection Indicator --%>
+                  <%= if is_selected do %>
+                    <div class="absolute top-2 right-2 bg-primary text-primary-content rounded-full p-2">
+                      <.icon name="hero-check" class="w-5 h-5" />
+                    </div>
+                  <% else %>
+                    <div class="absolute top-2 right-2 bg-base-100/80 border-2 border-base-300 rounded-full w-9 h-9">
+                    </div>
+                  <% end %>
+
+                  <%!-- File Type Badge --%>
+                  <div class="absolute bottom-2 left-2">
+                    <span class="badge badge-sm badge-neutral uppercase">
+                      {file.file_type}
+                    </span>
+                  </div>
+                </figure>
+
+                <%!-- File Info --%>
+                <div class="card-body p-3">
+                  <p class="text-sm font-semibold truncate" title={file.filename}>
+                    {file.filename}
+                  </p>
+                  <div class="flex justify-between items-center text-xs text-base-content/60">
+                    <span>{format_file_size(file.size)}</span>
+                    <%= if file.width && file.height do %>
+                      <span>{file.width}×{file.height}</span>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Pagination --%>
+    <%= if @total_pages > 1 do %>
+      <div class="flex justify-center">
+        <div class="join">
+          <%= if @current_page > 1 do %>
+            <.link
+              navigate={
+                "#{@current_path}?page=#{@current_page - 1}&return_to=#{URI.encode_www_form(@return_to)}&mode=#{@selection_mode}&filter=#{@file_type_filter}"
+              }
+              class="join-item btn"
+            >
+              «
+            </.link>
+          <% else %>
+            <button class="join-item btn btn-disabled">«</button>
+          <% end %>
+
+          <%= for page <- pagination_range(@current_page, @total_pages) do %>
+            <%= if page == :ellipsis do %>
+              <button class="join-item btn btn-disabled">...</button>
+            <% else %>
+              <.link
+                navigate={
+                  "#{@current_path}?page=#{page}&return_to=#{URI.encode_www_form(@return_to)}&mode=#{@selection_mode}&filter=#{@file_type_filter}"
+                }
+                class={"join-item btn #{if page == @current_page, do: "btn-active"}"}
+              >
+                {page}
+              </.link>
+            <% end %>
+          <% end %>
+
+          <%= if @current_page < @total_pages do %>
+            <.link
+              navigate={
+                "#{@current_path}?page=#{@current_page + 1}&return_to=#{URI.encode_www_form(@return_to)}&mode=#{@selection_mode}&filter=#{@file_type_filter}"
+              }
+              class="join-item btn"
+            >
+              »
+            </.link>
+          <% else %>
+            <button class="join-item btn btn-disabled">»</button>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
