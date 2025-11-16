@@ -158,24 +158,43 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Configurable strictness: Can log warnings or force re-authentication
   - Performance indexes for efficient fingerprint verification
 
-  ### V24 - File Checksum Unique Index ⚡ LATEST
+  ### V24 - File Checksum Unique Index
   - Unique index on phoenix_kit_files.checksum for O(1) duplicate detection
   - Enables automatic deduplication of uploaded files
   - Prevents redundant storage of identical files
   - Improves performance of duplicate file lookups
 
+  ### V25 - Aspect Ratio Control for Dimensions
+  - Adds maintain_aspect_ratio boolean column to phoenix_kit_storage_dimensions
+  - Allows choosing between aspect ratio preservation (width-only) or fixed dimensions
+  - Per-dimension control for responsive sizing vs exact crops
+  - Defaults to maintaining aspect ratio for all dimensions
+
+  ### V26 - Rename Checksum Fields & Per-User Deduplication ⚡ LATEST
+  - Renames `checksum` to `file_checksum` (clearer naming)
+  - Removes unique index on file_checksum (allows same file from different users)
+  - Adds `user_file_checksum` column (SHA256 of user_id + file_checksum)
+  - Creates unique index on user_file_checksum for per-user duplicate detection
+  - Same user cannot upload same file twice (enforced by user_file_checksum)
+  - Different users CAN upload same file (different user_file_checksum values)
+  - Preserves file_checksum field for popularity analytics across all users
+  - Clearer naming convention: file_checksum vs user_file_checksum
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V24 in sequence.
+  Runs all migrations V01 through V26 in sequence.
 
   ### Incremental Updates
-  - V01 → V24: Runs V02 through V24 in sequence
-  - V23 → V24: Runs V24 only (adds file checksum unique index)
-  - V22 → V24: Runs V23 and V24 in sequence
-  - V20 → V24: Runs V21, V22, V23, and V24 in sequence
+  - V01 → V26: Runs V02 through V26 in sequence
+  - V25 → V26: Runs V26 only (adds per-user file hash)
+  - V24 → V26: Runs V25 and V26 in sequence
+  - V23 → V26: Runs V24, V25, and V26 in sequence
+  - V20 → V26: Runs V21 through V26 in sequence
 
   ### Rollback Support
+  - V26 → V25: Removes user_file_checksum, renames file_checksum back to checksum, restores checksum unique index
+  - V25 → V24: Removes aspect ratio control from dimensions
   - V24 → V23: Removes unique index on checksum
   - V23 → V22: Removes session fingerprinting columns and indexes
   - V22 → V21: Removes audit logging system, email orphaned events, and email metrics
@@ -193,14 +212,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version (V24)
+      # Update to latest version (V26)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 24)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 26)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 23)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 25)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -218,7 +237,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 25
+  @current_version 26
   @default_prefix "public"
 
   @doc false
