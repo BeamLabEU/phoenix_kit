@@ -199,11 +199,23 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   end
 
   defp handle_progress(:media_files, entry, socket) do
-    if entry.done? do
-      consume_uploaded_entry(socket, entry, fn %{path: path} ->
-        process_upload(socket, path, entry)
-      end)
-    end
+    socket =
+      if entry.done? do
+        consume_uploaded_entry(socket, entry, fn %{path: path} ->
+          process_upload(socket, path, entry)
+        end)
+
+        # Reload files to show the newly uploaded file
+        {files, total_count} = load_files(socket, socket.assigns.current_page)
+        total_pages = ceil(total_count / socket.assigns.per_page)
+
+        socket
+        |> assign(:uploaded_files, files)
+        |> assign(:total_count, total_count)
+        |> assign(:total_pages, total_pages)
+      else
+        socket
+      end
 
     {:noreply, socket}
   end
