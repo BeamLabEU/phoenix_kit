@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.3"
+  @version "1.6.4"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -90,6 +90,7 @@ defmodule PhoenixKit.MixProject do
       {:gen_smtp, "~> 1.2"},
 
       # OAuth authentication
+      {:oauth2, "~> 2.0"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
       {:ueberauth_apple, "~> 0.1"},

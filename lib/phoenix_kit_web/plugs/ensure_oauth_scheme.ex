@@ -31,7 +31,7 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthScheme do
         apply_scheme(conn, forwarded_proto)
 
       # 2. Check explicit oauth_base_url config
-      base_url = Application.get_env(:phoenix_kit, :oauth_base_url) ->
+      base_url = PhoenixKit.Config.get_string(:oauth_base_url) ->
         apply_base_url(conn, base_url)
 
       # 3. Check endpoint URL config

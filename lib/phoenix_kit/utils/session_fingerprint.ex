@@ -190,7 +190,7 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
 
   """
   def fingerprinting_enabled? do
-    Application.get_env(:phoenix_kit, :session_fingerprint_enabled, true)
+    PhoenixKit.Config.get_boolean(:session_fingerprint_enabled, true)
   end
 
   @doc """
@@ -206,7 +206,7 @@ defmodule PhoenixKit.Utils.SessionFingerprint do
 
   """
   def strict_mode? do
-    Application.get_env(:phoenix_kit, :session_fingerprint_strict, false)
+    PhoenixKit.Config.get_boolean(:session_fingerprint_strict, false)
   end
 
   # Private helper to get a header value from connection

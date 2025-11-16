@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   require Logger
 
+  import Ecto.Query
+
   alias PhoenixKit.Settings
   alias PhoenixKit.Storage
   alias PhoenixKit.Storage.File
@@ -96,7 +98,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   end
 
   defp load_file_data(socket, file_id) do
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = PhoenixKit.Config.get_repo()
 
     case repo.get(File, file_id) do
       nil ->
@@ -122,8 +124,6 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   end
 
   defp load_file_instances(file_id, repo) do
-    import Ecto.Query
-
     FileInstance
     |> where([fi], fi.file_id == ^file_id)
     |> repo.all()
@@ -186,8 +186,6 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   # Load file locations with bucket information
   defp load_file_locations(file_instance_id, repo) do
-    import Ecto.Query
-
     FileLocation
     |> where([fl], fl.file_instance_id == ^file_instance_id and fl.status == "active")
     |> preload(:bucket)

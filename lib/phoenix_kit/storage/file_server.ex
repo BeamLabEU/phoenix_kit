@@ -266,6 +266,6 @@ defmodule PhoenixKit.Storage.FileServer do
 
   @doc false
   defp get_repo do
-    Application.get_env(:phoenix_kit, :repo) || raise "PhoenixKit repo not configured"
+    PhoenixKit.Config.get_repo!()
   end
 end

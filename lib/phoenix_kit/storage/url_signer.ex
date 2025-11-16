@@ -135,7 +135,7 @@ defmodule PhoenixKit.Storage.URLSigner do
     # 1. Explicitly configured on :phoenix_kit
     # 2. From the configured endpoint
     # 3. Return nil if not found (will use data without secret)
-    Application.get_env(:phoenix_kit, :secret_key_base) ||
+    PhoenixKit.Config.get(:secret_key_base, nil) ||
       get_endpoint_secret()
   end
 

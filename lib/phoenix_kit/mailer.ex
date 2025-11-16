@@ -406,7 +406,7 @@ defmodule PhoenixKit.Mailer do
 
   # Detect provider for built-in PhoenixKit mailer
   defp detect_builtin_provider do
-    config = Application.get_env(:phoenix_kit, __MODULE__, [])
+    config = PhoenixKit.Config.get(PhoenixKit.Mailer, [])
     adapter = Keyword.get(config, :adapter)
     Utils.adapter_to_provider_name(adapter, "phoenix_kit_builtin")
   end
