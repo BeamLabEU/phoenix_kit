@@ -94,6 +94,7 @@ This will automatically:
 - User Auth
   - 2FA
   - Fail2ban (userbased, ip based, region based)
+  - User impersonation
 - Backend admin
   - Design / templates / themes
   - Settings
