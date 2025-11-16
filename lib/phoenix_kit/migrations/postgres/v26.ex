@@ -6,11 +6,15 @@ defmodule PhoenixKit.Migrations.Postgres.V26 do
   while preserving the ability to query for popular files across all users.
 
   ## Changes
+  - Enables `pgcrypto` extension for cryptographic functions
   - Renames `checksum` column to `file_checksum` (for clarity)
   - Drops unique index on `file_checksum` (allows same file from different users)
   - Adds `user_file_checksum` column (SHA256 of user_id + file_checksum)
   - Creates unique index on `user_file_checksum` to enforce per-user uniqueness
   - Backfills existing records with calculated user_file_checksum values
+
+  ## Requirements
+  - PostgreSQL with `pgcrypto` extension support (enabled automatically)
 
   ## Purpose
   - Same user cannot upload the same file twice (duplicate prevention via user_file_checksum)
@@ -21,8 +25,9 @@ defmodule PhoenixKit.Migrations.Postgres.V26 do
 
   use Ecto.Migration
 
-  def up(opts \\ []) do
-    prefix = Keyword.get(opts, :prefix, "public")
+  def up(%{prefix: prefix} = _opts) do
+    # Enable pgcrypto extension for digest function
+    execute "CREATE EXTENSION IF NOT EXISTS pgcrypto"
 
     # Drop the unique index on checksum (from V24)
     drop_if_exists unique_index(:phoenix_kit_files, [:checksum], prefix: prefix)
@@ -52,11 +57,12 @@ defmodule PhoenixKit.Migrations.Postgres.V26 do
              prefix: prefix,
              name: "#{prefix}_phoenix_kit_files_user_file_checksum_index"
            )
+
+    # Set version comment on phoenix_kit table for version tracking
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '26'"
   end
 
-  def down(opts \\ []) do
-    prefix = Keyword.get(opts, :prefix, "public")
-
+  def down(%{prefix: prefix} = _opts) do
     # Drop the user_file_checksum unique index
     drop_if_exists unique_index(:phoenix_kit_files, [:user_file_checksum],
                      prefix: prefix,
@@ -73,5 +79,13 @@ defmodule PhoenixKit.Migrations.Postgres.V26 do
 
     # Restore the unique index on checksum (from V24)
     create_if_not_exists unique_index(:phoenix_kit_files, [:checksum], prefix: prefix)
+
+    # Update version comment on phoenix_kit table to previous version
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '25'"
   end
+
+  # Helper functions
+
+  defp prefix_table_name(table_name, nil), do: table_name
+  defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
 end
