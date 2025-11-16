@@ -201,18 +201,39 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   defp handle_progress(:media_files, entry, socket) do
     socket =
       if entry.done? do
-        consume_uploaded_entry(socket, entry, fn %{path: path} ->
-          process_upload(socket, path, entry)
-        end)
+        # Consume the uploaded entry and capture the file ID
+        uploaded_results =
+          consume_uploaded_entry(socket, entry, fn %{path: path} ->
+            process_upload(socket, path, entry)
+          end)
+
+        # Extract the file ID from the result - consume_uploaded_entry returns [{:ok, file_id}]
+        new_file_id =
+          case uploaded_results do
+            [{:ok, file_id}] when is_binary(file_id) -> file_id
+            _ -> nil
+          end
 
         # Reload files to show the newly uploaded file
         {files, total_count} = load_files(socket, socket.assigns.current_page)
         total_pages = ceil(total_count / socket.assigns.per_page)
 
+        # Auto-select the newly uploaded file
+        selected_ids =
+          if new_file_id do
+            case socket.assigns.mode do
+              :single -> MapSet.new([new_file_id])
+              :multiple -> MapSet.put(socket.assigns.selected_ids, new_file_id)
+            end
+          else
+            socket.assigns.selected_ids
+          end
+
         socket
         |> assign(:uploaded_files, files)
         |> assign(:total_count, total_count)
         |> assign(:total_pages, total_pages)
+        |> assign(:selected_ids, selected_ids)
       else
         socket
       end
