@@ -192,77 +192,110 @@
                 <div>
                   <label class="label">
                     <span class="label-text text-sm font-semibold text-base-content">
-                      {gettext("Featured image file ID")}
+                      {gettext("Featured Image")}
                     </span>
                   </label>
 
-                  <%!-- Media Selector Button --%>
-                  <div class="flex gap-2 mb-2">
+                  <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
+                    <%!-- Image Preview with Actions --%>
+                    <div class="space-y-3">
+                      <div class="relative group">
+                        <img
+                          src={preview_url}
+                          alt={@post.metadata.title || gettext("Featured image")}
+                          class="w-full rounded-lg border-2 border-base-300 object-cover max-h-56"
+                          loading="lazy"
+                        />
+                        <%!-- Desktop: Hover overlay --%>
+                        <div class="hidden md:flex absolute inset-0 bg-base-content/0 group-hover:bg-base-content/60 transition-all rounded-lg items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                          <button
+                            type="button"
+                            phx-click="open_media_selector"
+                            class="btn btn-primary btn-sm shadow-lg"
+                          >
+                            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                            {gettext("Change")}
+                          </button>
+                          <button
+                            type="button"
+                            phx-click="clear_featured_image"
+                            class="btn btn-error btn-sm shadow-lg"
+                          >
+                            <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                            {gettext("Remove")}
+                          </button>
+                        </div>
+                      </div>
+                      <%!-- Mobile: Always visible buttons --%>
+                      <div class="flex md:hidden gap-2">
+                        <button
+                          type="button"
+                          phx-click="open_media_selector"
+                          class="btn btn-primary btn-sm flex-1"
+                        >
+                          <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                          {gettext("Change")}
+                        </button>
+                        <button
+                          type="button"
+                          phx-click="clear_featured_image"
+                          class="btn btn-error btn-sm flex-1"
+                        >
+                          <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                          {gettext("Remove")}
+                        </button>
+                      </div>
+                    </div>
+                  <% else %>
+                    <%!-- No Image Selected - Show Upload Area --%>
                     <button
                       type="button"
                       phx-click="open_media_selector"
-                      class="btn btn-primary btn-sm"
+                      class="w-full border-2 border-dashed border-base-300 rounded-lg p-8 hover:border-primary hover:bg-primary/5 transition-all group"
                     >
-                      <.icon name="hero-photo" class="w-4 h-4 mr-1" />
-                      {gettext("Select from Media Library")}
+                      <div class="flex flex-col items-center gap-3 text-base-content/60 group-hover:text-primary transition-colors">
+                        <.icon name="hero-photo" class="w-12 h-12" />
+                        <div class="text-center">
+                          <p class="font-semibold text-sm">
+                            {gettext("Select Featured Image")}
+                          </p>
+                          <p class="text-xs mt-1">
+                            {gettext("Click to choose from media library")}
+                          </p>
+                        </div>
+                      </div>
                     </button>
-                    <%= if @form["featured_image_id"] && @form["featured_image_id"] != "" do %>
-                      <button
-                        type="button"
-                        phx-click="clear_featured_image"
-                        class="btn btn-outline btn-sm"
-                      >
-                        <.icon name="hero-x-mark" class="w-4 h-4 mr-1" />
-                        {gettext("Clear")}
-                      </button>
-                    <% end %>
-                  </div>
+                  <% end %>
 
-                  <%!-- Manual Input (Advanced) --%>
-                  <details class="collapse collapse-arrow bg-base-200">
-                    <summary class="collapse-title text-sm font-medium">
-                      {gettext("Advanced: Enter File ID Manually")}
+                  <%!-- Advanced: Manual ID Entry (Collapsed by default) --%>
+                  <details
+                    class="bg-base-200/50 mt-3 rounded-lg border border-base-300"
+                    open={false}
+                  >
+                    <summary class="cursor-pointer select-none px-3 py-2 rounded-lg hover:bg-base-300/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                      <div class="flex items-center gap-2">
+                        <.icon
+                          name="hero-chevron-right"
+                          class="w-3 h-3 transition-transform [[open]>&]:rotate-90"
+                        />
+                        <span class="text-xs font-medium text-base-content/70">
+                          {gettext("Advanced: Manual File ID")}
+                        </span>
+                      </div>
                     </summary>
-                    <div class="collapse-content">
+                    <div class="px-3 pb-3 pt-2">
                       <input
                         type="text"
                         name="featured_image_id"
                         value={@form["featured_image_id"]}
-                        class="input input-bordered w-full font-mono text-sm"
-                        placeholder={gettext("Paste a PhoenixKit Storage file ID")}
+                        class="input input-bordered input-sm w-full font-mono text-xs"
+                        placeholder="018e3c4a-9f6b-7890-abcd-ef1234567890"
                       />
-                      <p class="text-xs text-base-content/60 mt-1">
-                        {gettext("Enter a file ID directly if you know it.")}
+                      <p class="text-xs text-base-content/60 mt-2">
+                        {gettext("Paste a PhoenixKit Storage file ID if you know it.")}
                       </p>
                     </div>
                   </details>
-                  <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
-                    <div class="mt-3 space-y-2">
-                      <img
-                        src={preview_url}
-                        alt={@post.metadata.title || gettext("Featured image preview")}
-                        class="w-full rounded-lg border border-base-300 object-cover max-h-48"
-                        loading="lazy"
-                      />
-                      <p class="text-xs text-base-content/60">
-                        {gettext("Clear the field above to remove the featured image.")}
-                      </p>
-                      <p class="text-xs text-success">
-                        {gettext("Valid image ID")}
-                      </p>
-                    </div>
-                  <% else %>
-                    <% trimmed_id = @form["featured_image_id"] |> to_string() |> String.trim() %>
-                    <%= if trimmed_id == "" do %>
-                      <p class="text-xs text-base-content/60 mt-3">
-                        {gettext("No featured image selected.")}
-                      </p>
-                    <% else %>
-                      <p class="text-xs text-error mt-3">
-                        {gettext("Invalid image ID or file not found.")}
-                      </p>
-                    <% end %>
-                  <% end %>
                 </div>
 
                 <div>
