@@ -1,0 +1,296 @@
+<%!-- Media Selector Modal Overlay --%>
+<div
+  id="media-selector-modal-backdrop"
+  class={[
+    "fixed inset-0 z-50 overflow-y-auto bg-base-300/80 backdrop-blur-sm transition-opacity",
+    if(@show, do: "opacity-100 pointer-events-auto", else: "opacity-0 pointer-events-none")
+  ]}
+  phx-click="close_modal"
+  phx-target={@myself}
+>
+  <%!-- Modal Container --%>
+  <div class="min-h-screen px-4 py-6 flex items-center justify-center">
+    <%!-- Modal Content (click inside shouldn't close) --%>
+    <div
+      class="bg-base-100 rounded-lg shadow-2xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+      phx-click="noop"
+      phx-target={@myself}
+    >
+      <%!-- Header with Actions --%>
+      <header class="border-b border-base-200 px-6 py-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-2xl font-bold text-base-content">
+              Select Media
+            </h2>
+            <p class="text-base-content/70 text-sm mt-1">
+              <%= if @mode == :single do %>
+                Click on an image to select it
+              <% else %>
+                Select one or more images
+              <% end %>
+              <%= if MapSet.size(@selected_ids) > 0 do %>
+                <span class="badge badge-primary ml-2">
+                  {MapSet.size(@selected_ids)} selected
+                </span>
+              <% end %>
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <button
+              type="button"
+              phx-click="close_modal"
+              phx-target={@myself}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> Cancel
+            </button>
+            <button
+              type="button"
+              phx-click="confirm_selection"
+              phx-target={@myself}
+              class="btn btn-primary btn-sm"
+              disabled={MapSet.size(@selected_ids) == 0}
+            >
+              <.icon name="hero-check" class="w-4 h-4 mr-1" /> Confirm Selection
+            </button>
+          </div>
+        </div>
+      </header>
+      <%!-- Scrollable Content Area --%>
+      <div class="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+        <%!-- Upload Section --%>
+        <div class="card bg-base-200 shadow-md">
+          <div class="card-body p-4">
+            <h3 class="font-semibold text-sm mb-3 flex items-center gap-2">
+              <.icon name="hero-arrow-up-tray" class="w-4 h-4" /> Upload New Files
+            </h3>
+            <form phx-change="validate" phx-submit="save" phx-target={@myself}>
+              <%!-- Drag and Drop Zone --%>
+              <div
+                class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center transition-colors cursor-pointer hover:border-primary hover:bg-primary/5"
+                phx-drop-target={@uploads.media_files.ref}
+              >
+                <label for={@uploads.media_files.ref} class="cursor-pointer block">
+                  <div class="flex flex-col items-center gap-2">
+                    <.icon name="hero-cloud-arrow-up" class="w-8 h-8 text-primary" />
+                    <div>
+                      <p class="font-semibold text-base-content text-sm">
+                        Drag files here or click to browse
+                      </p>
+                      <p class="text-xs text-base-content/70 mt-1">
+                        Images, videos, or documents
+                      </p>
+                    </div>
+                  </div>
+                </label>
+                <.live_file_input upload={@uploads.media_files} class="hidden" />
+              </div>
+
+              <%!-- Active Uploads --%>
+              <%= if length(@uploads.media_files.entries) > 0 do %>
+                <div class="space-y-2 mt-3">
+                  <%= for entry <- @uploads.media_files.entries do %>
+                    <div class="flex items-center gap-3 p-2 border border-base-300 rounded-lg bg-base-50">
+                      <div class="flex-1">
+                        <p class="font-medium text-xs truncate">{entry.client_name}</p>
+                        <div class="flex gap-2 items-center mt-1">
+                          <progress
+                            value={entry.progress}
+                            max="100"
+                            class="progress progress-primary progress-sm flex-1"
+                          >
+                            {entry.progress}%
+                          </progress>
+                          <span class="text-xs text-base-content/60 min-w-max">
+                            {entry.progress}%
+                          </span>
+                        </div>
+                      </div>
+                      <%!-- Cancel Button --%>
+                      <button
+                        type="button"
+                        phx-click="cancel_upload"
+                        phx-value-ref={entry.ref}
+                        phx-target={@myself}
+                        class="btn btn-xs btn-ghost text-error"
+                        title="Cancel upload"
+                      >
+                        <.icon name="hero-x-mark" class="w-4 h-4" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </form>
+          </div>
+        </div>
+        <%!-- Search and Filter Section --%>
+        <div class="card bg-base-200 shadow-md">
+          <div class="card-body p-4">
+            <div class="flex flex-col md:flex-row gap-3">
+              <%!-- Search --%>
+              <div class="flex-1">
+                <.form for={%{}} phx-submit="search" phx-target={@myself} class="w-full">
+                  <div class="join w-full">
+                    <input
+                      type="text"
+                      name="search[query]"
+                      value={@search_query}
+                      placeholder="Search by filename..."
+                      class="input input-bordered input-sm join-item flex-1"
+                    />
+                    <button type="submit" class="btn btn-primary btn-sm join-item">
+                      <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+                    </button>
+                  </div>
+                </.form>
+              </div>
+              <%!-- Filter by Type --%>
+              <div class="w-full md:w-40">
+                <select
+                  phx-change="filter_type"
+                  phx-target={@myself}
+                  name="filter"
+                  class="select select-bordered select-sm w-full"
+                >
+                  <option value="all" selected={@file_type_filter == :all}>All Files</option>
+                  <option value="image" selected={@file_type_filter == :image}>
+                    Images Only
+                  </option>
+                  <option value="video" selected={@file_type_filter == :video}>
+                    Videos Only
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <%!-- Media Grid --%>
+        <%= if Enum.empty?(@uploaded_files) do %>
+          <div class="text-center py-8">
+            <.icon name="hero-photo" class="w-12 h-12 mx-auto mb-3 text-base-content/30" />
+            <p class="text-sm text-base-content/70 mb-1">No media files found</p>
+            <p class="text-xs text-base-content/50">
+              Upload files using the area above or adjust your search filters
+            </p>
+          </div>
+        <% else %>
+          <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            <%= for file <- @uploaded_files do %>
+              <% is_selected = MapSet.member?(@selected_ids, file.file_id) %>
+              <div
+                phx-click="toggle_selection"
+                phx-value-file-id={file.file_id}
+                phx-target={@myself}
+                class={[
+                  "card bg-base-200 shadow-md cursor-pointer transition-all hover:shadow-lg",
+                  is_selected && "ring-4 ring-primary"
+                ]}
+              >
+                <%!-- Thumbnail --%>
+                <figure class="aspect-square bg-base-300 relative">
+                  <%= if file.file_type == "image" do %>
+                    <img
+                      src={file.urls["thumbnail"] || file.urls["small"] || file.urls["original"]}
+                      alt={file.filename}
+                      class="object-cover w-full h-full"
+                    />
+                  <% else %>
+                    <div class="flex items-center justify-center w-full h-full">
+                      <%= if file.file_type == "video" do %>
+                        <.icon name="hero-video-camera" class="w-12 h-12 text-base-content/30" />
+                      <% else %>
+                        <.icon name="hero-document" class="w-12 h-12 text-base-content/30" />
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <%!-- Selection Indicator --%>
+                  <%= if is_selected do %>
+                    <div class="absolute top-1 right-1 bg-primary text-primary-content rounded-full p-1.5">
+                      <.icon name="hero-check" class="w-4 h-4" />
+                    </div>
+                  <% else %>
+                    <div class="absolute top-1 right-1 bg-base-100/80 border-2 border-base-300 rounded-full w-7 h-7">
+                    </div>
+                  <% end %>
+                  <%!-- File Type Badge --%>
+                  <div class="absolute bottom-1 left-1">
+                    <span class="badge badge-xs badge-neutral uppercase">
+                      {file.file_type}
+                    </span>
+                  </div>
+                </figure>
+                <%!-- File Info --%>
+                <div class="card-body p-2">
+                  <p class="text-xs font-semibold truncate" title={file.filename}>
+                    {file.filename}
+                  </p>
+                  <div class="flex justify-between items-center text-[10px] text-base-content/60">
+                    <span>{format_file_size(file.size)}</span>
+                    <%= if file.width && file.height do %>
+                      <span>{file.width}×{file.height}</span>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
+        <%!-- Pagination --%>
+        <%= if @total_pages > 1 do %>
+          <div class="flex justify-center pt-4">
+            <div class="join">
+              <%= if @current_page > 1 do %>
+                <button
+                  type="button"
+                  phx-click="change_page"
+                  phx-value-page={@current_page - 1}
+                  phx-target={@myself}
+                  class="join-item btn btn-sm"
+                >
+                  «
+                </button>
+              <% else %>
+                <button class="join-item btn btn-sm btn-disabled">«</button>
+              <% end %>
+
+              <%= for page <- pagination_range(@current_page, @total_pages) do %>
+                <%= if page == :ellipsis do %>
+                  <button class="join-item btn btn-sm btn-disabled">...</button>
+                <% else %>
+                  <button
+                    type="button"
+                    phx-click="change_page"
+                    phx-value-page={page}
+                    phx-target={@myself}
+                    class={[
+                      "join-item btn btn-sm",
+                      page == @current_page && "btn-active"
+                    ]}
+                  >
+                    {page}
+                  </button>
+                <% end %>
+              <% end %>
+
+              <%= if @current_page < @total_pages do %>
+                <button
+                  type="button"
+                  phx-click="change_page"
+                  phx-value-page={@current_page + 1}
+                  phx-target={@myself}
+                  class="join-item btn btn-sm"
+                >
+                  »
+                </button>
+              <% else %>
+                <button class="join-item btn btn-sm btn-disabled">»</button>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
