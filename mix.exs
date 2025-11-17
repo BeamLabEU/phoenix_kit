@@ -98,7 +98,7 @@ defmodule PhoenixKit.MixProject do
       {:ueberauth_facebook, "~> 0.10"},
 
       # Development and testing
-      {:ex_doc, "~> 0.38.4", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.39", only: :dev, runtime: false},
       {:usage_rules, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -115,7 +115,7 @@ defmodule PhoenixKit.MixProject do
       {:oban, "~> 2.20"},
 
       # Rate limiting (ETS backend is built into Hammer 6.x)
-      {:hammer, "~> 6.2"},
+      {:hammer, "~> 7.1"},
 
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},

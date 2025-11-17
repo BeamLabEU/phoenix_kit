@@ -1,3 +1,10 @@
+defmodule PhoenixKit.Users.RateLimiter.Backend do
+  @moduledoc """
+  Hammer 7.x backend for rate limiting.
+  """
+  use Hammer, backend: :ets
+end
+
 defmodule PhoenixKit.Users.RateLimiter do
   @moduledoc """
   Rate limiting for authentication endpoints to prevent brute-force attacks.
@@ -261,6 +268,8 @@ defmodule PhoenixKit.Users.RateLimiter do
   For login and registration, the identifier should already include the prefix (e.g., "email:user@example.com" or "ip:192.168.1.1").
   For magic_link and password_reset, use just the email.
 
+  Note: With Hammer 7.x, this resets the counter to 0 using the set/3 function.
+
   ## Examples
 
       iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:login, "email:user@example.com")
@@ -278,10 +287,21 @@ defmodule PhoenixKit.Users.RateLimiter do
         identifier
       end
 
+    config = get_config()
     key = "auth:#{action}:#{identifier}"
 
-    case Hammer.delete_buckets(key) do
-      {:ok, _count} ->
+    # Get the window for this action type
+    window =
+      case action do
+        :login -> Keyword.get(config, :login_window_ms)
+        :magic_link -> Keyword.get(config, :magic_link_window_ms)
+        :password_reset -> Keyword.get(config, :password_reset_window_ms)
+        :registration -> Keyword.get(config, :registration_window_ms)
+      end
+
+    # Hammer 7.x: Use set/3 to reset the counter to 0
+    case PhoenixKit.Users.RateLimiter.Backend.set(key, window, 0) do
+      :ok ->
         Logger.info("PhoenixKit.RateLimiter: Reset rate limit for #{action}:#{identifier}")
         :ok
 
@@ -301,6 +321,8 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   For login and registration actions, returns the email-based limit.
   For magic_link and password_reset, returns the limit for the email.
+
+  Note: With Hammer 7.x, this uses the get/2 function to retrieve the current count.
 
   ## Examples
 
@@ -338,11 +360,13 @@ defmodule PhoenixKit.Users.RateLimiter do
           {Keyword.get(config, :registration_limit), Keyword.get(config, :registration_window_ms)}
       end
 
-    case Hammer.inspect_bucket(key, window, limit) do
-      {:ok, {count, _count_remaining, _ms_to_next_bucket, _created_at, _updated_at}} ->
+    # Hammer 7.x: Use get/2 to retrieve the current count
+    case PhoenixKit.Users.RateLimiter.Backend.get(key, window) do
+      {:ok, count} when is_integer(count) ->
         max(0, limit - count)
 
       _ ->
+        # If bucket doesn't exist or error, return full limit
         limit
     end
   end
@@ -350,11 +374,11 @@ defmodule PhoenixKit.Users.RateLimiter do
   # Private functions
 
   defp check_rate_limit(key, window_ms, limit) do
-    case Hammer.check_rate(key, window_ms, limit) do
+    case PhoenixKit.Users.RateLimiter.Backend.hit(key, window_ms, limit) do
       {:allow, _count} ->
         :ok
 
-      {:deny, _limit} ->
+      {:deny, _retry_after_ms} ->
         {:error, :rate_limit_exceeded}
 
       {:error, reason} ->
