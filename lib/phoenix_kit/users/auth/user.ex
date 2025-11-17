@@ -333,11 +333,12 @@ defmodule PhoenixKit.Users.Auth.User do
   """
   def profile_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:first_name, :last_name, :email, :username, :user_timezone])
+    |> cast(attrs, [:first_name, :last_name, :email, :username, :user_timezone, :custom_fields])
     |> validate_names()
     |> validate_email(opts)
     |> validate_username(opts)
     |> validate_user_timezone()
+    |> validate_custom_fields()
   end
 
   @doc """

@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   alias PhoenixKit.Config
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.OAuth
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
@@ -44,6 +45,9 @@ defmodule PhoenixKitWeb.Users.Settings do
     # Check which providers are available to connect
     available_providers = get_available_oauth_providers(oauth_providers)
 
+    # Load user-accessible custom fields
+    custom_field_definitions = CustomFields.list_user_accessible_field_definitions()
+
     socket =
       socket
       |> assign(:current_password, nil)
@@ -60,6 +64,7 @@ defmodule PhoenixKitWeb.Users.Settings do
       |> assign(:oauth_providers, oauth_providers)
       |> assign(:oauth_available, oauth_available)
       |> assign(:available_providers, available_providers)
+      |> assign(:custom_field_definitions, custom_field_definitions)
 
     {:ok, socket}
   end
@@ -141,9 +146,19 @@ defmodule PhoenixKitWeb.Users.Settings do
           socket
       end
 
+    # Merge custom fields if present
+    merged_params =
+      case params["custom_fields"] do
+        custom_fields when is_map(custom_fields) ->
+          Map.put(user_params, "custom_fields", custom_fields)
+
+        _ ->
+          user_params
+      end
+
     profile_form =
       socket.assigns.phoenix_kit_current_user
-      |> Auth.change_user_profile(user_params)
+      |> Auth.change_user_profile(merged_params)
       |> Map.put(:action, :validate)
       |> to_form()
 
@@ -160,7 +175,17 @@ defmodule PhoenixKitWeb.Users.Settings do
     %{"user" => user_params} = params
     user = socket.assigns.phoenix_kit_current_user
 
-    case Auth.update_user_profile(user, user_params) do
+    # Merge custom fields if present
+    merged_params =
+      case params["custom_fields"] do
+        custom_fields when is_map(custom_fields) ->
+          Map.put(user_params, "custom_fields", custom_fields)
+
+        _ ->
+          user_params
+      end
+
+    case Auth.update_user_profile(user, merged_params) do
       {:ok, _user} ->
         {:noreply, socket |> put_flash(:info, "Profile updated successfully")}
 
