@@ -25,7 +25,8 @@ defmodule PhoenixKit.Storage.File do
   - `mime_type` - MIME type (image/jpeg, video/mp4, etc.)
   - `file_type` - High-level type (image, video, document, archive)
   - `ext` - File extension (jpg, mp4, pdf, etc.)
-  - `checksum` - MD5 or SHA256 hash for integrity verification
+  - `file_checksum` - SHA256 hash of file content for integrity verification
+  - `user_file_checksum` - SHA256 hash of (user_id + file_checksum) for per-user deduplication
   - `size` - File size in bytes
   - `width` - Image/video width in pixels (nullable)
   - `height` - Image/video height in pixels (nullable)
@@ -44,7 +45,8 @@ defmodule PhoenixKit.Storage.File do
         mime_type: "image/jpeg",
         file_type: "image",
         ext: "jpg",
-        checksum: "abc123def456...",
+        file_checksum: "abc123def456...",
+        user_file_checksum: "xyz789ghi012...",
         size: 524_288,  # 512 KB
         width: 2000,
         height: 2000,
@@ -60,6 +62,8 @@ defmodule PhoenixKit.Storage.File do
         mime_type: "video/mp4",
         file_type: "video",
         ext: "mp4",
+        file_checksum: "def456ghi789...",
+        user_file_checksum: "mno345pqr678...",
         size: 10_485_760,  # 10 MB
         width: 1920,
         height: 1080,
@@ -75,6 +79,8 @@ defmodule PhoenixKit.Storage.File do
         mime_type: "application/pdf",
         file_type: "document",
         ext: "pdf",
+        file_checksum: "ghi789jkl012...",
+        user_file_checksum: "stu901vwx234...",
         size: 2_097_152,  # 2 MB
         status: "active"
       }
@@ -93,7 +99,8 @@ defmodule PhoenixKit.Storage.File do
           mime_type: String.t(),
           file_type: String.t(),
           ext: String.t(),
-          checksum: String.t(),
+          file_checksum: String.t(),
+          user_file_checksum: String.t(),
           size: integer(),
           width: integer() | nil,
           height: integer() | nil,
@@ -114,7 +121,8 @@ defmodule PhoenixKit.Storage.File do
     field :mime_type, :string
     field :file_type, :string
     field :ext, :string
-    field :checksum, :string
+    field :file_checksum, :string
+    field :user_file_checksum, :string
     field :size, :integer
     field :width, :integer
     field :height, :integer
@@ -138,7 +146,8 @@ defmodule PhoenixKit.Storage.File do
   - `mime_type`
   - `file_type` (must be: "image", "video", "document", "archive")
   - `ext`
-  - `checksum`
+  - `file_checksum`
+  - `user_file_checksum`
   - `size`
   - `user_id`
 
@@ -159,7 +168,8 @@ defmodule PhoenixKit.Storage.File do
       :mime_type,
       :file_type,
       :ext,
-      :checksum,
+      :file_checksum,
+      :user_file_checksum,
       :size,
       :width,
       :height,
@@ -174,7 +184,8 @@ defmodule PhoenixKit.Storage.File do
       :mime_type,
       :file_type,
       :ext,
-      :checksum,
+      :file_checksum,
+      :user_file_checksum,
       :size,
       :user_id
     ])

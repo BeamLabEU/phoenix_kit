@@ -27,6 +27,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Blogging Editor")
       |> assign(:blog_slug, blog_slug)
+      |> assign(:show_media_selector, false)
+      |> assign(:media_selection_mode, :single)
+      |> assign(:media_selected_ids, MapSet.new())
 
     {:ok, socket}
   end
@@ -72,7 +75,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:all_enabled_languages, all_enabled_languages)
       |> assign(
         :current_path,
-        Routes.path("/admin/blogging/#{blog_slug}/edit", locale: socket.assigns.current_locale)
+        Routes.path("/admin/blogging/#{blog_slug}/edit?new=true",
+          locale: socket.assigns.current_locale
+        )
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
@@ -120,7 +125,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:all_enabled_languages, all_enabled_languages)
             |> assign(
               :current_path,
-              Routes.path("/admin/blogging/#{blog_slug}/edit",
+              Routes.path(
+                "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
                 locale: socket.assigns.current_locale
               )
             )
@@ -141,7 +147,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:all_enabled_languages, all_enabled_languages)
             |> assign(
               :current_path,
-              Routes.path("/admin/blogging/#{blog_slug}/edit",
+              Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
                 locale: socket.assigns.current_locale
               )
             )
@@ -160,6 +166,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            to: Routes.path("/admin/blogging/#{blog_slug}", locale: socket.assigns.current_locale)
          )}
     end
+  end
+
+  # Catch-all for other param combinations (shouldn't normally be reached)
+  def handle_params(_params, _uri, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -192,6 +203,58 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> assign(:public_url, public_url)
      |> clear_flash()
      |> push_event("changes-status", %{has_changes: has_changes})}
+  end
+
+  def handle_event("open_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, true)}
+  end
+
+  def handle_event("open_image_component_selector", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, true)
+     |> assign(:inserting_image_component, true)}
+  end
+
+  def handle_event("insert_component", %{"component" => "video"}, socket) do
+    {:noreply,
+     push_event(socket, "phx:prompt-and-insert", %{
+       component: "video",
+       prompt: "Enter YouTube URL:",
+       placeholder: "https://youtu.be/dQw4w9WgXcQ"
+     })}
+  end
+
+  def handle_event("insert_component", %{"component" => "cta"}, socket) do
+    template = """
+    <CTA primary="true" action="/your-link">Button Text</CTA>
+    """
+
+    {:noreply, push_event(socket, "phx:insert-at-cursor", %{text: template})}
+  end
+
+  def handle_event("insert_video_component", %{"url" => url}, socket) do
+    template = """
+
+    <Video url="#{url}">
+      Optional caption text
+    </Video>
+
+    """
+
+    {:noreply, push_event(socket, "phx:insert-at-cursor", %{text: template})}
+  end
+
+  def handle_event("clear_featured_image", _params, socket) do
+    # Clear the featured image from the form (form is a simple map, not a struct)
+    updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
+
+    {:noreply,
+     socket
+     |> assign(:form, updated_form)
+     |> assign(:has_pending_changes, true)
+     |> put_flash(:info, gettext("Featured image cleared"))
+     |> push_event("changes-status", %{has_changes: true})}
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
@@ -402,6 +465,46 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        |> assign(:original_post_path, post.path || post.slug)
        |> push_event("changes-status", %{has_changes: false})}
     end
+  end
+
+  @impl true
+  def handle_info({:media_selected, file_ids}, socket) do
+    # Handle the selected file IDs from the media selector modal
+    file_id = List.first(file_ids)
+    inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
+
+    socket =
+      if file_id && inserting_image_component do
+        # Insert image component at cursor via JavaScript
+        js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
+
+        socket
+        |> assign(:show_media_selector, false)
+        |> assign(:inserting_image_component, false)
+        |> put_flash(:info, gettext("Image component inserted"))
+        |> push_event("exec-js", %{js: js_code})
+      else
+        if file_id do
+          socket
+          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+          |> assign(:has_pending_changes, true)
+          |> assign(:show_media_selector, false)
+          |> put_flash(:info, gettext("Featured image selected"))
+          |> push_event("changes-status", %{has_changes: true})
+        else
+          socket
+          |> assign(:show_media_selector, false)
+        end
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:media_selector_closed}, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, false)
+     |> assign(:inserting_image_component, false)}
   end
 
   defp create_new_post(socket, params) do
@@ -649,7 +752,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           DateTime.utc_now()
           |> floor_datetime_to_minute()
           |> DateTime.to_iso8601(),
-      "featured_image_id" => post.metadata.featured_image_id || ""
+      "featured_image_id" => Map.get(post.metadata, :featured_image_id, "")
     }
 
     form =
@@ -1160,5 +1263,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Remove blog name
     |> Enum.drop(1)
     |> Enum.join("/")
+  end
+
+  defp update_form_with_media(form, file_id) do
+    # Update the form with the selected file_id
+    # The form is a simple map with string keys
+    Map.put(form, "featured_image_id", file_id)
   end
 end

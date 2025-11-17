@@ -150,19 +150,22 @@ defmodule PhoenixKitWeb.UploadController do
 
   defp process_upload(upload, user_id) do
     with {:ok, stat} <- File.stat(upload.path),
-         {:ok, file_hash} <- safe_calculate_file_hash(upload.path) do
+         {:ok, file_checksum} <- safe_calculate_file_hash(upload.path) do
       file_size = stat.size
 
-      # Check if file already exists
-      case Storage.get_file_by_hash(file_hash) do
+      # Calculate user-specific checksum for per-user duplicate detection
+      user_file_checksum = Storage.calculate_user_file_checksum(user_id, file_checksum)
+
+      # Check if this user already uploaded this file
+      case Storage.get_file_by_user_checksum(user_file_checksum) do
         %StorageFile{} = existing_file ->
-          # File already exists, delete temp upload and return existing file
+          # File already exists for this user, delete temp upload and return existing file
           File.rm(upload.path)
           {:ok, existing_file.id}
 
         nil ->
-          # New file, proceed with upload
-          perform_upload(upload, user_id, file_size, file_hash)
+          # New file for this user, proceed with upload
+          perform_upload(upload, user_id, file_size, file_checksum)
       end
     else
       {:error, reason} -> {:error, reason}
@@ -184,12 +187,12 @@ defmodule PhoenixKitWeb.UploadController do
     end
   end
 
-  defp perform_upload(upload, user_id, _file_size, file_hash) do
+  defp perform_upload(upload, user_id, _file_size, file_checksum) do
     file_type = determine_file_type(upload.content_type)
     ext = Path.extname(upload.filename) |> String.replace_leading(".", "")
 
     # Store in buckets with hierarchical path structure
-    case Storage.store_file_in_buckets(upload.path, file_type, user_id, file_hash, ext) do
+    case Storage.store_file_in_buckets(upload.path, file_type, user_id, file_checksum, ext) do
       {:ok, file} ->
         # Queue background job for variant generation
         %{file_id: file.id, user_id: user_id, filename: upload.filename}
