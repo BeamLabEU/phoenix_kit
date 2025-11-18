@@ -38,10 +38,8 @@
             <div class="flex gap-6">
               <%!-- Avatar Preview (Left) --%>
               <div class="flex-shrink-0">
-                <% avatar_file_id =
-                  @last_uploaded_avatar_id ||
-                    (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
-                <% variant = if @last_uploaded_avatar_id, do: "original", else: "medium" %>
+                <% avatar_file_id = @user.custom_fields && @user.custom_fields["avatar_file_id"] %>
+                <% variant = "medium" %>
                 <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center">
                   <%= if avatar_file_id do %>
                     <% avatar_url =
@@ -73,34 +71,33 @@
                 </div>
               </div>
 
-              <%!-- Upload Controls (Right) --%>
+              <%!-- Media Selector Controls (Right) --%>
               <div class="flex-1">
                 <div class="space-y-3">
                   <div>
                     <label class="label">
-                      <span class="label-text font-semibold">Upload Avatar</span>
+                      <span class="label-text font-semibold">Profile Avatar</span>
                     </label>
                     <p class="text-sm text-base-content/70 mb-3">
-                      Supports JPG, PNG, WebP formats up to 10MB
+                      Select an image from your media library
                     </p>
                   </div>
 
-                  <%!-- Avatar Upload Component (Separate form to avoid validate_user conflict) --%>
-                  <.file_upload
-                    upload={@uploads.avatar}
-                    label="Choose Avatar"
-                    icon="hero-cloud-arrow-up"
-                    variant="button"
-                  />
+                  <%!-- Media Selector Button --%>
+                  <button
+                    type="button"
+                    phx-click="open_media_selector"
+                    class="btn btn-outline btn-primary"
+                  >
+                    <.icon name="hero-photo" class="w-5 h-5 mr-2" />
+                    <%= if avatar_file_id, do: "Change Avatar", else: "Select Avatar" %>
+                  </button>
 
-                  <%!-- Success Message --%>
-                  <%= if @last_uploaded_avatar_id do %>
-                    <div class="alert alert-success">
-                      <.icon name="hero-check-circle" class="w-5 h-5" />
-                      <div>
-                        <h4 class="font-bold">Avatar uploaded successfully!</h4>
-                        <p class="text-sm font-mono">{@last_uploaded_avatar_id}</p>
-                      </div>
+                  <%!-- Current Avatar Info --%>
+                  <%= if avatar_file_id do %>
+                    <div class="text-sm text-base-content/60">
+                      <.icon name="hero-check-circle" class="w-4 h-4 inline text-success" />
+                      Avatar selected
                     </div>
                   <% end %>
                 </div>
@@ -685,4 +682,25 @@
       </div>
     <% end %>
   </div>
+
+  <%!-- Media Selector Modal --%>
+  <%= if @mode == :edit do %>
+    <% current_avatar_id = @user.custom_fields && @user.custom_fields["avatar_file_id"] %>
+    <%= if current_avatar_id do %>
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+        id="media-selector-modal"
+        show={@show_media_selector}
+        mode={:single}
+        selected_ids={[current_avatar_id]}
+      />
+    <% else %>
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+        id="media-selector-modal"
+        show={@show_media_selector}
+        mode={:single}
+      />
+    <% end %>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -52,7 +52,6 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     socket =
       socket
       |> assign(assigns)
-      |> assign_new(:selected_ids, fn -> MapSet.new(assigns[:selected_ids] || []) end)
       |> assign_new(:file_type_filter, fn -> :all end)
       |> assign_new(:search_query, fn -> "" end)
       |> assign_new(:current_page, fn -> 1 end)
@@ -61,6 +60,14 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign_new(:total_count, fn -> 0 end)
       |> assign_new(:total_pages, fn -> 0 end)
       |> maybe_allow_upload()
+
+    # Convert selected_ids to MapSet if it's a list
+    socket =
+      if socket.assigns[:selected_ids] && is_list(socket.assigns.selected_ids) do
+        assign(socket, :selected_ids, MapSet.new(socket.assigns.selected_ids))
+      else
+        assign_new(socket, :selected_ids, fn -> MapSet.new([]) end)
+      end
 
     # Load files if modal is shown
     socket =
