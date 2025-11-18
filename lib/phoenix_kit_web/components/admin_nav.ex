@@ -56,11 +56,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     <.link
       navigate={@href}
       class={[
-        "flex items-center py-2 rounded-lg text-sm font-medium transition-colors",
-        "hover:bg-base-200 group",
+        "flex items-center py-2 rounded-lg text-sm font-medium transition-colors group",
         if(@active,
-          do: "bg-primary text-primary-content",
-          else: "text-base-content hover:text-primary"
+          do: "bg-primary text-primary-content hover:bg-primary/90",
+          else: "text-base-content hover:bg-base-200 hover:text-primary"
         ),
         if(@mobile, do: "w-full", else: ""),
         if(@nested, do: "pl-8 pr-3", else: "px-3")
