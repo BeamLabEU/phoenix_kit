@@ -59,21 +59,16 @@ defmodule PhoenixKit.Users.OAuthConfig do
   defp configure_ueberauth_base do
     providers = build_provider_list()
 
-    # FIXED: Preserve existing base_path or set default based on PhoenixKit URL prefix
-    # Get current config to preserve any existing settings
-    current_config = Application.get_env(:ueberauth, Ueberauth, [])
+    # Preserve existing base_path or set default based on PhoenixKit URL prefix
+    # Get current config from PhoenixKit.Config.UeberAuth to preserve any existing settings
+    current_base_path = PhoenixKit.Config.UeberAuth.get_base_path()
+    base_path = current_base_path || get_oauth_base_path()
 
-    # Preserve base_path if it exists, or set default based on PhoenixKit URL prefix
-    base_path = Keyword.get(current_config, :base_path) || get_oauth_base_path()
-
-    config = [
+    # Use PhoenixKit.Config.UeberAuth to set the configuration
+    PhoenixKit.Config.UeberAuth.set_all(
       base_path: base_path,
       providers: providers
-    ]
-
-    # Always update Ueberauth configuration, even if providers list is empty
-    # This ensures Ueberauth has a valid configuration at all times
-    Application.put_env(:ueberauth, Ueberauth, config)
+    )
 
     if providers != %{} do
       Logger.info(
