@@ -897,6 +897,32 @@ defmodule PhoenixKit.Storage do
         ext,
         original_filename \\ nil
       ) do
+    # Check if any enabled buckets exist
+    case list_enabled_buckets() do
+      [] ->
+        {:error, :no_buckets_configured}
+
+      _buckets ->
+        # Proceed with storage
+        store_file_with_buckets_available(
+          source_path,
+          file_type,
+          user_id,
+          file_checksum,
+          ext,
+          original_filename
+        )
+    end
+  end
+
+  defp store_file_with_buckets_available(
+         source_path,
+         file_type,
+         user_id,
+         file_checksum,
+         ext,
+         original_filename
+       ) do
     # Calculate user-specific hash for duplicate detection
     user_file_checksum = calculate_user_file_checksum(user_id, file_checksum)
 

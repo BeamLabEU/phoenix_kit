@@ -49,9 +49,14 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   @per_page 30
 
   def update(assigns, socket) do
+    # Check if any enabled buckets exist
+    enabled_buckets = Storage.list_enabled_buckets()
+    has_buckets = length(enabled_buckets) > 0
+
     socket =
       socket
       |> assign(assigns)
+      |> assign(:has_buckets, has_buckets)
       |> assign_new(:file_type_filter, fn -> :all end)
       |> assign_new(:search_query, fn -> "" end)
       |> assign_new(:current_page, fn -> 1 end)
@@ -59,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign_new(:uploaded_files, fn -> [] end)
       |> assign_new(:total_count, fn -> 0 end)
       |> assign_new(:total_pages, fn -> 0 end)
-      |> maybe_allow_upload()
+      |> maybe_allow_upload(has_buckets)
 
     # Convert selected_ids to MapSet if it's a list
     socket =
@@ -86,16 +91,22 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     {:ok, socket}
   end
 
-  defp maybe_allow_upload(socket) do
-    if socket.assigns[:uploads] do
-      socket
-    else
-      allow_upload(socket, :media_files,
-        accept: :any,
-        max_entries: 10,
-        auto_upload: true,
-        progress: &handle_progress/3
-      )
+  defp maybe_allow_upload(socket, has_buckets) do
+    cond do
+      socket.assigns[:uploads] ->
+        socket
+
+      has_buckets ->
+        allow_upload(socket, :media_files,
+          accept: :any,
+          max_entries: 10,
+          auto_upload: true,
+          progress: &handle_progress/3
+        )
+
+      true ->
+        # No buckets - don't allow upload
+        socket
     end
   end
 
@@ -223,33 +234,33 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
             process_upload(socket, path, entry)
           end)
 
-        # Extract the file ID from the result - consume_uploaded_entry returns [{:ok, file_id}]
-        new_file_id =
-          case uploaded_results do
-            [{:ok, file_id}] when is_binary(file_id) -> file_id
-            _ -> nil
-          end
+        # Check if upload failed and handle error
+        case uploaded_results do
+          [{:ok, file_id}] when is_binary(file_id) ->
+            # Success - reload files and auto-select
+            {files, total_count} = load_files(socket, socket.assigns.current_page)
+            total_pages = ceil(total_count / socket.assigns.per_page)
 
-        # Reload files to show the newly uploaded file
-        {files, total_count} = load_files(socket, socket.assigns.current_page)
-        total_pages = ceil(total_count / socket.assigns.per_page)
+            selected_ids =
+              case socket.assigns.mode do
+                :single -> MapSet.new([file_id])
+                :multiple -> MapSet.put(socket.assigns.selected_ids, file_id)
+              end
 
-        # Auto-select the newly uploaded file
-        selected_ids =
-          if new_file_id do
-            case socket.assigns.mode do
-              :single -> MapSet.new([new_file_id])
-              :multiple -> MapSet.put(socket.assigns.selected_ids, new_file_id)
-            end
-          else
-            socket.assigns.selected_ids
-          end
+            socket
+            |> assign(:uploaded_files, files)
+            |> assign(:total_count, total_count)
+            |> assign(:total_pages, total_pages)
+            |> assign(:selected_ids, selected_ids)
 
-        socket
-        |> assign(:uploaded_files, files)
-        |> assign(:total_count, total_count)
-        |> assign(:total_pages, total_pages)
-        |> assign(:selected_ids, selected_ids)
+          _ ->
+            # Upload failed - show error message
+            socket
+            |> put_flash(
+              :error,
+              "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
+            )
+        end
       else
         socket
       end

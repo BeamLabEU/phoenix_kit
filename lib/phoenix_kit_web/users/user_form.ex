@@ -712,5 +712,4 @@ defmodule PhoenixKitWeb.Users.UserForm do
   def handle_info({:media_selector_closed}, socket) do
     {:noreply, assign(socket, :show_media_selector, false)}
   end
-
 end

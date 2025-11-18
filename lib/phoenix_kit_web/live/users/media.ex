@@ -30,22 +30,35 @@ defmodule PhoenixKitWeb.Live.Users.Media do
         %{"project_title" => "PhoenixKit"}
       )
 
+    # Check if any enabled buckets exist
+    enabled_buckets = PhoenixKit.Storage.list_enabled_buckets()
+    has_buckets = length(enabled_buckets) > 0
+
     socket =
       socket
-      |> allow_upload(:media_files,
-        accept: ["image/*", "video/*", "application/pdf"],
-        max_entries: 10,
-        max_file_size: 100_000_000,
-        auto_upload: true
-      )
+      |> maybe_allow_upload(has_buckets)
       |> assign(:page_title, "Media")
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
       |> assign(:url_path, Routes.path("/admin/users/media"))
       |> assign(:show_upload, false)
       |> assign(:last_uploaded_file_ids, [])
+      |> assign(:has_buckets, has_buckets)
 
     {:ok, socket}
+  end
+
+  defp maybe_allow_upload(socket, has_buckets) do
+    if has_buckets do
+      allow_upload(socket, :media_files,
+        accept: ["image/*", "video/*", "application/pdf"],
+        max_entries: 10,
+        max_file_size: 100_000_000,
+        auto_upload: true
+      )
+    else
+      socket
+    end
   end
 
   def handle_params(params, _uri, socket) do
@@ -129,11 +142,11 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     {refreshed_files, total_count} = load_existing_files(page, per_page)
     total_pages = ceil(total_count / per_page)
 
-    # Extract file IDs for callbacks
-    file_ids = Enum.map(uploaded_files, &get_file_id/1)
+    # Extract file IDs for callbacks (only from successful uploads)
+    file_ids = Enum.map(uploaded_files, &get_file_id/1) |> Enum.reject(&is_nil/1)
 
     # Build flash message based on upload results
-    flash_message = build_upload_flash_message(uploaded_files)
+    {flash_type, flash_message} = build_upload_flash_message(uploaded_files)
 
     socket =
       socket
@@ -141,12 +154,13 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:total_count, total_count)
       |> assign(:total_pages, total_pages)
       |> assign(:last_uploaded_file_ids, file_ids)
-      |> put_flash(:info, flash_message)
+      |> put_flash(flash_type, flash_message)
 
     {:noreply, socket}
   end
 
   defp get_file_id({:ok, %{file_id: file_id}}), do: file_id
+  defp get_file_id({:postpone, _}), do: nil
   defp get_file_id(_), do: nil
 
   # Generate URLs from pre-loaded instances (no database query needed)
@@ -272,7 +286,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
       {:error, reason} ->
         Logger.error("Storage Error: #{inspect(reason)}")
-        {:error, reason}
+        {:postpone, reason}
     end
   end
 
@@ -292,26 +306,38 @@ defmodule PhoenixKitWeb.Live.Users.Media do
   end
 
   defp build_upload_flash_message(uploaded_files) do
+    error_count = Enum.count(uploaded_files, &match?({:postpone, _}, &1))
+    successful_uploads = Enum.reject(uploaded_files, &match?({:postpone, _}, &1))
+
     duplicate_count =
-      Enum.count(uploaded_files, fn
-        %{duplicate: true} -> true
+      Enum.count(successful_uploads, fn
+        {:ok, %{duplicate: true}} -> true
         _ -> false
       end)
 
-    new_count = length(uploaded_files) - duplicate_count
+    new_count = length(successful_uploads) - duplicate_count
 
-    case {new_count, duplicate_count} do
-      {0, n} when n > 0 ->
-        "Already have #{n} duplicate file(s). No new files were added."
+    cond do
+      error_count > 0 && new_count == 0 && duplicate_count == 0 ->
+        {:error,
+         "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."}
 
-      {n, 0} when n > 0 ->
-        "Upload successful! #{n} new file(s) processed"
+      error_count > 0 && new_count > 0 ->
+        {:warning,
+         "Partially successful: #{new_count} file(s) uploaded, #{error_count} failed due to missing storage buckets."}
 
-      {n, d} when n > 0 and d > 0 ->
-        "Upload successful! #{n} new file(s) added. #{d} file(s) were already uploaded."
+      duplicate_count > 0 && new_count == 0 ->
+        {:info, "Already have #{duplicate_count} duplicate file(s). No new files were added."}
 
-      _ ->
-        "Upload processed"
+      new_count > 0 && duplicate_count == 0 ->
+        {:info, "Upload successful! #{new_count} new file(s) processed"}
+
+      new_count > 0 && duplicate_count > 0 ->
+        {:info,
+         "Upload successful! #{new_count} new file(s) added. #{duplicate_count} file(s) were already uploaded."}
+
+      true ->
+        {:info, "Upload processed"}
     end
   end
 end

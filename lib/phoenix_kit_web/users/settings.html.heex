@@ -92,7 +92,11 @@
                 <%!-- Avatar Preview --%>
                 <div class="flex-shrink-0">
                   <%= if get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]) do %>
-                    <% avatar_url = PhoenixKit.Storage.URLSigner.signed_url(get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]), "thumbnail") %>
+                    <% avatar_url =
+                      PhoenixKit.Storage.URLSigner.signed_url(
+                        get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]),
+                        "thumbnail"
+                      ) %>
                     <img
                       src={avatar_url}
                       alt="Avatar"
