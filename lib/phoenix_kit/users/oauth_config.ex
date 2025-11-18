@@ -7,6 +7,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   configuration dynamically.
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   require Logger
 
@@ -65,7 +66,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
     base_path = current_base_path || get_oauth_base_path()
 
     # Use PhoenixKit.Config.UeberAuth to set the configuration
-    PhoenixKit.Config.UeberAuth.set_all(
+    Config.UeberAuth.set_all(
       base_path: base_path,
       providers: providers
     )
