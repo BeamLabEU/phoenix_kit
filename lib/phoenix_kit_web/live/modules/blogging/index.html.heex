@@ -123,10 +123,7 @@
                       <% end %>
                     </p>
                   </div>
-                  <span class={[
-                    "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
-                    if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
-                  ]}>
+                  <span class="badge badge-ghost badge-lg text-xs px-4 py-3 whitespace-nowrap">
                     <%= if insight.mode == "slug" do %>
                       {gettext("Slug-based")}
                     <% else %>
