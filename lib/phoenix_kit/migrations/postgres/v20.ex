@@ -357,8 +357,8 @@ defmodule PhoenixKit.Migrations.Postgres.V20 do
 
     execute """
     INSERT INTO #{prefix_table_name("phoenix_kit_buckets", prefix)}
-    (id, name, provider, enabled, priority, inserted_at, updated_at)
-    VALUES ('#{id}', 'Local Storage', 'local', true, 0, '#{now}', '#{now}')
+    (id, name, provider, endpoint, enabled, priority, inserted_at, updated_at)
+    VALUES ('#{id}', 'Local Storage', 'local', 'priv/media', true, 0, '#{now}', '#{now}')
     """
   end
 

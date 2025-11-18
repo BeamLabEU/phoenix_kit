@@ -11,7 +11,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   @impl true
   def store_file(bucket, source_path, destination_path, _opts \\ []) do
     # Build the full destination path
-    full_destination = Path.join(bucket.endpoint || "priv/uploads", destination_path)
+    full_destination = Path.join(bucket.endpoint || "priv/media", destination_path)
 
     # Ensure directory exists
     destination_dir = Path.dirname(full_destination)
@@ -35,7 +35,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
 
   @impl true
   def retrieve_file(bucket, file_path, destination_path) do
-    full_source = Path.join(bucket.endpoint || "priv/uploads", file_path)
+    full_source = Path.join(bucket.endpoint || "priv/media", file_path)
 
     # Ensure destination directory exists
     destination_dir = Path.dirname(destination_path)
@@ -56,7 +56,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
 
   @impl true
   def delete_file(bucket, file_path) do
-    full_path = Path.join(bucket.endpoint || "priv/uploads", file_path)
+    full_path = Path.join(bucket.endpoint || "priv/media", file_path)
 
     case File.rm(full_path) do
       :ok -> :ok
@@ -70,7 +70,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
 
   @impl true
   def file_exists?(bucket, file_path) do
-    full_path = Path.join(bucket.endpoint || "priv/uploads", file_path)
+    full_path = Path.join(bucket.endpoint || "priv/media", file_path)
     File.exists?(full_path)
   end
 
@@ -83,7 +83,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
 
   @impl true
   def test_connection(bucket) do
-    base_path = bucket.endpoint || "priv/uploads"
+    base_path = bucket.endpoint || "priv/media"
 
     # Test if we can create the directory
     case File.mkdir_p(base_path) do
