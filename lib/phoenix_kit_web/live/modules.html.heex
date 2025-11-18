@@ -366,6 +366,50 @@
         </:action_buttons>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- SEO Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="SEO"
+        description="Manage search engine optimization controls for your application"
+        icon="🔍"
+        enabled={@seo_module_enabled}
+        toggle_event="toggle_seo_module"
+      >
+        <:info>
+          <p class="text-sm text-base-content/70">
+            Toggle the SEO module to unlock dedicated settings for search engines.
+          </p>
+        </:info>
+
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@seo_module_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @seo_module_enabled, do: "Module Enabled", else: "Module Disabled"}
+          </span>
+          <%= if @seo_module_enabled do %>
+            <span class={[
+              "badge badge-outline ml-2",
+              if(@seo_no_index_enabled, do: "badge-warning", else: "badge-info")
+            ]}>
+              {if @seo_no_index_enabled, do: "Noindex Active", else: "Indexing Allowed"}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <.link
+            navigate={
+              PhoenixKit.Utils.Routes.path("/admin/settings/seo", locale: @current_locale || "en")
+            }
+            class={"btn btn-sm w-full #{if @seo_module_enabled, do: "btn-primary", else: "btn-outline"}"}
+          >
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure SEO
+          </.link>
+        </:action_buttons>
+
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- Pages module remains disabled but code retained for future use --%>
 
       <%!-- Under Construction (Maintenance Mode) Module --%>

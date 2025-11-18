@@ -138,6 +138,9 @@ defmodule PhoenixKit.Settings do
       "sqs_polling_interval_ms" => "5000",
       "sqs_max_messages_per_poll" => "10",
       "sqs_visibility_timeout" => "300",
+      # SEO
+      "seo_module_enabled" => "false",
+      "seo_no_index" => "false",
       # OAuth Provider Credentials
       "oauth_google_client_id" => "",
       "oauth_google_client_secret" => "",
