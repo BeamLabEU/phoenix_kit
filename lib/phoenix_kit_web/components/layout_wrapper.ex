@@ -404,6 +404,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="document"
                         label="Blogging"
                         current_path={@current_path || ""}
+                        exact_match_only={true}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
