@@ -33,6 +33,8 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthConfig do
   import Plug.Conn
   require Logger
 
+  alias PhoenixKit.Config
+
   def init(opts), do: opts
 
   def call(conn, _opts) do
@@ -60,7 +62,7 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthConfig do
   end
 
   defp ensure_oauth_config do
-    providers = PhoenixKit.Config.UeberAuth.get_providers()
+    providers = Config.UeberAuth.get_providers()
 
     case providers do
       providers when is_map(providers) or is_list(providers) ->
