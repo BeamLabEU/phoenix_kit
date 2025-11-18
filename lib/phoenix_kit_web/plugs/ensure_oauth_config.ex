@@ -60,14 +60,14 @@ defmodule PhoenixKitWeb.Plugs.EnsureOAuthConfig do
   end
 
   defp ensure_oauth_config do
-    config = Application.get_env(:ueberauth, Ueberauth, [])
+    providers = PhoenixKit.Config.UeberAuth.get_providers()
 
-    case Keyword.fetch(config, :providers) do
-      {:ok, _providers} ->
+    case providers do
+      providers when is_map(providers) or is_list(providers) ->
         # Configuration exists, all good
         :ok
 
-      :error ->
+      _ ->
         # Configuration missing, try to load it
         Logger.warning("Ueberauth :providers missing, attempting to load OAuth configuration")
         load_oauth_config()

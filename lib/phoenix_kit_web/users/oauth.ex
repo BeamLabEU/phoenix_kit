@@ -124,7 +124,7 @@ if Code.ensure_loaded?(Ueberauth) do
     end
 
     defp get_ueberauth_providers do
-      providers = Application.get_env(:ueberauth, Ueberauth, [])[:providers] || []
+      providers = PhoenixKit.Config.UeberAuth.get_providers()
 
       # Normalize Map or List to list of {provider_atom, strategy} tuples
       case providers do
