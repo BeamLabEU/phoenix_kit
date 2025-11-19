@@ -35,6 +35,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias Phoenix.HTML
   alias PhoenixKit.Config
   alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -79,6 +80,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         PhoenixKit.Settings.get_content_language()
       end)
       |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
+      |> assign_new(:seo_no_index, fn -> SEO.no_index_enabled?() end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
     assigns = normalize_content_assigns(assigns)
@@ -402,6 +404,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="document"
                         label="Blogging"
                         current_path={@current_path || ""}
+                        exact_match_only={true}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
@@ -435,7 +438,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -491,6 +494,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/languages")}
                             icon="language"
                             label="Languages"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if SEO.module_enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
+                            icon="seo"
+                            label="SEO"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -893,6 +906,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <.live_title default={"#{assigns[:project_title] || "PhoenixKit"} Admin"}>
           {assigns[:page_title] || "Admin"}
         </.live_title>
+        <%= if assigns[:seo_no_index] do %>
+          <meta name="robots" content="noindex,nofollow" />
+          <meta name="googlebot" content="noindex,nofollow" />
+        <% end %>
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
       </head>
       <body class="bg-base-100 antialiased transition-colors" data-admin-theme-base="system">
@@ -925,12 +942,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     |> Map.put_new(:phoenix_kit_integrated, true)
     |> Map.put_new(:phoenix_kit_version, get_phoenix_kit_version())
     |> Map.put_new(:phoenix_version_info, PhoenixVersion.get_version_info())
+    |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
   end
 
   # Prepare assigns specifically for PhoenixKit layout
   defp prepare_phoenix_kit_assigns(assigns) do
     assigns
     |> Map.put_new(:phoenix_kit_standalone, true)
+    |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
   end
 
   # Extract current user from scope for parent layout compatibility

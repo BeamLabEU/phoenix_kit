@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -18,6 +19,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
+
+    # Load date/time format settings once for performance
+    date_time_settings =
+      Settings.get_settings_cached(
+        ["date_format", "time_format", "time_zone"],
+        %{
+          "date_format" => "Y-m-d",
+          "time_format" => "H:i",
+          "time_zone" => "0"
+        }
+      )
 
     blogs = Blogging.list_blogs()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
@@ -41,6 +53,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:posts, posts)
       |> assign(:endpoint_url, nil)
+      |> assign(:date_time_settings, date_time_settings)
 
     {:ok, redirect_if_missing(socket)}
   end
@@ -178,17 +191,43 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   defp redirect_if_missing(socket), do: socket
 
-  defp format_datetime(%{date: %Date{} = date, time: %Time{} = time}) do
-    date_str = Calendar.strftime(date, "%B %d, %Y")
-    time_str = Calendar.strftime(time, "%I:%M %p")
+  def format_datetime(
+        %{date: %Date{} = date, time: %Time{} = time},
+        current_user,
+        date_time_settings
+      ) do
+    # Fallback to dummy user if current_user is nil
+    user = current_user || %{user_timezone: nil}
+
+    # Dates and times are already in the timezone they were created in
+    # Just format them with user preferences
+    date_str = UtilsDate.format_date_with_user_timezone_cached(date, user, date_time_settings)
+    time_str = UtilsDate.format_time_with_user_timezone_cached(time, user, date_time_settings)
     "#{date_str} #{gettext("at")} #{time_str}"
   end
 
-  defp format_datetime(%{metadata: %{published_at: published_at}}) when is_binary(published_at) do
+  def format_datetime(
+        %{metadata: %{published_at: published_at}},
+        current_user,
+        date_time_settings
+      )
+      when is_binary(published_at) do
+    # Fallback to dummy user if current_user is nil
+    user = current_user || %{user_timezone: nil}
+
     case DateTime.from_iso8601(published_at) do
       {:ok, dt, _} ->
-        date_str = Calendar.strftime(dt, "%B %d, %Y")
-        time_str = Calendar.strftime(dt, "%I:%M %p")
+        # Convert DateTime to NaiveDateTime (assuming stored as UTC)
+        naive_dt = DateTime.to_naive(dt)
+
+        # Format date part with timezone conversion
+        date_str =
+          UtilsDate.format_date_with_user_timezone_cached(naive_dt, user, date_time_settings)
+
+        # Format time part with timezone conversion
+        time_str =
+          UtilsDate.format_time_with_user_timezone_cached(naive_dt, user, date_time_settings)
+
         "#{date_str} #{gettext("at")} #{time_str}"
 
       _ ->
@@ -196,7 +235,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     end
   end
 
-  defp format_datetime(_post), do: gettext("Unsaved draft")
+  def format_datetime(_post, _user, _settings), do: gettext("Unsaved draft")
 
   defp extract_endpoint_url(uri) when is_binary(uri) do
     case URI.parse(uri) do

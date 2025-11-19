@@ -43,12 +43,19 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:mobile, :boolean, default: false)
   attr(:nested, :boolean, default: false)
   attr(:disable_active, :boolean, default: false)
+  attr(:exact_match_only, :boolean, default: false)
 
   def admin_nav_item(assigns) do
     active =
       if assigns.disable_active,
         do: false,
-        else: nav_item_active?(assigns.current_path, assigns.href, assigns.nested)
+        else:
+          nav_item_active?(
+            assigns.current_path,
+            assigns.href,
+            assigns.nested,
+            assigns.exact_match_only
+          )
 
     assigns = assign(assigns, :active, active)
 
@@ -56,11 +63,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     <.link
       navigate={@href}
       class={[
-        "flex items-center py-2 rounded-lg text-sm font-medium transition-colors",
-        "hover:bg-base-200 group",
+        "flex items-center py-2 rounded-lg text-sm font-medium transition-colors group",
         if(@active,
-          do: "bg-primary text-primary-content",
-          else: "text-base-content hover:text-primary"
+          do: "bg-primary text-primary-content hover:bg-primary/90",
+          else: "text-base-content hover:bg-base-200 hover:text-primary"
         ),
         if(@mobile, do: "w-full", else: ""),
         if(@nested, do: "pl-8 pr-3", else: "px-3")
@@ -117,6 +123,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-cube" class="w-5 h-5" />
         <% "language" -> %>
           <.icon name="hero-language" class="w-5 h-5" />
+        <% "seo" -> %>
+          <.icon name="hero-magnifying-glass-circle" class="w-5 h-5" />
         <% "document" -> %>
           <.icon name="hero-document-text" class="w-5 h-5" />
         <% "maintenance" -> %>
@@ -480,7 +488,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to determine if navigation item is active
-  defp nav_item_active?(current_path, href, nested) do
+  defp nav_item_active?(current_path, href, nested, exact_match_only) do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 
@@ -488,11 +496,17 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     if nested do
       exact_match?(current_parts, href_parts) or tab_match?(current_parts, href_parts)
     else
-      # For top-level items, use full hierarchical matching
-      exact_match?(current_parts, href_parts) or
-        tab_match?(current_parts, href_parts) or
-        parent_match?(current_parts, href_parts) or
-        hierarchical_match?(current_parts, href_parts)
+      # For top-level items with exact_match_only, skip hierarchical matching
+      base_matches =
+        exact_match?(current_parts, href_parts) or
+          tab_match?(current_parts, href_parts) or
+          parent_match?(current_parts, href_parts)
+
+      if exact_match_only do
+        base_matches
+      else
+        base_matches or hierarchical_match?(current_parts, href_parts)
+      end
     end
   end
 

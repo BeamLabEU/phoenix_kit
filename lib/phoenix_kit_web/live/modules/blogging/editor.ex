@@ -30,6 +30,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_mode, :single)
       |> assign(:media_selected_ids, MapSet.new())
+      |> assign(:is_autosaving, false)
+      |> assign(:autosave_timer, nil)
 
     {:ok, socket}
   end
@@ -196,13 +198,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     language = editor_language(socket.assigns)
     public_url = build_public_url(updated_post, language)
 
-    {:noreply,
-     socket
-     |> assign(:form, new_form)
-     |> assign(:has_pending_changes, has_changes)
-     |> assign(:public_url, public_url)
-     |> clear_flash()
-     |> push_event("changes-status", %{has_changes: has_changes})}
+    socket =
+      socket
+      |> assign(:form, new_form)
+      |> assign(:has_pending_changes, has_changes)
+      |> assign(:public_url, public_url)
+      |> clear_flash()
+      |> push_event("changes-status", %{has_changes: has_changes})
+
+    # Trigger debounced autosave if changes detected
+    socket =
+      if has_changes do
+        schedule_autosave(socket)
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   def handle_event("open_media_selector", _params, socket) do
@@ -333,6 +345,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         push_event(acc, event, data)
       end)
 
+    # Trigger debounced autosave if changes detected
+    socket =
+      if has_changes do
+        schedule_autosave(socket)
+      else
+        socket
+      end
+
     {:noreply, socket}
   end
 
@@ -341,36 +361,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_event("save", _params, socket) do
-    params =
-      socket.assigns.form
-      |> Map.take(["status", "published_at", "slug", "featured_image_id"])
-      |> Map.put("content", socket.assigns.content)
-
-    params =
-      case {socket.assigns.blog_mode, Map.get(params, "slug")} do
-        {"slug", slug} when is_binary(slug) and slug != "" ->
-          params
-
-        {"slug", _} ->
-          Map.delete(params, "slug")
-
-        _ ->
-          Map.delete(params, "slug")
-      end
-
-    is_new_post = Map.get(socket.assigns, :is_new_post, false)
-    is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
-
-    cond do
-      is_new_post ->
-        create_new_post(socket, params)
-
-      is_new_translation ->
-        create_new_translation(socket, params)
-
-      true ->
-        update_existing_post(socket, params)
-    end
+    perform_save(socket)
   end
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
@@ -468,6 +459,27 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   @impl true
+  def handle_info(:autosave, socket) do
+    # Only autosave if there are pending changes
+    if socket.assigns.has_pending_changes do
+      socket =
+        socket
+        |> assign(:is_autosaving, true)
+        |> assign(:autosave_timer, nil)
+        |> push_event("autosave-status", %{saving: true})
+
+      # Perform the save
+      {:noreply, updated_socket} = perform_save(socket)
+
+      {:noreply,
+       updated_socket
+       |> assign(:is_autosaving, false)
+       |> push_event("autosave-status", %{saving: false})}
+    else
+      {:noreply, assign(socket, :autosave_timer, nil)}
+    end
+  end
+
   def handle_info({:media_selected, file_ids}, socket) do
     # Handle the selected file IDs from the media selector modal
     file_id = List.first(file_ids)
@@ -507,6 +519,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> assign(:inserting_image_component, false)}
   end
 
+  defp schedule_autosave(socket) do
+    # Cancel existing timer if any
+    if socket.assigns.autosave_timer do
+      Process.cancel_timer(socket.assigns.autosave_timer)
+    end
+
+    # Schedule new autosave
+    timer_ref = Process.send_after(self(), :autosave, 2000)
+    assign(socket, :autosave_timer, timer_ref)
+  end
+
+  defp perform_save(socket) do
+    params =
+      socket.assigns.form
+      |> Map.take(["status", "published_at", "slug", "featured_image_id"])
+      |> Map.put("content", socket.assigns.content)
+
+    params =
+      case {socket.assigns.blog_mode, Map.get(params, "slug")} do
+        {"slug", slug} when is_binary(slug) and slug != "" ->
+          params
+
+        {"slug", _} ->
+          Map.delete(params, "slug")
+
+        _ ->
+          Map.delete(params, "slug")
+      end
+
+    is_new_post = Map.get(socket.assigns, :is_new_post, false)
+    is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
+
+    cond do
+      is_new_post ->
+        create_new_post(socket, params)
+
+      is_new_translation ->
+        create_new_translation(socket, params)
+
+      true ->
+        update_existing_post(socket, params)
+    end
+  end
+
   defp create_new_post(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
@@ -523,82 +579,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     case Blogging.create_post(socket.assigns.blog_slug, create_opts) do
       {:ok, new_post} ->
-        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
-          {:ok, updated_post} ->
-            # Invalidate cache for newly created post
-            invalidate_post_cache(socket.assigns.blog_slug, updated_post)
+        handle_post_update_result(
+          socket,
+          Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}),
+          gettext("Post created and saved"),
+          %{is_new_post: false}
+        )
 
-            {:noreply,
-             socket
-             |> assign(:post, updated_post)
-             |> assign(:form, post_form(updated_post))
-             |> assign(:content, updated_post.content)
-             |> assign(:available_languages, updated_post.available_languages)
-             |> assign(:has_pending_changes, false)
-             |> assign(:is_new_post, false)
-             |> assign(:blog_mode, socket.assigns.blog_mode)
-             |> push_event("changes-status", %{has_changes: false})
-             |> put_flash(:info, gettext("Post created and saved"))
-             |> push_patch(
-               to:
-                 Routes.path(
-                   "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
-                   locale: socket.assigns.current_locale
-                 )
-             )}
-
-          {:error, :invalid_format} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-               )
-             )}
-
-          {:error, :reserved_language_code} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
-               )
-             )}
-
-          {:error, :invalid_slug} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-               )
-             )}
-
-          {:error, :slug_already_exists} ->
-            {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
-        end
-
-      {:error, :invalid_slug} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext(
-             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-           )
-         )}
-
-      {:error, :slug_already_exists} ->
-        {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to create post"))}
+      {:error, error} ->
+        handle_post_creation_error(socket, error, gettext("Failed to create post"))
     end
   end
 
@@ -621,66 +610,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            socket.assigns.current_language
          ) do
       {:ok, new_post} ->
-        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
-          {:ok, updated_post} ->
-            # Invalidate cache for newly created translation
-            invalidate_post_cache(socket.assigns.blog_slug, updated_post)
-
-            {:noreply,
-             socket
-             |> assign(:post, updated_post)
-             |> assign(:form, post_form(updated_post))
-             |> assign(:content, updated_post.content)
-             |> assign(:available_languages, updated_post.available_languages)
-             |> assign(:has_pending_changes, false)
-             |> assign(:is_new_translation, false)
-             |> assign(:original_post_path, nil)
-             |> push_event("changes-status", %{has_changes: false})
-             |> put_flash(:info, gettext("Translation created and saved"))
-             |> push_patch(
-               to:
-                 Routes.path(
-                   "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
-                   locale: socket.assigns.current_locale
-                 )
-             )}
-
-          {:error, :invalid_format} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-               )
-             )}
-
-          {:error, :reserved_language_code} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
-               )
-             )}
-
-          {:error, :invalid_slug} ->
-            {:noreply,
-             put_flash(
-               socket,
-               :error,
-               gettext(
-                 "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-               )
-             )}
-
-          {:error, :slug_already_exists} ->
-            {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
-
-          {:error, _reason} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to save translation"))}
-        end
+        handle_post_update_result(
+          socket,
+          Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}),
+          gettext("Translation created and saved"),
+          %{is_new_translation: false, original_post_path: nil}
+        )
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to create translation file"))}
@@ -697,14 +632,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         # Invalidate cache for this post
         invalidate_post_cache(socket.assigns.blog_slug, post)
 
-        {:noreply,
-         socket
-         |> assign(:post, post)
-         |> assign(:form, post_form(post))
-         |> assign(:content, post.content)
-         |> assign(:has_pending_changes, false)
-         |> push_event("changes-status", %{has_changes: false})
-         |> put_flash(:info, gettext("Post saved"))}
+        flash_message =
+          if socket.assigns.is_autosaving,
+            do: nil,
+            else: gettext("Post saved")
+
+        socket =
+          socket
+          |> assign(:post, post)
+          |> assign(:form, post_form(post))
+          |> assign(:content, post.content)
+          |> assign(:has_pending_changes, false)
+          |> push_event("changes-status", %{has_changes: false})
+
+        {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
 
       {:error, :invalid_format} ->
         {:noreply,
@@ -742,6 +683,104 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
     end
+  end
+
+  # Helper function to handle post update results and reduce cyclomatic complexity
+  defp handle_post_update_result(socket, update_result, success_message, extra_assigns) do
+    case update_result do
+      {:ok, updated_post} ->
+        # Invalidate cache for the post
+        invalidate_post_cache(socket.assigns.blog_slug, updated_post)
+
+        flash_message =
+          if socket.assigns.is_autosaving,
+            do: nil,
+            else: success_message
+
+        socket =
+          socket
+          |> assign(:post, updated_post)
+          |> assign(:form, post_form(updated_post))
+          |> assign(:content, updated_post.content)
+          |> assign(:available_languages, updated_post.available_languages)
+          |> assign(:has_pending_changes, false)
+          |> assign(extra_assigns)
+          |> push_event("changes-status", %{has_changes: false})
+          |> push_patch(
+            to:
+              Routes.path(
+                "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
+                locale: socket.assigns.current_locale
+              )
+          )
+
+        {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
+
+      {:error, error} ->
+        handle_post_update_error(socket, error)
+    end
+  end
+
+  # Helper function to handle post update errors
+  defp handle_post_update_error(socket, :invalid_format) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
+     )}
+  end
+
+  defp handle_post_update_error(socket, :reserved_language_code) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+       )
+     )}
+  end
+
+  defp handle_post_update_error(socket, :invalid_slug) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
+     )}
+  end
+
+  defp handle_post_update_error(socket, :slug_already_exists) do
+    {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
+  end
+
+  defp handle_post_update_error(socket, _reason) do
+    {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
+  end
+
+  # Helper function to handle post creation errors
+  defp handle_post_creation_error(socket, :invalid_slug, _fallback_message) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
+     )}
+  end
+
+  defp handle_post_creation_error(socket, :slug_already_exists, _fallback_message) do
+    {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
+  end
+
+  defp handle_post_creation_error(socket, _reason, fallback_message) do
+    {:noreply, put_flash(socket, :error, fallback_message)}
   end
 
   defp post_form(post) do

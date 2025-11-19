@@ -477,6 +477,12 @@ defmodule PhoenixKit.Utils.Date do
     shift_to_timezone_offset(datetime, user_timezone_offset)
   end
 
+  # Private helper to shift datetime to user's timezone using cached settings
+  defp shift_to_user_timezone_cached(datetime, user, settings) do
+    user_timezone_offset = get_user_timezone_cached(user, settings)
+    shift_to_timezone_offset(datetime, user_timezone_offset)
+  end
+
   # Private helper to apply timezone offset to datetime
   defp shift_to_timezone_offset(datetime, timezone_offset) do
     case Integer.parse(timezone_offset) do
@@ -488,6 +494,66 @@ defmodule PhoenixKit.Utils.Date do
       _ ->
         # Invalid timezone offset, return original datetime
         datetime
+    end
+  end
+
+  # Cached variant of format_datetime_with_timezone
+  defp format_datetime_with_timezone_cached(datetime, format, user, settings) do
+    case datetime do
+      nil ->
+        "Never"
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_datetime(shifted_datetime, format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_datetime(shifted_datetime, format)
+
+      _ ->
+        format_datetime(datetime, format)
+    end
+  end
+
+  # Cached variant of format_date_with_timezone
+  defp format_date_with_timezone_cached(date, format, user, settings) do
+    case date do
+      %Date{} = d ->
+        format_date(d, format)
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_date(DateTime.to_date(shifted_datetime), format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_date(DateTime.to_date(shifted_datetime), format)
+
+      _ ->
+        format_date(date, format)
+    end
+  end
+
+  # Cached variant of format_time_with_timezone
+  defp format_time_with_timezone_cached(time, format, user, settings) do
+    case time do
+      %Time{} = t ->
+        format_time(t, format)
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_time(DateTime.to_time(shifted_datetime), format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_time(DateTime.to_time(shifted_datetime), format)
+
+      _ ->
+        format_time(time, format)
     end
   end
 
@@ -583,7 +649,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_datetime_with_user_timezone_cached(datetime, user, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    format_datetime_with_timezone(datetime, date_format, user)
+    format_datetime_with_timezone_cached(datetime, date_format, user, settings)
   end
 
   @doc """
@@ -598,7 +664,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_date_with_user_timezone_cached(date, user, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    format_date_with_timezone(date, date_format, user)
+    format_date_with_timezone_cached(date, date_format, user, settings)
   end
 
   @doc """
@@ -613,7 +679,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_time_with_user_timezone_cached(time, user, settings) do
     time_format = Map.get(settings, "time_format", "H:i")
-    format_time_with_timezone(time, time_format, user)
+    format_time_with_timezone_cached(time, time_format, user, settings)
   end
 
   @doc """

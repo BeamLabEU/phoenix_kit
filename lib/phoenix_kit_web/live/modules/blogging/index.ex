@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
@@ -16,7 +17,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
-    {blogs, insights, summary} = dashboard_snapshot(locale)
+    # Load date/time format settings once for performance
+    date_time_settings =
+      Settings.get_settings_cached(
+        ["date_format", "time_format", "time_zone"],
+        %{
+          "date_format" => "Y-m-d",
+          "time_format" => "H:i",
+          "time_zone" => "0"
+        }
+      )
+
+    {blogs, insights, summary} =
+      dashboard_snapshot(locale, socket.assigns[:phoenix_kit_current_user], date_time_settings)
 
     socket =
       socket
@@ -30,12 +43,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
       |> assign(:empty_state?, blogs == [])
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:endpoint_url, nil)
+      |> assign(:date_time_settings, date_time_settings)
 
     {:ok, socket}
   end
 
   def handle_params(_params, uri, socket) do
-    {blogs, insights, summary} = dashboard_snapshot(socket.assigns.current_locale)
+    {blogs, insights, summary} =
+      dashboard_snapshot(
+        socket.assigns.current_locale,
+        socket.assigns[:phoenix_kit_current_user],
+        socket.assigns.date_time_settings
+      )
+
     endpoint_url = extract_endpoint_url(uri)
 
     {:noreply,
@@ -48,15 +68,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
      )}
   end
 
-  defp dashboard_snapshot(locale) do
+  defp dashboard_snapshot(locale, current_user, date_time_settings) do
     blogs = Blogging.list_blogs()
-    insights = Enum.map(blogs, &build_blog_insight(&1, locale))
+    insights = Enum.map(blogs, &build_blog_insight(&1, locale, current_user, date_time_settings))
     summary = build_summary(blogs, insights)
 
     {blogs, insights, summary}
   end
 
-  defp build_blog_insight(blog, locale) do
+  defp build_blog_insight(blog, locale, current_user, date_time_settings) do
     posts = Blogging.list_posts(blog["slug"], locale)
     status_counts = Enum.frequencies_by(posts, &Map.get(&1.metadata, :status, "draft"))
 
@@ -78,7 +98,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
       archived_count: Map.get(status_counts, "archived", 0),
       languages: languages,
       last_published_at: latest_published_at,
-      last_published_at_text: format_datetime(latest_published_at)
+      last_published_at_text:
+        format_datetime(latest_published_at, current_user, date_time_settings)
     }
   end
 
@@ -132,10 +153,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
     end
   end
 
-  defp format_datetime(nil), do: nil
+  defp format_datetime(nil, _user, _settings), do: nil
 
-  defp format_datetime(%DateTime{} = datetime) do
-    Calendar.strftime(DateTime.truncate(datetime, :second), "%B %d, %Y · %H:%M UTC")
+  defp format_datetime(%DateTime{} = datetime, current_user, date_time_settings) do
+    # Fallback to dummy user if current_user is nil
+    user = current_user || %{user_timezone: nil}
+
+    # Convert DateTime to NaiveDateTime (assuming stored as UTC)
+    naive_dt = DateTime.to_naive(datetime)
+
+    # Format date part with timezone conversion
+    date_str = UtilsDate.format_date_with_user_timezone_cached(naive_dt, user, date_time_settings)
+
+    # Format time part with timezone conversion
+    time_str = UtilsDate.format_time_with_user_timezone_cached(naive_dt, user, date_time_settings)
+
+    "#{date_str} #{time_str}"
   rescue
     _ -> nil
   end
