@@ -19,6 +19,7 @@ if Code.ensure_loaded?(Ueberauth) do
     plug PhoenixKitWeb.Plugs.EnsureOAuthConfig
     plug Ueberauth
 
+    alias PhoenixKit.Config
     alias PhoenixKit.Settings
     alias PhoenixKit.Users.OAuth
     alias PhoenixKit.Utils.IpAddress
@@ -124,13 +125,12 @@ if Code.ensure_loaded?(Ueberauth) do
     end
 
     defp get_ueberauth_providers do
-      providers = Application.get_env(:ueberauth, Ueberauth, [])[:providers] || []
+      providers = Config.UeberAuth.get_providers()
 
       # Normalize Map or List to list of {provider_atom, strategy} tuples
       case providers do
         p when is_map(p) -> Map.to_list(p)
         p when is_list(p) -> p
-        _ -> []
       end
     end
 

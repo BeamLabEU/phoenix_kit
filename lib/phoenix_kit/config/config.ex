@@ -61,9 +61,7 @@ defmodule PhoenixKit.Config do
     secret_key_base: nil,
     oauth_base_url: nil,
     # Module-specific settings
-    blogging_settings_module: PhoenixKit.Settings,
-    # OAuth and third-party settings
-    ueberauth: []
+    blogging_settings_module: PhoenixKit.Settings
   ]
 
   @doc """
@@ -105,6 +103,24 @@ defmodule PhoenixKit.Config do
       {:ok, value} -> value
       :not_found -> default
     end
+  end
+
+  @doc """
+  Sets a configuration value.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.set(:repo, MyApp.Repo)
+      :ok
+
+      iex> PhoenixKit.Config.set(:custom_option, "custom_value")
+      :ok
+
+  """
+  @spec set(atom(), any()) :: :ok
+  def set(key, value) when is_atom(key) do
+    Application.put_env(:phoenix_kit, key, value)
+    :ok
   end
 
   @doc """

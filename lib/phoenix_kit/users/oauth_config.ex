@@ -7,6 +7,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   configuration dynamically.
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   require Logger
 
@@ -59,21 +60,13 @@ defmodule PhoenixKit.Users.OAuthConfig do
   defp configure_ueberauth_base do
     providers = build_provider_list()
 
-    # FIXED: Preserve existing base_path or set default based on PhoenixKit URL prefix
-    # Get current config to preserve any existing settings
-    current_config = Application.get_env(:ueberauth, Ueberauth, [])
+    base_path = PhoenixKit.Config.UeberAuth.get_base_path()
 
-    # Preserve base_path if it exists, or set default based on PhoenixKit URL prefix
-    base_path = Keyword.get(current_config, :base_path) || get_oauth_base_path()
-
-    config = [
+    # Use PhoenixKit.Config.UeberAuth to set the configuration
+    Config.UeberAuth.set_all(
       base_path: base_path,
       providers: providers
-    ]
-
-    # Always update Ueberauth configuration, even if providers list is empty
-    # This ensures Ueberauth has a valid configuration at all times
-    Application.put_env(:ueberauth, Ueberauth, config)
+    )
 
     if providers != %{} do
       Logger.info(
@@ -83,16 +76,6 @@ defmodule PhoenixKit.Users.OAuthConfig do
       Logger.info(
         "OAuth: Configured Ueberauth with no active providers at base_path: #{base_path}"
       )
-    end
-  end
-
-  # Helper to get OAuth base path from PhoenixKit URL prefix
-  defp get_oauth_base_path do
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-
-    case url_prefix do
-      "" -> "/users/auth"
-      prefix -> "#{prefix}/users/auth"
     end
   end
 

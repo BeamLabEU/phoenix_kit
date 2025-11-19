@@ -87,8 +87,6 @@ defmodule PhoenixKit.Pages do
   def ensure_not_found_page_exists do
     relative_path = not_found_file_path()
 
-    require Logger
-
     if FileOperations.file_exists?(relative_path) do
       Logger.debug("Pages 404 already exists at #{FileOperations.absolute_path(relative_path)}")
     else
