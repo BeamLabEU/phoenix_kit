@@ -506,11 +506,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%!-- Storage section with submenu --%>
+                        <%!-- Media section with submenu --%>
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings/storage")}
                           icon="storage"
-                          label="Storage"
+                          label="Media"
                           current_path={@current_path || ""}
                           nested={true}
                         />
