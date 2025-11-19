@@ -487,21 +487,20 @@
             <div class="flex flex-wrap items-center justify-between gap-3">
               <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
               <div class="flex items-center gap-2">
-                <%= if @has_pending_changes do %>
-                  <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                <%= cond do %>
+                  <% @is_autosaving -> %>
+                    <span class="badge badge-info badge-sm gap-1">
+                      <span class="loading loading-spinner loading-xs"></span>
+                      {gettext("Saving...")}
+                    </span>
+                  <% @has_pending_changes -> %>
+                    <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                  <% true -> %>
+                    <span class="badge badge-success badge-sm gap-1">
+                      <.icon name="hero-check" class="w-3 h-3" />
+                      {gettext("Saved")}
+                    </span>
                 <% end %>
-                <button
-                  type="button"
-                  class={[
-                    "btn btn-sm inline-flex items-center justify-center gap-2 px-3",
-                    if(@has_pending_changes, do: "btn-primary", else: "btn-disabled")
-                  ]}
-                  phx-click="save"
-                  disabled={!@has_pending_changes}
-                >
-                  <.icon name="hero-check" class="w-4 h-4" />
-                  <span class="whitespace-nowrap">{gettext("Save Post")}</span>
-                </button>
               </div>
             </div>
 
