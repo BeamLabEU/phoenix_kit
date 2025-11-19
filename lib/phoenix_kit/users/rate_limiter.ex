@@ -300,18 +300,10 @@ defmodule PhoenixKit.Users.RateLimiter do
       end
 
     # Hammer 7.x: Use set/3 to reset the counter to 0
-    case PhoenixKit.Users.RateLimiter.Backend.set(key, window, 0) do
-      :ok ->
-        Logger.info("PhoenixKit.RateLimiter: Reset rate limit for #{action}:#{identifier}")
-        :ok
-
-      {:error, reason} ->
-        Logger.error(
-          "PhoenixKit.RateLimiter: Failed to reset rate limit for #{action}:#{identifier}: #{inspect(reason)}"
-        )
-
-        {:error, reason}
-    end
+    # Backend.set/3 returns the new count (integer)
+    _count = PhoenixKit.Users.RateLimiter.Backend.set(key, window, 0)
+    Logger.info("PhoenixKit.RateLimiter: Reset rate limit for #{action}:#{identifier}")
+    :ok
   end
 
   @doc """
@@ -361,30 +353,21 @@ defmodule PhoenixKit.Users.RateLimiter do
       end
 
     # Hammer 7.x: Use get/2 to retrieve the current count
-    case PhoenixKit.Users.RateLimiter.Backend.get(key, window) do
-      {:ok, count} when is_integer(count) ->
-        max(0, limit - count)
-
-      _ ->
-        # If bucket doesn't exist or error, return full limit
-        limit
-    end
+    # Backend.get/2 returns an integer directly (current count)
+    count = PhoenixKit.Users.RateLimiter.Backend.get(key, window)
+    max(0, limit - count)
   end
 
   # Private functions
 
   defp check_rate_limit(key, window_ms, limit) do
+    # Hammer 7.x: Backend.hit/3 returns {:allow, count} or {:deny, retry_after}
     case PhoenixKit.Users.RateLimiter.Backend.hit(key, window_ms, limit) do
       {:allow, _count} ->
         :ok
 
       {:deny, _retry_after_ms} ->
         {:error, :rate_limit_exceeded}
-
-      {:error, reason} ->
-        # Log error but allow request to proceed (fail open for availability)
-        Logger.error("PhoenixKit.RateLimiter: Hammer error for #{key}: #{inspect(reason)}")
-        :ok
     end
   end
 

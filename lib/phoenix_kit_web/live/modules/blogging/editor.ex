@@ -469,18 +469,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         |> push_event("autosave-status", %{saving: true})
 
       # Perform the save
-      result = perform_save(socket)
+      {:noreply, updated_socket} = perform_save(socket)
 
-      case result do
-        {:noreply, updated_socket} ->
-          {:noreply,
-           updated_socket
-           |> assign(:is_autosaving, false)
-           |> push_event("autosave-status", %{saving: false})}
-
-        other ->
-          other
-      end
+      {:noreply,
+       updated_socket
+       |> assign(:is_autosaving, false)
+       |> push_event("autosave-status", %{saving: false})}
     else
       {:noreply, assign(socket, :autosave_timer, nil)}
     end
