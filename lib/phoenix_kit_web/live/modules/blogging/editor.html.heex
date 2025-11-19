@@ -8,57 +8,121 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <script>
+  <% nonce = assigns[:script_csp_nonce] || assigns[:csp_nonce] || "" %>
+  <div
+    id="editor-js-warning"
+    class="alert alert-warning mb-4 flex items-start gap-3"
+    role="alert"
+  >
+    <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+    <div>
+      <p class="font-semibold text-base-content">{gettext("Interactive editor features need JavaScript")}</p>
+      <p class="text-sm text-base-content/80" data-js-warning-message>
+        {gettext("If you cannot insert components or see unsaved-change prompts, enable JavaScript or allow inline scripts for this page.")}
+      </p>
+    </div>
+  </div>
+
+  <noscript>
+    <div class="alert alert-warning mb-4 flex items-start gap-3" role="alert">
+      <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+      <div>
+        <p class="font-semibold text-base-content">{gettext("JavaScript is disabled")}</p>
+        <p class="text-sm text-base-content/80">
+          {gettext("Turn on JavaScript to insert components and receive autosave protection in this editor.")}
+        </p>
+      </div>
+    </div>
+  </noscript>
+
+  <script nonce={nonce}>
     (function() {
-      // Content Editor - Standalone implementation (no LiveView hook needed)
-      console.log('[ContentEditor] Initializing...');
+      const warningEl = document.getElementById("editor-js-warning");
+      if (warningEl) {
+        warningEl.classList.add("hidden");
+      }
+    })();
+  </script>
+  <script nonce={nonce}>
+    (function() {
+      let warningEl = null;
+
+      function getWarningEl() {
+        if (!warningEl || !document.body.contains(warningEl)) {
+          warningEl = document.getElementById("editor-js-warning");
+        }
+        return warningEl;
+      }
+
+      let initAttempts = 0;
+
+      function hideWarning() {
+        const el = getWarningEl();
+        if (el && !el.classList.contains("hidden")) {
+          el.classList.add("hidden");
+        }
+      }
+
+      function showWarning(message) {
+        const el = getWarningEl();
+        if (!el) return;
+        el.classList.remove("hidden");
+        if (message) {
+          const msgEl = el.querySelector("[data-js-warning-message]");
+          if (msgEl) {
+            msgEl.textContent = message;
+          }
+        }
+      }
+
+      // At this point JS is running, so keep the warning hidden
+      hideWarning();
 
       let textarea = null;
       let lastCursorPosition = 0;
 
       // Initialize when DOM is ready
       function initContentEditor() {
-        textarea = document.getElementById('content-textarea');
+        textarea = document.getElementById("content-textarea");
 
         if (!textarea) {
-          console.warn('[ContentEditor] Textarea not found, retrying...');
+          initAttempts += 1;
+          if (initAttempts > 20) {
+            showWarning("Editor failed to initialize. Please check if inline JavaScript is allowed.");
+          }
           setTimeout(initContentEditor, 100);
           return;
         }
 
-        console.log('[ContentEditor] Textarea found, setting up listeners');
+        initAttempts = 0;
+        hideWarning();
 
         // Track cursor position on blur
-        textarea.addEventListener('blur', () => {
+        textarea.addEventListener("blur", () => {
           lastCursorPosition = textarea.selectionStart;
-          console.log('[ContentEditor] Cursor position saved on blur:', lastCursorPosition);
         });
 
         // Track cursor position on selection change
-        textarea.addEventListener('select', () => {
+        textarea.addEventListener("select", () => {
           lastCursorPosition = textarea.selectionStart;
         });
 
         // Track cursor position on click
-        textarea.addEventListener('click', () => {
+        textarea.addEventListener("click", () => {
           lastCursorPosition = textarea.selectionStart;
         });
 
         // Track cursor position on keyup
-        textarea.addEventListener('keyup', () => {
+        textarea.addEventListener("keyup", () => {
           lastCursorPosition = textarea.selectionStart;
         });
 
-        console.log('[ContentEditor] Ready!');
       }
 
       function insertAtCursor(text) {
         if (!textarea) {
-          console.error('[ContentEditor] Textarea not available');
           return;
         }
-
-        console.log('[ContentEditor] Inserting text at position:', lastCursorPosition);
 
         // Use last known cursor position
         const start = lastCursorPosition || 0;
@@ -78,19 +142,16 @@
         textarea.focus();
 
         // Trigger change event to update LiveView
-        textarea.dispatchEvent(new Event('input', { bubbles: true }));
-        console.log('[ContentEditor] Text inserted successfully');
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       // Listen for custom window events from LiveView
-      window.addEventListener('phx:insert-at-cursor', (e) => {
-        console.log('[ContentEditor] Received phx:insert-at-cursor event:', e.detail);
+      window.addEventListener("phx:insert-at-cursor", (e) => {
         insertAtCursor(e.detail.text);
       });
 
-      window.addEventListener('phx:prompt-and-insert', (e) => {
-        console.log('[ContentEditor] Received phx:prompt-and-insert event');
-        const {prompt, placeholder} = e.detail;
+      window.addEventListener("phx:prompt-and-insert", (e) => {
+        const { prompt, placeholder } = e.detail;
         const url = window.prompt(prompt, placeholder);
 
         if (url && url.trim()) {
@@ -99,7 +160,7 @@
           if (liveSocket) {
             const view = liveSocket.getViewByEl(textarea);
             if (view) {
-              view.pushEvent("insert_video_component", {url: url.trim()});
+              view.pushEvent("insert_video_component", { url: url.trim() });
             }
           }
         }
@@ -107,89 +168,99 @@
 
       // Global function for inserting components (called from onclick)
       window.insertComponent = function(text) {
-        console.log('[ContentEditor] insertComponent called with:', text);
         insertAtCursor(text);
       };
 
       // Global function for prompting and inserting video
       window.promptAndInsertVideo = function() {
-        const url = window.prompt('Enter YouTube URL:', 'https://youtu.be/dQw4w9WgXcQ');
+        const url = window.prompt("Enter YouTube URL:", "https://youtu.be/dQw4w9WgXcQ");
         if (url && url.trim()) {
-          const template = '\n<Video url="' + url.trim() + '">\n  Optional caption text\n</Video>\n';
+          const template = "\n<Video url=\"" + url.trim() + "\">\n  Optional caption text\n</Video>\n";
           insertAtCursor(template);
         }
       };
 
       // Global function for inserting image component (called after media selection)
       window.insertImageComponent = function(fileId) {
-        console.log('[ContentEditor] Inserting image component with file ID:', fileId);
-        const template = '\n<Image file_id="' + fileId + '" alt="Description here" />\n';
+        const template = "\n<Image file_id=\"" + fileId + "\" alt=\"Description here\" />\n";
         insertAtCursor(template);
       };
 
       // Listen for exec-js events from LiveView
-      window.addEventListener('phx:exec-js', (e) => {
-        console.log('[ContentEditor] Executing JS:', e.detail.js);
+      window.addEventListener("phx:exec-js", (e) => {
         try {
           eval(e.detail.js);
         } catch (err) {
-          console.error('[ContentEditor] Error executing JS:', err);
+          console.error("[ContentEditor] Error executing JS:", err);
         }
       });
 
       // Initialize on DOMContentLoaded
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initContentEditor);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initContentEditor);
       } else {
         initContentEditor();
       }
 
       // Re-initialize after LiveView updates
-      document.addEventListener('phx:page-loading-stop', initContentEditor);
+      document.addEventListener("phx:page-loading-stop", () => {
+        warningEl = null;
+        initContentEditor();
+        hideWarning();
+      });
+
+      const warningObserver = new MutationObserver(() => {
+        const el = getWarningEl();
+        if (el && !el.classList.contains("hidden")) {
+          el.classList.add("hidden");
+        }
+      });
+
+      warningObserver.observe(document.documentElement, { childList: true, subtree: true });
 
       // Track unsaved changes state
       window.editorUnsavedChanges = false;
 
       // Browser exit protection
-      window.addEventListener('beforeunload', function(e) {
+      window.addEventListener("beforeunload", function(e) {
         if (window.editorUnsavedChanges) {
           e.preventDefault();
-          e.returnValue = '';
-          return '';
+          e.returnValue = "";
+          return "";
         }
       });
 
       // Intercept navigation links
-      document.addEventListener('click', function(e) {
+      document.addEventListener("click", function(e) {
         if (window.editorUnsavedChanges) {
-          const link = e.target.closest('a[href], a[data-phx-link]');
-          if (link && !link.hasAttribute('data-confirm')) {
-            const href = link.getAttribute('href') || link.getAttribute('data-phx-link');
+          const link = e.target.closest("a[href], a[data-phx-link]");
+          if (link && !link.hasAttribute("data-confirm")) {
+            const href = link.getAttribute("href") || link.getAttribute("data-phx-link");
             // Don't block external links or hash links
-            if (href && !href.startsWith('http') && !href.startsWith('#')) {
+            if (href && !href.startsWith("http") && !href.startsWith("#")) {
               e.preventDefault();
               e.stopPropagation();
-              document.getElementById('confirm-cancel-btn').click();
+              document.getElementById("confirm-cancel-btn").click();
             }
           }
         }
       }, true);
 
       // Listen for changes status from LiveView
-      window.addEventListener('phx:changes-status', function(e) {
+      window.addEventListener("phx:changes-status", function(e) {
         window.editorUnsavedChanges = e.detail.has_changes;
       });
 
       // Listen for confirm navigation event
-      window.addEventListener('phx:confirm-navigation', function(e) {
-        if (confirm('You have unsaved changes. Are you sure you want to leave?')) {
-          document.getElementById('confirm-cancel-btn').click();
+      window.addEventListener("phx:confirm-navigation", function(_e) {
+        if (confirm("You have unsaved changes. Are you sure you want to leave?")) {
+          document.getElementById("confirm-cancel-btn").click();
         }
       });
 
       // Listen for slug update event from LiveView
-      window.addEventListener('phx:update-slug', function(e) {
-        const slugInput = document.getElementById('slug-input');
+      window.addEventListener("phx:update-slug", function(e) {
+        const slugInput = document.getElementById("slug-input");
         if (slugInput && e.detail.slug) {
           slugInput.value = e.detail.slug;
         }
