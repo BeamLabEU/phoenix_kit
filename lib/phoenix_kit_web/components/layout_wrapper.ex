@@ -244,7 +244,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes", "/admin/users/media"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
                       <%!-- Submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -279,14 +279,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           nested={true}
                         />
 
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/users/media")}
-                          icon="photo"
-                          label="Media"
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
-
                         <%= if PhoenixKit.ReferralCodes.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/users/referral-codes")}
@@ -298,6 +290,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <% end %>
                       </div>
                     <% end %>
+
+                    <%!-- Media as top-level menu item --%>
+                    <.admin_nav_item
+                      href={Routes.locale_aware_path(assigns, "/admin/media")}
+                      icon="photo"
+                      label="Media"
+                      current_path={@current_path || ""}
+                    />
 
                     <%= if PhoenixKit.Emails.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
@@ -830,7 +830,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp looks_like_locale?(locale), do: String.length(locale) <= 3
 
   defp path_matches_any?(normalized_path, paths) do
-    Enum.any?(paths, &String.starts_with?(normalized_path, &1))
+    Enum.any?(paths, fn path ->
+      # Exact match or path segment match (followed by / or query string)
+      normalized_path == path ||
+        String.starts_with?(normalized_path, path <> "/") ||
+        String.starts_with?(normalized_path, path <> "?")
+    end)
   end
 
   # Render with parent application layout (Phoenix v1.8+ function component approach)

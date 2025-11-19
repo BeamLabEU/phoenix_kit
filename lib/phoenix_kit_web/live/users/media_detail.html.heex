@@ -2,7 +2,7 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title="Media Detail"
-  current_path={Routes.path("/admin/users/media/#{@file_id}")}
+  current_path={Routes.path("/admin/media/#{@file_id}")}
   project_title={@project_title}
   current_locale={@current_locale}
 >
@@ -10,7 +10,7 @@
     <div class="mb-8">
       <%!-- Back Button --%>
       <.link
-        navigate={Routes.path("/admin/users/media")}
+        navigate={Routes.path("/admin/media")}
         class="btn btn-outline btn-sm mb-4"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
@@ -319,7 +319,7 @@
         <p class="text-base-content/70">
           The file you're looking for doesn't exist or has been deleted.
         </p>
-        <.link navigate={Routes.path("/admin/users/media")} class="btn btn-primary btn-sm mt-4">
+        <.link navigate={Routes.path("/admin/media")} class="btn btn-primary btn-sm mt-4">
           Back to Media Library
         </.link>
       </div>

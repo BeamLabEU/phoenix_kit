@@ -78,7 +78,7 @@
           <div class="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-6 gap-3">
             <%= for file <- @uploaded_files do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/users/media/#{file.file_id}")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_id}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
                 <% image_url = file.urls["medium"] || file.urls["original"] %>

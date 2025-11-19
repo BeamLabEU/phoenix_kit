@@ -40,7 +40,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       |> assign(:page_title, "Media")
       |> assign(:project_title, settings["project_title"])
       |> assign(:current_locale, locale)
-      |> assign(:url_path, Routes.path("/admin/users/media"))
+      |> assign(:url_path, Routes.path("/admin/media"))
       |> assign(:show_upload, false)
       |> assign(:last_uploaded_file_ids, [])
       |> assign(:has_buckets, has_buckets)
