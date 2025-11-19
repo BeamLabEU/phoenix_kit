@@ -64,6 +64,8 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   require Logger
 
+  alias PhoenixKit.Users.RateLimiter.Backend
+
   @default_config [
     # Login: 5 attempts per minute per email
     login_limit: 5,
@@ -336,7 +338,7 @@ defmodule PhoenixKit.Users.RateLimiter do
 
     # Hammer 7.x: Use get/2 to retrieve the current count
     # Backend.get/2 returns an integer directly (current count)
-    count = PhoenixKit.Users.RateLimiter.Backend.get(key, window)
+    count = Backend.get(key, window)
     max(0, limit - count)
   end
 
@@ -344,7 +346,7 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   defp check_rate_limit(key, window_ms, limit) do
     # Hammer 7.x: Backend.hit/3 returns {:allow, count} or {:deny, retry_after}
-    case PhoenixKit.Users.RateLimiter.Backend.hit(key, window_ms, limit) do
+    case Backend.hit(key, window_ms, limit) do
       {:allow, _count} ->
         :ok
 
