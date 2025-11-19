@@ -140,7 +140,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
           )
           |> assign(:show_create_path_modal, false)
           |> push_navigate(
-            to: socket.assigns.current_path || Routes.path("/admin/settings/storage")
+            to: socket.assigns.current_path || Routes.path("/admin/settings/media")
           )
 
         {:noreply, socket}
@@ -177,7 +177,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
             "Invalid storage path format. Please check the path and try again."
           )
           |> push_navigate(
-            to: socket.assigns.current_path || Routes.path("/admin/settings/storage")
+            to: socket.assigns.current_path || Routes.path("/admin/settings/media")
           )
 
         {:noreply, socket}
@@ -204,7 +204,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
         socket =
           socket
           |> put_flash(:info, "Bucket created successfully")
-          |> push_navigate(to: Routes.path("/admin/settings/storage"))
+          |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
 
@@ -226,7 +226,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
         socket =
           socket
           |> put_flash(:info, "Bucket updated successfully")
-          |> push_navigate(to: Routes.path("/admin/settings/storage"))
+          |> push_navigate(to: Routes.path("/admin/settings/media"))
 
         {:noreply, socket}
 
@@ -252,7 +252,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
   # Helper function to get current path for navigation
   defp get_current_path(_socket, _session) do
     # For Bucket form page
-    Routes.path("/admin/settings/storage")
+    Routes.path("/admin/settings/media")
   end
 
   # Helper function for input validation styling

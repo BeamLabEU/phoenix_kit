@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
         class="btn btn-outline mb-4"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Storage Settings
@@ -64,7 +64,7 @@
             <div class="flex justify-center gap-4">
               <.link
                 navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/image")
+                  PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions/new/image")
                 }
                 class="btn btn-info"
               >
@@ -72,7 +72,7 @@
               </.link>
               <.link
                 navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/video")
+                  PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions/new/video")
                 }
                 class="btn btn-warning"
               >
@@ -89,7 +89,7 @@
               </h3>
               <.link
                 navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/image")
+                  PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions/new/image")
                 }
                 class="btn btn-info"
               >
@@ -159,7 +159,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/settings/storage/dimensions/#{dimension.id}/edit"
+                                "/admin/settings/media/dimensions/#{dimension.id}/edit"
                               )
                             }
                             class="btn btn-xs btn-ghost"
@@ -211,7 +211,7 @@
               </h3>
               <.link
                 navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions/new/video")
+                  PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions/new/video")
                 }
                 class="btn btn-warning"
               >
@@ -281,7 +281,7 @@
                           <.link
                             navigate={
                               PhoenixKit.Utils.Routes.path(
-                                "/admin/settings/storage/dimensions/#{dimension.id}/edit"
+                                "/admin/settings/media/dimensions/#{dimension.id}/edit"
                               )
                             }
                             class="btn btn-xs btn-ghost"

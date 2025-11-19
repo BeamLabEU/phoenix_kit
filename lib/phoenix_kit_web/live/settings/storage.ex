@@ -283,7 +283,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   defp get_current_path(_socket, _session) do
     # For Storage settings page
-    Routes.path("/admin/settings/storage")
+    Routes.path("/admin/settings/media")
   end
 
   # Helper function to get full path for a bucket

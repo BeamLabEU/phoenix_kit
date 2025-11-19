@@ -435,7 +435,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/media/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -508,18 +508,18 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                         <%!-- Media section with submenu --%>
                         <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/settings/storage")}
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/media")}
                           icon="storage"
                           label="Media"
                           current_path={@current_path || ""}
                           nested={true}
                         />
 
-                        <%= if submenu_open?(@current_path, ["/admin/settings/storage", "/admin/settings/storage/dimensions"]) do %>
+                        <%= if submenu_open?(@current_path, ["/admin/settings/media", "/admin/settings/media/dimensions"]) do %>
                           <%!-- Storage submenu items --%>
                           <div class="mt-1 pl-4">
                             <.admin_nav_item
-                              href={Routes.locale_aware_path(assigns, "/admin/settings/storage/dimensions")}
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/media/dimensions")}
                               icon="photo"
                               label="Dimensions"
                               current_path={@current_path || ""}

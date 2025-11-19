@@ -97,7 +97,7 @@
             <.icon name="hero-inbox-stack" class="w-6 h-6 mr-2" /> Storage Buckets
           </h2>
           <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets/new")}
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/buckets/new")}
             class="btn btn-primary"
           >
             <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Bucket
@@ -115,7 +115,7 @@
               </p>
               <div class="mt-3">
                 <.link
-                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/buckets/new")}
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/buckets/new")}
                   class="btn btn-warning btn-sm"
                 >
                   <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Create Your First Bucket
@@ -202,7 +202,7 @@
                         <.link
                           navigate={
                             PhoenixKit.Utils.Routes.path(
-                              "/admin/settings/storage/buckets/#{bucket.id}/edit"
+                              "/admin/settings/media/buckets/#{bucket.id}/edit"
                             )
                           }
                           class="btn btn-xs btn-ghost"
@@ -384,7 +384,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage/dimensions")}
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media/dimensions")}
             class="btn btn-outline"
           >
             <.icon name="hero-photo" class="w-4 h-4 mr-2" /> Manage Dimensions

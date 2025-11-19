@@ -306,20 +306,20 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
-          live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
+          live "/admin/settings/media", Live.Settings.Storage, :index
+          live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
+          live "/admin/settings/media/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/media/dimensions", Live.Settings.Storage.Dimensions, :index
 
-          live "/admin/settings/storage/dimensions/new/image",
+          live "/admin/settings/media/dimensions/new/image",
                Live.Settings.Storage.DimensionForm,
                :new_image
 
-          live "/admin/settings/storage/dimensions/new/video",
+          live "/admin/settings/media/dimensions/new/video",
                Live.Settings.Storage.DimensionForm,
                :new_video
 
-          live "/admin/settings/storage/dimensions/:id/edit",
+          live "/admin/settings/media/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
                :edit
 
@@ -438,20 +438,20 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
-          live "/admin/settings/storage", Live.Settings.Storage, :index
-          live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/storage/dimensions", Live.Settings.Storage.Dimensions, :index
+          live "/admin/settings/media", Live.Settings.Storage, :index
+          live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
+          live "/admin/settings/media/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
+          live "/admin/settings/media/dimensions", Live.Settings.Storage.Dimensions, :index
 
-          live "/admin/settings/storage/dimensions/new/image",
+          live "/admin/settings/media/dimensions/new/image",
                Live.Settings.Storage.DimensionForm,
                :new_image
 
-          live "/admin/settings/storage/dimensions/new/video",
+          live "/admin/settings/media/dimensions/new/video",
                Live.Settings.Storage.DimensionForm,
                :new_video
 
-          live "/admin/settings/storage/dimensions/:id/edit",
+          live "/admin/settings/media/dimensions/:id/edit",
                Live.Settings.Storage.DimensionForm,
                :edit
 
