@@ -87,7 +87,7 @@
                 <div class="card-body p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
-                      <span>{format_datetime(post)}</span>
+                      <span>{format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}</span>
                     </div>
                     <% blog_slug =
                       post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
