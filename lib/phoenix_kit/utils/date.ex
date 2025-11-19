@@ -47,17 +47,16 @@ defmodule PhoenixKit.Utils.Date do
 
   ## Implementation
 
-  This module uses Timex for robust internationalized date/time formatting
-  with extensive format support and proper locale handling.
+  This module uses Elixir's built-in Calendar.strftime for robust date/time formatting
+  with extensive format support.
   """
 
-  use Timex
   alias PhoenixKit.Settings
 
   @doc """
   Formats a date according to the specified format string.
 
-  Uses Timex for robust date formatting with extensive format support.
+  Uses Calendar.strftime for robust date formatting with extensive format support.
 
   ## Examples
 
@@ -71,37 +70,14 @@ defmodule PhoenixKit.Utils.Date do
       "January 15, 2024"
   """
   def format_date(date, format) do
-    timex_format = get_timex_format(format)
-    format_with_timex(date, timex_format)
-  end
-
-  # Private helper functions to reduce complexity
-  defp get_timex_format(format) do
-    case format do
-      "Y-m-d" -> "{YYYY}-{0M}-{0D}"
-      "m/d/Y" -> "{0M}/{0D}/{YYYY}"
-      "d/m/Y" -> "{0D}/{0M}/{YYYY}"
-      "d.m.Y" -> "{0D}.{0M}.{YYYY}"
-      "d.m" -> "{0D}.{0M}"
-      "d-m-Y" -> "{0D}-{0M}-{YYYY}"
-      "F j, Y" -> "{Mfull} {D}, {YYYY}"
-      # Default to Y-m-d format
-      _ -> "{YYYY}-{0M}-{0D}"
-    end
-  end
-
-  defp format_with_timex(date, timex_format) do
-    case Timex.format(date, timex_format) do
-      {:ok, formatted} -> formatted
-      # Fallback to ISO format
-      {:error, _} -> Date.to_string(date)
-    end
+    strftime_format = convert_php_to_strftime(format, :date)
+    Calendar.strftime(date, strftime_format)
   end
 
   @doc """
   Formats a time according to the specified format string.
 
-  Uses Timex for robust time formatting with extensive format support.
+  Uses Calendar.strftime for robust time formatting with extensive format support.
 
   ## Examples
 
@@ -112,19 +88,32 @@ defmodule PhoenixKit.Utils.Date do
       "3:30 PM"
   """
   def format_time(time, format) do
-    # Map our format codes to Timex format strings
-    timex_format =
-      case format do
-        "H:i" -> "{h24}:{m}"
-        "h:i A" -> "{h12}:{m} {AM}"
-        # Default to 24-hour format
-        _ -> "{h24}:{m}"
-      end
+    strftime_format = convert_php_to_strftime(format, :time)
+    Calendar.strftime(time, strftime_format)
+  end
 
-    case Timex.format(time, timex_format) do
-      {:ok, formatted} -> formatted
-      # Fallback to ISO format
-      {:error, _} -> Time.to_string(time)
+  # Convert PHP-style format strings to strftime format strings
+  defp convert_php_to_strftime(format, :date) do
+    case format do
+      "Y-m-d" -> "%Y-%m-%d"
+      "m/d/Y" -> "%m/%d/%Y"
+      "d/m/Y" -> "%d/%m/%Y"
+      "d.m.Y" -> "%d.%m.%Y"
+      "d.m" -> "%d.%m"
+      "d-m-Y" -> "%d-%m-%Y"
+      "F j, Y" -> "%B %-d, %Y"
+      # Default to Y-m-d format
+      _ -> "%Y-%m-%d"
+    end
+  end
+
+  # Convert PHP-style time format strings to strftime format strings
+  defp convert_php_to_strftime(format, :time) do
+    case format do
+      "H:i" -> "%H:%M"
+      "h:i A" -> "%I:%M %p"
+      # Default to 24-hour format
+      _ -> "%H:%M"
     end
   end
 
