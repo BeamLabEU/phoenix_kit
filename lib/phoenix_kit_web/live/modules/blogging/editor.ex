@@ -613,7 +613,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                   )
               )
 
-            {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
+            {:noreply,
+             if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
 
           {:error, :invalid_format} ->
             {:noreply,
@@ -717,7 +718,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                   )
               )
 
-            {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
+            {:noreply,
+             if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
 
           {:error, :invalid_format} ->
             {:noreply,

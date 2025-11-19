@@ -28,7 +28,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
         }
       )
 
-    {blogs, insights, summary} = dashboard_snapshot(locale, socket.assigns[:phoenix_kit_current_user], date_time_settings)
+    {blogs, insights, summary} =
+      dashboard_snapshot(locale, socket.assigns[:phoenix_kit_current_user], date_time_settings)
 
     socket =
       socket
@@ -48,11 +49,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   end
 
   def handle_params(_params, uri, socket) do
-    {blogs, insights, summary} = dashboard_snapshot(
-      socket.assigns.current_locale,
-      socket.assigns[:phoenix_kit_current_user],
-      socket.assigns.date_time_settings
-    )
+    {blogs, insights, summary} =
+      dashboard_snapshot(
+        socket.assigns.current_locale,
+        socket.assigns[:phoenix_kit_current_user],
+        socket.assigns.date_time_settings
+      )
+
     endpoint_url = extract_endpoint_url(uri)
 
     {:noreply,
@@ -95,7 +98,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
       archived_count: Map.get(status_counts, "archived", 0),
       languages: languages,
       last_published_at: latest_published_at,
-      last_published_at_text: format_datetime(latest_published_at, current_user, date_time_settings)
+      last_published_at_text:
+        format_datetime(latest_published_at, current_user, date_time_settings)
     }
   end
 
