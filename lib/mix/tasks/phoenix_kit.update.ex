@@ -88,6 +88,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BasicConfiguration,
       Common,
       CssIntegration,
+      ObanConfig,
       RateLimiterConfig
     }
 
@@ -242,6 +243,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           !has_active_hammer_config?(lines) ->
             :missing
 
+          # Missing Oban configuration (check for active, non-commented config)
+          !has_active_oban_config?(lines) ->
+            :missing
+
           # All required configuration present
           true ->
             :ok
@@ -274,6 +279,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       has_hammer_config and has_expiry_ms
     end
 
+    # Check if active (non-commented) Oban configuration exists
+    defp has_active_oban_config?(lines) do
+      has_oban_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :phoenix_kit, Oban
+          !String.starts_with?(trimmed, "#") and
+            String.contains?(line, "config :phoenix_kit, Oban")
+        end)
+
+      has_queues =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains queues:
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "queues:")
+        end)
+
+      has_oban_config and has_queues
+    end
+
     # Perform the igniter-based update logic
     defp perform_igniter_update(igniter, opts) do
       prefix = opts[:prefix] || "public"
@@ -284,6 +309,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Ensure Hammer rate limiter configuration exists
       igniter = validate_and_add_hammer_config(igniter)
+
+      # Ensure Oban configuration exists
+      igniter = validate_and_add_oban_config(igniter)
 
       # Check if this is the first pass (config missing) or second pass (config exists)
       config_status = Process.get(:phoenix_kit_config_status, :ok)
@@ -856,6 +884,30 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ⚠️  Added missing Hammer rate limiter configuration to config.exs
          IMPORTANT: Restart your server if it's currently running.
          Without this configuration, the application will fail to start.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Validate and add Oban configuration if missing
+    defp validate_and_add_oban_config(igniter) do
+      if ObanConfig.oban_config_exists?(igniter) do
+        # Configuration exists, no action needed
+        igniter
+      else
+        # Configuration missing, add it
+        igniter
+        |> ObanConfig.add_oban_configuration()
+        |> add_oban_config_added_notice()
+      end
+    end
+
+    # Add notice about Oban configuration being added
+    defp add_oban_config_added_notice(igniter) do
+      notice = """
+      ⚠️  Added missing Oban configuration to config.exs
+         IMPORTANT: Restart your server if it's currently running.
+         Without Oban, the storage system cannot process uploaded files.
       """
 
       Igniter.add_notice(igniter, String.trim(notice))
