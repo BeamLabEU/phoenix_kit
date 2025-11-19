@@ -306,6 +306,8 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Maintenance.Settings,
                :index
 
+          live "/admin/settings/seo", Live.Settings.SEO, :index
+
           live "/admin/settings/storage", Live.Settings.Storage, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new
           live "/admin/settings/storage/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
@@ -437,6 +439,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,
                :index
+
+          live "/admin/settings/seo", Live.Settings.SEO, :index
 
           live "/admin/settings/storage", Live.Settings.Storage, :index
           live "/admin/settings/storage/buckets/new", Live.Settings.Storage.BucketForm, :new

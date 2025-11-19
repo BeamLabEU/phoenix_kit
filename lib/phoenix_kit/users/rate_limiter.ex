@@ -64,6 +64,8 @@ defmodule PhoenixKit.Users.RateLimiter do
 
   require Logger
 
+  alias PhoenixKit.Users.RateLimiter.Backend
+
   @default_config [
     # Login: 5 attempts per minute per email
     login_limit: 5,
@@ -260,58 +262,32 @@ defmodule PhoenixKit.Users.RateLimiter do
   @doc """
   Resets rate limit for a specific action and identifier.
 
-  This is useful for:
-  - Admin intervention (clearing rate limits for legitimate users)
-  - Testing purposes
-  - Post-successful authentication cleanup
+  **DEPRECATED:** Hammer 7.x removed `delete_buckets` with no replacement.
+  This function now returns an error as Backend.set/3 requires positive integers (cannot set to 0).
 
-  For login and registration, the identifier should already include the prefix (e.g., "email:user@example.com" or "ip:192.168.1.1").
-  For magic_link and password_reset, use just the email.
+  Rate limits will naturally expire after their configured window period.
 
-  Note: With Hammer 7.x, this resets the counter to 0 using the set/3 function.
+  ## Migration
+
+  - **For testing**: Use `Application.put_env` to disable rate limiting
+  - **For admin intervention**: Wait for the time window to expire
+  - **For immediate reset**: Restart the application (clears ETS tables)
+
+  See: https://hexdocs.pm/hammer/upgrade-v7.html
 
   ## Examples
 
       iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:login, "email:user@example.com")
-      :ok
-
-      iex> PhoenixKit.Users.RateLimiter.reset_rate_limit(:magic_link, "user@example.com")
-      :ok
+      {:error, :not_supported}
   """
-  def reset_rate_limit(action, identifier) when is_atom(action) and is_binary(identifier) do
-    # Normalize email if identifier doesn't already have a prefix (email: or ip:)
-    identifier =
-      if action in [:magic_link, :password_reset] and not String.contains?(identifier, ":") do
-        normalize_email(identifier)
-      else
-        identifier
-      end
+  @deprecated "Hammer 7.x removed delete_buckets. Rate limits expire after their time window."
+  def reset_rate_limit(_action, _identifier) do
+    Logger.warning(
+      "PhoenixKit.RateLimiter.reset_rate_limit/2 is deprecated. " <>
+        "Rate limits expire automatically after their configured time window."
+    )
 
-    config = get_config()
-    key = "auth:#{action}:#{identifier}"
-
-    # Get the window for this action type
-    window =
-      case action do
-        :login -> Keyword.get(config, :login_window_ms)
-        :magic_link -> Keyword.get(config, :magic_link_window_ms)
-        :password_reset -> Keyword.get(config, :password_reset_window_ms)
-        :registration -> Keyword.get(config, :registration_window_ms)
-      end
-
-    # Hammer 7.x: Use set/3 to reset the counter to 0
-    case PhoenixKit.Users.RateLimiter.Backend.set(key, window, 0) do
-      :ok ->
-        Logger.info("PhoenixKit.RateLimiter: Reset rate limit for #{action}:#{identifier}")
-        :ok
-
-      {:error, reason} ->
-        Logger.error(
-          "PhoenixKit.RateLimiter: Failed to reset rate limit for #{action}:#{identifier}: #{inspect(reason)}"
-        )
-
-        {:error, reason}
-    end
+    {:error, :not_supported}
   end
 
   @doc """
@@ -361,30 +337,21 @@ defmodule PhoenixKit.Users.RateLimiter do
       end
 
     # Hammer 7.x: Use get/2 to retrieve the current count
-    case PhoenixKit.Users.RateLimiter.Backend.get(key, window) do
-      {:ok, count} when is_integer(count) ->
-        max(0, limit - count)
-
-      _ ->
-        # If bucket doesn't exist or error, return full limit
-        limit
-    end
+    # Backend.get/2 returns an integer directly (current count)
+    count = Backend.get(key, window)
+    max(0, limit - count)
   end
 
   # Private functions
 
   defp check_rate_limit(key, window_ms, limit) do
-    case PhoenixKit.Users.RateLimiter.Backend.hit(key, window_ms, limit) do
+    # Hammer 7.x: Backend.hit/3 returns {:allow, count} or {:deny, retry_after}
+    case Backend.hit(key, window_ms, limit) do
       {:allow, _count} ->
         :ok
 
       {:deny, _retry_after_ms} ->
         {:error, :rate_limit_exceeded}
-
-      {:error, reason} ->
-        # Log error but allow request to proceed (fail open for availability)
-        Logger.error("PhoenixKit.RateLimiter: Hammer error for #{key}: #{inspect(reason)}")
-        :ok
     end
   end
 

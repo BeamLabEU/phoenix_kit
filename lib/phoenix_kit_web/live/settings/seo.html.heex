@@ -1,0 +1,71 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} - SEO Settings"
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <header class="text-center space-y-2">
+      <p class="text-sm uppercase tracking-wide text-base-content/60">Visibility</p>
+      <h1 class="text-4xl font-bold text-base-content">SEO Settings</h1>
+      <p class="text-base text-base-content/70 max-w-2xl mx-auto">
+        Configure environment-wide search optimization defaults and metadata directives from a single place.
+      </p>
+    </header>
+
+    <div class="flex justify-center">
+      <div class="card bg-base-100 shadow-xl border border-base-200 w-full max-w-3xl">
+        <div class="card-body space-y-4">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <p class="text-sm uppercase tracking-wide text-primary font-semibold">
+                Robots Directive
+              </p>
+              <h2 class="text-2xl font-bold">Noindex &middot; Nofollow</h2>
+              <p class="text-base text-base-content/70">
+                Adds
+                <code class="font-mono text-sm bg-base-200 rounded px-1.5 py-0.5">
+                  &lt;meta name="robots" content="noindex,nofollow"&gt;
+                </code>
+                to every PhoenixKit layout, blocking crawlers from indexing or following links.
+              </p>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <span class="text-sm font-semibold text-base-content/70">
+                {if @no_index_enabled, do: "Enabled", else: "Disabled"}
+              </span>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary toggle-lg"
+                checked={@no_index_enabled}
+                phx-click="toggle_no_index"
+              />
+            </label>
+          </div>
+
+          <div class={[
+            "alert",
+            if(@no_index_enabled, do: "alert-warning", else: "alert-info"),
+            "bg-base-200/70"
+          ]}>
+            <.icon
+              name={
+                if @no_index_enabled, do: "hero-no-symbol", else: "hero-magnifying-glass-circle"
+              }
+              class="w-6 h-6"
+            />
+            <div class="text-sm leading-relaxed">
+              <%= if @no_index_enabled do %>
+                Search engines are instructed to skip this environment. Remove this before launch.
+              <% else %>
+                Crawlers are allowed to index the site. Enable the toggle to hide staging deployments.
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
