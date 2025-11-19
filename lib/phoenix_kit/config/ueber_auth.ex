@@ -283,7 +283,6 @@ defmodule PhoenixKit.Config.UeberAuth do
     case providers do
       p when is_map(p) -> Map.keys(p)
       p when is_list(p) -> Keyword.keys(p)
-      _ -> []
     end
   end
 
@@ -306,7 +305,6 @@ defmodule PhoenixKit.Config.UeberAuth do
     case providers do
       p when is_map(p) -> Map.get(p, provider)
       p when is_list(p) -> Keyword.get(p, provider)
-      _ -> nil
     end
   end
 
