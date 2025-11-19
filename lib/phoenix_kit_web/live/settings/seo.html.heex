@@ -25,7 +25,8 @@
               </p>
               <h2 class="text-2xl font-bold">Noindex &middot; Nofollow</h2>
               <p class="text-base text-base-content/70">
-                Adds <code class="font-mono text-sm bg-base-200 rounded px-1.5 py-0.5">
+                Adds
+                <code class="font-mono text-sm bg-base-200 rounded px-1.5 py-0.5">
                   &lt;meta name="robots" content="noindex,nofollow"&gt;
                 </code>
                 to every PhoenixKit layout, blocking crawlers from indexing or following links.
@@ -50,7 +51,9 @@
             "bg-base-200/70"
           ]}>
             <.icon
-              name={if @no_index_enabled, do: "hero-no-symbol", else: "hero-magnifying-glass-circle"}
+              name={
+                if @no_index_enabled, do: "hero-no-symbol", else: "hero-magnifying-glass-circle"
+              }
               class="w-6 h-6"
             />
             <div class="text-sm leading-relaxed">
@@ -63,7 +66,6 @@
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

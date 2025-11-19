@@ -191,7 +191,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   defp redirect_if_missing(socket), do: socket
 
-  def format_datetime(%{date: %Date{} = date, time: %Time{} = time}, current_user, date_time_settings) do
+  def format_datetime(
+        %{date: %Date{} = date, time: %Time{} = time},
+        current_user,
+        date_time_settings
+      ) do
     # Fallback to dummy user if current_user is nil
     user = current_user || %{user_timezone: nil}
 
@@ -202,7 +206,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     "#{date_str} #{gettext("at")} #{time_str}"
   end
 
-  def format_datetime(%{metadata: %{published_at: published_at}}, current_user, date_time_settings) when is_binary(published_at) do
+  def format_datetime(
+        %{metadata: %{published_at: published_at}},
+        current_user,
+        date_time_settings
+      )
+      when is_binary(published_at) do
     # Fallback to dummy user if current_user is nil
     user = current_user || %{user_timezone: nil}
 
@@ -212,10 +221,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         naive_dt = DateTime.to_naive(dt)
 
         # Format date part with timezone conversion
-        date_str = UtilsDate.format_date_with_user_timezone_cached(naive_dt, user, date_time_settings)
+        date_str =
+          UtilsDate.format_date_with_user_timezone_cached(naive_dt, user, date_time_settings)
 
         # Format time part with timezone conversion
-        time_str = UtilsDate.format_time_with_user_timezone_cached(naive_dt, user, date_time_settings)
+        time_str =
+          UtilsDate.format_time_with_user_timezone_cached(naive_dt, user, date_time_settings)
 
         "#{date_str} #{gettext("at")} #{time_str}"
 

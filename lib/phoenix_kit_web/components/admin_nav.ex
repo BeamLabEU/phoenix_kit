@@ -49,7 +49,13 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     active =
       if assigns.disable_active,
         do: false,
-        else: nav_item_active?(assigns.current_path, assigns.href, assigns.nested, assigns.exact_match_only)
+        else:
+          nav_item_active?(
+            assigns.current_path,
+            assigns.href,
+            assigns.nested,
+            assigns.exact_match_only
+          )
 
     assigns = assign(assigns, :active, active)
 
@@ -482,7 +488,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to determine if navigation item is active
-  defp nav_item_active?(current_path, href, nested, exact_match_only \\ false) do
+  defp nav_item_active?(current_path, href, nested, exact_match_only) do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 
