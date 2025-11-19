@@ -141,9 +141,25 @@
                   <tr>
                     <%!-- Name --%>
                     <td>
-                      <div class="font-bold">{bucket.name}</div>
-                      <div class="text-xs text-base-content/60 font-mono">
-                        {get_bucket_full_path(bucket)}
+                      <div class="flex items-center gap-2">
+                        <%= case bucket.provider do %>
+                          <% "local" -> %>
+                            <.icon name="hero-folder" class="w-5 h-5 text-primary" />
+                          <% "s3" -> %>
+                            <.icon name="hero-cloud" class="w-5 h-5 text-warning" />
+                          <% "b2" -> %>
+                            <.icon name="hero-cube" class="w-5 h-5 text-info" />
+                          <% "r2" -> %>
+                            <.icon name="hero-cloud-arrow-up" class="w-5 h-5 text-accent" />
+                          <% _ -> %>
+                            <.icon name="hero-server" class="w-5 h-5 text-base-content/50" />
+                        <% end %>
+                        <div>
+                          <div class="font-bold">{bucket.name}</div>
+                          <div class="text-xs text-base-content/60 font-mono">
+                            {get_bucket_full_path(bucket)}
+                          </div>
+                        </div>
                       </div>
                     </td>
 
