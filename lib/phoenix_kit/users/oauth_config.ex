@@ -60,10 +60,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   defp configure_ueberauth_base do
     providers = build_provider_list()
 
-    # Preserve existing base_path or set default based on PhoenixKit URL prefix
-    # Get current config from PhoenixKit.Config.UeberAuth to preserve any existing settings
-    current_base_path = PhoenixKit.Config.UeberAuth.get_base_path()
-    base_path = current_base_path || get_oauth_base_path()
+    base_path = PhoenixKit.Config.UeberAuth.get_base_path()
 
     # Use PhoenixKit.Config.UeberAuth to set the configuration
     Config.UeberAuth.set_all(
@@ -79,16 +76,6 @@ defmodule PhoenixKit.Users.OAuthConfig do
       Logger.info(
         "OAuth: Configured Ueberauth with no active providers at base_path: #{base_path}"
       )
-    end
-  end
-
-  # Helper to get OAuth base path from PhoenixKit URL prefix
-  defp get_oauth_base_path do
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-
-    case url_prefix do
-      "" -> "/users/auth"
-      prefix -> "#{prefix}/users/auth"
     end
   end
 

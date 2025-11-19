@@ -131,7 +131,6 @@ if Code.ensure_loaded?(Ueberauth) do
       case providers do
         p when is_map(p) -> Map.to_list(p)
         p when is_list(p) -> p
-        _ -> []
       end
     end
 
