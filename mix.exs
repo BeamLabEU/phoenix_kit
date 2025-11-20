@@ -128,7 +128,7 @@ defmodule PhoenixKit.MixProject do
       {:finch, "~> 0.18"},
 
       # Code generation and project patching
-      {:igniter, "~> 0.7", optional: true}
+      {:igniter, "~> 0.7"}
     ]
   end
 
