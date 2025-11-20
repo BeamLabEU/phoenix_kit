@@ -29,7 +29,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     buckets = PhoenixKit.Storage.list_buckets()
 
     # Load storage settings from database (using basic function to avoid cache issues)
-    redundancy_copies = Settings.get_setting("storage_redundancy_copies", "2")
+    redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
     auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
     default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
 
@@ -188,7 +188,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       case {redundancy_result, variants_result} do
         {{:ok, _}, {:ok, _}} ->
           # Verify the settings were saved correctly by reading them back
-          saved_redundancy = Settings.get_setting("storage_redundancy_copies", "2")
+          saved_redundancy = Settings.get_setting("storage_redundancy_copies", "1")
           saved_variants = Settings.get_setting("storage_auto_generate_variants", "true")
 
           socket =

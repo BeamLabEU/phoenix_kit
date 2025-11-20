@@ -245,7 +245,7 @@ defmodule PhoenixKit.Storage.Manager do
   end
 
   defp get_redundancy_copies do
-    PhoenixKit.Settings.get_setting("storage_redundancy_copies", "2")
+    PhoenixKit.Settings.get_setting("storage_redundancy_copies", "1")
     |> String.to_integer()
     |> max(1)
     |> min(5)

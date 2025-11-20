@@ -279,7 +279,7 @@ The V18 migration will seed one default local storage bucket:
 The V18 migration will add 3 new settings:
 
 ```elixir
-%{key: "storage_redundancy_copies", value: "2"}           # Store files on 2 buckets
+%{key: "storage_redundancy_copies", value: "1"}           # Store files on 2 buckets
 %{key: "storage_auto_generate_variants", value: "true"}  # Auto-generate thumbnails/resizes
 %{key: "storage_default_bucket_id", value: nil}          # No default bucket (use selection algorithm)
 ```
@@ -311,7 +311,7 @@ All instances stored **next to original** in same directory:
 ```
 
 ### Redundancy
-- Setting: `storage_redundancy_copies` (integer, 1-5, default: 2)
+- Setting: `storage_redundancy_copies` (integer, 1-5, default: 1)
 - Each file + all variants replicated across N buckets
 - Example: redundancy = 2, file stored on 2 different buckets
 
@@ -385,14 +385,14 @@ token = :crypto.hash(:md5, data <> secret)
 New settings added in V18 migration:
 
 ```elixir
-storage_redundancy_copies: "2"           # How many bucket copies (1-5)
+storage_redundancy_copies: "1"           # How many bucket copies (1-5)
 storage_auto_generate_variants: "true"   # Auto-generate thumbnails/resizes
 storage_default_bucket_id: nil           # Default bucket for uploads (optional)
 ```
 
 **Access in code:**
 ```elixir
-PhoenixKit.Settings.get_setting("storage_redundancy_copies", "2")
+PhoenixKit.Settings.get_setting("storage_redundancy_copies", "1")
 ```
 
 ---
