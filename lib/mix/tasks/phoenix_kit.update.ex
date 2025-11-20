@@ -870,7 +870,7 @@ else
 
     This task requires the Igniter library to be available. Please add it to your mix.exs:
 
-        {:igniter, "~> 0.6.27"}
+        {:igniter, "~> 0.7"}
 
     Then run: mix deps.get
     """
@@ -888,7 +888,7 @@ else
 
           def deps do
             [
-              {:igniter, "~> 0.6.27"}
+              {:igniter, "~> 0.7"}
               # ... your other dependencies
             ]
           end
