@@ -131,7 +131,7 @@
                   <th>Name</th>
                   <th>Provider</th>
                   <th>Priority</th>
-                  <th>Usage</th>
+                  <th>Files</th>
                   <th>Status</th>
                   <th class="text-right">Actions</th>
                 </tr>
@@ -179,10 +179,10 @@
                       <% end %>
                     </td>
 
-                    <%!-- Usage --%>
+                    <%!-- Files Count --%>
                     <td>
-                      <span class="text-sm">
-                        Calculating...
+                      <span class="text-sm font-semibold">
+                        <%= Map.get(@bucket_file_counts, bucket.id, 0) %> files
                       </span>
                     </td>
 

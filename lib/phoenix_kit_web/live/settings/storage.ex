@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   require Logger
 
+  import Ecto.Query
+
   alias PhoenixKit.Settings
   alias PhoenixKit.System.Dependencies
   alias PhoenixKit.Utils.Routes
@@ -27,6 +29,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
     # Load buckets
     buckets = PhoenixKit.Storage.list_buckets()
+
+    # Load file counts per bucket (unique files, not instances)
+    bucket_file_counts = get_bucket_file_counts(buckets)
 
     # Load storage settings from database (using basic function to avoid cache issues)
     redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
@@ -54,6 +59,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:page_title, "Storage Settings")
       |> assign(:project_title, project_title)
       |> assign(:buckets, buckets)
+      |> assign(:bucket_file_counts, bucket_file_counts)
       |> assign(:redundancy_copies, current_redundancy)
       |> assign(:auto_generate_variants, auto_generate_variants == "true")
       |> assign(:default_bucket_id, default_bucket_id)
@@ -304,5 +310,29 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       _ ->
         "#{bucket.provider}: unknown configuration"
     end
+  end
+
+  # Get count of unique files stored on each bucket
+  defp get_bucket_file_counts(buckets) do
+    repo = PhoenixKit.Config.get_repo()
+
+    Enum.reduce(buckets, %{}, fn bucket, acc ->
+      # Count distinct files that have at least one instance located on this bucket
+      # We count files, not instances or locations
+      count =
+        repo.one(
+          from f in PhoenixKit.Storage.File,
+            join: fi in PhoenixKit.Storage.FileInstance,
+            on: fi.file_id == f.id,
+            join: fl in PhoenixKit.Storage.FileLocation,
+            on: fl.file_instance_id == fi.id,
+            where: fl.bucket_id == ^bucket.id and fl.status == "active",
+            select: count(f.id, :distinct)
+        )
+
+      Map.put(acc, bucket.id, count || 0)
+    end)
+  rescue
+    _ -> %{}
   end
 end
