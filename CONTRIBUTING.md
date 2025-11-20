@@ -30,7 +30,7 @@ cd your_app_name
 defp deps do
   [
     {:phoenix_kit, path: "../phoenix_kit"},
-    {:igniter, "~> 0.6.0", only: [:dev]},      # Required for phoenix_kit.install task
+    {:igniter, "~> 0.7"},      # Required for phoenix_kit.install task
     # ... other Phoenix dependencies
   ]
 end
