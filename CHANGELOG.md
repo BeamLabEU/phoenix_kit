@@ -1,3 +1,9 @@
+## 1.6.5 - 2025-11-20
+- Refactor ueberauth config usage
+- DevAdd SEO module, blogging editor improvements, and navigation UX enhancements
+- Media page fixes, and removal of timex
+- Install igniter by default
+
 ## 1.6.5 - 2025-11-17
 - Fixed readme versions
 - Refactor Config and repository usage
