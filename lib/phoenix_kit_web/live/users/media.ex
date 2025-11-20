@@ -317,27 +317,78 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     new_count = length(successful_uploads) - duplicate_count
 
+    build_flash_from_counts(error_count, new_count, duplicate_count)
+  end
+
+  # Build flash message based on upload counts
+  defp build_flash_from_counts(error_count, new_count, duplicate_count) do
     cond do
-      error_count > 0 && new_count == 0 && duplicate_count == 0 ->
-        {:error,
-         "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."}
+      all_failed?(error_count, new_count, duplicate_count) ->
+        build_all_failed_message()
 
-      error_count > 0 && new_count > 0 ->
-        {:warning,
-         "Partially successful: #{new_count} file(s) uploaded, #{error_count} failed due to missing storage buckets."}
+      partial_success?(error_count, new_count) ->
+        build_partial_success_message(new_count, error_count)
 
-      duplicate_count > 0 && new_count == 0 ->
-        {:info, "Already have #{duplicate_count} duplicate file(s). No new files were added."}
+      only_duplicates?(duplicate_count, new_count) ->
+        build_only_duplicates_message(duplicate_count)
 
-      new_count > 0 && duplicate_count == 0 ->
-        {:info, "Upload successful! #{new_count} new file(s) processed"}
+      new_files_only?(new_count, duplicate_count) ->
+        build_new_files_only_message(new_count)
 
-      new_count > 0 && duplicate_count > 0 ->
-        {:info,
-         "Upload successful! #{new_count} new file(s) added. #{duplicate_count} file(s) were already uploaded."}
+      new_and_duplicates?(new_count, duplicate_count) ->
+        build_new_and_duplicates_message(new_count, duplicate_count)
 
       true ->
         {:info, "Upload processed"}
     end
+  end
+
+  # Check if all uploads failed
+  defp all_failed?(error_count, new_count, duplicate_count) do
+    error_count > 0 && new_count == 0 && duplicate_count == 0
+  end
+
+  # Check if partial success (some errors, some successful)
+  defp partial_success?(error_count, new_count) do
+    error_count > 0 && new_count > 0
+  end
+
+  # Check if only duplicates (no new files)
+  defp only_duplicates?(duplicate_count, new_count) do
+    duplicate_count > 0 && new_count == 0
+  end
+
+  # Check if only new files (no duplicates)
+  defp new_files_only?(new_count, duplicate_count) do
+    new_count > 0 && duplicate_count == 0
+  end
+
+  # Check if both new files and duplicates
+  defp new_and_duplicates?(new_count, duplicate_count) do
+    new_count > 0 && duplicate_count > 0
+  end
+
+  # Flash message builders
+  defp build_all_failed_message do
+    {:error,
+     "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."}
+  end
+
+  defp build_partial_success_message(new_count, error_count) do
+    {:warning,
+     "Partially successful: #{new_count} file(s) uploaded, #{error_count} failed due to missing storage buckets."}
+  end
+
+  defp build_only_duplicates_message(duplicate_count) do
+    {:info, "Already have #{duplicate_count} duplicate file(s). No new files were added."}
+  end
+
+  defp build_new_files_only_message(new_count) do
+    {:info, "Upload successful! #{new_count} new file(s) processed"}
+  end
+
+  defp build_new_and_duplicates_message(new_count, duplicate_count) do
+    {:info,
+     "Upload successful! #{new_count} new file(s) added. #{duplicate_count} file(s) were already uploaded."}
   end
 end

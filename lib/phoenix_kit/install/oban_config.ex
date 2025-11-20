@@ -241,46 +241,55 @@ defmodule PhoenixKit.Install.ObanConfig do
   def add_oban_supervisor(igniter) do
     app_name = IgniterHelpers.get_parent_app_name(igniter)
     app_file = "lib/#{app_name}/application.ex"
-
-    # Manually insert Oban into application.ex after PhoenixKit.Supervisor
-    # This ensures: {Oban, Application.get_env(:app_name, Oban)}
     oban_line = "      {Oban, Application.get_env(:#{app_name}, Oban)},"
 
     Igniter.update_file(igniter, app_file, fn source ->
-      content = Rewrite.Source.get(source, :content)
+      update_application_with_oban(source, app_name, oban_line)
+    end)
+  end
 
-      # Check if proper Oban configuration is already present
-      if String.contains?(content, "{Oban, Application.get_env(:#{app_name}, Oban)}") do
-        source
-      else
-        # Check if we need to replace bare Oban or insert new
-        has_bare_oban =
-          String.split(content, "\n")
-          |> Enum.any?(fn line -> String.trim(line) == "Oban," end)
+  # Update application.ex source with Oban supervisor
+  defp update_application_with_oban(source, app_name, oban_line) do
+    content = Rewrite.Source.get(source, :content)
 
-        # Find and process lines
-        lines = String.split(content, "\n")
+    if oban_already_configured?(content, app_name) do
+      source
+    else
+      updated_content = insert_or_replace_oban(content, oban_line)
+      Rewrite.Source.update(source, :content, updated_content)
+    end
+  end
 
-        updated_lines =
-          Enum.reduce(lines, [], fn line, acc ->
-            trimmed = String.trim(line)
+  # Check if Oban is already properly configured
+  defp oban_already_configured?(content, app_name) do
+    String.contains?(content, "{Oban, Application.get_env(:#{app_name}, Oban)}")
+  end
 
-            cond do
-              # Replace bare "Oban," with proper config
-              trimmed == "Oban," ->
-                acc ++ [oban_line]
+  # Insert or replace Oban configuration in application.ex
+  defp insert_or_replace_oban(content, oban_line) do
+    lines = String.split(content, "\n")
+    has_bare_oban = Enum.any?(lines, fn line -> String.trim(line) == "Oban," end)
 
-              # Insert Oban after PhoenixKit.Supervisor ONLY if there's no bare Oban to replace
-              String.contains?(line, "PhoenixKit.Supervisor") and not has_bare_oban ->
-                acc ++ [line, oban_line]
+    updated_lines = process_application_lines(lines, oban_line, has_bare_oban)
+    Enum.join(updated_lines, "\n")
+  end
 
-              true ->
-                acc ++ [line]
-            end
-          end)
+  # Process each line to insert/replace Oban
+  defp process_application_lines(lines, oban_line, has_bare_oban) do
+    Enum.reduce(lines, [], fn line, acc ->
+      trimmed = String.trim(line)
 
-        updated_content = Enum.join(updated_lines, "\n")
-        Rewrite.Source.update(source, :content, updated_content)
+      cond do
+        # Replace bare "Oban," with proper config
+        trimmed == "Oban," ->
+          acc ++ [oban_line]
+
+        # Insert Oban after PhoenixKit.Supervisor ONLY if there's no bare Oban to replace
+        String.contains?(line, "PhoenixKit.Supervisor") and not has_bare_oban ->
+          acc ++ [line, oban_line]
+
+        true ->
+          acc ++ [line]
       end
     end)
   end
