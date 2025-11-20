@@ -891,14 +891,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Validate and add Oban configuration if missing
     defp validate_and_add_oban_config(igniter) do
-      if ObanConfig.oban_config_exists?(igniter) do
-        # Configuration exists, no action needed
+      config_exists = ObanConfig.oban_config_exists?(igniter)
+      supervisor_exists = ObanConfig.oban_supervisor_exists?(igniter)
+
+      igniter =
+        if config_exists do
+          igniter
+        else
+          # Configuration missing, add it
+          igniter
+          |> ObanConfig.add_oban_configuration()
+          |> add_oban_config_added_notice()
+        end
+
+      # Check and add supervisor separately
+      if supervisor_exists do
         igniter
       else
-        # Configuration missing, add it
         igniter
-        |> ObanConfig.add_oban_configuration()
-        |> add_oban_config_added_notice()
+        |> ObanConfig.add_oban_supervisor()
+        |> add_oban_supervisor_added_notice()
       end
     end
 
@@ -908,6 +920,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ⚠️  Added missing Oban configuration to config.exs
          IMPORTANT: Restart your server if it's currently running.
          Without Oban, the storage system cannot process uploaded files.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Add notice about Oban supervisor being added
+    defp add_oban_supervisor_added_notice(igniter) do
+      notice = """
+      ⚠️  Added Oban to application supervisor tree in application.ex
+         IMPORTANT: Restart your server if it's currently running.
+         Oban will now start automatically with your application.
       """
 
       Igniter.add_notice(igniter, String.trim(notice))

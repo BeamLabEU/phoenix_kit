@@ -98,6 +98,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> OAuthConfig.add_oauth_configuration()
       |> ObanConfig.add_oban_configuration()
       |> ApplicationSupervisor.add_supervisor()
+      |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
       |> DemoFiles.copy_test_demo_files()

@@ -6,9 +6,12 @@ defmodule PhoenixKit.Install.ObanConfig do
   - Configure Oban for background job processing
   - Set up required queues (default, emails, file_processing)
   - Add Oban.Plugins.Pruner for job cleanup
+  - Add Oban to application supervisor tree
   - Ensure configuration exists during updates
   """
   use PhoenixKit.Install.IgniterCompat
+
+  alias PhoenixKit.Install.IgniterHelpers
 
   @doc """
   Adds or verifies Oban configuration.
@@ -35,25 +38,26 @@ defmodule PhoenixKit.Install.ObanConfig do
   Checks if Oban configuration exists in config.exs.
 
   ## Parameters
-  - `_igniter` - The igniter context (unused but required for API consistency)
+  - `igniter` - The igniter context for detecting parent app name
 
   ## Returns
   Boolean indicating if configuration exists.
   """
-  def oban_config_exists?(_igniter) do
+  def oban_config_exists?(igniter) do
     config_path = "config/config.exs"
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
 
     if File.exists?(config_path) do
       content = File.read!(config_path)
       lines = String.split(content, "\n")
 
-      # Check for active (non-commented) Oban configuration
+      # Check for active (non-commented) Oban configuration with parent app namespace
       has_oban_config =
         Enum.any?(lines, fn line ->
           trimmed = String.trim(line)
-          # Not a comment and contains config :phoenix_kit, Oban
+          # Not a comment and contains config :app_name, Oban
           !String.starts_with?(trimmed, "#") and
-            String.contains?(line, "config :phoenix_kit, Oban")
+            String.contains?(line, "config :#{app_name}, Oban")
         end)
 
       has_queues =
@@ -73,14 +77,15 @@ defmodule PhoenixKit.Install.ObanConfig do
 
   # Add Oban configuration to config.exs
   defp add_oban_config(igniter) do
-    # Try to get repo from existing PhoenixKit config
+    # Get parent app name and repo
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
     repo_module = get_repo_module(igniter)
 
     oban_config = """
 
     # Configure Oban for PhoenixKit background jobs
     # Required for file processing (storage system) and email handling
-    config :phoenix_kit, Oban,
+    config :#{app_name}, Oban,
       repo: #{repo_module},
       queues: [
         default: 10,           # General purpose queue
@@ -97,7 +102,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         content = Rewrite.Source.get(source, :content)
 
         # Check if Oban config already exists
-        if String.contains?(content, "config :phoenix_kit, Oban") do
+        if String.contains?(content, "config :#{app_name}, Oban") do
           source
         else
           # Find insertion point before import_config statements
@@ -220,8 +225,96 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
+  @doc """
+  Adds Oban to the parent application's supervision tree.
+
+  This function ensures that Oban starts automatically when the application starts,
+  positioned after PhoenixKit.Supervisor to ensure PhoenixKit services are available
+  before Oban workers run.
+
+  ## Parameters
+  - `igniter` - The igniter context
+
+  ## Returns
+  Updated igniter with Oban added to application supervisor.
+  """
+  def add_oban_supervisor(igniter) do
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
+    app_file = "lib/#{app_name}/application.ex"
+
+    # Manually insert Oban into application.ex after PhoenixKit.Supervisor
+    # This ensures: {Oban, Application.get_env(:app_name, Oban)}
+    oban_line = "      {Oban, Application.get_env(:#{app_name}, Oban)},"
+
+    Igniter.update_file(igniter, app_file, fn source ->
+      content = Rewrite.Source.get(source, :content)
+
+      # Check if proper Oban configuration is already present
+      if String.contains?(content, "{Oban, Application.get_env(:#{app_name}, Oban)}") do
+        source
+      else
+        # Check if we need to replace bare Oban or insert new
+        has_bare_oban =
+          String.split(content, "\n")
+          |> Enum.any?(fn line -> String.trim(line) == "Oban," end)
+
+        # Find and process lines
+        lines = String.split(content, "\n")
+
+        updated_lines =
+          Enum.reduce(lines, [], fn line, acc ->
+            trimmed = String.trim(line)
+
+            cond do
+              # Replace bare "Oban," with proper config
+              trimmed == "Oban," ->
+                acc ++ [oban_line]
+
+              # Insert Oban after PhoenixKit.Supervisor ONLY if there's no bare Oban to replace
+              String.contains?(line, "PhoenixKit.Supervisor") and not has_bare_oban ->
+                acc ++ [line, oban_line]
+
+              true ->
+                acc ++ [line]
+            end
+          end)
+
+        updated_content = Enum.join(updated_lines, "\n")
+        Rewrite.Source.update(source, :content, updated_content)
+      end
+    end)
+  end
+
+  @doc """
+  Checks if Oban supervisor is configured in application.ex.
+
+  ## Parameters
+  - `igniter` - The igniter context for detecting parent app name
+
+  ## Returns
+  Boolean indicating if Oban supervisor exists in application.ex.
+  """
+  def oban_supervisor_exists?(igniter) do
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
+    app_file = "lib/#{app_name}/application.ex"
+
+    if File.exists?(app_file) do
+      content = File.read!(app_file)
+
+      # Check for Oban in children list
+      String.contains?(content, "{Oban,") or
+        String.contains?(content, "Application.get_env(:#{app_name}, Oban)")
+    else
+      false
+    end
+  rescue
+    _ -> false
+  end
+
   # Add notice when manual configuration is required
   defp add_manual_config_notice(igniter, repo_module) do
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
+
     notice = """
     ⚠️  Manual Configuration Required: Oban
 
@@ -229,7 +322,7 @@ defmodule PhoenixKit.Install.ObanConfig do
 
     Please add the following to config/config.exs:
 
-      config :phoenix_kit, Oban,
+      config :#{app_name}, Oban,
         repo: #{repo_module},
         queues: [
           default: 10,
@@ -239,6 +332,10 @@ defmodule PhoenixKit.Install.ObanConfig do
         plugins: [
           Oban.Plugins.Pruner
         ]
+
+    And add the following to lib/#{app_name}/application.ex in the children list:
+
+      {Oban, Application.get_env(:#{app_name}, Oban)}
 
     Without this configuration, the storage system cannot process uploaded files.
     Files will remain stuck in "processing" status.
