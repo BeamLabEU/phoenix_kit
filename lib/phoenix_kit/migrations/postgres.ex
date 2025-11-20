@@ -170,7 +170,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Per-dimension control for responsive sizing vs exact crops
   - Defaults to maintaining aspect ratio for all dimensions
 
-  ### V26 - Rename Checksum Fields & Per-User Deduplication ⚡ LATEST
+  ### V26 - Rename Checksum Fields & Per-User Deduplication
   - Renames `checksum` to `file_checksum` (clearer naming)
   - Removes unique index on file_checksum (allows same file from different users)
   - Adds `user_file_checksum` column (SHA256 of user_id + file_checksum)
@@ -180,19 +180,30 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Preserves file_checksum field for popularity analytics across all users
   - Clearer naming convention: file_checksum vs user_file_checksum
 
+  ### V27 - Oban Background Job System ⚡ LATEST
+  - Creates Oban tables for background job processing
+  - Oban_jobs table for job queue management
+  - Oban_peers table for distributed coordination
+  - Performance indexes for efficient job processing
+  - Enables file processing (variant generation, metadata extraction)
+  - Enables email processing (sending, tracking, analytics)
+  - Uses Oban's latest schema version automatically (forward-compatible)
+  - Integrated with PhoenixKit configuration system
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V26 in sequence.
+  Runs all migrations V01 through V27 in sequence.
 
   ### Incremental Updates
-  - V01 → V26: Runs V02 through V26 in sequence
-  - V25 → V26: Runs V26 only (adds per-user file hash)
-  - V24 → V26: Runs V25 and V26 in sequence
-  - V23 → V26: Runs V24, V25, and V26 in sequence
-  - V20 → V26: Runs V21 through V26 in sequence
+  - V01 → V27: Runs V02 through V27 in sequence
+  - V26 → V27: Runs V27 only (adds Oban tables)
+  - V25 → V27: Runs V26 and V27 in sequence
+  - V24 → V27: Runs V25, V26, and V27 in sequence
+  - V20 → V27: Runs V21 through V27 in sequence
 
   ### Rollback Support
+  - V27 → V26: Removes Oban tables and background job system
   - V26 → V25: Removes user_file_checksum, renames file_checksum back to checksum, restores checksum unique index
   - V25 → V24: Removes aspect ratio control from dimensions
   - V24 → V23: Removes unique index on checksum
@@ -212,14 +223,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version (V26)
+      # Update to latest version (V27)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 26)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 27)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 25)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 26)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -237,7 +248,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 26
+  @current_version 27
   @default_prefix "public"
 
   @doc false

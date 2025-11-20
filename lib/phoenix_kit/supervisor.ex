@@ -15,6 +15,8 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
       {PhoenixKit.Cache, name: :settings, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+      # Rate limiter backend MUST be started before any authentication requests
+      PhoenixKit.Users.RateLimiter.Backend,
       # OAuth config loader MUST be first to ensure configuration
       # is available before any OAuth requests are processed
       PhoenixKit.Workers.OAuthConfigLoader,

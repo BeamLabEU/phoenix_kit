@@ -17,6 +17,7 @@ defmodule PhoenixKit.Users.CustomFields do
   - `required` - Whether the field is required (boolean)
   - `position` - Display order (integer)
   - `enabled` - Whether the field is active (boolean)
+  - `user_accessible` - Whether users can edit this field from their settings page (boolean, default: true)
   - `validation` - Optional validation rules (map)
   - `default` - Default value (string)
   - `options` - For select/radio/checkbox types (list of strings)
@@ -98,6 +99,33 @@ defmodule PhoenixKit.Users.CustomFields do
   def list_enabled_field_definitions do
     list_field_definitions()
     |> Enum.filter(&(&1["enabled"] == true))
+    |> Enum.sort_by(&(&1["position"] || 0))
+  end
+
+  @doc """
+  Returns only enabled field definitions that are user-accessible, sorted by position.
+
+  These are fields that users can view and edit from their own settings page.
+  Admins can always see and edit all fields regardless of this setting.
+
+  Legacy fields without the `user_accessible` key default to `true` (accessible).
+
+  ## Examples
+
+      iex> list_user_accessible_field_definitions()
+      [%{"key" => "phone", "enabled" => true, "user_accessible" => true, ...}]
+  """
+  def list_user_accessible_field_definitions do
+    list_field_definitions()
+    |> Enum.filter(fn field ->
+      # Field must be enabled
+      enabled = field["enabled"] == true
+
+      # user_accessible defaults to true if not set (for legacy fields)
+      user_accessible = Map.get(field, "user_accessible", true)
+
+      enabled && user_accessible
+    end)
     |> Enum.sort_by(&(&1["position"] || 0))
   end
 
@@ -336,13 +364,26 @@ defmodule PhoenixKit.Users.CustomFields do
       "key" => field_def["key"],
       "label" => field_def["label"] || field_def["key"],
       "type" => field_def["type"] || "text",
-      "required" => field_def["required"] || false,
+      "required" => normalize_boolean(field_def["required"], false),
       "position" => field_def["position"] || 0,
-      "enabled" => Map.get(field_def, "enabled", true),
+      "enabled" => normalize_boolean(Map.get(field_def, "enabled"), true),
+      "user_accessible" => normalize_boolean(Map.get(field_def, "user_accessible"), true),
       "validation" => field_def["validation"] || %{},
       "default" => field_def["default"] || "",
       "options" => field_def["options"] || []
     }
+  end
+
+  # Convert string boolean values to actual booleans
+  defp normalize_boolean(value, default) do
+    case value do
+      true -> true
+      false -> false
+      "true" -> true
+      "false" -> false
+      nil -> default
+      _ -> default
+    end
   end
 
   defp ensure_unique_key(key) do

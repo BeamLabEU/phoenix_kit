@@ -19,6 +19,9 @@ config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
 
 # Note: Hammer rate limiting configuration is automatically added to parent
 # applications via mix phoenix_kit.install/update tasks
+# For standalone development, configure Hammer here:
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
 
 # Configure Ueberauth (minimal configuration for compilation)
 # Applications using PhoenixKit should configure their own providers

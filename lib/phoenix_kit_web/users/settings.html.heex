@@ -82,12 +82,76 @@
               </div>
             </div>
 
+            <%!-- Avatar Upload Section --%>
+            <div class="mb-6">
+              <label class="label">
+                <span class="label-text font-semibold">Profile Picture</span>
+              </label>
+
+              <div class="flex items-start gap-6">
+                <%!-- Avatar Preview --%>
+                <div class="flex-shrink-0">
+                  <%= if get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]) do %>
+                    <% avatar_url =
+                      PhoenixKit.Storage.URLSigner.signed_url(
+                        get_in(@phoenix_kit_current_user.custom_fields, ["avatar_file_id"]),
+                        "thumbnail"
+                      ) %>
+                    <img
+                      src={avatar_url}
+                      alt="Avatar"
+                      class="w-32 h-32 rounded-full object-cover border-2 border-base-300"
+                    />
+                  <% else %>
+                    <div class="w-32 h-32 rounded-full bg-primary/10 border-2 border-base-300 flex items-center justify-center">
+                      <span class="text-4xl font-bold text-primary">
+                        {String.upcase(String.at(@phoenix_kit_current_user.email, 0))}
+                      </span>
+                    </div>
+                  <% end %>
+                </div>
+
+                <%!-- Upload Controls --%>
+                <div class="flex-1">
+                  <.file_upload
+                    upload={@uploads.avatar}
+                    variant="button"
+                    label="Choose Profile Picture"
+                  />
+
+                  <p class="text-sm text-base-content/60 mb-2">
+                    Upload a profile picture (max 10MB). Accepts JPG, PNG, GIF.
+                  </p>
+
+                  <%!-- Success Message --%>
+                  <%= if @last_uploaded_avatar_id do %>
+                    <div class="alert alert-success text-sm">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_check class="stroke-current shrink-0 h-5 w-5" />
+                      <span>Avatar uploaded successfully!</span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+
+              <%!-- Divider after avatar section --%>
+              <div class="divider"></div>
+            </div>
+
             <.simple_form
               for={@profile_form}
               id="profile_form"
               phx-submit="update_profile"
               phx-change="validate_profile"
             >
+              <.input
+                field={@profile_form[:username]}
+                type="text"
+                label="Username"
+              >
+                <:icon>
+                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                </:icon>
+              </.input>
               <.input
                 field={@profile_form[:first_name]}
                 type="text"
@@ -102,6 +166,177 @@
                   <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
                 </:icon>
               </.input>
+
+              <%!-- Custom Fields Section --%>
+              <%= if length(@custom_field_definitions) > 0 do %>
+                <%!-- Divider --%>
+                <div class="divider text-sm text-base-content/60">Additional Information</div>
+
+                <%= for field_def <- @custom_field_definitions do %>
+                  <%= case field_def["type"] do %>
+                    <% "text" -> %>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="text"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "textarea" -> %>
+                      <.textarea
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "number" -> %>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="number"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "email" -> %>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="email"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "url" -> %>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="url"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "date" -> %>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="date"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "boolean" -> %>
+                      <div class="form-control">
+                        <label class="label cursor-pointer justify-start gap-3">
+                          <input
+                            type="checkbox"
+                            name={"custom_fields[#{field_def["key"]}]"}
+                            class="checkbox checkbox-primary"
+                            value="true"
+                            checked={
+                              get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ==
+                                true ||
+                                get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ==
+                                  "true"
+                            }
+                          />
+                          <span class="label-text">{field_def["label"]}</span>
+                        </label>
+                      </div>
+                    <% "select" -> %>
+                      <.select
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        label={field_def["label"]}
+                        options={Enum.map(field_def["options"], &{&1, &1})}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                    <% "radio" -> %>
+                      <div class="form-control">
+                        <label class="label">
+                          <span class="label-text font-semibold">{field_def["label"]}</span>
+                        </label>
+                        <div class="space-y-2">
+                          <%= for option <- field_def["options"] do %>
+                            <label class="label cursor-pointer justify-start gap-3">
+                              <input
+                                type="radio"
+                                name={"custom_fields[#{field_def["key"]}]"}
+                                class="radio radio-primary"
+                                value={option}
+                                checked={
+                                  get_in(@phoenix_kit_current_user.custom_fields, [
+                                    field_def["key"]
+                                  ]) == option
+                                }
+                              />
+                              <span class="label-text">{option}</span>
+                            </label>
+                          <% end %>
+                        </div>
+                      </div>
+                    <% "checkbox" -> %>
+                      <div class="form-control">
+                        <label class="label">
+                          <span class="label-text font-semibold">{field_def["label"]}</span>
+                        </label>
+                        <div class="space-y-2">
+                          <%= for option <- field_def["options"] do %>
+                            <label class="label cursor-pointer justify-start gap-3">
+                              <input
+                                type="checkbox"
+                                name={"custom_fields[#{field_def["key"]}][]"}
+                                class="checkbox checkbox-primary"
+                                value={option}
+                                checked={
+                                  is_list(
+                                    get_in(@phoenix_kit_current_user.custom_fields, [
+                                      field_def["key"]
+                                    ])
+                                  ) &&
+                                    option in get_in(@phoenix_kit_current_user.custom_fields, [
+                                      field_def["key"]
+                                    ])
+                                }
+                              />
+                              <span class="label-text">{option}</span>
+                            </label>
+                          <% end %>
+                        </div>
+                      </div>
+                    <% _ -> %>
+                      <%!-- Fallback for unknown field types --%>
+                      <.input
+                        name={"custom_fields[#{field_def["key"]}]"}
+                        type="text"
+                        label={field_def["label"]}
+                        value={
+                          get_in(@phoenix_kit_current_user.custom_fields, [field_def["key"]]) ||
+                            field_def["default"]
+                        }
+                        required={field_def["required"]}
+                      />
+                  <% end %>
+                <% end %>
+              <% end %>
+
               <div id="timezone-detector">
                 <.select
                   field={@profile_form[:user_timezone]}

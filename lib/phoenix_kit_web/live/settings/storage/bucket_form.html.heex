@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
         class="btn btn-outline mb-4"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Storage Settings
@@ -246,7 +246,7 @@
             <% end %>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="form-control">
               <label class="label">
                 <span class="label-text font-semibold">Priority</span>
@@ -267,28 +267,10 @@
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-semibold">Max Size (MB)</span>
-                <span class="label-text-alt">Storage capacity limit</span>
-              </label>
-              <input
-                type="number"
-                name="bucket[max_size_mb]"
-                value={Ecto.Changeset.get_field(@changeset, :max_size_mb)}
-                class={"input input-bordered #{input_class(@changeset, :max_size_mb)}"}
-                placeholder="1024"
-                min="1"
-              />
-              <label class="label">
-                <span class="label-text-alt">Leave empty for unlimited</span>
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label class="label">
                 <span class="label-text font-semibold">Status</span>
                 <span class="label-text-alt">Enable/disable bucket</span>
               </label>
-              <label class="label cursor-pointer">
+              <div class="flex items-center gap-2">
                 <input type="hidden" name="bucket[enabled]" value="false" />
                 <input
                   type="checkbox"
@@ -297,23 +279,22 @@
                   checked={Ecto.Changeset.get_field(@changeset, :enabled)}
                   class="checkbox checkbox-primary"
                 />
-                <span class="label-text ml-2">Enable this bucket</span>
-              </label>
+                <span class="label-text">Enable this bucket</span>
+              </div>
             </div>
           </div>
 
           <%!-- Form Actions --%>
           <div class="flex justify-end gap-2 pt-4">
+            <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
+              <.icon name="hero-check" class="w-4 h-4 mr-1" /> Apply
+            </button>
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/storage")}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/media")}
               class="btn btn-outline"
             >
               Cancel
             </.link>
-            <button type="submit" class="btn btn-primary" disabled={!@changeset.valid?}>
-              <.icon name="hero-check" class="w-4 h-4 mr-1" />
-              {@form_action}
-            </button>
           </div>
         </.form>
       </div>
