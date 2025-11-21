@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Entities
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage

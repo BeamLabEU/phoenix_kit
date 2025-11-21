@@ -6,7 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   for creating timestamped markdown blog posts.
   """
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 

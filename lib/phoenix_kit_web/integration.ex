@@ -115,7 +115,7 @@ defmodule PhoenixKitWeb.Integration do
       end
 
     quote do
-      alias PhoenixKit.Module.Languages
+      alias PhoenixKit.Modules.Languages
 
       # Define locale validation pipeline
       pipeline :phoenix_kit_locale_validation do
@@ -145,7 +145,7 @@ defmodule PhoenixKitWeb.Integration do
   # Helper function to generate pipeline definitions
   defp generate_pipelines do
     quote do
-      alias PhoenixKit.Module.Languages
+      alias PhoenixKit.Modules.Languages
 
       # Define the auto-setup pipeline
       pipeline :phoenix_kit_auto_setup do

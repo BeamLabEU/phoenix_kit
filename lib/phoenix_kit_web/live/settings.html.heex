@@ -1210,7 +1210,7 @@
                           end %>
                         <%= for language_code <- shown_languages do %>
                           <% language =
-                            PhoenixKit.Module.Languages.get_predefined_language(language_code) %>
+                            PhoenixKit.Modules.Languages.get_predefined_language(language_code) %>
                           <% language_flag = if language, do: language.flag, else: "🌐" %>
                           <div class="badge badge-primary gap-1 px-2">
                             <span class="text-lg">{language_flag}</span>
@@ -1245,7 +1245,7 @@
                   >
                     <ul class="space-y-1">
                       <%!-- Popular Languages Section --%>
-                      <%= for language <- Enum.filter(PhoenixKit.Module.Languages.get_available_languages(), & &1.code in PhoenixKit.Module.Languages.get_default_language_codes()) do %>
+                      <%= for language <- Enum.filter(PhoenixKit.Modules.Languages.get_available_languages(), & &1.code in PhoenixKit.Modules.Languages.get_default_language_codes()) do %>
                         <% is_selected = language.code in @admin_languages %>
                         <li>
                           <a
