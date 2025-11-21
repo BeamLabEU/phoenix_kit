@@ -306,7 +306,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   end
 
   defp load_files(socket, page) do
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = PhoenixKit.Config.get_repo()
     per_page = socket.assigns.per_page
     filter = socket.assigns.file_type_filter
     search = socket.assigns.search_query

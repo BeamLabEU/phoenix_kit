@@ -176,12 +176,11 @@ defmodule PhoenixKit.Mailer do
         deliver_with_runtime_config(tracked_email, mailer)
       else
         # Check if parent mailer also uses AWS SES
-        app = PhoenixKit.Config.get_parent_app()
-        config = Application.get_env(app, mailer, [])
+        config = PhoenixKit.Config.get_parent_app_config(mailer, [])
 
         if config[:adapter] == Swoosh.Adapters.AmazonSES do
           # Parent mailer uses AWS SES, provide runtime config
-          deliver_with_runtime_config(tracked_email, mailer, app)
+          deliver_with_runtime_config(tracked_email, mailer)
         else
           # Non-AWS mailer, use standard delivery
           mailer.deliver(tracked_email)
@@ -196,7 +195,14 @@ defmodule PhoenixKit.Mailer do
 
   # Deliver email with runtime configuration for AWS SES
   defp deliver_with_runtime_config(email, mailer, app \\ :phoenix_kit) do
-    config = Application.get_env(app, mailer, [])
+    config =
+      if app == :phoenix_kit do
+        # Use PhoenixKit config for built-in mailer
+        PhoenixKit.Config.get(mailer, [])
+      else
+        # Use parent app config for parent mailer
+        PhoenixKit.Config.get_parent_app_config(mailer, [])
+      end
 
     # If using AWS SES, override with runtime settings from DB
     runtime_config =
@@ -413,8 +419,7 @@ defmodule PhoenixKit.Mailer do
 
   # Detect provider for parent application mailer
   defp detect_parent_app_provider(mailer) when is_atom(mailer) do
-    app = PhoenixKit.Config.get_parent_app()
-    config = Application.get_env(app, mailer, [])
+    config = PhoenixKit.Config.get_parent_app_config(mailer, [])
     adapter = Keyword.get(config, :adapter)
     Utils.adapter_to_provider_name(adapter, "parent_app_mailer")
   end
