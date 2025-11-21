@@ -170,9 +170,9 @@ defmodule PhoenixKit.Install.ObanConfig do
       trimmed = String.trim(line)
 
       # Not a comment and contains config for Oban
+      # Also check for variations with spaces
       !String.starts_with?(trimmed, "#") and
         (String.contains?(line, "config :#{app_name}, Oban") or
-           # Also check for variations with spaces
            Regex.match?(~r/config\s+:#{app_name},\s+Oban/, line))
     end)
   end
