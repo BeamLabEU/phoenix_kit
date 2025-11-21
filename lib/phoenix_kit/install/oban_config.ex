@@ -101,8 +101,8 @@ defmodule PhoenixKit.Install.ObanConfig do
       Igniter.update_file(igniter, "config/config.exs", fn source ->
         content = Rewrite.Source.get(source, :content)
 
-        # Check if Oban config already exists
-        if String.contains?(content, "config :#{app_name}, Oban") do
+        # Check if Oban config already exists (with more robust detection)
+        if oban_config_already_exists?(content, app_name) do
           source
         else
           # Find insertion point before import_config statements
@@ -129,23 +129,52 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Get repo module from PhoenixKit config or use placeholder
-  defp get_repo_module(_igniter) do
+  # Get repo module from PhoenixKit config or detect from app
+  defp get_repo_module(igniter) do
     config_path = "config/config.exs"
+    app_name = IgniterHelpers.get_parent_app_name(igniter)
 
     if File.exists?(config_path) do
       content = File.read!(config_path)
 
-      # Look for existing PhoenixKit repo config
+      # First try: Look for existing PhoenixKit repo config
       case Regex.run(~r/config :phoenix_kit,\s+repo:\s+([A-Za-z0-9_.]+)/, content) do
-        [_, repo] -> repo
-        _ -> "MyApp.Repo"
+        [_, repo] ->
+          repo
+
+        _ ->
+          # Second try: Look for ecto_repos in app config
+          app_module = Macro.camelize(to_string(app_name))
+
+          case Regex.run(~r/config :#{app_name}.*?ecto_repos:\s*\[([A-Za-z0-9_.]+)\]/s, content) do
+            [_, repo] -> repo
+            _ -> "#{app_module}.Repo"
+          end
       end
     else
-      "MyApp.Repo"
+      app_module = Macro.camelize(to_string(app_name))
+      "#{app_module}.Repo"
     end
   rescue
-    _ -> "MyApp.Repo"
+    _ ->
+      app_name = IgniterHelpers.get_parent_app_name(igniter)
+      app_module = Macro.camelize(to_string(app_name))
+      "#{app_module}.Repo"
+  end
+
+  # Check if Oban config already exists in the file
+  defp oban_config_already_exists?(content, app_name) do
+    lines = String.split(content, "\n")
+
+    Enum.any?(lines, fn line ->
+      trimmed = String.trim(line)
+
+      # Not a comment and contains config for Oban
+      !String.starts_with?(trimmed, "#") and
+        (String.contains?(line, "config :#{app_name}, Oban") or
+           # Also check for variations with spaces
+           Regex.match?(~r/config\s+:#{app_name},\s+Oban/, line))
+    end)
   end
 
   # Find the location to insert config before import_config statements
