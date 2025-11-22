@@ -88,6 +88,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BasicConfiguration,
       Common,
       CssIntegration,
+      IgniterHelpers,
       ObanConfig,
       RateLimiterConfig
     }
@@ -167,26 +168,60 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           # CRITICAL: Check if required configuration exists BEFORE starting app
           # This prevents configuration timing issues where config is added via Igniter
           # but the app has already started with cached (missing) configuration
+
+          # Check if this is a retry pass (automatic restart after adding config)
+          is_retry = Process.get(:phoenix_kit_retry_pass, false)
           config_status = check_required_configuration()
 
-          case config_status do
-            :missing ->
+          case {config_status, is_retry} do
+            {:missing, false} ->
               # First pass: Add configuration via Igniter without starting app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :missing)
               show_missing_config_message(argv)
-              result = super(argv)
-              show_config_added_message(argv)
-              result
+              super(argv)
 
-            :ok ->
-              # Second pass: Configuration exists, safe to start app and update
+              # Automatic restart instead of manual prompt
+              Mix.shell().info("""
+
+              ✅ Configuration added successfully!
+              🔄 Automatically restarting to complete the update...
+              """)
+
+              # Clean Process dictionary for fresh state
+              Process.delete(:phoenix_kit_config_status)
+              Process.put(:phoenix_kit_retry_pass, true)
+
+              # Recursive call with same arguments
+              run(argv)
+
+            {:ok, _} ->
+              # Second pass (automatic or manual): Configuration exists, safe to start app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
+
+              # Clean retry flag
+              Process.delete(:phoenix_kit_retry_pass)
               result
+
+            {:missing, true} ->
+              # Safety: Configuration still missing after retry
+              Mix.shell().error("""
+
+              ❌ Configuration was not added successfully after automatic retry.
+
+              This may indicate a problem with your config/config.exs file.
+              Please check the file manually and ensure it's writable.
+
+              Then run manually:
+                mix phoenix_kit.update #{Enum.join(argv, " ")}
+              """)
+
+              Process.delete(:phoenix_kit_retry_pass)
+              :error
           end
         end
       end
@@ -206,17 +241,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       This configuration will be added now.
 
       After this completes, please run the update command again:
-        mix phoenix_kit.update #{Enum.join(argv, " ")}
-      """)
-    end
-
-    # Display message after configuration is added
-    defp show_config_added_message(argv) do
-      Mix.shell().info("""
-
-      ✅ Configuration added successfully!
-
-      Next step: Run the update command again to complete the upgrade:
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
     end
@@ -285,9 +309,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       has_oban_config =
         Enum.any?(lines, fn line ->
           trimmed = String.trim(line)
-          # Not a comment and contains config :phoenix_kit, Oban
+          # Not a comment and contains config for any app with Oban
+          # Matches: "config :any_app, Oban" or "config :any_app, Oban,"
           !String.starts_with?(trimmed, "#") and
-            String.contains?(line, "config :phoenix_kit, Oban")
+            String.contains?(line, ", Oban")
         end)
 
       has_queues =
@@ -313,6 +338,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Ensure Oban configuration exists
       igniter = validate_and_add_oban_config(igniter)
+
+      # CRITICAL FIX: Ensure correct supervisor ordering in application.ex
+      # This must run AFTER add_oban_supervisor to fix installations with wrong order
+      igniter = fix_supervisor_ordering(igniter)
 
       # Check if this is the first pass (config missing) or second pass (config exists)
       config_status = Process.get(:phoenix_kit_config_status, :ok)
@@ -891,6 +920,272 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Validate and add Oban configuration if missing
+    # Fix supervisor ordering in application.ex to prevent startup crashes
+    # Ensures correct order: Repo → PhoenixKit.Supervisor → Oban → Endpoint
+    defp fix_supervisor_ordering(igniter) do
+      app_name = IgniterHelpers.get_parent_app_name(igniter)
+      app_file = "lib/#{app_name}/application.ex"
+
+      if File.exists?(app_file) do
+        content = File.read!(app_file)
+
+        # Check current supervisor ordering
+        case check_supervisor_order(content, app_name) do
+          :correct ->
+            # Order is already correct, no changes needed
+            igniter
+
+          {:needs_fix, reason} ->
+            # Order is incorrect, attempt to fix using Igniter API
+            igniter
+            |> fix_application_supervisor_order(app_name, reason)
+            |> add_supervisor_ordering_fixed_notice(reason)
+
+          :cannot_determine ->
+            # Cannot determine order (unusual setup), skip silently
+            igniter
+        end
+      else
+        # No application.ex found (unusual), skip
+        igniter
+      end
+    rescue
+      e ->
+        # If any error occurs, log warning but continue
+        Mix.shell().info("⚠️  Could not check supervisor ordering: #{inspect(e)}")
+        igniter
+    end
+
+    # Check the ordering of supervisors in application.ex
+    # Returns :correct, {:needs_fix, reason}, or :cannot_determine
+    defp check_supervisor_order(content, app_name) do
+      lines = String.split(content, "\n")
+
+      # Find line numbers for each supervisor
+      repo_line = find_supervisor_line(lines, ~r/#{app_name}\.Repo[,\s]/)
+      phoenix_kit_line = find_supervisor_line(lines, ~r/PhoenixKit\.Supervisor[,\s]/)
+
+      oban_line =
+        find_supervisor_line(lines, ~r/\{Oban,|Application\.get_env\(:#{app_name}, Oban\)/)
+
+      validate_supervisor_positions(repo_line, phoenix_kit_line, oban_line)
+    end
+
+    # Validate supervisor positions and return check result
+    defp validate_supervisor_positions(nil, nil, nil), do: :cannot_determine
+    defp validate_supervisor_positions(nil, _, _), do: :cannot_determine
+    defp validate_supervisor_positions(repo, nil, nil) when is_integer(repo), do: :correct
+
+    defp validate_supervisor_positions(repo, pk, nil) when is_integer(repo) and is_integer(pk) do
+      if repo < pk, do: :correct, else: {:needs_fix, "PhoenixKit.Supervisor before Repo"}
+    end
+
+    defp validate_supervisor_positions(repo, pk, oban)
+         when is_integer(repo) and is_integer(pk) and is_integer(oban) do
+      check_three_supervisor_order(repo, pk, oban)
+    end
+
+    defp validate_supervisor_positions(_, _, _), do: :cannot_determine
+
+    # Check ordering when all three supervisors exist
+    defp check_three_supervisor_order(repo, pk, oban) do
+      cond do
+        pk < repo and oban < repo -> {:needs_fix, "both PhoenixKit and Oban before Repo"}
+        pk < repo -> {:needs_fix, "PhoenixKit.Supervisor before Repo"}
+        oban < repo -> {:needs_fix, "Oban before Repo"}
+        oban < pk -> {:needs_fix, "Oban before PhoenixKit.Supervisor"}
+        true -> :correct
+      end
+    end
+
+    # Find the line number where a supervisor is defined
+    defp find_supervisor_line(lines, pattern) do
+      lines
+      |> Enum.with_index(1)
+      |> Enum.find(fn {line, _index} ->
+        trimmed = String.trim(line)
+        # Not a comment and matches pattern
+        !String.starts_with?(trimmed, "#") and Regex.match?(pattern, line)
+      end)
+      |> case do
+        {_line, index} -> index
+        nil -> nil
+      end
+    end
+
+    # Fix the supervisor ordering using manual reordering
+    # Note: We can't use Igniter.Project.Application.add_new_child to reorder existing children,
+    # so we need to manually reorder the children list
+    defp fix_application_supervisor_order(igniter, app_name, _reason) do
+      app_file = "lib/#{app_name}/application.ex"
+
+      Igniter.update_file(igniter, app_file, fn source ->
+        content = Rewrite.Source.get(source, :content)
+        fixed_content = reorder_supervisors(content, app_name)
+        Rewrite.Source.update(source, :content, fixed_content)
+      end)
+    end
+
+    # Reorder supervisors in application.ex to correct order
+    defp reorder_supervisors(content, app_name) do
+      lines = String.split(content, "\n")
+
+      # Extract supervisor lines
+      {repo_line, repo_index} = extract_supervisor(lines, ~r/#{app_name}\.Repo[,\s]/)
+      {pk_line, pk_index} = extract_supervisor(lines, ~r/PhoenixKit\.Supervisor[,\s]/)
+
+      {oban_line, oban_index} =
+        extract_supervisor(lines, ~r/\{Oban,|Application\.get_env\(:#{app_name}, Oban\)/)
+
+      # Determine children list boundaries
+      children_start = find_children_list_start(lines)
+      children_end = find_children_list_end(lines, children_start)
+
+      if is_integer(children_start) and is_integer(children_end) do
+        # Build new children list with correct order
+        supervisors = %{
+          repo: {repo_line, repo_index},
+          phoenix_kit: {pk_line, pk_index},
+          oban: {oban_line, oban_index}
+        }
+
+        new_lines =
+          rebuild_children_list(lines, children_start, children_end, supervisors)
+
+        Enum.join(new_lines, "\n")
+      else
+        # Cannot find children list boundaries, return unchanged
+        content
+      end
+    end
+
+    # Extract supervisor line and its index
+    defp extract_supervisor(lines, pattern) do
+      case Enum.with_index(lines, 1) do
+        indexed_lines ->
+          case Enum.find(indexed_lines, fn {line, _index} ->
+                 trimmed = String.trim(line)
+                 !String.starts_with?(trimmed, "#") and Regex.match?(pattern, line)
+               end) do
+            {line, index} -> {line, index}
+            nil -> {nil, nil}
+          end
+      end
+    end
+
+    # Find the start of children list
+    defp find_children_list_start(lines) do
+      Enum.find_index(lines, fn line ->
+        String.contains?(line, "children = [")
+      end)
+    end
+
+    # Find the end of children list (closing bracket)
+    defp find_children_list_end(lines, start_index) do
+      lines
+      |> Enum.drop(start_index + 1)
+      |> Enum.with_index(start_index + 1)
+      |> Enum.find(fn {line, _index} ->
+        trimmed = String.trim(line)
+        trimmed == "]"
+      end)
+      |> case do
+        {_line, index} -> index
+        nil -> nil
+      end
+    end
+
+    # Rebuild children list with correct supervisor ordering
+    defp rebuild_children_list(lines, children_start, children_end, supervisors) do
+      %{
+        repo: {repo_line, repo_index},
+        phoenix_kit: {pk_line, pk_index},
+        oban: {oban_line, oban_index}
+      } = supervisors
+
+      # Lines before children list
+      before_children = Enum.take(lines, children_start + 1)
+
+      # Lines after children list
+      after_children = Enum.drop(lines, children_end)
+
+      # Get all children between start and end
+      children_lines =
+        lines
+        |> Enum.drop(children_start + 1)
+        |> Enum.take(children_end - children_start - 1)
+
+      # Remove repo, phoenix_kit, and oban lines from children
+      filtered_children =
+        children_lines
+        |> Enum.with_index(children_start + 2)
+        |> Enum.reject(fn {_line, index} ->
+          index in [repo_index, pk_index, oban_index]
+        end)
+        |> Enum.map(fn {line, _index} -> line end)
+
+      # Build new ordered children list
+      ordered_children =
+        build_ordered_supervisor_list(repo_line, pk_line, oban_line, filtered_children)
+
+      # Reconstruct file
+      before_children ++ ordered_children ++ after_children
+    end
+
+    # Build ordered list of supervisors with correct positioning
+    defp build_ordered_supervisor_list(repo_line, pk_line, oban_line, filtered_children) do
+      # Add Repo first (if exists)
+      ordered = if repo_line, do: [repo_line], else: []
+
+      # Split remaining children at Endpoint
+      {before_endpoint, from_endpoint} = split_at_endpoint(filtered_children)
+
+      # Add PhoenixKit after Repo, before Endpoint
+      ordered = ordered ++ before_endpoint
+      ordered = if pk_line, do: ordered ++ [pk_line], else: ordered
+
+      # Add Oban after PhoenixKit
+      ordered = if oban_line, do: ordered ++ [oban_line], else: ordered
+
+      # Add remaining children (Endpoint and after)
+      ordered ++ from_endpoint
+    end
+
+    # Split children at Endpoint line
+    defp split_at_endpoint(children) do
+      endpoint_index =
+        Enum.find_index(children, fn line ->
+          String.contains?(line, "Endpoint") and !String.contains?(line, "#")
+        end)
+
+      case endpoint_index do
+        nil -> {children, []}
+        index -> Enum.split(children, index)
+      end
+    end
+
+    # Add notice about supervisor ordering being fixed
+    defp add_supervisor_ordering_fixed_notice(igniter, reason) do
+      notice = """
+      ⚠️  CRITICAL FIX APPLIED: Corrected supervisor ordering in application.ex
+
+         Issue detected: #{reason}
+
+         Fixed to correct order:
+           1. YourApp.Repo            (database connection - must be first)
+           2. PhoenixKit.Supervisor   (uses Repo for Settings cache)
+           3. {Oban, ...}            (uses Repo for job persistence)
+           4. Other supervisors...
+
+         This fixes startup crashes where PhoenixKit or Oban tried to access
+         the database before Repo was ready.
+
+         IMPORTANT: Restart your server for changes to take effect.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
     defp validate_and_add_oban_config(igniter) do
       config_exists = ObanConfig.oban_config_exists?(igniter)
       supervisor_exists = ObanConfig.oban_supervisor_exists?(igniter)
