@@ -1,3 +1,8 @@
+## 1.6.7 - 2025-11-23
+- Fix Oban configuration detection and automatic restart
+- Improve status check messages to include Oban configuration
+- Fix database connection check in phoenix_kit.status
+
 ## 1.6.7 - 2025-11-22
 - Fixed redundant copies, label and database file_location row generation issue when uploading images
 - Refactor Application usage and Modules names
