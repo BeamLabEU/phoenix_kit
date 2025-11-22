@@ -201,6 +201,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       PhoenixKit requires configuration for:
       - Ueberauth (OAuth authentication)
       - Hammer (rate limiting)
+      - Oban (background jobs for file processing)
 
       This configuration will be added now.
 
