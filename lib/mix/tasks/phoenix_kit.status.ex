@@ -60,24 +60,15 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   ]
 
   def run(argv) do
-    # Conditionally start the application if repositories aren't available
-    app_started_by_us = ensure_app_started()
+    # Start the application to ensure repo is available
+    Mix.Task.run("app.start")
 
-    try do
-      {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
+    {opts, _argv, _errors} = OptionParser.parse(argv, switches: @switches, aliases: @aliases)
 
-      prefix = opts[:prefix] || "public"
-      verbose = opts[:verbose] || false
+    prefix = opts[:prefix] || "public"
+    verbose = opts[:verbose] || false
 
-      show_comprehensive_status(prefix, verbose)
-    after
-      # Stop the application if we started it
-      if app_started_by_us do
-        # Note: Mix doesn't have app.stop task, and typically apps stay running
-        # This is normal behavior for Mix tasks
-        :ok
-      end
-    end
+    show_comprehensive_status(prefix, verbose)
   end
 
   # Main status display function
@@ -524,29 +515,6 @@ defmodule Mix.Tasks.PhoenixKit.Status do
       Process.whereis(repo) != nil
   rescue
     _ -> false
-  end
-
-  # Ensure application is started only if needed
-  # Returns true if we started the app, false if it was already running
-  defp ensure_app_started do
-    # Check if we can get repo configuration
-    case get_repo_with_fallback() do
-      nil ->
-        # No repo found, start app and try again
-        Mix.Task.run("app.start")
-        true
-
-      repo ->
-        # Repo found, check if it's actually available
-        if repo_available?(repo) do
-          # Repo is available, no need to start app
-          false
-        else
-          # Repo not available, start app
-          Mix.Task.run("app.start")
-          true
-        end
-    end
   end
 
   # Pad version number for consistent display

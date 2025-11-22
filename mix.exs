@@ -128,6 +128,8 @@ defmodule PhoenixKit.MixProject do
       {:finch, "~> 0.18"},
 
       # Code generation and project patching
+      # Note: Available in all environments for library code, but typically
+      # only needed in :dev when used as a dependency in parent projects
       {:igniter, "~> 0.7"}
     ]
   end
