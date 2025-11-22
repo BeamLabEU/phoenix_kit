@@ -1,4 +1,4 @@
-## 1.6.7 - 2025-11-23
+## 1.6.8 - 2025-11-23
 - Fix Oban configuration detection and automatic restart
 - Improve status check messages to include Oban configuration
 - Fix database connection check in phoenix_kit.status
