@@ -115,7 +115,7 @@ defmodule PhoenixKit.Storage.VariantGenerator do
          {:ok, variant_path} <-
            process_variant(original_path, variant_path, file.mime_type, dimension),
          {:ok, file_stats} <- get_variant_file_stats(variant_path),
-         {:ok, _storage_info} <-
+         {:ok, storage_info} <-
            store_variant_file(variant_path, variant_name, variant_storage_path, file.id),
          {:ok, instance} <-
            create_variant_instance(
@@ -126,8 +126,16 @@ defmodule PhoenixKit.Storage.VariantGenerator do
              variant_ext,
              file_stats
            ) do
+      # Create file location records for this variant instance
+      _ =
+        Storage.create_file_locations_for_instance(
+          instance.id,
+          storage_info.bucket_ids,
+          variant_storage_path
+        )
+
       cleanup_temp_files([original_path, variant_path])
-      Logger.info("Variant #{variant_name} created successfully in database")
+      Logger.info("Variant #{variant_name} created successfully in database with locations")
       {:ok, instance}
     else
       {:error, reason} = error ->

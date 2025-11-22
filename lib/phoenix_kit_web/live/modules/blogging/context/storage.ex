@@ -11,7 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   component markup for building pages with swappable design variants.
   """
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
 

@@ -1462,6 +1462,23 @@ defmodule PhoenixKit.Storage do
     end
   end
 
+  @doc """
+  Creates file location records for a file instance across specified buckets.
+
+  ## Parameters
+
+  - `file_instance_id` - The file instance UUID
+  - `bucket_ids` - List of bucket UUIDs where the file is stored
+  - `file_path` - The storage path of the file
+
+  ## Returns
+
+  - `:ok` - Locations created successfully
+  """
+  def create_file_locations_for_instance(file_instance_id, bucket_ids, file_path) do
+    create_file_locations(file_instance_id, bucket_ids, file_path)
+  end
+
   defp generate_temp_path do
     temp_dir = System.tmp_dir!()
     random_name = :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)

@@ -16,7 +16,15 @@
     <%= if @show_upload do %>
       <div class="card bg-base-100 shadow-xl mb-8 animate-in fade-in duration-200">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-4">Upload Media</h2>
+          <div class="flex items-center gap-3 mb-4">
+            <h2 class="card-title text-xl">Upload Media</h2>
+            <button
+              phx-click="toggle_upload"
+              class="btn btn-sm btn-error gap-2"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+            </button>
+          </div>
           <%= if @has_buckets do %>
             <p class="text-sm text-base-content/70 mb-4">
               Upload images, videos, or PDFs. Files are automatically processed and optimized.
@@ -57,16 +65,14 @@
           <div class="flex justify-between items-center mb-4">
             <div class="flex items-center gap-3">
               <h2 class="card-title text-xl">Uploaded Files ({@total_count})</h2>
-              <button
-                phx-click="toggle_upload"
-                class={["btn btn-sm gap-2", (@show_upload && "btn-error") || "btn-primary"]}
-              >
-                <%= if @show_upload do %>
-                  <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
-                <% else %>
+              <%= unless @show_upload do %>
+                <button
+                  phx-click="toggle_upload"
+                  class="btn btn-sm btn-primary gap-2"
+                >
                   <.icon name="hero-plus" class="w-4 h-4" /> Add Media
-                <% end %>
-              </button>
+                </button>
+              <% end %>
             </div>
             <.pagination_info
               page={@current_page}

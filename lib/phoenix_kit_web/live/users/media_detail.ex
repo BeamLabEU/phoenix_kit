@@ -147,7 +147,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   defp get_user_name(nil, _repo), do: "Unknown"
 
   defp get_user_name(user_id, repo) do
-    alias_module = Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+    alias_module = PhoenixKit.Config.get_users_module()
 
     case repo.get(alias_module, user_id) do
       nil -> "Unknown"

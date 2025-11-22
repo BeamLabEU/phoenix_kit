@@ -66,7 +66,7 @@ defmodule PhoenixKit.Settings do
   import Ecto.Query, warn: false
   import Ecto.Changeset, only: [add_error: 3]
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm

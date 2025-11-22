@@ -78,7 +78,7 @@ PhoenixKit is a comprehensive SaaS starter kit for Phoenix applications that pro
 - Database-stored language configuration using JSON settings
 - Admin interface for language management at `/phoenix_kit/admin/modules/languages`
 - Functions: `enabled?/0`, `get_languages/0`, `get_enabled_languages/0`, `get_default_language/0`
-- Module: `PhoenixKit.Module.Languages`
+- Module: `PhoenixKit.Modules.Languages`
 
 ### Emails
 - Email tracking with delivery status and events
