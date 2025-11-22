@@ -1,4 +1,8 @@
-## 1.6.5 - 2025-11-20
+## 1.6.7 - 2025-11-22
+- Fixed redundant copies, label and database file_location row generation issue when uploading images
+- Refactor Application usage and Modules names
+
+## 1.6.6 - 2025-11-20
 - Refactor ueberauth config usage
 - DevAdd SEO module, blogging editor improvements, and navigation UX enhancements
 - Media page fixes, and removal of timex
