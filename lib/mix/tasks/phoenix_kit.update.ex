@@ -167,26 +167,60 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           # CRITICAL: Check if required configuration exists BEFORE starting app
           # This prevents configuration timing issues where config is added via Igniter
           # but the app has already started with cached (missing) configuration
+
+          # Check if this is a retry pass (automatic restart after adding config)
+          is_retry = Process.get(:phoenix_kit_retry_pass, false)
           config_status = check_required_configuration()
 
-          case config_status do
-            :missing ->
+          case {config_status, is_retry} do
+            {:missing, false} ->
               # First pass: Add configuration via Igniter without starting app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :missing)
               show_missing_config_message(argv)
-              result = super(argv)
-              show_config_added_message(argv)
-              result
+              super(argv)
 
-            :ok ->
-              # Second pass: Configuration exists, safe to start app and update
+              # Automatic restart instead of manual prompt
+              Mix.shell().info("""
+
+              ✅ Configuration added successfully!
+              🔄 Automatically restarting to complete the update...
+              """)
+
+              # Clean Process dictionary for fresh state
+              Process.delete(:phoenix_kit_config_status)
+              Process.put(:phoenix_kit_retry_pass, true)
+
+              # Recursive call with same arguments
+              run(argv)
+
+            {:ok, _} ->
+              # Second pass (automatic or manual): Configuration exists, safe to start app
               # Store config status in Process dictionary for igniter/1 to read
               Process.put(:phoenix_kit_config_status, :ok)
               Mix.Task.run("app.start")
               result = super(argv)
               post_igniter_tasks(elem(opts, 0))
+
+              # Clean retry flag
+              Process.delete(:phoenix_kit_retry_pass)
               result
+
+            {:missing, true} ->
+              # Safety: Configuration still missing after retry
+              Mix.shell().error("""
+
+              ❌ Configuration was not added successfully after automatic retry.
+
+              This may indicate a problem with your config/config.exs file.
+              Please check the file manually and ensure it's writable.
+
+              Then run manually:
+                mix phoenix_kit.update #{Enum.join(argv, " ")}
+              """)
+
+              Process.delete(:phoenix_kit_retry_pass)
+              :error
           end
         end
       end
@@ -206,17 +240,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       This configuration will be added now.
 
       After this completes, please run the update command again:
-        mix phoenix_kit.update #{Enum.join(argv, " ")}
-      """)
-    end
-
-    # Display message after configuration is added
-    defp show_config_added_message(argv) do
-      Mix.shell().info("""
-
-      ✅ Configuration added successfully!
-
-      Next step: Run the update command again to complete the upgrade:
         mix phoenix_kit.update #{Enum.join(argv, " ")}
       """)
     end
@@ -285,9 +308,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       has_oban_config =
         Enum.any?(lines, fn line ->
           trimmed = String.trim(line)
-          # Not a comment and contains config :phoenix_kit, Oban
+          # Not a comment and contains config for any app with Oban
+          # Matches: "config :any_app, Oban" or "config :any_app, Oban,"
           !String.starts_with?(trimmed, "#") and
-            String.contains?(line, "config :phoenix_kit, Oban")
+            String.contains?(line, ", Oban")
         end)
 
       has_queues =
