@@ -401,6 +401,7 @@
                       <.table_default_header_cell>Type</.table_default_header_cell>
                       <.table_default_header_cell>Required</.table_default_header_cell>
                       <.table_default_header_cell>Status</.table_default_header_cell>
+                      <.table_default_header_cell>User Access</.table_default_header_cell>
                       <.table_default_header_cell>Actions</.table_default_header_cell>
                     </.table_default_row>
                   </.table_default_header>
@@ -429,6 +430,13 @@
                             <span class="badge badge-sm badge-success">Enabled</span>
                           <% else %>
                             <span class="badge badge-sm badge-ghost">Disabled</span>
+                          <% end %>
+                        </.table_default_cell>
+                        <.table_default_cell>
+                          <%= if Map.get(field, "user_accessible", true) do %>
+                            <span class="badge badge-sm badge-success">User Editable</span>
+                          <% else %>
+                            <span class="badge badge-sm badge-warning">Admin Only</span>
                           <% end %>
                         </.table_default_cell>
                         <.table_default_cell>
@@ -575,6 +583,34 @@
                       />
                       <span class="label-text">Required field</span>
                     </label>
+                  </div>
+
+                  <%!-- User Accessible Checkbox --%>
+                  <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                      <input
+                        type="hidden"
+                        name="field[user_accessible]"
+                        value="false"
+                      />
+                      <input
+                        type="checkbox"
+                        name="field[user_accessible]"
+                        value="true"
+                        checked={
+                          if @editing_field,
+                            do: Map.get(@editing_field, "user_accessible", true),
+                            else: true
+                        }
+                        class="checkbox checkbox-primary"
+                      />
+                      <span class="label-text">User can edit this field</span>
+                    </label>
+                    <div class="label">
+                      <span class="label-text-alt">
+                        When checked, users can view and edit this field on their settings page. When unchecked, only admins can edit it.
+                      </span>
+                    </div>
                   </div>
 
                   <%!-- Position --%>

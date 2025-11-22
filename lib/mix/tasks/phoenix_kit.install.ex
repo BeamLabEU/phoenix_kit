@@ -57,6 +57,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       MailerConfig,
       MigrationStrategy,
       OAuthConfig,
+      ObanConfig,
       RateLimiterConfig,
       RepoDetection,
       RouterIntegration
@@ -95,7 +96,9 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
       |> OAuthConfig.add_oauth_configuration()
+      |> ObanConfig.add_oban_configuration()
       |> ApplicationSupervisor.add_supervisor()
+      |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
       |> DemoFiles.copy_test_demo_files()
@@ -274,6 +277,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       PhoenixKit requires configuration for:
       - Ueberauth (OAuth authentication)
       - Hammer (rate limiting)
+      - Oban (background jobs for file processing)
 
       This configuration will be added now.
 
@@ -316,6 +320,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           !has_active_hammer_config?(lines) ->
             :missing
 
+          # Missing Oban configuration (check for active, non-commented config)
+          !has_active_oban_config?(lines) ->
+            :missing
+
           # All required configuration present
           true ->
             :ok
@@ -348,6 +356,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       has_hammer_config and has_expiry_ms
     end
 
+    # Check if active (non-commented) Oban configuration exists
+    defp has_active_oban_config?(lines) do
+      has_oban_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :phoenix_kit, Oban
+          !String.starts_with?(trimmed, "#") and
+            String.contains?(line, "config :phoenix_kit, Oban")
+        end)
+
+      has_queues =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains queues:
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "queues:")
+        end)
+
+      has_oban_config and has_queues
+    end
+
     # Add completion notice with essential next steps (reduced duplication)
     defp add_completion_notice(igniter) do
       notice = """
@@ -371,7 +399,7 @@ else
 
     This task requires the Igniter library to be available. Please add it to your mix.exs:
 
-        {:igniter, "~> 0.6.27"}
+        {:igniter, "~> 0.7"}
 
     Then run: mix deps.get
     """
@@ -389,7 +417,7 @@ else
 
           def deps do
             [
-              {:igniter, "~> 0.6.27"}
+              {:igniter, "~> 0.7"}
               # ... your other dependencies
             ]
           end

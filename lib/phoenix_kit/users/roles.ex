@@ -712,22 +712,27 @@ defmodule PhoenixKit.Users.Roles do
     roles = Role.system_roles()
 
     repo.transaction(fn ->
-      # Lock the Owner role AND count existing active owners in a single atomic query
-      # This prevents race conditions during concurrent user registrations
-      result =
+      # Lock the Owner role to prevent race conditions during concurrent user registrations
+      # Note: Cannot use FOR UPDATE with aggregate functions, so we split into two queries
+      owner_role =
         repo.one(
           from r in Role,
-            left_join: assignment in RoleAssignment,
-            on: assignment.role_id == r.id,
-            left_join: u in User,
-            on: assignment.user_id == u.id and u.is_active == true,
             where: r.name == ^roles.owner,
-            lock: "FOR UPDATE",
-            select: {r, count(u.id)}
+            lock: "FOR UPDATE"
         )
 
-      case result do
-        {_owner_role, 0} ->
+      # Count existing active owners in a separate query (within the same transaction)
+      owner_count =
+        repo.one(
+          from assignment in RoleAssignment,
+            join: u in User,
+            on: assignment.user_id == u.id and u.is_active == true,
+            where: assignment.role_id == ^owner_role.id,
+            select: count(u.id)
+        )
+
+      case owner_count do
+        0 ->
           # No active owners exist, make this user Owner
           case assign_role_internal(user, roles.owner) do
             {:ok, _assignment} ->
@@ -738,7 +743,7 @@ defmodule PhoenixKit.Users.Roles do
               repo.rollback(reason)
           end
 
-        {_owner_role, _count} ->
+        count when is_integer(count) and count > 0 ->
           # Active owners exist, assign default role
           default_role_name = get_safe_default_role()
 

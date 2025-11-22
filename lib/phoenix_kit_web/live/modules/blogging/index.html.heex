@@ -60,7 +60,7 @@
           </div>
         </div>
       <% else %>
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
             <div class="stat-title text-sm text-base-content/70">
               {gettext("Total Blog Types")}
@@ -80,8 +80,11 @@
             <div class="stat-value text-3xl text-base-content">
               {@dashboard_summary.published_posts}
             </div>
-            <div class="stat-desc text-xs text-base-content/60">
-              {gettext("Drafts: %{count}", count: @dashboard_summary.draft_posts)}
+          </div>
+          <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
+            <div class="stat-title text-sm text-base-content/70">{gettext("Drafts")}</div>
+            <div class="stat-value text-3xl text-base-content">
+              {@dashboard_summary.draft_posts}
             </div>
           </div>
           <div class="stat bg-base-100 shadow-sm rounded-lg border border-base-200">
@@ -120,10 +123,7 @@
                       <% end %>
                     </p>
                   </div>
-                  <span class={[
-                    "badge badge-lg text-xs px-4 py-3 whitespace-nowrap",
-                    if(insight.mode == "slug", do: "badge-primary", else: "badge-ghost")
-                  ]}>
+                  <span class="badge badge-ghost badge-lg text-xs px-4 py-3 whitespace-nowrap">
                     <%= if insight.mode == "slug" do %>
                       {gettext("Slug-based")}
                     <% else %>

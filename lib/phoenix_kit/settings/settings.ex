@@ -66,7 +66,7 @@ defmodule PhoenixKit.Settings do
   import Ecto.Query, warn: false
   import Ecto.Changeset, only: [add_error: 3]
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm
@@ -138,6 +138,9 @@ defmodule PhoenixKit.Settings do
       "sqs_polling_interval_ms" => "5000",
       "sqs_max_messages_per_poll" => "10",
       "sqs_visibility_timeout" => "300",
+      # SEO
+      "seo_module_enabled" => "false",
+      "seo_no_index" => "false",
       # OAuth Provider Credentials
       "oauth_google_client_id" => "",
       "oauth_google_client_secret" => "",

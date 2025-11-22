@@ -413,10 +413,41 @@ defmodule PhoenixKit.Storage do
   def get_file(id), do: repo().get(PhoenixKit.Storage.File, id)
 
   @doc """
-  Gets a file by its hash.
+  Calculates user-specific file checksum (salted with user_id).
+
+  This creates a unique checksum per user+file combination for duplicate detection,
+  while preserving the original file checksum for popularity queries.
+
+  ## Parameters
+    - user_id: The user ID (integer or string)
+    - file_checksum: The SHA256 checksum of the file content
+
+  ## Returns
+    String representing the SHA256 checksum of "user_id + file_checksum"
   """
-  def get_file_by_hash(hash) do
-    repo().get_by(PhoenixKit.Storage.File, checksum: hash)
+  def calculate_user_file_checksum(user_id, file_checksum) do
+    "#{user_id}#{file_checksum}"
+    |> then(fn data -> :crypto.hash(:sha256, data) end)
+    |> Base.encode16(case: :lower)
+  end
+
+  @doc """
+  Gets a file by its user-specific checksum.
+
+  This checks for duplicates for a specific user.
+  """
+  def get_file_by_user_checksum(user_file_checksum) do
+    repo().get_by(PhoenixKit.Storage.File, user_file_checksum: user_file_checksum)
+  end
+
+  @doc """
+  Gets a file by its original content checksum (file_checksum).
+
+  This can find files uploaded by any user with the same content.
+  Useful for popularity queries.
+  """
+  def get_file_by_checksum(file_checksum) do
+    repo().get_by(PhoenixKit.Storage.File, file_checksum: file_checksum)
   end
 
   @doc """
@@ -647,20 +678,24 @@ defmodule PhoenixKit.Storage do
 
     # Validate required fields
     if Elixir.File.exists?(source_path) do
-      # Calculate file hash
-      file_hash = calculate_file_hash(source_path)
+      # Calculate file checksum
+      file_checksum = calculate_file_hash(source_path)
 
-      # Check if file already exists
-      case get_file_by_hash(file_hash) do
+      # Calculate user-specific checksum for duplicate detection
+      user_file_checksum = calculate_user_file_checksum(user_id, file_checksum)
+
+      # Check if this user already uploaded this file
+      case get_file_by_user_checksum(user_file_checksum) do
         %PhoenixKit.Storage.File{} = existing_file ->
-          # File already exists, return existing file
+          # File already exists for this user, return existing file
           {:ok, existing_file}
 
         nil ->
-          # New file, proceed with storage
+          # New file for this user, proceed with storage
           store_new_file(
             source_path,
-            file_hash,
+            file_checksum,
+            user_file_checksum,
             filename,
             content_type,
             size_bytes,
@@ -706,7 +741,7 @@ defmodule PhoenixKit.Storage do
   Retrieves a file by its hash.
   """
   def retrieve_file_by_hash(hash) do
-    case get_file_by_hash(hash) do
+    case get_file_by_checksum(hash) do
       %PhoenixKit.Storage.File{} = file ->
         retrieve_file(file.id)
 
@@ -858,15 +893,44 @@ defmodule PhoenixKit.Storage do
         source_path,
         file_type,
         user_id,
-        file_hash,
+        file_checksum,
         ext,
         original_filename \\ nil
       ) do
-    # Check if file already exists by hash
-    case get_file_by_hash(file_hash) do
+    # Check if any enabled buckets exist
+    case list_enabled_buckets() do
+      [] ->
+        {:error, :no_buckets_configured}
+
+      _buckets ->
+        # Proceed with storage
+        store_file_with_buckets_available(
+          source_path,
+          file_type,
+          user_id,
+          file_checksum,
+          ext,
+          original_filename
+        )
+    end
+  end
+
+  defp store_file_with_buckets_available(
+         source_path,
+         file_type,
+         user_id,
+         file_checksum,
+         ext,
+         original_filename
+       ) do
+    # Calculate user-specific hash for duplicate detection
+    user_file_checksum = calculate_user_file_checksum(user_id, file_checksum)
+
+    # Check if this user already uploaded this file
+    case get_file_by_user_checksum(user_file_checksum) do
       %PhoenixKit.Storage.File{} = existing_file ->
         Logger.info("=== DUPLICATE FILE DETECTED ===")
-        Logger.info("File ID: #{existing_file.id}, Checksum: #{file_hash}")
+        Logger.info("File ID: #{existing_file.id}, Checksum: #{file_checksum}")
         Logger.info("File path: #{existing_file.file_path}")
 
         # File already exists, but check if instances and actual files are healthy
@@ -892,7 +956,7 @@ defmodule PhoenixKit.Storage do
                 restore_missing_file(
                   existing_file,
                   source_path,
-                  file_hash,
+                  file_checksum,
                   user_id,
                   original_filename
                 )
@@ -910,7 +974,7 @@ defmodule PhoenixKit.Storage do
             recreate_file_instances(
               existing_file,
               source_path,
-              file_hash,
+              file_checksum,
               user_id,
               original_filename
             )
@@ -923,7 +987,8 @@ defmodule PhoenixKit.Storage do
           source_path,
           file_type,
           user_id,
-          file_hash,
+          file_checksum,
+          user_file_checksum,
           ext,
           original_filename
         )
@@ -934,7 +999,8 @@ defmodule PhoenixKit.Storage do
          source_path,
          file_type,
          user_id,
-         file_hash,
+         file_checksum,
+         user_file_checksum,
          ext,
          original_filename
        ) do
@@ -965,7 +1031,8 @@ defmodule PhoenixKit.Storage do
       mime_type: determine_mime_type(ext),
       file_type: file_type,
       ext: ext,
-      checksum: file_hash,
+      file_checksum: file_checksum,
+      user_file_checksum: user_file_checksum,
       size: get_file_size(source_path),
       status: "processing",
       user_id: user_id
@@ -984,7 +1051,7 @@ defmodule PhoenixKit.Storage do
               file_name: original_path,
               mime_type: file.mime_type,
               ext: ext,
-              checksum: file_hash,
+              checksum: file_checksum,
               size: get_file_size(source_path),
               processing_status: "completed",
               file_id: file.id
@@ -1067,7 +1134,7 @@ defmodule PhoenixKit.Storage do
     deleted_count
   end
 
-  defp recreate_file_instances(file, source_path, file_hash, user_id, original_filename) do
+  defp recreate_file_instances(file, source_path, file_checksum, user_id, original_filename) do
     # File record exists but instances are missing or broken
     # First store the file in buckets, then recreate the instance record
 
@@ -1103,7 +1170,7 @@ defmodule PhoenixKit.Storage do
           file_name: original_path,
           mime_type: file.mime_type,
           ext: file.ext,
-          checksum: file_hash,
+          checksum: file_checksum,
           size: file_size,
           processing_status: "completed",
           file_id: file.id
@@ -1260,7 +1327,8 @@ defmodule PhoenixKit.Storage do
 
   defp store_new_file(
          source_path,
-         file_hash,
+         file_checksum,
+         user_file_checksum,
          filename,
          content_type,
          size_bytes,
@@ -1275,7 +1343,8 @@ defmodule PhoenixKit.Storage do
             storage_info,
             filename,
             content_type,
-            file_hash,
+            file_checksum,
+            user_file_checksum,
             size_bytes,
             metadata,
             user_id
@@ -1284,7 +1353,7 @@ defmodule PhoenixKit.Storage do
         case create_file(file_attrs) do
           {:ok, file} ->
             # Create original instance and variants (non-critical operations)
-            create_original_instance_and_variants(file, file_hash, size_bytes)
+            create_original_instance_and_variants(file, file_checksum, size_bytes)
             {:ok, file}
 
           {:error, changeset} ->
@@ -1302,7 +1371,8 @@ defmodule PhoenixKit.Storage do
          storage_info,
          filename,
          content_type,
-         file_hash,
+         file_checksum,
+         user_file_checksum,
          size_bytes,
          metadata,
          user_id
@@ -1313,7 +1383,8 @@ defmodule PhoenixKit.Storage do
       mime_type: content_type,
       file_type: determine_file_type(content_type),
       ext: Path.extname(filename),
-      checksum: file_hash,
+      file_checksum: file_checksum,
+      user_file_checksum: user_file_checksum,
       size: size_bytes,
       # Convert to MB
       size_mb: size_bytes / (1024 * 1024),
@@ -1323,13 +1394,13 @@ defmodule PhoenixKit.Storage do
     }
   end
 
-  defp create_original_instance_and_variants(file, file_hash, size_bytes) do
+  defp create_original_instance_and_variants(file, file_checksum, size_bytes) do
     original_instance_attrs = %{
       variant_name: "original",
       file_name: file.file_name,
       mime_type: file.mime_type,
       ext: file.ext,
-      checksum: file_hash,
+      checksum: file_checksum,
       size: size_bytes,
       # Will be populated if we can detect dimensions
       width: nil,
@@ -1389,6 +1460,23 @@ defmodule PhoenixKit.Storage do
       true ->
         "other"
     end
+  end
+
+  @doc """
+  Creates file location records for a file instance across specified buckets.
+
+  ## Parameters
+
+  - `file_instance_id` - The file instance UUID
+  - `bucket_ids` - List of bucket UUIDs where the file is stored
+  - `file_path` - The storage path of the file
+
+  ## Returns
+
+  - `:ok` - Locations created successfully
+  """
+  def create_file_locations_for_instance(file_instance_id, bucket_ids, file_path) do
+    create_file_locations(file_instance_id, bucket_ids, file_path)
   end
 
   defp generate_temp_path do

@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   alias PhoenixKit.Config
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.OAuth
   alias PhoenixKit.Users.OAuthAvailability
   alias PhoenixKit.Utils.Routes
@@ -44,8 +45,17 @@ defmodule PhoenixKitWeb.Users.Settings do
     # Check which providers are available to connect
     available_providers = get_available_oauth_providers(oauth_providers)
 
+    # Load user-accessible custom fields
+    custom_field_definitions = CustomFields.list_user_accessible_field_definitions()
+
     socket =
       socket
+      |> allow_upload(:avatar,
+        accept: ["image/*"],
+        max_entries: 1,
+        max_file_size: 10_000_000,
+        auto_upload: true
+      )
       |> assign(:current_password, nil)
       |> assign(:email_form_current_password, nil)
       |> assign(:current_email, user.email)
@@ -60,6 +70,8 @@ defmodule PhoenixKitWeb.Users.Settings do
       |> assign(:oauth_providers, oauth_providers)
       |> assign(:oauth_available, oauth_available)
       |> assign(:available_providers, available_providers)
+      |> assign(:custom_field_definitions, custom_field_definitions)
+      |> assign(:last_uploaded_avatar_id, nil)
 
     {:ok, socket}
   end
@@ -141,9 +153,19 @@ defmodule PhoenixKitWeb.Users.Settings do
           socket
       end
 
+    # Merge custom fields if present
+    merged_params =
+      case params["custom_fields"] do
+        custom_fields when is_map(custom_fields) ->
+          Map.put(user_params, "custom_fields", custom_fields)
+
+        _ ->
+          user_params
+      end
+
     profile_form =
       socket.assigns.phoenix_kit_current_user
-      |> Auth.change_user_profile(user_params)
+      |> Auth.change_user_profile(merged_params)
       |> Map.put(:action, :validate)
       |> to_form()
 
@@ -160,9 +182,41 @@ defmodule PhoenixKitWeb.Users.Settings do
     %{"user" => user_params} = params
     user = socket.assigns.phoenix_kit_current_user
 
-    case Auth.update_user_profile(user, user_params) do
-      {:ok, _user} ->
-        {:noreply, socket |> put_flash(:info, "Profile updated successfully")}
+    # Merge custom fields if present, preserving avatar_file_id
+    merged_params =
+      case params["custom_fields"] do
+        custom_fields when is_map(custom_fields) ->
+          # Preserve avatar_file_id from existing custom_fields
+          existing_avatar = get_in(user.custom_fields, ["avatar_file_id"])
+
+          updated_custom_fields =
+            if existing_avatar do
+              Map.put(custom_fields, "avatar_file_id", existing_avatar)
+            else
+              custom_fields
+            end
+
+          Map.put(user_params, "custom_fields", updated_custom_fields)
+
+        _ ->
+          # No custom fields in form, but preserve avatar if it exists
+          existing_avatar = get_in(user.custom_fields, ["avatar_file_id"])
+
+          if existing_avatar do
+            Map.put(user_params, "custom_fields", %{"avatar_file_id" => existing_avatar})
+          else
+            user_params
+          end
+      end
+
+    case Auth.update_user_profile(user, merged_params) do
+      {:ok, updated_user} ->
+        socket =
+          socket
+          |> assign(:phoenix_kit_current_user, updated_user)
+          |> put_flash(:info, "Profile updated successfully")
+
+        {:noreply, socket}
 
       {:error, changeset} ->
         {:noreply, assign(socket, :profile_form, to_form(Map.put(changeset, :action, :insert)))}
@@ -248,6 +302,24 @@ defmodule PhoenixKitWeb.Users.Settings do
       socket = put_flash(socket, :error, warning_message)
       {:noreply, socket}
     end
+  end
+
+  def handle_event("validate", %{"_target" => ["avatar"]}, socket) do
+    # Avatar file selection event - files will auto-upload
+    entries = socket.assigns.uploads.avatar.entries
+    require Logger
+    Logger.info("avatar validate event: entries=#{length(entries)}")
+
+    if entries != [] do
+      Logger.info("avatar validate: scheduling check_uploads_complete")
+      Process.send_after(self(), :check_avatar_uploads_complete, 500)
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_event("cancel_upload", %{"ref" => ref}, socket) do
+    {:noreply, cancel_upload(socket, :avatar, ref)}
   end
 
   # Check for timezone mismatch based on current form values
@@ -368,4 +440,123 @@ defmodule PhoenixKitWeb.Users.Settings do
   defp format_provider_name("apple"), do: "Apple"
   defp format_provider_name("github"), do: "GitHub"
   defp format_provider_name(provider), do: String.capitalize(provider)
+
+  # Avatar upload processing
+
+  def handle_info(:check_avatar_uploads_complete, socket) do
+    entries = socket.assigns.uploads.avatar.entries
+    require Logger
+
+    Logger.info(
+      "check_avatar_uploads_complete: entries=#{length(entries)}, done?=#{inspect(Enum.map(entries, & &1.done?))}"
+    )
+
+    # Check if all entries are done uploading
+    if entries != [] && Enum.all?(entries, & &1.done?) do
+      Logger.info("Avatar uploads done! Processing...")
+      # All done - process them
+      process_avatar_uploads(socket)
+    else
+      # Still uploading - check again later
+      Logger.info("Still uploading avatar, checking again...")
+      Process.send_after(self(), :check_avatar_uploads_complete, 500)
+      {:noreply, socket}
+    end
+  end
+
+  defp process_avatar_uploads(socket) do
+    require Logger
+
+    # Process uploaded avatar files
+    uploaded_avatars =
+      consume_uploaded_entries(socket, :avatar, fn %{path: path}, entry ->
+        # Get file info
+        ext = Path.extname(entry.client_name) |> String.replace_leading(".", "")
+
+        # Get current user
+        current_user = socket.assigns.phoenix_kit_current_user
+        user_id = current_user.id
+
+        # Get file size
+        {:ok, stat} = Elixir.File.stat(path)
+        file_size = stat.size
+
+        # Calculate hash
+        file_hash = Auth.calculate_file_hash(path)
+
+        # Store file in storage
+        case PhoenixKit.Storage.store_file_in_buckets(
+               path,
+               "image",
+               user_id,
+               file_hash,
+               ext,
+               entry.client_name
+             ) do
+          {:ok, file, :duplicate} ->
+            Logger.info("Avatar file is duplicate with ID: #{file.id}")
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               size: file_size,
+               duplicate: true
+             }}
+
+          {:ok, file} ->
+            Logger.info("Avatar file stored with ID: #{file.id}")
+
+            {:ok,
+             %{
+               file_id: file.id,
+               filename: entry.client_name,
+               size: file_size
+             }}
+
+          {:error, reason} ->
+            Logger.error("Storage Error: #{inspect(reason)}")
+            {:error, reason}
+        end
+      end)
+
+    # Extract file IDs for use
+    Logger.info("Uploaded avatars: #{inspect(uploaded_avatars)}")
+    avatar_file_ids = Enum.map(uploaded_avatars, &get_avatar_file_id/1)
+    Logger.info("Avatar file IDs: #{inspect(avatar_file_ids)}")
+    avatar_file_id = List.first(avatar_file_ids)
+    Logger.info("First avatar file ID: #{inspect(avatar_file_id)}")
+
+    # Save the avatar file ID to the user's custom fields
+    socket =
+      if avatar_file_id && avatar_file_id != nil do
+        user = socket.assigns.phoenix_kit_current_user
+
+        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_id}) do
+          {:ok, updated_user} ->
+            Logger.info("Avatar file ID saved: #{avatar_file_id}")
+
+            socket
+            |> assign(:phoenix_kit_current_user, updated_user)
+            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> put_flash(:info, "Avatar uploaded successfully!")
+
+          {:error, changeset} ->
+            Logger.error("Failed to save avatar file ID: #{inspect(changeset)}")
+
+            socket
+            |> assign(:last_uploaded_avatar_id, avatar_file_id)
+            |> put_flash(:error, "Avatar uploaded but failed to save to profile")
+        end
+      else
+        socket
+        |> put_flash(:error, "Failed to upload avatar")
+      end
+
+    {:noreply, socket}
+  end
+
+  defp get_avatar_file_id(%{file_id: file_id}), do: file_id
+  defp get_avatar_file_id({:ok, %{file_id: file_id}}), do: file_id
+  defp get_avatar_file_id(_), do: nil
 end

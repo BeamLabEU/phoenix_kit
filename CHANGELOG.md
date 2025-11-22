@@ -1,3 +1,23 @@
+## 1.6.7 - 2025-11-22
+- Fixed redundant copies, label and database file_location row generation issue when uploading images
+- Refactor Application usage and Modules names
+
+## 1.6.6 - 2025-11-20
+- Refactor ueberauth config usage
+- DevAdd SEO module, blogging editor improvements, and navigation UX enhancements
+- Media page fixes, and removal of timex
+- Install igniter by default
+
+## 1.6.5 - 2025-11-17
+- Fixed readme versions
+- Refactor Config and repository usage
+- Added media selector modal window
+- Improve blogging editor UX and component rendering
+- Polish the featured-image selector with clearer labels, preview states, and mobile-friendly actions.
+- Add LiveView + JS tooling for inserting images/videos, simplify the toolbar, and debounce content updates.
+- Fix markdown rendering so block components (e.g., ) parse correctly alongside self-closing tags, ensuring inserted video snippets display as expected.
+- Updated unique key to file_user_checksum instead of file_checksum, to allow duplicates but by different users
+
 ## 1.6.4 - 2025-11-15
 
 ### Fixed

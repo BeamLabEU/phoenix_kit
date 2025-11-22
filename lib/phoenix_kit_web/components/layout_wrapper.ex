@@ -34,7 +34,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -79,6 +80,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         PhoenixKit.Settings.get_content_language()
       end)
       |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
+      |> assign_new(:seo_no_index, fn -> SEO.no_index_enabled?() end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
     assigns = normalize_content_assigns(assigns)
@@ -244,7 +246,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes", "/admin/users/media"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
                       <%!-- Submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -279,14 +281,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           nested={true}
                         />
 
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/users/media")}
-                          icon="photo"
-                          label="Media"
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
-
                         <%= if PhoenixKit.ReferralCodes.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/users/referral-codes")}
@@ -298,6 +292,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <% end %>
                       </div>
                     <% end %>
+
+                    <%!-- Media as top-level menu item --%>
+                    <.admin_nav_item
+                      href={Routes.locale_aware_path(assigns, "/admin/media")}
+                      icon="photo"
+                      label="Media"
+                      current_path={@current_path || ""}
+                    />
 
                     <%= if PhoenixKit.Emails.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
@@ -402,6 +404,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="document"
                         label="Blogging"
                         current_path={@current_path || ""}
+                        exact_match_only={true}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
@@ -435,7 +438,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       disable_active={true}
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/storage", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -496,6 +499,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
+                        <%= if SEO.module_enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
+                            icon="seo"
+                            label="SEO"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
                         <%= if PhoenixKit.Modules.Maintenance.module_enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/maintenance")}
@@ -506,20 +519,20 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%!-- Storage section with submenu --%>
+                        <%!-- Media section with submenu --%>
                         <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/settings/storage")}
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/media")}
                           icon="storage"
-                          label="Storage"
+                          label="Media"
                           current_path={@current_path || ""}
                           nested={true}
                         />
 
-                        <%= if submenu_open?(@current_path, ["/admin/settings/storage", "/admin/settings/storage/dimensions"]) do %>
+                        <%= if submenu_open?(@current_path, ["/admin/settings/media", "/admin/settings/media/dimensions"]) do %>
                           <%!-- Storage submenu items --%>
                           <div class="mt-1 pl-4">
                             <.admin_nav_item
-                              href={Routes.locale_aware_path(assigns, "/admin/settings/storage/dimensions")}
+                              href={Routes.locale_aware_path(assigns, "/admin/settings/media/dimensions")}
                               icon="photo"
                               label="Dimensions"
                               current_path={@current_path || ""}
@@ -830,7 +843,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp looks_like_locale?(locale), do: String.length(locale) <= 3
 
   defp path_matches_any?(normalized_path, paths) do
-    Enum.any?(paths, &String.starts_with?(normalized_path, &1))
+    Enum.any?(paths, fn path ->
+      # Exact match or path segment match (followed by / or query string)
+      normalized_path == path ||
+        String.starts_with?(normalized_path, path <> "/") ||
+        String.starts_with?(normalized_path, path <> "?")
+    end)
   end
 
   # Render with parent application layout (Phoenix v1.8+ function component approach)
@@ -893,6 +911,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <.live_title default={"#{assigns[:project_title] || "PhoenixKit"} Admin"}>
           {assigns[:page_title] || "Admin"}
         </.live_title>
+        <%= if assigns[:seo_no_index] do %>
+          <meta name="robots" content="noindex,nofollow" />
+          <meta name="googlebot" content="noindex,nofollow" />
+        <% end %>
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
       </head>
       <body class="bg-base-100 antialiased transition-colors" data-admin-theme-base="system">
@@ -925,12 +947,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     |> Map.put_new(:phoenix_kit_integrated, true)
     |> Map.put_new(:phoenix_kit_version, get_phoenix_kit_version())
     |> Map.put_new(:phoenix_version_info, PhoenixVersion.get_version_info())
+    |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
   end
 
   # Prepare assigns specifically for PhoenixKit layout
   defp prepare_phoenix_kit_assigns(assigns) do
     assigns
     |> Map.put_new(:phoenix_kit_standalone, true)
+    |> Map.put_new(:seo_no_index, assigns[:seo_no_index] || false)
   end
 
   # Extract current user from scope for parent layout compatibility

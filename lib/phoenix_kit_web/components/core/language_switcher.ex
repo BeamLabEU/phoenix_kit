@@ -28,7 +28,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   use Phoenix.Component
 
   alias Phoenix.LiveView.JS
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKitWeb.Components.Core.Icon
 
   @doc """

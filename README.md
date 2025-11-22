@@ -16,14 +16,13 @@ With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps
 
 PhoenixKit provides pretty simple installation method, powered by igniter library, which takes care of all configuration needs.
 
-Add both `phoenix_kit` and `igniter` to your project dependencies:
+Add `phoenix_kit` to your project dependencies. `igniter` installed in `phoenix_kit`.
 
 ```elixir
 # mix.exs
 def deps do
   [
-    {:phoenix_kit, "~> 1.6"},
-    {:igniter, "~> 0.7", only: [:dev]}
+    {:phoenix_kit, "~> 1.6"}
   ]
 end
 ```
@@ -36,6 +35,7 @@ mix phoenix_kit.install
 ```
 
 This will automatically:
+
 - Auto-detect your Ecto repository
 - **Validate PostgreSQL compatibility** with adapter detection
 - Generate migration files for authentication tables
@@ -46,6 +46,7 @@ This will automatically:
 - Add authentication routes to your router
 
 ## 📦 Current PhoenixKit Features / Modules:
+
 ```
 ✅ Simple installation using Igniter
 ✅ Tailwind and DaisyUI integration
@@ -91,9 +92,11 @@ This will automatically:
   - [x] Pages Module
 
 ## 🛣️ Roadmap / Ideas / Feature requests
+
 - User Auth
   - 2FA
   - Fail2ban (userbased, ip based, region based)
+  - User impersonation
 - Backend admin
   - Design / templates / themes
   - Settings
@@ -180,7 +183,7 @@ Add both `phoenix_kit` and `igniter` to your project dependencies:
 def deps do
   [
     {:phoenix_kit, "~> 1.4.3"},
-    {:igniter, "~> 0.6.0", only: [:dev]}
+    {:igniter, "~> 0.7"}
   ]
 end
 ```
@@ -193,6 +196,7 @@ mix phoenix_kit.install
 ```
 
 This will automatically:
+
 - ✅ Auto-detect your Ecto repository
 - ✅ **Validate PostgreSQL compatibility** with adapter detection
 - ✅ Generate migration files for authentication tables
@@ -227,6 +231,7 @@ mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 ## Quick Start
 
 Visit these URLs after installation:
+
 - `http://localhost:4000/{prefix}/users/register` - User registration
 - `http://localhost:4000/{prefix}/users/log-in` - User login
 
@@ -235,6 +240,7 @@ Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_ki
 ## Configuration
 
 ### Basic Setup
+
 ```elixir
 # config/config.exs (automatically added by installer)
 config :phoenix_kit,
@@ -252,6 +258,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 ```
 
 ### Layout Integration
+
 ```elixir
 # Use your app's layout (optional)
 config :phoenix_kit,
@@ -264,6 +271,7 @@ config :phoenix_kit,
 PhoenixKit supports multiple email providers with automatic setup assistance:
 
 #### AWS SES (Complete Setup)
+
 For AWS SES, PhoenixKit automatically configures required dependencies and HTTP client:
 
 ```elixir
@@ -282,6 +290,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 ```
 
 **AWS SES Checklist:**
+
 - ✅ Create AWS IAM user with SES permissions (`ses:*`)
 - ✅ Verify sender email address in AWS SES Console
 - ✅ Verify recipient emails (if in sandbox mode)
@@ -290,6 +299,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 - ✅ Set environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
 
 #### Other Email Providers
+
 ```elixir
 # SendGrid
 config :phoenix_kit, PhoenixKit.Mailer,
@@ -317,6 +327,7 @@ proxy_set_header X-Forwarded-Proto $scheme;
 See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 
 ### Advanced Options
+
 - Custom URL prefix: `phoenix_kit_routes("/authentication")`
 - PostgreSQL schemas: `mix phoenix_kit.install --prefix "auth" --create-schema`
 - Custom repository: `mix phoenix_kit.install --repo MyApp.CustomRepo`
@@ -324,21 +335,25 @@ See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 ## Routes
 
 ### Public Routes
+
 - `GET {prefix}/users/register` - Registration form
 - `GET {prefix}/users/log-in` - Login form
 - `GET {prefix}/users/reset-password` - Password reset
 - `GET {prefix}/users/confirm/:token` - Email confirmation
 
 ### Authenticated Routes
+
 - `GET {prefix}/users/settings` - User settings
 
 ### Admin Routes (Owner/Admin only)
+
 - `GET {prefix}/admin/dashboard` - Admin dashboard
 - `GET {prefix}/admin/users` - User management
 
 ## API Usage
 
 ### Current User Access
+
 ```elixir
 # In your controller or LiveView
 user = conn.assigns[:phoenix_kit_current_user]
@@ -349,6 +364,7 @@ PhoenixKit.Users.Auth.Scope.authenticated?(scope)
 ```
 
 ### Role-Based Access
+
 ```elixir
 # Check user roles
 PhoenixKit.Users.Roles.user_has_role?(user, "Admin")
@@ -361,6 +377,7 @@ on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}]
 ```
 
 ### Authentication Helpers
+
 ```elixir
 # In your LiveView sessions
 on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}]
@@ -370,6 +387,7 @@ on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}]
 ## Database Schema
 
 PhoenixKit creates these PostgreSQL tables:
+
 - `phoenix_kit_users` - User accounts with email, names, status
 - `phoenix_kit_users_tokens` - Authentication tokens (session, reset, confirm)
 - `phoenix_kit_user_roles` - System and custom roles
@@ -379,11 +397,13 @@ PhoenixKit creates these PostgreSQL tables:
 ## Role-Based Access Control
 
 ### System Roles
+
 - **Owner** - Full system access (first user)
 - **Admin** - Management privileges
 - **User** - Standard access (default)
 
 ### Role Management
+
 ```elixir
 # Check roles
 PhoenixKit.Users.Roles.get_user_roles(user)
@@ -398,12 +418,14 @@ PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 ```
 
 ### Built-in Admin Interface
+
 - `{prefix}/admin/dashboard` - System statistics
 - `{prefix}/admin/users` - User management with role controls
 
 ## Architecture
 
 PhoenixKit follows professional library patterns:
+
 - **Library-First**: No OTP application, minimal dependencies
 - **Dynamic Repository**: Uses your existing Ecto repo
 - **Versioned Migrations**: Oban-style schema management

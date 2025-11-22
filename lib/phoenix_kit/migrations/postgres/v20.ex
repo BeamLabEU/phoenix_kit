@@ -44,7 +44,7 @@ defmodule PhoenixKit.Migrations.Postgres.V20 do
 
   ## Settings
 
-  - `storage_redundancy_copies`: How many bucket copies (default: 2)
+  - `storage_redundancy_copies`: How many bucket copies (default: 1)
   - `storage_auto_generate_variants`: Auto-generate thumbnails/resizes (default: true)
   - `storage_default_bucket_id`: Default bucket for uploads (optional)
   """
@@ -217,7 +217,7 @@ defmodule PhoenixKit.Migrations.Postgres.V20 do
     seed_default_bucket(prefix)
 
     # Add storage settings
-    insert_setting(prefix, "storage_redundancy_copies", "2")
+    insert_setting(prefix, "storage_redundancy_copies", "1")
     insert_setting(prefix, "storage_auto_generate_variants", "true")
     insert_setting(prefix, "storage_default_bucket_id", nil)
 
@@ -357,8 +357,8 @@ defmodule PhoenixKit.Migrations.Postgres.V20 do
 
     execute """
     INSERT INTO #{prefix_table_name("phoenix_kit_buckets", prefix)}
-    (id, name, provider, enabled, priority, inserted_at, updated_at)
-    VALUES ('#{id}', 'Local Storage', 'local', true, 0, '#{now}', '#{now}')
+    (id, name, provider, endpoint, enabled, priority, inserted_at, updated_at)
+    VALUES ('#{id}', 'Local Storage', 'local', 'priv/media', true, 0, '#{now}', '#{now}')
     """
   end
 

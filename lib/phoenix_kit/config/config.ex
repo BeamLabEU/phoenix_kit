@@ -28,6 +28,7 @@ defmodule PhoenixKit.Config do
   - `:layout_module` - Custom layout configuration
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
+  - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
 
   ## Type-Safe Functions
 
@@ -61,9 +62,8 @@ defmodule PhoenixKit.Config do
     secret_key_base: nil,
     oauth_base_url: nil,
     # Module-specific settings
-    blogging_settings_module: PhoenixKit.Settings,
-    # OAuth and third-party settings
-    ueberauth: []
+    users_module: PhoenixKit.Users.Auth.User,
+    blogging_settings_module: PhoenixKit.Settings
   ]
 
   @doc """
@@ -105,6 +105,24 @@ defmodule PhoenixKit.Config do
       {:ok, value} -> value
       :not_found -> default
     end
+  end
+
+  @doc """
+  Sets a configuration value.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.set(:repo, MyApp.Repo)
+      :ok
+
+      iex> PhoenixKit.Config.set(:custom_option, "custom_value")
+      :ok
+
+  """
+  @spec set(atom(), any()) :: :ok
+  def set(key, value) when is_atom(key) do
+    Application.put_env(:phoenix_kit, key, value)
+    :ok
   end
 
   @doc """
@@ -320,6 +338,17 @@ defmodule PhoenixKit.Config do
   end
 
   @doc """
+  Gets the configured users module.
+  """
+  @spec get_users_module() :: module()
+  def get_users_module do
+    case get(:users_module) do
+      {:ok, users_module} when is_atom(users_module) -> users_module
+      _ -> PhoenixKit.Users.Auth.User
+    end
+  end
+
+  @doc """
   Gets the configured repository module.
   """
   @spec get_repo() :: module() | nil
@@ -356,6 +385,20 @@ defmodule PhoenixKit.Config do
 
         in your application configuration.
         """
+    end
+  end
+
+  @doc """
+  Gets configuration from the parent application.
+
+  This is useful for accessing parent app mailer, endpoint, or other configurations
+  that PhoenixKit needs to integrate with.
+  """
+  @spec get_parent_app_config(atom(), any()) :: any()
+  def get_parent_app_config(key, default \\ nil) do
+    case get_parent_app() do
+      nil -> default
+      app -> Application.get_env(app, key, default)
     end
   end
 

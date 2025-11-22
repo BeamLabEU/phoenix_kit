@@ -8,8 +8,9 @@ defmodule PhoenixKitWeb.Live.Modules do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Entities
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
@@ -32,6 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     pages_enabled = Pages.enabled?()
     blogging_enabled = Blogging.enabled?()
     under_construction_config = Maintenance.get_config()
+    seo_config = SEO.get_config()
     storage_config = Storage.get_config()
 
     socket =
@@ -62,6 +64,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:storage_enabled, storage_config.module_enabled)
       |> assign(:storage_buckets_count, storage_config.buckets_count)
       |> assign(:storage_active_buckets_count, storage_config.active_buckets_count)
+      |> assign(:seo_module_enabled, seo_config.module_enabled)
+      |> assign(:seo_no_index_enabled, seo_config.no_index_enabled)
       |> assign(:current_locale, locale)
 
     {:ok, socket}
@@ -202,6 +206,46 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update entities system")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_seo_module", _params, socket) do
+    new_enabled = !socket.assigns.seo_module_enabled
+
+    result =
+      if new_enabled do
+        SEO.enable_module()
+      else
+        SEO.disable_module()
+      end
+
+    case result do
+      {:ok, _setting} ->
+        seo_no_index_enabled =
+          if new_enabled do
+            SEO.no_index_enabled?()
+          else
+            false
+          end
+
+        message =
+          if new_enabled do
+            "SEO module enabled - configure options in Settings → SEO"
+          else
+            "SEO module disabled and search directives reset"
+          end
+
+        socket =
+          socket
+          |> assign(:seo_module_enabled, new_enabled)
+          |> assign(:seo_no_index_enabled, seo_no_index_enabled)
+          |> put_flash(:info, message)
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update SEO module")
         {:noreply, socket}
     end
   end

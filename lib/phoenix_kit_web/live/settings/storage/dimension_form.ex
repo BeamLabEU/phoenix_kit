@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
       |> assign(:mode, mode)
       |> assign(:dimension_id, dimension_id)
       |> assign(:current_locale, "en")
-      |> assign(:current_path, Routes.path("/admin/settings/storage/dimensions"))
+      |> assign(:current_path, Routes.path("/admin/settings/media/dimensions"))
       |> assign(:project_title, project_title)
       |> assign(:dimension, load_dimension_data(mode, dimension_id))
       # Will be set in assign_form
@@ -82,7 +82,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
         socket =
           socket
           |> put_flash(:info, "Dimension created successfully")
-          |> push_navigate(to: Routes.path("/admin/settings/storage/dimensions"))
+          |> push_navigate(to: Routes.path("/admin/settings/media/dimensions"))
 
         {:noreply, socket}
 
@@ -104,7 +104,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
         socket =
           socket
           |> put_flash(:info, "Dimension updated successfully")
-          |> push_navigate(to: Routes.path("/admin/settings/storage/dimensions"))
+          |> push_navigate(to: Routes.path("/admin/settings/media/dimensions"))
 
         {:noreply, socket}
 
