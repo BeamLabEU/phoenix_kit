@@ -14,7 +14,7 @@ defmodule PhoenixKitWeb.BlogController do
   require Logger
 
   alias PhoenixKit.Blogging.Renderer
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging

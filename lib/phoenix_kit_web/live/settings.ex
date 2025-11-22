@@ -7,7 +7,7 @@ defmodule PhoenixKitWeb.Live.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
