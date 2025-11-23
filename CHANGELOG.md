@@ -8,6 +8,10 @@
   - Added automatic fix in `mix phoenix_kit.update` to correct existing installations
   - Prevents crashes: "Repo not ready" errors when loading Settings cache or Oban jobs
   - Ensures correct order: Repo → PhoenixKit.Supervisor → Oban → Endpoint
+## 1.6.8 - 2025-11-23
+- Fix Oban configuration detection and automatic restart
+- Improve status check messages to include Oban configuration
+- Fix database connection check in phoenix_kit.status
 
 ## 1.6.7 - 2025-11-22
 - Fixed redundant copies, label and database file_location row generation issue when uploading images

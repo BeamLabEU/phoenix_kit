@@ -134,7 +134,14 @@ This will automatically:
     - Digital and downloadable products
     - Physical products
   - Cookies Module
-  - Complience and Legal Module (Cookies usage, Terms Of Service, Acceptable Use, GDPR, Privacy & Data Policy)
+  - Complience and Legal Module
+    - Cookies usage
+    - Terms Of Service
+    - Acceptable Use
+    - GDPR (General Data Protection Regulation) for EU users
+    - CCPA (California Consumer Privacy Act) for California users
+    - Data Retention Policy
+    - Privacy Policy
   - Booking Module (Calendar based)
   - Popups Module
   - Contact Us Module
@@ -182,7 +189,7 @@ Add both `phoenix_kit` and `igniter` to your project dependencies:
 # mix.exs
 def deps do
   [
-    {:phoenix_kit, "~> 1.4.3"},
+    {:phoenix_kit, "~> 1.6"},
     {:igniter, "~> 0.7"}
   ]
 end
