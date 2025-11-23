@@ -58,4 +58,3 @@ defmodule PhoenixKit.Utils.Slug do
     end
   end
 end
-

@@ -293,6 +293,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Only generate slug if in slug mode and slug is empty
     if socket.assigns.blog_mode == "slug" do
       content = socket.assigns.content || ""
+
       {socket, new_form, slug_events} =
         maybe_update_slug_from_content(socket, content, force: true)
 

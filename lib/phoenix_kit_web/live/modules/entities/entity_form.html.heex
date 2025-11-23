@@ -442,17 +442,17 @@
 
             <%!-- Field Label and Key --%>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <.label>{gettext("Field Label")} *</.label>
-              <input
-                type="text"
-                name="field[label]"
-                class="input input-bordered w-full"
-                placeholder={gettext("Field Name")}
-                value={@field_form["label"]}
-                phx-debounce="300"
-                required
-              />
+              <div>
+                <.label>{gettext("Field Label")} *</.label>
+                <input
+                  type="text"
+                  name="field[label]"
+                  class="input input-bordered w-full"
+                  placeholder={gettext("Field Name")}
+                  value={@field_form["label"]}
+                  phx-debounce="300"
+                  required
+                />
                 <.label class="label">
                   <span class="label-text-alt">{gettext("Display name for users")}</span>
                 </.label>

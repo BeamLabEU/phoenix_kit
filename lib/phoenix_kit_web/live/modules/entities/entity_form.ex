@@ -555,6 +555,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     if socket.assigns[:lock_owner?] do
       target = Map.get(params, "_target", [])
       manual_key? = manual_key_target?(target)
+
       field_params =
         if manual_key?, do: field_params, else: Map.delete(field_params, "key")
 
