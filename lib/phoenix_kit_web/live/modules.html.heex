@@ -301,38 +301,6 @@
         enabled={@blogging_enabled}
         toggle_event="toggle_blogging"
       >
-        <:info>
-          <% url_prefix =
-            PhoenixKit.Config.get_url_prefix()
-            |> case do
-              "/" -> ""
-              prefix -> prefix
-            end %>
-
-          <div class="space-y-2">
-            <p class="text-xs font-medium text-base-content">
-              {gettext("Key paths & URLs")}
-            </p>
-            <ul class="list-disc ml-4 space-y-1">
-              <li>
-                <span class="font-medium text-base-content">
-                  {gettext("Post files on disk:")}
-                </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
-                  priv/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
-                </code>
-              </li>
-              <li>
-                <span class="font-medium text-base-content">
-                  {gettext("Public URL pattern:")}
-                </span>
-                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5">
-                  {url_prefix}/:locale/:blog_slug/:post_slug
-                </code>
-              </li>
-            </ul>
-          </div>
-        </:info>
         <:status_badges>
           <span class={[
             "badge",
@@ -350,7 +318,7 @@
               }
               class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
-              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open Blogging")}
+              <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open")}
             </.link>
             <.link
               navigate={
@@ -360,10 +328,38 @@
               }
               class="btn btn-sm btn-outline"
             >
-              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Manage Blogging")}
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
             </.link>
           </div>
         </:action_buttons>
+
+        <:stats>
+          <% url_prefix =
+            PhoenixKit.Config.get_url_prefix()
+            |> case do
+              "/" -> ""
+              prefix -> prefix
+            end %>
+
+          <div class="space-y-1.5">
+            <div>
+              <span class="font-medium text-base-content">
+                {gettext("Post files on disk:")}
+              </span>
+              <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
+                priv/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
+              </code>
+            </div>
+            <div>
+              <span class="font-medium text-base-content">
+                {gettext("Public URL pattern:")}
+              </span>
+              <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
+                {url_prefix}/:locale/:blog_slug/:post_slug
+              </code>
+            </div>
+          </div>
+        </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
       <%!-- SEO Module --%>
@@ -374,27 +370,13 @@
         enabled={@seo_module_enabled}
         toggle_event="toggle_seo_module"
       >
-        <:info>
-          <p class="text-sm text-base-content/70">
-            Toggle the SEO module to unlock dedicated settings for search engines.
-          </p>
-        </:info>
-
         <:status_badges>
           <span class={[
             "badge",
             if(@seo_module_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @seo_module_enabled, do: "Module Enabled", else: "Module Disabled"}
+            {if @seo_module_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @seo_module_enabled do %>
-            <span class={[
-              "badge badge-outline ml-2",
-              if(@seo_no_index_enabled, do: "badge-warning", else: "badge-info")
-            ]}>
-              {if @seo_no_index_enabled, do: "Noindex Active", else: "Indexing Allowed"}
-            </span>
-          <% end %>
         </:status_badges>
 
         <:action_buttons>
@@ -404,9 +386,18 @@
             }
             class={"btn btn-sm w-full #{if @seo_module_enabled, do: "btn-primary", else: "btn-outline"}"}
           >
-            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure SEO
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
           </.link>
         </:action_buttons>
+
+        <:stats>
+          <div class="text-sm">
+            <span class="text-base-content/70">Noindex:</span>
+            <span class="ml-2 font-medium">
+              {if @seo_no_index_enabled, do: "On", else: "Off"}
+            </span>
+          </div>
+        </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
       <%!-- Pages module remains disabled but code retained for future use --%>
