@@ -261,12 +261,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Clear the featured image from the form (form is a simple map, not a struct)
     updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
 
-    {:noreply,
-     socket
-     |> assign(:form, updated_form)
-     |> assign(:has_pending_changes, true)
-     |> put_flash(:info, gettext("Featured image cleared"))
-     |> push_event("changes-status", %{has_changes: true})}
+    socket =
+      socket
+      |> assign(:form, updated_form)
+      |> assign(:has_pending_changes, true)
+      |> put_flash(:info, gettext("Featured image cleared"))
+      |> push_event("changes-status", %{has_changes: true})
+      |> schedule_autosave()
+
+    {:noreply, socket}
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
@@ -485,29 +488,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     file_id = List.first(file_ids)
     inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
 
-    socket =
-      if file_id && inserting_image_component do
-        # Insert image component at cursor via JavaScript
-        js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
+    {socket, autosave?} =
+      cond do
+        file_id && inserting_image_component ->
+          # Insert image component at cursor via JavaScript
+          js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
 
-        socket
-        |> assign(:show_media_selector, false)
-        |> assign(:inserting_image_component, false)
-        |> put_flash(:info, gettext("Image component inserted"))
-        |> push_event("exec-js", %{js: js_code})
-      else
-        if file_id do
-          socket
-          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-          |> assign(:has_pending_changes, true)
-          |> assign(:show_media_selector, false)
-          |> put_flash(:info, gettext("Featured image selected"))
-          |> push_event("changes-status", %{has_changes: true})
-        else
-          socket
-          |> assign(:show_media_selector, false)
-        end
+          {
+            socket
+            |> assign(:show_media_selector, false)
+            |> assign(:inserting_image_component, false)
+            |> put_flash(:info, gettext("Image component inserted"))
+            |> push_event("exec-js", %{js: js_code}),
+            false
+          }
+
+        file_id ->
+          {
+            socket
+            |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+            |> assign(:has_pending_changes, true)
+            |> assign(:show_media_selector, false)
+            |> put_flash(:info, gettext("Featured image selected"))
+            |> push_event("changes-status", %{has_changes: true}),
+            true
+          }
+
+        true ->
+          {socket |> assign(:show_media_selector, false), false}
       end
+
+    socket = if autosave?, do: schedule_autosave(socket), else: socket
 
     {:noreply, socket}
   end
