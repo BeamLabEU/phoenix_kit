@@ -1332,54 +1332,61 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     cond do
       socket.assigns.blog_mode != "slug" ->
-        {socket, socket.assigns.form, []}
+        no_slug_update(socket)
 
       not force? && Map.get(socket.assigns, :slug_manually_set, false) ->
-        {socket, socket.assigns.form, []}
+        no_slug_update(socket)
 
       String.trim(content) == "" ->
-        {socket, socket.assigns.form, []}
+        no_slug_update(socket)
 
       true ->
-        title = Metadata.extract_title_from_content(content)
+        update_slug_from_content(socket, content)
+    end
+  end
 
-        current_slug =
-          socket.assigns.post.slug ||
-            Map.get(socket.assigns.form, "slug", "")
+  defp no_slug_update(socket), do: {socket, socket.assigns.form, []}
 
-        case Storage.generate_unique_slug(socket.assigns.blog_slug, title || "", nil,
-               current_slug: current_slug
-             ) do
-          {:ok, ""} ->
-            {socket, socket.assigns.form, []}
+  defp update_slug_from_content(socket, content) do
+    title = Metadata.extract_title_from_content(content)
+    current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
 
-          {:ok, new_slug} ->
-            current_slug = Map.get(socket.assigns.form, "slug", "")
+    case Storage.generate_unique_slug(socket.assigns.blog_slug, title || "", nil,
+           current_slug: current_slug
+         ) do
+      {:ok, ""} ->
+        no_slug_update(socket)
 
-            if new_slug != current_slug do
-              form =
-                socket.assigns.form
-                |> Map.put("slug", new_slug)
-                |> normalize_form()
+      {:ok, new_slug} ->
+        apply_new_slug(socket, new_slug)
 
-              socket =
-                socket
-                |> assign(:last_auto_slug, new_slug)
-                |> assign(:slug_manually_set, false)
+      {:error, _reason} ->
+        no_slug_update(socket)
+    end
+  end
 
-              {socket, form, [{"update-slug", %{slug: new_slug}}]}
-            else
-              socket =
-                socket
-                |> assign(:last_auto_slug, new_slug)
-                |> assign(:slug_manually_set, false)
+  defp apply_new_slug(socket, new_slug) do
+    current_slug = Map.get(socket.assigns.form, "slug", "")
 
-              {socket, socket.assigns.form, []}
-            end
+    if new_slug != current_slug do
+      form =
+        socket.assigns.form
+        |> Map.put("slug", new_slug)
+        |> normalize_form()
 
-          {:error, _reason} ->
-            {socket, socket.assigns.form, []}
-        end
+      socket =
+        socket
+        |> assign(:last_auto_slug, new_slug)
+        |> assign(:slug_manually_set, false)
+
+      {socket, form, [{"update-slug", %{slug: new_slug}}]}
+    else
+      socket =
+        socket
+        |> assign(:last_auto_slug, new_slug)
+        |> assign(:slug_manually_set, false)
+
+      {socket, socket.assigns.form, []}
     end
   end
 

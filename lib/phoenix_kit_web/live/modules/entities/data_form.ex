@@ -14,8 +14,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   alias PhoenixKit.Entities.Presence
   alias PhoenixKit.Entities.PresenceHelpers
   alias PhoenixKit.Settings
-  alias PhoenixKit.Utils.Slug
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Slug
 
   @impl true
   def mount(%{"entity_slug" => entity_slug, "id" => id} = params, _session, socket) do
