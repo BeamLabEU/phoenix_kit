@@ -110,8 +110,10 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
         {:ok, %{status: :loaded}}
 
       {:error, :cache_not_ready} ->
-        Logger.warning(
-          "OAuth config loading failed after #{@max_retries} attempts: cache not ready"
+        # During Mix tasks (like phoenix_kit.update --status), the cache may not be ready
+        # This is expected and not an error condition - log as debug instead of warning
+        Logger.debug(
+          "OAuth config loading skipped: Settings cache not ready (likely during Mix task execution)"
         )
 
         # Don't fail supervisor startup if cache is not ready
@@ -162,7 +164,13 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
         :ok
 
       {:error, :cache_not_ready} when attempt < @max_retries ->
-        Logger.debug("Settings cache not ready, retrying... (attempt #{attempt}/#{@max_retries})")
+        # Only log every 3rd attempt to reduce noise during Mix tasks
+        if rem(attempt, 3) == 0 do
+          Logger.debug(
+            "Settings cache not ready, retrying... (attempt #{attempt}/#{@max_retries})"
+          )
+        end
+
         Process.sleep(@retry_delay)
         load_oauth_config_with_retry(attempt + 1)
 
@@ -192,10 +200,8 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
     cache_size = get_cache_size()
 
     if cache_size < 40 do
-      Logger.debug(
-        "Settings cache not fully warmed yet (#{cache_size} entries, expected 40+), retrying..."
-      )
-
+      # Don't log every attempt to reduce noise during Mix tasks
+      # Cache will be empty during Mix tasks when repo is not available
       {:error, :cache_not_ready}
     else
       # Strategy 2: Verify OAuth-specific settings are present

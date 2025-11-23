@@ -1299,21 +1299,29 @@ defmodule PhoenixKit.Settings do
   Prioritizes JSON values over string values for cache storage.
   """
   def warm_cache_data do
-    settings = repo().all(Setting)
+    # Check if repository is available before attempting to warm cache
+    # This prevents errors during Mix tasks when repo might not be started yet
+    if repo_available?() do
+      settings = repo().all(Setting)
 
-    settings
-    |> Enum.map(fn setting ->
-      # Prioritize JSON value over string value for cache storage
-      value =
-        if setting.value_json do
-          setting.value_json
-        else
-          setting.value
-        end
+      settings
+      |> Enum.map(fn setting ->
+        # Prioritize JSON value over string value for cache storage
+        value =
+          if setting.value_json do
+            setting.value_json
+          else
+            setting.value
+          end
 
-      {setting.key, value}
-    end)
-    |> Map.new()
+        {setting.key, value}
+      end)
+      |> Map.new()
+    else
+      # Repo not available (likely during Mix task execution)
+      # Return empty map - cache will be warmed later when repo becomes available
+      %{}
+    end
   rescue
     error ->
       Logger.error("Failed to warm settings cache: #{inspect(error)}")
