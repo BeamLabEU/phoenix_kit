@@ -109,6 +109,8 @@
                 value={Ecto.Changeset.get_field(@changeset, :slug) || ""}
                 placeholder={gettext("auto-generated-slug")}
                 class="input input-bordered w-full"
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                title={gettext("Use lowercase letters, numbers, and hyphens only.")}
                 phx-debounce="300"
                 disabled={@readonly?}
               />

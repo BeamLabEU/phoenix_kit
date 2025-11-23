@@ -425,6 +425,7 @@
               <select
                 name="field[type]"
                 class="select select-bordered w-full"
+                phx-debounce="300"
                 value={@field_form["type"]}
               >
                 <%= for {category_key, _label} <- PhoenixKit.Entities.FieldTypes.category_list() do %>
@@ -441,16 +442,17 @@
 
             <%!-- Field Label and Key --%>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <.label>{gettext("Field Label")} *</.label>
-                <input
-                  type="text"
-                  name="field[label]"
-                  class="input input-bordered w-full"
-                  placeholder={gettext("Field Name")}
-                  value={@field_form["label"]}
-                  required
-                />
+            <div>
+              <.label>{gettext("Field Label")} *</.label>
+              <input
+                type="text"
+                name="field[label]"
+                class="input input-bordered w-full"
+                placeholder={gettext("Field Name")}
+                value={@field_form["label"]}
+                phx-debounce="300"
+                required
+              />
                 <.label class="label">
                   <span class="label-text-alt">{gettext("Display name for users")}</span>
                 </.label>
@@ -474,6 +476,7 @@
                   class="input input-bordered w-full"
                   placeholder={gettext("field_name")}
                   value={@field_form["key"]}
+                  phx-debounce="300"
                   required
                 />
                 <.label class="label">
@@ -503,6 +506,7 @@
                   type="text"
                   name="field[default]"
                   class="input input-bordered w-full"
+                  phx-debounce="300"
                   value={@field_form["default"]}
                 />
               </div>
@@ -529,6 +533,7 @@
                         type="text"
                         value={option}
                         class="input input-bordered flex-1"
+                        phx-debounce="blur"
                         phx-blur="update_option"
                         phx-value-index={option_index}
                         placeholder={gettext("Option value")}

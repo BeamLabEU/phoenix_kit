@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   alias PhoenixKit.Entities.Presence
   alias PhoenixKit.Entities.PresenceHelpers
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Slug
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -201,6 +202,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   @impl true
   def handle_event("validate", %{"phoenix_kit_entity_data" => data_params}, socket) do
     if socket.assigns[:lock_owner?] do
+      entity_id = socket.assigns.entity.id
+      record_id = socket.assigns.data_record.id
       form_data = Map.get(data_params, "data", %{})
 
       data_params =
@@ -211,16 +214,16 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
         end
 
       data_params =
-        if is_nil(socket.assigns.data_record.id) do
+        if is_nil(record_id) do
           title = data_params["title"] || ""
           current_slug = data_params["slug"] || ""
 
           current_data = Ecto.Changeset.apply_changes(socket.assigns.changeset)
           previous_title = current_data.title || ""
-          auto_generated_slug = generate_slug_from_title(previous_title)
+          auto_generated_slug = auto_generate_entity_slug(entity_id, record_id, previous_title)
 
           if current_slug == "" || current_slug == auto_generated_slug do
-            Map.put(data_params, "slug", generate_slug_from_title(title))
+            Map.put(data_params, "slug", auto_generate_entity_slug(entity_id, record_id, title))
           else
             data_params
           end
@@ -370,6 +373,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   def handle_event("generate_slug", _params, socket) do
     if socket.assigns[:lock_owner?] do
       changeset = socket.assigns.changeset
+      entity_id = socket.assigns.entity.id
+      record_id = socket.assigns.data_record.id
 
       # Get title from changeset (includes both changes and original data)
       title = Ecto.Changeset.get_field(changeset, :title) || ""
@@ -378,8 +383,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
       if title == "" do
         {:noreply, socket}
       else
-        # Generate slug from title
-        slug = generate_slug_from_title(title)
+        # Generate slug from title using shared utility
+        slug = auto_generate_entity_slug(entity_id, record_id, title)
 
         # Get ALL current field values from the changeset
         # This includes both changed values and original struct values
@@ -698,16 +703,25 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   defp normalize_record_key(key) when is_binary(key), do: key
   defp normalize_record_key(key), do: to_string(key)
 
-  defp generate_slug_from_title(title) when is_binary(title) do
+  defp auto_generate_entity_slug(_entity_id, _record_id, title) when title in [nil, ""], do: ""
+
+  defp auto_generate_entity_slug(entity_id, current_record_id, title) do
     title
-    |> String.downcase()
-    |> String.replace(~r/[^\w\s-]/, "")
-    |> String.replace(~r/\s+/, "-")
-    |> String.replace(~r/-+/, "-")
-    |> String.trim("-")
+    |> Slug.slugify()
+    |> Slug.ensure_unique(&slug_taken_by_other?(entity_id, &1, current_record_id))
   end
 
-  defp generate_slug_from_title(_), do: ""
+  defp slug_taken_by_other?(_entity_id, "", _current_record_id), do: false
+
+  defp slug_taken_by_other?(entity_id, candidate, current_record_id) do
+    case EntityData.get_by_slug(entity_id, candidate) do
+      nil ->
+        false
+
+      %EntityData{id: id} ->
+        is_nil(current_record_id) || id != current_record_id
+    end
+  end
 
   defp populate_presence_info(socket, type, id) do
     # Get all presences sorted by joined_at (FIFO order)
