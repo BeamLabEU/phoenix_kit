@@ -38,9 +38,9 @@
             <div class="flex gap-6">
               <%!-- Avatar Preview (Left) --%>
               <div class="flex-shrink-0">
-                <% avatar_file_id = @user.custom_fields && @user.custom_fields["avatar_file_id"] %>
+                <% avatar_file_id = @pending_avatar_file_id || (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
                 <% variant = "medium" %>
-                <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center">
+                <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
                   <%= if avatar_file_id do %>
                     <% avatar_url =
                       PhoenixKit.Storage.URLSigner.signed_url(avatar_file_id, variant) %>
@@ -59,6 +59,12 @@
                         <p class="text-xs text-primary-content">Avatar</p>
                       </div>
                     </div>
+                    <%!-- Pending Badge --%>
+                    <%= if @pending_avatar_file_id do %>
+                      <div class="absolute top-2 right-2 badge badge-warning badge-sm">
+                        Pending
+                      </div>
+                    <% end %>
                   <% else %>
                     <% initials =
                       (@user.first_name || @user.email)
@@ -95,10 +101,17 @@
 
                   <%!-- Current Avatar Info --%>
                   <%= if avatar_file_id do %>
-                    <div class="text-sm text-base-content/60">
-                      <.icon name="hero-check-circle" class="w-4 h-4 inline text-success" />
-                      Avatar selected
-                    </div>
+                    <%= if @pending_avatar_file_id do %>
+                      <div class="text-sm text-warning font-semibold">
+                        <.icon name="hero-clock" class="w-4 h-4 inline" />
+                        New avatar pending - click "Update User" to save
+                      </div>
+                    <% else %>
+                      <div class="text-sm text-base-content/60">
+                        <.icon name="hero-check-circle" class="w-4 h-4 inline text-success" />
+                        Avatar selected
+                      </div>
+                    <% end %>
                   <% end %>
                 </div>
               </div>
