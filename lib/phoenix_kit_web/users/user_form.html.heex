@@ -38,7 +38,9 @@
             <div class="flex gap-6">
               <%!-- Avatar Preview (Left) --%>
               <div class="flex-shrink-0">
-                <% avatar_file_id = @pending_avatar_file_id || (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
+                <% avatar_file_id =
+                  @pending_avatar_file_id ||
+                    (@user.custom_fields && @user.custom_fields["avatar_file_id"]) %>
                 <% variant = "medium" %>
                 <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
                   <%= if avatar_file_id do %>

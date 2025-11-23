@@ -354,9 +354,10 @@ defmodule PhoenixKitWeb.Users.UserForm do
          {:ok, user_with_fields} <- update_custom_fields(updated_user, custom_fields_params),
          result <- update_user_roles_if_changed(socket, user_with_fields) do
       # Clear avatar change flag after successful update
-      socket = socket
-               |> assign(:avatar_changed, false)
-               |> assign(:pending_avatar_file_id, nil)
+      socket =
+        socket
+        |> assign(:avatar_changed, false)
+        |> assign(:pending_avatar_file_id, nil)
 
       handle_update_result(socket, result)
     else
