@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.HeroIcons
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Slug
 
   @impl true
   def mount(%{"id" => id} = params, _session, socket) do
@@ -70,8 +71,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
       |> assign(:field_types, FieldTypes.for_picker())
       |> assign(:show_field_form, false)
       |> assign(:editing_field_index, nil)
-      |> assign(:field_form, %{})
+      |> assign(:field_form, new_field_form())
       |> assign(:field_error, nil)
+      |> assign(:field_key_manually_set, false)
       |> assign(:show_icon_picker, false)
       |> assign(:icon_search, "")
       |> assign(:selected_category, "All")
@@ -222,7 +224,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
       changeset =
         socket.assigns.entity
         |> Entities.change_entity(entity_params)
-        |> Map.put(:action, :validate)
 
       socket = assign(socket, :changeset, changeset)
 
@@ -289,7 +290,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
         |> assign(:fields, fields)
         |> assign(:show_field_form, false)
         |> assign(:editing_field_index, nil)
-        |> assign(:field_form, %{})
+        |> assign(:field_form, new_field_form())
         |> assign(:field_error, nil)
         |> assign(:show_icon_picker, false)
         |> assign(:delete_confirm_index, nil)
@@ -424,14 +425,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
         socket
         |> assign(:show_field_form, true)
         |> assign(:editing_field_index, nil)
-        |> assign(:field_form, %{
-          "type" => "text",
-          "key" => "",
-          "label" => "",
-          "required" => false,
-          "default" => "",
-          "options" => []
-        })
+        |> assign(:field_form, new_field_form())
+        |> assign(:field_key_manually_set, false)
         |> assign(:field_error, nil)
         |> assign(:delete_confirm_index, nil)
 
@@ -450,7 +445,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
         socket
         |> assign(:show_field_form, true)
         |> assign(:editing_field_index, index)
-        |> assign(:field_form, field || %{})
+        |> assign(:field_form, normalize_field_form(field) || %{})
+        |> assign(:field_key_manually_set, true)
         |> assign(:field_error, nil)
 
       reply_with_broadcast(socket)
@@ -464,7 +460,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
       socket
       |> assign(:show_field_form, false)
       |> assign(:editing_field_index, nil)
-      |> assign(:field_form, %{})
+      |> assign(:field_form, new_field_form())
+      |> assign(:field_key_manually_set, false)
       |> assign(:field_error, nil)
 
     reply_with_broadcast(socket)
@@ -554,38 +551,28 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     end
   end
 
-  def handle_event("update_field_form", %{"field" => field_params}, socket) do
+  def handle_event("update_field_form", %{"field" => field_params} = params, socket) do
     if socket.assigns[:lock_owner?] do
+      target = Map.get(params, "_target", [])
+      manual_key? = manual_key_target?(target)
+
+      field_params =
+        if manual_key?, do: field_params, else: Map.delete(field_params, "key")
+
       # Update field form with live changes
-      current_form = socket.assigns.field_form
-      updated_form = Map.merge(current_form, field_params)
+      current_form = normalize_field_form(socket.assigns.field_form)
 
-      # Auto-generate key from label when adding new field (not editing)
       updated_form =
-        if is_nil(socket.assigns.editing_field_index) do
-          # Only auto-generate if label changed and key wasn't manually edited
-          label = updated_form["label"] || ""
-          current_key = updated_form["key"] || ""
-
-          # Check if the current key was auto-generated from the previous label
-          previous_label = current_form["label"] || ""
-          auto_generated_key = generate_slug_from_name(previous_label)
-
-          # If key matches the auto-generated one or is empty, update it
-          if current_key == "" || current_key == auto_generated_key do
-            Map.put(updated_form, "key", generate_slug_from_name(label))
-          else
-            # User manually edited the key, don't overwrite it
-            updated_form
-          end
-        else
-          # In edit mode, don't auto-generate
-          updated_form
-        end
+        current_form
+        |> Map.merge(field_params)
+        |> maybe_auto_update_field_key(current_form, socket.assigns.field_key_manually_set,
+          editing?: socket.assigns.editing_field_index != nil
+        )
 
       socket =
         socket
         |> assign(:field_form, updated_form)
+        |> assign(:field_key_manually_set, manual_key? || socket.assigns.field_key_manually_set)
         # Clear error when user makes changes
         |> assign(:field_error, nil)
 
@@ -914,7 +901,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     |> assign(:fields, fields)
     |> assign(:show_field_form, false)
     |> assign(:editing_field_index, nil)
-    |> assign(:field_form, %{})
+    |> assign(:field_form, new_field_form())
     |> assign(:field_error, nil)
   end
 
@@ -1040,17 +1027,67 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
          "entities-form-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false))
   end
 
-  defp generate_slug_from_name(name) when is_binary(name) do
-    name
-    |> String.downcase()
-    |> String.replace(~r/[^\w\s-]/, "")
-    |> String.replace(~r/\s+/, "_")
-    |> String.replace(~r/-+/, "_")
-    |> String.replace(~r/_+/, "_")
-    |> String.trim("_")
-  end
+  defp generate_slug_from_name(name) when is_binary(name),
+    do: Slug.slugify(name, separator: "_")
 
   defp generate_slug_from_name(_), do: ""
+
+  defp new_field_form do
+    %{
+      "type" => "text",
+      "key" => "",
+      "label" => "",
+      "required" => false,
+      "default" => "",
+      "options" => []
+    }
+  end
+
+  defp normalize_field_form(nil), do: new_field_form()
+
+  defp normalize_field_form(field) when is_map(field) do
+    Enum.reduce(field, %{}, fn {key, value}, acc ->
+      cond do
+        is_binary(key) -> Map.put(acc, key, value)
+        is_atom(key) -> Map.put(acc, Atom.to_string(key), value)
+        true -> acc
+      end
+    end)
+  end
+
+  defp maybe_auto_update_field_key(updated_form, previous_form, manual?, opts) do
+    if manual? || Keyword.get(opts, :editing?, false) do
+      updated_form
+    else
+      auto_update_field_key(updated_form, previous_form)
+    end
+  end
+
+  defp auto_update_field_key(updated_form, previous_form) do
+    label = fetch_form_value(updated_form, "label") || ""
+    current_key = fetch_form_value(updated_form, "key") || ""
+    previous_label = fetch_form_value(previous_form, "label") || ""
+    auto_generated_key = generate_slug_from_name(previous_label)
+
+    if label != "" && (current_key == "" || current_key == auto_generated_key) do
+      Map.put(updated_form, "key", generate_slug_from_name(label))
+    else
+      updated_form
+    end
+  end
+
+  defp fetch_form_value(form, key) do
+    Map.get(form, key) ||
+      case key do
+        "label" -> Map.get(form, :label)
+        "key" -> Map.get(form, :key)
+        "type" -> Map.get(form, :type)
+        _ -> nil
+      end
+  end
+
+  defp manual_key_target?(["field", "key"]), do: true
+  defp manual_key_target?(_), do: false
 
   defp populate_presence_info(socket, type, id) do
     # Get all presences sorted by joined_at (FIFO order)

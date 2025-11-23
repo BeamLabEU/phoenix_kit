@@ -32,6 +32,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:media_selected_ids, MapSet.new())
       |> assign(:is_autosaving, false)
       |> assign(:autosave_timer, nil)
+      |> assign(:slug_manually_set, false)
+      |> assign(:last_auto_slug, "")
 
     {:ok, socket}
   end
@@ -65,12 +67,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     now = DateTime.utc_now() |> DateTime.truncate(:second) |> floor_datetime_to_minute()
     virtual_post = build_virtual_post(blog_slug, blog_mode, primary_language, now)
 
+    form = post_form(virtual_post)
+
     socket =
       socket
       |> assign(:blog_mode, blog_mode)
       |> assign(:post, virtual_post)
       |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
-      |> assign(:form, post_form(virtual_post))
+      |> assign_form_with_tracking(form, slug_manually_set: false)
       |> assign(:content, "")
       |> assign(:current_language, primary_language)
       |> assign(:available_languages, virtual_post.available_languages)
@@ -116,11 +120,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> Map.put(:mode, post.mode)
               |> Map.put(:slug, post.slug)
 
+            form = post_form(virtual_post)
+
             socket
             |> assign(:blog_mode, blog_mode)
             |> assign(:post, virtual_post)
             |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
-            |> assign(:form, post_form(virtual_post))
+            |> assign_form_with_tracking(form, slug_manually_set: false)
             |> assign(:content, "")
             |> assign(:current_language, switch_to_lang)
             |> assign(:available_languages, post.available_languages)
@@ -138,11 +144,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             |> assign(:public_url, nil)
             |> push_event("changes-status", %{has_changes: false})
           else
+            form = post_form(post)
+
             socket
             |> assign(:blog_mode, blog_mode)
             |> assign(:post, %{post | blog: blog_slug})
             |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
-            |> assign(:form, post_form(post))
+            |> assign_form_with_tracking(form)
             |> assign(:content, post.content)
             |> assign(:current_language, post.language)
             |> assign(:available_languages, post.available_languages)
@@ -187,6 +195,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> Map.merge(params)
       |> normalize_form()
 
+    slug_manually_set =
+      if Map.has_key?(params, "slug") do
+        slug_value = Map.get(new_form, "slug", "")
+        slug_value != "" && slug_value != socket.assigns.last_auto_slug
+      else
+        socket.assigns.slug_manually_set
+      end
+
     has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
     # Update public_url if status changed
@@ -201,6 +217,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     socket =
       socket
       |> assign(:form, new_form)
+      |> assign(:slug_manually_set, slug_manually_set)
       |> assign(:has_pending_changes, has_changes)
       |> assign(:public_url, public_url)
       |> clear_flash()
@@ -261,33 +278,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Clear the featured image from the form (form is a simple map, not a struct)
     updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
 
-    {:noreply,
-     socket
-     |> assign(:form, updated_form)
-     |> assign(:has_pending_changes, true)
-     |> put_flash(:info, gettext("Featured image cleared"))
-     |> push_event("changes-status", %{has_changes: true})}
+    socket =
+      socket
+      |> assign(:form, updated_form)
+      |> assign(:has_pending_changes, true)
+      |> put_flash(:info, gettext("Featured image cleared"))
+      |> push_event("changes-status", %{has_changes: true})
+      |> schedule_autosave()
+
+    {:noreply, socket}
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
     # Only generate slug if in slug mode and slug is empty
     if socket.assigns.blog_mode == "slug" do
-      current_slug = Map.get(socket.assigns.form, "slug", "")
       content = socket.assigns.content || ""
 
-      new_slug =
-        if current_slug == "" and String.trim(content) != "" do
-          # Extract title from content and use it for slug
-          title = Metadata.extract_title_from_content(content)
-          Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil)
-        else
-          current_slug
-        end
-
-      new_form =
-        socket.assigns.form
-        |> Map.put("slug", new_slug)
-        |> normalize_form()
+      {socket, new_form, slug_events} =
+        maybe_update_slug_from_content(socket, content, force: true)
 
       has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
@@ -296,40 +304,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        |> assign(:form, new_form)
        |> assign(:has_pending_changes, has_changes)
        |> push_event("changes-status", %{has_changes: has_changes})
-       |> push_event("update-slug", %{slug: new_slug})}
+       |> push_slug_events(slug_events)}
     else
       {:noreply, socket}
     end
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
-    # Auto-generate slug from content live for new unsaved posts only
-    is_new_unsaved =
-      Map.get(socket.assigns, :is_new_post, false) ||
-        Map.get(socket.assigns, :is_new_translation, false)
-
-    {new_form, slug_events} =
-      if socket.assigns.blog_mode == "slug" && is_new_unsaved && String.trim(content) != "" do
-        title = Metadata.extract_title_from_content(content)
-
-        case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil) do
-          {:ok, new_slug} ->
-            current_slug = Map.get(socket.assigns.form, "slug", "")
-
-            if new_slug != current_slug do
-              {Map.put(socket.assigns.form, "slug", new_slug),
-               [{"update-slug", %{slug: new_slug}}]}
-            else
-              {socket.assigns.form, []}
-            end
-
-          {:error, _} ->
-            # If slug generation fails, keep current form
-            {socket.assigns.form, []}
-        end
-      else
-        {socket.assigns.form, []}
-      end
+    {socket, new_form, slug_events} = maybe_update_slug_from_content(socket, content)
 
     has_changes = dirty?(socket.assigns.post, new_form, content)
 
@@ -341,9 +323,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> push_event("changes-status", %{has_changes: has_changes})
 
     socket =
-      Enum.reduce(slug_events, socket, fn {event, data}, acc ->
-        push_event(acc, event, data)
-      end)
+      push_slug_events(socket, slug_events)
 
     # Trigger debounced autosave if changes detected
     socket =
@@ -448,7 +428,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       {:noreply,
        socket
        |> assign(:post, virtual_post)
-       |> assign(:form, post_form(virtual_post))
+       |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
        |> assign(:content, "")
        |> assign(:current_language, new_language)
        |> assign(:has_pending_changes, false)
@@ -485,29 +465,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     file_id = List.first(file_ids)
     inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
 
-    socket =
-      if file_id && inserting_image_component do
-        # Insert image component at cursor via JavaScript
-        js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
+    {socket, autosave?} =
+      cond do
+        file_id && inserting_image_component ->
+          # Insert image component at cursor via JavaScript
+          js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
 
-        socket
-        |> assign(:show_media_selector, false)
-        |> assign(:inserting_image_component, false)
-        |> put_flash(:info, gettext("Image component inserted"))
-        |> push_event("exec-js", %{js: js_code})
-      else
-        if file_id do
-          socket
-          |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-          |> assign(:has_pending_changes, true)
-          |> assign(:show_media_selector, false)
-          |> put_flash(:info, gettext("Featured image selected"))
-          |> push_event("changes-status", %{has_changes: true})
-        else
-          socket
-          |> assign(:show_media_selector, false)
-        end
+          {
+            socket
+            |> assign(:show_media_selector, false)
+            |> assign(:inserting_image_component, false)
+            |> put_flash(:info, gettext("Image component inserted"))
+            |> push_event("exec-js", %{js: js_code}),
+            false
+          }
+
+        file_id ->
+          {
+            socket
+            |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+            |> assign(:has_pending_changes, true)
+            |> assign(:show_media_selector, false)
+            |> put_flash(:info, gettext("Featured image selected"))
+            |> push_event("changes-status", %{has_changes: true}),
+            true
+          }
+
+        true ->
+          {socket |> assign(:show_media_selector, false), false}
       end
+
+    socket = if autosave?, do: schedule_autosave(socket), else: socket
 
     {:noreply, socket}
   end
@@ -625,6 +613,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp update_existing_post(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
+    old_path = socket.assigns.post.path
+
     case Blogging.update_post(socket.assigns.blog_slug, socket.assigns.post, params, %{
            scope: scope
          }) do
@@ -637,13 +627,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             do: nil,
             else: gettext("Post saved")
 
+        form = post_form(post)
+
         socket =
           socket
           |> assign(:post, post)
-          |> assign(:form, post_form(post))
+          |> assign_form_with_tracking(form)
           |> assign(:content, post.content)
           |> assign(:has_pending_changes, false)
           |> push_event("changes-status", %{has_changes: false})
+          |> maybe_update_current_path(old_path, post.path)
 
         {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
 
@@ -697,10 +690,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             do: nil,
             else: success_message
 
+        form = post_form(updated_post)
+
         socket =
           socket
           |> assign(:post, updated_post)
-          |> assign(:form, post_form(updated_post))
+          |> assign_form_with_tracking(form)
           |> assign(:content, updated_post.content)
           |> assign(:available_languages, updated_post.available_languages)
           |> assign(:has_pending_changes, false)
@@ -1068,7 +1063,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     |> assign(:blog_mode, mode_to_string(mode))
     |> assign(:blog_slug, blog_slug)
     |> assign(:post, post)
-    |> assign(:form, form)
+    |> assign_form_with_tracking(form, slug_manually_set: false)
     |> assign(:content, data[:content] || "")
     |> assign(:current_language, language)
     |> assign(:available_languages, post.available_languages)
@@ -1308,5 +1303,114 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     # Update the form with the selected file_id
     # The form is a simple map with string keys
     Map.put(form, "featured_image_id", file_id)
+  end
+
+  defp assign_form_with_tracking(socket, form, opts \\ []) do
+    slug = Map.get(form, "slug", "")
+
+    slug_manually_set =
+      case Keyword.fetch(opts, :slug_manually_set) do
+        {:ok, value} -> value
+        :error -> Map.get(socket.assigns, :slug_manually_set, false)
+      end
+
+    last_auto_slug =
+      case Keyword.fetch(opts, :last_auto_slug) do
+        {:ok, value} -> value
+        :error -> slug
+      end
+
+    socket
+    |> assign(:form, form)
+    |> assign(:last_auto_slug, last_auto_slug)
+    |> assign(:slug_manually_set, slug_manually_set)
+  end
+
+  defp maybe_update_slug_from_content(socket, content, opts \\ []) do
+    force? = Keyword.get(opts, :force, false)
+    content = content || ""
+
+    cond do
+      socket.assigns.blog_mode != "slug" ->
+        no_slug_update(socket)
+
+      not force? && Map.get(socket.assigns, :slug_manually_set, false) ->
+        no_slug_update(socket)
+
+      String.trim(content) == "" ->
+        no_slug_update(socket)
+
+      true ->
+        update_slug_from_content(socket, content)
+    end
+  end
+
+  defp no_slug_update(socket), do: {socket, socket.assigns.form, []}
+
+  defp update_slug_from_content(socket, content) do
+    title = Metadata.extract_title_from_content(content)
+    current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
+
+    case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil,
+           current_slug: current_slug
+         ) do
+      {:ok, ""} ->
+        no_slug_update(socket)
+
+      {:ok, new_slug} ->
+        apply_new_slug(socket, new_slug)
+
+      {:error, _reason} ->
+        no_slug_update(socket)
+    end
+  end
+
+  defp apply_new_slug(socket, new_slug) do
+    current_slug = Map.get(socket.assigns.form, "slug", "")
+
+    if new_slug != current_slug do
+      form =
+        socket.assigns.form
+        |> Map.put("slug", new_slug)
+        |> normalize_form()
+
+      socket =
+        socket
+        |> assign(:last_auto_slug, new_slug)
+        |> assign(:slug_manually_set, false)
+
+      {socket, form, [{"update-slug", %{slug: new_slug}}]}
+    else
+      socket =
+        socket
+        |> assign(:last_auto_slug, new_slug)
+        |> assign(:slug_manually_set, false)
+
+      {socket, socket.assigns.form, []}
+    end
+  end
+
+  defp push_slug_events(socket, events) do
+    Enum.reduce(events, socket, fn {event, data}, acc ->
+      push_event(acc, event, data)
+    end)
+  end
+
+  defp maybe_update_current_path(socket, old_path, new_path)
+       when new_path in [nil, ""] or new_path == old_path,
+       do: socket
+
+  defp maybe_update_current_path(socket, _old_path, new_path) do
+    encoded = URI.encode(new_path)
+
+    path =
+      Routes.path(
+        "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{encoded}",
+        locale: socket.assigns.current_locale
+      )
+
+    socket
+    |> assign(:current_path, path)
+    |> push_patch(to: path)
   end
 end

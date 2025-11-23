@@ -9,21 +9,24 @@
   current_locale={@current_locale}
 >
   <% nonce = assigns[:script_csp_nonce] || assigns[:csp_nonce] || "" %>
-  <div
-    id="editor-js-warning"
-    class="alert alert-warning mb-4 flex items-start gap-3"
-    role="alert"
-  >
-    <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
-    <div>
-      <p class="font-semibold text-base-content">
-        {gettext("Interactive editor features need JavaScript")}
-      </p>
-      <p class="text-sm text-base-content/80" data-js-warning-message>
-        {gettext(
-          "If you cannot insert components or see unsaved-change prompts, enable JavaScript or allow inline scripts for this page."
-        )}
-      </p>
+  <%!-- Wrapper div to prevent LiveView from re-rendering the warning --%>
+  <div phx-update="ignore" id="js-warning-wrapper">
+    <div
+      id="editor-js-warning"
+      class="alert alert-warning mb-4 flex items-start gap-3"
+      role="alert"
+    >
+      <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+      <div>
+        <p class="font-semibold text-base-content">
+          {gettext("Interactive editor features need JavaScript")}
+        </p>
+        <p class="text-sm text-base-content/80" data-js-warning-message>
+          {gettext(
+            "If you cannot insert components or see unsaved-change prompts, enable JavaScript or allow inline scripts for this page."
+          )}
+        </p>
+      </div>
     </div>
   </div>
 
@@ -578,6 +581,24 @@
                       {gettext("Saved")}
                     </span>
                 <% end %>
+                <button
+                  type="button"
+                  phx-click="save"
+                  class={[
+                    "btn btn-primary btn-xs shadow-none gap-1",
+                    (@is_autosaving || !@has_pending_changes) &&
+                      "btn-disabled pointer-events-none opacity-60"
+                  ]}
+                  disabled={@is_autosaving || !@has_pending_changes}
+                >
+                  <span class="hidden phx-click-loading:inline-flex items-center gap-1">
+                    <span class="loading loading-spinner loading-2xs"></span>
+                    {gettext("Saving...")}
+                  </span>
+                  <span class="inline-flex items-center gap-1 phx-click-loading:hidden">
+                    <.icon name="hero-arrow-down-tray" class="w-3 h-3" /> {gettext("Save now")}
+                  </span>
+                </button>
               </div>
             </div>
 
