@@ -1351,7 +1351,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     title = Metadata.extract_title_from_content(content)
     current_slug = socket.assigns.post.slug || Map.get(socket.assigns.form, "slug", "")
 
-    case Storage.generate_unique_slug(socket.assigns.blog_slug, title || "", nil,
+    case Storage.generate_unique_slug(socket.assigns.blog_slug, title, nil,
            current_slug: current_slug
          ) do
       {:ok, ""} ->
