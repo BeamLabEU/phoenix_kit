@@ -9,22 +9,24 @@
   current_locale={@current_locale}
 >
   <% nonce = assigns[:script_csp_nonce] || assigns[:csp_nonce] || "" %>
-  <div
-    id="editor-js-warning"
-    phx-update="ignore"
-    class="alert alert-warning mb-4 flex items-start gap-3"
-    role="alert"
-  >
-    <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
-    <div>
-      <p class="font-semibold text-base-content">
-        {gettext("Interactive editor features need JavaScript")}
-      </p>
-      <p class="text-sm text-base-content/80" data-js-warning-message>
-        {gettext(
-          "If you cannot insert components or see unsaved-change prompts, enable JavaScript or allow inline scripts for this page."
-        )}
-      </p>
+  <%!-- Wrapper div to prevent LiveView from re-rendering the warning --%>
+  <div phx-update="ignore" id="js-warning-wrapper">
+    <div
+      id="editor-js-warning"
+      class="alert alert-warning mb-4 flex items-start gap-3"
+      role="alert"
+    >
+      <.icon name="hero-exclamation-triangle" class="w-5 h-5 shrink-0" />
+      <div>
+        <p class="font-semibold text-base-content">
+          {gettext("Interactive editor features need JavaScript")}
+        </p>
+        <p class="text-sm text-base-content/80" data-js-warning-message>
+          {gettext(
+            "If you cannot insert components or see unsaved-change prompts, enable JavaScript or allow inline scripts for this page."
+          )}
+        </p>
+      </div>
     </div>
   </div>
 
