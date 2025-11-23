@@ -706,6 +706,7 @@
         show={@show_media_selector}
         mode={:single}
         selected_ids={[current_avatar_id]}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
       />
     <% else %>
       <.live_component
@@ -713,6 +714,7 @@
         id="media-selector-modal"
         show={@show_media_selector}
         mode={:single}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
       />
     <% end %>
   <% end %>

@@ -13,13 +13,14 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign(:media_selection_mode, :single)
       |> assign(:media_selected_ids, [])
 
-      # In template
+      # In template (IMPORTANT: Must pass phoenix_kit_current_user for uploads to work)
       <.live_component
         module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
         id="media-selector-modal"
         show={@show_media_selector}
         mode={@media_selection_mode}
         selected_ids={@media_selected_ids}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
       />
 
       # To open the modal
