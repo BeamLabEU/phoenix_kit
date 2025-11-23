@@ -1,5 +1,3 @@
-## [Unreleased]
-
 ## 1.6.9 - 2025-11-24
 - Fix critical supervisor ordering issue in application.ex
 - Fixed username generation
