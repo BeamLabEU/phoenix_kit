@@ -1,3 +1,13 @@
+## [Unreleased]
+
+### Fixed
+- **CRITICAL: Supervisor Ordering** - Fixed startup crashes caused by incorrect supervisor order in application.ex
+  - PhoenixKit.Supervisor and Oban now correctly start AFTER Repo instead of before
+  - Added explicit positioning using `after: [repo]` in Igniter installation logic
+  - Replaced text-based supervisor injection with proper Igniter.Project.Application API
+  - Added automatic fix in `mix phoenix_kit.update` to correct existing installations
+  - Prevents crashes: "Repo not ready" errors when loading Settings cache or Oban jobs
+  - Ensures correct order: Repo → PhoenixKit.Supervisor → Oban → Endpoint
 ## 1.6.8 - 2025-11-23
 - Fix Oban configuration detection and automatic restart
 - Improve status check messages to include Oban configuration
