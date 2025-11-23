@@ -2,6 +2,8 @@
   # Mix functions are only available during Mix compilation context
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
+  # Conditional compilation pattern match in update.ex (Code.ensure_loaded?)
+  {"lib/mix/tasks/phoenix_kit.update.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :unknown_function},
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
   {"lib/phoenix_kit/install/repo_detection.ex", :unknown_function},

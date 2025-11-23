@@ -11,6 +11,8 @@ defmodule PhoenixKit.Install.ObanConfig do
   """
   use PhoenixKit.Install.IgniterCompat
 
+  alias Igniter.Libs.Phoenix
+  alias Igniter.Project.Application
   alias PhoenixKit.Install.IgniterHelpers
 
   @doc """
@@ -258,8 +260,17 @@ defmodule PhoenixKit.Install.ObanConfig do
   Adds Oban to the parent application's supervision tree.
 
   This function ensures that Oban starts automatically when the application starts,
-  positioned after PhoenixKit.Supervisor to ensure PhoenixKit services are available
-  before Oban workers run.
+  with correct positioning in the supervisor tree:
+  - AFTER PhoenixKit.Supervisor (PhoenixKit services available)
+  - BEFORE Endpoint (Oban ready before HTTP requests)
+
+  ## Important
+
+  Oban MUST start AFTER PhoenixKit.Supervisor because PhoenixKit.Supervisor
+  depends on Repo, and Oban also depends on Repo. The correct order is:
+  1. Repo (database connection)
+  2. PhoenixKit.Supervisor (uses Repo for Settings)
+  3. Oban (uses Repo for job persistence)
 
   ## Parameters
   - `igniter` - The igniter context
@@ -269,58 +280,16 @@ defmodule PhoenixKit.Install.ObanConfig do
   """
   def add_oban_supervisor(igniter) do
     app_name = IgniterHelpers.get_parent_app_name(igniter)
-    app_file = "lib/#{app_name}/application.ex"
-    oban_line = "      {Oban, Application.get_env(:#{app_name}, Oban)},"
+    {igniter, endpoint} = Phoenix.select_endpoint(igniter)
 
-    Igniter.update_file(igniter, app_file, fn source ->
-      update_application_with_oban(source, app_name, oban_line)
-    end)
-  end
-
-  # Update application.ex source with Oban supervisor
-  defp update_application_with_oban(source, app_name, oban_line) do
-    content = Rewrite.Source.get(source, :content)
-
-    if oban_already_configured?(content, app_name) do
-      source
-    else
-      updated_content = insert_or_replace_oban(content, oban_line)
-      Rewrite.Source.update(source, :content, updated_content)
-    end
-  end
-
-  # Check if Oban is already properly configured
-  defp oban_already_configured?(content, app_name) do
-    String.contains?(content, "{Oban, Application.get_env(:#{app_name}, Oban)}")
-  end
-
-  # Insert or replace Oban configuration in application.ex
-  defp insert_or_replace_oban(content, oban_line) do
-    lines = String.split(content, "\n")
-    has_bare_oban = Enum.any?(lines, fn line -> String.trim(line) == "Oban," end)
-
-    updated_lines = process_application_lines(lines, oban_line, has_bare_oban)
-    Enum.join(updated_lines, "\n")
-  end
-
-  # Process each line to insert/replace Oban
-  defp process_application_lines(lines, oban_line, has_bare_oban) do
-    Enum.reduce(lines, [], fn line, acc ->
-      trimmed = String.trim(line)
-
-      cond do
-        # Replace bare "Oban," with proper config
-        trimmed == "Oban," ->
-          acc ++ [oban_line]
-
-        # Insert Oban after PhoenixKit.Supervisor ONLY if there's no bare Oban to replace
-        String.contains?(line, "PhoenixKit.Supervisor") and not has_bare_oban ->
-          acc ++ [line, oban_line]
-
-        true ->
-          acc ++ [line]
-      end
-    end)
+    # Use Igniter API to add Oban with explicit positioning
+    # This ensures correct order: Repo → PhoenixKit → Oban → Endpoint
+    igniter
+    |> Application.add_new_child(
+      {Oban, {:application, app_name, Oban}},
+      after: [PhoenixKit.Supervisor],
+      before: [endpoint]
+    )
   end
 
   @doc """
