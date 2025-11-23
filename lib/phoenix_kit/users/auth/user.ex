@@ -519,7 +519,19 @@ defmodule PhoenixKit.Users.Auth.User do
       nil ->
         email = get_change(changeset, :email) || get_field(changeset, :email)
 
-        if email do
+        # Only generate username if email contains "@" to ensure user finishes typing
+        if email && String.contains?(email, "@") do
+          generated_username = generate_unique_username_from_email(email)
+          put_change(changeset, :username, generated_username)
+        else
+          changeset
+        end
+
+      "" ->
+        # Treat empty string same as nil - allow generation if email has "@"
+        email = get_change(changeset, :email) || get_field(changeset, :email)
+
+        if email && String.contains?(email, "@") do
           generated_username = generate_unique_username_from_email(email)
           put_change(changeset, :username, generated_username)
         else
@@ -527,6 +539,7 @@ defmodule PhoenixKit.Users.Auth.User do
         end
 
       _ ->
+        # User has manually entered a username, don't override it
         changeset
     end
   end

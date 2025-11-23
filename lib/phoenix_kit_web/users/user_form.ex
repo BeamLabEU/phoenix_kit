@@ -55,6 +55,8 @@ defmodule PhoenixKitWeb.Users.UserForm do
       |> assign(:default_role, default_role)
       |> assign(:timezone_options, timezone_options)
       |> assign(:show_media_selector, false)
+      |> assign(:pending_avatar_file_id, nil)
+      |> assign(:avatar_changed, false)
       |> load_user_data(mode, user_id)
       |> load_form_data()
 
@@ -336,12 +338,27 @@ defmodule PhoenixKitWeb.Users.UserForm do
   defp update_user(socket, user_params) do
     user = socket.assigns.user
     custom_fields_params = Map.get(user_params, "custom_fields", %{})
+
+    # Include pending avatar if it was changed via media selector
+    custom_fields_params =
+      if socket.assigns[:avatar_changed] && socket.assigns[:pending_avatar_file_id] do
+        Map.put(custom_fields_params, "avatar_file_id", socket.assigns.pending_avatar_file_id)
+      else
+        custom_fields_params
+      end
+
     profile_params = Map.delete(user_params, "custom_fields")
 
     with :ok <- validate_custom_fields(user, custom_fields_params),
          {:ok, updated_user} <- update_user_profile(socket, user, profile_params),
          {:ok, user_with_fields} <- update_custom_fields(updated_user, custom_fields_params),
          result <- update_user_roles_if_changed(socket, user_with_fields) do
+      # Clear avatar change flag after successful update
+      socket =
+        socket
+        |> assign(:avatar_changed, false)
+        |> assign(:pending_avatar_file_id, nil)
+
       handle_update_result(socket, result)
     else
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -680,27 +697,17 @@ defmodule PhoenixKitWeb.Users.UserForm do
     # Get the first selected file ID (single selection mode)
     avatar_file_id = List.first(file_ids)
 
-    # Update user with new avatar
-    user = socket.assigns.user
-
+    # Store avatar selection without saving to database yet
+    # Avatar will be saved when "Update User" button is clicked
     socket =
-      if avatar_file_id && user do
-        case Auth.update_user_fields(user, %{"avatar_file_id" => avatar_file_id}) do
-          {:ok, updated_user} ->
-            Logger.info("Avatar updated to file_id: #{avatar_file_id}")
+      if avatar_file_id do
+        Logger.info("Avatar selected (pending save): #{avatar_file_id}")
 
-            socket
-            |> assign(:user, updated_user)
-            |> assign(:show_media_selector, false)
-            |> put_flash(:info, "Avatar updated successfully!")
-
-          {:error, changeset} ->
-            Logger.error("Failed to update avatar: #{inspect(changeset)}")
-
-            socket
-            |> assign(:show_media_selector, false)
-            |> put_flash(:error, "Failed to update avatar")
-        end
+        socket
+        |> assign(:pending_avatar_file_id, avatar_file_id)
+        |> assign(:avatar_changed, true)
+        |> assign(:show_media_selector, false)
+        |> put_flash(:info, "Avatar selected. Click 'Update User' to save.")
       else
         socket
         |> assign(:show_media_selector, false)
