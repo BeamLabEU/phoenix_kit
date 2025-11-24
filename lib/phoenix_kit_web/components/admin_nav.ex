@@ -44,6 +44,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:nested, :boolean, default: false)
   attr(:disable_active, :boolean, default: false)
   attr(:exact_match_only, :boolean, default: false)
+  attr(:submenu_open, :boolean, default: false)
 
   def admin_nav_item(assigns) do
     active =
@@ -64,10 +65,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       navigate={@href}
       class={[
         "flex items-center py-2 rounded-lg text-sm font-medium transition-colors group",
-        if(@active,
-          do: "bg-primary text-primary-content hover:bg-primary/90",
-          else: "text-base-content hover:bg-base-200 hover:text-primary"
-        ),
+        cond do
+          @active ->
+            "bg-primary text-primary-content hover:bg-primary/90"
+
+          @submenu_open ->
+            "bg-base-200/50 text-base-content hover:bg-base-200 hover:text-primary"
+
+          true ->
+            "text-base-content hover:bg-base-200 hover:text-primary"
+        end,
         if(@mobile, do: "w-full", else: ""),
         if(@nested, do: "pl-8 pr-3", else: "px-3")
       ]}

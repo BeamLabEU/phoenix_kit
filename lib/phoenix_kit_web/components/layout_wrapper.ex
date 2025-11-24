@@ -244,6 +244,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       label="Users"
                       current_path={@current_path || ""}
                       disable_active={true}
+                      submenu_open={
+                        submenu_open?(@current_path, [
+                          "/admin/users",
+                          "/admin/users/live_sessions",
+                          "/admin/users/sessions",
+                          "/admin/users/roles",
+                          "/admin/users/referral-codes"
+                        ])
+                      }
                     />
 
                     <%= if submenu_open?(@current_path, ["/admin/users", "/admin/users/live_sessions", "/admin/users/sessions", "/admin/users/roles", "/admin/users/referral-codes"]) do %>
@@ -309,6 +318,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         label="Emails"
                         current_path={@current_path || ""}
                         disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/emails",
+                            "/admin/emails/dashboard",
+                            "/admin/modules/emails/templates",
+                            "/admin/emails/queue",
+                            "/admin/emails/blocklist"
+                          ])
+                        }
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/emails", "/admin/emails/dashboard", "/admin/modules/emails/templates", "/admin/emails/queue", "/admin/emails/blocklist"]) do %>
@@ -365,6 +383,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         label="Entities"
                         current_path={@current_path || ""}
                         disable_active={true}
+                        submenu_open={submenu_open?(@current_path, ["/admin/entities"])}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
@@ -405,6 +424,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         label="Blogging"
                         current_path={@current_path || ""}
                         exact_match_only={true}
+                        submenu_open={submenu_open?(@current_path, ["/admin/blogging"])}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
@@ -436,6 +456,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       label="Settings"
                       current_path={@current_path || ""}
                       disable_active={true}
+                      submenu_open={
+                        submenu_open?(@current_path, [
+                          "/admin/settings",
+                          "/admin/settings/users",
+                          "/admin/settings/referral-codes",
+                          "/admin/settings/emails",
+                          "/admin/settings/languages",
+                          "/admin/settings/entities",
+                          "/admin/settings/media",
+                          "/admin/settings/storage/dimensions",
+                          "/admin/settings/maintenance",
+                          "/admin/settings/blogging",
+                          "/admin/settings/seo"
+                        ])
+                      }
                     />
 
                     <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo"]) do %>
