@@ -39,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:language_count, length(display_languages))
       |> assign(:enabled_count, Enum.count(display_languages, & &1["is_enabled"]))
       |> assign(:default_language, Enum.find(display_languages, & &1["is_default"]))
+      |> assign(:unknown_language_codes, get_unknown_language_codes(display_languages))
       |> assign(
         :available_languages_for_selection,
         Languages.get_available_languages_for_selection()
@@ -285,6 +286,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> assign(:language_count, length(display_languages))
     |> assign(:enabled_count, Enum.count(display_languages, & &1["is_enabled"]))
     |> assign(:default_language, Enum.find(display_languages, & &1["is_default"]))
+    |> assign(:unknown_language_codes, get_unknown_language_codes(display_languages))
   end
 
   # Helper function to generate the language switcher code based on current settings
@@ -307,5 +309,14 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       %{flag: flag} -> flag
       nil -> "🌐"
     end
+  end
+
+  # Helper function to identify unknown/deprecated language codes
+  defp get_unknown_language_codes(languages) do
+    languages
+    |> Enum.map(& &1["code"])
+    |> Enum.filter(fn code ->
+      Languages.get_predefined_language(code) == nil
+    end)
   end
 end
