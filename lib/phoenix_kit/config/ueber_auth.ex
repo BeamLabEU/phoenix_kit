@@ -52,7 +52,7 @@ defmodule PhoenixKit.Config.UeberAuth do
   """
   @spec get_all() :: Keyword.t()
   def get_all do
-    Config.get_list(:ueberauth, [])
+    Application.get_env(:ueberauth, Ueberauth, [])
   end
 
   @doc """
@@ -156,7 +156,7 @@ defmodule PhoenixKit.Config.UeberAuth do
   def set_all(options) when is_list(options) do
     current_config = get_all()
     new_config = Keyword.merge(current_config, options)
-    Config.set(:ueberauth, new_config)
+    Application.put_env(:ueberauth, Ueberauth, new_config)
     :ok
   end
 

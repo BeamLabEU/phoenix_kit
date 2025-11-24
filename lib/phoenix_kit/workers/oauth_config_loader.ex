@@ -3,14 +3,14 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   GenServer worker that ensures OAuth configuration is loaded from database
   before any OAuth requests are processed.
 
-  This worker runs synchronously during application startup to prevent timing
-  issues where Ueberauth plug is initialized before OAuth providers are configured.
+  This worker runs synchronously during application startup to configure
+  OAuth providers from database settings.
 
   ## Startup Sequence
 
-  1. Worker starts as first child in PhoenixKit.Supervisor
-  2. Waits for Settings cache to be ready (with timeout)
-  3. Loads OAuth configuration from database
+  1. PhoenixKit.Cache starts with sync_init, loading critical OAuth settings
+  2. OAuthConfigLoader starts, OAuth settings already in cache
+  3. Loads OAuth configuration from cache
   4. Configures Ueberauth with available providers
   5. Returns :ok when complete
 
@@ -22,8 +22,8 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   - Parent Endpoint (router compiles, Ueberauth.init() runs)
   - PhoenixKit.Supervisor (OAuth config should load here)
 
-  If PhoenixKit.Supervisor starts AFTER Parent Endpoint, the OAuth configuration
-  arrives too late and Ueberauth fails with MatchError.
+  With sync_init enabled in the Cache, critical OAuth settings are loaded
+  synchronously before this worker starts, eliminating race conditions.
 
   This worker ensures OAuth configuration is available as early as possible
   during PhoenixKit.Supervisor initialization.
@@ -32,15 +32,12 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   use GenServer
   require Logger
 
-  @max_retries 10
-  @retry_delay 100
-
   ## Client API
 
   @doc """
   Starts the OAuth configuration loader.
 
-  Blocks until OAuth configuration is successfully loaded or max retries exceeded.
+  Loads OAuth configuration from cache which is pre-warmed with critical settings.
   """
   def start_link(_opts) do
     GenServer.start_link(__MODULE__, [], name: __MODULE__)
@@ -103,26 +100,24 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   @impl true
   def init(_) do
     # Load OAuth configuration synchronously during initialization
-    # This ensures configuration is ready before supervisor completes startup
-    case load_oauth_config_with_retry() do
+    # With sync_init in the Cache, critical OAuth settings are already loaded
+    case load_oauth_config() do
       :ok ->
         Logger.info("OAuth config loaded successfully during startup")
         {:ok, %{status: :loaded}}
 
-      {:error, :cache_not_ready} ->
-        # During Mix tasks (like phoenix_kit.update --status), the cache may not be ready
-        # This is expected and not an error condition - log as debug instead of warning
-        Logger.debug(
-          "OAuth config loading skipped: Settings cache not ready (likely during Mix task execution)"
-        )
-
-        # Don't fail supervisor startup if cache is not ready
-        # The fallback plug will handle this case
-        {:ok, %{status: :not_loaded, reason: :cache_not_ready}}
-
       {:error, :modules_not_loaded} ->
         Logger.info("OAuth modules not loaded, OAuth features will be unavailable")
         {:ok, %{status: :not_loaded, reason: :modules_not_loaded}}
+
+      {:error, :repo_not_available} ->
+        # During Mix tasks, the repo may not be available
+        # This is expected and not an error condition
+        Logger.debug(
+          "OAuth config loading skipped: Repository not available (likely during Mix task execution)"
+        )
+
+        {:ok, %{status: :not_loaded, reason: :repo_not_available}}
     end
   rescue
     # Catch unexpected errors during initialization
@@ -158,27 +153,6 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
 
   ## Private Helpers
 
-  defp load_oauth_config_with_retry(attempt \\ 1) do
-    case load_oauth_config() do
-      :ok ->
-        :ok
-
-      {:error, :cache_not_ready} when attempt < @max_retries ->
-        # Only log every 3rd attempt to reduce noise during Mix tasks
-        if rem(attempt, 3) == 0 do
-          Logger.debug(
-            "Settings cache not ready, retrying... (attempt #{attempt}/#{@max_retries})"
-          )
-        end
-
-        Process.sleep(@retry_delay)
-        load_oauth_config_with_retry(attempt + 1)
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
   defp load_oauth_config do
     # Check if required modules are loaded
     if Code.ensure_loaded?(PhoenixKit.Users.OAuthConfig) and
@@ -191,25 +165,15 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   end
 
   defp do_load_oauth_config do
-    # CRITICAL: Verify Settings cache is FULLY warmed before configuring OAuth
-    # The cache warming is asynchronous (via handle_info(:warm_cache))
-    # We must wait until ALL settings are loaded, not just one setting
+    # With sync_init enabled, critical OAuth settings are already in cache
+    # No need to check cache size or wait for warming
 
-    # Strategy 1: Check cache size (most reliable)
-    # Based on production data: cache should have ~50+ entries when fully warmed
-    cache_size = get_cache_size()
-
-    if cache_size < 40 do
-      # Don't log every attempt to reduce noise during Mix tasks
-      # Cache will be empty during Mix tasks when repo is not available
-      {:error, :cache_not_ready}
-    else
-      # Strategy 2: Verify OAuth-specific settings are present
-      # This ensures we have actual OAuth data, not just general settings
+    # Check if repository is available (for Mix tasks)
+    if PhoenixKit.Settings.repo_available?() do
+      # OAuth settings are already loaded via sync_init
       oauth_enabled = PhoenixKit.Settings.get_setting("oauth_enabled", "false")
 
       # Check that at least one provider's credentials are accessible
-      # This confirms the cache contains OAuth-related data
       has_any_oauth_data =
         PhoenixKit.Settings.has_oauth_credentials?(:google) or
           PhoenixKit.Settings.has_oauth_credentials?(:apple) or
@@ -217,34 +181,24 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
           PhoenixKit.Settings.has_oauth_credentials?(:facebook)
 
       Logger.debug(
-        "Settings cache ready: size=#{cache_size}, oauth_enabled=#{oauth_enabled}, has_oauth_data=#{has_any_oauth_data}"
+        "OAuth configuration: enabled=#{oauth_enabled}, has_oauth_data=#{has_any_oauth_data}"
       )
 
-      # Configure OAuth providers from database
-      # At this point, ALL providers' credentials should be in cache
+      # Configure OAuth providers from settings
       alias PhoenixKit.Users.OAuthConfig
       OAuthConfig.configure_providers()
 
       :ok
+    else
+      {:error, :repo_not_available}
     end
   rescue
-    # Specific error types that indicate cache not ready (retriable)
-    error in [RuntimeError, UndefinedFunctionError] ->
-      # These are expected during startup - Settings cache may not be ready
-      Logger.debug("Settings cache not ready: #{Exception.message(error)}")
-      {:error, :cache_not_ready}
-
-    # Database connection errors (retriable)
+    # Database connection errors
     error in [DBConnection.ConnectionError, Postgrex.Error] ->
       Logger.warning("Database connection error: #{Exception.message(error)}")
-      {:error, :cache_not_ready}
+      {:error, :repo_not_available}
 
-    # ArgumentError when ETS table doesn't exist yet
-    error in [ArgumentError] ->
-      Logger.debug("Settings cache table not created yet: #{Exception.message(error)}")
-      {:error, :cache_not_ready}
-
-    # Any other unexpected error (non-retriable)
+    # Any other unexpected error
     error ->
       # Log full error with stacktrace for debugging
       Logger.error("""
@@ -254,15 +208,5 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
 
       # Re-raise to fail fast on unexpected errors
       reraise error, __STACKTRACE__
-  end
-
-  # Get the size of Settings cache ETS table
-  # Returns 0 if table doesn't exist yet
-  defp get_cache_size do
-    :ets.info(:cache_settings, :size)
-  rescue
-    ArgumentError ->
-      # Table doesn't exist yet
-      0
   end
 end

@@ -323,11 +323,23 @@ defmodule PhoenixKit.Cache do
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
     warmer = Keyword.get(opts, :warmer)
+    critical_warmer = Keyword.get(opts, :critical_warmer)
+    sync_init = Keyword.get(opts, :sync_init, false)
     ttl = Keyword.get(opts, :ttl)
     max_size = Keyword.get(opts, :max_size)
 
     table =
       :ets.new(:"cache_#{name}", [:set, :protected, :named_table, {:read_concurrency, true}])
+
+    # Support legacy cache_settings table for backwards compatibility
+    if name == :settings do
+      try do
+        :ets.new(:cache_settings, [:set, :protected, :named_table, {:read_concurrency, true}])
+      rescue
+        # Table already exists
+        ArgumentError -> :ok
+      end
+    end
 
     state = %__MODULE__{
       name: name,
@@ -337,13 +349,19 @@ defmodule PhoenixKit.Cache do
       max_size: max_size
     }
 
-    # Warm cache if warmer function is provided
-    if warmer do
-      send(self(), :warm_cache)
-    end
+    Logger.info(
+      "Started cache #{name} with table #{table}#{if sync_init, do: " (sync_init enabled)", else: ""}"
+    )
 
-    Logger.info("Started cache #{name} with table #{table}")
-    {:ok, state}
+    # Use handle_continue to warm cache after init returns
+    # This prevents blocking supervisor initialization
+    if sync_init and critical_warmer do
+      {:ok, state, {:continue, {:warm_critical, critical_warmer, warmer}}}
+    else
+      # Standard async warming
+      if warmer, do: send(self(), :warm_cache)
+      {:ok, state}
+    end
   end
 
   @impl GenServer
@@ -482,7 +500,41 @@ defmodule PhoenixKit.Cache do
   end
 
   @impl GenServer
+  def handle_continue({:warm_critical, critical_warmer, warmer}, %{name: name} = state) do
+    # Load critical data synchronously in handle_continue
+    # This runs after init returns, so supervisor can continue starting other processes
+    case safe_warm(critical_warmer) do
+      {:ok, data} when is_map(data) ->
+        warm_critical_data(state, data)
+        Logger.info("Synchronously warmed cache #{name} with #{map_size(data)} critical entries")
+
+        # Schedule loading of remaining data if main warmer exists
+        if warmer do
+          send(self(), :warm_remaining_cache)
+        end
+
+      {:error, error} ->
+        Logger.error("Failed to synchronously warm critical cache #{name}: #{inspect(error)}")
+        # Continue with async warming as fallback
+        if warmer, do: send(self(), :warm_cache)
+
+      _ ->
+        Logger.warning("Critical warmer for cache #{name} returned invalid data")
+        # Continue with async warming as fallback
+        if warmer, do: send(self(), :warm_cache)
+    end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
   def handle_info(:warm_cache, state) do
+    handle_cast(:warm, state)
+  end
+
+  @impl GenServer
+  def handle_info(:warm_remaining_cache, state) do
+    # Load all remaining data after critical data has been loaded
     handle_cast(:warm, state)
   end
 
@@ -490,6 +542,18 @@ defmodule PhoenixKit.Cache do
 
   defp via_tuple(name) do
     PhoenixKit.Cache.Registry.via_tuple(name)
+  end
+
+  defp warm_critical_data(%{name: name, table: table, ttl: ttl}, data) do
+    Enum.each(data, fn {key, value} ->
+      expires_at = if ttl, do: System.monotonic_time(:millisecond) + ttl, else: nil
+      :ets.insert(table, {key, value, expires_at})
+
+      # Also write to legacy cache_settings table if this is settings cache
+      if name == :settings do
+        :ets.insert(:cache_settings, {key, value, expires_at})
+      end
+    end)
   end
 
   defp safe_warm(warmer) when is_function(warmer, 0) do
