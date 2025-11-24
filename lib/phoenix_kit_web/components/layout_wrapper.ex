@@ -840,7 +840,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
-  defp looks_like_locale?(locale), do: String.length(locale) <= 3
+  defp looks_like_locale?(locale) do
+    # Match 2-letter codes (en, es) or regional variants (en-US, es-ES, zh-CN)
+    String.length(locale) <= 6 and String.match?(locale, ~r/^[a-z]{2}(-[A-Z]{2})?$/)
+  end
 
   defp path_matches_any?(normalized_path, paths) do
     Enum.any?(paths, fn path ->

@@ -590,7 +590,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   defp locale_candidate?(locale) do
-    String.length(locale) in 2..5 and Regex.match?(~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/, locale)
+    String.length(locale) in 2..6 and Regex.match?(~r/^[a-z]{2}(?:-[A-Z]{2})?$/, locale)
   end
 
   # Helper function to get admin languages from settings
