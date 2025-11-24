@@ -500,28 +500,35 @@ defmodule PhoenixKit.Cache do
   end
 
   @impl GenServer
-  def handle_continue({:warm_critical, critical_warmer, warmer}, %{name: name} = state) do
-    # Load critical data synchronously in handle_continue
+  def handle_continue({:warm_critical, _critical_warmer, warmer}, %{name: name} = state) do
+    # Load ALL data synchronously in handle_continue when sync_init is enabled
     # This runs after init returns, so supervisor can continue starting other processes
-    case safe_warm(critical_warmer) do
-      {:ok, data} when is_map(data) ->
-        warm_critical_data(state, data)
-        Logger.info("Synchronously warmed cache #{name} with #{map_size(data)} critical entries")
+    # We load all data instead of just critical to avoid race conditions
 
-        # Schedule loading of remaining data if main warmer exists
-        if warmer do
-          send(self(), :warm_remaining_cache)
-        end
+    # Retry warming if data is empty (repo might not be ready yet)
+    case warm_with_retry(warmer, name, 3, 100) do
+      {:ok, data} when is_map(data) and map_size(data) > 0 ->
+        warm_critical_data(state, data)
+
+        Logger.info(
+          "Synchronously warmed cache #{name} with #{map_size(data)} entries (sync_init mode)"
+        )
+
+      {:ok, empty_data} when is_map(empty_data) ->
+        Logger.warning(
+          "Cache #{name} warmed but no data loaded - repository may not be ready yet. Will retry asynchronously."
+        )
+
+        # Schedule async retry
+        Process.send_after(self(), :warm_cache, 1000)
 
       {:error, error} ->
-        Logger.error("Failed to synchronously warm critical cache #{name}: #{inspect(error)}")
-        # Continue with async warming as fallback
-        if warmer, do: send(self(), :warm_cache)
+        Logger.error("Failed to synchronously warm cache #{name}: #{inspect(error)}")
+        # Schedule async retry
+        Process.send_after(self(), :warm_cache, 1000)
 
       _ ->
-        Logger.warning("Critical warmer for cache #{name} returned invalid data")
-        # Continue with async warming as fallback
-        if warmer, do: send(self(), :warm_cache)
+        Logger.warning("Warmer for cache #{name} returned invalid data")
     end
 
     {:noreply, state}
@@ -529,12 +536,6 @@ defmodule PhoenixKit.Cache do
 
   @impl GenServer
   def handle_info(:warm_cache, state) do
-    handle_cast(:warm, state)
-  end
-
-  @impl GenServer
-  def handle_info(:warm_remaining_cache, state) do
-    # Load all remaining data after critical data has been loaded
     handle_cast(:warm, state)
   end
 
@@ -560,6 +561,24 @@ defmodule PhoenixKit.Cache do
     {:ok, warmer.()}
   rescue
     error -> {:error, error}
+  end
+
+  defp warm_with_retry(warmer, name, retries, delay) do
+    case safe_warm(warmer) do
+      {:ok, data} when is_map(data) and map_size(data) > 0 ->
+        {:ok, data}
+
+      {:ok, empty_data} when is_map(empty_data) and retries > 0 ->
+        Logger.debug(
+          "Cache #{name} warming returned empty data, retrying in #{delay}ms (#{retries} retries left)"
+        )
+
+        Process.sleep(delay)
+        warm_with_retry(warmer, name, retries - 1, delay * 2)
+
+      result ->
+        result
+    end
   end
 
   defp maybe_evict(%{max_size: nil} = state), do: state
