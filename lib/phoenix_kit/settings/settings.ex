@@ -464,6 +464,7 @@ defmodule PhoenixKit.Settings do
   Gets OAuth credentials for a specific provider.
 
   Returns a map with all credentials for the given provider.
+  Uses cache for performance - suitable for non-critical reads.
 
   ## Examples
 
@@ -484,6 +485,30 @@ defmodule PhoenixKit.Settings do
       :apple -> get_apple_oauth_credentials()
       :github -> get_github_oauth_credentials()
       :facebook -> get_facebook_oauth_credentials()
+    end
+  end
+
+  @doc """
+  Gets OAuth credentials directly from database, bypassing cache.
+
+  Use this for security-critical operations where fresh data is required,
+  such as configuring OAuth providers after settings update.
+
+  This prevents race conditions where cache invalidation hasn't completed
+  before the credentials are read.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_oauth_credentials_direct(:google)
+      %{client_id: "google-client-id", client_secret: "google-client-secret"}
+  """
+  def get_oauth_credentials_direct(provider)
+      when provider in [:google, :apple, :github, :facebook] do
+    case provider do
+      :google -> get_google_oauth_credentials_direct()
+      :apple -> get_apple_oauth_credentials_direct()
+      :github -> get_github_oauth_credentials_direct()
+      :facebook -> get_facebook_oauth_credentials_direct()
     end
   end
 
@@ -545,8 +570,88 @@ defmodule PhoenixKit.Settings do
     }
   end
 
+  # Direct database reads for OAuth credentials (bypassing cache)
+  # Used by OAuthConfig.configure_providers() to avoid race conditions
+
+  defp get_google_oauth_credentials_direct do
+    keys = ["oauth_google_client_id", "oauth_google_client_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_google_client_id", ""),
+      client_secret: Map.get(settings, "oauth_google_client_secret", "")
+    }
+  end
+
+  defp get_apple_oauth_credentials_direct do
+    keys = [
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key"
+    ]
+
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_apple_client_id", ""),
+      team_id: Map.get(settings, "oauth_apple_team_id", ""),
+      key_id: Map.get(settings, "oauth_apple_key_id", ""),
+      private_key: Map.get(settings, "oauth_apple_private_key", "")
+    }
+  end
+
+  defp get_github_oauth_credentials_direct do
+    keys = ["oauth_github_client_id", "oauth_github_client_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_github_client_id", ""),
+      client_secret: Map.get(settings, "oauth_github_client_secret", "")
+    }
+  end
+
+  defp get_facebook_oauth_credentials_direct do
+    keys = ["oauth_facebook_app_id", "oauth_facebook_app_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      app_id: Map.get(settings, "oauth_facebook_app_id", ""),
+      app_secret: Map.get(settings, "oauth_facebook_app_secret", "")
+    }
+  end
+
+  @doc """
+  Gets multiple settings directly from database, bypassing cache.
+
+  Use this for security-critical operations where fresh data is required.
+  Returns a map with setting keys and their values.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_settings_direct(["oauth_google_client_id", "oauth_google_client_secret"])
+      %{"oauth_google_client_id" => "client-id", "oauth_google_client_secret" => "secret"}
+  """
+  def get_settings_direct(keys) when is_list(keys) do
+    if repo_available?() do
+      Setting
+      |> where([s], s.key in ^keys)
+      |> select([s], {s.key, s.value})
+      |> repo().all()
+      |> Map.new()
+    else
+      %{}
+    end
+  rescue
+    error ->
+      Logger.warning("Failed to get settings directly from DB: #{inspect(error)}")
+      %{}
+  end
+
   @doc """
   Checks if OAuth credentials are configured for a provider.
+
+  Uses cache for performance - suitable for non-critical checks.
 
   ## Examples
 
@@ -555,6 +660,29 @@ defmodule PhoenixKit.Settings do
   """
   def has_oauth_credentials?(provider) when provider in [:google, :apple, :github, :facebook] do
     credentials = get_oauth_credentials(provider)
+
+    case provider do
+      :google -> validate_google_credentials(credentials)
+      :apple -> validate_apple_credentials(credentials)
+      :github -> validate_github_credentials(credentials)
+      :facebook -> validate_facebook_credentials(credentials)
+    end
+  end
+
+  @doc """
+  Checks if OAuth credentials are configured for a provider, reading directly from database.
+
+  Bypasses cache to ensure fresh data. Use this when configuring OAuth providers
+  after settings update to avoid race conditions.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.has_oauth_credentials_direct?(:google)
+      true
+  """
+  def has_oauth_credentials_direct?(provider)
+      when provider in [:google, :apple, :github, :facebook] do
+    credentials = get_oauth_credentials_direct(provider)
 
     case provider do
       :google -> validate_google_credentials(credentials)
@@ -1333,32 +1461,21 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
-  Warm cache with critical OAuth settings only.
+  Warm cache with critical settings only.
 
-  Returns map of critical OAuth settings for synchronous cache warming.
-  This is used during startup to ensure OAuth configuration is available
-  immediately, preventing race conditions with OAuthConfigLoader.
+  Returns map of critical settings for synchronous cache warming.
+  This is used during startup to ensure essential configuration is available
+  immediately.
 
-  Only loads OAuth-related settings that are required for provider configuration.
+  Note: OAuth credentials are NOT cached here because they are read directly
+  from the database via get_oauth_credentials_direct/1 to avoid race conditions
+  when credentials are updated through the admin UI.
   """
   def warm_critical_cache do
-    # Critical OAuth keys that must be loaded synchronously at startup
+    # Critical keys that must be loaded synchronously at startup
+    # OAuth credentials are intentionally NOT included - they use direct DB reads
     critical_keys = [
-      # Google OAuth
-      "oauth_google_client_id",
-      "oauth_google_client_secret",
-      # GitHub OAuth
-      "oauth_github_client_id",
-      "oauth_github_client_secret",
-      # Apple OAuth
-      "oauth_apple_client_id",
-      "oauth_apple_team_id",
-      "oauth_apple_key_id",
-      "oauth_apple_private_key_path",
-      # Facebook OAuth
-      "oauth_facebook_app_id",
-      "oauth_facebook_app_secret",
-      # OAuth general settings
+      # OAuth enabled flag only (not credentials)
       "oauth_enabled"
     ]
 

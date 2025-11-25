@@ -80,39 +80,40 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Build the list of available providers based on configured credentials
+  # Uses direct database reads to avoid cache race conditions
   defp build_provider_list do
     providers = %{}
 
-    # Add Google if credentials exist
+    # Add Google if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:google) and
+      if Settings.has_oauth_credentials_direct?(:google) and
            Settings.get_boolean_setting("oauth_google_enabled", false) do
         Map.put(providers, :google, {Ueberauth.Strategy.Google, []})
       else
         providers
       end
 
-    # Add Apple if credentials exist
+    # Add Apple if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:apple) and
+      if Settings.has_oauth_credentials_direct?(:apple) and
            Settings.get_boolean_setting("oauth_apple_enabled", false) do
         Map.put(providers, :apple, {Ueberauth.Strategy.Apple, []})
       else
         providers
       end
 
-    # Add GitHub if credentials exist
+    # Add GitHub if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:github) and
+      if Settings.has_oauth_credentials_direct?(:github) and
            Settings.get_boolean_setting("oauth_github_enabled", false) do
         Map.put(providers, :github, {Ueberauth.Strategy.Github, []})
       else
         providers
       end
 
-    # Add Facebook if credentials exist
+    # Add Facebook if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:facebook) and
+      if Settings.has_oauth_credentials_direct?(:facebook) and
            Settings.get_boolean_setting("oauth_facebook_enabled", false) do
         Map.put(providers, :facebook, {Ueberauth.Strategy.Facebook, []})
       else
@@ -123,9 +124,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Google OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_google do
     if Settings.get_boolean_setting("oauth_google_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:google)
+      credentials = Settings.get_oauth_credentials_direct(:google)
 
       if credentials.client_id != "" and credentials.client_secret != "" do
         config = [
@@ -142,9 +144,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Apple OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_apple do
     if Settings.get_boolean_setting("oauth_apple_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:apple)
+      credentials = Settings.get_oauth_credentials_direct(:apple)
 
       if credentials.client_id != "" and
            credentials.team_id != "" and
@@ -166,9 +169,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure GitHub OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_github do
     if Settings.get_boolean_setting("oauth_github_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:github)
+      credentials = Settings.get_oauth_credentials_direct(:github)
 
       if credentials.client_id != "" and credentials.client_secret != "" do
         config = [
@@ -185,9 +189,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Facebook OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_facebook do
     if Settings.get_boolean_setting("oauth_facebook_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:facebook)
+      credentials = Settings.get_oauth_credentials_direct(:facebook)
 
       if credentials.app_id != "" and credentials.app_secret != "" do
         config = [
@@ -207,6 +212,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   Validates OAuth credentials for a specific provider.
 
   Returns `{:ok, provider}` if credentials are valid, or `{:error, reason}` if not.
+  Uses direct database read for accurate validation.
 
   ## Examples
 
@@ -217,7 +223,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
       {:error, "Missing Apple private key"}
   """
   def validate_credentials(provider) when provider in [:google, :apple, :github, :facebook] do
-    credentials = Settings.get_oauth_credentials(provider)
+    credentials = Settings.get_oauth_credentials_direct(provider)
 
     case provider do
       :google -> validate_google_credentials(credentials)

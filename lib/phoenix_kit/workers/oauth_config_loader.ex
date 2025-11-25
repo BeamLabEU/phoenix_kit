@@ -173,12 +173,12 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
       # OAuth settings are already loaded via sync_init
       oauth_enabled = PhoenixKit.Settings.get_setting("oauth_enabled", "false")
 
-      # Check that at least one provider's credentials are accessible
+      # Check that at least one provider's credentials are accessible (direct DB read)
       has_any_oauth_data =
-        PhoenixKit.Settings.has_oauth_credentials?(:google) or
-          PhoenixKit.Settings.has_oauth_credentials?(:apple) or
-          PhoenixKit.Settings.has_oauth_credentials?(:github) or
-          PhoenixKit.Settings.has_oauth_credentials?(:facebook)
+        PhoenixKit.Settings.has_oauth_credentials_direct?(:google) or
+          PhoenixKit.Settings.has_oauth_credentials_direct?(:apple) or
+          PhoenixKit.Settings.has_oauth_credentials_direct?(:github) or
+          PhoenixKit.Settings.has_oauth_credentials_direct?(:facebook)
 
       Logger.debug(
         "OAuth configuration: enabled=#{oauth_enabled}, has_oauth_data=#{has_any_oauth_data}"
