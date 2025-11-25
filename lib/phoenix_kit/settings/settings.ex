@@ -1461,32 +1461,21 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
-  Warm cache with critical OAuth settings only.
+  Warm cache with critical settings only.
 
-  Returns map of critical OAuth settings for synchronous cache warming.
-  This is used during startup to ensure OAuth configuration is available
-  immediately, preventing race conditions with OAuthConfigLoader.
+  Returns map of critical settings for synchronous cache warming.
+  This is used during startup to ensure essential configuration is available
+  immediately.
 
-  Only loads OAuth-related settings that are required for provider configuration.
+  Note: OAuth credentials are NOT cached here because they are read directly
+  from the database via get_oauth_credentials_direct/1 to avoid race conditions
+  when credentials are updated through the admin UI.
   """
   def warm_critical_cache do
-    # Critical OAuth keys that must be loaded synchronously at startup
+    # Critical keys that must be loaded synchronously at startup
+    # OAuth credentials are intentionally NOT included - they use direct DB reads
     critical_keys = [
-      # Google OAuth
-      "oauth_google_client_id",
-      "oauth_google_client_secret",
-      # GitHub OAuth
-      "oauth_github_client_id",
-      "oauth_github_client_secret",
-      # Apple OAuth
-      "oauth_apple_client_id",
-      "oauth_apple_team_id",
-      "oauth_apple_key_id",
-      "oauth_apple_private_key_path",
-      # Facebook OAuth
-      "oauth_facebook_app_id",
-      "oauth_facebook_app_secret",
-      # OAuth general settings
+      # OAuth enabled flag only (not credentials)
       "oauth_enabled"
     ]
 
