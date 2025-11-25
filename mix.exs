@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.9"
+  @version "1.6.10"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -78,7 +78,7 @@ defmodule PhoenixKit.MixProject do
       {:phoenix_live_view, "~> 1.1.12"},
 
       # Web functionality
-      {:gettext, "~> 0.24"},
+      {:gettext, "~> 1.0"},
       {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.8", only: :dev},
       {:tailwind, "~> 0.4.0", only: :dev},

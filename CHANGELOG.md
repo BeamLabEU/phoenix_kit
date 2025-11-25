@@ -1,3 +1,9 @@
+## 1.6.10 - 2025-11-25
+- Added language dialects, more locations to timezones, graying out main menu buttons when inside submenus
+- Remove critical_warmer parameter: Simplified cache initialization to load all data in single operation instead of loading critical settings first then remaining settings
+- Add retry mechanism: Implement exponential backoff retry logic for empty cache results (repository not ready yet)
+- Improve handle_continue: Load all settings data synchronously when sync_init is enabled, preventing overwrites from async operations
+
 ## 1.6.9 - 2025-11-24
 - Fix critical supervisor ordering issue in application.ex
 - Fixed username generation
