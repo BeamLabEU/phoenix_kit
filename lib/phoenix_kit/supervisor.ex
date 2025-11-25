@@ -14,11 +14,16 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.PubSub.Manager,
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
-      {PhoenixKit.Cache, name: :settings, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+      # Settings cache with synchronous initialization
+      # Loads all settings in handle_continue (after init returns)
+      # This ensures OAuth configuration is available before OAuthConfigLoader starts
+      # while not blocking supervisor initialization
+      {PhoenixKit.Cache,
+       name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
-      # OAuth config loader MUST be first to ensure configuration
-      # is available before any OAuth requests are processed
+      # OAuth config loader - now guaranteed to have critical settings in cache
+      # No longer needs retry logic as cache is pre-warmed with OAuth settings
       PhoenixKit.Workers.OAuthConfigLoader,
       PhoenixKit.Entities.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing

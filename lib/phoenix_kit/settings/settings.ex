@@ -1328,6 +1328,67 @@ defmodule PhoenixKit.Settings do
       %{}
   end
 
+  @doc """
+  Warm cache with critical OAuth settings only.
+
+  Returns map of critical OAuth settings for synchronous cache warming.
+  This is used during startup to ensure OAuth configuration is available
+  immediately, preventing race conditions with OAuthConfigLoader.
+
+  Only loads OAuth-related settings that are required for provider configuration.
+  """
+  def warm_critical_cache do
+    # Critical OAuth keys that must be loaded synchronously at startup
+    critical_keys = [
+      # Google OAuth
+      "oauth_google_client_id",
+      "oauth_google_client_secret",
+      # GitHub OAuth
+      "oauth_github_client_id",
+      "oauth_github_client_secret",
+      # Apple OAuth
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key_path",
+      # Facebook OAuth
+      "oauth_facebook_app_id",
+      "oauth_facebook_app_secret",
+      # OAuth general settings
+      "oauth_enabled"
+    ]
+
+    # Check if repository is available
+    if repo_available?() do
+      settings =
+        Setting
+        |> where([s], s.key in ^critical_keys)
+        |> repo().all()
+
+      settings
+      |> Enum.map(fn setting ->
+        # Prioritize JSON value over string value for cache storage
+        value =
+          if setting.value_json do
+            setting.value_json
+          else
+            setting.value
+          end
+
+        {setting.key, value}
+      end)
+      |> Map.new()
+    else
+      # Repo not available - return empty map
+      # This should rarely happen as critical cache is loaded at startup
+      %{}
+    end
+  rescue
+    error ->
+      Logger.error("Failed to warm critical cache: #{inspect(error)}")
+      %{}
+  end
+
   ## Private Batch Query Functions
 
   # Batch query multiple string settings from database in a single operation
@@ -1440,8 +1501,13 @@ defmodule PhoenixKit.Settings do
     _ -> true
   end
 
-  # Check if the repository is available and ready to accept queries
-  defp repo_available? do
+  @doc """
+  Check if the repository is available and ready to accept queries.
+
+  Returns true if the repo is configured and running, false otherwise.
+  Used to prevent errors during Mix tasks when repo might not be started.
+  """
+  def repo_available? do
     # First check if repo is configured
     case PhoenixKit.Config.get(:repo, nil) do
       nil ->
