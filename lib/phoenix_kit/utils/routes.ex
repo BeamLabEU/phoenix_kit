@@ -23,7 +23,6 @@ defmodule PhoenixKit.Utils.Routes do
 
       case locale do
         :none -> "#{base_path}#{url_path}"
-        "en" -> "#{base_path}#{url_path}"
         locale_value -> "#{base_path}/#{locale_value}#{url_path}"
       end
     else

@@ -8,8 +8,8 @@ defmodule PhoenixKit.Modules.Languages do
   ## Language Structure
 
   Each language has the following structure:
-  - `code`: Language code (e.g., "en", "es", "fr")
-  - `name`: Full language name (e.g., "English", "Spanish", "French")
+  - `code`: Language code (e.g., "en-US", "es-ES", "fr-FR")
+  - `name`: Full language name (e.g., "English (United States)", "Spanish (Spain)", "French (France)")
   - `is_default`: Boolean indicating if this is the default language
   - `is_enabled`: Boolean indicating if this language is active
 
@@ -52,22 +52,22 @@ defmodule PhoenixKit.Modules.Languages do
 
       # Get all languages
       languages = PhoenixKit.Modules.Languages.get_languages()
-      # => [%{code: "en", name: "English", is_default: true, is_enabled: true}, ...]
+      # => [%{code: "en-US", name: "English (United States)", is_default: true, is_enabled: true}, ...]
 
       # Get only enabled languages (most common use case)
       enabled_languages = PhoenixKit.Modules.Languages.get_enabled_languages()
-      # => [%{code: "en", name: "English", ...}, %{code: "es", name: "Spanish", ...}]
+      # => [%{code: "en-US", name: "English (United States)", ...}, %{code: "es-ES", name: "Spanish (Spain)", ...}]
 
       # Get a specific language by code
-      spanish = PhoenixKit.Modules.Languages.get_language("es")
-      # => %{code: "es", name: "Spanish", is_enabled: true}
+      spanish = PhoenixKit.Modules.Languages.get_language("es-ES")
+      # => %{code: "es-ES", name: "Spanish (Spain)", is_enabled: true}
 
       # Get just the language codes
       codes = PhoenixKit.Modules.Languages.get_enabled_language_codes()
-      # => ["en", "es", "fr"]
+      # => ["en-US", "es-ES", "fr-FR"]
 
       # Check if a language is valid and enabled
-      if PhoenixKit.Modules.Languages.language_enabled?("es") do
+      if PhoenixKit.Modules.Languages.language_enabled?("es-ES") do
         # Use Spanish language
       end
 
@@ -79,14 +79,14 @@ defmodule PhoenixKit.Modules.Languages do
       {
         "languages": [
           {
-            "code": "en",
-            "name": "English",
+            "code": "en-US",
+            "name": "English (United States)",
             "is_default": true,
             "is_enabled": true
           },
           {
-            "code": "es",
-            "name": "Spanish",
+            "code": "es-ES",
+            "name": "Spanish (Spain)",
             "is_default": false,
             "is_enabled": true
           }
@@ -119,14 +119,20 @@ defmodule PhoenixKit.Modules.Languages do
     %{code: "cs", name: "Czech", native: "Čeština", flag: "🇨🇿"},
     %{code: "da", name: "Danish", native: "Dansk", flag: "🇩🇰"},
     %{code: "nl", name: "Dutch", native: "Nederlands", flag: "🇳🇱"},
-    %{code: "en", name: "English", native: "English", flag: "🇺🇸"},
+    %{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"},
+    %{code: "en-GB", name: "English (United Kingdom)", native: "English (UK)", flag: "🇬🇧"},
+    %{code: "en-CA", name: "English (Canada)", native: "English (CA)", flag: "🇨🇦"},
+    %{code: "en-AU", name: "English (Australia)", native: "English (AU)", flag: "🇦🇺"},
     %{code: "et", name: "Estonian", native: "Eesti", flag: "🇪🇪"},
     %{code: "tl", name: "Filipino", native: "Filipino", flag: "🇵🇭"},
     %{code: "fi", name: "Finnish", native: "Suomi", flag: "🇫🇮"},
-    %{code: "fr", name: "French", native: "Français", flag: "🇫🇷"},
+    %{code: "fr-FR", name: "French (France)", native: "Français (France)", flag: "🇫🇷"},
+    %{code: "fr-CA", name: "French (Canada)", native: "Français (Canada)", flag: "🇨🇦"},
     %{code: "gl", name: "Galician", native: "Galego", flag: "🏴"},
     %{code: "ka", name: "Georgian", native: "ქართული", flag: "🇬🇪"},
-    %{code: "de", name: "German", native: "Deutsch", flag: "🇩🇪"},
+    %{code: "de-DE", name: "German (Germany)", native: "Deutsch (Deutschland)", flag: "🇩🇪"},
+    %{code: "de-AT", name: "German (Austria)", native: "Deutsch (Österreich)", flag: "🇦🇹"},
+    %{code: "de-CH", name: "German (Switzerland)", native: "Deutsch (Schweiz)", flag: "🇨🇭"},
     %{code: "gu", name: "Gujarati", native: "ગુજરાતી", flag: "🇮🇳"},
     %{code: "he", name: "Hebrew", native: "עברית", flag: "🇮🇱"},
     %{code: "hi", name: "Hindi", native: "हिन्दी", flag: "🇮🇳"},
@@ -156,7 +162,8 @@ defmodule PhoenixKit.Modules.Languages do
     %{code: "no", name: "Norwegian", native: "Norsk", flag: "🇳🇴"},
     %{code: "fa", name: "Persian", native: "فارسی", flag: "🇮🇷"},
     %{code: "pl", name: "Polish", native: "Polski", flag: "🇵🇱"},
-    %{code: "pt", name: "Portuguese", native: "Português", flag: "🇵🇹"},
+    %{code: "pt-PT", name: "Portuguese (Portugal)", native: "Português (Portugal)", flag: "🇵🇹"},
+    %{code: "pt-BR", name: "Portuguese (Brazil)", native: "Português (Brasil)", flag: "🇧🇷"},
     %{code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ", flag: "🇮🇳"},
     %{code: "ro", name: "Romanian", native: "Română", flag: "🇷🇴"},
     %{code: "ru", name: "Russian", native: "Русский", flag: "🇷🇺"},
@@ -165,7 +172,10 @@ defmodule PhoenixKit.Modules.Languages do
     %{code: "si", name: "Sinhala", native: "සිංහල", flag: "🇱🇰"},
     %{code: "sk", name: "Slovak", native: "Slovenčina", flag: "🇸🇰"},
     %{code: "sl", name: "Slovenian", native: "Slovenščina", flag: "🇸🇮"},
-    %{code: "es", name: "Spanish", native: "Español", flag: "🇪🇸"},
+    %{code: "es-ES", name: "Spanish (Spain)", native: "Español (España)", flag: "🇪🇸"},
+    %{code: "es-MX", name: "Spanish (Mexico)", native: "Español (México)", flag: "🇲🇽"},
+    %{code: "es-AR", name: "Spanish (Argentina)", native: "Español (Argentina)", flag: "🇦🇷"},
+    %{code: "es-CO", name: "Spanish (Colombia)", native: "Español (Colombia)", flag: "🇨🇴"},
     %{code: "sw", name: "Swahili", native: "Kiswahili", flag: "🇰🇪"},
     %{code: "sv", name: "Swedish", native: "Svenska", flag: "🇸🇪"},
     %{code: "ta", name: "Tamil", native: "தமிழ்", flag: "🇱🇰"},
@@ -183,8 +193,8 @@ defmodule PhoenixKit.Modules.Languages do
   @default_config %{
     "languages" => [
       %{
-        "code" => "en",
-        "name" => "English",
+        "code" => "en-US",
+        "name" => "English (United States)",
         "is_default" => true,
         "is_enabled" => true
       }
@@ -193,12 +203,37 @@ defmodule PhoenixKit.Modules.Languages do
 
   # Top 10 most common languages for permanent display in admin
   @top_10_languages [
-    %{"code" => "en", "name" => "English", "is_default" => true, "is_enabled" => true},
-    %{"code" => "es", "name" => "Spanish", "is_default" => false, "is_enabled" => true},
-    %{"code" => "fr", "name" => "French", "is_default" => false, "is_enabled" => true},
-    %{"code" => "de", "name" => "German", "is_default" => false, "is_enabled" => true},
+    %{
+      "code" => "en-US",
+      "name" => "English (United States)",
+      "is_default" => true,
+      "is_enabled" => true
+    },
+    %{
+      "code" => "es-ES",
+      "name" => "Spanish (Spain)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
+    %{
+      "code" => "fr-FR",
+      "name" => "French (France)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
+    %{
+      "code" => "de-DE",
+      "name" => "German (Germany)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
     %{"code" => "ja", "name" => "Japanese", "is_default" => false, "is_enabled" => true},
-    %{"code" => "pt", "name" => "Portuguese", "is_default" => false, "is_enabled" => true},
+    %{
+      "code" => "pt-BR",
+      "name" => "Portuguese (Brazil)",
+      "is_default" => false,
+      "is_enabled" => true
+    },
     %{"code" => "it", "name" => "Italian", "is_default" => false, "is_enabled" => true},
     %{"code" => "ko", "name" => "Korean", "is_default" => false, "is_enabled" => true},
     %{"code" => "ru", "name" => "Russian", "is_default" => false, "is_enabled" => true},
@@ -240,7 +275,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.enable_system()
-      {:ok, %{"languages" => [%{"code" => "en", ...}]}}
+      {:ok, %{"languages" => [%{"code" => "en-US", ...}]}}
   """
   def enable_system do
     # Enable the system
@@ -287,10 +322,10 @@ defmodule PhoenixKit.Modules.Languages do
       iex> PhoenixKit.Modules.Languages.get_config()
       %{
         enabled: true,
-        languages: [%{"code" => "en", "name" => "English", ...}],
+        languages: [%{"code" => "en-US", "name" => "English (United States)", ...}],
         language_count: 1,
         enabled_count: 1,
-        default_language: %{"code" => "en", "name" => "English", ...}
+        default_language: %{"code" => "en-US", "name" => "English (United States)", ...}
       }
   """
   def get_config do
@@ -318,7 +353,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_languages()
-      [%{"code" => "en", "name" => "English", "is_default" => true, ...}]
+      [%{"code" => "en-US", "name" => "English (United States)", "is_default" => true, ...}]
 
       # When system is disabled:
       iex> PhoenixKit.Modules.Languages.get_languages()
@@ -343,7 +378,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_enabled_languages()
-      [%{"code" => "en", "name" => "English", ...}]
+      [%{"code" => "en-US", "name" => "English (United States)", ...}]
   """
   def get_enabled_languages do
     get_languages()
@@ -359,7 +394,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_default_language()
-      %{"code" => "en", "name" => "English", "is_default" => true, ...}
+      %{"code" => "en-US", "name" => "English (United States)", "is_default" => true, ...}
 
       # When system is disabled:
       iex> PhoenixKit.Modules.Languages.get_default_language()
@@ -381,8 +416,8 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.get_language("es")
-      %{"code" => "es", "name" => "Spanish", "is_enabled" => true}
+      iex> PhoenixKit.Modules.Languages.get_language("es-ES")
+      %{"code" => "es-ES", "name" => "Spanish (Spain)", "is_enabled" => true}
 
       iex> PhoenixKit.Modules.Languages.get_language("invalid")
       nil
@@ -404,7 +439,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_language_codes()
-      ["en", "es", "fr"]
+      ["en-US", "es-ES", "fr-FR"]
   """
   def get_language_codes do
     get_languages()
@@ -419,7 +454,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_enabled_language_codes()
-      ["en", "es"]
+      ["en-US", "es-ES"]
   """
   def get_enabled_language_codes do
     get_enabled_languages()
@@ -435,21 +470,21 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.enabled_locale_codes()
-      ["en", "es", "fr"]
+      ["en-US", "es-ES", "fr-FR"]
 
       # When system is disabled:
       iex> PhoenixKit.Modules.Languages.enabled_locale_codes()
-      ["en"]
+      ["en-US"]
   """
   def enabled_locale_codes do
     # Return enabled language codes from the frontend language module only
     # Admin navbar languages are managed separately in settings
     if enabled?() do
       codes = get_enabled_language_codes()
-      # Ensure we always have at least "en" as a fallback
-      if Enum.empty?(codes), do: ["en"], else: codes
+      # Ensure we always have at least "en-US" as a fallback
+      if Enum.empty?(codes), do: ["en-US"], else: codes
     else
-      ["en"]
+      ["en-US"]
     end
   end
 
@@ -466,11 +501,11 @@ defmodule PhoenixKit.Modules.Languages do
 
       # When enabled (any number of languages)
       iex> PhoenixKit.Modules.Languages.get_display_languages()
-      [%{"code" => "en", "name" => "English", ...}]
+      [%{"code" => "en-US", "name" => "English (United States)", ...}]
 
       # When disabled
       iex> PhoenixKit.Modules.Languages.get_display_languages()
-      [%{"code" => "en", ...}, %{"code" => "es", ...}, ...]  # Top 12 default
+      [%{"code" => "en-US", ...}, %{"code" => "es-ES", ...}, ...]  # Top 12 default
   """
   def get_display_languages do
     if enabled?() do
@@ -507,7 +542,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.valid_language?("es")
+      iex> PhoenixKit.Modules.Languages.valid_language?("es-ES")
       true
 
       iex> PhoenixKit.Modules.Languages.valid_language?("invalid")
@@ -524,7 +559,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.language_enabled?("es")
+      iex> PhoenixKit.Modules.Languages.language_enabled?("es-ES")
       true
 
       iex> PhoenixKit.Modules.Languages.language_enabled?("disabled_lang")
@@ -547,7 +582,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_default_language_codes()
-      ["en", "es", "fr", "de", "pt", "it", "nl", "ru", "ja", "ko", "zh-CN", "ar"]
+      ["en-US", "es-ES", "fr-FR", "de-DE", "pt-BR", "it", "nl", "ru", "ja", "ko", "zh-CN", "ar"]
   """
   def get_default_language_codes do
     @top_10_languages
@@ -563,7 +598,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_available_languages()
-      [%{code: "en", name: "English", native: "English", flag: "🇺🇸"}, ...]
+      [%{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"}, ...]
   """
   def get_available_languages do
     @available_languages
@@ -578,7 +613,7 @@ defmodule PhoenixKit.Modules.Languages do
   ## Examples
 
       iex> PhoenixKit.Modules.Languages.get_available_languages_for_selection()
-      [%{code: "es", name: "Spanish", native: "Español", flag: "🇪🇸"}, ...]
+      [%{code: "es-ES", name: "Spanish (Spain)", native: "Español (España)", flag: "🇪🇸"}, ...]
   """
   def get_available_languages_for_selection do
     if enabled?() do
@@ -598,8 +633,8 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.get_predefined_language("es")
-      %{code: "es", name: "Spanish", native: "Español", flag: "🇪🇸"}
+      iex> PhoenixKit.Modules.Languages.get_predefined_language("es-ES")
+      %{code: "es-ES", name: "Spanish (Spain)", native: "Español (España)", flag: "🇪🇸"}
 
       iex> PhoenixKit.Modules.Languages.get_predefined_language("invalid")
       nil
@@ -617,10 +652,10 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.add_language("es")
+      iex> PhoenixKit.Modules.Languages.add_language("es-ES")
       {:ok, updated_config}
 
-      iex> PhoenixKit.Modules.Languages.add_language("en")  # if already exists
+      iex> PhoenixKit.Modules.Languages.add_language("en-US")  # if already exists
       {:error, "Language already exists"}
 
       iex> PhoenixKit.Modules.Languages.add_language("invalid")
@@ -668,7 +703,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.update_language("es", %{name: "Español"})
+      iex> PhoenixKit.Modules.Languages.update_language("es-ES", %{name: "Español"})
       {:ok, updated_config}
 
       iex> PhoenixKit.Modules.Languages.update_language("nonexistent", %{name: "Test"})
@@ -694,10 +729,10 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.remove_language("es")
+      iex> PhoenixKit.Modules.Languages.remove_language("es-ES")
       {:ok, updated_config}
 
-      iex> PhoenixKit.Modules.Languages.remove_language("en")  # if it's default
+      iex> PhoenixKit.Modules.Languages.remove_language("en-US")  # if it's default
       {:error, "Cannot remove default language"}
   """
   def remove_language(code) when is_binary(code) do
@@ -735,7 +770,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.set_default_language("es")
+      iex> PhoenixKit.Modules.Languages.set_default_language("es-ES")
       {:ok, updated_config}
 
       iex> PhoenixKit.Modules.Languages.set_default_language("nonexistent")
@@ -750,7 +785,7 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.enable_language("es")
+      iex> PhoenixKit.Modules.Languages.enable_language("es-ES")
       {:ok, updated_config}
   """
   def enable_language(code) when is_binary(code) do
@@ -764,10 +799,10 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.disable_language("es")
+      iex> PhoenixKit.Modules.Languages.disable_language("es-ES")
       {:ok, updated_config}
 
-      iex> PhoenixKit.Modules.Languages.disable_language("en")  # if it's default
+      iex> PhoenixKit.Modules.Languages.disable_language("en-US")  # if it's default
       {:error, "Cannot disable default language"}
   """
   def disable_language(code) when is_binary(code) do
@@ -788,10 +823,10 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.move_language_up("es")
+      iex> PhoenixKit.Modules.Languages.move_language_up("es-ES")
       {:ok, updated_config}
 
-      iex> PhoenixKit.Modules.Languages.move_language_up("en")  # if first in array
+      iex> PhoenixKit.Modules.Languages.move_language_up("en-US")  # if first in array
       {:error, "Language is already at the top"}
   """
   def move_language_up(code) when is_binary(code) do
@@ -835,10 +870,10 @@ defmodule PhoenixKit.Modules.Languages do
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.move_language_down("en")
+      iex> PhoenixKit.Modules.Languages.move_language_down("en-US")
       {:ok, updated_config}
 
-      iex> PhoenixKit.Modules.Languages.move_language_down("es")  # if last in array
+      iex> PhoenixKit.Modules.Languages.move_language_down("es-ES")  # if last in array
       {:error, "Language is already at the bottom"}
   """
   def move_language_down(code) when is_binary(code) do

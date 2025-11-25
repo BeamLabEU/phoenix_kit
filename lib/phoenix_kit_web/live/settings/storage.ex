@@ -16,13 +16,16 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do
-    # Get current path for navigation
-    current_path = get_current_path(socket, session)
+    # Set locale for LiveView process FIRST - preserve from params or socket assigns
+    locale = params["locale"] || socket.assigns[:current_locale]
 
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    if locale do
+      Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
+      Process.put(:phoenix_kit_current_locale, locale)
+    end
+
+    # Get current path for navigation (after locale is set)
+    current_path = get_current_path(socket, session)
 
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")

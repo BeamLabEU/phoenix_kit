@@ -111,6 +111,9 @@
                     <%= if language["is_default"] do %>
                       <span class="badge badge-primary badge-sm">Default</span>
                     <% end %>
+                    <%= if language["code"] in @unknown_language_codes do %>
+                      <span class="badge badge-warning badge-sm">Unknown</span>
+                    <% end %>
                   </div>
                   <div class="flex items-center gap-2">
                     <%!-- Move buttons only in configured mode --%>
@@ -170,8 +173,8 @@
                   </button>
                 <% end %>
 
-                <%!-- Remove Button (only in configured mode, and not the default language) --%>
-                <%= if @in_configured_mode and not language["is_default"] do %>
+                <%!-- Remove Button (show for unknown codes or in configured mode, but not for default language) --%>
+                <%= if (language["code"] in @unknown_language_codes and not language["is_default"]) or (@in_configured_mode and not language["is_default"]) do %>
                   <button
                     class="btn btn-error btn-xs"
                     phx-click="remove_language"

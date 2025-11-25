@@ -1244,7 +1244,49 @@
                     class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full mt-2 max-h-96 overflow-y-auto border border-base-300"
                   >
                     <ul class="space-y-1">
+                      <%!-- Unknown/Deprecated Languages Section (if any exist) --%>
+                      <% unknown_selected_codes =
+                        Enum.filter(@admin_languages, fn code ->
+                          PhoenixKit.Modules.Languages.get_predefined_language(code) == nil
+                        end) %>
+
+                      <%= if not Enum.empty?(unknown_selected_codes) do %>
+                        <li class="menu-title">
+                          <span class="text-warning">⚠️ Unknown/Deprecated Languages</span>
+                        </li>
+                        <%= for language_code <- unknown_selected_codes do %>
+                          <li>
+                            <a
+                              class="flex items-center gap-3 p-3 rounded hover:bg-base-200 bg-warning/10"
+                              phx-click="remove_admin_language_from_form"
+                              phx-value-code={language_code}
+                            >
+                              <div class="flex-shrink-0">
+                                <input
+                                  type="checkbox"
+                                  class="checkbox checkbox-warning pointer-events-none"
+                                  checked={true}
+                                />
+                              </div>
+                              <div class="flex-1 flex flex-wrap items-center gap-2">
+                                <span class="text-xl">🌐</span>
+                                <div class="flex flex-col">
+                                  <span class="font-medium">{language_code}</span>
+                                  <span class="text-xs text-warning">
+                                    Unknown code - click to remove
+                                  </span>
+                                </div>
+                              </div>
+                            </a>
+                          </li>
+                        <% end %>
+                        <div class="divider my-1"></div>
+                      <% end %>
+
                       <%!-- Popular Languages Section --%>
+                      <li class="menu-title">
+                        <span>Available Languages</span>
+                      </li>
                       <%= for language <- Enum.filter(PhoenixKit.Modules.Languages.get_available_languages(), & &1.code in PhoenixKit.Modules.Languages.get_default_language_codes()) do %>
                         <% is_selected = language.code in @admin_languages %>
                         <li>
