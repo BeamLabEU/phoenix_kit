@@ -1,3 +1,6 @@
+## 1.6.11 - 2025-11-25
+- Fix OAuth buttons generating incorrect URLs with locale prefix
+
 ## 1.6.10 - 2025-11-25
 - Added language dialects, more locations to timezones, graying out main menu buttons when inside submenus
 - Remove critical_warmer parameter: Simplified cache initialization to load all data in single operation instead of loading critical settings first then remaining settings
