@@ -122,12 +122,13 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # Localized scope with generic locale pattern
-      # Accepts any 2-5 character language code format (e.g., "en", "zh-CN", "ar", etc.)
+      # Localized scope with base language code pattern
+      # Accepts only 2-letter base language codes (e.g., "en", "es", "fr", "de")
+      # Full dialect codes (en-US, es-MX) are redirected to base codes by the validation plug
       # Actual validation of whether the locale is supported happens in the validation plug
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
-            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
+            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}$/) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)

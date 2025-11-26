@@ -939,40 +939,149 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp signed_in_path(_conn), do: "/"
 
   @doc """
-  Validates and sets the locale from the URL path parameter.
+  Validates and sets the locale for the current request.
 
-  Extracts the locale from the `:locale` path parameter, validates it against
-  enabled language codes from the database, and either sets the locale or
-  redirects to the default locale URL if invalid.
+  This function is called as a plug in the router to validate locale codes in the URL path.
+  It implements PhoenixKit's simplified URL architecture:
+
+  - URLs use base language codes (en, es, fr) for simplicity
+  - Full dialect codes (en-US, es-MX) are redirected to base codes (301)
+  - User preferences determine which dialect variant to use for translations
+  - Translation system uses full dialect codes internally
+
+  ## Data Flow
+
+  1. Check if URL contains full dialect code → redirect to base
+  2. Validate base code exists in predefined language list
+  3. Resolve to full dialect using user preference or default mapping
+  4. Set Gettext to full dialect for translations
+  5. Store both base code (for URLs) and full dialect (for translations)
 
   ## Examples
 
-      # Valid locale in URL
-      conn = validate_and_set_locale(conn, [])  # Sets Gettext locale
+      # Base code in URL (preferred format)
+      conn = validate_and_set_locale(conn, [])
+      # Sets: current_locale_base="en", current_locale="en-US"
+
+      # Full dialect in URL (legacy/bookmarks)
+      conn = validate_and_set_locale(%{path_params: %{"locale" => "en-US"}}, [])
+      # Redirects 301 to: /en/...
 
       # Invalid locale in URL
-      conn = validate_and_set_locale(conn, [])  # Redirects to default locale URL
+      conn = validate_and_set_locale(%{path_params: %{"locale" => "xx"}}, [])
+      # Redirects to default locale URL
   """
   def validate_and_set_locale(conn, _opts) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     case conn.path_params do
       %{"locale" => locale} when is_binary(locale) ->
-        # Accept any valid predefined language code
-        # get_predefined_language() checks the static list of 80+ languages
-        # regardless of whether the Language Module is enabled
-        if Languages.get_predefined_language(locale) do
-          # Valid language - set it and continue
-          Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-          assign(conn, :current_locale, locale)
-        else
-          # Invalid locale - redirect to default locale URL
-          redirect_invalid_locale(conn, locale)
+        cond do
+          # Check if this is a full dialect code (contains hyphen) → redirect to base
+          String.contains?(locale, "-") ->
+            redirect_to_base_locale(conn, locale)
+
+          # Validate base code exists in predefined language list
+          DialectMapper.valid_base_code?(locale) ->
+            # Resolve to full dialect based on user preference
+            current_user = conn.assigns[:current_user]
+            full_dialect = DialectMapper.resolve_dialect(locale, current_user)
+
+            # Set Gettext to full dialect for translations
+            Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
+
+            # Store both base (for URLs) and full dialect (for translations)
+            # Also store in Process dictionary for LiveView mount functions
+            Process.put(:phoenix_kit_current_locale_base, locale)
+            Process.put(:phoenix_kit_current_locale, full_dialect)
+
+            conn
+            |> assign(:current_locale_base, locale)
+            |> assign(:current_locale, full_dialect)
+            |> put_session(:phoenix_kit_locale_base, locale)
+
+          # Invalid base code → redirect to default
+          true ->
+            redirect_invalid_locale(conn, locale)
         end
 
       _ ->
-        # No locale in URL - set default locale
-        Gettext.put_locale(PhoenixKitWeb.Gettext, "en")
-        assign(conn, :current_locale, "en")
+        # No locale in URL - set defaults
+        default_dialect = Languages.enabled_locale_codes() |> List.first() || "en-US"
+        default_base = DialectMapper.extract_base(default_dialect)
+
+        Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+        Process.put(:phoenix_kit_current_locale_base, default_base)
+        Process.put(:phoenix_kit_current_locale, default_dialect)
+
+        conn
+        |> assign(:current_locale_base, default_base)
+        |> assign(:current_locale, default_dialect)
     end
+  end
+
+  @doc """
+  Redirects full dialect code URLs to base language URLs (301 permanent).
+
+  This function handles backward compatibility by redirecting old URLs with
+  full dialect codes (en-US, es-MX) to the new simplified base code URLs (en, es).
+
+  Uses 301 Permanent redirect to tell browsers and search engines to update bookmarks
+  and indexed URLs. This is SEO-friendly and provides clean URL migration.
+
+  ## Examples
+
+      iex> redirect_to_base_locale(conn, "en-US")
+      # /phoenix_kit/en-US/admin/dashboard → /phoenix_kit/en/admin/dashboard
+
+      iex> redirect_to_base_locale(conn, "es-MX")
+      # /phoenix_kit/es-MX/users?page=2 → /phoenix_kit/es/users?page=2
+
+  ## Preservation
+
+  - Query parameters preserved
+  - URL fragments preserved
+  - Request method unchanged (GET → GET)
+  - Full path structure maintained
+
+  ## Notes
+
+  - Status code 301 (Permanent) tells clients to update bookmarks
+  - Halts conn pipeline (no further processing)
+  - Logged for monitoring migration patterns
+  """
+  def redirect_to_base_locale(conn, full_dialect) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    base_code = DialectMapper.extract_base(full_dialect)
+
+    # Replace first occurrence of full dialect with base code
+    # Handles: /phoenix_kit/en-US/admin → /phoenix_kit/en/admin
+    corrected_path =
+      String.replace(
+        conn.request_path,
+        "/#{full_dialect}/",
+        "/#{base_code}/",
+        global: false
+      )
+
+    # Handle case where dialect is at end of path
+    # Handles: /phoenix_kit/en-US → /phoenix_kit/en
+    corrected_path =
+      if String.ends_with?(conn.request_path, "/#{full_dialect}") do
+        String.replace_suffix(corrected_path, "/#{full_dialect}", "/#{base_code}")
+      else
+        corrected_path
+      end
+
+    # Log redirect for monitoring (helps track migration patterns)
+    Logger.info(
+      "Redirecting full dialect URL to base code: #{full_dialect} → #{base_code}. Path: #{conn.request_path}"
+    )
+
+    conn
+    |> Phoenix.Controller.redirect(to: corrected_path, status: 301)
+    |> halt()
   end
 
   @doc """

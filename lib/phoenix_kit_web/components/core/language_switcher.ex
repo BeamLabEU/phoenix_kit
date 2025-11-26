@@ -70,32 +70,54 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   )
 
   def language_switcher_dropdown(assigns) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Auto-detect current_locale if not explicitly provided
+    # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
         "en"
 
-    # Use provided languages or fetch from Language Module
-    # get_display_languages() returns configured languages or defaults (top 12)
-    languages = assigns.languages || Languages.get_display_languages()
+    # Extract base code for comparison (in case locale is full dialect)
+    base_locale = DialectMapper.extract_base(locale)
+
+    # Get enabled languages and group by base code
+    languages_config = assigns.languages || Languages.get_display_languages()
+
+    # Group dialects by base language and take first enabled of each
+    base_languages =
+      languages_config
+      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
+      |> Enum.map(fn {base, dialects} ->
+        # Use first enabled dialect for this base language
+        first_dialect = List.first(dialects)
+
+        %{
+          "code" => base,
+          "name" => extract_base_language_name(first_dialect["name"]),
+          "flag" => first_dialect["flag"]
+        }
+      end)
+      |> Enum.sort_by(& &1["code"])
 
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != locale))
+        Enum.filter(base_languages, &(&1["code"] != base_locale))
       else
-        languages
+        base_languages
       end
 
     current_language =
-      Enum.find(filtered_languages, &(&1["code"] == locale)) ||
-        %{"code" => locale, "name" => String.upcase(locale)}
+      Enum.find(filtered_languages, &(&1["code"] == base_locale)) ||
+        %{"code" => base_locale, "name" => String.upcase(base_locale)}
 
     assigns =
       assigns
-      |> assign(:current_locale, locale)
+      |> assign(:current_locale, base_locale)
       |> assign(:languages, filtered_languages)
       |> assign(:current_language, current_language)
 
@@ -180,28 +202,50 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_buttons(assigns) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Auto-detect current_locale if not explicitly provided
+    # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
         "en"
 
-    # Use provided languages or fetch from Language Module
-    # get_display_languages() returns configured languages or defaults (top 12)
-    languages = assigns.languages || Languages.get_display_languages()
+    # Extract base code for comparison (in case locale is full dialect)
+    base_locale = DialectMapper.extract_base(locale)
+
+    # Get enabled languages and group by base code
+    languages_config = assigns.languages || Languages.get_display_languages()
+
+    # Group dialects by base language and take first enabled of each
+    base_languages =
+      languages_config
+      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
+      |> Enum.map(fn {base, dialects} ->
+        # Use first enabled dialect for this base language
+        first_dialect = List.first(dialects)
+
+        %{
+          "code" => base,
+          "name" => extract_base_language_name(first_dialect["name"]),
+          "flag" => first_dialect["flag"]
+        }
+      end)
+      |> Enum.sort_by(& &1["code"])
 
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != locale))
+        Enum.filter(base_languages, &(&1["code"] != base_locale))
       else
-        languages
+        base_languages
       end
 
     assigns =
       assigns
-      |> assign(:current_locale, locale)
+      |> assign(:current_locale, base_locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
@@ -261,28 +305,50 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
   def language_switcher_inline(assigns) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Auto-detect current_locale if not explicitly provided
+    # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
+        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
         "en"
 
-    # Use provided languages or fetch from Language Module
-    # get_display_languages() returns configured languages or defaults (top 12)
-    languages = assigns.languages || Languages.get_display_languages()
+    # Extract base code for comparison (in case locale is full dialect)
+    base_locale = DialectMapper.extract_base(locale)
+
+    # Get enabled languages and group by base code
+    languages_config = assigns.languages || Languages.get_display_languages()
+
+    # Group dialects by base language and take first enabled of each
+    base_languages =
+      languages_config
+      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
+      |> Enum.map(fn {base, dialects} ->
+        # Use first enabled dialect for this base language
+        first_dialect = List.first(dialects)
+
+        %{
+          "code" => base,
+          "name" => extract_base_language_name(first_dialect["name"]),
+          "flag" => first_dialect["flag"]
+        }
+      end)
+      |> Enum.sort_by(& &1["code"])
 
     # Filter out current language if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(languages, &(&1["code"] != locale))
+        Enum.filter(base_languages, &(&1["code"] != base_locale))
       else
-        languages
+        base_languages
       end
 
     assigns =
       assigns
-      |> assign(:current_locale, locale)
+      |> assign(:current_locale, base_locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
@@ -332,5 +398,16 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # Future enhancement: parse current path and preserve it when available via assigns
   defp generate_language_url(_current_locale, new_locale) do
     "/#{new_locale}"
+  end
+
+  # Helper function to extract base language name from full name
+  # Example: "English (United States)" → "English"
+  # Example: "Spanish (Mexico)" → "Spanish"
+  # Example: "Japanese" → "Japanese"
+  defp extract_base_language_name(full_name) do
+    full_name
+    |> String.split("(")
+    |> List.first()
+    |> String.trim()
   end
 end

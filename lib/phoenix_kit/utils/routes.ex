@@ -33,9 +33,22 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   defp determine_locale do
-    Process.get(:phoenix_kit_current_locale) ||
-      Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-      "en"
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Check if we have base code in process dictionary (preferred)
+    case Process.get(:phoenix_kit_current_locale_base) do
+      nil ->
+        # Fall back to extracting base from full dialect
+        full_dialect =
+          Process.get(:phoenix_kit_current_locale) ||
+            Gettext.get_locale(PhoenixKitWeb.Gettext) ||
+            "en-US"
+
+        DialectMapper.extract_base(full_dialect)
+
+      base_code ->
+        base_code
+    end
   end
 
   @doc """
@@ -43,9 +56,18 @@ defmodule PhoenixKit.Utils.Routes do
 
   This function is specifically designed for use in component templates
   where the locale needs to be passed explicitly via assigns.
+
+  Prefers base locale code for URL generation (current_locale_base),
+  falls back to extracting base from full dialect code (current_locale).
   """
   def locale_aware_path(assigns, url_path) do
-    locale = assigns[:current_locale] || "en"
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Prefer base code, fall back to extracting from full dialect
+    locale =
+      assigns[:current_locale_base] ||
+        DialectMapper.extract_base(assigns[:current_locale] || "en-US")
+
     path(url_path, locale: locale)
   end
 
