@@ -1,3 +1,6 @@
+## 1.6.13 - 2025-11-26
+- Fixed issue with locales not working correctly on fresh install
+
 ## 1.6.12 - 2025-11-26
 - Fixed locale switching to correct base codes
 
