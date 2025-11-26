@@ -133,8 +133,22 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp valid_language?(code) when is_binary(code) do
-    # Check if it's an enabled language code
-    Languages.language_enabled?(code)
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Check if it's an enabled language code (full dialect like en-US)
+    # OR if it's a valid base code (like en) that maps to an enabled dialect
+    cond do
+      Languages.language_enabled?(code) ->
+        true
+
+      # Check if it's a base code that maps to an enabled dialect
+      String.length(code) == 2 and not String.contains?(code, "-") ->
+        dialect = DialectMapper.base_to_dialect(code)
+        Languages.language_enabled?(dialect)
+
+      true ->
+        false
+    end
   rescue
     _ -> false
   end
@@ -291,12 +305,31 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp fetch_post(blog_slug, {:timestamp, date, time}, language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Resolve base code to dialect if needed (e.g., "en" -> "en-US")
+    resolved_language = resolve_language_for_file(language)
+
     # Build path for timestamp mode: blog/date/time/language.phk
-    path = "#{blog_slug}/#{date}/#{time}/#{language}.phk"
+    path = "#{blog_slug}/#{date}/#{time}/#{resolved_language}.phk"
 
     case Blogging.read_post(blog_slug, path) do
       {:ok, post} -> {:ok, post}
       _ -> {:error, :post_not_found}
+    end
+  end
+
+  # Resolve a language code to the appropriate file language
+  # Handles both base codes (en) and full dialect codes (en-US)
+  defp resolve_language_for_file(language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    if String.length(language) == 2 and not String.contains?(language, "-") do
+      # It's a base code - convert to default dialect
+      DialectMapper.base_to_dialect(language)
+    else
+      # Already a full dialect code
+      language
     end
   end
 
@@ -305,6 +338,8 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_translation_links(blog_slug, post, current_language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Get enabled languages
     enabled_languages =
       try do
@@ -312,6 +347,9 @@ defmodule PhoenixKitWeb.BlogController do
       rescue
         _ -> ["en"]
       end
+
+    # Extract base code from current language for comparison
+    current_base = DialectMapper.extract_base(current_language)
 
     # Filter available languages to only show enabled ones
     languages =
@@ -322,11 +360,13 @@ defmodule PhoenixKitWeb.BlogController do
       end)
 
     Enum.map(languages, fn lang ->
+      base_code = DialectMapper.extract_base(lang)
+
       %{
-        code: lang,
+        code: base_code,
         name: get_language_name(lang),
-        url: BlogHTML.build_post_url(blog_slug, post, lang),
-        current: lang == current_language
+        url: BlogHTML.build_post_url(blog_slug, post, base_code),
+        current: base_code == current_base
       }
     end)
   end

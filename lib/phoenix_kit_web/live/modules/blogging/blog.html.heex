@@ -284,7 +284,9 @@
                             <%= if hide_flags do %>
                               {gettext("Edit")}
                             <% else %>
-                              <span class="text-base">{flag}</span> {String.upcase(lang_code)}
+                              <span class="text-base">{flag}</span> {lang_code
+                              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
+                              |> String.upcase()}
                             <% end %>
                           </.link>
                           <%!-- Layer 3: View button (only for published posts in enabled languages) --%>
@@ -333,7 +335,9 @@
                               }
                             >
                               <.icon name="hero-plus" class="w-3 h-3 mr-1" />
-                              <span class="text-lg">{flag}</span> {String.upcase(lang_code)}
+                              <span class="text-lg">{flag}</span> {lang_code
+                              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
+                              |> String.upcase()}
                             </button>
                           </div>
                         <% end %>
