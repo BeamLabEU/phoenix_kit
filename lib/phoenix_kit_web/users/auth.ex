@@ -397,15 +397,15 @@ defmodule PhoenixKitWeb.Users.Auth do
       socket
       |> Phoenix.Component.assign(:phoenix_kit_locale_hook_attached?, true)
       |> Phoenix.LiveView.attach_hook(:phoenix_kit_locale_handler, :handle_event, fn
-        "phoenix_kit_set_locale", %{"dialect" => dialect, "url" => url}, socket ->
-          # Save dialect preference if user is authenticated
+        "phoenix_kit_set_locale", %{"locale" => locale, "url" => url}, socket ->
+          # Save locale preference if user is authenticated
           case socket.assigns do
             %{phoenix_kit_current_user: %{} = user} when not is_nil(user) ->
-              PhoenixKit.Users.Auth.update_user_locale_preference(user, dialect)
+              PhoenixKit.Users.Auth.update_user_locale_preference(user, locale)
 
             %{phoenix_kit_current_scope: scope} ->
               case PhoenixKit.Users.Auth.Scope.user(scope) do
-                %{} = user -> PhoenixKit.Users.Auth.update_user_locale_preference(user, dialect)
+                %{} = user -> PhoenixKit.Users.Auth.update_user_locale_preference(user, locale)
                 _ -> :ok
               end
 
