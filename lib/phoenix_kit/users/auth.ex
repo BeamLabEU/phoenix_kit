@@ -1032,6 +1032,33 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Updates user's preferred locale (dialect preference).
+
+  This allows users to select specific language dialects (e.g., en-GB, en-US)
+  while URLs continue to use base codes (e.g., /en/).
+
+  ## Examples
+
+      iex> update_user_locale_preference(user, "en-GB")
+      {:ok, %User{preferred_locale: "en-GB"}}
+
+      iex> update_user_locale_preference(user, "invalid")
+      {:error, %Ecto.Changeset{}}
+  """
+  def update_user_locale_preference(%User{} = user, preferred_locale)
+      when is_binary(preferred_locale) do
+    case user
+         |> User.preferred_locale_changeset(%{preferred_locale: preferred_locale})
+         |> Repo.update() do
+      {:ok, updated_user} ->
+        {:ok, updated_user}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  @doc """
   Updates user custom fields.
 
   Custom fields are stored as JSONB and can contain arbitrary key-value pairs

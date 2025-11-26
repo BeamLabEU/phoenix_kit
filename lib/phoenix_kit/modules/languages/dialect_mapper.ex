@@ -353,7 +353,7 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
   def dialects_for_base(base_code) when is_binary(base_code) do
     base_lower = String.downcase(base_code)
 
-    Languages.predefined_languages()
+    Languages.get_available_languages()
     |> Enum.filter(fn %{code: code} ->
       extract_base(code) == base_lower
     end)

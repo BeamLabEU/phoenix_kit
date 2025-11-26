@@ -64,6 +64,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
+  attr(:current_path, :string,
+    default: nil,
+    doc: "Current path to preserve when switching languages"
+  )
+
   attr(:_language_update_key, :any,
     default: nil,
     doc: "Internal: forces re-render when languages change"
@@ -76,48 +81,51 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
-        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en"
+        "en-US"
 
-    # Extract base code for comparison (in case locale is full dialect)
-    base_locale = DialectMapper.extract_base(locale)
-
-    # Get enabled languages and group by base code
+    # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
 
-    # Group dialects by base language and take first enabled of each
-    base_languages =
+    # Transform to include both base code (for URLs) and dialect (for preference)
+    all_dialects =
       languages_config
-      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
-      |> Enum.map(fn {base, dialects} ->
-        # Use first enabled dialect for this base language
-        first_dialect = List.first(dialects)
+      |> Enum.map(fn lang ->
+        dialect = lang["code"]
+        base = DialectMapper.extract_base(dialect)
+        flag = get_language_flag(dialect)
 
         %{
-          "code" => base,
-          "name" => extract_base_language_name(first_dialect["name"]),
-          "flag" => first_dialect["flag"]
+          "base_code" => base,
+          "dialect" => dialect,
+          "name" => lang["name"],
+          "flag" => flag
         }
       end)
-      |> Enum.sort_by(& &1["code"])
+      |> Enum.sort_by(& &1["name"])
 
-    # Filter out current language if hide_current is enabled
+    # Filter out current dialect if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(base_languages, &(&1["code"] != base_locale))
+        Enum.filter(all_dialects, &(&1["dialect"] != locale))
       else
-        base_languages
+        all_dialects
       end
 
+    # Find current language by full dialect code
     current_language =
-      Enum.find(filtered_languages, &(&1["code"] == base_locale)) ||
-        %{"code" => base_locale, "name" => String.upcase(base_locale)}
+      Enum.find(all_dialects, &(&1["dialect"] == locale)) ||
+        %{
+          "base_code" => DialectMapper.extract_base(locale),
+          "dialect" => locale,
+          "name" => String.upcase(locale),
+          "flag" => "🌐"
+        }
 
     assigns =
       assigns
-      |> assign(:current_locale, base_locale)
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
       |> assign(:current_language, current_language)
 
@@ -135,18 +143,17 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           <%= for language <- @languages do %>
             <li class="w-full">
               <a
-                href={
-                  if @goto_home,
-                    do: "/#{language["code"]}",
-                    else: generate_language_url(@current_locale, language["code"])
-                }
+                href={generate_base_code_url(language["base_code"], @current_path)}
+                phx-click="phoenix_kit_set_locale"
+                phx-value-dialect={language["dialect"]}
+                phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
                 class={[
                   "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
-                  if(language["code"] == @current_locale, do: "bg-base-200", else: "")
+                  if(language["dialect"] == @current_locale, do: "bg-base-200", else: "")
                 ]}
               >
                 <%= if @show_flags do %>
-                  <span class="text-lg">{get_language_flag(language["code"])}</span>
+                  <span class="text-lg">{language["flag"]}</span>
                 <% end %>
                 <%= if @show_names do %>
                   <div class="flex-1">
@@ -162,7 +169,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                 <% else %>
                   <div class="flex-1"></div>
                 <% end %>
-                <%= if language["code"] == @current_locale do %>
+                <%= if language["dialect"] == @current_locale do %>
                   <span class="ml-auto">✓</span>
                 <% end %>
               </a>
@@ -201,6 +208,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
+  attr(:current_path, :string,
+    default: nil,
+    doc: "Current path to preserve when switching languages"
+  )
+
   def language_switcher_buttons(assigns) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
@@ -208,68 +220,64 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
-        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en"
+        "en-US"
 
-    # Extract base code for comparison (in case locale is full dialect)
-    base_locale = DialectMapper.extract_base(locale)
-
-    # Get enabled languages and group by base code
+    # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
 
-    # Group dialects by base language and take first enabled of each
-    base_languages =
+    # Transform to include both base code (for URLs) and dialect (for preference)
+    all_dialects =
       languages_config
-      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
-      |> Enum.map(fn {base, dialects} ->
-        # Use first enabled dialect for this base language
-        first_dialect = List.first(dialects)
+      |> Enum.map(fn lang ->
+        dialect = lang["code"]
+        base = DialectMapper.extract_base(dialect)
+        flag = get_language_flag(dialect)
 
         %{
-          "code" => base,
-          "name" => extract_base_language_name(first_dialect["name"]),
-          "flag" => first_dialect["flag"]
+          "base_code" => base,
+          "dialect" => dialect,
+          "name" => lang["name"],
+          "flag" => flag
         }
       end)
-      |> Enum.sort_by(& &1["code"])
+      |> Enum.sort_by(& &1["name"])
 
-    # Filter out current language if hide_current is enabled
+    # Filter out current dialect if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(base_languages, &(&1["code"] != base_locale))
+        Enum.filter(all_dialects, &(&1["dialect"] != locale))
       else
-        base_languages
+        all_dialects
       end
 
     assigns =
       assigns
-      |> assign(:current_locale, base_locale)
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
     <div class={["flex gap-2", @class]}>
       <%= for language <- @languages do %>
         <a
-          href={
-            if @goto_home,
-              do: "/#{language["code"]}",
-              else: generate_language_url(@current_locale, language["code"])
-          }
+          href={generate_base_code_url(language["base_code"], @current_path)}
+          phx-click="phoenix_kit_set_locale"
+          phx-value-dialect={language["dialect"]}
+          phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
           class={[
             "btn btn-sm",
-            if(language["code"] == @current_locale,
+            if(language["dialect"] == @current_locale,
               do: "btn-primary",
               else: "btn-outline"
             )
           ]}
         >
           <%= if @show_flags do %>
-            <span>{get_language_flag(language["code"])}</span>
+            <span>{language["flag"]}</span>
           <% end %>
           <%= if @show_names do %>
-            <span>{language["code"] |> String.upcase()}</span>
+            <span>{language["base_code"] |> String.upcase()}</span>
           <% end %>
         </a>
       <% end %>
@@ -304,6 +312,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   attr(:hide_current, :boolean, default: false, doc: "Hide currently selected language from list")
   attr(:class, :string, default: "", doc: "Additional CSS classes")
 
+  attr(:current_path, :string,
+    default: nil,
+    doc: "Current path to preserve when switching languages"
+  )
+
   def language_switcher_inline(assigns) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
@@ -311,44 +324,41 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # This might be a base code (en) or full dialect (en-US)
     locale =
       assigns.current_locale ||
-        Process.get(:phoenix_kit_current_locale_base) ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en"
+        "en-US"
 
-    # Extract base code for comparison (in case locale is full dialect)
-    base_locale = DialectMapper.extract_base(locale)
-
-    # Get enabled languages and group by base code
+    # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
 
-    # Group dialects by base language and take first enabled of each
-    base_languages =
+    # Transform to include both base code (for URLs) and dialect (for preference)
+    all_dialects =
       languages_config
-      |> Enum.group_by(&DialectMapper.extract_base(&1["code"]))
-      |> Enum.map(fn {base, dialects} ->
-        # Use first enabled dialect for this base language
-        first_dialect = List.first(dialects)
+      |> Enum.map(fn lang ->
+        dialect = lang["code"]
+        base = DialectMapper.extract_base(dialect)
+        flag = get_language_flag(dialect)
 
         %{
-          "code" => base,
-          "name" => extract_base_language_name(first_dialect["name"]),
-          "flag" => first_dialect["flag"]
+          "base_code" => base,
+          "dialect" => dialect,
+          "name" => lang["name"],
+          "flag" => flag
         }
       end)
-      |> Enum.sort_by(& &1["code"])
+      |> Enum.sort_by(& &1["name"])
 
-    # Filter out current language if hide_current is enabled
+    # Filter out current dialect if hide_current is enabled
     filtered_languages =
       if assigns.hide_current do
-        Enum.filter(base_languages, &(&1["code"] != base_locale))
+        Enum.filter(all_dialects, &(&1["dialect"] != locale))
       else
-        base_languages
+        all_dialects
       end
 
     assigns =
       assigns
-      |> assign(:current_locale, base_locale)
+      |> assign(:current_locale, locale)
       |> assign(:languages, filtered_languages)
 
     ~H"""
@@ -359,24 +369,23 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
             <span class="text-base-content/30">|</span>
           <% end %>
           <a
-            href={
-              if @goto_home,
-                do: "/#{language["code"]}",
-                else: generate_language_url(@current_locale, language["code"])
-            }
+            href={generate_base_code_url(language["base_code"], @current_path)}
+            phx-click="phoenix_kit_set_locale"
+            phx-value-dialect={language["dialect"]}
+            phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
             class={[
               "text-sm transition hover:text-primary",
-              if(language["code"] == @current_locale,
+              if(language["dialect"] == @current_locale,
                 do: "font-bold text-primary",
                 else: "text-base-content"
               )
             ]}
           >
             <%= if @show_flags do %>
-              <span class="mr-1">{get_language_flag(language["code"])}</span>
+              <span class="mr-1">{language["flag"]}</span>
             <% end %>
             <%= if @show_names do %>
-              {language["code"] |> String.upcase()}
+              {language["base_code"] |> String.upcase()}
             <% end %>
           </a>
         </div>
@@ -393,11 +402,123 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     end
   end
 
-  # Helper function to generate language switch URL
-  # Current implementation returns home page with new locale
-  # Future enhancement: parse current path and preserve it when available via assigns
-  defp generate_language_url(_current_locale, new_locale) do
-    "/#{new_locale}"
+  # Generate URL with ONLY base code - no dialect, no query params
+  # This is the clean URL used in href attributes
+  # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/en/admin/dashboard"
+  defp generate_base_code_url(base_code, current_path) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Extract base code from current path for proper path processing
+    current_base = extract_locale_from_path(current_path)
+
+    # Remove locale from path
+    path_without_locale = get_path_without_locale(current_path, current_base)
+
+    # Generate clean URL with base code only
+    PhoenixKit.Utils.Routes.path(path_without_locale, locale: base_code)
+  end
+
+  # Extract the locale segment from a path
+  # /en/admin/dashboard => "en"
+  # /en-US/admin/dashboard => "en-US"
+  defp extract_locale_from_path(nil), do: nil
+
+  defp extract_locale_from_path(path) do
+    case String.split(path, "/", parts: 3) do
+      ["", locale, _rest] -> locale
+      ["", locale] -> locale
+      _ -> nil
+    end
+  end
+
+  # Helper function to generate language switch URL with dialect preference
+  # Always uses base code in URL (e.g., /en/admin/dashboard)
+  # Dialect preference is stored in user record, not in URL
+  defp generate_language_url_with_dialect(current_locale, language_map, current_path \\ nil) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    base_code = language_map["base_code"]
+    dialect = language_map["dialect"]
+
+    # Extract current base code for path processing
+    current_base =
+      if is_binary(current_locale) and String.contains?(current_locale, "-") do
+        DialectMapper.extract_base(current_locale)
+      else
+        DialectMapper.extract_base(current_locale)
+      end
+
+    # Determine the path to use (preserve current or go to root)
+    path_without_locale = get_path_without_locale(current_path, current_base)
+
+    # Generate URL with ONLY base code - no query parameters
+    generated_url = PhoenixKit.Utils.Routes.path(path_without_locale, locale: base_code)
+
+    require Logger
+
+    Logger.debug("""
+    [PhoenixKit LanguageSwitcher] Generating URL with dialect
+    - Current locale: #{inspect(current_locale)}
+    - New base code: #{base_code}
+    - User selected dialect: #{dialect}
+    - Current path: #{inspect(current_path)}
+    - Path without locale: #{path_without_locale}
+    - Generated URL: #{generated_url}
+    - Note: Dialect #{dialect} will be used based on user's saved preference
+    """)
+
+    generated_url
+  end
+
+  # Legacy helper function for backward compatibility
+  # Preserves current path but switches locale to base code
+  # If no current_path provided, defaults to home page
+  defp generate_language_url(current_locale, new_locale, current_path \\ nil) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Extract base code from new locale (handles both "en" and "en-US" formats)
+    new_base_code = DialectMapper.extract_base(new_locale)
+
+    # Determine the path to use (preserve current or go to root)
+    path_without_locale = get_path_without_locale(current_path, current_locale)
+
+    # Generate URL with new base code and preserved path
+    generated_url = PhoenixKit.Utils.Routes.path(path_without_locale, locale: new_base_code)
+
+    require Logger
+
+    Logger.debug("""
+    [PhoenixKit LanguageSwitcher] Generating URL
+    - Current locale: #{inspect(current_locale)}
+    - New locale: #{inspect(new_locale)}
+    - New base code: #{new_base_code}
+    - Current path: #{inspect(current_path)}
+    - Path without locale: #{path_without_locale}
+    - Generated URL: #{generated_url}
+    """)
+
+    generated_url
+  end
+
+  # Helper function to extract path without locale prefix
+  # Handles: /en/admin/dashboard → /admin/dashboard
+  # Handles: /admin/dashboard → /admin/dashboard (no locale)
+  # Handles: nil → / (root)
+  defp get_path_without_locale(nil, _current_locale), do: "/"
+
+  defp get_path_without_locale(current_path, current_locale) do
+    # Remove locale from path: /en/admin/dashboard → /admin/dashboard
+    case String.split(current_path, "/", parts: 3) do
+      ["", ^current_locale, rest] when is_binary(rest) ->
+        "/#{rest}"
+
+      ["", ^current_locale] ->
+        "/"
+
+      _ ->
+        # Path doesn't start with locale, return as-is
+        current_path
+    end
   end
 
   # Helper function to extract base language name from full name

@@ -231,17 +231,38 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Get admin languages from settings (separate from the language module)
     admin_languages = get_admin_languages()
 
+    # Extract base code from current locale for matching
+    current_base = DialectMapper.extract_base(assigns.current_locale)
+
+    # Transform languages: code = base (for URLs), dialect = full (for preferences)
+    transformed_languages =
+      Enum.map(admin_languages, fn lang ->
+        dialect = lang["code"]
+        base = DialectMapper.extract_base(dialect)
+
+        lang
+        |> Map.put("code", base)
+        |> Map.put("dialect", dialect)
+      end)
+
     current_language =
-      Enum.find(admin_languages, &(&1["code"] == assigns.current_locale)) ||
-        %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
+      Enum.find(transformed_languages, &(&1["code"] == current_base)) ||
+        %{
+          "code" => current_base,
+          "dialect" => assigns.current_locale,
+          "name" => String.upcase(current_base)
+        }
 
     assigns =
       assigns
-      |> assign(:enabled_languages, admin_languages)
+      |> assign(:enabled_languages, transformed_languages)
       |> assign(:current_language, current_language)
+      |> assign(:current_base, current_base)
 
     ~H"""
     <div class="relative" data-language-dropdown>
@@ -257,17 +278,20 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <%= for language <- @enabled_languages do %>
             <li class="w-full">
               <a
-                href={generate_language_switch_url(@current_path, language["code"])}
+                href={build_locale_url(@current_path, language["code"])}
+                phx-click="phoenix_kit_set_locale"
+                phx-value-dialect={language["dialect"]}
+                phx-value-url={build_locale_url(@current_path, language["code"])}
                 class={[
                   "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
-                  if(language["code"] == @current_locale, do: "bg-base-200", else: "")
+                  if(language["code"] == @current_base, do: "bg-base-200", else: "")
                 ]}
               >
-                <span class="text-lg">{get_language_flag(language["code"])}</span>
+                <span class="text-lg">{get_language_flag(language["dialect"])}</span>
                 <span class="flex-1 text-left font-medium text-base-content">
                   {language["name"]}
                 </span>
-                <%= if language["code"] == @current_locale do %>
+                <%= if language["code"] == @current_base do %>
                   <PhoenixKitWeb.Components.Core.Icons.icon_check class="size-4 text-primary" />
                 <% end %>
               </a>
@@ -634,18 +658,24 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     end
   end
 
-  # Helper function to generate language switch URL
-  # This function handles both admin and frontend language switchers
-  defp generate_language_switch_url(current_path, new_locale) do
+  # Build URL with base code - expects base code directly (e.g., "en" not "en-US")
+  # Used by admin language dropdown where language["code"] is already the base code
+  defp build_locale_url(current_path, base_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Get valid language codes from both admin and frontend systems
     admin_languages = get_admin_languages()
     admin_language_codes = Enum.map(admin_languages, & &1["code"])
+    admin_base_codes = Enum.map(admin_language_codes, &DialectMapper.extract_base/1)
 
     # Get frontend language codes from the Language Module
     frontend_language_codes = Languages.enabled_locale_codes()
+    frontend_base_codes = Enum.map(frontend_language_codes, &DialectMapper.extract_base/1)
 
-    # Accept language if it's valid in EITHER admin or frontend
-    valid_language_codes = (admin_language_codes ++ frontend_language_codes) |> Enum.uniq()
+    # Accept language if it's valid in EITHER admin or frontend (both full and base codes)
+    valid_language_codes =
+      (admin_language_codes ++ frontend_language_codes ++ admin_base_codes ++ frontend_base_codes)
+      |> Enum.uniq()
 
     # Remove PhoenixKit prefix if present
     normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
@@ -660,14 +690,28 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             normalized_path
           end
 
+        ["", potential_locale] ->
+          if potential_locale in valid_language_codes do
+            "/"
+          else
+            normalized_path
+          end
+
         _ ->
           normalized_path
       end
 
-    # Build the new URL with the new locale prefix
+    # Build the new URL with the base code locale prefix
     url_prefix = PhoenixKit.Config.get_url_prefix()
     base_prefix = if url_prefix == "/", do: "", else: url_prefix
 
-    "#{base_prefix}/#{new_locale}#{clean_path}"
+    "#{base_prefix}/#{base_code}#{clean_path}"
+  end
+
+  # Legacy helper - kept for backward compatibility
+  defp generate_language_switch_url(current_path, new_locale) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+    base_code = DialectMapper.extract_base(new_locale)
+    build_locale_url(current_path, base_code)
   end
 end

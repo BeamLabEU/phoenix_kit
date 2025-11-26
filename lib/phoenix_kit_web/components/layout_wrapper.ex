@@ -1120,21 +1120,41 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_locale, :string, default: "en"
 
   defp admin_language_switcher(assigns) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     # Only show if languages are enabled and there are enabled languages
     if Languages.enabled?() do
       enabled_languages = Languages.get_enabled_languages()
 
       # Only show if there are multiple languages (more than current one)
       if length(enabled_languages) > 1 do
-        current_language =
-          Enum.find(enabled_languages, &(&1["code"] == assigns.current_locale)) ||
-            %{"code" => assigns.current_locale, "name" => String.upcase(assigns.current_locale)}
+        # Extract base code from current locale for matching
+        current_base = DialectMapper.extract_base(assigns.current_locale)
 
-        other_languages = Enum.reject(enabled_languages, &(&1["code"] == assigns.current_locale))
+        # Transform languages to use base codes as main identifier
+        # %{"code" => "en", "dialect" => "en-US", "name" => "English (US)", ...}
+        transformed_languages =
+          Enum.map(enabled_languages, fn lang ->
+            dialect = lang["code"]
+            base = DialectMapper.extract_base(dialect)
+
+            lang
+            |> Map.put("code", base)
+            |> Map.put("dialect", dialect)
+          end)
+
+        current_language =
+          Enum.find(transformed_languages, &(&1["code"] == current_base)) ||
+            %{
+              "code" => current_base,
+              "dialect" => assigns.current_locale,
+              "name" => String.upcase(current_base)
+            }
+
+        other_languages = Enum.reject(transformed_languages, &(&1["code"] == current_base))
 
         assigns =
           assigns
-          |> assign(:enabled_languages, enabled_languages)
           |> assign(:current_language, current_language)
           |> assign(:other_languages, other_languages)
 
@@ -1142,7 +1162,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <div class="dropdown dropdown-end w-full" style="position: relative;">
           <%!-- Current Language Button --%>
           <div tabindex="0" role="button" class="btn btn-outline btn-sm w-full justify-start">
-            <span class="text-lg">{get_language_flag(@current_language["code"])}</span>
+            <span class="text-lg">{get_language_flag(@current_language["dialect"])}</span>
             <span class="truncate flex-1 text-left">{@current_language["name"]}</span>
             <span class="text-xs">▲</span>
           </div>
@@ -1156,10 +1176,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             <%= for language <- @other_languages do %>
               <li>
                 <a
-                  href={generate_language_switch_url(@current_path, language["code"])}
+                  href={build_locale_url(@current_path, language["code"])}
+                  phx-click="phoenix_kit_set_locale"
+                  phx-value-dialect={language["dialect"]}
+                  phx-value-url={build_locale_url(@current_path, language["code"])}
                   class="flex items-center gap-3 px-3 py-2 hover:bg-base-200 rounded-lg"
                 >
-                  <span class="text-lg">{get_language_flag(language["code"])}</span>
+                  <span class="text-lg">{get_language_flag(language["dialect"])}</span>
                   <span>{language["name"]}</span>
                 </a>
               </li>
@@ -1183,20 +1206,31 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
-  # Used in HEEX template - compiler cannot detect usage
-  def generate_language_switch_url(current_path, new_locale) do
-    # Get actual enabled language codes to properly detect locale prefixes
+  # Build URL with base code - expects base code directly (e.g., "en" not "en-US")
+  # Used by admin language switcher where language["code"] is already the base code
+  def build_locale_url(current_path, base_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Get enabled codes for locale detection in path
     enabled_language_codes = Languages.get_enabled_language_codes()
+    enabled_base_codes = Enum.map(enabled_language_codes, &DialectMapper.extract_base/1)
 
     # Remove PhoenixKit prefix if present
     normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
 
-    # Remove existing locale prefix only if it matches actual language codes
+    # Remove existing locale prefix from path
     clean_path =
       case String.split(normalized_path, "/", parts: 3) do
         ["", potential_locale, rest] ->
-          if potential_locale in enabled_language_codes do
+          if potential_locale in enabled_language_codes or potential_locale in enabled_base_codes do
             "/" <> rest
+          else
+            normalized_path
+          end
+
+        ["", potential_locale] ->
+          if potential_locale in enabled_language_codes or potential_locale in enabled_base_codes do
+            "/"
           else
             normalized_path
           end
@@ -1205,10 +1239,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
           normalized_path
       end
 
-    # Build the new URL with the new locale prefix
+    # Build URL with base code
     url_prefix = PhoenixKit.Config.get_url_prefix()
     base_prefix = if url_prefix == "/", do: "", else: url_prefix
 
-    "#{base_prefix}/#{new_locale}#{clean_path}"
+    "#{base_prefix}/#{base_code}#{clean_path}"
+  end
+
+  # Legacy function - kept for backward compatibility
+  def generate_language_switch_url(current_path, new_locale) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+    base_code = DialectMapper.extract_base(new_locale)
+    build_locale_url(current_path, base_code)
   end
 end
