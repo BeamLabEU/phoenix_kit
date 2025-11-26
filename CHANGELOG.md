@@ -1,3 +1,6 @@
+## 1.6.12 - 2025-11-26
+- Fixed locale switching to correct base codes
+
 ## 1.6.11 - 2025-11-25
 - Fix OAuth buttons generating incorrect URLs with locale prefix
 
