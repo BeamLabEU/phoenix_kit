@@ -388,43 +388,6 @@ defmodule PhoenixKitWeb.Users.Auth do
     {:cont, socket}
   end
 
-  # Attach a hook to handle locale switching events from language switcher
-  defp attach_locale_hook(socket) do
-    # Check if hook is already attached to avoid duplicates
-    if socket.assigns[:phoenix_kit_locale_hook_attached?] do
-      socket
-    else
-      socket
-      |> Phoenix.Component.assign(:phoenix_kit_locale_hook_attached?, true)
-      |> Phoenix.LiveView.attach_hook(
-        :phoenix_kit_locale_handler,
-        :handle_event,
-        &handle_locale_event/3
-      )
-    end
-  end
-
-  defp handle_locale_event("phoenix_kit_set_locale", %{"locale" => locale, "url" => url}, socket) do
-    save_user_locale_preference(socket.assigns, locale)
-    {:halt, Phoenix.LiveView.redirect(socket, to: url)}
-  end
-
-  defp handle_locale_event(_event, _params, socket), do: {:cont, socket}
-
-  defp save_user_locale_preference(%{phoenix_kit_current_user: %{} = user}, locale)
-       when not is_nil(user) do
-    Auth.update_user_locale_preference(user, locale)
-  end
-
-  defp save_user_locale_preference(%{phoenix_kit_current_scope: scope}, locale) do
-    case Scope.user(scope) do
-      %{} = user -> Auth.update_user_locale_preference(user, locale)
-      _ -> :ok
-    end
-  end
-
-  defp save_user_locale_preference(_assigns, _locale), do: :ok
-
   def on_mount(:phoenix_kit_ensure_authenticated, _params, session, socket) do
     socket = mount_phoenix_kit_current_user(socket, session)
 
@@ -585,6 +548,43 @@ defmodule PhoenixKitWeb.Users.Auth do
         {:halt, socket}
     end
   end
+
+  # Attach a hook to handle locale switching events from language switcher
+  defp attach_locale_hook(socket) do
+    # Check if hook is already attached to avoid duplicates
+    if socket.assigns[:phoenix_kit_locale_hook_attached?] do
+      socket
+    else
+      socket
+      |> Phoenix.Component.assign(:phoenix_kit_locale_hook_attached?, true)
+      |> Phoenix.LiveView.attach_hook(
+        :phoenix_kit_locale_handler,
+        :handle_event,
+        &handle_locale_event/3
+      )
+    end
+  end
+
+  defp handle_locale_event("phoenix_kit_set_locale", %{"locale" => locale, "url" => url}, socket) do
+    save_user_locale_preference(socket.assigns, locale)
+    {:halt, Phoenix.LiveView.redirect(socket, to: url)}
+  end
+
+  defp handle_locale_event(_event, _params, socket), do: {:cont, socket}
+
+  defp save_user_locale_preference(%{phoenix_kit_current_user: %{} = user}, locale)
+       when not is_nil(user) do
+    Auth.update_user_locale_preference(user, locale)
+  end
+
+  defp save_user_locale_preference(%{phoenix_kit_current_scope: scope}, locale) do
+    case Scope.user(scope) do
+      %{} = user -> Auth.update_user_locale_preference(user, locale)
+      _ -> :ok
+    end
+  end
+
+  defp save_user_locale_preference(_assigns, _locale), do: :ok
 
   defp set_routing_info(_params, url, socket) do
     %{path: path} = URI.parse(url)
