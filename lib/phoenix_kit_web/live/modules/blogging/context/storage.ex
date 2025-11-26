@@ -375,7 +375,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
         # Base code match - try to find a dialect that matches the base code
         # e.g., "en" matches "en-US" in available_languages
-        preferred_language && is_base_code?(preferred_language) ->
+        preferred_language && base_code?(preferred_language) ->
           find_dialect_for_base(available_languages, preferred_language) ||
             select_display_language(available_languages, preferred_language)
 
@@ -388,11 +388,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   # Check if a code is a base code (2 letters, no hyphen)
-  defp is_base_code?(code) when is_binary(code) do
+  defp base_code?(code) when is_binary(code) do
     String.length(code) == 2 and not String.contains?(code, "-")
   end
 
-  defp is_base_code?(_), do: false
+  defp base_code?(_), do: false
 
   # Find a dialect in available_languages that matches the given base code
   defp find_dialect_for_base(available_languages, base_code) do

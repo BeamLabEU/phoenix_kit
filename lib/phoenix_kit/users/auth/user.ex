@@ -319,8 +319,10 @@ defmodule PhoenixKit.Users.Auth.User do
   end
 
   defp validate_locale_exists(changeset) do
+    alias PhoenixKit.Modules.Languages
+
     validate_change(changeset, :preferred_locale, fn :preferred_locale, locale ->
-      if locale && !PhoenixKit.Modules.Languages.get_predefined_language(locale) do
+      if locale && !Languages.get_predefined_language(locale) do
         [preferred_locale: "is not a recognized language code"]
       else
         []

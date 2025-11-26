@@ -396,31 +396,34 @@ defmodule PhoenixKitWeb.Users.Auth do
     else
       socket
       |> Phoenix.Component.assign(:phoenix_kit_locale_hook_attached?, true)
-      |> Phoenix.LiveView.attach_hook(:phoenix_kit_locale_handler, :handle_event, fn
-        "phoenix_kit_set_locale", %{"locale" => locale, "url" => url}, socket ->
-          # Save locale preference if user is authenticated
-          case socket.assigns do
-            %{phoenix_kit_current_user: %{} = user} when not is_nil(user) ->
-              PhoenixKit.Users.Auth.update_user_locale_preference(user, locale)
-
-            %{phoenix_kit_current_scope: scope} ->
-              case PhoenixKit.Users.Auth.Scope.user(scope) do
-                %{} = user -> PhoenixKit.Users.Auth.update_user_locale_preference(user, locale)
-                _ -> :ok
-              end
-
-            _ ->
-              :ok
-          end
-
-          # Navigate to the clean URL (base code only)
-          {:halt, Phoenix.LiveView.redirect(socket, to: url)}
-
-        _event, _params, socket ->
-          {:cont, socket}
-      end)
+      |> Phoenix.LiveView.attach_hook(
+        :phoenix_kit_locale_handler,
+        :handle_event,
+        &handle_locale_event/3
+      )
     end
   end
+
+  defp handle_locale_event("phoenix_kit_set_locale", %{"locale" => locale, "url" => url}, socket) do
+    save_user_locale_preference(socket.assigns, locale)
+    {:halt, Phoenix.LiveView.redirect(socket, to: url)}
+  end
+
+  defp handle_locale_event(_event, _params, socket), do: {:cont, socket}
+
+  defp save_user_locale_preference(%{phoenix_kit_current_user: %{} = user}, locale)
+       when not is_nil(user) do
+    Auth.update_user_locale_preference(user, locale)
+  end
+
+  defp save_user_locale_preference(%{phoenix_kit_current_scope: scope}, locale) do
+    case Scope.user(scope) do
+      %{} = user -> Auth.update_user_locale_preference(user, locale)
+      _ -> :ok
+    end
+  end
+
+  defp save_user_locale_preference(_assigns, _locale), do: :ok
 
   def on_mount(:phoenix_kit_ensure_authenticated, _params, session, socket) do
     socket = mount_phoenix_kit_current_user(socket, session)

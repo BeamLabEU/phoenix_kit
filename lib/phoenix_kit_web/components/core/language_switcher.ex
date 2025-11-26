@@ -418,7 +418,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # This is the clean URL used in href attributes
   # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/en/admin/dashboard"
   defp generate_base_code_url(base_code, current_path) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
+    alias PhoenixKit.Utils.Routes
 
     # Extract base code from current path for proper path processing
     current_base = extract_locale_from_path(current_path)
@@ -427,7 +427,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     path_without_locale = get_path_without_locale(current_path, current_base)
 
     # Generate clean URL with base code only
-    PhoenixKit.Utils.Routes.path(path_without_locale, locale: base_code)
+    Routes.path(path_without_locale, locale: base_code)
   end
 
   # Extract the locale segment from a path
