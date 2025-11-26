@@ -416,7 +416,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   # Generate URL with ONLY base code - no dialect, no query params
   # This is the clean URL used in href attributes
-  # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/en/admin/dashboard"
+  # Default language gets clean URLs (no prefix), other languages get locale prefix
+  # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/admin/dashboard" (if en is default)
+  # Example: generate_base_code_url("es", "/admin/dashboard") => "/es/admin/dashboard"
   defp generate_base_code_url(base_code, current_path) do
     alias PhoenixKit.Utils.Routes
 
@@ -426,7 +428,9 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     # Remove locale from path
     path_without_locale = get_path_without_locale(current_path, current_base)
 
-    # Generate clean URL with base code only
+    # Generate URL using Routes.path which handles default language logic
+    # Default language (first admin language, typically "en") gets clean URLs (no prefix)
+    # Other languages get the locale prefix
     Routes.path(path_without_locale, locale: base_code)
   end
 

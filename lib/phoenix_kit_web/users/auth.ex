@@ -28,7 +28,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   alias Phoenix.LiveView
   alias PhoenixKit.Admin.Events
-  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
@@ -1030,22 +1029,27 @@ defmodule PhoenixKitWeb.Users.Auth do
 
           # Validate base code exists in predefined language list
           DialectMapper.valid_base_code?(locale) ->
-            # Resolve to full dialect based on user preference
-            current_user = conn.assigns[:current_user]
-            full_dialect = DialectMapper.resolve_dialect(locale, current_user)
+            # If this is the default language, redirect to clean URL (no prefix needed)
+            if locale == get_default_admin_language() do
+              redirect_default_locale_to_clean_url(conn, locale)
+            else
+              # Non-default language: process normally with locale prefix
+              current_user = conn.assigns[:current_user]
+              full_dialect = DialectMapper.resolve_dialect(locale, current_user)
 
-            # Set Gettext to full dialect for translations
-            Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
+              # Set Gettext to full dialect for translations
+              Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
 
-            # Store both base (for URLs) and full dialect (for translations)
-            # Also store in Process dictionary for LiveView mount functions
-            Process.put(:phoenix_kit_current_locale_base, locale)
-            Process.put(:phoenix_kit_current_locale, full_dialect)
+              # Store both base (for URLs) and full dialect (for translations)
+              # Also store in Process dictionary for LiveView mount functions
+              Process.put(:phoenix_kit_current_locale_base, locale)
+              Process.put(:phoenix_kit_current_locale, full_dialect)
 
-            conn
-            |> assign(:current_locale_base, locale)
-            |> assign(:current_locale, full_dialect)
-            |> put_session(:phoenix_kit_locale_base, locale)
+              conn
+              |> assign(:current_locale_base, locale)
+              |> assign(:current_locale, full_dialect)
+              |> put_session(:phoenix_kit_locale_base, locale)
+            end
 
           # Invalid base code → redirect to default
           true ->
@@ -1053,9 +1057,10 @@ defmodule PhoenixKitWeb.Users.Auth do
         end
 
       _ ->
-        # No locale in URL - set defaults
-        default_dialect = Languages.enabled_locale_codes() |> List.first() || "en-US"
-        default_base = DialectMapper.extract_base(default_dialect)
+        # No locale in URL - use default language (first admin language or "en")
+        # This is the expected case for the default language which gets clean URLs
+        default_base = get_default_admin_language()
+        default_dialect = DialectMapper.resolve_dialect(default_base, conn.assigns[:current_user])
 
         Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
         Process.put(:phoenix_kit_current_locale_base, default_base)
@@ -1065,6 +1070,50 @@ defmodule PhoenixKitWeb.Users.Auth do
         |> assign(:current_locale_base, default_base)
         |> assign(:current_locale, default_dialect)
     end
+  end
+
+  # Get the default admin language base code (first in admin_languages list, or "en")
+  # Extracts base code from full dialect (e.g., "en-US" -> "en")
+  defp get_default_admin_language do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    case PhoenixKit.Settings.get_setting("admin_languages") do
+      nil ->
+        # No setting exists, default is "en"
+        "en"
+
+      json when is_binary(json) ->
+        case Jason.decode(json) do
+          # Extract base code from full dialect (e.g., "en-US" -> "en")
+          {:ok, [first | _]} -> DialectMapper.extract_base(first)
+          _ -> "en"
+        end
+    end
+  end
+
+  # Redirects default language URLs to clean URLs (no locale prefix)
+  # Example: /phoenix_kit/en/admin/dashboard → /phoenix_kit/admin/dashboard
+  # Uses 301 permanent redirect for SEO - tells browsers/search engines the clean URL is canonical
+  defp redirect_default_locale_to_clean_url(conn, locale) do
+    # Remove /en/ from path: /phoenix_kit/en/admin/dashboard → /phoenix_kit/admin/dashboard
+    clean_path =
+      conn.request_path
+      |> String.replace("/#{locale}/", "/", global: false)
+      |> then(fn path ->
+        # Handle case where locale is at end of path: /phoenix_kit/en → /phoenix_kit
+        if String.ends_with?(conn.request_path, "/#{locale}") do
+          String.replace_suffix(path, "/#{locale}", "")
+        else
+          path
+        end
+      end)
+
+    # Ensure we have a valid path (not empty)
+    clean_path = if clean_path == "", do: "/", else: clean_path
+
+    conn
+    |> Phoenix.Controller.redirect(to: clean_path, status: 301)
+    |> halt()
   end
 
   @doc """
@@ -1140,41 +1189,34 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   Takes the current URL path and replaces the invalid locale with the default
   locale base code, then redirects the user to the corrected URL.
+
+  For the default language (first admin language), the locale segment is removed
+  entirely to produce clean URLs (e.g., /phoenix_kit/admin/dashboard).
   """
   def redirect_invalid_locale(conn, invalid_locale) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
+    # Get the default admin language (first in admin_languages list, or "en")
+    default_base = get_default_admin_language()
 
-    # Get the default locale (first enabled locale or "en-US")
-    default_dialect = Languages.enabled_locale_codes() |> List.first() || "en-US"
-    default_base = DialectMapper.extract_base(default_dialect)
-
-    # Replace invalid locale with default base code
-    # Always use base code format (en, es, fr) - no special handling for English
+    # For default language, remove locale segment entirely for clean URLs
+    # For other languages, replace with that language code
     corrected_path =
-      String.replace(
-        conn.request_path,
-        "/#{invalid_locale}/",
-        "/#{default_base}/",
-        global: false
-      )
-
-    # If the invalid locale was at the end of the path, handle that case too
-    corrected_path =
-      if String.ends_with?(conn.request_path, "/#{invalid_locale}") do
-        String.replace_suffix(corrected_path, "/#{invalid_locale}", "/#{default_base}")
-      else
-        corrected_path
-      end
+      conn.request_path
+      |> String.replace("/#{invalid_locale}/", "/", global: false)
+      |> then(fn path ->
+        if String.ends_with?(conn.request_path, "/#{invalid_locale}") do
+          String.replace_suffix(path, "/#{invalid_locale}", "")
+        else
+          path
+        end
+      end)
 
     # Log the invalid locale attempt for debugging
     Logger.warning("""
     [PhoenixKit Locale] Invalid locale requested, redirecting to default
     - Invalid locale: #{invalid_locale}
-    - Default dialect: #{default_dialect}
     - Default base: #{default_base}
     - Original path: #{conn.request_path}
     - Corrected path: #{corrected_path}
-    - Enabled locales: #{inspect(Languages.enabled_locale_codes())}
     """)
 
     # Redirect to the corrected URL
