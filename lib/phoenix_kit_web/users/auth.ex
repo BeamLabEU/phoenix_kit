@@ -1023,20 +1023,9 @@ defmodule PhoenixKitWeb.Users.Auth do
 
     case conn.path_params do
       %{"locale" => locale} when is_binary(locale) ->
-        # Debug logging - track the incoming locale and request
-        Logger.debug("""
-        [PhoenixKit Locale] Processing locale parameter
-        - Locale param: #{inspect(locale)}
-        - Request path: #{conn.request_path}
-        - Current process locale_base: #{inspect(Process.get(:phoenix_kit_current_locale_base))}
-        - Current process locale: #{inspect(Process.get(:phoenix_kit_current_locale))}
-        - Current session locale_base: #{inspect(get_session(conn, :phoenix_kit_locale_base))}
-        """)
-
         cond do
           # Check if this is a full dialect code (contains hyphen) → redirect to base
           String.contains?(locale, "-") ->
-            Logger.debug("[PhoenixKit Locale] Detected full dialect code, redirecting to base")
             redirect_to_base_locale(conn, locale)
 
           # Validate base code exists in predefined language list
@@ -1044,13 +1033,6 @@ defmodule PhoenixKitWeb.Users.Auth do
             # Resolve to full dialect based on user preference
             current_user = conn.assigns[:current_user]
             full_dialect = DialectMapper.resolve_dialect(locale, current_user)
-
-            Logger.debug("""
-            [PhoenixKit Locale] Valid base code detected
-            - Base code: #{locale}
-            - Resolved dialect: #{full_dialect}
-            - User preference: #{inspect(current_user && current_user.preferred_locale)}
-            """)
 
             # Set Gettext to full dialect for translations
             Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
@@ -1067,7 +1049,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
           # Invalid base code → redirect to default
           true ->
-            Logger.debug("[PhoenixKit Locale] Invalid base code detected, redirecting to default")
             redirect_invalid_locale(conn, locale)
         end
 
@@ -1075,13 +1056,6 @@ defmodule PhoenixKitWeb.Users.Auth do
         # No locale in URL - set defaults
         default_dialect = Languages.enabled_locale_codes() |> List.first() || "en-US"
         default_base = DialectMapper.extract_base(default_dialect)
-
-        Logger.debug("""
-        [PhoenixKit Locale] No locale in URL, using defaults
-        - Default dialect: #{default_dialect}
-        - Default base: #{default_base}
-        - Request path: #{conn.request_path}
-        """)
 
         Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
         Process.put(:phoenix_kit_current_locale_base, default_base)
