@@ -50,13 +50,14 @@ defmodule PhoenixKitWeb.Live.Settings do
       end
 
     # Load admin languages from settings
+    # Default is ["en-US"] - a fresh install only has English enabled
     admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+      Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
 
     admin_languages =
       case Jason.decode(admin_languages_json) do
         {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en", "ru", "es"]
+        _ -> ["en-US"]
       end
 
     socket =
@@ -188,7 +189,7 @@ defmodule PhoenixKitWeb.Live.Settings do
         socket
       )
       when language_code != "" do
-    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
+    current_languages = socket.assigns.admin_languages || ["en-US"]
 
     # Toggle: add if not present, remove if already present
     if language_code in current_languages do
@@ -227,7 +228,7 @@ defmodule PhoenixKitWeb.Live.Settings do
   end
 
   def handle_event("remove_admin_language_from_form", %{"code" => code}, socket) do
-    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
+    current_languages = socket.assigns.admin_languages || ["en-US"]
     updated_languages = Enum.filter(current_languages, &(&1 != code))
 
     # Get language details for feedback
@@ -313,18 +314,19 @@ defmodule PhoenixKitWeb.Live.Settings do
   end
 
   # Parse admin_languages JSON string to list
+  # Default is ["en-US"] - a fresh install only has English enabled
   defp parse_admin_languages_json(json) when is_binary(json) do
     if String.trim(json) != "" do
       case Jason.decode(json) do
         {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en", "ru", "es"]
+        _ -> ["en-US"]
       end
     else
-      ["en", "ru", "es"]
+      ["en-US"]
     end
   end
 
-  defp parse_admin_languages_json(_), do: ["en", "ru", "es"]
+  defp parse_admin_languages_json(_), do: ["en-US"]
 
   # Prepare settings params by handling admin_languages field
   defp prepare_settings_params(%{"admin_languages" => json} = params) when is_binary(json) do

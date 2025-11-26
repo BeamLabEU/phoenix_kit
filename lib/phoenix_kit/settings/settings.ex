@@ -152,8 +152,8 @@ defmodule PhoenixKit.Settings do
       "oauth_github_client_secret" => "",
       "oauth_facebook_app_id" => "",
       "oauth_facebook_app_secret" => "",
-      # Admin Panel Languages
-      "admin_languages" => Jason.encode!(["en", "ru", "es"])
+      # Admin Panel Languages - default is just English (en-US) for fresh installs
+      "admin_languages" => Jason.encode!(["en-US"])
     }
   end
 

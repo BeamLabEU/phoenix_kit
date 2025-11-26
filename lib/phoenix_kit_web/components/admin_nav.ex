@@ -258,14 +258,18 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           "name" => String.upcase(current_base)
         }
 
+    # Hide dropdown when only 1 language is configured
+    show_dropdown = length(transformed_languages) > 1
+
     assigns =
       assigns
       |> assign(:enabled_languages, transformed_languages)
       |> assign(:current_language, current_language)
       |> assign(:current_base, current_base)
+      |> assign(:show_dropdown, show_dropdown)
 
     ~H"""
-    <div class="relative" data-language-dropdown>
+    <div :if={@show_dropdown} class="relative" data-language-dropdown>
       <details class="dropdown dropdown-end dropdown-bottom" id="language-dropdown">
         <summary class="btn btn-sm btn-ghost btn-circle">
           <.icon name="hero-globe-alt" class="w-5 h-5" />
@@ -627,14 +631,15 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to get admin languages from settings
+  # Default is ["en-US"] - a fresh install only has English enabled
   defp get_admin_languages do
     admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+      Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
 
     languages =
       case Jason.decode(admin_languages_json) do
         {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en", "ru", "es"]
+        _ -> ["en-US"]
       end
 
     # Map language codes to language details
@@ -660,6 +665,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # Build URL with base code - expects base code directly (e.g., "en" not "en-US")
   # Used by admin language dropdown where language["code"] is already the base code
+  # Uses Routes.path/2 which automatically skips locale prefix for default language
   defp build_locale_url(current_path, base_code) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
@@ -701,11 +707,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           normalized_path
       end
 
-    # Build the new URL with the base code locale prefix
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-    base_prefix = if url_prefix == "/", do: "", else: url_prefix
-
-    "#{base_prefix}/#{base_code}#{clean_path}"
+    # Use Routes.path which handles default language logic
+    # Default language gets clean URLs (no prefix), other languages get prefixed
+    Routes.path(clean_path, locale: base_code)
   end
 
   # Legacy helper - kept for backward compatibility
