@@ -286,7 +286,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     # This ensures correct order: Repo → PhoenixKit → Oban → Endpoint
     igniter
     |> Application.add_new_child(
-      {Oban, {:application, app_name, Oban}},
+      {Oban, {:code, quote(do: Application.fetch_env!(unquote(app_name), Oban))}},
       after: [PhoenixKit.Supervisor],
       before: [endpoint]
     )
