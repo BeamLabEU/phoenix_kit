@@ -43,7 +43,9 @@ if Code.ensure_loaded?(Ueberauth) do
     def find_or_create_user(oauth_data, track_geolocation \\ false, ip_address \\ nil) do
       case Auth.get_user_by_email(oauth_data.email) do
         %User{} = user ->
-          {:ok, user, :found}
+          # Auto-confirm email for existing users logging in via OAuth
+          {:ok, confirmed_user} = maybe_confirm_user(user)
+          {:ok, confirmed_user, :found}
 
         nil ->
           case register_oauth_user(oauth_data, track_geolocation, ip_address) do
@@ -52,6 +54,17 @@ if Code.ensure_loaded?(Ueberauth) do
           end
       end
     end
+
+    # Auto-confirm email for unconfirmed users logging in via OAuth.
+    # OAuth providers verify email ownership, so we can trust it.
+    defp maybe_confirm_user(%User{confirmed_at: nil} = user) do
+      case Auth.admin_confirm_user(user) do
+        {:ok, confirmed_user} -> {:ok, confirmed_user}
+        {:error, _changeset} -> {:ok, user}
+      end
+    end
+
+    defp maybe_confirm_user(%User{} = user), do: {:ok, user}
 
     @doc """
     Links an OAuth provider to a user account.
@@ -132,14 +145,20 @@ if Code.ensure_loaded?(Ueberauth) do
         email: oauth_data.email,
         password: generate_random_password(),
         first_name: oauth_data.first_name,
-        last_name: oauth_data.last_name,
-        confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        last_name: oauth_data.last_name
       }
 
-      if track_geolocation && ip_address do
-        Auth.register_user_with_geolocation(attrs, ip_address)
-      else
-        Auth.register_user(attrs, ip_address)
+      result =
+        if track_geolocation && ip_address do
+          Auth.register_user_with_geolocation(attrs, ip_address)
+        else
+          Auth.register_user(attrs, ip_address)
+        end
+
+      # Auto-confirm email for OAuth users (providers verify email ownership)
+      case result do
+        {:ok, user} -> maybe_confirm_user(user)
+        error -> error
       end
     end
 
