@@ -54,12 +54,18 @@ defmodule PhoenixKit.Settings.Setting do
 
   # Settings that are allowed to have empty/nil values
   @optional_settings [
+    # AWS Credentials
     "aws_access_key_id",
     "aws_secret_access_key",
+    "aws_region",
+    # AWS Infrastructure
     "aws_sqs_queue_url",
     "aws_sqs_dlq_url",
     "aws_sqs_queue_arn",
     "aws_sns_topic_arn",
+    "aws_ses_configuration_set",
+    "sqs_polling_interval_ms",
+    # General
     "site_url",
     # OAuth Provider Credentials
     "oauth_google_client_id",
