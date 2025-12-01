@@ -94,7 +94,12 @@ defmodule PhoenixKit.AWS.SESv2 do
             {:ok, name}
 
           {:ok, %{"message" => msg}} ->
-            {:error, msg}
+            # Check if it's an "already exists" message (AWS may return this without AlreadyExistsException type)
+            if String.contains?(msg, "already exists") do
+              {:ok, name}
+            else
+              {:error, msg}
+            end
 
           _ ->
             {:error, body}
