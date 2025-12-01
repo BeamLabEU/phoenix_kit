@@ -1,3 +1,16 @@
+## 1.6.14 - 2025-12-02
+- Refactor Endpoint usage
+- Fixes to admin languages, fixes oban implemntation and support for ipv4 and v6
+  - Making sure that admin panel langauge list cannot be empty
+  - Fixed issue with application.ex igniter implementation of oban
+  - Fixed issue with support for IPv4 and IPv6
+  - Fixed issues with dialyzer
+- Fix Oban config, OAuth auto-confirm, and AWS email settings
+  - Fix Oban configuration loading in parent app supervisor child spec
+  - Add auto-confirm email for OAuth authentication
+  - Fix AWS settings validation and form event handling
+  - Fix SES configuration set creation for existing sets
+
 ## 1.6.13 - 2025-11-26
 - Fixed issue with locales not working correctly on fresh install
 
