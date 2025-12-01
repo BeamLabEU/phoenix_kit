@@ -1,0 +1,169 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/posts/groups")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Groups
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3"><%= @page_title %></h1>
+        <p class="text-lg text-base-content">
+          <%= if @group.id do %>
+            Edit your group details and settings
+          <% else %>
+            Create a new collection to organize your posts
+          <% end %>
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-3xl mx-auto">
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <.form
+            for={@form}
+            id="group-form"
+            phx-change="validate"
+            phx-submit="save"
+            class="space-y-6"
+          >
+            <%!-- Group Name --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Group Name *</span>
+              </label>
+              <.input
+                field={@form[:name]}
+                type="text"
+                placeholder="e.g., Product Updates, Travel Photos, Recipes"
+                required
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  A descriptive name for this collection
+                </span>
+              </label>
+            </div>
+
+            <%!-- Description --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Description</span>
+              </label>
+              <.input
+                field={@form[:description]}
+                type="textarea"
+                placeholder="Optional description of what this group contains..."
+                rows="3"
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  Help yourself remember what this group is for
+                </span>
+              </label>
+            </div>
+
+            <%!-- Slug --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">URL Slug *</span>
+              </label>
+              <.input
+                field={@form[:slug]}
+                type="text"
+                placeholder="auto-generated-from-name"
+                required
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  URL-friendly identifier. Leave empty to auto-generate from name.
+                </span>
+              </label>
+
+              <%!-- Slug Format Help --%>
+              <div class="alert alert-info mt-2">
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                <div class="text-sm">
+                  <p class="font-semibold mb-1">Slug Format:</p>
+                  <p class="text-xs">
+                    Only lowercase letters, numbers, and hyphens. Must be unique among your groups.
+                  </p>
+                  <div class="mt-2 space-y-1">
+                    <p class="text-xs text-success">
+                      ✓ Valid: <code>my-collection</code>, <code>photos-2025</code>, <code>recipes</code>
+                    </p>
+                    <p class="text-xs text-error">
+                      ✗ Invalid: <code>My Collection</code>, <code>photos_2025</code>, <code>-recipes</code>
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Visibility --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Visibility</span>
+              </label>
+              <.input field={@form[:visibility]} type="select" options={[
+                {"Public - Visible to everyone", "public"},
+                {"Private - Only visible to you", "private"}
+              ]} />
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  Control who can see this group and its posts
+                </span>
+              </label>
+            </div>
+
+            <%!-- Info Box for Existing Group --%>
+            <%= if @group.id do %>
+              <div class="alert">
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                <div class="text-sm">
+                  <p class="font-semibold">Editing Existing Group</p>
+                  <p class="text-xs mt-1">
+                    Created on <%= Calendar.strftime(@group.inserted_at, "%B %d, %Y") %>
+                  </p>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Action Buttons --%>
+            <div class="flex flex-col sm:flex-row gap-4 justify-end">
+              <button
+                type="button"
+                phx-click="cancel"
+                class="btn btn-ghost btn-outline"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4 mr-2" /> Cancel
+              </button>
+
+              <button
+                type="submit"
+                class="btn btn-primary"
+                phx-disable-with="Saving..."
+              >
+                <.icon name="hero-check" class="w-4 h-4 mr-2" />
+                <%= if @group.id, do: "Update Group", else: "Create Group" %>
+              </button>
+            </div>
+          </.form>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

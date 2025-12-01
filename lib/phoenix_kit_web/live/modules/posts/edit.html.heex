@@ -1,0 +1,325 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/posts")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Posts
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3"><%= @page_title %></h1>
+        <p class="text-lg text-base-content">
+          <%= if @post.id do %>
+            Edit your post details, content, and settings
+          <% else %>
+            Create a new post with content, media, and tags
+          <% end %>
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-5xl mx-auto">
+      <.form
+        for={@form}
+        id="post-form"
+        phx-change="validate"
+        phx-submit="save"
+        class="space-y-6"
+      >
+        <%!-- Basic Information Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-document-text" class="w-6 h-6" /> Basic Information
+            </h2>
+
+            <div class="space-y-4">
+              <%!-- Title --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Title *</span>
+                  <span class="label-text-alt">
+                    <%= String.length(Phoenix.HTML.Form.input_value(@form.source, :title) || "") %>/<%= @max_title_length %>
+                  </span>
+                </label>
+                <.input
+                  field={@form[:title]}
+                  type="text"
+                  placeholder="Enter post title..."
+                  maxlength={@max_title_length}
+                  required
+                />
+              </div>
+
+              <%!-- Subtitle --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Subtitle / Tagline</span>
+                  <span class="label-text-alt">
+                    <%= String.length(Phoenix.HTML.Form.input_value(@form.source, :sub_title) || "") %>/<%= @max_subtitle_length %>
+                  </span>
+                </label>
+                <.input
+                  field={@form[:sub_title]}
+                  type="text"
+                  placeholder="Optional subtitle or tagline..."
+                  maxlength={@max_subtitle_length}
+                />
+              </div>
+
+              <%!-- Content --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Content *</span>
+                  <span class="label-text-alt">
+                    <%= String.length(Phoenix.HTML.Form.input_value(@form.source, :content) || "") %>/<%= @max_content_length %>
+                  </span>
+                </label>
+                <.input
+                  field={@form[:content]}
+                  type="textarea"
+                  placeholder="Write your post content here... Use #hashtags for auto-tagging"
+                  rows="10"
+                  maxlength={@max_content_length}
+                  required
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    💡 Tip: Use #hashtags in your content for automatic tag extraction
+                  </span>
+                </label>
+              </div>
+
+              <%!-- SEO Slug --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">SEO Slug</span>
+                </label>
+                <.input
+                  field={@form[:slug]}
+                  type="text"
+                  placeholder={
+                    if @seo_auto_slug,
+                      do: "Auto-generated from title...",
+                      else: "enter-url-slug"
+                  }
+                  disabled={@seo_auto_slug}
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    <%= if @seo_auto_slug do %>
+                      Auto-generation enabled in settings. URL slug will be created from title.
+                    <% else %>
+                      URL-friendly identifier for this post (e.g., my-awesome-post)
+                    <% end %>
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Post Settings Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Post Settings
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%!-- Type --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Post Type</span>
+                </label>
+                <.input field={@form[:type]} type="select" options={[
+                  {"Post (Full content)", "post"},
+                  {"Snippet (Short update)", "snippet"},
+                  {"Repost (Share existing)", "repost"}
+                ]} />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    Different types have different display layouts
+                  </span>
+                </label>
+              </div>
+
+              <%!-- Status --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Status</span>
+                </label>
+                <.input field={@form[:status]} type="select" options={[
+                  {"Draft", "draft"},
+                  {"Public", "public"},
+                  {"Unlisted", "unlisted"},
+                  {"Scheduled", "scheduled"}
+                ]} />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    Control post visibility and publication
+                  </span>
+                </label>
+              </div>
+
+              <%!-- Scheduled Date (only show if status is scheduled) --%>
+              <%= if @allow_scheduling and Phoenix.HTML.Form.input_value(@form.source, :status) == "scheduled" do %>
+                <div class="form-control md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Scheduled Publish Time</span>
+                  </label>
+                  <.input
+                    field={@form[:scheduled_at]}
+                    type="datetime-local"
+                    required={Phoenix.HTML.Form.input_value(@form.source, :status) == "scheduled"}
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      Post will be automatically published at this time
+                    </span>
+                  </label>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Tags Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-hashtag" class="w-6 h-6" /> Tags
+            </h2>
+
+            <%!-- Selected Tags Display --%>
+            <%= if length(@selected_tags) > 0 do %>
+              <div class="flex flex-wrap gap-2 mb-4">
+                <%= for tag <- @selected_tags do %>
+                  <div class="badge badge-primary gap-2">
+                    #<%= tag %>
+                    <button
+                      type="button"
+                      phx-click="remove_tag"
+                      phx-value-tag={tag}
+                      class="btn btn-ghost btn-xs"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <div class="text-sm text-base-content/60 mb-4">
+                No tags added yet. Tags will be automatically extracted from #hashtags in your content.
+              </div>
+            <% end %>
+
+            <%!-- Manual Tag Input --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Add Tag Manually</span>
+                <span class="label-text-alt">
+                  <%= length(@selected_tags) %>/<%= @max_tags %> tags
+                </span>
+              </label>
+              <div class="input-group">
+                <span class="bg-base-200 px-4 py-3">#</span>
+                <input
+                  type="text"
+                  id="tag-input"
+                  placeholder="Enter tag and press Enter"
+                  class="input input-bordered w-full"
+                  phx-keydown="add_tag"
+                  phx-key="Enter"
+                  phx-value-tag={Phoenix.HTML.Form.input_value(@changeset.source, :_tag_input)}
+                />
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  💡 Tip: Tags are automatically extracted from #hashtags in content
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Groups Card (if enabled) --%>
+        <%= if @allow_groups and length(@user_groups) > 0 do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-2xl mb-4">
+                <.icon name="hero-folder" class="w-6 h-6" /> Collections / Groups
+              </h2>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Add to Groups</span>
+                </label>
+
+                <div class="space-y-2">
+                  <%= for group <- @user_groups do %>
+                    <label class="label cursor-pointer justify-start gap-3">
+                      <input
+                        type="checkbox"
+                        name="post[group_ids][]"
+                        value={group.id}
+                        checked={group.id in @selected_groups}
+                        class="checkbox checkbox-primary"
+                      />
+                      <span class="label-text">
+                        <span class="font-semibold"><%= group.name %></span>
+                        <%= if group.description do %>
+                          <span class="text-sm text-base-content/60">
+                            - <%= group.description %>
+                          </span>
+                        <% end %>
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
+
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    Organize posts into your personal collections
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Action Buttons --%>
+        <div class="flex flex-col sm:flex-row gap-4 justify-end">
+          <button
+            type="button"
+            phx-click="cancel"
+            class="btn btn-ghost btn-outline"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4 mr-2" /> Cancel
+          </button>
+
+          <button
+            type="submit"
+            class="btn btn-primary"
+            phx-disable-with="Saving..."
+          >
+            <.icon name="hero-check" class="w-4 h-4 mr-2" />
+            <%= if @post.id, do: "Update Post", else: "Create Post" %>
+          </button>
+        </div>
+      </.form>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

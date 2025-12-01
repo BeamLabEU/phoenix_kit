@@ -1,0 +1,335 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Posts"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/dashboard")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        ← Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Posts</h1>
+        <p class="text-lg text-base-content">Manage and organize your social posts</p>
+      </div>
+
+      <%!-- Create New Post Button (Right aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/posts/new")}
+        class="btn btn-primary btn-sm absolute right-0 top-0 -mb-12"
+      >
+        + New Post
+      </.link>
+    </header>
+
+    <%!-- Statistics Summary --%>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Total Posts</div>
+        <div class="stat-value text-primary"><%= @stats.total %></div>
+        <div class="stat-desc">All time</div>
+      </div>
+
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Drafts</div>
+        <div class="stat-value text-neutral"><%= @stats.drafts %></div>
+        <div class="stat-desc">Unpublished</div>
+      </div>
+
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Public</div>
+        <div class="stat-value text-success"><%= @stats.public %></div>
+        <div class="stat-desc">Live posts</div>
+      </div>
+
+      <div class="stat bg-base-200 rounded-xl">
+        <div class="stat-title">Scheduled</div>
+        <div class="stat-value text-info"><%= @stats.scheduled %></div>
+        <div class="stat-desc">Auto-publish</div>
+      </div>
+    </div>
+
+    <%!-- Filters & Search --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <.form for={%{}} phx-change="filter" class="space-y-4">
+        <%!-- Search Bar --%>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Search</span>
+          </label>
+          <input
+            type="text"
+            name="search[query]"
+            value={@search_query}
+            placeholder="Search titles and content..."
+            class="input input-bordered w-full"
+          />
+        </div>
+
+        <%!-- Filter Row --%>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <%!-- Type Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Type</span>
+            </label>
+            <select name="filter[type]" class="select select-bordered w-full">
+              <option value="all" selected={@filter_type == "all"}>All Types</option>
+              <option value="post" selected={@filter_type == "post"}>Post</option>
+              <option value="snippet" selected={@filter_type == "snippet"}>Snippet</option>
+              <option value="repost" selected={@filter_type == "repost"}>Repost</option>
+            </select>
+          </div>
+
+          <%!-- Status Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Status</span>
+            </label>
+            <select name="filter[status]" class="select select-bordered w-full">
+              <option value="all" selected={@filter_status == "all"}>All Statuses</option>
+              <option value="draft" selected={@filter_status == "draft"}>Draft</option>
+              <option value="public" selected={@filter_status == "public"}>Public</option>
+              <option value="unlisted" selected={@filter_status == "unlisted"}>Unlisted</option>
+              <option value="scheduled" selected={@filter_status == "scheduled"}>Scheduled</option>
+            </select>
+          </div>
+
+          <%!-- Group Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Group</span>
+            </label>
+            <select name="filter[group]" class="select select-bordered w-full">
+              <option value="all" selected={@filter_group == "all"}>All Groups</option>
+              <%!-- TODO: Add dynamic groups --%>
+            </select>
+          </div>
+
+          <%!-- Tag Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Tag</span>
+            </label>
+            <select name="filter[tag]" class="select select-bordered w-full">
+              <option value="all" selected={@filter_tag == "all"}>All Tags</option>
+              <%!-- TODO: Add dynamic tags --%>
+            </select>
+          </div>
+        </div>
+
+        <%!-- Action Buttons --%>
+        <div class="flex gap-2">
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            Clear Filters
+          </button>
+          <button type="button" phx-click="refresh" class="btn btn-ghost btn-sm">
+            Refresh
+          </button>
+        </div>
+      </.form>
+    </div>
+
+    <%!-- Bulk Actions --%>
+    <%= if length(@selected_posts) > 0 do %>
+      <div class="alert alert-info mb-4">
+        <div class="flex-1">
+          <span><%= length(@selected_posts) %> post(s) selected</span>
+        </div>
+        <div class="flex gap-2">
+          <button phx-click="bulk_publish" class="btn btn-success btn-sm">
+            Publish Selected
+          </button>
+          <button
+            phx-click="bulk_delete"
+            class="btn btn-error btn-sm"
+            data-confirm="Are you sure you want to delete the selected posts?"
+          >
+            Delete Selected
+          </button>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Posts Table --%>
+    <div class="overflow-x-auto bg-base-100 rounded-lg shadow">
+      <table class="table table-zebra w-full">
+        <thead>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                class="checkbox checkbox-sm"
+                phx-click="select_all"
+                phx-value-value={if length(@selected_posts) == length(@posts), do: "off", else: "on"}
+              />
+            </th>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Author</th>
+            <th>Stats</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= if @loading do %>
+            <tr>
+              <td colspan="8" class="text-center py-8">
+                <span class="loading loading-spinner loading-lg"></span>
+                <p class="mt-2">Loading posts...</p>
+              </td>
+            </tr>
+          <% else %>
+            <%= if length(@posts) == 0 do %>
+              <tr>
+                <td colspan="8" class="text-center py-8">
+                  <div class="text-base-content/60">
+                    <p class="text-lg mb-2">No posts found</p>
+                    <p class="text-sm">
+                      <%= if @search_query != "" or @filter_status != "all" or @filter_type != "all" do %>
+                        Try adjusting your filters or
+                        <button phx-click="clear_filters" class="link link-primary">
+                          clear filters
+                        </button>
+                      <% else %>
+                        Create your first post to get started
+                      <% end %>
+                    </p>
+                  </div>
+                </td>
+              </tr>
+            <% else %>
+              <%= for post <- @posts do %>
+                <tr>
+                  <td>
+                    <input
+                      type="checkbox"
+                      class="checkbox checkbox-sm"
+                      phx-click="select_post"
+                      phx-value-id={post.id}
+                      phx-value-value={if post.id in @selected_posts, do: "off", else: "on"}
+                      checked={post.id in @selected_posts}
+                    />
+                  </td>
+                  <td>
+                    <div class="flex flex-col">
+                      <.link
+                        navigate={Routes.path("/admin/posts/#{post.id}")}
+                        class="link link-primary font-semibold"
+                      >
+                        <%= post.title %>
+                      </.link>
+                      <%= if post.sub_title do %>
+                        <span class="text-sm text-base-content/60"><%= post.sub_title %></span>
+                      <% end %>
+                    </div>
+                  </td>
+                  <td>
+                    <span class={"badge #{type_badge_class(post.type)}"}>
+                      <%= format_post_type(post.type) %>
+                    </span>
+                  </td>
+                  <td>
+                    <span class={"badge #{status_badge_class(post.status)}"}>
+                      <%= format_status(post.status) %>
+                    </span>
+                  </td>
+                  <td>
+                    <%= if post.user do %>
+                      <%= post.user.email %>
+                    <% else %>
+                      Unknown
+                    <% end %>
+                  </td>
+                  <td>
+                    <div class="flex gap-2 text-sm">
+                      <span title="Views">👁️ <%= post.view_count %></span>
+                      <span title="Likes">❤️ <%= post.like_count %></span>
+                      <span title="Comments">💬 <%= post.comment_count %></span>
+                    </div>
+                  </td>
+                  <td class="text-sm">
+                    <%= Calendar.strftime(post.inserted_at, "%b %d, %Y") %>
+                  </td>
+                  <td>
+                    <div class="dropdown dropdown-end">
+                      <label tabindex="0" class="btn btn-ghost btn-xs">⋮</label>
+                      <ul
+                        tabindex="0"
+                        class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52"
+                      >
+                        <li>
+                          <button phx-click="view_post" phx-value-id={post.id}>View</button>
+                        </li>
+                        <li>
+                          <button phx-click="edit_post" phx-value-id={post.id}>Edit</button>
+                        </li>
+                        <%= if post.status == "draft" do %>
+                          <li>
+                            <button phx-click="publish_post" phx-value-id={post.id}>Publish</button>
+                          </li>
+                        <% else %>
+                          <li>
+                            <button phx-click="draft_post" phx-value-id={post.id}>Move to Draft</button>
+                          </li>
+                        <% end %>
+                        <li>
+                          <button
+                            phx-click="delete_post"
+                            phx-value-id={post.id}
+                            data-confirm="Are you sure you want to delete this post?"
+                            class="text-error"
+                          >
+                            Delete
+                          </button>
+                        </li>
+                      </ul>
+                    </div>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <%!-- Pagination --%>
+    <%= if @total_count > @per_page do %>
+      <div class="flex justify-center mt-6">
+        <div class="btn-group">
+          <%= if @page > 1 do %>
+            <.link
+              patch={Routes.path("/admin/posts?page=#{@page - 1}")}
+              class="btn btn-outline"
+            >
+              « Previous
+            </.link>
+          <% end %>
+
+          <button class="btn btn-outline btn-active">Page <%= @page %></button>
+
+          <%= if @total_count > @page * @per_page do %>
+            <.link
+              patch={Routes.path("/admin/posts?page=#{@page + 1}")}
+              class="btn btn-outline"
+            >
+              Next »
+            </.link>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
