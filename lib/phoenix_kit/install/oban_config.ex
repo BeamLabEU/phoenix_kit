@@ -282,14 +282,17 @@ defmodule PhoenixKit.Install.ObanConfig do
     app_name = IgniterHelpers.get_parent_app_name(igniter)
     {igniter, endpoint} = Phoenix.select_endpoint(igniter)
 
-    # AST for fetching Oban config at runtime
-    oban_config_ast = quote(do: Application.fetch_env!(unquote(app_name), Oban))
+    # Build AST for: Application.get_env(:app_name, Oban)
+    # Using Sourceror to parse the code string into AST
+    get_env_code = "Application.get_env(:#{app_name}, Oban)"
+    get_env_ast = Sourceror.parse_string!(get_env_code)
 
     # Use Igniter API to add Oban with explicit positioning
+    # Pass {Module, {:code, ast}} format so Igniter doesn't escape the AST
     # This ensures correct order: Repo → PhoenixKit → Oban → Endpoint
     igniter
     |> Application.add_new_child(
-      {Oban, {:code, oban_config_ast}},
+      {Oban, {:code, get_env_ast}},
       after: [PhoenixKit.Supervisor],
       before: [endpoint]
     )

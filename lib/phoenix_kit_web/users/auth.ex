@@ -1237,7 +1237,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   defp broadcast_disconnect(live_socket_id) do
-    case get_parent_endpoint() do
+    case get_endpoint() do
       {:ok, endpoint} ->
         try do
           endpoint.broadcast(live_socket_id, "disconnect", %{})
@@ -1251,22 +1251,12 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  defp get_parent_endpoint do
-    # Simple endpoint detection without external dependencies
-    app_name = Application.get_application(__MODULE__)
-    base_module = app_name |> to_string() |> Macro.camelize()
-
-    potential_endpoints = [
-      Module.concat([base_module <> "Web", "Endpoint"]),
-      Module.concat([base_module, "Endpoint"])
-    ]
-
-    Enum.reduce_while(potential_endpoints, {:error, "No endpoint found"}, fn endpoint, _acc ->
-      if Code.ensure_loaded?(endpoint) and function_exported?(endpoint, :broadcast, 3) do
-        {:halt, {:ok, endpoint}}
-      else
-        {:cont, {:error, "No endpoint found"}}
-      end
-    end)
+  def get_endpoint do
+    if Code.ensure_loaded?(PhoenixKitWeb.Endpoint) and
+         function_exported?(PhoenixKitWeb.Endpoint, :broadcast, 3) do
+      {:ok, PhoenixKitWeb.Endpoint}
+    else
+      {:error, "No endpoint found"}
+    end
   end
 end

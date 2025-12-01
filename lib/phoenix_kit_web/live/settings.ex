@@ -229,18 +229,31 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   def handle_event("remove_admin_language_from_form", %{"code" => code}, socket) do
     current_languages = socket.assigns.admin_languages || ["en-US"]
-    updated_languages = Enum.filter(current_languages, &(&1 != code))
 
-    # Get language details for feedback
-    language = Languages.get_predefined_language(code)
-    language_name = if language, do: language.name, else: String.upcase(code)
+    # Prevent removing the last language
+    if length(current_languages) <= 1 do
+      socket =
+        put_flash(
+          socket,
+          :warning,
+          "Cannot remove the last language. At least one language must be configured."
+        )
 
-    socket =
-      socket
-      |> assign(:admin_languages, updated_languages)
-      |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+      {:noreply, socket}
+    else
+      updated_languages = Enum.filter(current_languages, &(&1 != code))
 
-    {:noreply, socket}
+      # Get language details for feedback
+      language = Languages.get_predefined_language(code)
+      language_name = if language, do: language.name, else: String.upcase(code)
+
+      socket =
+        socket
+        |> assign(:admin_languages, updated_languages)
+        |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+
+      {:noreply, socket}
+    end
   end
 
   ## Live updates - handle broadcasts from other admins
@@ -329,11 +342,22 @@ defmodule PhoenixKitWeb.Live.Settings do
   defp parse_admin_languages_json(_), do: ["en-US"]
 
   # Prepare settings params by handling admin_languages field
+  # Ensures admin_languages is never empty - defaults to ["en-US"]
   defp prepare_settings_params(%{"admin_languages" => json} = params) when is_binary(json) do
-    if String.trim(json) != "" do
-      params
-    else
-      Map.delete(params, "admin_languages")
+    trimmed = String.trim(json)
+
+    cond do
+      # Empty string - use default
+      trimmed == "" ->
+        Map.put(params, "admin_languages", Jason.encode!(["en-US"]))
+
+      # Empty JSON array - use default
+      trimmed == "[]" ->
+        Map.put(params, "admin_languages", Jason.encode!(["en-US"]))
+
+      # Valid JSON - keep it
+      true ->
+        params
     end
   end
 
