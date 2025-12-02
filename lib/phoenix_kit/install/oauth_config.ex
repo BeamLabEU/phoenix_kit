@@ -2,35 +2,48 @@ defmodule PhoenixKit.Install.OAuthConfig do
   @moduledoc """
   Handles Ueberauth OAuth configuration for PhoenixKit installation.
 
-  This module ensures proper Ueberauth compile-time configuration is set up
-  during PhoenixKit installation. The key requirement is:
+  PhoenixKit uses **dynamic OAuth invocation** via `Ueberauth.run_request/4` and
+  `Ueberauth.run_callback/4`, eliminating compile-time configuration requirements.
 
-  - **Compile-time**: Empty map `providers: %{}` (not empty list `[]`)
-  - **Runtime**: Providers loaded dynamically from database via `PhoenixKit.Workers.OAuthConfigLoader`
+  ## How It Works
 
-  ## Why Empty Map vs Empty List?
+  Instead of using `plug Ueberauth` (which requires compile-time providers configuration),
+  PhoenixKit calls Ueberauth functions directly in the OAuth controller:
 
-  Ueberauth expects `providers` to be a map-like structure. Using an empty list `[]`
-  causes runtime errors when Ueberauth tries to access provider configuration.
-
-  ### Incorrect (causes errors):
   ```elixir
-  config :ueberauth, Ueberauth, providers: []  # ❌ Empty list
+  # In PhoenixKitWeb.Users.OAuth controller:
+  # - request/2 calls Ueberauth.run_request/4
+  # - callback/2 calls Ueberauth.run_callback/4
   ```
 
-  ### Correct:
+  This approach allows:
+  - **No compile-time configuration required** - OAuth works without any providers in config
+  - **Database-driven credentials** - Credentials loaded from Settings table at runtime
+  - **Dynamic provider management** - Add/remove/modify providers without app restart
+
+  ## Configuration
+
+  While compile-time configuration is no longer required, we still add a minimal
+  Ueberauth config for compatibility with libraries that may check for it:
+
   ```elixir
-  config :ueberauth, Ueberauth, providers: %{}  # ✅ Empty map
+  config :ueberauth, Ueberauth, providers: %{}  # Empty map for compatibility
   ```
 
-  ## Runtime Configuration
+  ## Runtime OAuth Flow
 
-  PhoenixKit uses runtime configuration through:
-  - `PhoenixKit.Workers.OAuthConfigLoader` - Loads providers from database at startup
-  - `PhoenixKit.Users.OAuthConfig.configure_providers()` - Updates Application config
-  - `PhoenixKitWeb.Plugs.EnsureOAuthConfig` - Fallback protection for race conditions
+  1. User clicks "Sign in with Google"
+  2. `PhoenixKitWeb.Plugs.EnsureOAuthConfig` loads credentials from database
+  3. `PhoenixKitWeb.Users.OAuth.request/2` calls `Ueberauth.run_request/4` dynamically
+  4. User authenticates with provider
+  5. `PhoenixKitWeb.Users.OAuth.callback/2` calls `Ueberauth.run_callback/4` dynamically
+  6. User is logged in
 
-  The compile-time configuration serves as a foundation that runtime configuration builds upon.
+  ## Related Modules
+
+  - `PhoenixKit.Users.OAuthConfig` - Configures credentials in Application env
+  - `PhoenixKitWeb.Plugs.EnsureOAuthConfig` - Ensures credentials loaded before OAuth
+  - `PhoenixKitWeb.Users.OAuth` - OAuth controller with dynamic Ueberauth calls
   """
   use PhoenixKit.Install.IgniterCompat
 
