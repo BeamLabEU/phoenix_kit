@@ -291,6 +291,26 @@ defmodule PhoenixKit.Entities do
   @doc """
   Gets a single entity by ID.
 
+  Returns the entity if found, nil otherwise.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.get_entity(123)
+      %PhoenixKit.Entities{}
+
+      iex> PhoenixKit.Entities.get_entity(456)
+      nil
+  """
+  def get_entity(id) do
+    case repo().get(__MODULE__, id) do
+      nil -> nil
+      entity -> repo().preload(entity, :creator)
+    end
+  end
+
+  @doc """
+  Gets a single entity by ID.
+
   Raises `Ecto.NoResultsError` if the entity does not exist.
 
   ## Examples

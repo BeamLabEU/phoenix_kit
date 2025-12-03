@@ -458,11 +458,16 @@ PhoenixKit.Entities.enabled?() :: boolean()
 PhoenixKit.Entities.enable_system() :: {:ok, Setting.t()}
 PhoenixKit.Entities.disable_system() :: {:ok, Setting.t()}
 
-# CRUD
+# Get by ID
+PhoenixKit.Entities.get_entity(id) :: Entity.t() | nil        # Returns nil if not found
+PhoenixKit.Entities.get_entity!(id) :: Entity.t()             # Raises if not found
+PhoenixKit.Entities.get_entity_by_name(name) :: Entity.t() | nil
+
+# List
 PhoenixKit.Entities.list_entities() :: [Entity.t()]
 PhoenixKit.Entities.list_active_entities() :: [Entity.t()]
-PhoenixKit.Entities.get_entity!(id) :: Entity.t()
-PhoenixKit.Entities.get_entity_by_name(name) :: Entity.t() | nil
+
+# CRUD
 PhoenixKit.Entities.create_entity(attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
 PhoenixKit.Entities.update_entity(entity, attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
 PhoenixKit.Entities.delete_entity(entity) :: {:ok, Entity.t()} | {:error, Changeset.t()}
@@ -478,10 +483,14 @@ PhoenixKit.Entities.get_system_stats() :: %{
 ### PhoenixKit.Entities.EntityData
 
 ```elixir
-# Query
+# Get by ID
+EntityData.get(id) :: EntityData.t() | nil           # Returns nil if not found
+EntityData.get!(id) :: EntityData.t()                # Raises if not found
+EntityData.get_by_slug(entity_id, slug) :: EntityData.t() | nil
+
+# List/Query
 EntityData.list_all() :: [EntityData.t()]
 EntityData.list_by_entity(entity_id) :: [EntityData.t()]
-EntityData.get!(id) :: EntityData.t()
 EntityData.search_by_title(entity_id, query) :: [EntityData.t()]
 
 # CRUD

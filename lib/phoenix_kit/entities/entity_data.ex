@@ -374,6 +374,26 @@ defmodule PhoenixKit.Entities.EntityData do
   @doc """
   Gets a single entity data record by ID.
 
+  Returns the record if found, nil otherwise.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.EntityData.get(123)
+      %PhoenixKit.Entities.EntityData{}
+
+      iex> PhoenixKit.Entities.EntityData.get(456)
+      nil
+  """
+  def get(id) do
+    case repo().get(__MODULE__, id) do
+      nil -> nil
+      record -> repo().preload(record, [:entity, :creator])
+    end
+  end
+
+  @doc """
+  Gets a single entity data record by ID.
+
   Raises `Ecto.NoResultsError` if the record does not exist.
 
   ## Examples
