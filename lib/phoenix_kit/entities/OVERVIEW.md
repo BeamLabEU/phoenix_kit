@@ -96,23 +96,31 @@ Indexes cover `entity_id`, `slug`, `status`, `created_by`, `title`. FK cascades 
 ### `PhoenixKit.Entities`
 Responsible for entity blueprints:
 - Schema + changeset enforcing unique names, valid field definitions, timestamps, etc.
-- CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`).
+- CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`, `change_entity/2`).
 - Statistics (`get_system_stats/0`, `count_entities/0`, `count_user_entities/1`).
 - Settings helpers (`enabled?/0`, `enable_system/0`, `disable_system/0`, `get_config/0`).
 - Limit enforcement (`validate_user_entity_limit/1`).
+
+Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
 
 Field validation pipeline ensures every entry in `fields_definition` has `type/key/label`, uses a supported type, and merges defaults as needed.
 
 ### `PhoenixKit.Entities.EntityData`
 Manages actual records:
 - Schema + changeset verifying required fields, slug format, status, and cross-checking submitted JSON against the entity definition.
-- CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `search_by_title/2`, `create/1`, `update/2`, etc.).
+- CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `get!/1`, `get/1`, `search_by_title/2`, `create/1`, `update/2`, `delete/1`, `change/2`).
 - Field-level validation ensures required fields are present, numbers are numeric, booleans are booleans, options exist, etc.
+
+Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### `PhoenixKit.Entities.FieldTypes`
 Registry of supported field types with metadata:
 - `all/0`, `list_types/0`, `for_picker/0` – introspection for UI builders.
 - Category helpers, default properties, and `validate_field/1` to ensure field definitions are complete.
+- Field builder helpers for programmatic creation:
+  - `new_field/4` – Create any field type with options
+  - `select_field/4`, `radio_field/4`, `checkbox_field/4` – Choice fields with options list
+  - `text_field/3`, `textarea_field/3`, `email_field/3`, `number_field/3`, `boolean_field/3`, `rich_text_field/3` – Common field types
 - Used both when saving entity definitions and when rendering forms.
 
 ### `PhoenixKit.Entities.FormBuilder`
@@ -203,13 +211,14 @@ PhoenixKit.Entities.enabled?()
 
 ### Creating an entity blueprint
 ```elixir
+# Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, blog_entity} =
   PhoenixKit.Entities.create_entity(%{
     name: "blog_post",
     display_name: "Blog Post",
     display_name_plural: "Blog Posts",
     icon: "hero-document-text",
-    created_by: admin.id,
+    # created_by: admin.id,  # Optional!
     fields_definition: [
       %{"type" => "text", "key" => "title", "label" => "Title", "required" => true},
       %{"type" => "rich_text", "key" => "content", "label" => "Content"}
@@ -217,14 +226,35 @@ PhoenixKit.Entities.enabled?()
   })
 ```
 
+### Creating fields with builder helpers
+```elixir
+alias PhoenixKit.Entities.FieldTypes
+
+# Build fields programmatically
+fields = [
+  FieldTypes.text_field("title", "Title", required: true),
+  FieldTypes.textarea_field("excerpt", "Excerpt"),
+  FieldTypes.select_field("category", "Category", ["Tech", "Business", "Lifestyle"]),
+  FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"]),
+  FieldTypes.boolean_field("featured", "Featured Post", default: false)
+]
+
+{:ok, entity} = PhoenixKit.Entities.create_entity(%{
+  name: "article",
+  display_name: "Article",
+  fields_definition: fields
+})
+```
+
 ### Creating a record
 ```elixir
+# Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, _record} =
   PhoenixKit.Entities.EntityData.create(%{
     entity_id: blog_entity.id,
     title: "My First Post",
     status: "published",
-    created_by: admin.id,
+    # created_by: admin.id,  # Optional!
     data: %{"title" => "My First Post", "content" => "<p>Hello</p>"}
   })
 ```

@@ -345,22 +345,27 @@ PhoenixKit.Entities.list_entities()
 PhoenixKit.Entities.list_active_entities()
 # => [%PhoenixKit.Entities{status: "published"}, ...]
 
-# Get entity by ID
+# Get entity by ID (raises if not found)
 PhoenixKit.Entities.get_entity!(1)
 # => %PhoenixKit.Entities{}
+
+# Get entity by ID (returns nil if not found)
+PhoenixKit.Entities.get_entity(1)
+# => %PhoenixKit.Entities{} | nil
 
 # Get entity by unique name
 PhoenixKit.Entities.get_entity_by_name("blog_post")
 # => %PhoenixKit.Entities{}
 
 # Create entity
+# Note: created_by is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Entities.create_entity(%{
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type",
   icon: "hero-document-text",
   status: "draft",
-  created_by: user_id,
+  # created_by: user_id,  # Optional! Auto-filled if omitted
   fields_definition: [...]
 })
 # => {:ok, %PhoenixKit.Entities{}}
@@ -416,18 +421,23 @@ PhoenixKit.Entities.EntityData.list_by_entity(entity_id)
 PhoenixKit.Entities.EntityData.list_all()
 # => [%PhoenixKit.Entities.EntityData{}, ...]
 
-# Get data record by ID
+# Get data record by ID (raises if not found)
 PhoenixKit.Entities.EntityData.get!(id)
 # => %PhoenixKit.Entities.EntityData{}
 
+# Get data record by ID (returns nil if not found)
+PhoenixKit.Entities.EntityData.get(id)
+# => %PhoenixKit.Entities.EntityData{} | nil
+
 # Create data record
+# Note: created_by is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Entities.EntityData.create(%{
   entity_id: 1,
   title: "My First Post",
   slug: "my-first-post",
   status: "draft",
-  data: %{"title" => "My First Post", "content" => "..."},
-  created_by: user_id
+  data: %{"title" => "My First Post", "content" => "..."}
+  # created_by: user_id  # Optional! Auto-filled if omitted
 })
 # => {:ok, %PhoenixKit.Entities.EntityData{}}
 
@@ -489,6 +499,31 @@ PhoenixKit.Entities.FieldTypes.validate_field(field_map)
 # Format for picker UI
 PhoenixKit.Entities.FieldTypes.for_picker()
 # => Structured data for UI dropdowns
+
+# Field Builder Helpers (for programmatic entity creation)
+# These helpers make it easy to create field definitions with proper structure
+
+# Create a field with options
+PhoenixKit.Entities.FieldTypes.new_field("text", "title", "Title", required: true)
+# => %{"type" => "text", "key" => "title", "label" => "Title", "required" => true, ...}
+
+# Create choice fields with options
+PhoenixKit.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+# => %{"type" => "select", "key" => "category", "label" => "Category", "options" => [...], ...}
+
+PhoenixKit.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
+# => %{"type" => "radio", "key" => "priority", "label" => "Priority", "options" => [...], ...}
+
+PhoenixKit.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+# => %{"type" => "checkbox", "key" => "tags", "label" => "Tags", "options" => [...], ...}
+
+# Convenience helpers for common field types
+PhoenixKit.Entities.FieldTypes.text_field("name", "Full Name", required: true)
+PhoenixKit.Entities.FieldTypes.textarea_field("bio", "Biography")
+PhoenixKit.Entities.FieldTypes.email_field("email", "Email Address", required: true)
+PhoenixKit.Entities.FieldTypes.number_field("age", "Age")
+PhoenixKit.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
+PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content")
 ```
 
 ### 4. PhoenixKit.Entities.FormBuilder
@@ -1555,6 +1590,7 @@ test "unique constraint on entity name"
 @spec list_entities() :: [t()]
 @spec list_active_entities() :: [t()]
 @spec get_entity!(integer()) :: t()
+@spec get_entity(integer()) :: t() | nil
 @spec get_entity_by_name(String.t()) :: t() | nil
 @spec create_entity(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update_entity(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
@@ -1565,6 +1601,8 @@ test "unique constraint on entity name"
 @spec disable_system() :: {:ok, Setting.t()}
 @spec get_system_stats() :: map()
 ```
+
+Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### PhoenixKit.Entities.EntityData
 
@@ -1585,11 +1623,14 @@ test "unique constraint on entity name"
 @spec list_by_entity(integer()) :: [t()]
 @spec list_all() :: [t()]
 @spec get!(integer()) :: t()
+@spec get(integer()) :: t() | nil
 @spec create(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec delete(t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec change(t(), map()) :: Ecto.Changeset.t()
 ```
+
+Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### PhoenixKit.Entities.FieldTypes
 
@@ -1601,6 +1642,18 @@ test "unique constraint on entity name"
 @spec requires_options?(String.t()) :: boolean()
 @spec validate_field(map()) :: {:ok, map()} | {:error, String.t()}
 @spec for_picker() :: map()
+
+# Field Builder Helpers
+@spec new_field(String.t(), String.t(), String.t(), keyword()) :: map()
+@spec select_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec radio_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec checkbox_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec text_field(String.t(), String.t(), keyword()) :: map()
+@spec textarea_field(String.t(), String.t(), keyword()) :: map()
+@spec email_field(String.t(), String.t(), keyword()) :: map()
+@spec number_field(String.t(), String.t(), keyword()) :: map()
+@spec boolean_field(String.t(), String.t(), keyword()) :: map()
+@spec rich_text_field(String.t(), String.t(), keyword()) :: map()
 ```
 
 ---
