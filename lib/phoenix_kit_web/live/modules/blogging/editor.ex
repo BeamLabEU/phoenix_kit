@@ -468,14 +468,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     {socket, autosave?} =
       cond do
         file_id && inserting_image_component ->
-          # Insert image component at cursor via JavaScript
-          js_code = "window.insertImageComponent && window.insertImageComponent('#{file_id}')"
+          # Get public URL for the image and insert as markdown
+          image_url = PhoenixKit.Storage.get_public_url_by_id(file_id) || ""
+          # Escape quotes in URL for JavaScript
+          escaped_url = String.replace(image_url, "'", "\\'")
+          js_code = "window.insertImageMarkdown && window.insertImageMarkdown('#{escaped_url}')"
 
           {
             socket
             |> assign(:show_media_selector, false)
             |> assign(:inserting_image_component, false)
-            |> put_flash(:info, gettext("Image component inserted"))
+            |> put_flash(:info, gettext("Image inserted"))
             |> push_event("exec-js", %{js: js_code}),
             false
           }
