@@ -15,8 +15,8 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   @cache_name :blog_posts
   @cache_version "v1"
-  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video)\s+([^>]*?)\/>/s
-  @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video)\s*([^>]*)>(.*?)<\/\1>/s
+  @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video|EntityForm)\s+([^>]*?)\/>/s
+  @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video|EntityForm)\s*([^>]*)>(.*?)<\/\1>/s
 
   @doc """
   Renders a post's markdown content to HTML.
@@ -91,7 +91,8 @@ defmodule PhoenixKit.Blogging.Renderer do
       String.contains?(content, "<CTA") ||
       String.contains?(content, "<Headline") ||
       String.contains?(content, "<Subheadline") ||
-      String.contains?(content, "<Video")
+      String.contains?(content, "<Video") ||
+      String.contains?(content, "<EntityForm")
   end
 
   # Render .phk content using PageBuilder
@@ -256,6 +257,28 @@ defmodule PhoenixKit.Blogging.Renderer do
     error ->
       Logger.warning("Error rendering Video component: #{inspect(error)}")
       "<div class='error'>Error rendering video</div>"
+  end
+
+  defp render_inline_component("EntityForm", attrs) do
+    alias PhoenixKitWeb.Components.Blogging.EntityForm
+
+    attr_map = parse_xml_attributes(attrs)
+
+    assigns = %{
+      __changed__: nil,
+      attributes: attr_map,
+      variant: Map.get(attr_map, "variant", "default"),
+      content: nil,
+      children: []
+    }
+
+    EntityForm.render(assigns)
+    |> Safe.to_iodata()
+    |> IO.iodata_to_binary()
+  rescue
+    error ->
+      Logger.warning("Error rendering EntityForm component: #{inspect(error)}")
+      "<div class='error'>Error rendering entity form</div>"
   end
 
   defp render_inline_component(tag, _attrs) do
