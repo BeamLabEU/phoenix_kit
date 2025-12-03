@@ -573,7 +573,7 @@ EntityData.get_by_slug(entity_id, slug) :: EntityData.t() | nil
 EntityData.list_all() :: [EntityData.t()]
 EntityData.list_by_entity(entity_id) :: [EntityData.t()]
 EntityData.list_by_entity_and_status(entity_id, status) :: [EntityData.t()]
-EntityData.search_by_title(entity_id, query) :: [EntityData.t()]
+EntityData.search_by_title(search_term, entity_id \\ nil) :: [EntityData.t()]
 
 # Create/Update/Delete
 EntityData.create(attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
