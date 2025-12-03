@@ -465,12 +465,15 @@ PhoenixKit.Entities.get_entity_by_name(name) :: Entity.t() | nil
 
 # List
 PhoenixKit.Entities.list_entities() :: [Entity.t()]
-PhoenixKit.Entities.list_active_entities() :: [Entity.t()]
+PhoenixKit.Entities.list_active_entities() :: [Entity.t()]    # Only status: "published"
 
-# CRUD
+# Create/Update/Delete
 PhoenixKit.Entities.create_entity(attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
 PhoenixKit.Entities.update_entity(entity, attrs) :: {:ok, Entity.t()} | {:error, Changeset.t()}
 PhoenixKit.Entities.delete_entity(entity) :: {:ok, Entity.t()} | {:error, Changeset.t()}
+
+# Changeset (for forms)
+PhoenixKit.Entities.change_entity(entity, attrs \\ %{}) :: Changeset.t()
 
 # Stats
 PhoenixKit.Entities.get_system_stats() :: %{
@@ -491,12 +494,16 @@ EntityData.get_by_slug(entity_id, slug) :: EntityData.t() | nil
 # List/Query
 EntityData.list_all() :: [EntityData.t()]
 EntityData.list_by_entity(entity_id) :: [EntityData.t()]
+EntityData.list_by_entity_and_status(entity_id, status) :: [EntityData.t()]
 EntityData.search_by_title(entity_id, query) :: [EntityData.t()]
 
-# CRUD
+# Create/Update/Delete
 EntityData.create(attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
 EntityData.update(record, attrs) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
 EntityData.delete(record) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
+
+# Changeset (for forms)
+EntityData.change(record, attrs \\ %{}) :: Changeset.t()
 ```
 
 ### PhoenixKit.Users.Auth
