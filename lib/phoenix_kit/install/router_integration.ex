@@ -103,9 +103,7 @@ defmodule PhoenixKit.Install.RouterIntegration do
 
   # Move phoenix_kit_routes() before catch-all routes
   defp move_routes_before_catch_all(igniter, router_module) do
-    Mix.shell().info(
-      "🔄 Moving phoenix_kit_routes() before catch-all routes for proper route matching..."
-    )
+    IO.puts("🔄 Moving phoenix_kit_routes() before catch-all routes for proper route matching...")
 
     IgniterModule.find_and_update_module!(igniter, router_module, fn zipper ->
       # Step 1: Find and remove existing phoenix_kit_routes() call
@@ -292,7 +290,7 @@ defmodule PhoenixKit.Install.RouterIntegration do
         # Try to insert before catch-all routes
         case find_catch_all_insertion_point(zipper) do
           {:ok, insertion_zipper} ->
-            Mix.shell().info(
+            IO.puts(
               "📍 Inserting phoenix_kit_routes() before catch-all routes for proper route matching"
             )
 
@@ -333,18 +331,20 @@ defmodule PhoenixKit.Install.RouterIntegration do
   # Find a good insertion point before catch-all routes
   # Returns {:ok, zipper} positioned at a scope or route before catch-all, or :error
   defp find_catch_all_insertion_point(zipper) do
-    # Try to find a scope that contains catch-all routes
-    # We look for scope "/" or scope "/", AppWeb patterns
-    case Function.move_to_function_call(zipper, :scope, fn call_zipper ->
-           # Check if this scope might contain catch-all routes
-           scope_has_catch_all?(call_zipper)
-         end) do
+    # Try to find a scope call - use :any to match any arity
+    case Function.move_to_function_call(zipper, :scope, :any) do
       {:ok, scope_zipper} ->
-        {:ok, scope_zipper}
+        # Check if this scope contains catch-all routes
+        if scope_has_catch_all?(scope_zipper) do
+          {:ok, scope_zipper}
+        else
+          # Try to find another scope or fall back to first live/get catch-all
+          find_catch_all_route_fallback(zipper)
+        end
 
       :error ->
-        # Try to find first live/get with catch-all pattern
-        find_first_catch_all_route(zipper)
+        # No scope found, try to find first live/get with catch-all pattern
+        find_catch_all_route_fallback(zipper)
     end
   end
 
@@ -356,20 +356,32 @@ defmodule PhoenixKit.Install.RouterIntegration do
     has_catch_all_routes?(code)
   end
 
-  # Find first live/get call with catch-all pattern
-  defp find_first_catch_all_route(zipper) do
-    # Look for live "/:..." patterns
-    case Function.move_to_function_call(zipper, :live, fn call_zipper ->
-           catch_all_route?(call_zipper)
-         end) do
-      {:ok, _} = result ->
-        result
+  # Fallback: find first live or get route with catch-all pattern
+  defp find_catch_all_route_fallback(zipper) do
+    # Look for live routes with any arity
+    case Function.move_to_function_call(zipper, :live, :any) do
+      {:ok, live_zipper} ->
+        if catch_all_route?(live_zipper) do
+          {:ok, live_zipper}
+        else
+          # Try get routes
+          try_get_catch_all(zipper)
+        end
 
       :error ->
         # Try get routes
-        Function.move_to_function_call(zipper, :get, fn call_zipper ->
-          catch_all_route?(call_zipper)
-        end)
+        try_get_catch_all(zipper)
+    end
+  end
+
+  # Try to find a get route with catch-all pattern
+  defp try_get_catch_all(zipper) do
+    case Function.move_to_function_call(zipper, :get, :any) do
+      {:ok, get_zipper} ->
+        if catch_all_route?(get_zipper), do: {:ok, get_zipper}, else: :error
+
+      :error ->
+        :error
     end
   end
 
