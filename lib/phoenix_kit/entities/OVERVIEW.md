@@ -103,7 +103,7 @@ Responsible for entity blueprints:
 
 Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
 
-Field validation pipeline ensures every entry in `fields_definition` has `type/key/label`, uses a supported type, and merges defaults as needed.
+Field validation pipeline ensures every entry in `fields_definition` has `type/key/label` and uses a supported type. Note: the changeset validates but does not enrich field definitions—use `FieldTypes.new_field/4` to apply default properties.
 
 ### `PhoenixKit.Entities.EntityData`
 Manages actual records:

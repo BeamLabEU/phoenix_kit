@@ -28,7 +28,7 @@ The PhoenixKit Entities System is a dynamic content type management system inspi
 ### Key Features
 
 - **Dynamic Schema Creation**: Create custom content types with flexible field definitions stored as JSONB
-- **13 Field Types**: Comprehensive field type support including text, number, boolean, date, select, radio, checkbox, rich text, image, file, and relation fields
+- **11 Field Types**: Comprehensive field type support including text, textarea, email, url, number, boolean, date, select, radio, checkbox, and rich text. *(Image, file, and relation fields exist in the form builder as placeholders but are not registered in FieldTypes.)*
 - **Admin Interfaces**: Complete CRUD interfaces for both entity definitions and entity data
 - **Dynamic Form Generation**: Forms automatically generated from entity field definitions
 - **System-Wide Toggle**: Enable/disable the entire entities system via Settings
@@ -287,10 +287,12 @@ Each field in `fields_definition` is a map with the following structure:
 The `FieldTypes.validate_field/1` function validates:
 
 1. **Required Keys**: `type`, `key`, `label` must be present
-2. **Valid Type**: Type must be one of the 13 supported types
-3. **Options Presence**: Choice and relation fields must have options array
+2. **Valid Type**: Type must be one of the 11 registered types (image/file/relation are not in the registry)
+3. **Options Presence**: Choice fields (select/radio/checkbox) must have options array
 4. **Options Content**: Options must be non-empty for fields that require them
 5. **Unique Keys**: Field keys must be unique within an entity (enforced at LiveView level)
+
+> **Note**: The form builder renders placeholder UI for image/file/relation types, but `FieldTypes.valid_type?/1` will reject them since they're not in the registry.
 
 **Validation Examples:**
 
@@ -660,22 +662,20 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
 
-> **Note**: The route uses `:entity_slug` (not `:entity_id`). There is no standalone `/admin/entities/data` route—data is always accessed via a specific entity's slug.
+> **Note**: The route uses `:entity_slug` (not `:entity_id`). There is no standalone global data view—data is always scoped to a specific entity.
 
 **Features:**
 
-- Browse all data records across all entities
-- Filter by entity
-- Entity selector dropdown
+- Browse data records for the selected entity
+- Search and filter within the entity's records
 - List view with:
   - Record title
-  - Entity name
   - Status badge
   - Created by user
   - Creation date
   - View/Edit/Delete buttons
 - New Record button
-- Empty state when no data
+- Empty state when no data exists for the entity
 
 **LiveView Events:**
 
