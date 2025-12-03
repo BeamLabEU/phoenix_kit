@@ -24,9 +24,8 @@ defmodule PhoenixKit.Sitemap do
 
   ### Content Settings
 
-  - `include_entities?/0` - Check if entities should be included
+  - `include_entities?/0` - Check if entities should be included (all entity types)
   - `include_blogs?/0` - Check if blog posts should be included
-  - `include_pages?/0` - Check if pages should be included
   - `include_static?/0` - Check if static pages should be included
 
   ### HTML Sitemap
@@ -51,9 +50,8 @@ defmodule PhoenixKit.Sitemap do
   - `sitemap_enabled` - Enable/disable sitemap module (boolean)
   - `sitemap_schedule_enabled` - Enable automatic generation (boolean)
   - `sitemap_schedule_interval_hours` - Generation interval (integer)
-  - `sitemap_include_entities` - Include entities in sitemap (boolean)
+  - `sitemap_include_entities` - Include entities in sitemap (boolean, all entity types)
   - `sitemap_include_blogs` - Include blog posts (boolean)
-  - `sitemap_include_pages` - Include pages (boolean)
   - `sitemap_include_static` - Include static pages (boolean)
   - `sitemap_base_url` - Base URL for sitemap (string, fallback to site_url)
   - `sitemap_html_enabled` - Enable HTML sitemap (boolean)
@@ -79,7 +77,6 @@ defmodule PhoenixKit.Sitemap do
       #   schedule_interval_hours: 24,
       #   include_entities: true,
       #   include_blogs: true,
-      #   include_pages: true,
       #   include_static: true,
       #   base_url: "https://example.com",
       #   html_enabled: true,
@@ -111,7 +108,6 @@ defmodule PhoenixKit.Sitemap do
   @schedule_interval_key "sitemap_schedule_interval_hours"
   @include_entities_key "sitemap_include_entities"
   @include_blogs_key "sitemap_include_blogs"
-  @include_pages_key "sitemap_include_pages"
   @include_static_key "sitemap_include_static"
   @router_discovery_key "sitemap_router_discovery_enabled"
   @html_enabled_key "sitemap_html_enabled"
@@ -130,7 +126,6 @@ defmodule PhoenixKit.Sitemap do
   @default_schedule_interval_hours 24
   @default_include_entities true
   @default_include_blogs true
-  @default_include_pages true
   @default_include_static true
   @default_router_discovery true
   @default_html_enabled true
@@ -217,7 +212,6 @@ defmodule PhoenixKit.Sitemap do
       router_discovery_enabled: router_discovery_enabled?(),
       include_entities: include_entities?(),
       include_blogs: include_blogs?(),
-      include_pages: include_pages?(),
       include_static: include_static?(),
       base_url: get_base_url(),
       html_enabled: html_enabled?(),
@@ -328,19 +322,6 @@ defmodule PhoenixKit.Sitemap do
   @spec include_blogs?() :: boolean()
   def include_blogs? do
     settings_call(:get_boolean_setting, [@include_blogs_key, @default_include_blogs])
-  end
-
-  @doc """
-  Returns true if pages should be included in sitemap.
-
-  ## Examples
-
-      iex> PhoenixKit.Sitemap.include_pages?()
-      true
-  """
-  @spec include_pages?() :: boolean()
-  def include_pages? do
-    settings_call(:get_boolean_setting, [@include_pages_key, @default_include_pages])
   end
 
   @doc """

@@ -195,22 +195,6 @@
 
               <label class="flex items-center justify-between cursor-pointer">
                 <span class="label-text">
-                  <span class="font-medium">Pages</span>
-                  <span class="text-xs text-base-content/60 block">
-                    Static pages from filesystem
-                  </span>
-                </span>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-sm toggle-primary"
-                  checked={@config.include_pages}
-                  phx-click="toggle_source"
-                  phx-value-source="pages"
-                />
-              </label>
-
-              <label class="flex items-center justify-between cursor-pointer">
-                <span class="label-text">
                   <span class="font-medium">Static Routes</span>
                   <span class="text-xs text-base-content/60 block">
                     Homepage and authentication pages

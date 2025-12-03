@@ -6,14 +6,20 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   Each entity can define its own URL pattern in settings, and individual
   records can be excluded via metadata.
 
+  ## Universal Entity Support
+
+  This source automatically collects ALL published entities regardless of their name.
+  By default, auto-pattern generation is enabled (`sitemap_entities_auto_pattern: true`),
+  which means every entity with published records will be included in the sitemap.
+
   ## URL Pattern Resolution
 
-  URL patterns are resolved using fallback chain (NO hardcoded defaults):
+  URL patterns are resolved using fallback chain:
   1. Entity-specific override: `entity.settings["sitemap_url_pattern"]`
   2. Router Introspection: automatic detection from parent app router
   3. Per-entity Settings: `sitemap_entity_{name}_pattern`
   4. Global Settings: `sitemap_entities_pattern`
-  5. If none found → entity records are NOT included in sitemap
+  5. Auto-generated fallback: `/:entity_name/:slug` (if `sitemap_entities_auto_pattern` is true)
 
   Pattern variables:
   - `:slug` - Record slug
@@ -34,8 +40,9 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
       # sitemap_entity_page_pattern = "/content/:slug"
       # Entity "page" generates: /content/my-article
 
-      # Default fallback (no pluralization):
-      # Entity "page" generates: /page/my-article
+      # Auto-generated fallback (enabled by default):
+      # Entity "hydraulic_cylinder" generates: /hydraulic_cylinder/my-product
+      # Entity "contact_request" generates: /contact_request/request-123
 
   ## Index Pages
 
@@ -46,7 +53,15 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   1. Entity settings: `entity.settings["sitemap_index_path"]`
   2. Router Introspection: automatic detection (e.g., `/page` or `/pages`)
   3. Per-entity Settings: `sitemap_entity_{name}_index_path`
-  4. Fallback: `/:entity_name` (e.g., `/page`)
+  4. Auto-generated fallback: `/:entity_name` (if `sitemap_entities_auto_pattern` is true)
+
+  ## Configuration
+
+  - `sitemap_entities_auto_pattern` - Enable auto URL pattern generation (default: true)
+  - `sitemap_entities_include_index` - Include entity index pages (default: true)
+  - `sitemap_entity_{name}_pattern` - Per-entity URL pattern override
+  - `sitemap_entity_{name}_index_path` - Per-entity index page path override
+  - `sitemap_entities_pattern` - Global pattern template (e.g., "/:entity_name/:slug")
 
   ## Exclusion
 
@@ -68,6 +83,8 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   """
 
   @behaviour PhoenixKit.Sitemap.Sources.Source
+
+  require Logger
 
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.EntityData
@@ -94,10 +111,7 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   rescue
     error ->
-      require Logger
-
       Logger.warning("Entities sitemap source failed to collect: #{inspect(error)}")
-
       []
   end
 
@@ -129,23 +143,48 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   defp collect_entity_records(entity, base_url) do
     url_pattern = get_url_pattern(entity)
 
-    # If no URL pattern found (no route, no settings) - skip entity records
-    if url_pattern do
-      EntityData.published_records(entity.id)
+    # If no URL pattern found (no route, no settings) - use entity name as fallback
+    effective_pattern = url_pattern || get_fallback_pattern(entity)
+
+    if effective_pattern do
+      records = EntityData.published_records(entity.id)
+
+      if url_pattern do
+        Logger.debug(
+          "Sitemap: Entity '#{entity.name}' using URL pattern: #{url_pattern} (#{length(records)} published records)"
+        )
+      else
+        Logger.info(
+          "Sitemap: Entity '#{entity.name}' using fallback pattern: #{effective_pattern} (#{length(records)} published records)"
+        )
+      end
+
+      records
       |> Enum.reject(&excluded?/1)
       |> Enum.map(fn record ->
-        build_entry(record, entity, url_pattern, base_url)
+        build_entry(record, entity, effective_pattern, base_url)
       end)
     else
+      Logger.warning(
+        "Sitemap: Entity '#{entity.name}' skipped - no URL pattern configured and fallback disabled"
+      )
+
       []
     end
   rescue
     error ->
-      require Logger
-
       Logger.warning("Failed to collect records for entity #{entity.name}: #{inspect(error)}")
 
       []
+  end
+
+  # Fallback pattern using entity name - can be disabled via settings
+  defp get_fallback_pattern(entity) do
+    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", true) do
+      "/#{entity.name}/:slug"
+    else
+      nil
+    end
   end
 
   # Collect index page entry for entity (e.g., /page, /products)
@@ -169,12 +208,12 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   rescue
     error ->
-      require Logger
       Logger.warning("Failed to collect index for entity #{entity.name}: #{inspect(error)}")
       nil
   end
 
-  # Get index path for entity with fallback chain (NO hardcoded defaults)
+  # Get index path for entity with fallback chain
+  # Uses auto-pattern if sitemap_entities_auto_pattern is true (default)
   defp get_index_path(entity) do
     # 1. Check entity settings for explicit index path
     case entity.settings do
@@ -190,8 +229,8 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
 
             case Settings.get_setting(per_entity_key) do
               nil ->
-                # NO hardcoded fallback - return nil if not configured
-                nil
+                # 4. Auto-generate fallback if enabled
+                get_fallback_index_path(entity)
 
               path ->
                 path
@@ -200,6 +239,15 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
           path ->
             path
         end
+    end
+  end
+
+  # Fallback index path using entity name - can be disabled via settings
+  defp get_fallback_index_path(entity) do
+    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", true) do
+      "/#{entity.name}"
+    else
+      nil
     end
   end
 

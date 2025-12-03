@@ -586,12 +586,12 @@ defmodule PhoenixKit.Sitemap.Generator do
   defp default_sources do
     # List of default source modules
     # RouterDiscovery first to auto-discover all GET routes from parent router
+    # Note: Pages content is now handled by Entities source (universal entity support)
     [
       PhoenixKit.Sitemap.Sources.RouterDiscovery,
       PhoenixKit.Sitemap.Sources.Static,
       PhoenixKit.Sitemap.Sources.Blogging,
-      PhoenixKit.Sitemap.Sources.Entities,
-      PhoenixKit.Sitemap.Sources.Pages
+      PhoenixKit.Sitemap.Sources.Entities
     ]
   end
 
