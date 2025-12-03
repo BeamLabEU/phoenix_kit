@@ -24,10 +24,24 @@
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Data Navigator")}</h1>
-        <p class="text-lg text-base-content">
-          {gettext("Browse and manage all entity data records across your system")}
-        </p>
+        <%= if @selected_entity do %>
+          <h1 class="text-4xl font-bold text-base-content mb-3">
+            {@selected_entity.display_name_plural || @selected_entity.display_name}
+          </h1>
+          <p class="text-lg text-base-content">
+            {gettext("Browse and manage your %{entity}",
+              entity:
+                String.downcase(
+                  @selected_entity.display_name_plural || @selected_entity.display_name
+                )
+            )}
+          </p>
+        <% else %>
+          <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Data Navigator")}</h1>
+          <p class="text-lg text-base-content">
+            {gettext("Browse and manage all entity data records across your system")}
+          </p>
+        <% end %>
       </div>
     </header>
 
@@ -79,14 +93,7 @@
     </div>
 
     <%!-- Action Bar --%>
-    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-      <div>
-        <h2 class="text-2xl font-semibold text-base-content">{gettext("Data Records")}</h2>
-        <p class="text-base-content/70">
-          {gettext("Browse and manage entity data across your system")}
-        </p>
-      </div>
-
+    <div class="flex flex-col sm:flex-row justify-end items-start sm:items-center mb-6 gap-4">
       <div class="flex gap-2 items-center">
         <%!-- View Mode Toggle --%>
         <div class="join">
@@ -110,12 +117,14 @@
           </button>
         </div>
 
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/entities")}
-          class="btn btn-outline"
-        >
-          <.icon name="hero-cube" class="w-4 h-4 mr-2" /> {gettext("Entity Manager")}
-        </.link>
+        <%= if @selected_entity do %>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{@selected_entity.id}/edit")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> {gettext("Edit Entity")}
+          </.link>
+        <% end %>
         <%= if not Enum.empty?(@entities) do %>
           <%= if @selected_entity do %>
             <%!-- Direct add button when viewing specific entity --%>
@@ -125,13 +134,13 @@
               }
               class="btn btn-primary"
             >
-              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add Data")}
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add")}
             </.link>
           <% else %>
             <%!-- Dropdown to select entity when viewing all data --%>
             <div class="dropdown dropdown-end">
               <label tabindex="0" class="btn btn-primary">
-                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add Data")}
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> {gettext("Add")}
                 <.icon name="hero-chevron-down" class="w-4 h-4 ml-2" />
               </label>
               <ul
@@ -265,13 +274,13 @@
                   }
                   class="btn btn-primary btn-lg"
                 >
-                  <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Add Data")}
+                  <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Add")}
                 </.link>
               <% else %>
                 <%!-- Dropdown to select entity when viewing all data --%>
                 <div class="dropdown dropdown-top dropdown-center">
                   <label tabindex="0" class="btn btn-primary btn-lg">
-                    <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Add Data")}
+                    <.icon name="hero-plus" class="w-5 h-5 mr-2" /> {gettext("Add")}
                     <.icon name="hero-chevron-down" class="w-5 h-5 ml-2" />
                   </label>
                   <ul
@@ -347,7 +356,14 @@
             <%= for data_record <- @entity_data_records do %>
               <.table_default_row>
                 <.table_default_cell>
-                  <div>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path(
+                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.id}/edit"
+                      )
+                    }
+                    class="block hover:text-primary transition-colors cursor-pointer"
+                  >
                     <div class="font-bold">{data_record.title}</div>
                     <%= if data_record.slug do %>
                       <div class="text-sm opacity-50">
@@ -355,7 +371,7 @@
                         {data_record.slug}
                       </div>
                     <% end %>
-                  </div>
+                  </.link>
                 </.table_default_cell>
                 <.table_default_cell>
                   <span class="badge badge-outline badge-sm">
@@ -423,7 +439,14 @@
             <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
               <div class="card-body">
                 <div class="flex items-start justify-between mb-4">
-                  <div class="flex-1">
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path(
+                        "/admin/entities/#{get_entity_slug(@entities, data_record.entity_id)}/data/#{data_record.id}/edit"
+                      )
+                    }
+                    class="flex-1 hover:text-primary transition-colors cursor-pointer"
+                  >
                     <%!-- Title and Entity Info --%>
                     <div class="flex items-center mb-2">
                       <h3 class="card-title text-lg mr-3">{data_record.title}</h3>
@@ -446,7 +469,7 @@
                         {format_data_preview(data_record.data)}
                       </p>
                     <% end %>
-                  </div>
+                  </.link>
 
                   <%!-- Status Badge --%>
                   <div class="flex flex-col items-end">

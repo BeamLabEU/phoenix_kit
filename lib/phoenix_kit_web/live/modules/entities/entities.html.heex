@@ -238,7 +238,15 @@
             <%= for entity <- @entities do %>
               <.table_default_row>
                 <.table_default_cell>
-                  <div class="flex items-center gap-3">
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.locale_aware_path(
+                        assigns,
+                        "/admin/entities/#{entity.name}/data"
+                      )
+                    }
+                    class="flex items-center gap-3 hover:text-primary transition-colors cursor-pointer group"
+                  >
                     <div class="text-2xl">
                       <%= if entity.icon do %>
                         <.icon name={entity.icon} class="w-6 h-6" />
@@ -247,17 +255,20 @@
                       <% end %>
                     </div>
                     <div>
-                      <div class="font-bold">{entity.display_name}</div>
+                      <div class="font-bold">
+                        {entity.display_name}
+                      </div>
+                      <div class="text-sm opacity-50">
+                        <.icon name="hero-link" class="w-3 h-3 inline" />
+                        {entity.name}
+                      </div>
                       <%= if entity.description do %>
-                        <div class="text-sm opacity-50 line-clamp-1">
+                        <div class="text-xs opacity-50 line-clamp-1 mt-1">
                           {entity.description}
                         </div>
                       <% end %>
                     </div>
-                  </div>
-                </.table_default_cell>
-                <.table_default_cell>
-                  <code class="text-xs bg-base-200 px-2 py-1 rounded">{entity.name}</code>
+                  </.link>
                 </.table_default_cell>
                 <.table_default_cell>
                   <%= case entity.status do %>
@@ -298,9 +309,9 @@
                         )
                       }
                       class="btn btn-ghost btn-xs"
-                      title={gettext("View Data")}
+                      title={gettext("Go to Data")}
                     >
-                      <.icon name="hero-eye" class="w-4 h-4" />
+                      <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
                       navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.id}/edit")}
@@ -341,7 +352,10 @@
             <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
               <div class="card-body">
                 <div class="flex items-start justify-between mb-4">
-                  <div class="flex items-center">
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.name}/data")}
+                    class="flex items-center hover:text-primary transition-colors cursor-pointer group"
+                  >
                     <div class="text-2xl mr-3">
                       <%= if entity.icon do %>
                         <.icon name={entity.icon} class="w-6 h-6" />
@@ -350,12 +364,15 @@
                       <% end %>
                     </div>
                     <div>
-                      <h3 class="card-title text-lg">{entity.display_name}</h3>
-                      <p class="text-sm text-base-content/60">
+                      <h3 class="card-title text-lg">
+                        {entity.display_name}
+                      </h3>
+                      <p class="text-sm opacity-50">
+                        <.icon name="hero-link" class="w-3 h-3 inline" />
                         {entity.name}
                       </p>
                     </div>
-                  </div>
+                  </.link>
 
                   <%!-- Status Badge --%>
                   <div>
@@ -403,7 +420,7 @@
                     navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.name}/data")}
                     class="btn btn-outline btn-sm"
                   >
-                    <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("View Data")}
+                    <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" /> {gettext("Go to Data")}
                   </.link>
                   <.link
                     navigate={PhoenixKit.Utils.Routes.path("/admin/entities/#{entity.id}/edit")}
