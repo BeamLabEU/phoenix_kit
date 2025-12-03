@@ -58,6 +58,7 @@ defmodule PhoenixKit.Entities do
       end
 
       # Create a blog post entity
+      # Note: fields_definition requires string keys, not atom keys
       {:ok, entity} = PhoenixKit.Entities.create_entity(%{
         name: "blog_post",
         display_name: "Blog Post",
@@ -66,13 +67,13 @@ defmodule PhoenixKit.Entities do
         icon: "hero-document-text",
         created_by: admin_user.id,
         fields_definition: [
-          %{type: "text", key: "title", label: "Title", required: true},
-          %{type: "textarea", key: "excerpt", label: "Excerpt"},
-          %{type: "rich_text", key: "content", label: "Content", required: true},
-          %{type: "select", key: "category", label: "Category",
-            options: ["Tech", "Business", "Lifestyle"]},
-          %{type: "date", key: "publish_date", label: "Publish Date"},
-          %{type: "boolean", key: "featured", label: "Featured Post"}
+          %{"type" => "text", "key" => "title", "label" => "Title", "required" => true},
+          %{"type" => "textarea", "key" => "excerpt", "label" => "Excerpt"},
+          %{"type" => "rich_text", "key" => "content", "label" => "Content", "required" => true},
+          %{"type" => "select", "key" => "category", "label" => "Category",
+            "options" => ["Tech", "Business", "Lifestyle"]},
+          %{"type" => "date", "key" => "publish_date", "label" => "Publish Date"},
+          %{"type" => "boolean", "key" => "featured", "label" => "Featured Post"}
         ]
       })
 
@@ -352,9 +353,9 @@ defmodule PhoenixKit.Entities do
       iex> PhoenixKit.Entities.create_entity(%{name: ""})
       {:error, %Ecto.Changeset{}}
 
-      # created_by is auto-filled if not provided
-      iex> PhoenixKit.Entities.create_entity(%{name: "test", display_name: "Test"})
-      {:ok, %PhoenixKit.Entities{created_by: 1}}  # Uses first admin's ID
+  Note: `created_by` is auto-filled with the first admin or user ID if not provided,
+  but only if at least one user exists in the system. If no users exist, the changeset
+  will fail with a validation error on `created_by`.
   """
   def create_entity(attrs \\ %{}) do
     attrs = maybe_add_created_by(attrs)

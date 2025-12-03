@@ -437,9 +437,9 @@ defmodule PhoenixKit.Entities.EntityData do
       iex> PhoenixKit.Entities.EntityData.create(%{title: ""})
       {:error, %Ecto.Changeset{}}
 
-      # created_by is auto-filled if not provided
-      iex> PhoenixKit.Entities.EntityData.create(%{entity_id: 1, title: "Test"})
-      {:ok, %PhoenixKit.Entities.EntityData{created_by: 1}}  # Uses first admin's ID
+  Note: `created_by` is auto-filled with the first admin or user ID if not provided,
+  but only if at least one user exists in the system. If no users exist, the changeset
+  will fail with a validation error on `created_by`.
   """
   def create(attrs \\ %{}) do
     attrs = maybe_add_created_by(attrs)
