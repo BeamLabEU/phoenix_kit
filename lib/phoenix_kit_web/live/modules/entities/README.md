@@ -8,10 +8,10 @@ layer; the business logic lives in the `PhoenixKit.Entities` context.
 ## LiveViews & Components
 
 - `entities.ex` / `.html.heex` – Main dashboard listing entities, their status, and health.
-- `entity_form.ex` / `.html.heex` – Schema builder for creating and editing entity definitions.
+- `entity_form.ex` / `.html.heex` – Schema builder for creating and editing entity definitions (with presence locking).
 - `entities_settings.ex` / `.html.heex` – Module settings (enable/disable system, defaults).
-- `data_navigator.ex` / `.html.heex` – Explorer for entity records with filtering and presence info.
-- `data_form.ex` / `.html.heex` – Dynamic form renderer for entity entries.
+- `data_navigator.ex` / `.html.heex` – Explorer for entity records with filtering, search, and status management.
+- `data_form.ex` / `.html.heex` – Dynamic form renderer for entity entries (with presence locking).
 - `hooks.ex` – LiveView hooks (presence, authorization guards, shared assigns).
 
 All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@current_scope`).
@@ -20,8 +20,8 @@ All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@
 
 - **Entity Designer** – Build custom fields, validations, and display ordering for each entity type.
 - **JSONB Storage** – Field definitions stored as JSONB, no database migrations needed for schema changes.
-- **Data Navigator** – Browse, search, and filter entity data with real-time presence indicators.
-- **Collaborative Editing** – Presence helpers prevent overwrites when multiple admins edit the same record.
+- **Data Navigator** – Browse, search, and filter entity data with status filters and archive/restore workflow.
+- **Collaborative Editing** – Presence helpers in entity_form and data_form prevent overwrites when multiple admins edit the same record.
 - **Settings Guardrails** – Module can be toggled on/off via PhoenixKit Settings (`entities_enabled`).
 - **Event Broadcasting** – Hooks integrate with `PhoenixKit.Entities.Events` for lifecycle tracking.
 

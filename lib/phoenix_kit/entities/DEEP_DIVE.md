@@ -662,21 +662,27 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
 
-> **Note**: The route uses `:entity_slug` (not `:entity_id`). Visiting the view without a slug redirects back to the Entities list with a flash asking the user to pick an entity.
+> **Note**: The route requires `:entity_slug`. The LiveView mounts with a nil entity if the slug doesn't resolve to a valid entity.
 
 **Features:**
 
 - Browse a single entity's records in table or card layouts
 - Status filters (all/published/draft/archived) and keyword search scoped to the selected entity
 - At-a-glance stats (total/published/draft/archived) for that entity
-- Quick navigation links back to the entity definition plus “Add” shortcuts for new data
-- Row/card actions include view, edit, and delete buttons
+- Quick navigation links back to the entity definition plus "Add" shortcuts for new data
+- Row/card actions include view, edit, archive/restore, and status toggle buttons
 - Empty states that prompt the user to publish an entity or add the first record
 
 **LiveView Events:**
 
 ```elixir
-handle_event("delete_data", %{"id" => id}, socket)
+handle_event("toggle_view_mode", _params, socket)   # Switch table/card view
+handle_event("filter_by_status", %{"status" => status}, socket)
+handle_event("search", %{"search" => %{"query" => query}}, socket)
+handle_event("clear_filters", _params, socket)
+handle_event("archive_data", %{"id" => id}, socket)
+handle_event("restore_data", %{"id" => id}, socket)
+handle_event("toggle_status", %{"id" => id}, socket)
 ```
 
 ### 4. Data Form (Create/Edit/View)
@@ -1252,14 +1258,30 @@ end
 
 ```heex
 <%= if PhoenixKit.Entities.enabled?() do %>
-  <.admin_nav_item href={Routes.path("/admin/entities")} icon="entities" label="Entities" />
+  <.admin_nav_item
+    href={Routes.locale_aware_path(assigns, "/admin/entities")}
+    icon="entities"
+    label="Entities"
+    current_path={@current_path || ""}
+  />
 
-  <%= if submenu_open?(@current_path, ["/admin/entities", "/admin/entities/data"]) do %>
-    <.admin_nav_item href={Routes.path("/admin/entities")} label="Manage Entities" nested={true} />
-    <.admin_nav_item href={Routes.path("/admin/entities/data")} label="Data Navigator" nested={true} />
+  <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
+    <%!-- Dynamically list each published entity --%>
+    <%= for entity <- PhoenixKit.Entities.list_entities() do %>
+      <%= if entity.status == "published" do %>
+        <.admin_nav_item
+          href={Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")}
+          icon={entity.icon || "hero-cube"}
+          label={entity.display_name_plural || entity.display_name}
+          nested={true}
+        />
+      <% end %>
+    <% end %>
   <% end %>
 <% end %>
 ```
+
+> **Note**: The sidebar dynamically lists each published entity with a link to its data navigator. There is no global `/admin/entities/data` route.
 
 ### Cascade Delete Protection
 
