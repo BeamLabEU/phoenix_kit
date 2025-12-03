@@ -455,7 +455,7 @@
             <div>
               <span class="text-base-content/70">Last gen:</span>
               <span class="font-medium">
-                {if @sitemap_last_generated, do: @sitemap_last_generated, else: "Never"}
+                {format_timestamp(@sitemap_last_generated)}
               </span>
             </div>
           </div>

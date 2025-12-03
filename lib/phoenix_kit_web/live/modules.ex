@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
 
   def mount(params, _session, socket) do
@@ -385,4 +386,20 @@ defmodule PhoenixKitWeb.Live.Modules do
         {:noreply, socket}
     end
   end
+
+  # Format ISO8601 timestamp string to user-friendly format
+  def format_timestamp(nil), do: "Never"
+
+  def format_timestamp(iso_string) when is_binary(iso_string) do
+    case DateTime.from_iso8601(iso_string) do
+      {:ok, dt, _} ->
+        ndt = DateTime.to_naive(dt)
+        UtilsDate.format_datetime_full_with_user_format(ndt)
+
+      _ ->
+        iso_string
+    end
+  end
+
+  def format_timestamp(_), do: "Never"
 end

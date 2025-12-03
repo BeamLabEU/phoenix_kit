@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
     project_title = Settings.get_setting("project_title", "PhoenixKit")
+    site_url = Settings.get_setting("site_url", "")
     config = Sitemap.get_config()
 
     socket =
@@ -32,6 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
       |> assign(:current_locale, locale)
       |> assign(:current_path, Routes.path("/admin/settings/sitemap", locale: locale))
       |> assign(:config, config)
+      |> assign(:site_url, site_url)
       |> assign(:generating, false)
       |> assign(:preview_mode, nil)
       |> assign(:preview_content, nil)
@@ -153,18 +155,6 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
   end
 
   @impl true
-  def handle_event("update_base_url", %{"base_url" => url}, socket) do
-    case Settings.update_setting("sitemap_base_url", String.trim(url)) do
-      {:ok, _} ->
-        config = Sitemap.get_config()
-        {:noreply, assign(socket, :config, config)}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update base URL")}
-    end
-  end
-
-  @impl true
   def handle_event("regenerate", _params, socket) do
     socket = assign(socket, :generating, true)
 
@@ -278,7 +268,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
 
   # Maps old HTML style names to new XSL style names
   # hierarchical -> cards, grouped -> table, flat -> minimal
-  defp get_xsl_style(html_style) do
+  def get_xsl_style(html_style) do
     case html_style do
       "hierarchical" -> "cards"
       "grouped" -> "table"

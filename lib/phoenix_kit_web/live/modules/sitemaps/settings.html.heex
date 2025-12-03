@@ -256,25 +256,28 @@
             </h2>
 
             <div class="space-y-4 mt-4">
-              <%!-- Base URL --%>
-              <form phx-change="update_base_url" phx-debounce="500" class="form-control">
+              <%!-- Site URL (read-only, from main Settings) --%>
+              <div class="form-control">
                 <label class="label">
-                  <span class="label-text font-medium">Base URL</span>
+                  <span class="label-text font-medium">Site URL</span>
                 </label>
-                <input
-                  type="url"
-                  name="base_url"
-                  class="input input-bordered w-full"
-                  placeholder="https://example.com"
-                  value={@config.base_url || ""}
-                  id="base-url-input"
-                />
-                <label class="label">
-                  <span class="label-text-alt text-base-content/60">
-                    Leave empty to use site_url setting
-                  </span>
-                </label>
-              </form>
+                <div class="flex gap-2">
+                  <input
+                    type="url"
+                    class="input input-bordered w-full bg-base-200"
+                    value={@site_url || ""}
+                    disabled
+                    readonly
+                  />
+                  <.link
+                    navigate={Routes.path("/admin/settings", locale: @current_locale)}
+                    class="btn btn-outline btn-sm"
+                    title="Edit in Settings"
+                  >
+                    <.icon name="hero-pencil" class="w-4 h-4" />
+                  </.link>
+                </div>
+              </div>
 
               <%!-- XSL Styling --%>
               <label class="flex items-center justify-between cursor-pointer">
@@ -462,7 +465,7 @@
 
         <div class="flex-1 min-h-0">
           <iframe
-            src={Routes.path("/sitemap.xml", locale: :none)}
+            src={Routes.path("/sitemap.xml", locale: :none) <> "?format=html&style=#{get_xsl_style(@config.html_style)}"}
             class="w-full h-full border border-base-300 rounded-lg bg-base-100"
             title="Sitemap Preview"
           />

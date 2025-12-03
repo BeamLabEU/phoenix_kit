@@ -39,12 +39,25 @@ defmodule PhoenixKitWeb.SitemapController do
   Returns 404 if sitemap module is disabled.
   Returns 500 if sitemap generation fails.
   """
-  def xml(conn, _params) do
+  def xml(conn, params) do
     if Sitemap.enabled?() do
       config = Sitemap.get_config()
 
+      # Force HTML format if ?format=html parameter is present (for iframe preview)
+      force_html = Map.get(params, "format") == "html"
+
+      # Override style from query param if provided (for preview)
+      config =
+        case Map.get(params, "style") do
+          style when style in @valid_xsl_styles ->
+            Map.put(config, :html_style, style)
+
+          _ ->
+            config
+        end
+
       # Check if request is from a browser (wants HTML) vs bot (wants XML)
-      if browser_request?(conn) and Map.get(config, :html_enabled, true) do
+      if (force_html or browser_request?(conn)) and Map.get(config, :html_enabled, true) do
         serve_styled_html(conn, config)
       else
         serve_raw_xml(conn, config)

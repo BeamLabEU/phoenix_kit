@@ -114,7 +114,6 @@ defmodule PhoenixKit.Sitemap do
   @include_pages_key "sitemap_include_pages"
   @include_static_key "sitemap_include_static"
   @router_discovery_key "sitemap_router_discovery_enabled"
-  @base_url_key "sitemap_base_url"
   @html_enabled_key "sitemap_html_enabled"
   @html_style_key "sitemap_html_style"
   @default_changefreq_key "sitemap_default_changefreq"
@@ -233,8 +232,7 @@ defmodule PhoenixKit.Sitemap do
   @doc """
   Returns the base URL for sitemap generation.
 
-  Falls back to site_url setting if sitemap_base_url is not configured.
-  If neither is set, returns an empty string.
+  Uses site_url from Settings. Returns empty string if not configured.
 
   ## Examples
 
@@ -243,14 +241,7 @@ defmodule PhoenixKit.Sitemap do
   """
   @spec get_base_url() :: String.t()
   def get_base_url do
-    base_url = settings_call(:get_setting_cached, [@base_url_key, ""])
-
-    if base_url == "" do
-      # Fallback to site_url setting
-      settings_call(:get_setting_cached, ["site_url", ""])
-    else
-      base_url
-    end
+    settings_call(:get_setting_cached, ["site_url", ""])
   end
 
   @doc """

@@ -175,13 +175,34 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   defp get_post_lastmod(post) do
     case post do
-      %{metadata: %{date_updated: dt}} -> parse_datetime(dt)
-      %{metadata: %{"date_updated" => dt}} -> parse_datetime(dt)
-      %{metadata: %{updated_at: dt}} -> parse_datetime(dt)
-      %{metadata: %{"updated_at" => dt}} -> parse_datetime(dt)
-      %{date: date, time: time} when not is_nil(date) -> combine_date_time(date, time)
-      %{date: date} when not is_nil(date) -> date
-      _ -> nil
+      # Check metadata fields first (PhoenixKit blogging uses published_at)
+      %{metadata: %{published_at: dt}} when not is_nil(dt) and dt != "" ->
+        parse_datetime(dt)
+
+      %{metadata: %{"published_at" => dt}} when not is_nil(dt) and dt != "" ->
+        parse_datetime(dt)
+
+      %{metadata: %{date_updated: dt}} ->
+        parse_datetime(dt)
+
+      %{metadata: %{"date_updated" => dt}} ->
+        parse_datetime(dt)
+
+      %{metadata: %{updated_at: dt}} ->
+        parse_datetime(dt)
+
+      %{metadata: %{"updated_at" => dt}} ->
+        parse_datetime(dt)
+
+      # Fallback to post date/time fields (timestamp mode)
+      %{date: date, time: time} when not is_nil(date) ->
+        combine_date_time(date, time)
+
+      %{date: date} when not is_nil(date) ->
+        date
+
+      _ ->
+        nil
     end
   end
 
