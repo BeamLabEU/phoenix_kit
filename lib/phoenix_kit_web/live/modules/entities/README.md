@@ -19,11 +19,11 @@ All templates follow Phoenix 1.8 layout conventions (`<Layouts.app ...>` with `@
 ## Feature Highlights
 
 - **Entity Designer** – Build custom fields, validations, and display ordering for each entity type.
-- **Schema Versioning** – Update field definitions safely; migrations are generated on the fly.
+- **JSONB Storage** – Field definitions stored as JSONB, no database migrations needed for schema changes.
 - **Data Navigator** – Browse, search, and filter entity data with real-time presence indicators.
 - **Collaborative Editing** – Presence helpers prevent overwrites when multiple admins edit the same record.
 - **Settings Guardrails** – Module can be toggled on/off via PhoenixKit Settings (`entities_enabled`).
-- **Audit Trails** – Hooks integrate with `PhoenixKit.Entities.Events` for lifecycle tracking.
+- **Event Broadcasting** – Hooks integrate with `PhoenixKit.Entities.Events` for lifecycle tracking.
 
 ## Integration Points
 

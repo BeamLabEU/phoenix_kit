@@ -7,7 +7,7 @@ PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets
 ## High-level capabilities
 
 - **Entity blueprints** – Define reusable content types (`phoenix_kit_entities`) with metadata, singular/plural labels, icon, status, JSON field schema, and optional custom settings.
-- **Dynamic fields** – 13+ built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text, file, image, relation). Field definitions live in JSONB and are validated at creation time.
+- **Dynamic fields** – 11 built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text). Field definitions live in JSONB and are validated at creation time. *(Note: image, file, and relation fields are defined but not yet fully implemented—UI shows "coming soon" placeholders.)*
 - **Entity data records** – Store instances of an entity (`phoenix_kit_entity_data`) with slug support, status workflow (draft/published/archived), JSONB data payload, metadata, creator tracking, and timestamps.
 - **Admin UI** – LiveView dashboards for managing blueprints, browsing/creating data, filtering, and adjusting module settings.
 - **Settings + security** – Feature toggle, max entities per user, relation/file flags, auto slugging, etc., persisted in `phoenix_kit_settings`. All surfaces are gated behind the admin scope.
@@ -156,8 +156,8 @@ All navigation helpers use `Routes.locale_aware_path/2` (or `PhoenixKit.Utils.Ro
 - **Boolean**: `boolean`
 - **Date/Time**: `date`
 - **Choice**: `select`, `radio`, `checkbox`
-- **Media**: `image`, `file`
-- **Relations**: `relation`
+- **Media** *(coming soon)*: `image`, `file` – defined in schema but renders placeholder UI
+- **Relations** *(coming soon)*: `relation` – defined in schema but not yet functional
 
 Each field definition is a map like:
 ```elixir
@@ -181,8 +181,8 @@ Each field definition is a map like:
 |---------|-------------|-------------|
 | `entities_enabled` | Master on/off switch for the module | `/admin/modules`, `Entities.enable_system/0` |
 | `entities_max_per_user` | Blueprint limit per creator | `Entities_settings` UI & `Entities.get_max_per_user/0` |
-| `entities_allow_relations` | Enables relation field type | Settings UI |
-| `entities_file_upload` | Enables file/image field types | Settings UI |
+| `entities_allow_relations` | Reserved for future relation field toggle | Settings UI *(not yet enforced)* |
+| `entities_file_upload` | Reserved for future file/image upload toggle | Settings UI *(not yet enforced)* |
 | `entities_auto_generate_slugs` | (Optional) controls slug generation in forms | Settings UI |
 | `entities_default_status` | Default status for new records | Settings UI |
 
@@ -333,7 +333,7 @@ The entity form editor supports real-time collaboration with FIFO locking:
 
 ## Related documentation
 
-- `ENTITIES_SYSTEM.md` – long-form analysis, rationale, and implementation notes
+- `DEEP_DIVE.md` – long-form analysis, rationale, and implementation notes (in this directory)
 - `lib/phoenix_kit/migrations/postgres/v17.ex` – database migration
 - `lib/phoenix_kit/utils/routes.ex` – locale-aware path helpers
 - `lib/phoenix_kit_web/components/layout_wrapper.ex` – navigation wrapper that consumes the assigns set by these LiveViews

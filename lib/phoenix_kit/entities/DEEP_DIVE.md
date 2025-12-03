@@ -212,7 +212,7 @@ Stores actual content records based on entity blueprints.
 
 **File**: `lib/phoenix_kit/entities/field_types.ex`
 
-The system supports 13 field types organized into 6 categories:
+The system supports 11 fully functional field types organized into 5 categories, plus 3 placeholder types for future implementation:
 
 ### Basic Fields
 
@@ -250,18 +250,22 @@ The system supports 13 field types organized into 6 categories:
 | `radio`      | Radio Buttons      | Single choice from radio buttons      | **Yes**          |
 | `checkbox`   | Checkboxes         | Multiple choices from checkboxes      | **Yes**          |
 
-### Media Fields
+### Media Fields *(Coming Soon)*
 
-| Type         | Label              | Description                           | Requires Options |
-|--------------|--------------------| --------------------------------------|------------------|
-| `image`      | Image Upload       | Image file upload                     | No               |
-| `file`       | File Upload        | Generic file upload                   | No               |
+| Type         | Label              | Description                           | Requires Options | Status |
+|--------------|--------------------| --------------------------------------|------------------|--------|
+| `image`      | Image Upload       | Image file upload                     | No               | Placeholder UI |
+| `file`       | File Upload        | Generic file upload                   | No               | Placeholder UI |
 
-### Relational Fields
+> **Note**: Media fields are defined in the schema but render "Coming Soon" placeholders in the form builder. No actual file upload functionality is implemented yet.
 
-| Type         | Label              | Description                           | Requires Options |
-|--------------|--------------------| --------------------------------------|------------------|
-| `relation`   | Relation           | Relationship to other entity records  | **Yes**          |
+### Relational Fields *(Coming Soon)*
+
+| Type         | Label              | Description                           | Requires Options | Status |
+|--------------|--------------------| --------------------------------------|------------------|--------|
+| `relation`   | Relation           | Relationship to other entity records  | **Yes**          | Placeholder UI |
+
+> **Note**: Relation fields are defined in the schema but render "Coming Soon" placeholders. The `entities_allow_relations` setting exists but is not yet enforced.
 
 ### Field Definition Structure
 
@@ -535,30 +539,29 @@ Dynamic form generation from entity field definitions.
 **Key Functions:**
 
 ```elixir
-# Generate form fields from entity
-PhoenixKit.Entities.FormBuilder.generate_fields(entity, changeset, assigns)
-# => [rendered_field_components]
+# Generate form fields from entity (returns Phoenix.Component HTML)
+PhoenixKit.Entities.FormBuilder.build_fields(entity, changeset, opts \\ [])
+# => Phoenix.LiveView.Rendered (HEEx template)
 
-# Generate single field
-PhoenixKit.Entities.FormBuilder.generate_field(field_def, form, assigns)
-# => rendered_field_component
+# Generate single field (multi-clause function handles all field types)
+PhoenixKit.Entities.FormBuilder.build_field(field_definition, changeset, opts \\ [])
+# => Phoenix.LiveView.Rendered (HEEx template)
 
-# Supported field renderers:
-# - render_text_field/3
-# - render_textarea_field/3
-# - render_email_field/3
-# - render_url_field/3
-# - render_rich_text_field/3
-# - render_number_field/3
-# - render_boolean_field/3
-# - render_date_field/3
-# - render_select_field/3
-# - render_radio_field/3
-# - render_checkbox_field/3
-# - render_image_field/3
-# - render_file_field/3
-# - render_relation_field/3
+# Validate entity data against field definitions
+PhoenixKit.Entities.FormBuilder.validate_data(entity, data_params)
+# => {:ok, validated_data} | {:error, errors}
 ```
+
+**Options for build_fields/build_field:**
+
+- `:wrapper_class` - CSS class for field wrapper divs
+- `:input_class` - CSS class for input elements
+- `:label_class` - CSS class for label elements
+
+**Internal Field Rendering:**
+
+The `build_field/3` function uses pattern matching on field type to render appropriate inputs.
+Media fields (`image`, `file`) and relation fields render "Coming Soon" placeholders.
 
 ---
 
@@ -567,8 +570,8 @@ PhoenixKit.Entities.FormBuilder.generate_field(field_def, form, assigns)
 ### 1. Entities Manager
 
 **Route**: `/phoenix_kit/admin/entities`
-**File**: `lib/phoenix_kit_web/live/entities/entities_live.ex`
-**Template**: `lib/phoenix_kit_web/live/entities/entities_live.html.heex`
+**File**: `lib/phoenix_kit_web/live/modules/entities/entities.ex`
+**Template**: `lib/phoenix_kit_web/live/modules/entities/entities.html.heex`
 
 **Features:**
 
@@ -593,8 +596,8 @@ handle_event("delete_entity", %{"id" => id}, socket)
 - Edit: `/phoenix_kit/admin/entities/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/entity_form_live.ex`
-- `lib/phoenix_kit_web/live/entities/entity_form_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/entity_form.ex`
+- `lib/phoenix_kit_web/live/modules/entities/entity_form.html.heex`
 
 **Features:**
 
@@ -651,13 +654,13 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 
 ### 3. Data Navigator
 
-**Routes**:
-- All data: `/phoenix_kit/admin/entities/data`
-- Entity data: `/phoenix_kit/admin/entities/:entity_id/data`
+**Route**: `/phoenix_kit/admin/entities/:entity_slug/data`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/data_navigator_live.ex`
-- `lib/phoenix_kit_web/live/entities/data_navigator_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
+- `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
+
+> **Note**: The route uses `:entity_slug` (not `:entity_id`). There is no standalone `/admin/entities/data` route—data is always accessed via a specific entity's slug.
 
 **Features:**
 
@@ -683,13 +686,16 @@ handle_event("delete_data", %{"id" => id}, socket)
 ### 4. Data Form (Create/Edit/View)
 
 **Routes**:
-- Create: `/phoenix_kit/admin/entities/:entity_id/data/new`
-- View: `/phoenix_kit/admin/entities/:entity_id/data/:id`
-- Edit: `/phoenix_kit/admin/entities/:entity_id/data/:id/edit`
+- Create: `/phoenix_kit/admin/entities/:entity_slug/data/new`
+- View: `/phoenix_kit/admin/entities/:entity_slug/data/:id`
+- Edit: `/phoenix_kit/admin/entities/:entity_slug/data/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/data_form_live.ex`
-- `lib/phoenix_kit_web/live/entities/data_form_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_form.ex`
+- `lib/phoenix_kit_web/live/modules/entities/data_form.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_view.ex` (for :show action)
+
+> **Note**: Routes use `:entity_slug` (not `:entity_id`).
 
 **Features:**
 
@@ -949,18 +955,22 @@ The entity form editor supports real-time collaboration with FIFO (First In, Fir
 ### Presence Tracking
 
 ```elixir
-# Track user presence when mounting
-PresenceHelpers.track_presence("entity", entity.id, socket.id, %{
-  user_id: current_user.id,
-  user: current_user,
-  joined_at: DateTime.utc_now()
-})
+# Track user presence when mounting (in LiveView mount)
+PresenceHelpers.track_editing_session(:entity, entity.id, socket, current_user)
+# => {:ok, ref}
 
 # Get sorted presences (FIFO order)
-presences = PresenceHelpers.get_sorted_presences("entity", entity.id)
-# => [{socket_id, %{user: %User{}, joined_at: ~U[...]}}, ...]
+presences = PresenceHelpers.get_sorted_presences(:entity, entity.id)
+# => [{socket_id, %{user: %User{}, joined_at: timestamp}}, ...]
 
-# First in list is owner, rest are spectators
+# Determine if current socket is owner or spectator
+case PresenceHelpers.get_editing_role(:entity, entity.id, socket.id, current_user.id) do
+  {:owner, all_presences} ->
+    # This socket can edit
+
+  {:spectator, owner_metadata, all_presences} ->
+    # Read-only mode, sync with owner's state
+end
 ```
 
 ### UI Indicators
@@ -978,14 +988,28 @@ The entity form shows:
 Changes are broadcast via Phoenix PubSub:
 
 ```elixir
-# Broadcast entity update
+# Subscribe to entity definition lifecycle events (create/update/delete)
+Events.subscribe_to_entities()
+
+# Subscribe to data lifecycle events for a specific entity
+Events.subscribe_to_entity_data(entity.id)
+
+# Subscribe to collaborative form events
+Events.subscribe_to_entity_form(form_key)
+Events.subscribe_to_data_form(entity_id, record_key)
+
+# Broadcast entity lifecycle events
+Events.broadcast_entity_created(entity.id)
 Events.broadcast_entity_updated(entity.id)
+Events.broadcast_entity_deleted(entity.id)
 
-# Subscribe to entity updates
-Events.subscribe_to_entity(entity.id)
+# Broadcast data lifecycle events
+Events.broadcast_data_created(entity_id, data_id)
+Events.broadcast_data_updated(entity_id, data_id)
 
-# Handle incoming updates
+# Handle incoming updates in LiveView
 def handle_info({:entity_updated, entity_id}, socket)
+def handle_info({:data_updated, entity_id, data_id}, socket)
 ```
 
 ---
@@ -1667,7 +1691,7 @@ Note: `create/1` auto-fills `created_by` with the first admin user if not provid
 - `phoenix_kit_entity_data` table for data records
 - JSONB support for flexible schemas
 - Status system (draft/published/archived)
-- Field types system with 13 types
+- Field types system with 11 functional types (+ 3 placeholder types for future)
 - Admin interfaces for entity and data management
 - Dynamic form generation
 - Settings integration
@@ -1684,11 +1708,11 @@ Note: `create/1` auto-fills `created_by` with the first admin user if not provid
 - `/admin/entities` - List entities
 - `/admin/entities/new` - Create entity
 - `/admin/entities/:id/edit` - Edit entity
-- `/admin/entities/data` - Data navigator
-- `/admin/entities/:entity_id/data` - Entity data list
-- `/admin/entities/:entity_id/data/new` - Create data
-- `/admin/entities/:entity_id/data/:id` - View data
-- `/admin/entities/:entity_id/data/:id/edit` - Edit data
+- `/admin/entities/:entity_slug/data` - Data navigator for entity
+- `/admin/entities/:entity_slug/data/new` - Create data record
+- `/admin/entities/:entity_slug/data/:id` - View data record
+- `/admin/entities/:entity_slug/data/:id/edit` - Edit data record
+- `/admin/settings/entities` - Entities module settings
 
 ### Recent Updates (2025-12)
 

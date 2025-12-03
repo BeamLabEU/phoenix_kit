@@ -214,8 +214,8 @@ PhoenixKit.Entities.enable_system()
 # All records for an entity
 records = PhoenixKit.Entities.EntityData.list_by_entity(entity.id)
 
-# Search by title
-results = PhoenixKit.Entities.EntityData.search_by_title(entity.id, "John")
+# Search by title (search_term first, entity_id optional second)
+results = PhoenixKit.Entities.EntityData.search_by_title("John", entity.id)
 
 # Get entity by name
 entity = PhoenixKit.Entities.get_entity_by_name("contact_form")
@@ -223,22 +223,24 @@ entity = PhoenixKit.Entities.get_entity_by_name("contact_form")
 
 ### Available Field Types
 
-| Type | Description | Requires Options |
-|------|-------------|------------------|
-| `text` | Single-line text | No |
-| `textarea` | Multi-line text | No |
-| `email` | Email with validation | No |
-| `url` | URL with validation | No |
-| `number` | Numeric input | No |
-| `boolean` | True/false toggle | No |
-| `date` | Date picker | No |
-| `rich_text` | WYSIWYG editor | No |
-| `select` | Dropdown | Yes |
-| `radio` | Radio buttons | Yes |
-| `checkbox` | Multiple checkboxes | Yes |
-| `image` | Image upload (placeholder) | No |
-| `file` | File upload (placeholder) | No |
-| `relation` | Link to other entity | Yes |
+| Type | Description | Requires Options | Status |
+|------|-------------|------------------|--------|
+| `text` | Single-line text | No | ✅ |
+| `textarea` | Multi-line text | No | ✅ |
+| `email` | Email with validation | No | ✅ |
+| `url` | URL with validation | No | ✅ |
+| `number` | Numeric input | No | ✅ |
+| `boolean` | True/false toggle | No | ✅ |
+| `date` | Date picker | No | ✅ |
+| `rich_text` | WYSIWYG editor | No | ✅ |
+| `select` | Dropdown | Yes | ✅ |
+| `radio` | Radio buttons | Yes | ✅ |
+| `checkbox` | Multiple checkboxes | Yes | ✅ |
+| `image` | Image upload | No | 🚧 Coming soon |
+| `file` | File upload | No | 🚧 Coming soon |
+| `relation` | Link to other entity | Yes | 🚧 Coming soon |
+
+> **Note**: Media and relation fields are defined in the schema but render "Coming Soon" placeholders in forms. No actual upload or relation functionality is implemented yet.
 
 ### Field Builder Helpers
 
