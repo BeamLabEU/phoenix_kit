@@ -272,11 +272,12 @@ FieldTypes.new_field("select", "status", "Status", options: ["Active", "Inactive
 alias PhoenixKit.Entities
 alias PhoenixKit.Entities.FieldTypes
 
+# Note: created_by is optional - it auto-fills with first admin user if not provided
 {:ok, entity} = Entities.create_entity(%{
   name: "contact_form",
   display_name: "Contact Form",
   status: "published",
-  created_by: admin.id,
+  # created_by: admin.id,  # Optional! Auto-filled if omitted
   fields_definition: [
     FieldTypes.text_field("name", "Name", required: true),
     FieldTypes.email_field("email", "Email", required: true),
@@ -295,6 +296,23 @@ alias PhoenixKit.Entities.FieldTypes
   ]
 })
 ```
+
+### Getting Admin User for created_by
+
+If you need to explicitly set `created_by`, use these helpers:
+
+```elixir
+# Get first admin (Owner or Admin role) - recommended
+admin_id = PhoenixKit.Users.Auth.get_first_admin_id()
+
+# Get first user (any role)
+user_id = PhoenixKit.Users.Auth.get_first_user_id()
+
+# Get full user struct if needed
+admin = PhoenixKit.Users.Auth.get_first_admin()
+```
+
+**Note:** `created_by` is now auto-filled for both `Entities.create_entity/1` and `EntityData.create/1` if not provided. It uses the first admin, or falls back to the first user.
 
 ---
 
@@ -592,9 +610,16 @@ FieldTypes.validate_field(field_map) :: {:ok, map()} | {:error, String.t()}
 
 ```elixir
 # User management
+Auth.get_user(id) :: User.t() | nil
 Auth.get_user!(id) :: User.t()
 Auth.get_user_by_email(email) :: User.t() | nil
 Auth.register_user(attrs) :: {:ok, User.t()} | {:error, Changeset.t()}
+
+# Admin user helpers (useful for created_by)
+Auth.get_first_admin() :: User.t() | nil       # First Owner or Admin
+Auth.get_first_admin_id() :: integer() | nil   # Just the ID
+Auth.get_first_user() :: User.t() | nil        # First user by ID
+Auth.get_first_user_id() :: integer() | nil    # Just the ID
 
 # Authentication
 Auth.authenticate_user(email, password) :: {:ok, User.t()} | {:error, :invalid_credentials}

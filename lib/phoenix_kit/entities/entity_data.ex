@@ -436,12 +436,40 @@ defmodule PhoenixKit.Entities.EntityData do
 
       iex> PhoenixKit.Entities.EntityData.create(%{title: ""})
       {:error, %Ecto.Changeset{}}
+
+      # created_by is auto-filled if not provided
+      iex> PhoenixKit.Entities.EntityData.create(%{entity_id: 1, title: "Test"})
+      {:ok, %PhoenixKit.Entities.EntityData{created_by: 1}}  # Uses first admin's ID
   """
   def create(attrs \\ %{}) do
+    attrs = maybe_add_created_by(attrs)
+
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
     |> notify_data_event(:created)
+  end
+
+  # Auto-fill created_by with first admin if not provided
+  defp maybe_add_created_by(attrs) when is_map(attrs) do
+    has_created_by =
+      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+
+    if has_created_by do
+      attrs
+    else
+      case PhoenixKit.Users.Auth.get_first_admin_id() do
+        nil ->
+          # Fall back to first user if no admin exists
+          case PhoenixKit.Users.Auth.get_first_user_id() do
+            nil -> attrs
+            user_id -> Map.put(attrs, :created_by, user_id)
+          end
+
+        admin_id ->
+          Map.put(attrs, :created_by, admin_id)
+      end
+    end
   end
 
   @doc """
