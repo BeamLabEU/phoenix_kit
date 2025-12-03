@@ -1113,11 +1113,12 @@
                     <div class="flex gap-2">
                       <input
                         type="text"
+                        name={"option[#{option_index}]"}
                         value={option}
                         class="input input-bordered flex-1"
-                        phx-debounce="blur"
-                        phx-blur="update_option"
+                        phx-change="update_option"
                         phx-value-index={option_index}
+                        phx-debounce="300"
                         placeholder={gettext("Option value")}
                       />
                       <button

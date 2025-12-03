@@ -623,9 +623,23 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     end
   end
 
-  def handle_event("update_option", %{"index" => index, "value" => value}, socket) do
+  def handle_event("update_option", %{"index" => index} = params, socket) do
     if socket.assigns[:lock_owner?] do
       index = String.to_integer(index)
+
+      # Extract value from phx-change format: %{"option" => %{"0" => "value"}}
+      value =
+        case params do
+          %{"option" => option_map} when is_map(option_map) ->
+            Map.get(option_map, to_string(index), "")
+
+          %{"value" => v} ->
+            v
+
+          _ ->
+            ""
+        end
+
       current_options = Map.get(socket.assigns.field_form, "options", [])
       updated_options = List.replace_at(current_options, index, value)
 
