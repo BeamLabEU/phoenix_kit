@@ -278,7 +278,7 @@ Each field in `fields_definition` is a map with the following structure:
   "label" => "Field Name",       # Display label (required)
   "required" => true,            # Whether field is required (optional, default: false)
   "default" => "default value",  # Default value (optional)
-  "options" => ["Option 1", "Option 2"]  # Options for choice/relation fields (required for select/radio/checkbox/relation)
+  "options" => ["Option 1", "Option 2"]  # Options for choice fields (required for select/radio/checkbox; relation will also require options once implemented)
 }
 ```
 
@@ -662,20 +662,16 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
 - `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
 
-> **Note**: The route uses `:entity_slug` (not `:entity_id`). There is no standalone global data view—data is always scoped to a specific entity.
+> **Note**: The route uses `:entity_slug` (not `:entity_id`). Visiting the view without a slug redirects back to the Entities list with a flash asking the user to pick an entity.
 
 **Features:**
 
-- Browse data records for the selected entity
-- Search and filter within the entity's records
-- List view with:
-  - Record title
-  - Status badge
-  - Created by user
-  - Creation date
-  - View/Edit/Delete buttons
-- New Record button
-- Empty state when no data exists for the entity
+- Browse a single entity's records in table or card layouts
+- Status filters (all/published/draft/archived) and keyword search scoped to the selected entity
+- At-a-glance stats (total/published/draft/archived) for that entity
+- Quick navigation links back to the entity definition plus “Add” shortcuts for new data
+- Row/card actions include view, edit, and delete buttons
+- Empty states that prompt the user to publish an entity or add the first record
 
 **LiveView Events:**
 

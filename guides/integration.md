@@ -341,17 +341,19 @@ PhoenixKit.Entities.update_entity(entity, %{
 
 ### Embed in Your Templates
 
-```heex
-<%# In any .heex template %>
-<.live_component
-  module={PhoenixKitWeb.Components.Blogging.EntityForm}
-  id="contact-form"
-  entity_slug="contact_form"
-/>
+The EntityForm is a function component (not a LiveComponent), so use it directly:
 
-<%# Or use the function component %>
-<PhoenixKitWeb.Components.Blogging.EntityForm.render entity_slug="contact_form" />
+```heex
+<%# In .phk blogging pages (recommended) %>
+<EntityForm entity_slug="contact_form" />
+
+<%# Or call the render function directly in regular .heex templates %>
+<PhoenixKitWeb.Components.Blogging.EntityForm.render
+  attributes={%{"entity_slug" => "contact_form"}}
+/>
 ```
+
+> **Note**: Do not use `live_component` - EntityForm uses `Phoenix.Component`, not `Phoenix.LiveComponent`.
 
 ### Security Options
 

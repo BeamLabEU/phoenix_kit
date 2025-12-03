@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
       auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
       default_status: Settings.get_setting("entities_default_status", "draft"),
       require_approval: Settings.get_setting("entities_require_approval", "false"),
-      max_entities_per_user: Settings.get_setting("entities_max_entities_per_user", "unlimited"),
+      max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
       data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
       enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
       enable_comments: Settings.get_setting("entities_enable_comments", "false")
@@ -67,8 +67,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
             auto_generate_slugs: Settings.get_setting("entities_auto_generate_slugs", "true"),
             default_status: Settings.get_setting("entities_default_status", "draft"),
             require_approval: Settings.get_setting("entities_require_approval", "false"),
-            max_entities_per_user:
-              Settings.get_setting("entities_max_entities_per_user", "unlimited"),
+            max_entities_per_user: Settings.get_setting("entities_max_per_user", "100"),
             data_retention_days: Settings.get_setting("entities_data_retention_days", "365"),
             enable_revisions: Settings.get_setting("entities_enable_revisions", "false"),
             enable_comments: Settings.get_setting("entities_enable_comments", "false")
@@ -276,8 +275,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
       {"entities_auto_generate_slugs", Map.get(settings_params, "auto_generate_slugs", "true")},
       {"entities_default_status", Map.get(settings_params, "default_status", "draft")},
       {"entities_require_approval", Map.get(settings_params, "require_approval", "false")},
-      {"entities_max_entities_per_user",
-       Map.get(settings_params, "max_entities_per_user", "unlimited")},
+      {"entities_max_per_user", Map.get(settings_params, "max_entities_per_user", "100")},
       {"entities_data_retention_days", Map.get(settings_params, "data_retention_days", "365")},
       {"entities_enable_revisions", Map.get(settings_params, "enable_revisions", "false")},
       {"entities_enable_comments", Map.get(settings_params, "enable_comments", "false")}
