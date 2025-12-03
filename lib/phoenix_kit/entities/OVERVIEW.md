@@ -10,7 +10,7 @@ PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets
 - **Dynamic fields** – 11 built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text). Field definitions live in JSONB and are validated at creation time. *(Note: image, file, and relation fields are defined but not yet fully implemented—UI shows "coming soon" placeholders.)*
 - **Entity data records** – Store instances of an entity (`phoenix_kit_entity_data`) with slug support, status workflow (draft/published/archived), JSONB data payload, metadata, creator tracking, and timestamps.
 - **Admin UI** – LiveView dashboards for managing blueprints, browsing/creating data, filtering, and adjusting module settings.
-- **Settings + security** – Feature toggle, max entities per user, relation/file flags, auto slugging, etc., persisted in `phoenix_kit_settings`. All surfaces are gated behind the admin scope.
+- **Settings + security** – Feature toggle and max entities per user are enforced; additional settings (relation/file flags, auto slugging, etc.) are persisted in `phoenix_kit_settings` but reserved for future use. All surfaces are gated behind the admin scope.
 - **Statistics** – Counts and summaries for dashboards and monitoring.
 - **Public Form Builder** – Create embeddable forms for public-facing pages with security features (honeypot, time-based validation, rate limiting), configurable actions, and submission statistics.
 
@@ -177,14 +177,20 @@ Each field definition is a map like:
 
 ## Settings & configuration
 
-| Setting | Description | Exposed via |
-|---------|-------------|-------------|
-| `entities_enabled` | Master on/off switch for the module | `/admin/modules`, `Entities.enable_system/0` |
-| `entities_max_per_user` | Blueprint limit per creator | `Entities_settings` UI & `Entities.get_max_per_user/0` |
-| `entities_allow_relations` | Reserved for future relation field toggle | Settings UI *(not yet enforced)* |
-| `entities_file_upload` | Reserved for future file/image upload toggle | Settings UI *(not yet enforced)* |
-| `entities_auto_generate_slugs` | (Optional) controls slug generation in forms | Settings UI |
-| `entities_default_status` | Default status for new records | Settings UI |
+| Setting | Description | Exposed via | Status |
+|---------|-------------|-------------|--------|
+| `entities_enabled` | Master on/off switch for the module | `/admin/modules`, `Entities.enable_system/0` | ✅ Active |
+| `entities_max_per_user` | Blueprint limit per creator | Settings UI & `Entities.get_max_per_user/0` | ✅ Active |
+| `entities_allow_relations` | Reserved for future relation field toggle | Settings UI | 🚧 Not yet enforced |
+| `entities_file_upload` | Reserved for future file/image upload toggle | Settings UI | 🚧 Not yet enforced |
+| `entities_auto_generate_slugs` | Reserved for optional slug generation control | Settings UI | 🚧 Not yet enforced (slugs always auto-generate) |
+| `entities_default_status` | Reserved for default status on new records | Settings UI | 🚧 Not yet enforced (defaults to "published") |
+| `entities_require_approval` | Reserved for approval workflow | Settings UI | 🚧 Not yet enforced |
+| `entities_data_retention_days` | Reserved for data retention policy | Settings UI | 🚧 Not yet enforced |
+| `entities_enable_revisions` | Reserved for revision history | Settings UI | 🚧 Not yet enforced |
+| `entities_enable_comments` | Reserved for commenting system | Settings UI | 🚧 Not yet enforced |
+
+> **Note**: Settings marked "Not yet enforced" are persisted in the database and visible in the admin UI, but the underlying functionality is not yet implemented. They are placeholders for future features.
 
 `PhoenixKit.Entities.get_config/0` returns a map:
 ```elixir
