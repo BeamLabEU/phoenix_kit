@@ -12,9 +12,12 @@
 4. [Field Types System](#field-types-system)
 5. [Core Modules](#core-modules)
 6. [Admin Interfaces](#admin-interfaces)
-7. [Usage Examples](#usage-examples)
-8. [Implementation Details](#implementation-details)
-9. [Settings Integration](#settings-integration)
+7. [Public Form Builder](#public-form-builder)
+8. [HTML Sanitization](#html-sanitization)
+9. [Real-Time Collaboration](#real-time-collaboration)
+10. [Usage Examples](#usage-examples)
+11. [Implementation Details](#implementation-details)
+12. [Settings Integration](#settings-integration)
 
 ---
 
@@ -88,9 +91,9 @@ The system uses a two-table architecture that separates entity definitions (blue
 
 ## Database Schema
 
-### Migration: V13
+### Migration: V17
 
-**File**: `lib/phoenix_kit/migrations/postgres/v13.ex`
+**File**: `lib/phoenix_kit/migrations/postgres/v17.ex`
 
 ### phoenix_kit_entities (Entity Definitions)
 
@@ -680,6 +683,278 @@ handle_event("save", %{"entity_data" => params}, socket)
 
 ---
 
+## Public Form Builder
+
+The Entities system includes a Public Form Builder that allows administrators to create embeddable forms for public-facing pages. This enables use cases like contact forms, lead capture, surveys, and user submissions.
+
+### Overview
+
+The Public Form Builder provides:
+
+- **Embeddable Forms**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Field Selection**: Choose which entity fields appear on the public form
+- **Security Options**: Honeypot, time-based validation, and rate limiting
+- **Configurable Actions**: Choose what happens when security checks trigger
+- **Statistics Tracking**: Monitor submissions, rejections, and security events
+- **Debug Mode**: Detailed error messages for troubleshooting
+
+### Configuration
+
+Public form settings are stored in the entity's `settings` JSONB column:
+
+| Setting Key | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `public_form_enabled` | boolean | false | Master toggle for public form |
+| `public_form_fields` | array | [] | List of field keys to include |
+| `public_form_title` | string | "" | Form title displayed to users |
+| `public_form_description` | string | "" | Form description/instructions |
+| `public_form_submit_text` | string | "Submit" | Submit button text |
+| `public_form_success_message` | string | "Form submitted successfully!" | Success message |
+| `public_form_collect_metadata` | boolean | true | Collect IP, browser, device info |
+| `public_form_debug_mode` | boolean | false | Show detailed security errors |
+
+### Security Options
+
+#### Honeypot Protection
+
+Adds a hidden field that bots typically fill out:
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_honeypot` | boolean | false | Enable honeypot field |
+| `public_form_honeypot_action` | string | "reject_silent" | Action when triggered |
+
+#### Time-Based Validation
+
+Rejects submissions that happen too quickly (less than 3 seconds):
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_time_check` | boolean | false | Enable time validation |
+| `public_form_time_check_action` | string | "reject_error" | Action when triggered |
+
+#### Rate Limiting
+
+Limits submissions per IP address (5 per minute):
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_rate_limit` | boolean | false | Enable rate limiting |
+| `public_form_rate_limit_action` | string | "reject_error" | Action when triggered |
+
+### Security Actions
+
+Each security option can be configured with one of four actions:
+
+| Action | Description |
+|--------|-------------|
+| `reject_silent` | Show fake success message, don't save data |
+| `reject_error` | Show error message to user, don't save data |
+| `save_suspicious` | Save data with "draft" status, add security warnings to metadata |
+| `save_log` | Save data normally, log warning for monitoring |
+
+### Form Statistics
+
+Statistics are automatically tracked in `settings["public_form_stats"]`:
+
+```elixir
+%{
+  "total_submissions" => 150,
+  "successful_submissions" => 142,
+  "rejected_submissions" => 8,
+  "honeypot_triggers" => 5,
+  "too_fast_triggers" => 2,
+  "rate_limited_triggers" => 1,
+  "last_submission_at" => "2025-01-15T10:30:00Z"
+}
+```
+
+### Submission Metadata
+
+When `public_form_collect_metadata` is enabled, each submission includes:
+
+```elixir
+%{
+  "source" => "public_form",
+  "ip_address" => "192.168.1.1",
+  "user_agent" => "Mozilla/5.0...",
+  "browser" => "Chrome",
+  "os" => "macOS",
+  "device" => "desktop",
+  "referer" => "https://example.com/contact",
+  "form_loaded_at" => "2025-01-15T10:29:30Z",
+  "submitted_at" => "2025-01-15T10:30:00Z",
+  "time_to_submit_seconds" => 30,
+  "security_warnings" => []  # Added if any security checks triggered with save actions
+}
+```
+
+### Embedding Forms
+
+Use the `<EntityForm>` component in blogging pages:
+
+```heex
+<EntityForm entity_slug="contact" />
+```
+
+The component:
+1. Loads the entity by slug
+2. Checks if public form is enabled AND has fields selected
+3. Renders the form with selected fields only
+4. Includes CSRF token, honeypot (if enabled), and timing data
+5. Posts to `/phoenix_kit/entities/{slug}/submit`
+
+### Controller Flow
+
+**File**: `lib/phoenix_kit_web/controllers/entity_form_controller.ex`
+
+1. **Validation**: Check entity exists and public form is enabled with fields
+2. **Security Checks**: Run honeypot, time, and rate limit checks
+3. **Handle Result**:
+   - If any check triggers "reject" action → reject submission
+   - If checks trigger "save" actions → save with flags
+   - If all checks pass → save normally
+4. **Statistics**: Update form statistics asynchronously
+5. **Redirect**: Return to referrer with flash message
+
+### Admin Interface
+
+The Entity Form page includes a "Public Form Configuration" section when editing an entity:
+
+1. **Enable/Disable Toggle**: Master switch for public form
+2. **Form Details**: Title, description, submit text, success message
+3. **Field Selection**: Checkboxes for each entity field
+4. **Security Section**:
+   - Collect Metadata toggle
+   - Debug Mode toggle (with warning)
+   - Honeypot Protection with action dropdown
+   - Time-Based Validation with action dropdown
+   - Rate Limiting with action dropdown
+5. **Statistics Display**: Shows submission counts, security triggers, last submission time
+
+### Security Warnings in Data View
+
+When viewing a submission that triggered security checks (with save actions), the Data View shows:
+
+- Alert banner with "Security Flags" heading
+- Badges for each triggered check (Honeypot, Too Fast, Rate Limited)
+- Action taken for each (Marked as suspicious, Logged warning)
+
+---
+
+## HTML Sanitization
+
+Rich text fields are automatically sanitized to prevent XSS attacks.
+
+### HtmlSanitizer Module
+
+**File**: `lib/phoenix_kit/entities/html_sanitizer.ex`
+
+The sanitizer removes dangerous content while preserving safe HTML:
+
+**Removed:**
+- `<script>` tags and content
+- `<style>` tags and content
+- Event handlers (`onclick`, `onerror`, `onload`, etc.)
+- `javascript:`, `vbscript:`, `data:` URLs
+- Dangerous tags: `iframe`, `object`, `embed`, `form`, `input`, `button`, `meta`, `link`, `base`
+
+**Preserved:**
+- Block elements: `p`, `div`, `br`, `hr`, `h1-h6`, `blockquote`, `pre`, `code`
+- Inline elements: `span`, `strong`, `b`, `em`, `i`, `u`, `s`, `a`, `sub`, `sup`, `mark`
+- Lists: `ul`, `ol`, `li`
+- Tables: `table`, `thead`, `tbody`, `tr`, `th`, `td`
+- Images: `img` (with URL validation)
+
+### Integration
+
+Sanitization is integrated into the `EntityData` changeset pipeline:
+
+```elixir
+def changeset(entity_data, attrs) do
+  entity_data
+  |> cast(attrs, [...])
+  |> validate_required([...])
+  |> sanitize_rich_text_data()  # ← Sanitizes all rich_text fields
+  |> validate_data_against_entity()
+  |> ...
+end
+```
+
+### Usage
+
+```elixir
+# Sanitize a single string
+PhoenixKit.Entities.HtmlSanitizer.sanitize("<script>alert('xss')</script><p>Hello</p>")
+# => "<p>Hello</p>"
+
+# Sanitize all rich_text fields in data map
+PhoenixKit.Entities.HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+```
+
+---
+
+## Real-Time Collaboration
+
+The entity form editor supports real-time collaboration with FIFO (First In, First Out) locking.
+
+### Presence System
+
+**Files**:
+- `lib/phoenix_kit/entities/presence.ex` - Phoenix.Presence wrapper
+- `lib/phoenix_kit/entities/presence_helpers.ex` - Helper functions
+
+### How It Works
+
+1. **First user** to open an entity form becomes the **lock owner** (can edit)
+2. **Subsequent users** become **spectators** (read-only view)
+3. **Spectators see live updates** as the owner makes changes
+4. **When owner leaves**, the next spectator is automatically promoted to owner
+
+### Presence Tracking
+
+```elixir
+# Track user presence when mounting
+PresenceHelpers.track_presence("entity", entity.id, socket.id, %{
+  user_id: current_user.id,
+  user: current_user,
+  joined_at: DateTime.utc_now()
+})
+
+# Get sorted presences (FIFO order)
+presences = PresenceHelpers.get_sorted_presences("entity", entity.id)
+# => [{socket_id, %{user: %User{}, joined_at: ~U[...]}}, ...]
+
+# First in list is owner, rest are spectators
+```
+
+### UI Indicators
+
+The entity form shows:
+- **Lock owner badge**: "Editing" with user name
+- **Spectator list**: Shows all spectators with "Spectating" label
+- **Read-only notice**: When viewing as spectator
+- **Live updates**: Changes broadcast to all viewers
+
+### Event Broadcasting
+
+**File**: `lib/phoenix_kit/entities/events.ex`
+
+Changes are broadcast via Phoenix PubSub:
+
+```elixir
+# Broadcast entity update
+Events.broadcast_entity_updated(entity.id)
+
+# Subscribe to entity updates
+Events.subscribe_to_entity(entity.id)
+
+# Handle incoming updates
+def handle_info({:entity_updated, entity_id}, socket)
+```
+
+---
+
 ## Usage Examples
 
 ### Creating a Blog Post Entity
@@ -830,7 +1105,7 @@ Both entities and entity data use the same three-status workflow:
 - **Published**: Active and available for use
 - **Archived**: Hidden but preserved for historical purposes
 
-**Migration Change**: Originally, entity status was a boolean. Changed to string-based status in V13 migration rollback to unify with entity_data status system.
+**Migration Change**: Originally, entity status was a boolean. Changed to string-based status in V17 migration to unify with entity_data status system.
 
 ### Field Key Uniqueness
 
@@ -964,7 +1239,7 @@ The entities system integrates with PhoenixKit's Settings module using the `"ent
 | `entities_allow_relations`  | boolean | true    | Allow relation field type                      |
 | `entities_file_upload`      | boolean | false   | Enable file/image upload functionality         |
 
-**Created by V13 Migration:**
+**Created by V17 Migration:**
 
 ```sql
 INSERT INTO phoenix_kit_settings (key, value, module, date_added, date_updated)
@@ -1173,10 +1448,10 @@ ORDER BY date_created DESC;
 ### Best Practices
 
 1. **Always validate field definitions** before saving entities
-2. **Sanitize user input** for rich text fields (not yet implemented)
+2. **Sanitize user input** for rich text fields (✅ implemented via HtmlSanitizer)
 3. **Use parameterized queries** for all database operations (Ecto handles this)
 4. **Audit trail**: Track who created/modified entities and data
-5. **Rate limiting**: Consider rate limits on entity/data creation
+5. **Rate limiting**: Consider rate limits on entity/data creation (✅ implemented for public forms)
 6. **File uploads**: Validate file types and sizes (when implemented)
 
 ---
@@ -1332,7 +1607,7 @@ test "unique constraint on entity name"
 
 ## Changelog
 
-### V13 Migration (2025-01-15)
+### V17 Migration (Initial Entities System)
 
 **Added:**
 - `phoenix_kit_entities` table for entity definitions
@@ -1362,6 +1637,18 @@ test "unique constraint on entity name"
 - `/admin/entities/:entity_id/data/:id` - View data
 - `/admin/entities/:entity_id/data/:id/edit` - Edit data
 
+### Recent Updates (2025-12)
+
+**Added:**
+- Public Form Builder with embeddable forms
+- Security options: honeypot, time-based validation, rate limiting
+- Configurable security actions
+- Form submission statistics tracking
+- Debug mode for security troubleshooting
+- HTML sanitization for rich_text fields (XSS prevention)
+- Real-time collaboration with FIFO locking
+- Presence tracking via Phoenix.Presence
+
 ---
 
 ## Credits
@@ -1389,6 +1676,6 @@ For issues, questions, or contributions related to the entities system:
 
 ---
 
-**Last Updated**: 2025-01-15
-**Version**: V13 Migration
+**Last Updated**: 2025-12-03
+**Version**: V17+ with Public Form Builder
 **Status**: Production Ready

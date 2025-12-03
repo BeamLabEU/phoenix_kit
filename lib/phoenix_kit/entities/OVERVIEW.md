@@ -12,6 +12,7 @@ PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets
 - **Admin UI** – LiveView dashboards for managing blueprints, browsing/creating data, filtering, and adjusting module settings.
 - **Settings + security** – Feature toggle, max entities per user, relation/file flags, auto slugging, etc., persisted in `phoenix_kit_settings`. All surfaces are gated behind the admin scope.
 - **Statistics** – Counts and summaries for dashboards and monitoring.
+- **Public Form Builder** – Create embeddable forms for public-facing pages with security features (honeypot, time-based validation, rate limiting), configurable actions, and submission statistics.
 
 ---
 
@@ -23,14 +24,24 @@ lib/phoenix_kit/
     ├── entities.ex          # Entity schema + business logic
     ├── entity_data.ex       # Data record schema + CRUD helpers
     ├── field_types.ex       # Registry of supported field types
-    └── form_builder.ex      # Dynamic form rendering + validation helpers
+    ├── form_builder.ex      # Dynamic form rendering + validation helpers
+    ├── html_sanitizer.ex    # XSS prevention for rich_text fields
+    ├── presence.ex          # Phoenix.Presence for real-time collaboration
+    ├── presence_helpers.ex  # FIFO locking and presence utilities
+    └── events.ex            # PubSub event broadcasting
 
 lib/phoenix_kit_web/live/modules/entities/
 ├── entities.ex / .html.heex         # Entity dashboard
-├── entity_form.ex / .html.heex      # Create/update entity definitions
+├── entity_form.ex / .html.heex      # Create/update entity definitions + public form config
 ├── data_navigator.ex / .html.heex   # Browse/filter records per entity
 ├── data_form.ex / .html.heex        # Create/update individual records
 └── entities_settings.ex / .html.heex# System configuration
+
+lib/phoenix_kit_web/controllers/
+└── entity_form_controller.ex        # Public form submission handler
+
+lib/phoenix_kit_web/components/blogging/
+└── entity_form.ex                   # Embeddable public form component
 
 lib/phoenix_kit/entities/
 ├── OVERVIEW.md                     # High-level guide (this file)
@@ -238,6 +249,55 @@ PhoenixKit.Entities.validate_user_entity_limit(admin.id)
 2. **New settings** – add to `phoenix_kit_settings` (migration + defaults), expose in the settings LiveView, and document in `get_config/0`.
 3. **API surface** – add helper functions in `Entities` or `EntityData` if they’re reused across LiveViews or future REST/GraphQL endpoints.
 4. **LiveView changes** – keep locale and nav rules in mind, reuse existing slots/components for consistency, and add tests where possible.
+
+---
+
+## Public Form Builder
+
+The Entities system includes a public form builder for creating embeddable forms on public-facing pages.
+
+### Features
+
+- **Embeddable Component**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Field Selection**: Choose which entity fields appear on the public form
+- **Security Options**: Honeypot, time-based validation (3s minimum), rate limiting (5/min)
+- **Configurable Actions**: reject_silent, reject_error, save_suspicious, save_log
+- **Statistics**: Track submissions, rejections, and security triggers
+- **Debug Mode**: Detailed error messages for troubleshooting
+- **Metadata Collection**: IP address, browser, device, referrer, timing data
+- **HTML Sanitization**: Rich text fields automatically sanitized to prevent XSS
+
+### Configuration (entity settings)
+
+| Setting | Description |
+|---------|-------------|
+| `public_form_enabled` | Master toggle |
+| `public_form_fields` | List of field keys to include |
+| `public_form_title` | Form title |
+| `public_form_description` | Form description |
+| `public_form_submit_text` | Submit button text |
+| `public_form_success_message` | Success message |
+| `public_form_honeypot` | Enable honeypot protection |
+| `public_form_time_check` | Enable time-based validation |
+| `public_form_rate_limit` | Enable rate limiting |
+| `public_form_debug_mode` | Show detailed error messages |
+| `public_form_collect_metadata` | Collect submission metadata |
+
+### Embedding in pages
+
+```heex
+<EntityForm entity_slug="contact" />
+```
+
+The component checks if the form is enabled AND has fields selected before rendering. Submissions go to `/phoenix_kit/entities/{slug}/submit`.
+
+### Real-Time Collaboration
+
+The entity form editor supports real-time collaboration with FIFO locking:
+- First user becomes the lock owner (can edit)
+- Subsequent users become spectators (read-only)
+- Live updates broadcast to all viewers
+- Automatic promotion when owner leaves
 
 ---
 
