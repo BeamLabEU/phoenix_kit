@@ -1,0 +1,485 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Sitemap Settings"
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button --%>
+      <.link
+        navigate={Routes.path("/admin/modules", locale: @current_locale)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Modules
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Sitemap Settings</h1>
+        <p class="text-lg text-base-content">Configure sitemap generation and scheduling</p>
+      </div>
+
+      <%!-- Enable/Disable Toggle --%>
+      <div class="absolute right-0 top-0">
+        <label class="label cursor-pointer gap-2">
+          <span class="label-text font-medium">
+            {if @config.enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <input
+            type="checkbox"
+            class="toggle toggle-primary"
+            checked={@config.enabled}
+            phx-click="toggle_sitemap"
+          />
+        </label>
+      </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto space-y-6">
+      <%!-- Stats Cards --%>
+      <div class="stats shadow w-full">
+        <div class="stat">
+          <div class="stat-figure text-primary">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+              />
+            </svg>
+          </div>
+          <div class="stat-title">Total URLs</div>
+          <div class="stat-value text-primary">{@config.url_count || 0}</div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-figure text-secondary">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          </div>
+          <div class="stat-title">Last Generated</div>
+          <div class="stat-value text-secondary text-lg">
+            {format_timestamp(@config.last_generated)}
+          </div>
+        </div>
+
+        <div class="stat">
+          <div class="stat-figure text-accent">
+            <button
+              class={"btn btn-circle btn-accent #{if @generating, do: "loading"}"}
+              phx-click="regenerate"
+              disabled={@generating || !@config.enabled}
+            >
+              <svg
+                :if={!@generating}
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
+          </div>
+          <div class="stat-title">Actions</div>
+          <div class="stat-value text-lg">
+            <button class="btn btn-sm btn-ghost" phx-click="regenerate" disabled={@generating}>
+              Regenerate
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <%!-- Data Sources Card --%>
+        <div class="card bg-base-200 shadow-md">
+          <div class="card-body">
+            <h2 class="card-title">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                />
+              </svg>
+              Data Sources
+            </h2>
+            <p class="text-sm text-base-content/70">
+              Select which content types to include in sitemap
+            </p>
+
+            <div class="space-y-3 mt-4">
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="label-text">
+                  <span class="font-medium">Router Discovery</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Auto-discover routes from parent app router
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-secondary"
+                  checked={@config.router_discovery_enabled}
+                  phx-click="toggle_source"
+                  phx-value-source="router_discovery"
+                />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="label-text">
+                  <span class="font-medium">Entities</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Dynamic content from Entities module
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_entities}
+                  phx-click="toggle_source"
+                  phx-value-source="entities"
+                />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="label-text">
+                  <span class="font-medium">Blogs</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Blog posts from Blogging module
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_blogs}
+                  phx-click="toggle_source"
+                  phx-value-source="blogs"
+                />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="label-text">
+                  <span class="font-medium">Pages</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Static pages from filesystem
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_pages}
+                  phx-click="toggle_source"
+                  phx-value-source="pages"
+                />
+              </label>
+
+              <label class="flex items-center justify-between cursor-pointer">
+                <span class="label-text">
+                  <span class="font-medium">Static Routes</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Homepage and authentication pages
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.include_static}
+                  phx-click="toggle_source"
+                  phx-value-source="static"
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Configuration Card --%>
+        <div class="card bg-base-200 shadow-md">
+          <div class="card-body">
+            <h2 class="card-title">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                />
+              </svg>
+              Configuration
+            </h2>
+
+            <div class="space-y-4 mt-4">
+              <%!-- Base URL --%>
+              <form phx-change="update_base_url" phx-debounce="500" class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Base URL</span>
+                </label>
+                <input
+                  type="url"
+                  name="base_url"
+                  class="input input-bordered w-full"
+                  placeholder="https://example.com"
+                  value={@config.base_url || ""}
+                  id="base-url-input"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    Leave empty to use site_url setting
+                  </span>
+                </label>
+              </form>
+
+              <%!-- XSL Styling --%>
+              <label class="flex items-center justify-between cursor-pointer">
+                <div>
+                  <span class="label-text font-medium">Browser Display Styling</span>
+                  <span class="text-xs text-base-content/60 block">
+                    Style XML with XSL for beautiful browser display
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-sm toggle-primary"
+                  checked={@config.html_enabled}
+                  phx-click="toggle_html"
+                />
+              </label>
+
+              <%!-- Display Style --%>
+              <form phx-change="update_style" class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Display Style</span>
+                </label>
+                <select
+                  class="select select-bordered w-full"
+                  name="style"
+                  disabled={!@config.html_enabled}
+                >
+                  <option value="table" selected={@config.html_style in ["table", "grouped"]}>
+                    Table (Clean table layout)
+                  </option>
+                  <option value="cards" selected={@config.html_style in ["cards", "hierarchical"]}>
+                    Cards (Grouped by category)
+                  </option>
+                  <option value="minimal" selected={@config.html_style in ["minimal", "flat"]}>
+                    Minimal (Simple list)
+                  </option>
+                </select>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Scheduling Card --%>
+      <div class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <h2 class="card-title">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Scheduled Generation
+            </h2>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={@config.schedule_enabled}
+              phx-click="toggle_schedule"
+            />
+          </div>
+
+          <form phx-change="update_interval" class="flex items-center gap-4 mt-4">
+            <span class="text-sm">Regenerate every</span>
+            <select
+              class="select select-bordered select-sm"
+              name="interval"
+              disabled={!@config.schedule_enabled}
+            >
+              <option value="1" selected={@config.schedule_interval_hours == 1}>1 hour</option>
+              <option value="6" selected={@config.schedule_interval_hours == 6}>6 hours</option>
+              <option value="12" selected={@config.schedule_interval_hours == 12}>
+                12 hours
+              </option>
+              <option value="24" selected={@config.schedule_interval_hours == 24}>
+                24 hours
+              </option>
+              <option value="48" selected={@config.schedule_interval_hours == 48}>
+                48 hours
+              </option>
+              <option value="168" selected={@config.schedule_interval_hours == 168}>
+                Weekly
+              </option>
+            </select>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Quick Actions Card --%>
+      <div class="card bg-base-200 shadow-md">
+        <div class="card-body">
+          <h2 class="card-title">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+            Quick Actions
+          </h2>
+
+          <div class="flex flex-wrap gap-3 mt-4">
+            <button class="btn btn-outline btn-sm" phx-click="preview" phx-value-type="xml">
+              <.icon name="hero-code-bracket" class="w-4 h-4 mr-1" /> Preview Source
+            </button>
+
+            <button class="btn btn-outline btn-sm btn-primary" phx-click="preview_html">
+              <.icon name="hero-eye" class="w-4 h-4 mr-1" /> Preview HTML
+            </button>
+
+            <button class="btn btn-outline btn-sm btn-warning" phx-click="invalidate_cache">
+              <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Clear Cache
+            </button>
+
+            <.link
+              href={Routes.path("/sitemap.xml", locale: :none)}
+              target="_blank"
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Sitemap
+            </.link>
+          </div>
+
+          <p class="text-xs text-base-content/60 mt-3">
+            <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+            The sitemap.xml file is styled with XSL for beautiful browser display
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Preview Modal --%>
+    <div :if={@show_preview} class="modal modal-open">
+      <div class="modal-box max-w-4xl max-h-[80vh]">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg">XML Sitemap Source</h3>
+          <button class="btn btn-ghost btn-sm btn-circle" phx-click="close_preview">✕</button>
+        </div>
+
+        <div class="overflow-auto max-h-[60vh] bg-base-300 rounded-lg p-4">
+          <pre class="text-xs whitespace-pre-wrap break-all"><code>{@preview_content}</code></pre>
+        </div>
+
+        <div class="modal-action">
+          <.link
+            href={Routes.path("/sitemap.xml", locale: :none)}
+            target="_blank"
+            class="btn btn-primary"
+          >
+            <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Open in Browser
+          </.link>
+          <button class="btn" phx-click="close_preview">Close</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_preview"></div>
+    </div>
+
+    <%!-- HTML Preview Modal with iframe --%>
+    <div :if={@show_html_preview} class="modal modal-open">
+      <div class="modal-box max-w-5xl w-full h-[85vh] flex flex-col">
+        <div class="flex justify-between items-center mb-4 flex-shrink-0">
+          <h3 class="font-bold text-lg">Sitemap Preview</h3>
+          <button class="btn btn-ghost btn-sm btn-circle" phx-click="close_html_preview">
+            ✕
+          </button>
+        </div>
+
+        <div class="flex-1 min-h-0">
+          <iframe
+            src={Routes.path("/sitemap.xml", locale: :none)}
+            class="w-full h-full border border-base-300 rounded-lg bg-base-100"
+            title="Sitemap Preview"
+          />
+        </div>
+
+        <div class="modal-action flex-shrink-0">
+          <.link
+            href={Routes.path("/sitemap.xml", locale: :none)}
+            target="_blank"
+            class="btn btn-primary"
+          >
+            <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Open in Browser
+          </.link>
+          <button class="btn" phx-click="close_html_preview">Close</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_html_preview"></div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

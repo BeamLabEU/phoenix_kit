@@ -37,6 +37,101 @@ defmodule PhoenixKit.Install.RouterIntegration do
     end
   end
 
+  @doc """
+  Verifies and fixes the position of phoenix_kit_routes() in the router.
+
+  During updates, checks if phoenix_kit_routes() is positioned AFTER catch-all routes
+  (/:param or /*path patterns) and automatically moves it BEFORE them.
+
+  ## Parameters
+  - `igniter` - The igniter context
+  - `custom_router_path` - Custom path to router file (optional)
+
+  ## Returns
+  Updated igniter with router position fixed or unchanged if already correct.
+  """
+  def verify_and_fix_router_position(igniter, custom_router_path) do
+    case find_router(igniter, custom_router_path) do
+      {igniter, nil} ->
+        # No router found, nothing to fix
+        igniter
+
+      {igniter, router_module} ->
+        fix_phoenix_kit_routes_position(igniter, router_module)
+    end
+  end
+
+  # Fix phoenix_kit_routes() position if it's after catch-all routes
+  defp fix_phoenix_kit_routes_position(igniter, router_module) do
+    {_igniter, source, zipper} = IgniterModule.find_module!(igniter, router_module)
+
+    # First check if phoenix_kit_routes() exists in router
+    case Function.move_to_function_call(zipper, :phoenix_kit_routes, 0) do
+      {:ok, _pk_zipper} ->
+        # Routes exist, check if they need to be moved
+        router_code = Rewrite.Source.get(source, :content)
+
+        if needs_position_fix?(router_code) do
+          move_routes_before_catch_all(igniter, router_module)
+        else
+          # Position is already correct
+          igniter
+        end
+
+      :error ->
+        # phoenix_kit_routes() not found, nothing to fix
+        igniter
+    end
+  end
+
+  # Check if phoenix_kit_routes() comes AFTER catch-all routes (needs fixing)
+  defp needs_position_fix?(router_code) when is_binary(router_code) do
+    # Find positions of phoenix_kit_routes() and catch-all patterns
+    pk_routes_match = Regex.run(~r/phoenix_kit_routes\(\)/, router_code, return: :index)
+    catch_all_match = Regex.run(~r/(live|get)\s+["\']\/:[a-z_]+/, router_code, return: :index)
+
+    case {pk_routes_match, catch_all_match} do
+      {[{pk_pos, _}], [{catch_all_pos, _}]} ->
+        # If phoenix_kit_routes() position is AFTER catch-all, needs fix
+        pk_pos > catch_all_pos
+
+      _ ->
+        # No catch-all routes or no phoenix_kit_routes(), no fix needed
+        false
+    end
+  end
+
+  # Move phoenix_kit_routes() before catch-all routes
+  defp move_routes_before_catch_all(igniter, router_module) do
+    Mix.shell().info(
+      "🔄 Moving phoenix_kit_routes() before catch-all routes for proper route matching..."
+    )
+
+    IgniterModule.find_and_update_module!(igniter, router_module, fn zipper ->
+      # Step 1: Find and remove existing phoenix_kit_routes() call
+      case Function.move_to_function_call(zipper, :phoenix_kit_routes, 0) do
+        {:ok, pk_zipper} ->
+          # Remove the phoenix_kit_routes() node
+          zipper_after_removal = Sourceror.Zipper.remove(pk_zipper)
+
+          # Step 2: Find catch-all route and insert phoenix_kit_routes() before it
+          case find_catch_all_insertion_point(zipper_after_removal) do
+            {:ok, insertion_zipper} ->
+              {:ok, Common.add_code(insertion_zipper, "phoenix_kit_routes()", placement: :before)}
+
+            :error ->
+              # Fallback: re-add at the end (shouldn't happen, but safety)
+              {:ok,
+               Common.add_code(zipper_after_removal, "phoenix_kit_routes()", placement: :after)}
+          end
+
+        :error ->
+          # phoenix_kit_routes() not found, nothing to do
+          {:ok, zipper}
+      end
+    end)
+  end
+
   # Find router using IgniterPhoenix
   defp find_router(igniter, nil) do
     # Check if this is the PhoenixKit library itself (not a real Phoenix app)
@@ -179,14 +274,123 @@ defmodule PhoenixKit.Install.RouterIntegration do
     end
   end
 
-  # Add phoenix_kit_routes() call to router
+  # Add phoenix_kit_routes() call to router with smart positioning
+  # Inserts BEFORE catch-all routes like /:param or /*path to avoid conflicts
   defp add_routes_call_to_router_module(igniter, router_module) do
+    # Get router source to analyze for catch-all routes
+    {_igniter, source, _zipper} = IgniterModule.find_module!(igniter, router_module)
+
+    # Check if router has catch-all routes
+    router_code = Rewrite.Source.get(source, :content)
+    has_catch_all = has_catch_all_routes?(router_code)
+
     IgniterModule.find_and_update_module!(igniter, router_module, fn zipper ->
       app_web_module_name = IgniterHelpers.get_parent_app_module_web_string(igniter)
-
       routes_code = generate_routes_code(app_web_module_name)
-      {:ok, Common.add_code(zipper, routes_code, placement: :after)}
+
+      if has_catch_all do
+        # Try to insert before catch-all routes
+        case find_catch_all_insertion_point(zipper) do
+          {:ok, insertion_zipper} ->
+            Mix.shell().info(
+              "📍 Inserting phoenix_kit_routes() before catch-all routes for proper route matching"
+            )
+
+            {:ok, Common.add_code(insertion_zipper, routes_code, placement: :before)}
+
+          :error ->
+            # Fallback: add at end
+            {:ok, Common.add_code(zipper, routes_code, placement: :after)}
+        end
+      else
+        # No catch-all routes, add at end (current behavior)
+        {:ok, Common.add_code(zipper, routes_code, placement: :after)}
+      end
     end)
+  end
+
+  # Check if router code contains catch-all routes
+  defp has_catch_all_routes?(code) when is_binary(code) do
+    # Patterns that indicate catch-all routes:
+    # - live "/:param"
+    # - get "/:param"
+    # - live "/:param/*path"
+    # - scope "/" with live "/:param"
+    catch_all_patterns = [
+      # live "/:entity_name"
+      ~r/live\s+["\']\/:[a-z_]+["\']/,
+      # get "/:param"
+      ~r/get\s+["\']\/:[a-z_]+["\']/,
+      # live "/:entity/*path"
+      ~r/live\s+["\']\/:[a-z_]+\/\*[a-z_]+["\']/,
+      # get "/:entity/*path"
+      ~r/get\s+["\']\/:[a-z_]+\/\*[a-z_]+["\']/
+    ]
+
+    Enum.any?(catch_all_patterns, &Regex.match?(&1, code))
+  end
+
+  # Find a good insertion point before catch-all routes
+  # Returns {:ok, zipper} positioned at a scope or route before catch-all, or :error
+  defp find_catch_all_insertion_point(zipper) do
+    # Try to find a scope that contains catch-all routes
+    # We look for scope "/" or scope "/", AppWeb patterns
+    case Function.move_to_function_call(zipper, :scope, fn call_zipper ->
+           # Check if this scope might contain catch-all routes
+           scope_has_catch_all?(call_zipper)
+         end) do
+      {:ok, scope_zipper} ->
+        {:ok, scope_zipper}
+
+      :error ->
+        # Try to find first live/get with catch-all pattern
+        find_first_catch_all_route(zipper)
+    end
+  end
+
+  # Check if a scope call contains catch-all routes
+  defp scope_has_catch_all?(call_zipper) do
+    # Get the scope's source code to check for catch-all patterns
+    node = Sourceror.Zipper.node(call_zipper)
+    code = Macro.to_string(node)
+    has_catch_all_routes?(code)
+  end
+
+  # Find first live/get call with catch-all pattern
+  defp find_first_catch_all_route(zipper) do
+    # Look for live "/:..." patterns
+    case Function.move_to_function_call(zipper, :live, fn call_zipper ->
+           catch_all_route?(call_zipper)
+         end) do
+      {:ok, _} = result ->
+        result
+
+      :error ->
+        # Try get routes
+        Function.move_to_function_call(zipper, :get, fn call_zipper ->
+          catch_all_route?(call_zipper)
+        end)
+    end
+  end
+
+  # Check if a route call is a catch-all (/:param pattern)
+  defp catch_all_route?(call_zipper) do
+    case Function.move_to_nth_argument(call_zipper, 0) do
+      {:ok, arg_zipper} ->
+        node = Sourceror.Zipper.node(arg_zipper)
+
+        case node do
+          path when is_binary(path) ->
+            # Check if path starts with /:
+            String.match?(path, ~r/^\/:[a-z_]+/)
+
+          _ ->
+            false
+        end
+
+      :error ->
+        false
+    end
   end
 
   # Generate the routes code with demo pages

@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
+  alias PhoenixKit.Sitemap
   alias PhoenixKitWeb.Live.Modules.Blogging
 
   def mount(params, _session, socket) do
@@ -35,6 +36,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     under_construction_config = Maintenance.get_config()
     seo_config = SEO.get_config()
     storage_config = Storage.get_config()
+    sitemap_config = Sitemap.get_config()
 
     socket =
       socket
@@ -66,6 +68,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:storage_active_buckets_count, storage_config.active_buckets_count)
       |> assign(:seo_module_enabled, seo_config.module_enabled)
       |> assign(:seo_no_index_enabled, seo_config.no_index_enabled)
+      |> assign(:sitemap_enabled, sitemap_config.enabled)
+      |> assign(:sitemap_url_count, sitemap_config.url_count)
+      |> assign(:sitemap_last_generated, sitemap_config.last_generated)
+      |> assign(:sitemap_schedule_enabled, sitemap_config.schedule_enabled)
       |> assign(:current_locale, locale)
 
     {:ok, socket}
@@ -340,6 +346,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update maintenance mode module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_sitemap", _params, socket) do
+    new_enabled = !socket.assigns.sitemap_enabled
+
+    result =
+      if new_enabled do
+        Sitemap.enable_system()
+      else
+        Sitemap.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        sitemap_config = Sitemap.get_config()
+
+        socket =
+          socket
+          |> assign(:sitemap_enabled, new_enabled)
+          |> assign(:sitemap_url_count, sitemap_config.url_count)
+          |> assign(:sitemap_last_generated, sitemap_config.last_generated)
+          |> assign(:sitemap_schedule_enabled, sitemap_config.schedule_enabled)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Sitemap module enabled",
+              else: "Sitemap module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update sitemap module")
         {:noreply, socket}
     end
   end

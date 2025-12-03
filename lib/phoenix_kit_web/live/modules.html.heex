@@ -400,6 +400,68 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- Sitemap Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Sitemap"
+        description="Generate XML sitemaps for search engines with styled browser display"
+        icon="🗺️"
+        enabled={@sitemap_enabled}
+        toggle_event="toggle_sitemap"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@sitemap_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @sitemap_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @sitemap_enabled and @sitemap_schedule_enabled do %>
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
+              Auto-regenerate
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <.link
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/settings/sitemap",
+                  locale: @current_locale || "en"
+                )
+              }
+              class={"btn btn-sm #{if @sitemap_enabled, do: "btn-primary", else: "btn-outline"}"}
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+            <%= if @sitemap_enabled do %>
+              <.link
+                href={PhoenixKit.Utils.Routes.path("/sitemap.xml", locale: :none)}
+                target="_blank"
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Sitemap
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">URLs:</span>
+              <span class="font-medium">{@sitemap_url_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Last gen:</span>
+              <span class="font-medium">
+                {if @sitemap_last_generated, do: @sitemap_last_generated, else: "Never"}
+              </span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- Pages module remains disabled but code retained for future use --%>
 
       <%!-- Under Construction (Maintenance Mode) Module --%>

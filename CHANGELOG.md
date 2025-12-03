@@ -1,3 +1,21 @@
+## 1.6.15 - 2025-12-03
+
+### Added
+- **Sitemap Module** - Complete sitemap generation system for SEO
+  - XML sitemap generation following sitemaps.org protocol
+  - HTML sitemap with 3 display styles (hierarchical, grouped, flat)
+  - Automatic sitemap index for large sites (>50,000 URLs)
+  - Multiple content sources: Blogging, Entities, Pages, Static routes
+  - Router discovery - automatic detection of parent app routes
+  - XSL stylesheets for beautiful XML rendering (table, cards, minimal)
+  - ETS-based caching for fast repeated access
+  - Oban worker for scheduled automatic regeneration
+  - Admin UI for sitemap settings configuration
+  - Routes: `/sitemap.xml`, `/sitemap.html`, `/sitemap.xsl`
+
+### Changed
+- Update blogging editor to use markdown image syntax instead of custom component
+
 ## 1.6.14 - 2025-12-02
 - Refactor Endpoint usage
 - Fixes to admin languages, fixes oban implemntation and support for ipv4 and v6
