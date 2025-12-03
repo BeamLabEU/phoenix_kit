@@ -8,10 +8,11 @@ defmodule PhoenixKit.Entities do
   ## Schema Fields
 
   - `name`: Unique identifier for the entity (e.g., "blog_post", "product")
-  - `display_name`: Human-readable name shown in UI (e.g., "Blog Post", "Product")
+  - `display_name`: Human-readable singular name shown in UI (e.g., "Blog Post")
+  - `display_name_plural`: Human-readable plural name (e.g., "Blog Posts")
   - `description`: Description of what this entity represents
   - `icon`: Icon identifier for UI display (hero icons)
-  - `status`: Boolean indicating if the entity is active
+  - `status`: Workflow status string - one of "draft", "published", or "archived"
   - `fields_definition`: JSONB array of field definitions
   - `settings`: JSONB map of entity-specific settings
   - `created_by`: User ID of the admin who created the entity
@@ -43,7 +44,6 @@ defmodule PhoenixKit.Entities do
 
   ### System Settings
   - `enabled?/0` - Check if entities system is enabled
-  - `enabled?/0` - Check if entities system is enabled
   - `enable_system/0` - Enable the entities system
   - `disable_system/0` - Disable the entities system
   - `get_config/0` - Get current system configuration
@@ -61,6 +61,7 @@ defmodule PhoenixKit.Entities do
       {:ok, entity} = PhoenixKit.Entities.create_entity(%{
         name: "blog_post",
         display_name: "Blog Post",
+        display_name_plural: "Blog Posts",
         description: "Blog post content type",
         icon: "hero-document-text",
         created_by: admin_user.id,
@@ -272,12 +273,12 @@ defmodule PhoenixKit.Entities do
   end
 
   @doc """
-  Returns the list of active entities.
+  Returns the list of active (published) entities.
 
   ## Examples
 
       iex> PhoenixKit.Entities.list_active_entities()
-      [%PhoenixKit.Entities{status: true}, ...]
+      [%PhoenixKit.Entities{status: "published"}, ...]
   """
   def list_active_entities do
     from(e in __MODULE__,
@@ -407,7 +408,8 @@ defmodule PhoenixKit.Entities do
   @doc """
   Deletes an entity.
 
-  Note: This will also delete all associated entity_data records due to the on_delete: :delete_all constraint.
+  Note: This will also delete all associated entity_data records due to the
+  ON DELETE CASCADE constraint defined in the database migration (V17).
 
   ## Examples
 
