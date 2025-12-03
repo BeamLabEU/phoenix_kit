@@ -240,6 +240,62 @@ entity = PhoenixKit.Entities.get_entity_by_name("contact_form")
 | `file` | File upload (placeholder) | No |
 | `relation` | Link to other entity | Yes |
 
+### Field Builder Helpers
+
+Use these helpers to create field definitions more easily:
+
+```elixir
+alias PhoenixKit.Entities.FieldTypes
+
+# Text fields
+FieldTypes.text_field("name", "Full Name", required: true)
+FieldTypes.textarea_field("bio", "Biography")
+FieldTypes.email_field("email", "Email Address", required: true)
+FieldTypes.rich_text_field("content", "Content")
+
+# Numeric and boolean
+FieldTypes.number_field("age", "Age")
+FieldTypes.boolean_field("active", "Is Active", default: true)
+
+# Choice fields with options
+FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"], required: true)
+FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+
+# Generic with options
+FieldTypes.new_field("select", "status", "Status", options: ["Active", "Inactive"], required: true)
+```
+
+### Creating Entity with Choice Fields
+
+```elixir
+alias PhoenixKit.Entities
+alias PhoenixKit.Entities.FieldTypes
+
+{:ok, entity} = Entities.create_entity(%{
+  name: "contact_form",
+  display_name: "Contact Form",
+  status: "published",
+  created_by: admin.id,
+  fields_definition: [
+    FieldTypes.text_field("name", "Name", required: true),
+    FieldTypes.email_field("email", "Email", required: true),
+    FieldTypes.select_field("subject", "Subject", [
+      "General Inquiry",
+      "Support",
+      "Sales",
+      "Partnership"
+    ], required: true),
+    FieldTypes.textarea_field("message", "Message", required: true),
+    FieldTypes.checkbox_field("interests", "Interests", [
+      "Product Updates",
+      "Newsletter",
+      "Events"
+    ])
+  ]
+})
+```
+
 ---
 
 ## Public Forms
@@ -504,6 +560,32 @@ EntityData.delete(record) :: {:ok, EntityData.t()} | {:error, Changeset.t()}
 
 # Changeset (for forms)
 EntityData.change(record, attrs \\ %{}) :: Changeset.t()
+```
+
+### PhoenixKit.Entities.FieldTypes
+
+```elixir
+# Field builder helpers (recommended for programmatic entity creation)
+FieldTypes.text_field(key, label, opts \\ []) :: map()
+FieldTypes.textarea_field(key, label, opts \\ []) :: map()
+FieldTypes.email_field(key, label, opts \\ []) :: map()
+FieldTypes.number_field(key, label, opts \\ []) :: map()
+FieldTypes.boolean_field(key, label, opts \\ []) :: map()
+FieldTypes.rich_text_field(key, label, opts \\ []) :: map()
+
+# Choice field helpers (options required)
+FieldTypes.select_field(key, label, options, opts \\ []) :: map()
+FieldTypes.radio_field(key, label, options, opts \\ []) :: map()
+FieldTypes.checkbox_field(key, label, options, opts \\ []) :: map()
+
+# Generic field builder
+FieldTypes.new_field(type, key, label, opts \\ []) :: map()
+# opts: [required: bool, default: any, options: list]
+
+# Field type info
+FieldTypes.all() :: map()
+FieldTypes.requires_options?(type) :: boolean()
+FieldTypes.validate_field(field_map) :: {:ok, map()} | {:error, String.t()}
 ```
 
 ### PhoenixKit.Users.Auth
