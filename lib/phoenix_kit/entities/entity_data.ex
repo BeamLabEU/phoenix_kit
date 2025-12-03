@@ -73,6 +73,7 @@ defmodule PhoenixKit.Entities.EntityData do
 
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Entities.HtmlSanitizer
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -117,6 +118,7 @@ defmodule PhoenixKit.Entities.EntityData do
     |> validate_length(:slug, max: 255)
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_slug_format()
+    |> sanitize_rich_text_data()
     |> validate_data_against_entity()
     |> foreign_key_constraint(:entity_id)
     |> maybe_set_timestamps()
@@ -139,6 +141,29 @@ defmodule PhoenixKit.Entities.EntityData do
             :slug,
             "must contain only lowercase letters, numbers, and hyphens"
           )
+        end
+    end
+  end
+
+  defp sanitize_rich_text_data(changeset) do
+    entity_id = get_field(changeset, :entity_id)
+    data = get_field(changeset, :data)
+
+    case {entity_id, data} do
+      {nil, _} ->
+        changeset
+
+      {_, nil} ->
+        changeset
+
+      {id, data} ->
+        try do
+          entity = Entities.get_entity!(id)
+          fields_definition = entity.fields_definition || []
+          sanitized_data = HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+          put_change(changeset, :data, sanitized_data)
+        rescue
+          Ecto.NoResultsError -> changeset
         end
     end
   end
