@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     mount_entity_form(socket, entity, changeset, gettext("New Entity"), locale)
   end
 
-  defp mount_entity_form(socket, entity, changeset, page_title, locale) do
+  defp mount_entity_form(socket, entity, _changeset, page_title, locale) do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
     current_user = socket.assigns[:phoenix_kit_current_user]
 
@@ -763,6 +763,76 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
     end
   end
 
+  def handle_event("toggle_security_setting", %{"setting" => setting_key}, socket) do
+    if socket.assigns[:lock_owner?] do
+      current_settings = socket.assigns.entity.settings || %{}
+
+      # For metadata, default is true (enabled), so we check != false
+      current_value =
+        if setting_key == "public_form_collect_metadata" do
+          Map.get(current_settings, setting_key) != false
+        else
+          Map.get(current_settings, setting_key, false)
+        end
+
+      updated_settings = Map.put(current_settings, setting_key, !current_value)
+      updated_entity = Map.put(socket.assigns.entity, :settings, updated_settings)
+      changeset = Entities.change_entity(updated_entity)
+
+      socket =
+        socket
+        |> assign(:entity, updated_entity)
+        |> assign(:changeset, changeset)
+
+      reply_with_broadcast(socket)
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
+  def handle_event("update_security_action", params, socket) do
+    if socket.assigns[:lock_owner?] do
+      # Extract the setting key and value from params
+      # The select sends the setting name in phx-value-setting and value in the form field
+      setting_key = params["setting"]
+      # The value comes from the select with the same name as the setting
+      value = params[setting_key]
+
+      current_settings = socket.assigns.entity.settings || %{}
+      updated_settings = Map.put(current_settings, setting_key, value)
+      updated_entity = Map.put(socket.assigns.entity, :settings, updated_settings)
+      changeset = Entities.change_entity(updated_entity)
+
+      socket =
+        socket
+        |> assign(:entity, updated_entity)
+        |> assign(:changeset, changeset)
+
+      reply_with_broadcast(socket)
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
+  def handle_event("reset_form_stats", _params, socket) do
+    if socket.assigns[:lock_owner?] do
+      current_settings = socket.assigns.entity.settings || %{}
+      updated_settings = Map.delete(current_settings, "public_form_stats")
+      updated_entity = Map.put(socket.assigns.entity, :settings, updated_settings)
+      changeset = Entities.change_entity(updated_entity)
+
+      socket =
+        socket
+        |> assign(:entity, updated_entity)
+        |> assign(:changeset, changeset)
+        |> put_flash(:info, gettext("Form statistics have been reset"))
+
+      reply_with_broadcast(socket)
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
   ## Live updates
 
   @impl true
@@ -1137,6 +1207,18 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
   def icon_category_label("Tech"), do: gettext("Tech")
   def icon_category_label("Status"), do: gettext("Status")
   def icon_category_label(category), do: category
+
+  def format_stats_datetime(iso_string) when is_binary(iso_string) do
+    case DateTime.from_iso8601(iso_string) do
+      {:ok, datetime, _offset} ->
+        PhoenixKit.Utils.Date.format_datetime_with_user_format(datetime)
+
+      _ ->
+        iso_string
+    end
+  end
+
+  def format_stats_datetime(_), do: "-"
 
   defp ensure_live_source(socket) do
     socket.assigns[:live_source] ||

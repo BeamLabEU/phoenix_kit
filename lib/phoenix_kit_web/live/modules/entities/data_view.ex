@@ -204,6 +204,28 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
         <% end %>
 
         <%= if @is_public_submission do %>
+          <%!-- Security Warnings Section (if any) --%>
+          <%= if @metadata["security_warnings"] && length(@metadata["security_warnings"]) > 0 do %>
+            <div class="alert alert-warning mb-6">
+              <.icon name="hero-exclamation-triangle" class="w-6 h-6" />
+              <div>
+                <h3 class="font-bold">{gettext("Security Flags")}</h3>
+                <div class="text-sm mt-1">
+                  <%= for warning <- @metadata["security_warnings"] do %>
+                    <div class="flex items-center gap-2 mt-1">
+                      <span class="badge badge-warning badge-sm">
+                        {security_warning_label(warning["type"])}
+                      </span>
+                      <span class="text-xs text-base-content/70">
+                        {security_action_label(warning["action"])}
+                      </span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
           <%!-- Submission Metadata Section --%>
           <div class="card bg-base-100 shadow-xl mb-6">
             <div class="card-body">
@@ -271,6 +293,20 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
                     <div>
                       <span class="text-sm text-base-content/60">{gettext("Submitted At")}</span>
                       <div class="font-medium">{format_submitted_at(@metadata["submitted_at"])}</div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if @metadata["time_to_submit_seconds"] do %>
+                  <div class="flex items-start gap-3">
+                    <div class="p-2 bg-base-200 rounded-lg">
+                      <.icon name="hero-stopwatch" class="w-5 h-5 text-base-content/60" />
+                    </div>
+                    <div>
+                      <span class="text-sm text-base-content/60">{gettext("Time to Submit")}</span>
+                      <div class="font-medium">
+                        {format_duration(@metadata["time_to_submit_seconds"])}
+                      </div>
                     </div>
                   </div>
                 <% end %>
@@ -387,4 +423,36 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
   end
 
   defp format_submitted_at(_), do: "-"
+
+  defp format_duration(seconds) when is_integer(seconds) do
+    cond do
+      seconds < 60 ->
+        ngettext("%{count} second", "%{count} seconds", seconds, count: seconds)
+
+      seconds < 3600 ->
+        minutes = div(seconds, 60)
+        ngettext("%{count} minute", "%{count} minutes", minutes, count: minutes)
+
+      true ->
+        hours = div(seconds, 3600)
+        minutes = div(rem(seconds, 3600), 60)
+
+        if minutes > 0 do
+          "#{ngettext("%{count} hour", "%{count} hours", hours, count: hours)}, #{ngettext("%{count} minute", "%{count} minutes", minutes, count: minutes)}"
+        else
+          ngettext("%{count} hour", "%{count} hours", hours, count: hours)
+        end
+    end
+  end
+
+  defp format_duration(_), do: "-"
+
+  defp security_warning_label("honeypot"), do: gettext("Honeypot triggered")
+  defp security_warning_label("too_fast"), do: gettext("Submitted too fast")
+  defp security_warning_label("rate_limited"), do: gettext("Rate limited")
+  defp security_warning_label(type), do: type
+
+  defp security_action_label("save_suspicious"), do: gettext("Marked as suspicious")
+  defp security_action_label("save_log"), do: gettext("Logged warning")
+  defp security_action_label(action), do: action
 end

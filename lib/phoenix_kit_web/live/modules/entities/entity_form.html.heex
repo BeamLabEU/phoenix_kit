@@ -543,6 +543,411 @@
                   </div>
                 </div>
               <% end %>
+
+              <div class="divider"></div>
+
+              <%!-- Security Section --%>
+              <div>
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <.icon name="hero-shield-check" class="w-5 h-5" />
+                  {gettext("Security")}
+                </h3>
+
+                <div class="space-y-4">
+                  <%!-- Collect Metadata Toggle --%>
+                  <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        name="public_form_collect_metadata"
+                        class="toggle toggle-primary"
+                        checked={
+                          get_in(@entity.settings, ["public_form_collect_metadata"]) != false
+                        }
+                        phx-click="toggle_security_setting"
+                        phx-value-setting="public_form_collect_metadata"
+                        disabled={@readonly?}
+                      />
+                      <div>
+                        <span class="label-text font-medium">
+                          {gettext("Collect Submission Metadata")}
+                        </span>
+                        <p class="text-xs text-base-content/60 mt-1">
+                          {gettext(
+                            "Record IP address, browser, device info, and referrer for each submission"
+                          )}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <%!-- Debug Mode Toggle --%>
+                  <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-4">
+                      <input
+                        type="checkbox"
+                        name="public_form_debug_mode"
+                        class="toggle toggle-warning"
+                        checked={get_in(@entity.settings, ["public_form_debug_mode"]) || false}
+                        phx-click="toggle_security_setting"
+                        phx-value-setting="public_form_debug_mode"
+                        disabled={@readonly?}
+                      />
+                      <div>
+                        <span class="label-text font-medium">
+                          {gettext("Debug Mode")}
+                        </span>
+                        <p class="text-xs text-base-content/60 mt-1">
+                          {gettext(
+                            "Show detailed error messages when security checks fail (for troubleshooting only)"
+                          )}
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+
+                  <%= if get_in(@entity.settings, ["public_form_debug_mode"]) do %>
+                    <div class="alert alert-warning">
+                      <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                      <span class="text-sm">
+                        {gettext(
+                          "Debug mode is enabled. Detailed security errors will be shown to users. Disable this in production."
+                        )}
+                      </span>
+                    </div>
+                  <% end %>
+
+                  <%!-- Honeypot Protection --%>
+                  <div class="border border-base-300 rounded-lg p-4">
+                    <div class="form-control">
+                      <label class="label cursor-pointer justify-start gap-4">
+                        <input
+                          type="checkbox"
+                          name="public_form_honeypot"
+                          class="toggle toggle-primary"
+                          checked={get_in(@entity.settings, ["public_form_honeypot"]) || false}
+                          phx-click="toggle_security_setting"
+                          phx-value-setting="public_form_honeypot"
+                          disabled={@readonly?}
+                        />
+                        <div>
+                          <span class="label-text font-medium">
+                            {gettext("Honeypot Protection")}
+                          </span>
+                          <p class="text-xs text-base-content/60 mt-1">
+                            {gettext("Add a hidden field that bots typically fill out")}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    <%= if get_in(@entity.settings, ["public_form_honeypot"]) do %>
+                      <div class="mt-3 pl-14">
+                        <.label class="text-sm">{gettext("When triggered:")}</.label>
+                        <select
+                          name="public_form_honeypot_action"
+                          class="select select-bordered select-sm w-full max-w-xs mt-1"
+                          phx-change="update_security_action"
+                          phx-value-setting="public_form_honeypot_action"
+                          disabled={@readonly?}
+                        >
+                          <option
+                            value="reject_silent"
+                            selected={
+                              get_in(@entity.settings, ["public_form_honeypot_action"]) ==
+                                "reject_silent" ||
+                                is_nil(get_in(@entity.settings, ["public_form_honeypot_action"]))
+                            }
+                          >
+                            {gettext("Reject silently (fake success)")}
+                          </option>
+                          <option
+                            value="reject_error"
+                            selected={
+                              get_in(@entity.settings, ["public_form_honeypot_action"]) ==
+                                "reject_error"
+                            }
+                          >
+                            {gettext("Reject with error message")}
+                          </option>
+                          <option
+                            value="save_suspicious"
+                            selected={
+                              get_in(@entity.settings, ["public_form_honeypot_action"]) ==
+                                "save_suspicious"
+                            }
+                          >
+                            {gettext("Save but mark as suspicious")}
+                          </option>
+                          <option
+                            value="save_log"
+                            selected={
+                              get_in(@entity.settings, ["public_form_honeypot_action"]) ==
+                                "save_log"
+                            }
+                          >
+                            {gettext("Save and log warning")}
+                          </option>
+                        </select>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <%!-- Time-based Validation --%>
+                  <div class="border border-base-300 rounded-lg p-4">
+                    <div class="form-control">
+                      <label class="label cursor-pointer justify-start gap-4">
+                        <input
+                          type="checkbox"
+                          name="public_form_time_check"
+                          class="toggle toggle-primary"
+                          checked={get_in(@entity.settings, ["public_form_time_check"]) || false}
+                          phx-click="toggle_security_setting"
+                          phx-value-setting="public_form_time_check"
+                          disabled={@readonly?}
+                        />
+                        <div>
+                          <span class="label-text font-medium">
+                            {gettext("Time-based Validation")}
+                          </span>
+                          <p class="text-xs text-base-content/60 mt-1">
+                            {gettext(
+                              "Check if submission happens too quickly (less than 3 seconds)"
+                            )}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    <%= if get_in(@entity.settings, ["public_form_time_check"]) do %>
+                      <div class="mt-3 pl-14">
+                        <.label class="text-sm">{gettext("When triggered:")}</.label>
+                        <select
+                          name="public_form_time_check_action"
+                          class="select select-bordered select-sm w-full max-w-xs mt-1"
+                          phx-change="update_security_action"
+                          phx-value-setting="public_form_time_check_action"
+                          disabled={@readonly?}
+                        >
+                          <option
+                            value="reject_error"
+                            selected={
+                              get_in(@entity.settings, ["public_form_time_check_action"]) ==
+                                "reject_error" ||
+                                is_nil(
+                                  get_in(@entity.settings, ["public_form_time_check_action"])
+                                )
+                            }
+                          >
+                            {gettext("Reject with error message")}
+                          </option>
+                          <option
+                            value="reject_silent"
+                            selected={
+                              get_in(@entity.settings, ["public_form_time_check_action"]) ==
+                                "reject_silent"
+                            }
+                          >
+                            {gettext("Reject silently (fake success)")}
+                          </option>
+                          <option
+                            value="save_suspicious"
+                            selected={
+                              get_in(@entity.settings, ["public_form_time_check_action"]) ==
+                                "save_suspicious"
+                            }
+                          >
+                            {gettext("Save but mark as suspicious")}
+                          </option>
+                          <option
+                            value="save_log"
+                            selected={
+                              get_in(@entity.settings, ["public_form_time_check_action"]) ==
+                                "save_log"
+                            }
+                          >
+                            {gettext("Save and log warning")}
+                          </option>
+                        </select>
+                      </div>
+                    <% end %>
+                  </div>
+
+                  <%!-- Rate Limiting --%>
+                  <div class="border border-base-300 rounded-lg p-4">
+                    <div class="form-control">
+                      <label class="label cursor-pointer justify-start gap-4">
+                        <input
+                          type="checkbox"
+                          name="public_form_rate_limit"
+                          class="toggle toggle-primary"
+                          checked={get_in(@entity.settings, ["public_form_rate_limit"]) || false}
+                          phx-click="toggle_security_setting"
+                          phx-value-setting="public_form_rate_limit"
+                          disabled={@readonly?}
+                        />
+                        <div>
+                          <span class="label-text font-medium">
+                            {gettext("Rate Limiting")}
+                          </span>
+                          <p class="text-xs text-base-content/60 mt-1">
+                            {gettext("Limit submissions to 5 per minute per IP address")}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    <%= if get_in(@entity.settings, ["public_form_rate_limit"]) do %>
+                      <div class="mt-3 pl-14">
+                        <.label class="text-sm">{gettext("When triggered:")}</.label>
+                        <select
+                          name="public_form_rate_limit_action"
+                          class="select select-bordered select-sm w-full max-w-xs mt-1"
+                          phx-change="update_security_action"
+                          phx-value-setting="public_form_rate_limit_action"
+                          disabled={@readonly?}
+                        >
+                          <option
+                            value="reject_error"
+                            selected={
+                              get_in(@entity.settings, ["public_form_rate_limit_action"]) ==
+                                "reject_error" ||
+                                is_nil(
+                                  get_in(@entity.settings, ["public_form_rate_limit_action"])
+                                )
+                            }
+                          >
+                            {gettext("Reject with error message")}
+                          </option>
+                          <option
+                            value="reject_silent"
+                            selected={
+                              get_in(@entity.settings, ["public_form_rate_limit_action"]) ==
+                                "reject_silent"
+                            }
+                          >
+                            {gettext("Reject silently (fake success)")}
+                          </option>
+                          <option
+                            value="save_suspicious"
+                            selected={
+                              get_in(@entity.settings, ["public_form_rate_limit_action"]) ==
+                                "save_suspicious"
+                            }
+                          >
+                            {gettext("Save but mark as suspicious")}
+                          </option>
+                          <option
+                            value="save_log"
+                            selected={
+                              get_in(@entity.settings, ["public_form_rate_limit_action"]) ==
+                                "save_log"
+                            }
+                          >
+                            {gettext("Save and log warning")}
+                          </option>
+                        </select>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+
+              <%!-- Form Statistics --%>
+              <% stats = get_in(@entity.settings, ["public_form_stats"]) || %{} %>
+              <div class="divider"></div>
+
+              <div>
+                <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <.icon name="hero-chart-bar" class="w-5 h-5" />
+                  {gettext("Form Statistics")}
+                </h3>
+
+                <div class="stats stats-vertical lg:stats-horizontal shadow w-full bg-base-200">
+                  <div class="stat">
+                    <div class="stat-figure text-primary">
+                      <.icon name="hero-document-text" class="w-8 h-8" />
+                    </div>
+                    <div class="stat-title">{gettext("Total Submissions")}</div>
+                    <div class="stat-value text-primary">
+                      {stats["total_submissions"] || 0}
+                    </div>
+                  </div>
+
+                  <div class="stat">
+                    <div class="stat-figure text-success">
+                      <.icon name="hero-check-circle" class="w-8 h-8" />
+                    </div>
+                    <div class="stat-title">{gettext("Successful")}</div>
+                    <div class="stat-value text-success">
+                      {stats["successful_submissions"] || 0}
+                    </div>
+                  </div>
+
+                  <div class="stat">
+                    <div class="stat-figure text-error">
+                      <.icon name="hero-x-circle" class="w-8 h-8" />
+                    </div>
+                    <div class="stat-title">{gettext("Rejected")}</div>
+                    <div class="stat-value text-error">
+                      {stats["rejected_submissions"] || 0}
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Security trigger breakdown --%>
+                <%= if stats["honeypot_triggers"] || stats["too_fast_triggers"] || stats["rate_limited_triggers"] do %>
+                  <div class="mt-4">
+                    <h4 class="text-sm font-medium text-base-content/70 mb-2">
+                      {gettext("Security Triggers")}
+                    </h4>
+                    <div class="flex flex-wrap gap-2">
+                      <%= if stats["honeypot_triggers"] do %>
+                        <div class="badge badge-warning gap-1">
+                          <.icon name="hero-bug-ant" class="w-3 h-3" />
+                          {gettext("Honeypot")}: {stats["honeypot_triggers"]}
+                        </div>
+                      <% end %>
+                      <%= if stats["too_fast_triggers"] do %>
+                        <div class="badge badge-warning gap-1">
+                          <.icon name="hero-bolt" class="w-3 h-3" />
+                          {gettext("Too Fast")}: {stats["too_fast_triggers"]}
+                        </div>
+                      <% end %>
+                      <%= if stats["rate_limited_triggers"] do %>
+                        <div class="badge badge-warning gap-1">
+                          <.icon name="hero-clock" class="w-3 h-3" />
+                          {gettext("Rate Limited")}: {stats["rate_limited_triggers"]}
+                        </div>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%!-- Last submission time --%>
+                <%= if stats["last_submission_at"] do %>
+                  <div class="mt-4 text-sm text-base-content/60">
+                    {gettext("Last submission")}: {format_stats_datetime(
+                      stats["last_submission_at"]
+                    )}
+                  </div>
+                <% end %>
+
+                <%!-- Reset Stats Button (only show if there are stats) --%>
+                <%= if stats["total_submissions"] do %>
+                  <div class="mt-4">
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-sm"
+                      phx-click="reset_form_stats"
+                      disabled={@readonly?}
+                    >
+                      <.icon name="hero-arrow-path" class="w-4 h-4" />
+                      {gettext("Reset Statistics")}
+                    </button>
+                  </div>
+                <% end %>
+              </div>
             </div>
           <% end %>
         </div>

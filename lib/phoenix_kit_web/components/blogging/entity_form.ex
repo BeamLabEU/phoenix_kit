@@ -27,17 +27,20 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
     # Load entity and check if public form is enabled
     entity = if entity_slug != "", do: Entities.get_entity_by_name(entity_slug), else: nil
 
-    {form_enabled, form_fields, form_title, form_description, form_submit_text} =
+    {form_enabled, form_fields, form_title, form_description, form_submit_text, honeypot_enabled} =
       if entity do
         settings = entity.settings || %{}
         enabled = Map.get(settings, "public_form_enabled", false)
         fields = Map.get(settings, "public_form_fields", [])
+        # Form is only truly enabled if it's enabled AND has at least one field selected
+        actually_enabled = enabled && length(fields) > 0
         title = Map.get(settings, "public_form_title", "")
         description = Map.get(settings, "public_form_description", "")
         submit_text = Map.get(settings, "public_form_submit_text", gettext("Submit"))
-        {enabled, fields, title, description, submit_text}
+        honeypot = Map.get(settings, "public_form_honeypot", false)
+        {actually_enabled, fields, title, description, submit_text, honeypot}
       else
-        {false, [], "", "", gettext("Submit")}
+        {false, [], "", "", gettext("Submit"), false}
       end
 
     # Create a form entity with only the public form fields
@@ -64,6 +67,8 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
       |> assign(:form_title, form_title)
       |> assign(:form_description, form_description)
       |> assign(:form_submit_text, form_submit_text)
+      |> assign(:honeypot_enabled, honeypot_enabled)
+      |> assign(:form_timestamp, DateTime.utc_now() |> DateTime.to_iso8601())
 
     ~H"""
     <div class="entity-form-wrapper">
@@ -104,6 +109,23 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
                 method="post"
               >
                 <input type="hidden" name="_csrf_token" value={Phoenix.Controller.get_csrf_token()} />
+
+                <%!-- Form loaded timestamp (always included for metadata) --%>
+                <input type="hidden" name="_form_loaded_at" value={@form_timestamp} />
+
+                <%!-- Honeypot field (hidden from humans, bots will fill it) --%>
+                <%= if @honeypot_enabled do %>
+                  <div style="position: absolute; left: -9999px;" aria-hidden="true">
+                    <label for="_hp_website">Leave this field empty</label>
+                    <input
+                      type="text"
+                      name="_hp_website"
+                      id="_hp_website"
+                      tabindex="-1"
+                      autocomplete="off"
+                    />
+                  </div>
+                <% end %>
 
                 {FormBuilder.build_fields(@form_entity, build_empty_changeset(@entity),
                   wrapper_class: "mb-4"
