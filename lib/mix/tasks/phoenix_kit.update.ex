@@ -90,7 +90,8 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       CssIntegration,
       IgniterHelpers,
       ObanConfig,
-      RateLimiterConfig
+      RateLimiterConfig,
+      RouterIntegration
     }
 
     alias PhoenixKit.Utils.Routes
@@ -342,6 +343,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # CRITICAL FIX: Ensure correct supervisor ordering in application.ex
       # This must run AFTER add_oban_supervisor to fix installations with wrong order
       igniter = fix_supervisor_ordering(igniter)
+
+      # FIX: Ensure phoenix_kit_routes() is positioned BEFORE catch-all routes
+      # This fixes installations where routes were added at the end of router
+      igniter = RouterIntegration.verify_and_fix_router_position(igniter, opts[:router_path])
 
       # Check if this is the first pass (config missing) or second pass (config exists)
       config_status = Process.get(:phoenix_kit_config_status, :ok)
