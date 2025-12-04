@@ -468,12 +468,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/storage/dimensions",
                           "/admin/settings/maintenance",
                           "/admin/settings/blogging",
-                          "/admin/settings/seo"
+                          "/admin/settings/seo",
+                          "/admin/settings/sitemap"
                         ])
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -539,6 +540,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
                             icon="seo"
                             label="SEO"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Sitemap.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/sitemap")}
+                            icon="sitemap"
+                            label="Sitemap"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -909,8 +920,24 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     # Wrap inner content with admin navigation if needed
     assigns = wrap_inner_block_with_admin_nav_if_needed(assigns)
 
-    # Use apply/3 to dynamically call the parent layout function
-    apply(module, function, [assigns])
+    # Store parent layout info in assigns for wrapper template
+    assigns =
+      assigns
+      |> Map.put(:__parent_module__, module)
+      |> Map.put(:__parent_function__, function)
+      |> Map.put(:__parent_base_assigns__, prepare_parent_layout_assigns(assigns))
+
+    # Use HEEx to render slot and pass to parent layout
+    # This is needed because embedded Phoenix templates expect @inner_content,
+    # but LayoutWrapper receives content as inner_block slot
+    ~H"""
+    <% inner_content = render_slot(@inner_block) %>
+    <% parent_assigns =
+      @__parent_base_assigns__
+      |> Map.put(:inner_content, inner_content)
+      |> Map.put(:flash, @flash) %>
+    {apply(@__parent_module__, @__parent_function__, [parent_assigns])}
+    """
   rescue
     UndefinedFunctionError ->
       # Fallback to PhoenixKit layout if parent function doesn't exist

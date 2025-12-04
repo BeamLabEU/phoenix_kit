@@ -189,11 +189,14 @@
         }
       };
 
-      // Global function for inserting image component (called after media selection)
-      window.insertImageComponent = function(fileId) {
-        const template = "\n<Image file_id=\"" + fileId + "\" alt=\"Description here\" />\n";
+      // Global function for inserting image as markdown (called after media selection)
+      window.insertImageMarkdown = function(imageUrl) {
+        const template = "\n![Image description](" + imageUrl + ")\n";
         insertAtCursor(template);
       };
+
+      // Legacy function for backwards compatibility
+      window.insertImageComponent = window.insertImageMarkdown;
 
       // Listen for exec-js events from LiveView
       window.addEventListener("phx:exec-js", (e) => {
