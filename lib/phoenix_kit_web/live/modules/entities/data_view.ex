@@ -45,7 +45,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
     public_form_fields = Map.get(settings, "public_form_fields", [])
 
     # Check if this record was submitted via public form
-    is_public_submission = is_public_submission?(data_record.metadata)
+    is_public_submission = public_submission?(data_record.metadata)
 
     # Get all field definitions
     fields_definition = entity.fields_definition || []
@@ -93,13 +93,13 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
       |> assign(:public_form_title, Map.get(settings, "public_form_title", ""))
       |> assign(:public_form_description, Map.get(settings, "public_form_description", ""))
       |> assign(:metadata, data_record.metadata || %{})
-      |> assign(:is_public_submission, is_public_submission?(data_record.metadata))
+      |> assign(:is_public_submission, public_submission?(data_record.metadata))
 
     {:ok, socket}
   end
 
-  defp is_public_submission?(nil), do: false
-  defp is_public_submission?(metadata), do: Map.get(metadata, "source") == "public_form"
+  defp public_submission?(nil), do: false
+  defp public_submission?(metadata), do: Map.get(metadata, "source") == "public_form"
 
   @impl true
   def render(assigns) do

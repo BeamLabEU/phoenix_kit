@@ -90,6 +90,7 @@ defmodule PhoenixKit.Entities do
 
   alias PhoenixKit.Entities.Events
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -374,10 +375,10 @@ defmodule PhoenixKit.Entities do
     if has_created_by do
       attrs
     else
-      case PhoenixKit.Users.Auth.get_first_admin_id() do
+      case Auth.get_first_admin_id() do
         nil ->
           # Fall back to first user if no admin exists
-          case PhoenixKit.Users.Auth.get_first_user_id() do
+          case Auth.get_first_user_id() do
             nil -> attrs
             user_id -> Map.put(attrs, :created_by, user_id)
           end

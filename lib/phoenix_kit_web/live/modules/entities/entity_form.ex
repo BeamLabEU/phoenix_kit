@@ -686,10 +686,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
 
       # Initialize default fields when enabling
       updated_settings =
-        if !current_enabled do
-          Map.put(updated_settings, "public_form_fields", [])
-        else
+        if current_enabled do
           updated_settings
+        else
+          Map.put(updated_settings, "public_form_fields", [])
         end
 
       # Update the entity with new settings

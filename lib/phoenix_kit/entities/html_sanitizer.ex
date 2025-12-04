@@ -132,7 +132,7 @@ defmodule PhoenixKit.Entities.HtmlSanitizer do
   defp sanitize_urls(html) do
     # Remove dangerous href and src attributes
     html
-    |> Regex.replace(~r/href\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, "")
-    |> Regex.replace(~r/src\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, "")
+    |> then(&Regex.replace(~r/href\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, &1, ""))
+    |> then(&Regex.replace(~r/src\s*=\s*["']\s*(javascript|vbscript|data):[^"']*["']/i, &1, ""))
   end
 end

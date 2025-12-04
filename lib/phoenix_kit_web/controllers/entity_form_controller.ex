@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.EntityFormController do
 
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.EntityData
+  alias PhoenixKit.Users.RateLimiter
 
   @browser_patterns [
     {"Edg/", "Edge"},
@@ -238,8 +239,8 @@ defmodule PhoenixKitWeb.EntityFormController do
       ip = get_client_ip(conn)
       key = "entity_form:#{entity.id}:#{ip}"
 
-      # Use the same Backend module used by PhoenixKit.Users.RateLimiter
-      case PhoenixKit.Users.RateLimiter.Backend.hit(key, @rate_limit_window_ms, @rate_limit_max) do
+      # Use the same Backend module used by RateLimiter
+      case RateLimiter.Backend.hit(key, @rate_limit_window_ms, @rate_limit_max) do
         {:allow, _count} ->
           :ok
 

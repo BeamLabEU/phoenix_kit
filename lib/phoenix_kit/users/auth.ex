@@ -68,7 +68,7 @@ defmodule PhoenixKit.Users.Auth do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{RateLimiter, Roles}
+  alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
 
   ## Database getters
@@ -181,7 +181,7 @@ defmodule PhoenixKit.Users.Auth do
       nil  # No admin users exist
   """
   def get_first_admin do
-    roles = PhoenixKit.Users.Role.system_roles()
+    roles = Role.system_roles()
 
     # Try to get Owner first, then Admin
     owner_query =
