@@ -7,11 +7,12 @@ PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets
 ## High-level capabilities
 
 - **Entity blueprints** – Define reusable content types (`phoenix_kit_entities`) with metadata, singular/plural labels, icon, status, JSON field schema, and optional custom settings.
-- **Dynamic fields** – 13+ built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text, file, image, relation). Field definitions live in JSONB and are validated at creation time.
+- **Dynamic fields** – 11 built-in field types (text, textarea, number, boolean, date, email, URL, select, radio, checkbox, rich text). Field definitions live in JSONB and are validated at creation time. *(Note: image, file, and relation fields are defined but not yet fully implemented—UI shows "coming soon" placeholders.)*
 - **Entity data records** – Store instances of an entity (`phoenix_kit_entity_data`) with slug support, status workflow (draft/published/archived), JSONB data payload, metadata, creator tracking, and timestamps.
 - **Admin UI** – LiveView dashboards for managing blueprints, browsing/creating data, filtering, and adjusting module settings.
-- **Settings + security** – Feature toggle, max entities per user, relation/file flags, auto slugging, etc., persisted in `phoenix_kit_settings`. All surfaces are gated behind the admin scope.
+- **Settings + security** – Feature toggle and max entities per user are enforced; additional settings (relation/file flags, auto slugging, etc.) are persisted in `phoenix_kit_settings` but reserved for future use. All surfaces are gated behind the admin scope.
 - **Statistics** – Counts and summaries for dashboards and monitoring.
+- **Public Form Builder** – Create embeddable forms for public-facing pages with security features (honeypot, time-based validation, rate limiting), configurable actions, and submission statistics.
 
 ---
 
@@ -23,14 +24,24 @@ lib/phoenix_kit/
     ├── entities.ex          # Entity schema + business logic
     ├── entity_data.ex       # Data record schema + CRUD helpers
     ├── field_types.ex       # Registry of supported field types
-    └── form_builder.ex      # Dynamic form rendering + validation helpers
+    ├── form_builder.ex      # Dynamic form rendering + validation helpers
+    ├── html_sanitizer.ex    # XSS prevention for rich_text fields
+    ├── presence.ex          # Phoenix.Presence for real-time collaboration
+    ├── presence_helpers.ex  # FIFO locking and presence utilities
+    └── events.ex            # PubSub event broadcasting
 
 lib/phoenix_kit_web/live/modules/entities/
 ├── entities.ex / .html.heex         # Entity dashboard
-├── entity_form.ex / .html.heex      # Create/update entity definitions
+├── entity_form.ex / .html.heex      # Create/update entity definitions + public form config
 ├── data_navigator.ex / .html.heex   # Browse/filter records per entity
 ├── data_form.ex / .html.heex        # Create/update individual records
 └── entities_settings.ex / .html.heex# System configuration
+
+lib/phoenix_kit_web/controllers/
+└── entity_form_controller.ex        # Public form submission handler
+
+lib/phoenix_kit_web/components/blogging/
+└── entity_form.ex                   # Embeddable public form component
 
 lib/phoenix_kit/entities/
 ├── OVERVIEW.md                     # High-level guide (this file)
@@ -85,23 +96,31 @@ Indexes cover `entity_id`, `slug`, `status`, `created_by`, `title`. FK cascades 
 ### `PhoenixKit.Entities`
 Responsible for entity blueprints:
 - Schema + changeset enforcing unique names, valid field definitions, timestamps, etc.
-- CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`).
+- CRUD helpers (`list_entities/0`, `get_entity!/1`, `get_entity/1`, `get_entity_by_name/1`, `create_entity/1`, `update_entity/2`, `delete_entity/1`, `change_entity/2`).
 - Statistics (`get_system_stats/0`, `count_entities/0`, `count_user_entities/1`).
 - Settings helpers (`enabled?/0`, `enable_system/0`, `disable_system/0`, `get_config/0`).
 - Limit enforcement (`validate_user_entity_limit/1`).
 
-Field validation pipeline ensures every entry in `fields_definition` has `type/key/label`, uses a supported type, and merges defaults as needed.
+Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
+
+Field validation pipeline ensures every entry in `fields_definition` has `type/key/label` and uses a supported type. Note: the changeset validates but does not enrich field definitions—use `FieldTypes.new_field/4` to apply default properties.
 
 ### `PhoenixKit.Entities.EntityData`
 Manages actual records:
 - Schema + changeset verifying required fields, slug format, status, and cross-checking submitted JSON against the entity definition.
-- CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `search_by_title/2`, `create/1`, `update/2`, etc.).
+- CRUD and query helpers (`list_all/0`, `list_by_entity/1`, `get!/1`, `get/1`, `search_by_title/2`, `create/1`, `update/2`, `delete/1`, `change/2`).
 - Field-level validation ensures required fields are present, numbers are numeric, booleans are booleans, options exist, etc.
+
+Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### `PhoenixKit.Entities.FieldTypes`
 Registry of supported field types with metadata:
 - `all/0`, `list_types/0`, `for_picker/0` – introspection for UI builders.
 - Category helpers, default properties, and `validate_field/1` to ensure field definitions are complete.
+- Field builder helpers for programmatic creation:
+  - `new_field/4` – Create any field type with options
+  - `select_field/4`, `radio_field/4`, `checkbox_field/4` – Choice fields with options list
+  - `text_field/3`, `textarea_field/3`, `email_field/3`, `number_field/3`, `boolean_field/3`, `rich_text_field/3` – Common field types
 - Used both when saving entity definitions and when rendering forms.
 
 ### `PhoenixKit.Entities.FormBuilder`
@@ -137,8 +156,8 @@ All navigation helpers use `Routes.locale_aware_path/2` (or `PhoenixKit.Utils.Ro
 - **Boolean**: `boolean`
 - **Date/Time**: `date`
 - **Choice**: `select`, `radio`, `checkbox`
-- **Media**: `image`, `file`
-- **Relations**: `relation`
+- **Media** *(coming soon)*: `image`, `file` – defined in schema but renders placeholder UI
+- **Relations** *(coming soon)*: `relation` – defined in schema but not yet functional
 
 Each field definition is a map like:
 ```elixir
@@ -158,14 +177,20 @@ Each field definition is a map like:
 
 ## Settings & configuration
 
-| Setting | Description | Exposed via |
-|---------|-------------|-------------|
-| `entities_enabled` | Master on/off switch for the module | `/admin/modules`, `Entities.enable_system/0` |
-| `entities_max_per_user` | Blueprint limit per creator | `Entities_settings` UI & `Entities.get_max_per_user/0` |
-| `entities_allow_relations` | Enables relation field type | Settings UI |
-| `entities_file_upload` | Enables file/image field types | Settings UI |
-| `entities_auto_generate_slugs` | (Optional) controls slug generation in forms | Settings UI |
-| `entities_default_status` | Default status for new records | Settings UI |
+| Setting | Description | Exposed via | Status |
+|---------|-------------|-------------|--------|
+| `entities_enabled` | Master on/off switch for the module | `/admin/modules`, `Entities.enable_system/0` | ✅ Active |
+| `entities_max_per_user` | Blueprint limit per creator | Settings UI & `Entities.get_max_per_user/0` | ✅ Active |
+| `entities_allow_relations` | Reserved for future relation field toggle | Settings UI | 🚧 Not yet enforced |
+| `entities_file_upload` | Reserved for future file/image upload toggle | Settings UI | 🚧 Not yet enforced |
+| `entities_auto_generate_slugs` | Reserved for optional slug generation control | Settings UI | 🚧 Not yet enforced (slugs always auto-generate) |
+| `entities_default_status` | Reserved for default status on new records | Settings UI | 🚧 Not yet enforced (defaults to "published") |
+| `entities_require_approval` | Reserved for approval workflow | Settings UI | 🚧 Not yet enforced |
+| `entities_data_retention_days` | Reserved for data retention policy | Settings UI | 🚧 Not yet enforced |
+| `entities_enable_revisions` | Reserved for revision history | Settings UI | 🚧 Not yet enforced |
+| `entities_enable_comments` | Reserved for commenting system | Settings UI | 🚧 Not yet enforced |
+
+> **Note**: Settings marked "Not yet enforced" are persisted in the database and visible in the admin UI, but the underlying functionality is not yet implemented. They are placeholders for future features.
 
 `PhoenixKit.Entities.get_config/0` returns a map:
 ```elixir
@@ -192,13 +217,14 @@ PhoenixKit.Entities.enabled?()
 
 ### Creating an entity blueprint
 ```elixir
+# Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, blog_entity} =
   PhoenixKit.Entities.create_entity(%{
     name: "blog_post",
     display_name: "Blog Post",
     display_name_plural: "Blog Posts",
     icon: "hero-document-text",
-    created_by: admin.id,
+    # created_by: admin.id,  # Optional!
     fields_definition: [
       %{"type" => "text", "key" => "title", "label" => "Title", "required" => true},
       %{"type" => "rich_text", "key" => "content", "label" => "Content"}
@@ -206,14 +232,35 @@ PhoenixKit.Entities.enabled?()
   })
 ```
 
+### Creating fields with builder helpers
+```elixir
+alias PhoenixKit.Entities.FieldTypes
+
+# Build fields programmatically
+fields = [
+  FieldTypes.text_field("title", "Title", required: true),
+  FieldTypes.textarea_field("excerpt", "Excerpt"),
+  FieldTypes.select_field("category", "Category", ["Tech", "Business", "Lifestyle"]),
+  FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"]),
+  FieldTypes.boolean_field("featured", "Featured Post", default: false)
+]
+
+{:ok, entity} = PhoenixKit.Entities.create_entity(%{
+  name: "article",
+  display_name: "Article",
+  fields_definition: fields
+})
+```
+
 ### Creating a record
 ```elixir
+# Note: created_by is optional - auto-fills with first admin user if omitted
 {:ok, _record} =
   PhoenixKit.Entities.EntityData.create(%{
     entity_id: blog_entity.id,
     title: "My First Post",
     status: "published",
-    created_by: admin.id,
+    # created_by: admin.id,  # Optional!
     data: %{"title" => "My First Post", "content" => "<p>Hello</p>"}
   })
 ```
@@ -241,9 +288,58 @@ PhoenixKit.Entities.validate_user_entity_limit(admin.id)
 
 ---
 
+## Public Form Builder
+
+The Entities system includes a public form builder for creating embeddable forms on public-facing pages.
+
+### Features
+
+- **Embeddable Component**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Field Selection**: Choose which entity fields appear on the public form
+- **Security Options**: Honeypot, time-based validation (3s minimum), rate limiting (5/min)
+- **Configurable Actions**: reject_silent, reject_error, save_suspicious, save_log
+- **Statistics**: Track submissions, rejections, and security triggers
+- **Debug Mode**: Detailed error messages for troubleshooting
+- **Metadata Collection**: IP address, browser, device, referrer, timing data
+- **HTML Sanitization**: Rich text fields automatically sanitized to prevent XSS
+
+### Configuration (entity settings)
+
+| Setting | Description |
+|---------|-------------|
+| `public_form_enabled` | Master toggle |
+| `public_form_fields` | List of field keys to include |
+| `public_form_title` | Form title |
+| `public_form_description` | Form description |
+| `public_form_submit_text` | Submit button text |
+| `public_form_success_message` | Success message |
+| `public_form_honeypot` | Enable honeypot protection |
+| `public_form_time_check` | Enable time-based validation |
+| `public_form_rate_limit` | Enable rate limiting |
+| `public_form_debug_mode` | Show detailed error messages |
+| `public_form_collect_metadata` | Collect submission metadata |
+
+### Embedding in pages
+
+```heex
+<EntityForm entity_slug="contact" />
+```
+
+The component checks if the form is enabled AND has fields selected before rendering. Submissions go to `/phoenix_kit/entities/{slug}/submit`.
+
+### Real-Time Collaboration
+
+The entity form editor supports real-time collaboration with FIFO locking:
+- First user becomes the lock owner (can edit)
+- Subsequent users become spectators (read-only)
+- Live updates broadcast to all viewers
+- Automatic promotion when owner leaves
+
+---
+
 ## Related documentation
 
-- `ENTITIES_SYSTEM.md` – long-form analysis, rationale, and implementation notes
+- `DEEP_DIVE.md` – long-form analysis, rationale, and implementation notes (in this directory)
 - `lib/phoenix_kit/migrations/postgres/v17.ex` – database migration
 - `lib/phoenix_kit/utils/routes.ex` – locale-aware path helpers
 - `lib/phoenix_kit_web/components/layout_wrapper.ex` – navigation wrapper that consumes the assigns set by these LiveViews

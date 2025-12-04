@@ -420,19 +420,160 @@ defmodule PhoenixKit.Entities.FieldTypes do
         "placeholder" => "",
         "max_length" => 255
       }
+
+      # With options for choice fields
+      iex> PhoenixKit.Entities.FieldTypes.new_field("select", "category", "Category", options: ["Tech", "Business"])
+      %{
+        "type" => "select",
+        "key" => "category",
+        "label" => "Category",
+        "required" => false,
+        "options" => ["Tech", "Business"],
+        ...
+      }
+
+      # With required flag
+      iex> PhoenixKit.Entities.FieldTypes.new_field("text", "name", "Name", required: true)
+      %{"type" => "text", "key" => "name", "label" => "Name", "required" => true, ...}
   """
-  def new_field(type, key, label) when is_binary(type) and is_binary(key) and is_binary(label) do
+  def new_field(type, key, label, opts \\ [])
+
+  def new_field(type, key, label, opts)
+      when is_binary(type) and is_binary(key) and is_binary(label) do
+    options = Keyword.get(opts, :options, [])
+    required = Keyword.get(opts, :required, false)
+    default = Keyword.get(opts, :default, nil)
+
     base_field = %{
       "type" => type,
       "key" => key,
       "label" => label,
-      "required" => false,
-      "default" => nil,
+      "required" => required,
+      "default" => default,
       "validation" => %{}
     }
+
+    # Add options for choice fields
+    base_field =
+      if requires_options?(type) or options != [] do
+        Map.put(base_field, "options", options)
+      else
+        base_field
+      end
 
     # Merge with type-specific default props
     props = default_props(type)
     Map.merge(base_field, props)
+  end
+
+  @doc """
+  Helper to create a select field with options.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+      %{"type" => "select", "key" => "category", "label" => "Category", "options" => ["Tech", "Business", "Other"], ...}
+
+      iex> PhoenixKit.Entities.FieldTypes.select_field("status", "Status", ["Active", "Inactive"], required: true)
+      %{"type" => "select", "key" => "status", "label" => "Status", "options" => ["Active", "Inactive"], "required" => true, ...}
+  """
+  def select_field(key, label, options, opts \\ []) when is_list(options) do
+    new_field("select", key, label, Keyword.put(opts, :options, options))
+  end
+
+  @doc """
+  Helper to create a radio button field with options.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
+      %{"type" => "radio", "key" => "priority", "label" => "Priority", "options" => ["Low", "Medium", "High"], ...}
+  """
+  def radio_field(key, label, options, opts \\ []) when is_list(options) do
+    new_field("radio", key, label, Keyword.put(opts, :options, options))
+  end
+
+  @doc """
+  Helper to create a checkbox field with options.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+      %{"type" => "checkbox", "key" => "tags", "label" => "Tags", "options" => ["Featured", "Popular", "New"], ...}
+  """
+  def checkbox_field(key, label, options, opts \\ []) when is_list(options) do
+    new_field("checkbox", key, label, Keyword.put(opts, :options, options))
+  end
+
+  @doc """
+  Helper to create a text field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.text_field("name", "Full Name", required: true)
+      %{"type" => "text", "key" => "name", "label" => "Full Name", "required" => true, ...}
+  """
+  def text_field(key, label, opts \\ []) do
+    new_field("text", key, label, opts)
+  end
+
+  @doc """
+  Helper to create a textarea field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.textarea_field("bio", "Biography")
+      %{"type" => "textarea", "key" => "bio", "label" => "Biography", ...}
+  """
+  def textarea_field(key, label, opts \\ []) do
+    new_field("textarea", key, label, opts)
+  end
+
+  @doc """
+  Helper to create an email field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.email_field("email", "Email Address", required: true)
+      %{"type" => "email", "key" => "email", "label" => "Email Address", "required" => true, ...}
+  """
+  def email_field(key, label, opts \\ []) do
+    new_field("email", key, label, opts)
+  end
+
+  @doc """
+  Helper to create a number field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.number_field("age", "Age")
+      %{"type" => "number", "key" => "age", "label" => "Age", ...}
+  """
+  def number_field(key, label, opts \\ []) do
+    new_field("number", key, label, opts)
+  end
+
+  @doc """
+  Helper to create a boolean field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
+      %{"type" => "boolean", "key" => "active", "label" => "Is Active", "default" => true, ...}
+  """
+  def boolean_field(key, label, opts \\ []) do
+    new_field("boolean", key, label, opts)
+  end
+
+  @doc """
+  Helper to create a rich text field.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content", required: true)
+      %{"type" => "rich_text", "key" => "content", "label" => "Content", "required" => true, ...}
+  """
+  def rich_text_field(key, label, opts \\ []) do
+    new_field("rich_text", key, label, opts)
   end
 end

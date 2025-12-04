@@ -12,6 +12,11 @@ PhoenixKit is under heavy development and we're looking for early adopters to te
 
 With PhoenixKit, you will be able to create production-ready Elixir/Phoenix apps much faster and focus on your unique business logic instead of reimplementing common SaaS patterns.
 
+## 📖 Documentation
+
+- **[Integration Guide](guides/integration.md)** - Complete guide for using PhoenixKit as a dependency, with API reference and examples. Optimized for AI assistants (Claude, Cursor, Copilot, Tidewave MCP).
+- **[All Guides](guides/README.md)** - Full list of development guides
+
 ## Semi-Automatic Installation
 
 PhoenixKit provides pretty simple installation method, powered by igniter library, which takes care of all configuration needs.

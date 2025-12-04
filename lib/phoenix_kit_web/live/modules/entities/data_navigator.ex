@@ -82,7 +82,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
     # Extract filter params with defaults
     status = params["status"] || "all"
     search_term = params["search"] || ""
-    view_mode = params["view"] || socket.assigns.view_mode
+    view_mode = params["view"] || "table"
 
     socket =
       socket
@@ -157,9 +157,12 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
     path = build_base_path(socket.assigns.selected_entity_id)
     locale = socket.assigns[:current_locale] || "en"
+    full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path("#{path}?#{params}", locale: locale))
+      socket
+      |> assign(:view_mode, mode)
+      |> push_patch(to: Routes.path(full_path, locale: locale))
 
     {:noreply, socket}
   end
@@ -189,9 +192,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
     path = build_base_path(entity_id)
     locale = socket.assigns[:current_locale] || "en"
+    full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path("#{path}?#{params}", locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: locale))
 
     {:noreply, socket}
   end
@@ -207,9 +211,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
     path = build_base_path(socket.assigns.selected_entity_id)
     locale = socket.assigns[:current_locale] || "en"
+    full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path("#{path}?#{params}", locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: locale))
 
     {:noreply, socket}
   end
@@ -225,9 +230,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
     path = build_base_path(socket.assigns.selected_entity_id)
     locale = socket.assigns[:current_locale] || "en"
+    full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path("#{path}?#{params}", locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: locale))
 
     {:noreply, socket}
   end
