@@ -1,4 +1,4 @@
-## 1.6.15 - 2025-12-03
+## 1.6.15 - 2025-12-05
 
 ### Added
 - **Sitemap Module** - Complete sitemap generation system for SEO
