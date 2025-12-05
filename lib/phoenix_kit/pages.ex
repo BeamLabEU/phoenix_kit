@@ -7,13 +7,12 @@ defmodule PhoenixKit.Pages do
   """
   require Logger
 
-  alias PhoenixKit.Config
   alias PhoenixKit.Pages.FileOperations
   alias PhoenixKit.Pages.Metadata
+  alias PhoenixKit.Pages.Paths
 
   @not_found_enabled_key "pages_handle_not_found"
   @not_found_path_key "pages_not_found_page"
-  @default_not_found_slug "/404"
 
   @doc """
   Checks if Pages module is enabled.
@@ -59,15 +58,15 @@ defmodule PhoenixKit.Pages do
   Returns the stored slug (without extension) used for custom 404 pages.
   """
   def not_found_slug do
-    PhoenixKit.Settings.get_setting(@not_found_path_key, @default_not_found_slug)
-    |> normalize_slug()
+    PhoenixKit.Settings.get_setting(@not_found_path_key, "/404")
+    |> Paths.normalize_slug()
   end
 
   @doc """
   Updates the slug used for the custom 404 page.
   """
   def update_not_found_slug(slug) when is_binary(slug) do
-    normalized = normalize_slug(slug)
+    normalized = Paths.normalize_slug(slug)
     PhoenixKit.Settings.update_setting(@not_found_path_key, normalized)
     normalized
   end
@@ -76,7 +75,7 @@ defmodule PhoenixKit.Pages do
   Returns the relative file path (with `.md`) for the configured not found page.
   """
   def not_found_file_path do
-    slug_to_file_path(not_found_slug())
+    Paths.slug_to_file_path(not_found_slug())
   end
 
   @doc """
@@ -131,70 +130,5 @@ defmodule PhoenixKit.Pages do
       iex> PhoenixKit.Pages.root_path()
       "/path/to/app/priv/static/pages"
   """
-  def root_path do
-    parent_app = Config.get_parent_app()
-    path = resolve_pages_path(parent_app)
-
-    Logger.debug("Pages root_path: parent_app=#{inspect(parent_app)}, path=#{inspect(path)}")
-
-    case File.mkdir_p(path) do
-      :ok -> path
-      {:error, reason} -> raise "Failed to create pages directory at #{path}: #{inspect(reason)}"
-    end
-  end
-
-  # Private Helpers
-
-  defp resolve_pages_path(parent_app) do
-    priv_dir = :code.priv_dir(parent_app) |> to_string()
-
-    if contains_build_path?(priv_dir) do
-      project_root = Path.expand("../../../../../", priv_dir)
-      Path.join(project_root, "priv/static/pages")
-    else
-      Path.join(priv_dir, "static/pages")
-    end
-  end
-
-  defp contains_build_path?(path) do
-    String.contains?(path, "/_build/") || String.contains?(path, "\\_build\\")
-  end
-
-  defp normalize_slug(slug) do
-    slug =
-      slug
-      |> String.trim()
-      |> case do
-        "" -> @default_not_found_slug
-        value -> value
-      end
-
-    slug =
-      if String.starts_with?(slug, "/") do
-        slug
-      else
-        "/" <> slug
-      end
-
-    slug =
-      slug
-      |> String.trim_trailing("/")
-      |> case do
-        "" -> @default_not_found_slug
-        "/" -> @default_not_found_slug
-        value -> value
-      end
-
-    slug
-  end
-
-  defp slug_to_file_path(slug) do
-    normalized = normalize_slug(slug)
-
-    if String.ends_with?(normalized, ".md") do
-      normalized
-    else
-      normalized <> ".md"
-    end
-  end
+  def root_path, do: Paths.root_path()
 end
