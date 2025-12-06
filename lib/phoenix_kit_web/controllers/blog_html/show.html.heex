@@ -46,19 +46,40 @@
               <span class="text-lg">{current_translation[:flag] || ""}</span>
               <span>{current_translation[:name] || @current_language}</span>
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </label>
-            <div tabindex="0" class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden">
+            <div
+              tabindex="0"
+              class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden"
+            >
               <div class="relative">
-                <div id="public-lang-dropdown-list" class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden">
+                <div
+                  id="public-lang-dropdown-list"
+                  class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden"
+                >
                   <%= for translation <- @translations do %>
                     <%= if translation.current do %>
                       <span class="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary w-full">
                         <span class="text-lg shrink-0">{translation[:flag] || ""}</span>
                         <span class="flex-1 truncate">{translation.name}</span>
-                        <svg class="w-4 h-4 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4.5 12.75l6 6 9-13.5" />
+                        <svg
+                          class="w-4 h-4 text-primary shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2.5"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
                         </svg>
                       </span>
                     <% else %>
@@ -73,7 +94,11 @@
                   <% end %>
                 </div>
                 <%!-- Bottom gradient indicator --%>
-                <div id="public-lang-dropdown-gradient" class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"></div>
+                <div
+                  id="public-lang-dropdown-gradient"
+                  class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"
+                >
+                </div>
               </div>
             </div>
           </div>

@@ -334,23 +334,21 @@
         </:action_buttons>
 
         <:stats>
-          <%
-            url_prefix =
-              PhoenixKit.Config.get_url_prefix()
-              |> case do
-                "/" -> ""
-                prefix -> prefix
-              end
+          <% url_prefix =
+            PhoenixKit.Config.get_url_prefix()
+            |> case do
+              "/" -> ""
+              prefix -> prefix
+            end
 
-            # Determine default language base code for URL display
-            default_lang_code =
-              if @languages_enabled && @languages_default do
-                @languages_default["code"]
-                |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-              else
-                nil
-              end
-          %>
+          # Determine default language base code for URL display
+          default_lang_code =
+            if @languages_enabled && @languages_default do
+              @languages_default["code"]
+              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
+            else
+              nil
+            end %>
 
           <div class="space-y-1.5">
             <div>

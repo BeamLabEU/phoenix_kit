@@ -299,15 +299,23 @@
       <div class="flex items-center gap-3">
         <%!-- Language Switcher Dropdown --%>
         <%= if length(@all_enabled_languages) > 1 do %>
-          <%
-            current_lang_info = PhoenixKitWeb.Live.Modules.Blogging.get_language_info(@current_language)
-            current_flag = if current_lang_info, do: current_lang_info.flag, else: ""
+          <% current_lang_info =
+            PhoenixKitWeb.Live.Modules.Blogging.get_language_info(@current_language)
 
-            # Order: current language first, then languages with translations, then without
-            langs_with_translations = @available_languages |> Enum.reject(&(&1 == @current_language)) |> Enum.sort()
-            langs_without_translations = @all_enabled_languages |> Enum.reject(&(&1 in @available_languages)) |> Enum.reject(&(&1 == @current_language)) |> Enum.sort()
-            ordered_languages = [@current_language] ++ langs_with_translations ++ langs_without_translations
-          %>
+          current_flag = if current_lang_info, do: current_lang_info.flag, else: ""
+
+          # Order: current language first, then languages with translations, then without
+          langs_with_translations =
+            @available_languages |> Enum.reject(&(&1 == @current_language)) |> Enum.sort()
+
+          langs_without_translations =
+            @all_enabled_languages
+            |> Enum.reject(&(&1 in @available_languages))
+            |> Enum.reject(&(&1 == @current_language))
+            |> Enum.sort()
+
+          ordered_languages =
+            [@current_language] ++ langs_with_translations ++ langs_without_translations %>
           <div class="dropdown dropdown-end" id="language-switcher">
             <label tabindex="0" class="btn btn-sm btn-outline shadow-none gap-2">
               <span class="text-lg">{current_flag}</span>
@@ -318,11 +326,19 @@
               </span>
               <.icon name="hero-chevron-down" class="w-4 h-4" />
             </label>
-            <div tabindex="0" class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden">
+            <div
+              tabindex="0"
+              class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden"
+            >
               <div class="relative">
-                <div id="lang-dropdown-list" class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden">
+                <div
+                  id="lang-dropdown-list"
+                  class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden"
+                >
                   <%= for lang_code <- ordered_languages do %>
-                    <% lang_info = PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
+                    <% lang_info =
+                      PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
+
                     flag = if lang_info, do: lang_info.flag, else: ""
                     lang_name = if lang_info, do: lang_info.name, else: lang_code
                     is_current = @current_language == lang_code
@@ -352,7 +368,11 @@
                   <% end %>
                 </div>
                 <%!-- Bottom gradient indicator --%>
-                <div id="lang-dropdown-gradient" class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"></div>
+                <div
+                  id="lang-dropdown-gradient"
+                  class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"
+                >
+                </div>
               </div>
             </div>
             <script>
