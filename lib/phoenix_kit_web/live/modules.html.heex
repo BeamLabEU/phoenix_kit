@@ -334,12 +334,23 @@
         </:action_buttons>
 
         <:stats>
-          <% url_prefix =
-            PhoenixKit.Config.get_url_prefix()
-            |> case do
-              "/" -> ""
-              prefix -> prefix
-            end %>
+          <%
+            url_prefix =
+              PhoenixKit.Config.get_url_prefix()
+              |> case do
+                "/" -> ""
+                prefix -> prefix
+              end
+
+            # Determine default language base code for URL display
+            default_lang_code =
+              if @languages_enabled && @languages_default do
+                @languages_default["code"]
+                |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
+              else
+                nil
+              end
+          %>
 
           <div class="space-y-1.5">
             <div>
@@ -350,14 +361,33 @@
                 priv/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
               </code>
             </div>
-            <div>
-              <span class="font-medium text-base-content">
-                {gettext("Public URL pattern:")}
-              </span>
-              <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
-                {url_prefix}/:locale/:blog_slug/:post_slug
-              </code>
-            </div>
+            <%= if @languages_enabled && default_lang_code do %>
+              <div>
+                <span class="font-medium text-base-content">
+                  {gettext("Default language (%{lang}):", lang: default_lang_code)}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
+                  {url_prefix}/:blog_slug/:post_slug
+                </code>
+              </div>
+              <div>
+                <span class="font-medium text-base-content">
+                  {gettext("Other languages:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
+                  {url_prefix}/:locale/:blog_slug/:post_slug
+                </code>
+              </div>
+            <% else %>
+              <div>
+                <span class="font-medium text-base-content">
+                  {gettext("Public URL pattern:")}
+                </span>
+                <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
+                  {url_prefix}/:blog_slug/:post_slug
+                </code>
+              </div>
+            <% end %>
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>

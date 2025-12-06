@@ -6,6 +6,8 @@ defmodule PhoenixKitWeb.BlogHTML do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Storage
 
   embed_templates("blog_html/*")
@@ -176,29 +178,24 @@ defmodule PhoenixKitWeb.BlogHTML do
     end
   end
 
-  # Check if the given language is the default language (first admin language)
+  # Check if the given language is the default language
   # Default language gets clean URLs without locale prefix
   defp default_language?(language) do
-    default = get_default_admin_language()
+    default = get_default_language()
     language == default
   end
 
-  # Get the default admin language base code (first in admin_languages list, or "en")
-  # Extracts base code from full dialect (e.g., "en-US" -> "en")
-  defp get_default_admin_language do
-    alias PhoenixKit.Modules.Languages.DialectMapper
+  # Get the default frontend language base code
+  # Uses the Languages module's default language for public URL consistency
+  defp get_default_language do
+    case Languages.get_default_language() do
+      %{"code" => code} when is_binary(code) ->
+        # Extract base code from full dialect (e.g., "en-US" -> "en")
+        DialectMapper.extract_base(code)
 
-    case PhoenixKit.Settings.get_setting("admin_languages") do
-      nil ->
-        # No setting exists, default is "en"
+      _ ->
+        # Fallback to "en" if Languages module not configured
         "en"
-
-      json when is_binary(json) ->
-        case Jason.decode(json) do
-          # Extract base code from full dialect (e.g., "en-US" -> "en")
-          {:ok, [first | _]} -> DialectMapper.extract_base(first)
-          _ -> "en"
-        end
     end
   end
 
