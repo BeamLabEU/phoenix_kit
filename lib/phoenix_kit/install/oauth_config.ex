@@ -1,9 +1,9 @@
 defmodule PhoenixKit.Install.OAuthConfig do
   @moduledoc """
-  Handles Ueberauth OAuth configuration for PhoenixKit installation.
+  Handles OAuth configuration notices for PhoenixKit installation.
 
-  PhoenixKit uses **dynamic OAuth invocation** via `Ueberauth.run_request/4` and
-  `Ueberauth.run_callback/4`, eliminating compile-time configuration requirements.
+  PhoenixKit uses **fully dynamic OAuth** - no compile-time configuration required.
+  All OAuth providers are configured at runtime from database settings.
 
   ## How It Works
 
@@ -17,18 +17,9 @@ defmodule PhoenixKit.Install.OAuthConfig do
   ```
 
   This approach allows:
-  - **No compile-time configuration required** - OAuth works without any providers in config
+  - **No compile-time configuration required** - OAuth works without any config.exs entries
   - **Database-driven credentials** - Credentials loaded from Settings table at runtime
   - **Dynamic provider management** - Add/remove/modify providers without app restart
-
-  ## Configuration
-
-  While compile-time configuration is no longer required, we still add a minimal
-  Ueberauth config for compatibility with libraries that may check for it:
-
-  ```elixir
-  config :ueberauth, Ueberauth, providers: %{}  # Empty map for compatibility
-  ```
 
   ## Runtime OAuth Flow
 
@@ -41,23 +32,23 @@ defmodule PhoenixKit.Install.OAuthConfig do
 
   ## Related Modules
 
-  - `PhoenixKit.Users.OAuthConfig` - Configures credentials in Application env
+  - `PhoenixKit.Users.OAuthConfig` - Configures credentials in Application env at runtime
+  - `PhoenixKit.Workers.OAuthConfigLoader` - Loads OAuth config on app startup
   - `PhoenixKitWeb.Plugs.EnsureOAuthConfig` - Ensures credentials loaded before OAuth
   - `PhoenixKitWeb.Users.OAuth` - OAuth controller with dynamic Ueberauth calls
   """
-  use PhoenixKit.Install.IgniterCompat
 
   @doc """
-  Adds minimal Ueberauth configuration required for PhoenixKit OAuth functionality.
+  Adds OAuth configuration notice for PhoenixKit installation.
 
-  This function adds compile-time configuration with an empty providers map.
-  Runtime configuration will populate providers from the database.
+  No compile-time configuration is added - OAuth is fully dynamic.
+  This function only adds an informational notice.
 
   ## Parameters
   - `igniter` - The igniter context
 
   ## Returns
-  Updated igniter with Ueberauth configuration and informational notice.
+  Updated igniter with informational notice about dynamic OAuth.
 
   ## Example
   ```elixir
@@ -66,47 +57,15 @@ defmodule PhoenixKit.Install.OAuthConfig do
   ```
   """
   def add_oauth_configuration(igniter) do
-    igniter
-    |> add_ueberauth_config()
-    |> add_oauth_configuration_notice()
-  end
-
-  # Add minimal Ueberauth configuration with empty providers map
-  defp add_ueberauth_config(igniter) do
-    # Add compile-time Ueberauth config with empty map (not empty list!)
-    # Runtime configuration (OAuthConfigLoader) will populate providers from database
-
-    ueberauth_config = """
-
-    # Configure Ueberauth (minimal configuration for compilation)
-    # Applications using PhoenixKit should configure their own providers
-    config :ueberauth, Ueberauth, providers: %{}
-    """
-
-    try do
-      Igniter.update_file(igniter, "config/config.exs", fn source ->
-        current_content = Rewrite.Source.get(source, :content)
-
-        # Check if already configured
-        if String.contains?(current_content, "config :ueberauth, Ueberauth") do
-          source
-        else
-          # Append to end of file
-          updated_content = current_content <> ueberauth_config
-          Rewrite.Source.update(source, :content, updated_content)
-        end
-      end)
-    rescue
-      _ ->
-        # If update fails, return igniter as-is (better than failing install)
-        igniter
-    end
+    # No static config needed - OAuth is fully dynamic
+    # Just add informational notice
+    add_oauth_configuration_notice(igniter)
   end
 
   # Add informational notice about OAuth configuration
   defp add_oauth_configuration_notice(igniter) do
     notice = """
-    🔐 OAuth configured (providers loaded at runtime from database)
+    🔐 OAuth ready (providers configured dynamically from database at runtime)
     """
 
     Igniter.add_notice(igniter, String.trim(notice))

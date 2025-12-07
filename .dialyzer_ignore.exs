@@ -6,10 +6,8 @@
   {"lib/mix/tasks/phoenix_kit.update.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :unknown_function},
   {"lib/phoenix_kit/install/migration_strategy.ex", :unknown_function},
-  {"lib/phoenix_kit/install/repo_detection.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.status.ex", :unknown_function},
   {"lib/phoenix_kit/migrations/postgres.ex", :unknown_function},
-  {"lib/phoenix_kit/install/mailer_config.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit/email_export.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit/email_stats.ex", :unknown_function},
@@ -63,9 +61,6 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
-  # Exact comparison warnings for nil checks (legacy warning format - Dialyzer bug)
-  # (No current warnings - exact_compare issue in configure_aws_ses.ex was fixed by using pattern matching)
-
-  # Ignore all test files - library tests are meant for integration testing
+  # Ignore test files - ExUnit internals not available to Dialyzer
   ~r|^test/.*|
 ]
