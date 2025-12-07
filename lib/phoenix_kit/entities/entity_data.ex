@@ -73,6 +73,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Entities.HtmlSanitizer
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -117,6 +119,7 @@ defmodule PhoenixKit.Entities.EntityData do
     |> validate_length(:slug, max: 255)
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_slug_format()
+    |> sanitize_rich_text_data()
     |> validate_data_against_entity()
     |> foreign_key_constraint(:entity_id)
     |> maybe_set_timestamps()
@@ -139,6 +142,29 @@ defmodule PhoenixKit.Entities.EntityData do
             :slug,
             "must contain only lowercase letters, numbers, and hyphens"
           )
+        end
+    end
+  end
+
+  defp sanitize_rich_text_data(changeset) do
+    entity_id = get_field(changeset, :entity_id)
+    data = get_field(changeset, :data)
+
+    case {entity_id, data} do
+      {nil, _} ->
+        changeset
+
+      {_, nil} ->
+        changeset
+
+      {id, data} ->
+        try do
+          entity = Entities.get_entity!(id)
+          fields_definition = entity.fields_definition || []
+          sanitized_data = HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+          put_change(changeset, :data, sanitized_data)
+        rescue
+          Ecto.NoResultsError -> changeset
         end
     end
   end
@@ -349,6 +375,26 @@ defmodule PhoenixKit.Entities.EntityData do
   @doc """
   Gets a single entity data record by ID.
 
+  Returns the record if found, nil otherwise.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.EntityData.get(123)
+      %PhoenixKit.Entities.EntityData{}
+
+      iex> PhoenixKit.Entities.EntityData.get(456)
+      nil
+  """
+  def get(id) do
+    case repo().get(__MODULE__, id) do
+      nil -> nil
+      record -> repo().preload(record, [:entity, :creator])
+    end
+  end
+
+  @doc """
+  Gets a single entity data record by ID.
+
   Raises `Ecto.NoResultsError` if the record does not exist.
 
   ## Examples
@@ -391,12 +437,40 @@ defmodule PhoenixKit.Entities.EntityData do
 
       iex> PhoenixKit.Entities.EntityData.create(%{title: ""})
       {:error, %Ecto.Changeset{}}
+
+  Note: `created_by` is auto-filled with the first admin or user ID if not provided,
+  but only if at least one user exists in the system. If no users exist, the changeset
+  will fail with a validation error on `created_by`.
   """
   def create(attrs \\ %{}) do
+    attrs = maybe_add_created_by(attrs)
+
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
     |> notify_data_event(:created)
+  end
+
+  # Auto-fill created_by with first admin if not provided
+  defp maybe_add_created_by(attrs) when is_map(attrs) do
+    has_created_by =
+      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+
+    if has_created_by do
+      attrs
+    else
+      case Auth.get_first_admin_id() do
+        nil ->
+          # Fall back to first user if no admin exists
+          case Auth.get_first_user_id() do
+            nil -> attrs
+            user_id -> Map.put(attrs, :created_by, user_id)
+          end
+
+        admin_id ->
+          Map.put(attrs, :created_by, admin_id)
+      end
+    end
   end
 
   @doc """
