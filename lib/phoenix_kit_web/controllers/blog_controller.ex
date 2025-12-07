@@ -365,6 +365,7 @@ defmodule PhoenixKitWeb.BlogController do
       %{
         code: base_code,
         name: get_language_name(lang),
+        flag: get_language_flag(lang),
         url: BlogHTML.build_post_url(blog_slug, post, base_code),
         current: base_code == current_base
       }
@@ -417,6 +418,13 @@ defmodule PhoenixKitWeb.BlogController do
     case Languages.get_language(code) do
       %{"name" => name} -> name
       _ -> String.upcase(code)
+    end
+  end
+
+  defp get_language_flag(code) do
+    case Languages.get_predefined_language(code) do
+      %{flag: flag} -> flag
+      _ -> "🌐"
     end
   end
 
