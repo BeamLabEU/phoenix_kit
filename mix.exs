@@ -155,6 +155,7 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "guides/integration.md",
         "guides/oauth_and_magic_link_setup.md",
         "guides/aws_email_setup.md",
         "guides/making-pages-live.md",
