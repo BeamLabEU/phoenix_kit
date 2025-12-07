@@ -12,7 +12,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     To prevent configuration timing issues, the update process uses a two-pass strategy:
 
     1. **First Pass** (if configuration is missing): Adds required configuration (e.g.,
-       Ueberauth settings) via Igniter and prompts you to run the command again.
+       Hammer rate limiter, Oban) via Igniter and prompts you to run the command again.
 
     2. **Second Pass** (configuration present): Safely starts the application and
        completes the update process.
@@ -79,8 +79,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     - Rollback-capable (can be reverted if needed)
     """
     use Igniter.Mix.Task
-
-    alias Igniter.Project.Config
 
     alias PhoenixKit.Install.{
       ApplicationSupervisor,
@@ -235,7 +233,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ⚠️  Required configuration is missing from config/config.exs
 
       PhoenixKit requires configuration for:
-      - Ueberauth (OAuth authentication)
       - Hammer (rate limiting)
       - Oban (background jobs for file processing)
 
@@ -256,15 +253,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         lines = String.split(content, "\n")
 
         cond do
-          # Missing Ueberauth configuration entirely
-          !String.contains?(content, "config :ueberauth") ->
-            :missing
-
-          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
-          String.contains?(content, "config :ueberauth, Ueberauth") &&
-              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
-            :missing
-
           # Missing Hammer configuration (check for active, non-commented config)
           !has_active_hammer_config?(lines) ->
             :missing
@@ -330,9 +318,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     defp perform_igniter_update(igniter, opts) do
       prefix = opts[:prefix] || "public"
       force = opts[:force] || false
-
-      # Validate and fix Ueberauth configuration before update
-      igniter = validate_and_fix_ueberauth_config(igniter)
 
       # Ensure Hammer rate limiter configuration exists
       igniter = validate_and_add_hammer_config(igniter)
@@ -674,7 +659,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       TWO-PASS UPDATE STRATEGY
         If required configuration is missing, the update process will:
-        1. First run: Add missing configuration (e.g., Ueberauth settings)
+        1. First run: Add missing configuration (e.g., Hammer, Oban settings)
         2. Prompt you to run the command again
         3. Second run: Complete the update with all configuration present
 
@@ -818,86 +803,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       Then start your server:
         mix phx.server
       """)
-    end
-
-    # Validate and fix Ueberauth configuration
-    defp validate_and_fix_ueberauth_config(igniter) do
-      # Read current config.exs to check Ueberauth configuration
-      config_file = "config/config.exs"
-
-      if File.exists?(config_file) do
-        content = File.read!(config_file)
-
-        # Check Ueberauth configuration status
-        cond do
-          # Case 1: Incorrect configuration with providers: []
-          String.contains?(content, "config :ueberauth, Ueberauth") &&
-              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
-            fix_ueberauth_providers_config(igniter, content)
-
-          # Case 2: Configuration exists and is correct (providers: %{} or with values)
-          String.contains?(content, "config :ueberauth, Ueberauth") ->
-            igniter
-
-          # Case 3: Configuration is missing - add it
-          true ->
-            add_missing_ueberauth_config(igniter)
-        end
-      else
-        # config.exs doesn't exist, skip validation
-        igniter
-      end
-    end
-
-    # Fix Ueberauth providers configuration from [] to %{}
-    defp fix_ueberauth_providers_config(igniter, _content) do
-      igniter
-      |> Igniter.update_file("config/config.exs", fn source ->
-        content = Rewrite.Source.get(source, :content)
-
-        # Replace providers: [] with providers: %{}
-        updated_content =
-          Regex.replace(
-            ~r/(config\s+:ueberauth,\s+Ueberauth,\s+providers:\s*)\[\s*\]/,
-            content,
-            "\\1%{}"
-          )
-
-        Rewrite.Source.update(source, :content, updated_content)
-      end)
-      |> add_ueberauth_fix_notice()
-    end
-
-    # Add notice about Ueberauth configuration fix
-    defp add_ueberauth_fix_notice(igniter) do
-      notice = """
-      ✅ Fixed Ueberauth configuration: providers: [] → providers: %{}
-         OAuth authentication will now work correctly.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
-    end
-
-    # Add missing Ueberauth configuration
-    defp add_missing_ueberauth_config(igniter) do
-      igniter
-      |> Config.configure_new(
-        "config.exs",
-        :ueberauth,
-        [Ueberauth],
-        providers: %{}
-      )
-      |> add_ueberauth_added_notice()
-    end
-
-    # Add notice about Ueberauth configuration being added
-    defp add_ueberauth_added_notice(igniter) do
-      notice = """
-      ✅ Added missing Ueberauth configuration: providers: %{}
-         OAuth authentication configured for runtime loading.
-      """
-
-      Igniter.add_notice(igniter, String.trim(notice))
     end
 
     # Validate and add Hammer rate limiter configuration if missing
