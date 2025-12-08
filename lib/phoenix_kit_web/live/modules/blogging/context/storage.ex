@@ -57,6 +57,41 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     Enum.find(all_languages, fn lang -> lang.code == language_code end)
   end
 
+  @doc """
+  Orders languages for display in the language switcher.
+
+  Order: primary language first, then languages with translations (sorted),
+  then languages without translations (sorted). This ensures consistent order
+  across all views regardless of which language is currently being edited.
+
+  ## Parameters
+    - `available_languages` - list of language codes that have translations
+    - `enabled_languages` - list of all enabled language codes
+
+  ## Returns
+    List of language codes in consistent display order.
+  """
+  @spec order_languages_for_display([String.t()], [String.t()]) :: [String.t()]
+  def order_languages_for_display(available_languages, enabled_languages) do
+    primary_language = List.first(enabled_languages) || "en"
+
+    # Languages with content (excluding primary), sorted alphabetically
+    langs_with_content =
+      available_languages
+      |> Enum.reject(&(&1 == primary_language))
+      |> Enum.sort()
+
+    # Enabled languages without content (excluding primary), sorted alphabetically
+    langs_without_content =
+      enabled_languages
+      |> Enum.reject(&(&1 in available_languages))
+      |> Enum.reject(&(&1 == primary_language))
+      |> Enum.sort()
+
+    # Final order: primary first, then with content, then without
+    [primary_language] ++ langs_with_content ++ langs_without_content
+  end
+
   @slug_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
   @doc """

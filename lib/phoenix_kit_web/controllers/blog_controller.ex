@@ -225,11 +225,15 @@ defmodule PhoenixKitWeb.BlogController do
           %{label: blog["name"], url: nil}
         ]
 
+        # Build translation links for blog listing
+        translations = build_listing_translations(blog_slug, language)
+
         conn
         |> assign(:page_title, blog["name"])
         |> assign(:blog, blog)
         |> assign(:posts, posts)
         |> assign(:current_language, language)
+        |> assign(:translations, translations)
         |> assign(:page, page)
         |> assign(:per_page, per_page)
         |> assign(:total_count, total_count)
@@ -337,6 +341,112 @@ defmodule PhoenixKitWeb.BlogController do
     Renderer.render_markdown(content)
   end
 
+  defp build_listing_translations(blog_slug, current_language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Get enabled languages
+    enabled_languages =
+      try do
+        Languages.enabled_locale_codes()
+      rescue
+        _ -> ["en"]
+      end
+
+    # Extract base code from current language for comparison
+    current_base = DialectMapper.extract_base(current_language)
+
+    # Get the primary/default language and its base code
+    primary_language = List.first(enabled_languages) || "en"
+    primary_base = DialectMapper.extract_base(primary_language)
+
+    # Get all languages that have at least one published post
+    languages_with_published_posts = get_languages_with_published_posts(blog_slug)
+
+    # Filter to only show languages with published content
+    # and convert to unique base codes
+    unique_base_codes =
+      enabled_languages
+      |> Enum.map(&DialectMapper.extract_base/1)
+      |> Enum.uniq()
+      |> Enum.filter(&(&1 in languages_with_published_posts))
+
+    # Order: primary first (if has content), then the rest alphabetically
+    languages =
+      if primary_base in unique_base_codes do
+        others =
+          unique_base_codes
+          |> Enum.reject(&(&1 == primary_base))
+          |> Enum.sort()
+
+        [primary_base] ++ others
+      else
+        Enum.sort(unique_base_codes)
+      end
+
+    Enum.map(languages, fn base_code ->
+      # Find the original dialect code to get proper name/flag
+      original_dialect =
+        Enum.find(enabled_languages, fn lang ->
+          DialectMapper.extract_base(lang) == base_code
+        end) || base_code
+
+      %{
+        code: base_code,
+        name: get_language_name(original_dialect),
+        flag: get_language_flag(original_dialect),
+        url: BlogHTML.blog_listing_path(base_code, blog_slug),
+        current: base_code == current_base
+      }
+    end)
+  end
+
+  # Gets all language codes that have at least one published post in the blog
+  defp get_languages_with_published_posts(blog_slug) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Get all posts once (they contain available_languages for each post)
+    all_posts = Blogging.list_posts(blog_slug, nil)
+
+    # For each post, check which of its available_languages have published status
+    # Collect all languages that have at least one published post
+    all_posts
+    |> Enum.flat_map(fn post ->
+      # Get the languages that have a published version for this post
+      post.available_languages
+      |> Enum.filter(fn lang ->
+        # Check if this language version is published
+        lang_published?(blog_slug, post, lang)
+      end)
+      |> Enum.map(&DialectMapper.extract_base/1)
+    end)
+    |> Enum.uniq()
+  end
+
+  # Check if a specific language version of a post is published
+  defp lang_published?(blog_slug, post, language) do
+    # If this is the post's current language, check its metadata directly
+    if post.language == language do
+      post.metadata.status == "published"
+    else
+      # Need to read the language-specific file to check its status
+      lang_path =
+        case post.mode do
+          :slug ->
+            "#{blog_slug}/#{post.slug}/#{language}.phk"
+
+          :timestamp ->
+            date_str = Date.to_iso8601(post.date)
+            time_str = post.time |> Time.to_string() |> String.slice(0..4)
+            "#{blog_slug}/#{date_str}/#{time_str}/#{language}.phk"
+        end
+
+      case Blogging.read_post(blog_slug, lang_path) do
+        {:ok, lang_post} -> lang_post.metadata.status == "published"
+        _ -> false
+      end
+    end
+  end
+
   defp build_translation_links(blog_slug, post, current_language) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
@@ -351,13 +461,29 @@ defmodule PhoenixKitWeb.BlogController do
     # Extract base code from current language for comparison
     current_base = DialectMapper.extract_base(current_language)
 
-    # Filter available languages to only show enabled ones
-    languages =
+    # Get the primary/default language
+    primary_language = List.first(enabled_languages) || "en"
+
+    # Filter available languages to only show enabled and published ones
+    available_and_published =
       post.available_languages
       |> normalize_languages(current_language)
       |> Enum.filter(fn lang ->
         language_enabled?(lang, enabled_languages) and translation_published?(post, lang)
       end)
+
+    # Order: primary first, then the rest alphabetically
+    languages =
+      if primary_language in available_and_published do
+        others =
+          available_and_published
+          |> Enum.reject(&(&1 == primary_language))
+          |> Enum.sort()
+
+        [primary_language] ++ others
+      else
+        Enum.sort(available_and_published)
+      end
 
     Enum.map(languages, fn lang ->
       base_code = DialectMapper.extract_base(lang)

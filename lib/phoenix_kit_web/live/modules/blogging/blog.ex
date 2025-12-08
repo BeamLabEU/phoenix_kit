@@ -108,6 +108,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
      )}
   end
 
+  def handle_event("language_action", %{"language" => _lang_code, "path" => path}, socket)
+      when is_binary(path) and path != "" do
+    # Navigate to edit the language version
+    {:noreply,
+     push_navigate(socket,
+       to:
+         Routes.path(
+           "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}",
+           locale: socket.assigns.current_locale
+         )
+     )}
+  end
+
+  def handle_event("language_action", %{"language" => lang_code} = params, socket) do
+    # For languages without a path (not yet created), add the language
+    post_path = params["post_path"] || ""
+
+    if post_path != "" do
+      {:noreply,
+       push_navigate(socket,
+         to:
+           Routes.path(
+             "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
+             locale: socket.assigns.current_locale
+           )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("change_status", %{"path" => post_path, "status" => new_status}, socket) do
     scope = socket.assigns[:phoenix_kit_current_scope]
 
@@ -260,5 +291,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
     # Invalidate the render cache for this post
     Renderer.invalidate_cache(blog_slug, identifier, post.language)
+  end
+
+  @doc """
+  Builds language data for the blog_language_switcher component.
+  Returns a list of language maps with status, path, and metadata.
+  """
+  def build_post_languages(post, blog_slug, enabled_languages, _current_locale) do
+    # Use shared ordering function for consistent display across all views
+    all_languages =
+      Storage.order_languages_for_display(post.available_languages, enabled_languages)
+
+    Enum.map(all_languages, fn lang_code ->
+      lang_path =
+        Path.join([
+          Path.dirname(post.path),
+          "#{lang_code}.phk"
+        ])
+
+      lang_info = Blogging.get_language_info(lang_code)
+      file_exists = lang_code in post.available_languages
+      is_enabled = lang_code in enabled_languages
+
+      # Read language-specific metadata for status
+      status =
+        if file_exists do
+          case Blogging.read_post(blog_slug, lang_path) do
+            {:ok, lang_post} -> lang_post.metadata.status
+            _ -> nil
+          end
+        else
+          nil
+        end
+
+      %{
+        code: lang_code,
+        name: if(lang_info, do: lang_info.name, else: lang_code),
+        flag: if(lang_info, do: lang_info.flag, else: ""),
+        status: status,
+        exists: file_exists,
+        enabled: is_enabled,
+        path: if(file_exists, do: lang_path, else: nil),
+        post_path: post.path
+      }
+    end)
+    |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
   end
 end

@@ -297,109 +297,6 @@
         )}
       </button>
       <div class="flex items-center gap-3">
-        <%!-- Language Switcher Dropdown --%>
-        <%= if length(@all_enabled_languages) > 1 do %>
-          <% current_lang_info =
-            PhoenixKitWeb.Live.Modules.Blogging.get_language_info(@current_language)
-
-          current_flag = if current_lang_info, do: current_lang_info.flag, else: ""
-
-          # Order: current language first, then languages with translations, then without
-          langs_with_translations =
-            @available_languages |> Enum.reject(&(&1 == @current_language)) |> Enum.sort()
-
-          langs_without_translations =
-            @all_enabled_languages
-            |> Enum.reject(&(&1 in @available_languages))
-            |> Enum.reject(&(&1 == @current_language))
-            |> Enum.sort()
-
-          ordered_languages =
-            [@current_language] ++ langs_with_translations ++ langs_without_translations %>
-          <div class="dropdown dropdown-end" id="language-switcher">
-            <label tabindex="0" class="btn btn-sm btn-outline shadow-none gap-2">
-              <span class="text-lg">{current_flag}</span>
-              <span>
-                {@current_language
-                |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-                |> String.upcase()}
-              </span>
-              <.icon name="hero-chevron-down" class="w-4 h-4" />
-            </label>
-            <div
-              tabindex="0"
-              class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden"
-            >
-              <div class="relative">
-                <div
-                  id="lang-dropdown-list"
-                  class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden"
-                >
-                  <%= for lang_code <- ordered_languages do %>
-                    <% lang_info =
-                      PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
-
-                    flag = if lang_info, do: lang_info.flag, else: ""
-                    lang_name = if lang_info, do: lang_info.name, else: lang_code
-                    is_current = @current_language == lang_code
-                    file_exists = lang_code in @available_languages %>
-                    <button
-                      type="button"
-                      class={[
-                        "flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors w-full text-left",
-                        is_current && "bg-primary/10 text-primary"
-                      ]}
-                      phx-click="switch_language"
-                      phx-value-language={lang_code}
-                    >
-                      <span class="text-lg shrink-0">{flag}</span>
-                      <span class="flex-1 truncate">{lang_name}</span>
-                      <%= cond do %>
-                        <% is_current -> %>
-                          <.icon name="hero-check" class="w-4 h-4 text-primary shrink-0" />
-                        <% not file_exists -> %>
-                          <span class="badge badge-success badge-xs gap-1 shrink-0">
-                            <.icon name="hero-plus" class="w-3 h-3" />
-                            {gettext("New")}
-                          </span>
-                        <% true -> %>
-                      <% end %>
-                    </button>
-                  <% end %>
-                </div>
-                <%!-- Bottom gradient indicator --%>
-                <div
-                  id="lang-dropdown-gradient"
-                  class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"
-                >
-                </div>
-              </div>
-            </div>
-            <script>
-              (function() {
-                function updateLangDropdownGradient() {
-                  const list = document.getElementById('lang-dropdown-list');
-                  const gradient = document.getElementById('lang-dropdown-gradient');
-                  if (list && gradient) {
-                    const isScrollable = list.scrollHeight > list.clientHeight;
-                    const isNotAtEnd = list.scrollTop < (list.scrollHeight - list.clientHeight - 5);
-                    gradient.style.opacity = (isScrollable && isNotAtEnd) ? '1' : '0';
-                  }
-                }
-                document.addEventListener('click', function(e) {
-                  if (e.target.closest('#language-switcher')) {
-                    setTimeout(updateLangDropdownGradient, 10);
-                  }
-                });
-                const list = document.getElementById('lang-dropdown-list');
-                if (list) {
-                  list.addEventListener('scroll', updateLangDropdownGradient, { passive: true });
-                }
-                window.addEventListener('phx:update', updateLangDropdownGradient);
-              })();
-            </script>
-          </div>
-        <% end %>
         <button
           type="button"
           class="btn btn-outline btn-sm shadow-none"
@@ -430,6 +327,29 @@
         <% end %>
       </div>
     </div>
+
+    <%!-- Language Switcher --%>
+    <%= if length(@all_enabled_languages) > 1 do %>
+      <div class="flex items-center">
+        <.blog_language_switcher
+          languages={
+            build_editor_languages(
+              @current_language,
+              @available_languages,
+              @all_enabled_languages,
+              @blog_slug,
+              @post.path,
+              @form["status"]
+            )
+          }
+          current_language={@current_language}
+          show_status={true}
+          show_add={true}
+          on_click="switch_language"
+          size={:sm}
+        />
+      </div>
+    <% end %>
 
     <div class="card bg-base-100 shadow-xl border border-base-200">
       <div class="card-body space-y-6">
