@@ -1,3 +1,10 @@
+## 1.6.16 - 2025-12-07
+- Move path functions to the corresponding module
+- Improve blog language switcher UI and URL handling
+- Remove static Ueberauth configuration requirements 
+  - OAuth is now fully dynamic - no compile-time Ueberauth config needed
+  - Providers loaded from database at runtime via OAuthConfigLoader
+
 ## 1.6.15 - 2025-12-05
 
 ### Added

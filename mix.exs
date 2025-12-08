@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.15"
+  @version "1.6.16"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -155,6 +155,7 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "guides/integration.md",
         "guides/oauth_and_magic_link_setup.md",
         "guides/aws_email_setup.md",
         "guides/making-pages-live.md",
