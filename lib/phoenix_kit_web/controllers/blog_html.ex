@@ -212,6 +212,7 @@ defmodule PhoenixKitWeb.BlogHTML do
     Enum.map(translations, fn translation ->
       %{
         code: translation[:code] || translation.code,
+        display_code: translation[:display_code] || translation[:code] || translation.code,
         name: translation[:name] || translation.name,
         flag: translation[:flag] || "",
         url: translation[:url] || translation.url,

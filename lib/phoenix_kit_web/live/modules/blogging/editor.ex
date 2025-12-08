@@ -1464,8 +1464,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             nil
         end
 
+      # Get display code (base or full dialect depending on enabled languages)
+      display_code = Storage.get_display_code(lang_code, all_enabled_languages)
+
       %{
         code: lang_code,
+        display_code: display_code,
         name: if(lang_info, do: lang_info.name, else: lang_code),
         flag: if(lang_info, do: lang_info.flag, else: ""),
         status: status,

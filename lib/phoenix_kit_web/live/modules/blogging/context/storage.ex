@@ -58,6 +58,49 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   @doc """
+  Determines the display code for a language based on whether multiple dialects
+  of the same base language are enabled.
+
+  If only one dialect of a base language is enabled (e.g., just "en-US"),
+  returns the base code ("en") for cleaner display.
+
+  If multiple dialects are enabled (e.g., "en-US" and "en-GB"),
+  returns the full dialect code ("en-US") to distinguish them.
+
+  ## Parameters
+    - `language_code` - the full language/dialect code (e.g., "en-US")
+    - `enabled_languages` - list of all enabled language codes
+
+  ## Examples
+      # Only en-US enabled
+      iex> get_display_code("en-US", ["en-US", "fr-FR"])
+      "en"
+
+      # Both en-US and en-GB enabled
+      iex> get_display_code("en-US", ["en-US", "en-GB", "fr-FR"])
+      "en-US"
+  """
+  @spec get_display_code(String.t(), [String.t()]) :: String.t()
+  def get_display_code(language_code, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    base_code = DialectMapper.extract_base(language_code)
+
+    # Count how many enabled languages share this base code
+    dialects_count =
+      Enum.count(enabled_languages, fn lang ->
+        DialectMapper.extract_base(lang) == base_code
+      end)
+
+    # If more than one dialect of this base language is enabled, show full code
+    if dialects_count > 1 do
+      language_code
+    else
+      base_code
+    end
+  end
+
+  @doc """
   Orders languages for display in the language switcher.
 
   Order: primary language first, then languages with translations (sorted),

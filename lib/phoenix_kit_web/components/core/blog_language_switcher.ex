@@ -147,7 +147,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
         phx-value-status={@status}
         phx-target={@phx_target}
         class={item_classes(@is_current, @exists, @show_add, @size)}
-        title={language_title(@lang, @exists, @status)}
+        title={language_title(@lang, @exists, @status, @show_status)}
       >
         <.language_content
           lang={@lang}
@@ -165,7 +165,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
         <a
           href={@lang[:url]}
           class={item_classes(@is_current, @exists, @show_add, @size)}
-          title={language_title(@lang, @exists, @status)}
+          title={language_title(@lang, @exists, @status, @show_status)}
         >
           <.language_content
             lang={@lang}
@@ -181,7 +181,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
       <% else %>
         <span
           class={item_classes(@is_current, @exists, @show_add, @size)}
-          title={language_title(@lang, @exists, @status)}
+          title={language_title(@lang, @exists, @status, @show_status)}
         >
           <.language_content
             lang={@lang}
@@ -218,7 +218,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
         <span class={flag_size_class(@size)}>{@lang[:flag]}</span>
       <% end %>
       <span class={code_classes(@is_current, @size)}>
-        {format_code(@lang[:code])}
+        {get_display_code(@lang)}
       </span>
     </span>
     """
@@ -231,7 +231,27 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   defp lang_exists?(%{"status" => status}) when is_binary(status), do: true
   defp lang_exists?(_), do: false
 
-  # Format language code for display
+  # Get display code for a language
+  # Uses display_code if provided (for dialect-aware display), otherwise formats code
+  defp get_display_code(%{display_code: display_code}) when is_binary(display_code) do
+    String.upcase(display_code)
+  end
+
+  defp get_display_code(%{"display_code" => display_code}) when is_binary(display_code) do
+    String.upcase(display_code)
+  end
+
+  defp get_display_code(%{code: code}) when is_binary(code) do
+    format_code(code)
+  end
+
+  defp get_display_code(%{"code" => code}) when is_binary(code) do
+    format_code(code)
+  end
+
+  defp get_display_code(_), do: ""
+
+  # Format language code for display (base code only)
   defp format_code(nil), do: ""
 
   defp format_code(code) when is_binary(code) do
@@ -317,14 +337,15 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   defp flag_size_class(:md), do: "text-lg"
 
   # Generate title/tooltip text
-  defp language_title(lang, exists, status) do
+  # Only show status in tooltip when show_status is true (admin mode)
+  defp language_title(lang, exists, status, show_status) do
     name = lang[:name] || lang["name"] || format_code(lang[:code])
 
     cond do
-      !exists -> gettext("Add %{language} translation", language: name)
-      status == "published" -> gettext("%{language} (Published)", language: name)
-      status == "draft" -> gettext("%{language} (Draft)", language: name)
-      status == "archived" -> gettext("%{language} (Archived)", language: name)
+      !exists and show_status -> gettext("Add %{language} translation", language: name)
+      show_status and status == "published" -> gettext("%{language} (Published)", language: name)
+      show_status and status == "draft" -> gettext("%{language} (Draft)", language: name)
+      show_status and status == "archived" -> gettext("%{language} (Archived)", language: name)
       true -> name
     end
   end
