@@ -127,8 +127,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     # Enabled languages without content (excluding primary), sorted alphabetically
     langs_without_content =
       enabled_languages
-      |> Enum.reject(&(&1 in available_languages))
-      |> Enum.reject(&(&1 == primary_language))
+      |> Enum.reject(&(&1 in available_languages or &1 == primary_language))
       |> Enum.sort()
 
     # Final order: primary first, then with content, then without

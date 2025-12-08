@@ -370,7 +370,7 @@ defmodule PhoenixKitWeb.BlogController do
         language
 
       # Base code - try to find a dialect that matches
-      is_base_code?(language) ->
+      base_code?(language) ->
         find_dialect_for_base_in_files(language, available_languages) ||
           DialectMapper.base_to_dialect(language)
 
@@ -405,7 +405,7 @@ defmodule PhoenixKitWeb.BlogController do
 
     # Resolve base code to a specific dialect if needed
     resolved_language =
-      if is_base_code?(language) do
+      if base_code?(language) do
         # Find the matching dialect in enabled languages
         find_dialect_for_base(language, enabled_languages) || language
       else
@@ -424,18 +424,16 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp get_enabled_languages do
-    try do
-      Languages.enabled_locale_codes()
-    rescue
-      _ -> ["en"]
-    end
+    Languages.enabled_locale_codes()
+  rescue
+    _ -> ["en"]
   end
 
-  defp is_base_code?(code) when is_binary(code) do
+  defp base_code?(code) when is_binary(code) do
     String.length(code) == 2 and not String.contains?(code, "-")
   end
 
-  defp is_base_code?(_), do: false
+  defp base_code?(_), do: false
 
   # Find a dialect in enabled languages that matches the given base code
   defp find_dialect_for_base(base_code, enabled_languages) do
@@ -612,7 +610,7 @@ defmodule PhoenixKitWeb.BlogController do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
     # Separate base codes and dialect codes
-    {base_codes, dialect_codes} = Enum.split_with(languages, &is_base_code?/1)
+    {base_codes, dialect_codes} = Enum.split_with(languages, &base_code?/1)
 
     # For each base code, check if any dialect files exist for it
     # If so, exclude the base code
@@ -643,7 +641,7 @@ defmodule PhoenixKitWeb.BlogController do
         true
 
       # Base code file (e.g., "en") - show if any dialect is enabled
-      is_base_code?(language) ->
+      base_code?(language) ->
         Enum.any?(enabled_languages, fn enabled_lang ->
           DialectMapper.extract_base(enabled_lang) == language
         end)
@@ -659,6 +657,8 @@ defmodule PhoenixKitWeb.BlogController do
   # Does not consider fallback/alias files - only the exact file path
   # Used for building public translation links to show only actual files
   defp translation_published_exact?(_blog_slug, post, language) do
+    alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
+
     # Build the exact file path from the post's full_path
     # Replace the language portion of the filename
     exact_file_path =
@@ -666,24 +666,13 @@ defmodule PhoenixKitWeb.BlogController do
       |> Path.dirname()
       |> Path.join("#{language}.phk")
 
-    # Check if the exact file exists
-    if File.exists?(exact_file_path) do
-      # Read and check status
-      case File.read(exact_file_path) do
-        {:ok, contents} ->
-          case PhoenixKitWeb.Live.Modules.Blogging.Metadata.parse_with_content(contents) do
-            {:ok, metadata, _content} ->
-              metadata[:status] == "published"
-
-            _ ->
-              false
-          end
-
-        _ ->
-          false
-      end
+    # Check if the exact file exists and is published
+    with true <- File.exists?(exact_file_path),
+         {:ok, contents} <- File.read(exact_file_path),
+         {:ok, metadata, _content} <- Metadata.parse_with_content(contents) do
+      metadata[:status] == "published"
     else
-      false
+      _ -> false
     end
   end
 
