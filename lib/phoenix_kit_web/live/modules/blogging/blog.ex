@@ -78,8 +78,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   @impl true
   def handle_event("create_post", _params, %{assigns: %{blog_slug: blog_slug}} = socket) do
+    # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
-     push_navigate(socket,
+     redirect(socket,
        to:
          Routes.path(
            "/admin/blogging/#{blog_slug}/edit?new=true",
@@ -98,8 +99,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   end
 
   def handle_event("add_language", %{"path" => post_path, "language" => lang_code}, socket) do
+    # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
-     push_navigate(socket,
+     redirect(socket,
        to:
          Routes.path(
            "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
@@ -110,9 +112,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   def handle_event("language_action", %{"language" => _lang_code, "path" => path}, socket)
       when is_binary(path) and path != "" do
-    # Navigate to edit the language version
+    # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
-     push_navigate(socket,
+     redirect(socket,
        to:
          Routes.path(
            "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}",
@@ -126,8 +128,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     post_path = params["post_path"] || ""
 
     if post_path != "" do
+      # Use redirect for full page refresh to ensure editor JS initializes properly
       {:noreply,
-       push_navigate(socket,
+       redirect(socket,
          to:
            Routes.path(
              "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
