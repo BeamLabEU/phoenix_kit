@@ -24,7 +24,7 @@
     <%!-- Post Header --%>
     <header class="mb-8 border-b pb-6">
       <div class="flex items-center gap-2 text-sm text-base-content/70">
-        <%!-- Publication Date --%>
+        <%!-- Publication Date (includes time when multiple posts on same date) --%>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -34,7 +34,7 @@
           />
         </svg>
         <time datetime={@post.metadata.published_at}>
-          {format_date(@post.metadata.published_at)}
+          {format_post_date(@post, @blog_slug)}
         </time>
       </div>
       <%!-- Language Switcher --%>

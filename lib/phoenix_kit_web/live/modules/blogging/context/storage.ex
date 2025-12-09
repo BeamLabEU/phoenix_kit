@@ -353,6 +353,61 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   @doc """
+  Counts the number of posts on a specific date for a blog.
+  Used to determine if time should be included in URLs.
+  """
+  @spec count_posts_on_date(String.t(), Date.t() | String.t()) :: non_neg_integer()
+  def count_posts_on_date(blog_slug, %Date{} = date) do
+    count_posts_on_date(blog_slug, Date.to_iso8601(date))
+  end
+
+  def count_posts_on_date(blog_slug, date_string) when is_binary(date_string) do
+    date_path = Path.join([root_path(), blog_slug, date_string])
+
+    if File.dir?(date_path) do
+      case File.ls(date_path) do
+        {:ok, time_folders} ->
+          # Count folders that look like time folders (HH:MM format)
+          Enum.count(time_folders, fn folder ->
+            String.match?(folder, ~r/^\d{2}:\d{2}$/)
+          end)
+
+        {:error, _} ->
+          0
+      end
+    else
+      0
+    end
+  end
+
+  @doc """
+  Lists all time folders (posts) for a specific date in a blog.
+  Returns a list of time strings in HH:MM format, sorted.
+  """
+  @spec list_times_on_date(String.t(), Date.t() | String.t()) :: [String.t()]
+  def list_times_on_date(blog_slug, %Date{} = date) do
+    list_times_on_date(blog_slug, Date.to_iso8601(date))
+  end
+
+  def list_times_on_date(blog_slug, date_string) when is_binary(date_string) do
+    date_path = Path.join([root_path(), blog_slug, date_string])
+
+    if File.dir?(date_path) do
+      case File.ls(date_path) do
+        {:ok, time_folders} ->
+          time_folders
+          |> Enum.filter(fn folder -> String.match?(folder, ~r/^\d{2}:\d{2}$/) end)
+          |> Enum.sort()
+
+        {:error, _} ->
+          []
+      end
+    else
+      []
+    end
+  end
+
+  @doc """
   Lists posts for the given blog.
   Accepts optional preferred_language to show titles in user's language.
   Falls back to content language, then first available language.
