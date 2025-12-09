@@ -1,3 +1,6 @@
+## 1.6.19 - 2025-12-09
+- Add smart timestamp URL handling for blog posts
+
 ## 1.6.18 - 2025-12-09
 - Fix blogging editor issues and add publish button
 
