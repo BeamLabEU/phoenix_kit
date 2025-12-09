@@ -120,8 +120,8 @@ defmodule PhoenixKit.Posts.PostComment do
   @doc """
   Check if comment is a reply (has parent).
   """
-  def is_reply?(%__MODULE__{parent_id: nil}), do: false
-  def is_reply?(%__MODULE__{}), do: true
+  def reply?(%__MODULE__{parent_id: nil}), do: false
+  def reply?(%__MODULE__{}), do: true
 
   @doc """
   Check if comment is top-level (no parent).

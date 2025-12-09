@@ -48,14 +48,14 @@ defmodule PhoenixKit.Posts do
 
   alias PhoenixKit.Posts.{
     Post,
-    PostMedia,
-    PostLike,
     PostComment,
+    PostGroup,
+    PostGroupAssignment,
+    PostLike,
+    PostMedia,
     PostMention,
     PostTag,
-    PostTagAssignment,
-    PostGroup,
-    PostGroupAssignment
+    PostTagAssignment
   }
 
   # ============================================================================

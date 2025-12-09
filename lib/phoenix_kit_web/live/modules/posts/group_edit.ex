@@ -30,77 +30,73 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
 
   @impl true
   def mount(params, _session, socket) do
-    # Get current user
     current_user = socket.assigns[:phoenix_kit_current_user]
-
-    # Get project title
     project_title = Settings.get_setting("project_title", "PhoenixKit")
-
-    # Check if groups are enabled
     allow_groups = Settings.get_setting("posts_allow_groups", "true") == "true"
 
     if allow_groups do
-      # Determine if this is a new group or editing existing
       group_id = Map.get(params, "id")
-
-      socket =
-        if group_id do
-          # Editing existing group
-          case Posts.get_group(group_id) do
-            nil ->
-              socket
-              |> put_flash(:error, "Group not found")
-              |> push_navigate(to: Routes.path("/admin/posts/groups"))
-
-            group ->
-              # Verify user owns this group
-              if group.user_id == current_user.id do
-                form_data = %{
-                  "name" => group.name || "",
-                  "description" => group.description || "",
-                  "slug" => group.slug || "",
-                  "visibility" => group.visibility || "public"
-                }
-
-                form = Component.to_form(form_data, as: :post_group)
-
-                socket
-                |> assign(:page_title, "Edit Group")
-                |> assign(:project_title, project_title)
-                |> assign(:group, group)
-                |> assign(:form, form)
-                |> assign(:current_user, current_user)
-              else
-                socket
-                |> put_flash(:error, "You don't have permission to edit this group")
-                |> push_navigate(to: Routes.path("/admin/posts/groups"))
-              end
-          end
-        else
-          # Creating new group
-          form_data = %{
-            "name" => "",
-            "description" => "",
-            "slug" => "",
-            "visibility" => "public"
-          }
-
-          form = Component.to_form(form_data, as: :post_group)
-
-          socket
-          |> assign(:page_title, "New Group")
-          |> assign(:project_title, project_title)
-          |> assign(:group, %{id: nil, user_id: current_user.id})
-          |> assign(:form, form)
-          |> assign(:current_user, current_user)
-        end
-
+      socket = load_group_form(socket, group_id, current_user, project_title)
       {:ok, socket}
     else
       {:ok,
        socket
        |> put_flash(:error, "Groups feature is not enabled")
        |> push_navigate(to: Routes.path("/admin/posts"))}
+    end
+  end
+
+  defp load_group_form(socket, nil, current_user, project_title) do
+    form_data = %{
+      "name" => "",
+      "description" => "",
+      "slug" => "",
+      "visibility" => "public"
+    }
+
+    form = Component.to_form(form_data, as: :post_group)
+
+    socket
+    |> assign(:page_title, "New Group")
+    |> assign(:project_title, project_title)
+    |> assign(:group, %{id: nil, user_id: current_user.id})
+    |> assign(:form, form)
+    |> assign(:current_user, current_user)
+  end
+
+  defp load_group_form(socket, group_id, current_user, project_title) do
+    case Posts.get_group(group_id) do
+      nil ->
+        socket
+        |> put_flash(:error, "Group not found")
+        |> push_navigate(to: Routes.path("/admin/posts/groups"))
+
+      group ->
+        load_existing_group(socket, group, current_user, project_title)
+    end
+  end
+
+  defp load_existing_group(socket, group, current_user, project_title) do
+    if group.user_id == current_user.id do
+      form_data = %{
+        "name" => group.name || "",
+        "description" => group.description || "",
+        "slug" => group.slug || "",
+        "visibility" => group.visibility || "public"
+      }
+
+      form = Component.to_form(form_data, as: :post_group)
+
+      socket
+      |> assign(:page_title, "Edit Group")
+      |> assign(:project_title, project_title)
+      |> assign(:group, group)
+      |> assign(:form, form)
+      |> assign(:current_user, current_user)
+    else
+      socket
+      |> put_flash(:error, "You don't have permission to edit this group")
+      |> push_navigate(to: Routes.path("/admin/posts/groups"))
     end
   end
 

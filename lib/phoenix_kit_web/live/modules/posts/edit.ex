@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   alias Phoenix.Component
   alias PhoenixKit.Posts
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -292,12 +293,11 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
           # Build JS commands for all selected files
           js_code =
             file_ids
-            |> Enum.map(fn fid ->
+            |> Enum.map_join("; ", fn fid ->
               file_url = get_file_url(fid)
 
               "window.postsEditorInsertMedia && window.postsEditorInsertMedia('#{file_url}', '#{media_type}')"
             end)
-            |> Enum.join("; ")
 
           socket
           |> assign(:show_media_selector, false)
@@ -482,7 +482,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   defp user_is_admin?(user) do
     # Check if user has admin or owner role
-    PhoenixKit.Users.Auth.Scope.has_role?(user, ["owner", "admin"])
+    Scope.has_role?(user, ["owner", "admin"])
   end
 
   defp maybe_generate_slug(post_params) do
