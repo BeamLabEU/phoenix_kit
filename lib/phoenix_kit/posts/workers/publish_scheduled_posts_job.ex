@@ -38,22 +38,14 @@ defmodule PhoenixKit.Posts.Workers.PublishScheduledPostsJob do
   """
   @impl Oban.Worker
   def perform(%Oban.Job{args: _args}) do
-    case Posts.process_scheduled_posts() do
-      {:ok, published_count} ->
-        if published_count > 0 do
-          Logger.info(
-            "PublishScheduledPostsJob: Successfully published #{published_count} post(s)"
-          )
-        end
+    {:ok, published_count} = Posts.process_scheduled_posts()
 
-        :ok
-
-      {:error, reason} ->
-        Logger.error(
-          "PublishScheduledPostsJob: Failed to process scheduled posts, error=#{inspect(reason)}"
-        )
-
-        {:error, reason}
+    if published_count > 0 do
+      Logger.info(
+        "PublishScheduledPostsJob: Successfully published #{published_count} post(s)"
+      )
     end
+
+    :ok
   end
 end
