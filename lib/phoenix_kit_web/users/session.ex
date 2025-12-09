@@ -73,12 +73,12 @@ defmodule PhoenixKitWeb.Users.Session do
   end
 
   defp get_ip_address(conn) do
-    case Plug.Conn.get_peer_data(conn) do
-      %{address: address} when is_tuple(address) ->
-        address |> :inet.ntoa() |> to_string()
+    %{address: address} = Plug.Conn.get_peer_data(conn)
 
-      _ ->
-        "unknown"
+    try do
+      address |> :inet.ntoa() |> to_string()
+    rescue
+      _ -> "unknown"
     end
   end
 

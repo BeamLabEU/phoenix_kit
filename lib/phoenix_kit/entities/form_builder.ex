@@ -420,6 +420,81 @@ defmodule PhoenixKit.Entities.FormBuilder do
     """
   end
 
+  # Image Upload (placeholder - not yet implemented)
+  def build_field(%{"type" => "image"} = field, changeset, opts) do
+    assigns = %{field: field, changeset: changeset, opts: opts}
+
+    ~H"""
+    <div>
+      <.label>{@field["label"]}{if @field["required"], do: " *"}</.label>
+      <div class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center bg-base-200/50">
+        <.icon name="hero-photo" class="w-12 h-12 mx-auto text-base-content/40 mb-3" />
+        <p class="text-base-content/60 text-sm mb-2">
+          {gettext("Image upload coming soon")}
+        </p>
+        <p class="text-base-content/40 text-xs">
+          {gettext("This feature is not yet available")}
+        </p>
+      </div>
+      <%= if @field["description"] do %>
+        <.label class="label">
+          <span class="label-text-alt">{@field["description"]}</span>
+        </.label>
+      <% end %>
+    </div>
+    """
+  end
+
+  # File Upload (placeholder - not yet implemented)
+  def build_field(%{"type" => "file"} = field, changeset, opts) do
+    assigns = %{field: field, changeset: changeset, opts: opts}
+
+    ~H"""
+    <div>
+      <.label>{@field["label"]}{if @field["required"], do: " *"}</.label>
+      <div class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center bg-base-200/50">
+        <.icon name="hero-document-arrow-up" class="w-12 h-12 mx-auto text-base-content/40 mb-3" />
+        <p class="text-base-content/60 text-sm mb-2">
+          {gettext("File upload coming soon")}
+        </p>
+        <p class="text-base-content/40 text-xs">
+          {gettext("This feature is not yet available")}
+        </p>
+      </div>
+      <%= if @field["description"] do %>
+        <.label class="label">
+          <span class="label-text-alt">{@field["description"]}</span>
+        </.label>
+      <% end %>
+    </div>
+    """
+  end
+
+  # Relation Field (placeholder - not yet implemented)
+  def build_field(%{"type" => "relation"} = field, changeset, opts) do
+    assigns = %{field: field, changeset: changeset, opts: opts}
+
+    ~H"""
+    <div>
+      <.label>{@field["label"]}{if @field["required"], do: " *"}</.label>
+      <div class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center bg-base-200/50">
+        <.icon name="hero-link" class="w-12 h-12 mx-auto text-base-content/40 mb-3" />
+        <p class="text-base-content/60 text-sm mb-2">
+          {gettext("Entity relations coming soon")}
+        </p>
+        <p class="text-base-content/40 text-xs">
+          {gettext("This feature is not yet available")}
+        </p>
+      </div>
+      <%= if @field["description"] do %>
+        <.label class="label">
+          <span class="label-text-alt">{@field["description"]}</span>
+        </.label>
+      <% end %>
+    </div>
+    """
+  end
+
   # Fallback for unknown field types
   def build_field(field, changeset, opts) do
     assigns = %{field: field, changeset: changeset, opts: opts}

@@ -12,9 +12,12 @@
 4. [Field Types System](#field-types-system)
 5. [Core Modules](#core-modules)
 6. [Admin Interfaces](#admin-interfaces)
-7. [Usage Examples](#usage-examples)
-8. [Implementation Details](#implementation-details)
-9. [Settings Integration](#settings-integration)
+7. [Public Form Builder](#public-form-builder)
+8. [HTML Sanitization](#html-sanitization)
+9. [Real-Time Collaboration](#real-time-collaboration)
+10. [Usage Examples](#usage-examples)
+11. [Implementation Details](#implementation-details)
+12. [Settings Integration](#settings-integration)
 
 ---
 
@@ -25,7 +28,7 @@ The PhoenixKit Entities System is a dynamic content type management system inspi
 ### Key Features
 
 - **Dynamic Schema Creation**: Create custom content types with flexible field definitions stored as JSONB
-- **13 Field Types**: Comprehensive field type support including text, number, boolean, date, select, radio, checkbox, rich text, image, file, and relation fields
+- **11 Field Types**: Comprehensive field type support including text, textarea, email, url, number, boolean, date, select, radio, checkbox, and rich text. *(Image, file, and relation fields exist in the form builder as placeholders but are not registered in FieldTypes.)*
 - **Admin Interfaces**: Complete CRUD interfaces for both entity definitions and entity data
 - **Dynamic Form Generation**: Forms automatically generated from entity field definitions
 - **System-Wide Toggle**: Enable/disable the entire entities system via Settings
@@ -88,9 +91,9 @@ The system uses a two-table architecture that separates entity definitions (blue
 
 ## Database Schema
 
-### Migration: V13
+### Migration: V17
 
-**File**: `lib/phoenix_kit/migrations/postgres/v13.ex`
+**File**: `lib/phoenix_kit/migrations/postgres/v17.ex`
 
 ### phoenix_kit_entities (Entity Definitions)
 
@@ -209,7 +212,7 @@ Stores actual content records based on entity blueprints.
 
 **File**: `lib/phoenix_kit/entities/field_types.ex`
 
-The system supports 13 field types organized into 6 categories:
+The system supports 11 fully functional field types organized into 5 categories, plus 3 placeholder types for future implementation:
 
 ### Basic Fields
 
@@ -247,18 +250,22 @@ The system supports 13 field types organized into 6 categories:
 | `radio`      | Radio Buttons      | Single choice from radio buttons      | **Yes**          |
 | `checkbox`   | Checkboxes         | Multiple choices from checkboxes      | **Yes**          |
 
-### Media Fields
+### Media Fields *(Coming Soon)*
 
-| Type         | Label              | Description                           | Requires Options |
-|--------------|--------------------| --------------------------------------|------------------|
-| `image`      | Image Upload       | Image file upload                     | No               |
-| `file`       | File Upload        | Generic file upload                   | No               |
+| Type         | Label              | Description                           | Requires Options | Status |
+|--------------|--------------------| --------------------------------------|------------------|--------|
+| `image`      | Image Upload       | Image file upload                     | No               | Placeholder UI |
+| `file`       | File Upload        | Generic file upload                   | No               | Placeholder UI |
 
-### Relational Fields
+> **Note**: Media fields are defined in the schema but render "Coming Soon" placeholders in the form builder. No actual file upload functionality is implemented yet.
 
-| Type         | Label              | Description                           | Requires Options |
-|--------------|--------------------| --------------------------------------|------------------|
-| `relation`   | Relation           | Relationship to other entity records  | **Yes**          |
+### Relational Fields *(Coming Soon)*
+
+| Type         | Label              | Description                           | Requires Options | Status |
+|--------------|--------------------| --------------------------------------|------------------|--------|
+| `relation`   | Relation           | Relationship to other entity records  | **Yes**          | Placeholder UI |
+
+> **Note**: Relation fields are defined in the schema but render "Coming Soon" placeholders. The `entities_allow_relations` setting exists but is not yet enforced.
 
 ### Field Definition Structure
 
@@ -271,7 +278,7 @@ Each field in `fields_definition` is a map with the following structure:
   "label" => "Field Name",       # Display label (required)
   "required" => true,            # Whether field is required (optional, default: false)
   "default" => "default value",  # Default value (optional)
-  "options" => ["Option 1", "Option 2"]  # Options for choice/relation fields (required for select/radio/checkbox/relation)
+  "options" => ["Option 1", "Option 2"]  # Options for choice fields (required for select/radio/checkbox; relation will also require options once implemented)
 }
 ```
 
@@ -280,10 +287,12 @@ Each field in `fields_definition` is a map with the following structure:
 The `FieldTypes.validate_field/1` function validates:
 
 1. **Required Keys**: `type`, `key`, `label` must be present
-2. **Valid Type**: Type must be one of the 13 supported types
-3. **Options Presence**: Choice and relation fields must have options array
+2. **Valid Type**: Type must be one of the 11 registered types (image/file/relation are not in the registry)
+3. **Options Presence**: Choice fields (select/radio/checkbox) must have options array
 4. **Options Content**: Options must be non-empty for fields that require them
 5. **Unique Keys**: Field keys must be unique within an entity (enforced at LiveView level)
+
+> **Note**: The form builder renders placeholder UI for image/file/relation types, but `FieldTypes.valid_type?/1` will reject them since they're not in the registry.
 
 **Validation Examples:**
 
@@ -342,22 +351,27 @@ PhoenixKit.Entities.list_entities()
 PhoenixKit.Entities.list_active_entities()
 # => [%PhoenixKit.Entities{status: "published"}, ...]
 
-# Get entity by ID
+# Get entity by ID (raises if not found)
 PhoenixKit.Entities.get_entity!(1)
 # => %PhoenixKit.Entities{}
+
+# Get entity by ID (returns nil if not found)
+PhoenixKit.Entities.get_entity(1)
+# => %PhoenixKit.Entities{} | nil
 
 # Get entity by unique name
 PhoenixKit.Entities.get_entity_by_name("blog_post")
 # => %PhoenixKit.Entities{}
 
 # Create entity
+# Note: created_by is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Entities.create_entity(%{
   name: "blog_post",
   display_name: "Blog Post",
   description: "Blog post content type",
   icon: "hero-document-text",
   status: "draft",
-  created_by: user_id,
+  # created_by: user_id,  # Optional! Auto-filled if omitted
   fields_definition: [...]
 })
 # => {:ok, %PhoenixKit.Entities{}}
@@ -413,18 +427,23 @@ PhoenixKit.Entities.EntityData.list_by_entity(entity_id)
 PhoenixKit.Entities.EntityData.list_all()
 # => [%PhoenixKit.Entities.EntityData{}, ...]
 
-# Get data record by ID
+# Get data record by ID (raises if not found)
 PhoenixKit.Entities.EntityData.get!(id)
 # => %PhoenixKit.Entities.EntityData{}
 
+# Get data record by ID (returns nil if not found)
+PhoenixKit.Entities.EntityData.get(id)
+# => %PhoenixKit.Entities.EntityData{} | nil
+
 # Create data record
+# Note: created_by is optional - it auto-fills with first admin user if not provided
 PhoenixKit.Entities.EntityData.create(%{
   entity_id: 1,
   title: "My First Post",
   slug: "my-first-post",
   status: "draft",
-  data: %{"title" => "My First Post", "content" => "..."},
-  created_by: user_id
+  data: %{"title" => "My First Post", "content" => "..."}
+  # created_by: user_id  # Optional! Auto-filled if omitted
 })
 # => {:ok, %PhoenixKit.Entities.EntityData{}}
 
@@ -486,6 +505,31 @@ PhoenixKit.Entities.FieldTypes.validate_field(field_map)
 # Format for picker UI
 PhoenixKit.Entities.FieldTypes.for_picker()
 # => Structured data for UI dropdowns
+
+# Field Builder Helpers (for programmatic entity creation)
+# These helpers make it easy to create field definitions with proper structure
+
+# Create a field with options
+PhoenixKit.Entities.FieldTypes.new_field("text", "title", "Title", required: true)
+# => %{"type" => "text", "key" => "title", "label" => "Title", "required" => true, ...}
+
+# Create choice fields with options
+PhoenixKit.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+# => %{"type" => "select", "key" => "category", "label" => "Category", "options" => [...], ...}
+
+PhoenixKit.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
+# => %{"type" => "radio", "key" => "priority", "label" => "Priority", "options" => [...], ...}
+
+PhoenixKit.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+# => %{"type" => "checkbox", "key" => "tags", "label" => "Tags", "options" => [...], ...}
+
+# Convenience helpers for common field types
+PhoenixKit.Entities.FieldTypes.text_field("name", "Full Name", required: true)
+PhoenixKit.Entities.FieldTypes.textarea_field("bio", "Biography")
+PhoenixKit.Entities.FieldTypes.email_field("email", "Email Address", required: true)
+PhoenixKit.Entities.FieldTypes.number_field("age", "Age")
+PhoenixKit.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
+PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content")
 ```
 
 ### 4. PhoenixKit.Entities.FormBuilder
@@ -497,30 +541,29 @@ Dynamic form generation from entity field definitions.
 **Key Functions:**
 
 ```elixir
-# Generate form fields from entity
-PhoenixKit.Entities.FormBuilder.generate_fields(entity, changeset, assigns)
-# => [rendered_field_components]
+# Generate form fields from entity (returns Phoenix.Component HTML)
+PhoenixKit.Entities.FormBuilder.build_fields(entity, changeset, opts \\ [])
+# => Phoenix.LiveView.Rendered (HEEx template)
 
-# Generate single field
-PhoenixKit.Entities.FormBuilder.generate_field(field_def, form, assigns)
-# => rendered_field_component
+# Generate single field (multi-clause function handles all field types)
+PhoenixKit.Entities.FormBuilder.build_field(field_definition, changeset, opts \\ [])
+# => Phoenix.LiveView.Rendered (HEEx template)
 
-# Supported field renderers:
-# - render_text_field/3
-# - render_textarea_field/3
-# - render_email_field/3
-# - render_url_field/3
-# - render_rich_text_field/3
-# - render_number_field/3
-# - render_boolean_field/3
-# - render_date_field/3
-# - render_select_field/3
-# - render_radio_field/3
-# - render_checkbox_field/3
-# - render_image_field/3
-# - render_file_field/3
-# - render_relation_field/3
+# Validate entity data against field definitions
+PhoenixKit.Entities.FormBuilder.validate_data(entity, data_params)
+# => {:ok, validated_data} | {:error, errors}
 ```
+
+**Options for build_fields/build_field:**
+
+- `:wrapper_class` - CSS class for field wrapper divs
+- `:input_class` - CSS class for input elements
+- `:label_class` - CSS class for label elements
+
+**Internal Field Rendering:**
+
+The `build_field/3` function uses pattern matching on field type to render appropriate inputs.
+Media fields (`image`, `file`) and relation fields render "Coming Soon" placeholders.
 
 ---
 
@@ -529,8 +572,8 @@ PhoenixKit.Entities.FormBuilder.generate_field(field_def, form, assigns)
 ### 1. Entities Manager
 
 **Route**: `/phoenix_kit/admin/entities`
-**File**: `lib/phoenix_kit_web/live/entities/entities_live.ex`
-**Template**: `lib/phoenix_kit_web/live/entities/entities_live.html.heex`
+**File**: `lib/phoenix_kit_web/live/modules/entities/entities.ex`
+**Template**: `lib/phoenix_kit_web/live/modules/entities/entities.html.heex`
 
 **Features:**
 
@@ -555,8 +598,8 @@ handle_event("delete_entity", %{"id" => id}, socket)
 - Edit: `/phoenix_kit/admin/entities/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/entity_form_live.ex`
-- `lib/phoenix_kit_web/live/entities/entity_form_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/entity_form.ex`
+- `lib/phoenix_kit_web/live/modules/entities/entity_form.html.heex`
 
 **Features:**
 
@@ -613,45 +656,48 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 
 ### 3. Data Navigator
 
-**Routes**:
-- All data: `/phoenix_kit/admin/entities/data`
-- Entity data: `/phoenix_kit/admin/entities/:entity_id/data`
+**Route**: `/phoenix_kit/admin/entities/:entity_slug/data`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/data_navigator_live.ex`
-- `lib/phoenix_kit_web/live/entities/data_navigator_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
+- `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
+
+> **Note**: The route requires `:entity_slug`. The LiveView mounts with a nil entity if the slug doesn't resolve to a valid entity.
 
 **Features:**
 
-- Browse all data records across all entities
-- Filter by entity
-- Entity selector dropdown
-- List view with:
-  - Record title
-  - Entity name
-  - Status badge
-  - Created by user
-  - Creation date
-  - View/Edit/Delete buttons
-- New Record button
-- Empty state when no data
+- Browse a single entity's records in table or card layouts
+- Status filters (all/published/draft/archived) and keyword search scoped to the selected entity
+- At-a-glance stats (total/published/draft/archived) for that entity
+- Quick navigation links back to the entity definition plus "Add" shortcuts for new data
+- Row/card actions include view, edit, archive/restore, and status toggle buttons
+- Empty states that prompt the user to publish an entity or add the first record
 
 **LiveView Events:**
 
 ```elixir
-handle_event("delete_data", %{"id" => id}, socket)
+handle_event("toggle_view_mode", _params, socket)   # Switch table/card view
+handle_event("filter_by_status", %{"status" => status}, socket)
+handle_event("search", %{"search" => %{"query" => query}}, socket)
+handle_event("clear_filters", _params, socket)
+handle_event("archive_data", %{"id" => id}, socket)
+handle_event("restore_data", %{"id" => id}, socket)
+handle_event("toggle_status", %{"id" => id}, socket)
 ```
 
 ### 4. Data Form (Create/Edit/View)
 
 **Routes**:
-- Create: `/phoenix_kit/admin/entities/:entity_id/data/new`
-- View: `/phoenix_kit/admin/entities/:entity_id/data/:id`
-- Edit: `/phoenix_kit/admin/entities/:entity_id/data/:id/edit`
+- Create: `/phoenix_kit/admin/entities/:entity_slug/data/new`
+- View: `/phoenix_kit/admin/entities/:entity_slug/data/:id`
+- Edit: `/phoenix_kit/admin/entities/:entity_slug/data/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/entities/data_form_live.ex`
-- `lib/phoenix_kit_web/live/entities/data_form_live.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_form.ex`
+- `lib/phoenix_kit_web/live/modules/entities/data_form.html.heex`
+- `lib/phoenix_kit_web/live/modules/entities/data_view.ex` (for :show action)
+
+> **Note**: Routes use `:entity_slug` (not `:entity_id`).
 
 **Features:**
 
@@ -676,6 +722,296 @@ handle_event("delete_data", %{"id" => id}, socket)
 ```elixir
 handle_event("validate", %{"entity_data" => params}, socket)
 handle_event("save", %{"entity_data" => params}, socket)
+```
+
+---
+
+## Public Form Builder
+
+The Entities system includes a Public Form Builder that allows administrators to create embeddable forms for public-facing pages. This enables use cases like contact forms, lead capture, surveys, and user submissions.
+
+### Overview
+
+The Public Form Builder provides:
+
+- **Embeddable Forms**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Field Selection**: Choose which entity fields appear on the public form
+- **Security Options**: Honeypot, time-based validation, and rate limiting
+- **Configurable Actions**: Choose what happens when security checks trigger
+- **Statistics Tracking**: Monitor submissions, rejections, and security events
+- **Debug Mode**: Detailed error messages for troubleshooting
+
+### Configuration
+
+Public form settings are stored in the entity's `settings` JSONB column:
+
+| Setting Key | Type | Default | Description |
+|-------------|------|---------|-------------|
+| `public_form_enabled` | boolean | false | Master toggle for public form |
+| `public_form_fields` | array | [] | List of field keys to include |
+| `public_form_title` | string | "" | Form title displayed to users |
+| `public_form_description` | string | "" | Form description/instructions |
+| `public_form_submit_text` | string | "Submit" | Submit button text |
+| `public_form_success_message` | string | "Form submitted successfully!" | Success message |
+| `public_form_collect_metadata` | boolean | true | Collect IP, browser, device info |
+| `public_form_debug_mode` | boolean | false | Show detailed security errors |
+
+### Security Options
+
+#### Honeypot Protection
+
+Adds a hidden field that bots typically fill out:
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_honeypot` | boolean | false | Enable honeypot field |
+| `public_form_honeypot_action` | string | "reject_silent" | Action when triggered |
+
+#### Time-Based Validation
+
+Rejects submissions that happen too quickly (less than 3 seconds):
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_time_check` | boolean | false | Enable time validation |
+| `public_form_time_check_action` | string | "reject_error" | Action when triggered |
+
+#### Rate Limiting
+
+Limits submissions per IP address (5 per minute):
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `public_form_rate_limit` | boolean | false | Enable rate limiting |
+| `public_form_rate_limit_action` | string | "reject_error" | Action when triggered |
+
+### Security Actions
+
+Each security option can be configured with one of four actions:
+
+| Action | Description |
+|--------|-------------|
+| `reject_silent` | Show fake success message, don't save data |
+| `reject_error` | Show error message to user, don't save data |
+| `save_suspicious` | Save data with "draft" status, add security warnings to metadata |
+| `save_log` | Save data normally, log warning for monitoring |
+
+### Form Statistics
+
+Statistics are automatically tracked in `settings["public_form_stats"]`:
+
+```elixir
+%{
+  "total_submissions" => 150,
+  "successful_submissions" => 142,
+  "rejected_submissions" => 8,
+  "honeypot_triggers" => 5,
+  "too_fast_triggers" => 2,
+  "rate_limited_triggers" => 1,
+  "last_submission_at" => "2025-01-15T10:30:00Z"
+}
+```
+
+### Submission Metadata
+
+When `public_form_collect_metadata` is enabled, each submission includes:
+
+```elixir
+%{
+  "source" => "public_form",
+  "ip_address" => "192.168.1.1",
+  "user_agent" => "Mozilla/5.0...",
+  "browser" => "Chrome",
+  "os" => "macOS",
+  "device" => "desktop",
+  "referer" => "https://example.com/contact",
+  "form_loaded_at" => "2025-01-15T10:29:30Z",
+  "submitted_at" => "2025-01-15T10:30:00Z",
+  "time_to_submit_seconds" => 30,
+  "security_warnings" => []  # Added if any security checks triggered with save actions
+}
+```
+
+### Embedding Forms
+
+Use the `<EntityForm>` component in blogging pages:
+
+```heex
+<EntityForm entity_slug="contact" />
+```
+
+The component:
+1. Loads the entity by slug
+2. Checks if public form is enabled AND has fields selected
+3. Renders the form with selected fields only
+4. Includes CSRF token, honeypot (if enabled), and timing data
+5. Posts to `/phoenix_kit/entities/{slug}/submit`
+
+### Controller Flow
+
+**File**: `lib/phoenix_kit_web/controllers/entity_form_controller.ex`
+
+1. **Validation**: Check entity exists and public form is enabled with fields
+2. **Security Checks**: Run honeypot, time, and rate limit checks
+3. **Handle Result**:
+   - If any check triggers "reject" action → reject submission
+   - If checks trigger "save" actions → save with flags
+   - If all checks pass → save normally
+4. **Statistics**: Update form statistics asynchronously
+5. **Redirect**: Return to referrer with flash message
+
+### Admin Interface
+
+The Entity Form page includes a "Public Form Configuration" section when editing an entity:
+
+1. **Enable/Disable Toggle**: Master switch for public form
+2. **Form Details**: Title, description, submit text, success message
+3. **Field Selection**: Checkboxes for each entity field
+4. **Security Section**:
+   - Collect Metadata toggle
+   - Debug Mode toggle (with warning)
+   - Honeypot Protection with action dropdown
+   - Time-Based Validation with action dropdown
+   - Rate Limiting with action dropdown
+5. **Statistics Display**: Shows submission counts, security triggers, last submission time
+
+### Security Warnings in Data View
+
+When viewing a submission that triggered security checks (with save actions), the Data View shows:
+
+- Alert banner with "Security Flags" heading
+- Badges for each triggered check (Honeypot, Too Fast, Rate Limited)
+- Action taken for each (Marked as suspicious, Logged warning)
+
+---
+
+## HTML Sanitization
+
+Rich text fields are automatically sanitized to prevent XSS attacks.
+
+### HtmlSanitizer Module
+
+**File**: `lib/phoenix_kit/entities/html_sanitizer.ex`
+
+The sanitizer removes dangerous content while preserving safe HTML:
+
+**Removed:**
+- `<script>` tags and content
+- `<style>` tags and content
+- Event handlers (`onclick`, `onerror`, `onload`, etc.)
+- `javascript:`, `vbscript:`, `data:` URLs
+- Dangerous tags: `iframe`, `object`, `embed`, `form`, `input`, `button`, `meta`, `link`, `base`
+
+**Preserved:**
+- Block elements: `p`, `div`, `br`, `hr`, `h1-h6`, `blockquote`, `pre`, `code`
+- Inline elements: `span`, `strong`, `b`, `em`, `i`, `u`, `s`, `a`, `sub`, `sup`, `mark`
+- Lists: `ul`, `ol`, `li`
+- Tables: `table`, `thead`, `tbody`, `tr`, `th`, `td`
+- Images: `img` (with URL validation)
+
+### Integration
+
+Sanitization is integrated into the `EntityData` changeset pipeline:
+
+```elixir
+def changeset(entity_data, attrs) do
+  entity_data
+  |> cast(attrs, [...])
+  |> validate_required([...])
+  |> sanitize_rich_text_data()  # ← Sanitizes all rich_text fields
+  |> validate_data_against_entity()
+  |> ...
+end
+```
+
+### Usage
+
+```elixir
+# Sanitize a single string
+PhoenixKit.Entities.HtmlSanitizer.sanitize("<script>alert('xss')</script><p>Hello</p>")
+# => "<p>Hello</p>"
+
+# Sanitize all rich_text fields in data map
+PhoenixKit.Entities.HtmlSanitizer.sanitize_rich_text_fields(fields_definition, data)
+```
+
+---
+
+## Real-Time Collaboration
+
+The entity form editor supports real-time collaboration with FIFO (First In, First Out) locking.
+
+### Presence System
+
+**Files**:
+- `lib/phoenix_kit/entities/presence.ex` - Phoenix.Presence wrapper
+- `lib/phoenix_kit/entities/presence_helpers.ex` - Helper functions
+
+### How It Works
+
+1. **First user** to open an entity form becomes the **lock owner** (can edit)
+2. **Subsequent users** become **spectators** (read-only view)
+3. **Spectators see live updates** as the owner makes changes
+4. **When owner leaves**, the next spectator is automatically promoted to owner
+
+### Presence Tracking
+
+```elixir
+# Track user presence when mounting (in LiveView mount)
+PresenceHelpers.track_editing_session(:entity, entity.id, socket, current_user)
+# => {:ok, ref}
+
+# Get sorted presences (FIFO order)
+presences = PresenceHelpers.get_sorted_presences(:entity, entity.id)
+# => [{socket_id, %{user: %User{}, joined_at: timestamp}}, ...]
+
+# Determine if current socket is owner or spectator
+case PresenceHelpers.get_editing_role(:entity, entity.id, socket.id, current_user.id) do
+  {:owner, all_presences} ->
+    # This socket can edit
+
+  {:spectator, owner_metadata, all_presences} ->
+    # Read-only mode, sync with owner's state
+end
+```
+
+### UI Indicators
+
+The entity form shows:
+- **Lock owner badge**: "Editing" with user name
+- **Spectator list**: Shows all spectators with "Spectating" label
+- **Read-only notice**: When viewing as spectator
+- **Live updates**: Changes broadcast to all viewers
+
+### Event Broadcasting
+
+**File**: `lib/phoenix_kit/entities/events.ex`
+
+Changes are broadcast via Phoenix PubSub:
+
+```elixir
+# Subscribe to entity definition lifecycle events (create/update/delete)
+Events.subscribe_to_entities()
+
+# Subscribe to data lifecycle events for a specific entity
+Events.subscribe_to_entity_data(entity.id)
+
+# Subscribe to collaborative form events
+Events.subscribe_to_entity_form(form_key)
+Events.subscribe_to_data_form(entity_id, record_key)
+
+# Broadcast entity lifecycle events
+Events.broadcast_entity_created(entity.id)
+Events.broadcast_entity_updated(entity.id)
+Events.broadcast_entity_deleted(entity.id)
+
+# Broadcast data lifecycle events
+Events.broadcast_data_created(entity_id, data_id)
+Events.broadcast_data_updated(entity_id, data_id)
+
+# Handle incoming updates in LiveView
+def handle_info({:entity_updated, entity_id}, socket)
+def handle_info({:data_updated, entity_id, data_id}, socket)
 ```
 
 ---
@@ -830,7 +1166,7 @@ Both entities and entity data use the same three-status workflow:
 - **Published**: Active and available for use
 - **Archived**: Hidden but preserved for historical purposes
 
-**Migration Change**: Originally, entity status was a boolean. Changed to string-based status in V13 migration rollback to unify with entity_data status system.
+**Migration Change**: Originally, entity status was a boolean. Changed to string-based status in V17 migration to unify with entity_data status system.
 
 ### Field Key Uniqueness
 
@@ -922,14 +1258,30 @@ end
 
 ```heex
 <%= if PhoenixKit.Entities.enabled?() do %>
-  <.admin_nav_item href={Routes.path("/admin/entities")} icon="entities" label="Entities" />
+  <.admin_nav_item
+    href={Routes.locale_aware_path(assigns, "/admin/entities")}
+    icon="entities"
+    label="Entities"
+    current_path={@current_path || ""}
+  />
 
-  <%= if submenu_open?(@current_path, ["/admin/entities", "/admin/entities/data"]) do %>
-    <.admin_nav_item href={Routes.path("/admin/entities")} label="Manage Entities" nested={true} />
-    <.admin_nav_item href={Routes.path("/admin/entities/data")} label="Data Navigator" nested={true} />
+  <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
+    <%!-- Dynamically list each published entity --%>
+    <%= for entity <- PhoenixKit.Entities.list_entities() do %>
+      <%= if entity.status == "published" do %>
+        <.admin_nav_item
+          href={Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")}
+          icon={entity.icon || "hero-cube"}
+          label={entity.display_name_plural || entity.display_name}
+          nested={true}
+        />
+      <% end %>
+    <% end %>
   <% end %>
 <% end %>
 ```
+
+> **Note**: The sidebar dynamically lists each published entity with a link to its data navigator. There is no global `/admin/entities/data` route.
 
 ### Cascade Delete Protection
 
@@ -964,7 +1316,7 @@ The entities system integrates with PhoenixKit's Settings module using the `"ent
 | `entities_allow_relations`  | boolean | true    | Allow relation field type                      |
 | `entities_file_upload`      | boolean | false   | Enable file/image upload functionality         |
 
-**Created by V13 Migration:**
+**Created by V17 Migration:**
 
 ```sql
 INSERT INTO phoenix_kit_settings (key, value, module, date_added, date_updated)
@@ -1173,10 +1525,10 @@ ORDER BY date_created DESC;
 ### Best Practices
 
 1. **Always validate field definitions** before saving entities
-2. **Sanitize user input** for rich text fields (not yet implemented)
+2. **Sanitize user input** for rich text fields (✅ implemented via HtmlSanitizer)
 3. **Use parameterized queries** for all database operations (Ecto handles this)
 4. **Audit trail**: Track who created/modified entities and data
-5. **Rate limiting**: Consider rate limits on entity/data creation
+5. **Rate limiting**: Consider rate limits on entity/data creation (✅ implemented for public forms)
 6. **File uploads**: Validate file types and sizes (when implemented)
 
 ---
@@ -1280,6 +1632,7 @@ test "unique constraint on entity name"
 @spec list_entities() :: [t()]
 @spec list_active_entities() :: [t()]
 @spec get_entity!(integer()) :: t()
+@spec get_entity(integer()) :: t() | nil
 @spec get_entity_by_name(String.t()) :: t() | nil
 @spec create_entity(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update_entity(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
@@ -1290,6 +1643,8 @@ test "unique constraint on entity name"
 @spec disable_system() :: {:ok, Setting.t()}
 @spec get_system_stats() :: map()
 ```
+
+Note: `create_entity/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### PhoenixKit.Entities.EntityData
 
@@ -1310,11 +1665,14 @@ test "unique constraint on entity name"
 @spec list_by_entity(integer()) :: [t()]
 @spec list_all() :: [t()]
 @spec get!(integer()) :: t()
+@spec get(integer()) :: t() | nil
 @spec create(map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec update(t(), map()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec delete(t()) :: {:ok, t()} | {:error, Ecto.Changeset.t()}
 @spec change(t(), map()) :: Ecto.Changeset.t()
 ```
+
+Note: `create/1` auto-fills `created_by` with the first admin user if not provided.
 
 ### PhoenixKit.Entities.FieldTypes
 
@@ -1326,20 +1684,32 @@ test "unique constraint on entity name"
 @spec requires_options?(String.t()) :: boolean()
 @spec validate_field(map()) :: {:ok, map()} | {:error, String.t()}
 @spec for_picker() :: map()
+
+# Field Builder Helpers
+@spec new_field(String.t(), String.t(), String.t(), keyword()) :: map()
+@spec select_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec radio_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec checkbox_field(String.t(), String.t(), [String.t()], keyword()) :: map()
+@spec text_field(String.t(), String.t(), keyword()) :: map()
+@spec textarea_field(String.t(), String.t(), keyword()) :: map()
+@spec email_field(String.t(), String.t(), keyword()) :: map()
+@spec number_field(String.t(), String.t(), keyword()) :: map()
+@spec boolean_field(String.t(), String.t(), keyword()) :: map()
+@spec rich_text_field(String.t(), String.t(), keyword()) :: map()
 ```
 
 ---
 
 ## Changelog
 
-### V13 Migration (2025-01-15)
+### V17 Migration (Initial Entities System)
 
 **Added:**
 - `phoenix_kit_entities` table for entity definitions
 - `phoenix_kit_entity_data` table for data records
 - JSONB support for flexible schemas
 - Status system (draft/published/archived)
-- Field types system with 13 types
+- Field types system with 11 functional types (+ 3 placeholder types for future)
 - Admin interfaces for entity and data management
 - Dynamic form generation
 - Settings integration
@@ -1356,11 +1726,23 @@ test "unique constraint on entity name"
 - `/admin/entities` - List entities
 - `/admin/entities/new` - Create entity
 - `/admin/entities/:id/edit` - Edit entity
-- `/admin/entities/data` - Data navigator
-- `/admin/entities/:entity_id/data` - Entity data list
-- `/admin/entities/:entity_id/data/new` - Create data
-- `/admin/entities/:entity_id/data/:id` - View data
-- `/admin/entities/:entity_id/data/:id/edit` - Edit data
+- `/admin/entities/:entity_slug/data` - Data navigator for entity
+- `/admin/entities/:entity_slug/data/new` - Create data record
+- `/admin/entities/:entity_slug/data/:id` - View data record
+- `/admin/entities/:entity_slug/data/:id/edit` - Edit data record
+- `/admin/settings/entities` - Entities module settings
+
+### Recent Updates (2025-12)
+
+**Added:**
+- Public Form Builder with embeddable forms
+- Security options: honeypot, time-based validation, rate limiting
+- Configurable security actions
+- Form submission statistics tracking
+- Debug mode for security troubleshooting
+- HTML sanitization for rich_text fields (XSS prevention)
+- Real-time collaboration with FIFO locking
+- Presence tracking via Phoenix.Presence
 
 ---
 
@@ -1389,6 +1771,6 @@ For issues, questions, or contributions related to the entities system:
 
 ---
 
-**Last Updated**: 2025-01-15
-**Version**: V13 Migration
+**Last Updated**: 2025-12-03
+**Version**: V17+ with Public Form Builder
 **Status**: Production Ready

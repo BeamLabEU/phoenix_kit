@@ -68,7 +68,7 @@ defmodule PhoenixKit.Users.Auth do
 
   alias PhoenixKit.Admin.Events
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{RateLimiter, Roles}
+  alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
 
   ## Database getters
@@ -162,6 +162,114 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def get_user!(id), do: Repo.get!(User, id)
+
+  @doc """
+  Gets the first admin user (Owner or Admin role).
+
+  Useful for programmatic operations that require a user ID, such as
+  creating entities via scripts or seeds.
+
+  Returns the first Owner if one exists, otherwise the first Admin,
+  otherwise nil.
+
+  ## Examples
+
+      iex> get_first_admin()
+      %User{id: 1, email: "admin@example.com"}
+
+      iex> get_first_admin()
+      nil  # No admin users exist
+  """
+  def get_first_admin do
+    roles = Role.system_roles()
+
+    # Try to get Owner first, then Admin
+    owner_query =
+      from u in User,
+        join: assignment in assoc(u, :role_assignments),
+        join: role in assoc(assignment, :role),
+        where: role.name == ^roles.owner,
+        order_by: [asc: u.id],
+        limit: 1
+
+    case Repo.one(owner_query) do
+      nil ->
+        # No owner, try admin
+        admin_query =
+          from u in User,
+            join: assignment in assoc(u, :role_assignments),
+            join: role in assoc(assignment, :role),
+            where: role.name == ^roles.admin,
+            order_by: [asc: u.id],
+            limit: 1
+
+        Repo.one(admin_query)
+
+      user ->
+        user
+    end
+  end
+
+  @doc """
+  Gets the ID of the first admin user.
+
+  Convenience function that returns just the user ID, useful for
+  setting `created_by` fields programmatically.
+
+  ## Examples
+
+      iex> get_first_admin_id()
+      1
+
+      iex> get_first_admin_id()
+      nil  # No admin users exist
+
+      # Common usage for creating entities
+      PhoenixKit.Entities.create_entity(%{
+        name: "contact",
+        display_name: "Contact",
+        created_by: PhoenixKit.Users.Auth.get_first_admin_id()
+      })
+  """
+  def get_first_admin_id do
+    case get_first_admin() do
+      nil -> nil
+      user -> user.id
+    end
+  end
+
+  @doc """
+  Gets the first user in the system (by ID).
+
+  Returns the user with the lowest ID, typically the first registered user.
+  Useful as a fallback when no specific admin is needed.
+
+  ## Examples
+
+      iex> get_first_user()
+      %User{id: 1}
+  """
+  def get_first_user do
+    from(u in User, order_by: [asc: u.id], limit: 1)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets the ID of the first user in the system.
+
+  Convenience function for getting a user ID for `created_by` fields.
+
+  ## Examples
+
+      iex> get_first_user_id()
+      1
+  """
+  def get_first_user_id do
+    case get_first_user() do
+      nil -> nil
+      user -> user.id
+    end
+  end
 
   ## User registration
 

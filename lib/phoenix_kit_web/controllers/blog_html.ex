@@ -6,17 +6,19 @@ defmodule PhoenixKitWeb.BlogHTML do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Storage
 
   embed_templates("blog_html/*")
 
   @doc """
   Builds the public URL for a blog listing page.
-  Default language gets clean URLs without locale prefix.
+  When multiple languages are enabled, always includes locale prefix.
+  When languages module is off or only one language, uses clean URLs.
   """
   def blog_listing_path(language, blog_slug, params \\ []) do
     segments =
-      if default_language?(language), do: [blog_slug], else: [language, blog_slug]
+      if single_language_mode?(), do: [blog_slug], else: [language, blog_slug]
 
     base_path = build_public_path(segments)
 
@@ -28,13 +30,14 @@ defmodule PhoenixKitWeb.BlogHTML do
 
   @doc """
   Builds a post URL based on mode.
-  Default language gets clean URLs without locale prefix.
+  When multiple languages are enabled, always includes locale prefix.
+  When languages module is off or only one language, uses clean URLs.
   """
   def build_post_url(blog_slug, post, language) do
     case post.mode do
       :slug ->
         segments =
-          if default_language?(language),
+          if single_language_mode?(),
             do: [blog_slug, post.slug],
             else: [language, blog_slug, post.slug]
 
@@ -45,7 +48,7 @@ defmodule PhoenixKitWeb.BlogHTML do
         time = format_time_for_url(post.metadata.published_at)
 
         segments =
-          if default_language?(language),
+          if single_language_mode?(),
             do: [blog_slug, date, time],
             else: [language, blog_slug, date, time]
 
@@ -53,7 +56,7 @@ defmodule PhoenixKitWeb.BlogHTML do
 
       _ ->
         segments =
-          if default_language?(language),
+          if single_language_mode?(),
             do: [blog_slug, post.slug],
             else: [language, blog_slug, post.slug]
 
@@ -93,6 +96,18 @@ defmodule PhoenixKitWeb.BlogHTML do
     |> Date.to_iso8601()
   end
 
+  def format_date_for_url(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.to_date()
+        |> Date.to_iso8601()
+
+      _ ->
+        "2025-01-01"
+    end
+  end
+
   def format_date_for_url(_), do: "2025-01-01"
 
   @doc """
@@ -104,6 +119,20 @@ defmodule PhoenixKitWeb.BlogHTML do
     |> Time.truncate(:second)
     |> Time.to_string()
     |> String.slice(0..4)
+  end
+
+  def format_time_for_url(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.to_time()
+        |> Time.truncate(:second)
+        |> Time.to_string()
+        |> String.slice(0..4)
+
+      _ ->
+        "00:00"
+    end
   end
 
   def format_time_for_url(_), do: "00:00"
@@ -176,30 +205,10 @@ defmodule PhoenixKitWeb.BlogHTML do
     end
   end
 
-  # Check if the given language is the default language (first admin language)
-  # Default language gets clean URLs without locale prefix
-  defp default_language?(language) do
-    default = get_default_admin_language()
-    language == default
-  end
-
-  # Get the default admin language base code (first in admin_languages list, or "en")
-  # Extracts base code from full dialect (e.g., "en-US" -> "en")
-  defp get_default_admin_language do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
-    case PhoenixKit.Settings.get_setting("admin_languages") do
-      nil ->
-        # No setting exists, default is "en"
-        "en"
-
-      json when is_binary(json) ->
-        case Jason.decode(json) do
-          # Extract base code from full dialect (e.g., "en-US" -> "en")
-          {:ok, [first | _]} -> DialectMapper.extract_base(first)
-          _ -> "en"
-        end
-    end
+  # Check if we're in single language mode (no locale prefix needed)
+  # Returns true when languages module is off OR only one language is enabled
+  defp single_language_mode? do
+    not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   end
 
   @doc """
@@ -219,5 +228,23 @@ defmodule PhoenixKitWeb.BlogHTML do
       Storage.get_public_url_by_id(file_id)
   rescue
     _ -> nil
+  end
+
+  @doc """
+  Builds language data for the blog_language_switcher component on public pages.
+  Converts the @translations assign to the format expected by the component.
+  """
+  def build_public_translations(translations, _current_language) do
+    Enum.map(translations, fn translation ->
+      %{
+        code: translation[:code] || translation.code,
+        display_code: translation[:display_code] || translation[:code] || translation.code,
+        name: translation[:name] || translation.name,
+        flag: translation[:flag] || "",
+        url: translation[:url] || translation.url,
+        status: "published",
+        exists: true
+      }
+    end)
   end
 end

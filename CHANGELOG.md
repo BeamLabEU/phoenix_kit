@@ -1,3 +1,47 @@
+## 1.6.18 - 2025-12-09
+- Fix blogging editor issues and add publish button
+
+## 1.6.17 - 2025-12-09
+- Fix blog language switcher and update entities module examples (Fix public blog language switcher to only show languages with actual published content, improve editor JS initialization, and replace blog post examples with brand examples in the entities module to avoid confusion.)
+
+## 1.6.16 - 2025-12-07
+- Move path functions to the corresponding module
+- Improve blog language switcher UI and URL handling
+- Remove static Ueberauth configuration requirements 
+  - OAuth is now fully dynamic - no compile-time Ueberauth config needed
+  - Providers loaded from database at runtime via OAuthConfigLoader
+
+## 1.6.15 - 2025-12-05
+
+### Added
+- **Sitemap Module** - Complete sitemap generation system for SEO
+  - XML sitemap generation following sitemaps.org protocol
+  - HTML sitemap with 3 display styles (hierarchical, grouped, flat)
+  - Automatic sitemap index for large sites (>50,000 URLs)
+  - Multiple content sources: Blogging, Entities, Pages, Static routes
+  - Router discovery - automatic detection of parent app routes
+  - XSL stylesheets for beautiful XML rendering (table, cards, minimal)
+  - ETS-based caching for fast repeated access
+  - Oban worker for scheduled automatic regeneration
+  - Admin UI for sitemap settings configuration
+  - Routes: `/sitemap.xml`, `/sitemap.html`, `/sitemap.xsl`
+
+### Changed
+- Update blogging editor to use markdown image syntax instead of custom component
+
+## 1.6.14 - 2025-12-02
+- Refactor Endpoint usage
+- Fixes to admin languages, fixes oban implemntation and support for ipv4 and v6
+  - Making sure that admin panel langauge list cannot be empty
+  - Fixed issue with application.ex igniter implementation of oban
+  - Fixed issue with support for IPv4 and IPv6
+  - Fixed issues with dialyzer
+- Fix Oban config, OAuth auto-confirm, and AWS email settings
+  - Fix Oban configuration loading in parent app supervisor child spec
+  - Add auto-confirm email for OAuth authentication
+  - Fix AWS settings validation and form event handling
+  - Fix SES configuration set creation for existing sets
+
 ## 1.6.13 - 2025-11-26
 - Fixed issue with locales not working correctly on fresh install
 

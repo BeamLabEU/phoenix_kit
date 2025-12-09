@@ -2,6 +2,7 @@ defmodule PhoenixKit.Storage.URLSigner do
   # NOTE: Temporarily supporting the blogging component system until the storage/media team ships their replacement.
   import Bitwise
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Utils.Routes
 
   @moduledoc """
@@ -135,44 +136,22 @@ defmodule PhoenixKit.Storage.URLSigner do
     # 1. Explicitly configured on :phoenix_kit
     # 2. From the configured endpoint
     # 3. Return nil if not found (will use data without secret)
-    PhoenixKit.Config.get(:secret_key_base, nil) ||
-      get_endpoint_secret()
+    Config.get(:secret_key_base, nil) ||
+      get_parent_endpoint_secret()
   end
 
-  defp get_endpoint_secret do
-    # Find the first loaded endpoint module and get its secret
-    # This works by trying to load common endpoint module names from the host app
-    case System.get_env("PHOENIX_ENDPOINT_MODULE") do
-      nil ->
-        # Try to find endpoint by searching for any module with "Endpoint" in its name
-        find_endpoint_module()
-
-      module_name ->
-        try do
-          module = String.to_atom("Elixir." <> module_name)
-          module.config(:secret_key_base)
-        rescue
-          _ -> nil
+  defp get_parent_endpoint_secret do
+    case Config.get_parent_endpoint() do
+      {:ok, endpoint} ->
+        if function_exported?(endpoint, :config, 1) do
+          endpoint.config(:secret_key_base)
+        else
+          nil
         end
+
+      _ ->
+        nil
     end
-  end
-
-  defp find_endpoint_module do
-    # Get all loaded modules and find an Endpoint module
-    # :code.all_loaded() always returns a list, so no need for catch-all pattern
-    modules = :code.all_loaded()
-
-    Enum.find_value(modules, fn {module, _path} ->
-      module_name = module |> to_string()
-
-      if String.ends_with?(module_name, "Endpoint") do
-        try do
-          module.config(:secret_key_base)
-        rescue
-          _ -> nil
-        end
-      end
-    end)
   end
 
   defp secure_compare(string1, string2) when is_binary(string1) and is_binary(string2) do

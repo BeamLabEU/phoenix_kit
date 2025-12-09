@@ -569,13 +569,22 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
     settings_to_update = %{
       "aws_access_key_id" => aws_params["access_key_id"] || "",
       "aws_secret_access_key" => aws_params["secret_access_key"] || "",
-      "aws_region" => aws_params["region"] || "eu-north-1",
+      "aws_region" =>
+        if(aws_params["region"] in [nil, ""], do: "eu-north-1", else: aws_params["region"]),
       "aws_sqs_queue_url" => aws_params["sqs_queue_url"] || "",
       "aws_sqs_dlq_url" => aws_params["sqs_dlq_url"] || "",
       "aws_sqs_queue_arn" => aws_params["sqs_queue_arn"] || "",
       "aws_sns_topic_arn" => aws_params["sns_topic_arn"] || "",
-      "aws_ses_configuration_set" => aws_params["ses_configuration_set"] || "phoenixkit-tracking",
-      "sqs_polling_interval_ms" => aws_params["sqs_polling_interval_ms"] || "5000"
+      "aws_ses_configuration_set" =>
+        if(aws_params["ses_configuration_set"] in [nil, ""],
+          do: "phoenixkit-tracking",
+          else: aws_params["ses_configuration_set"]
+        ),
+      "sqs_polling_interval_ms" =>
+        if(aws_params["sqs_polling_interval_ms"] in [nil, ""],
+          do: "5000",
+          else: aws_params["sqs_polling_interval_ms"]
+        )
     }
 
     # Update all settings in a single transaction
@@ -662,7 +671,18 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Settings do
     end
   end
 
+  # Handle region selection from direct call (e.g., JS pushEvent)
   def handle_event("select_region", %{"region" => region}, socket) do
+    socket =
+      socket
+      |> assign(:selected_region, region)
+      |> assign(:aws_settings, %{socket.assigns.aws_settings | region: region})
+
+    {:noreply, socket}
+  end
+
+  # Handle region selection from form input (nested parameter structure)
+  def handle_event("select_region", %{"aws_settings" => %{"region" => region}}, socket) do
     socket =
       socket
       |> assign(:selected_region, region)

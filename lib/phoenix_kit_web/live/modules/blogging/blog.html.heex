@@ -83,26 +83,31 @@
         <% else %>
           <div class="grid gap-4">
             <%= for post <- @posts do %>
-              <div class="card bg-base-100 shadow-sm border border-base-200">
-                <div class="card-body p-4 md:p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <% blog_slug =
+                post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
+                  "blog" %>
+              <% default_lang = List.first(post.available_languages) || @current_locale %>
+              <% default_lang_path =
+                Path.join([
+                  Path.dirname(post.path),
+                  "#{default_lang}.phk"
+                ]) %>
+              <% files_path = "priv/blogging/" <> post.path %>
+              <% public_url =
+                BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
+              <% full_public_url = @endpoint_url <> public_url %>
+              <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+                <div class="card-body p-4 md:p-5 min-w-0">
+                  <%!-- Post info section --%>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
                       <span>
                         {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
                       </span>
                     </div>
-                    <% blog_slug =
-                      post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
-                        "blog" %>
-                    <% default_lang = List.first(post.available_languages) || @current_locale %>
-                    <% default_lang_path =
-                      Path.join([
-                        Path.dirname(post.path),
-                        "#{default_lang}.phk"
-                      ]) %>
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                      <.link
-                        navigate={
+                      <a
+                        href={
                           PhoenixKit.Utils.Routes.path(
                             "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
                             locale: @current_locale
@@ -111,12 +116,8 @@
                         class="hover:text-primary transition-colors"
                       >
                         {post.metadata.title || gettext("Untitled post")}
-                      </.link>
+                      </a>
                     </h3>
-                    <% files_path = "priv/blogging/" <> post.path %>
-                    <% public_url =
-                      BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
-                    <% full_public_url = @endpoint_url <> public_url %>
                     <p class="text-xs text-base-content/50 mt-1">
                       <span class="font-medium text-base-content">{gettext("Files")}: </span>
                       <code class="font-mono break-all">{files_path}</code>
@@ -132,217 +133,22 @@
                       </a>
                     </p>
                   </div>
-                  <div class="flex gap-2 flex-wrap">
-                    <%!-- Show buttons for all languages (enabled and disabled) in consistent order --%>
-                    <% all_languages =
-                      (post.available_languages ++ @enabled_languages)
-                      |> Enum.uniq()
-                      |> Enum.sort()
-
-                    # Only hide flags if: single language enabled AND post has only 1 language file
-                    hide_flags =
-                      length(@enabled_languages) == 1 and length(post.available_languages) == 1 %>
-                    <%= for lang_code <- all_languages do %>
-                      <% lang_path =
-                        Path.join([
-                          Path.dirname(post.path),
-                          "#{lang_code}.phk"
-                        ])
-
-                      lang_info =
-                        PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
-
-                      flag = if lang_info, do: lang_info.flag, else: ""
-                      file_exists = lang_code in post.available_languages
-                      is_enabled = lang_code in @enabled_languages
-
-                      # Read language-specific metadata for status
-                      lang_metadata =
-                        if file_exists do
-                          case PhoenixKitWeb.Live.Modules.Blogging.read_post(
-                                 @blog_slug,
-                                 lang_path
-                               ) do
-                            {:ok, lang_post} -> lang_post.metadata
-                            _ -> nil
-                          end
-                        else
-                          nil
-                        end %>
-                      <%= if file_exists do %>
-                        <%!-- Language card with 3 layers of buttons --%>
-                        <div class="flex flex-col gap-1 min-w-[95px]">
-                          <%!-- Layer 1: Status dropdown (only for enabled languages) --%>
-                          <%= if lang_metadata && is_enabled do %>
-                            <div class="dropdown dropdown-end">
-                              <label
-                                tabindex="0"
-                                class={[
-                                  "btn btn-xs btn-outline shadow-none w-full justify-start",
-                                  case lang_metadata.status do
-                                    "published" -> "btn-success"
-                                    "archived" -> "btn-neutral"
-                                    _ -> "btn-warning"
-                                  end
-                                ]}
-                              >
-                                {String.capitalize(lang_metadata.status)}
-                                <.icon name="hero-chevron-down" class="w-3 h-3 ml-auto" />
-                              </label>
-                              <ul
-                                tabindex="0"
-                                class="dropdown-content menu p-1 shadow-lg bg-base-100 rounded-box w-32 border border-base-300 z-10"
-                              >
-                                <li>
-                                  <button
-                                    type="button"
-                                    phx-click="change_status"
-                                    phx-value-path={lang_path}
-                                    phx-value-status="draft"
-                                    onclick="document.activeElement.blur()"
-                                    class={[
-                                      "btn-xs",
-                                      if(lang_metadata.status == "draft", do: "active", else: "")
-                                    ]}
-                                  >
-                                    <span class="badge badge-warning badge-sm">
-                                      {gettext("Draft")}
-                                    </span>
-                                  </button>
-                                </li>
-                                <li>
-                                  <button
-                                    type="button"
-                                    phx-click="change_status"
-                                    phx-value-path={lang_path}
-                                    phx-value-status="published"
-                                    onclick="document.activeElement.blur()"
-                                    class={[
-                                      "btn-xs",
-                                      if(lang_metadata.status == "published",
-                                        do: "active",
-                                        else: ""
-                                      )
-                                    ]}
-                                  >
-                                    <span class="badge badge-success badge-sm">
-                                      {gettext("Published")}
-                                    </span>
-                                  </button>
-                                </li>
-                                <li>
-                                  <button
-                                    type="button"
-                                    phx-click="change_status"
-                                    phx-value-path={lang_path}
-                                    phx-value-status="archived"
-                                    onclick="document.activeElement.blur()"
-                                    class={[
-                                      "btn-xs",
-                                      if(lang_metadata.status == "archived",
-                                        do: "active",
-                                        else: ""
-                                      )
-                                    ]}
-                                  >
-                                    <span class="badge badge-neutral badge-sm">
-                                      {gettext("Archived")}
-                                    </span>
-                                  </button>
-                                </li>
-                              </ul>
-                            </div>
-                          <% else %>
-                            <%!-- Empty placeholder to maintain spacing --%>
-                            <div class="dropdown dropdown-end">
-                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
-                              </div>
-                            </div>
-                          <% end %>
-                          <%!-- Layer 2: Edit button --%>
-                          <.link
-                            navigate={
-                              PhoenixKit.Utils.Routes.path(
-                                "/admin/blogging/#{post.blog}/edit?path=#{URI.encode(lang_path)}",
-                                locale: @current_locale
-                              )
-                            }
-                            class={[
-                              "btn btn-xs shadow-none w-full",
-                              if(is_enabled,
-                                do: "btn-outline",
-                                else: "bg-base-200 text-base-content/60 border-base-300"
-                              )
-                            ]}
-                            title={
-                              if lang_info,
-                                do: "Edit #{lang_info.name}",
-                                else: "Edit #{lang_code}"
-                            }
-                          >
-                            <.icon name="hero-pencil-square" class="w-3 h-3" />
-                            <%= if hide_flags do %>
-                              {gettext("Edit")}
-                            <% else %>
-                              <span class="text-base">{flag}</span> {lang_code
-                              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-                              |> String.upcase()}
-                            <% end %>
-                          </.link>
-                          <%!-- Layer 3: View button (only for published posts in enabled languages) --%>
-                          <%= if lang_metadata && lang_metadata.status == "published" && is_enabled do %>
-                            <a
-                              href={
-                                BlogHTML.build_post_url(
-                                  @blog_slug,
-                                  post,
-                                  lang_code
-                                )
-                              }
-                              target="_blank"
-                              class="btn btn-xs btn-outline shadow-none w-full"
-                              title={gettext("View on public site")}
-                            >
-                              <.icon name="hero-eye" class="w-3 h-3" />
-                              {gettext("View")}
-                            </a>
-                          <% else %>
-                            <%!-- Empty placeholder to maintain spacing --%>
-                            <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
-                            </div>
-                          <% end %>
-                        </div>
-                      <% else %>
-                        <%!-- Add button for missing files (only if language is enabled) --%>
-                        <%= if is_enabled do %>
-                          <div class="flex flex-col gap-1 min-w-[95px]">
-                            <%!-- Empty placeholder to maintain spacing --%>
-                            <div class="dropdown dropdown-end">
-                              <div class="btn btn-xs btn-outline shadow-none w-full invisible pointer-events-none">
-                              </div>
-                            </div>
-                            <%!-- Add button --%>
-                            <button
-                              type="button"
-                              phx-click="add_language"
-                              phx-value-path={post.path}
-                              phx-value-language={lang_code}
-                              class="btn btn-success btn-outline btn-xs shadow-none w-full"
-                              title={
-                                if lang_info,
-                                  do: "Add #{lang_info.name}",
-                                  else: "Add #{lang_code}"
-                              }
-                            >
-                              <.icon name="hero-plus" class="w-3 h-3 mr-1" />
-                              <span class="text-lg">{flag}</span> {lang_code
-                              |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-                              |> String.upcase()}
-                            </button>
-                          </div>
-                        <% end %>
-                      <% end %>
-                    <% end %>
+                  <%!-- Languages section --%>
+                  <div class="border-t border-base-200 pt-3 mt-3">
+                    <.blog_language_switcher
+                      languages={
+                        build_post_languages(
+                          post,
+                          @blog_slug,
+                          @enabled_languages,
+                          @current_locale
+                        )
+                      }
+                      show_status={true}
+                      show_add={true}
+                      on_click="language_action"
+                      size={:sm}
+                    />
                   </div>
                 </div>
               </div>

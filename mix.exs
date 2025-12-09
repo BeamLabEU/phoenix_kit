@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.13"
+  @version "1.6.18"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -81,7 +81,7 @@ defmodule PhoenixKit.MixProject do
       {:gettext, "~> 1.0"},
       {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.8", only: :dev},
-      {:tailwind, "~> 0.4.0", only: :dev},
+      {:tailwind, "~> 0.4.1", only: :dev},
       {:phoenix_live_reload, "~> 1.6.1", only: :dev},
 
       # Authentication
@@ -155,6 +155,7 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "guides/integration.md",
         "guides/oauth_and_magic_link_setup.md",
         "guides/aws_email_setup.md",
         "guides/making-pages-live.md",

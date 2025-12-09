@@ -189,11 +189,14 @@
         }
       };
 
-      // Global function for inserting image component (called after media selection)
-      window.insertImageComponent = function(fileId) {
-        const template = "\n<Image file_id=\"" + fileId + "\" alt=\"Description here\" />\n";
+      // Global function for inserting image as markdown (called after media selection)
+      window.insertImageMarkdown = function(imageUrl) {
+        const template = "\n![Image description](" + imageUrl + ")\n";
         insertAtCursor(template);
       };
+
+      // Legacy function for backwards compatibility
+      window.insertImageComponent = window.insertImageMarkdown;
 
       // Listen for exec-js events from LiveView
       window.addEventListener("phx:exec-js", (e) => {
@@ -294,57 +297,6 @@
         )}
       </button>
       <div class="flex items-center gap-3">
-        <%!-- Language Switcher --%>
-        <%= if length(@all_enabled_languages) > 1 do %>
-          <div class="flex items-center gap-2" id="language-switcher">
-            <span class="text-sm text-base-content/70">{gettext("Language")}:</span>
-            <div class="join">
-              <%= for lang_code <- @all_enabled_languages do %>
-                <% lang_info = PhoenixKitWeb.Live.Modules.Blogging.get_language_info(lang_code)
-                flag = if lang_info, do: lang_info.flag, else: ""
-                is_current = @current_language == lang_code
-                file_exists = lang_code in @available_languages %>
-                <button
-                  type="button"
-                  class={[
-                    "join-item btn btn-sm shadow-none",
-                    cond do
-                      is_current -> "btn-primary"
-                      file_exists -> "btn-outline"
-                      true -> "btn-success btn-outline"
-                    end
-                  ]}
-                  phx-click="switch_language"
-                  phx-value-language={lang_code}
-                  title={
-                    cond do
-                      is_current && lang_info -> "Editing #{lang_info.name}"
-                      file_exists && lang_info -> "Switch to #{lang_info.name}"
-                      lang_info -> "Create #{lang_info.name} translation"
-                      true -> lang_code
-                    end
-                  }
-                >
-                  <%= cond do %>
-                    <% is_current -> %>
-                      <.icon name="hero-check" class="w-4 h-4" />
-                    <% not file_exists -> %>
-                      <.icon name="hero-plus" class="w-3 h-3" />
-                    <% true -> %>
-                  <% end %>
-                  <span class="text-lg phx-click-loading:opacity-50">{flag}</span>
-                  <span class="phx-click-loading:hidden">
-                    {lang_code
-                    |> PhoenixKit.Modules.Languages.DialectMapper.extract_base()
-                    |> String.upcase()}
-                  </span>
-                  <span class="hidden phx-click-loading:inline-block loading loading-spinner loading-xs">
-                  </span>
-                </button>
-              <% end %>
-            </div>
-          </div>
-        <% end %>
         <button
           type="button"
           class="btn btn-outline btn-sm shadow-none"
@@ -365,16 +317,48 @@
             tabindex={if @has_pending_changes, do: "-1", else: "0"}
             title={
               if(@has_pending_changes,
-                do: "Save the post before viewing the public page",
-                else: "View this post on the public site"
+                do: gettext("Save the post before viewing the public page"),
+                else: gettext("View this post on the public site")
               )
             }
           >
-            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> {gettext("View Public")}
           </a>
+        <% else %>
+          <button
+            type="button"
+            class="btn btn-success btn-sm shadow-none"
+            phx-click="publish"
+            title={gettext("Publish this post")}
+          >
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> {gettext("Publish")}
+          </button>
         <% end %>
       </div>
     </div>
+
+    <%!-- Language Switcher --%>
+    <%= if length(@all_enabled_languages) > 1 do %>
+      <div class="flex items-center">
+        <.blog_language_switcher
+          languages={
+            build_editor_languages(
+              @current_language,
+              @available_languages,
+              @all_enabled_languages,
+              @blog_slug,
+              @post.path,
+              @form["status"]
+            )
+          }
+          current_language={@current_language}
+          show_status={true}
+          show_add={true}
+          on_click="switch_language"
+          size={:sm}
+        />
+      </div>
+    <% end %>
 
     <div class="card bg-base-100 shadow-xl border border-base-200">
       <div class="card-body space-y-6">

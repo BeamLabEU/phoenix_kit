@@ -44,6 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
   defp resolve_component(:cta), do: {:ok, PhoenixKitWeb.Components.Blogging.CTA}
   defp resolve_component(:image), do: {:ok, PhoenixKitWeb.Components.Blogging.Image}
   defp resolve_component(:video), do: {:ok, PhoenixKitWeb.Components.Blogging.Video}
+  defp resolve_component(:entityform), do: {:ok, PhoenixKitWeb.Components.Blogging.EntityForm}
   defp resolve_component(_), do: {:error, :not_found}
 
   # Render using the component module

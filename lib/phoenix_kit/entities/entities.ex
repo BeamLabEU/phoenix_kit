@@ -7,11 +7,12 @@ defmodule PhoenixKit.Entities do
 
   ## Schema Fields
 
-  - `name`: Unique identifier for the entity (e.g., "blog_post", "product")
-  - `display_name`: Human-readable name shown in UI (e.g., "Blog Post", "Product")
+  - `name`: Unique identifier for the entity (e.g., "brand", "product")
+  - `display_name`: Human-readable singular name shown in UI (e.g., "Brand")
+  - `display_name_plural`: Human-readable plural name (e.g., "Brands")
   - `description`: Description of what this entity represents
   - `icon`: Icon identifier for UI display (hero icons)
-  - `status`: Boolean indicating if the entity is active
+  - `status`: Workflow status string - one of "draft", "published", or "archived"
   - `fields_definition`: JSONB array of field definitions
   - `settings`: JSONB map of entity-specific settings
   - `created_by`: User ID of the admin who created the entity
@@ -43,7 +44,6 @@ defmodule PhoenixKit.Entities do
 
   ### System Settings
   - `enabled?/0` - Check if entities system is enabled
-  - `enabled?/0` - Check if entities system is enabled
   - `enable_system/0` - Enable the entities system
   - `disable_system/0` - Disable the entities system
   - `get_config/0` - Get current system configuration
@@ -57,26 +57,28 @@ defmodule PhoenixKit.Entities do
         # System is active
       end
 
-      # Create a blog post entity
+      # Create a brand entity
+      # Note: fields_definition requires string keys, not atom keys
       {:ok, entity} = PhoenixKit.Entities.create_entity(%{
-        name: "blog_post",
-        display_name: "Blog Post",
-        description: "Blog post content type",
-        icon: "hero-document-text",
+        name: "brand",
+        display_name: "Brand",
+        display_name_plural: "Brands",
+        description: "Brand content type for company profiles",
+        icon: "hero-building-office",
         created_by: admin_user.id,
         fields_definition: [
-          %{type: "text", key: "title", label: "Title", required: true},
-          %{type: "textarea", key: "excerpt", label: "Excerpt"},
-          %{type: "rich_text", key: "content", label: "Content", required: true},
-          %{type: "select", key: "category", label: "Category",
-            options: ["Tech", "Business", "Lifestyle"]},
-          %{type: "date", key: "publish_date", label: "Publish Date"},
-          %{type: "boolean", key: "featured", label: "Featured Post"}
+          %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
+          %{"type" => "textarea", "key" => "tagline", "label" => "Tagline"},
+          %{"type" => "rich_text", "key" => "description", "label" => "Description", "required" => true},
+          %{"type" => "select", "key" => "industry", "label" => "Industry",
+            "options" => ["Technology", "Manufacturing", "Retail"]},
+          %{"type" => "date", "key" => "founded_date", "label" => "Founded Date"},
+          %{"type" => "boolean", "key" => "featured", "label" => "Featured Brand"}
         ]
       })
 
       # Get entity by name
-      entity = PhoenixKit.Entities.get_entity_by_name("blog_post")
+      entity = PhoenixKit.Entities.get_entity_by_name("brand")
 
       # List all active entities
       entities = PhoenixKit.Entities.list_active_entities()
@@ -88,6 +90,7 @@ defmodule PhoenixKit.Entities do
 
   alias PhoenixKit.Entities.Events
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -272,12 +275,12 @@ defmodule PhoenixKit.Entities do
   end
 
   @doc """
-  Returns the list of active entities.
+  Returns the list of active (published) entities.
 
   ## Examples
 
       iex> PhoenixKit.Entities.list_active_entities()
-      [%PhoenixKit.Entities{status: true}, ...]
+      [%PhoenixKit.Entities{status: "published"}, ...]
   """
   def list_active_entities do
     from(e in __MODULE__,
@@ -286,6 +289,26 @@ defmodule PhoenixKit.Entities do
       preload: [:creator]
     )
     |> repo().all()
+  end
+
+  @doc """
+  Gets a single entity by ID.
+
+  Returns the entity if found, nil otherwise.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.get_entity(123)
+      %PhoenixKit.Entities{}
+
+      iex> PhoenixKit.Entities.get_entity(456)
+      nil
+  """
+  def get_entity(id) do
+    case repo().get(__MODULE__, id) do
+      nil -> nil
+      entity -> repo().preload(entity, :creator)
+    end
   end
 
   @doc """
@@ -310,7 +333,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_entity_by_name("blog_post")
+      iex> PhoenixKit.Entities.get_entity_by_name("brand")
       %PhoenixKit.Entities{}
 
       iex> PhoenixKit.Entities.get_entity_by_name("invalid")
@@ -325,17 +348,45 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.create_entity(%{name: "blog_post", display_name: "Blog Post"})
+      iex> PhoenixKit.Entities.create_entity(%{name: "brand", display_name: "Brand"})
       {:ok, %PhoenixKit.Entities{}}
 
       iex> PhoenixKit.Entities.create_entity(%{name: ""})
       {:error, %Ecto.Changeset{}}
+
+  Note: `created_by` is auto-filled with the first admin or user ID if not provided,
+  but only if at least one user exists in the system. If no users exist, the changeset
+  will fail with a validation error on `created_by`.
   """
   def create_entity(attrs \\ %{}) do
+    attrs = maybe_add_created_by(attrs)
+
     %__MODULE__{}
     |> changeset(attrs)
     |> repo().insert()
     |> notify_entity_event(:created)
+  end
+
+  # Auto-fill created_by with first admin if not provided
+  defp maybe_add_created_by(attrs) when is_map(attrs) do
+    has_created_by =
+      Map.has_key?(attrs, :created_by) or Map.has_key?(attrs, "created_by")
+
+    if has_created_by do
+      attrs
+    else
+      case Auth.get_first_admin_id() do
+        nil ->
+          # Fall back to first user if no admin exists
+          case Auth.get_first_user_id() do
+            nil -> attrs
+            user_id -> Map.put(attrs, :created_by, user_id)
+          end
+
+        admin_id ->
+          Map.put(attrs, :created_by, admin_id)
+      end
+    end
   end
 
   @doc """
@@ -359,7 +410,8 @@ defmodule PhoenixKit.Entities do
   @doc """
   Deletes an entity.
 
-  Note: This will also delete all associated entity_data records due to the on_delete: :delete_all constraint.
+  Note: This will also delete all associated entity_data records due to the
+  ON DELETE CASCADE constraint defined in the database migration (V17).
 
   ## Examples
 
