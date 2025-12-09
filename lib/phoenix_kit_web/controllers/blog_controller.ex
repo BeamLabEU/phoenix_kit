@@ -18,7 +18,6 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @doc """
@@ -210,32 +209,46 @@ defmodule PhoenixKitWeb.BlogController do
   defp render_blog_listing(conn, blog_slug, language, params) do
     case fetch_blog(blog_slug) do
       {:ok, blog} ->
-        page = get_page_param(params)
-        per_page = get_per_page_setting()
+        # Check if we need to redirect to canonical URL
+        canonical_language = get_canonical_url_language(language)
 
-        # List published posts
-        all_posts =
-          Blogging.list_posts(blog_slug, language)
-          |> filter_published()
+        if canonical_language != language do
+          # Redirect to canonical URL
+          canonical_url = BlogHTML.blog_listing_path(canonical_language, blog_slug, params)
+          redirect(conn, to: canonical_url)
+        else
+          page = get_page_param(params)
+          per_page = get_per_page_setting()
 
-        total_count = length(all_posts)
-        posts = paginate(all_posts, page, per_page)
+          # List posts that have this EXACT language file and are published
+          all_posts =
+            Blogging.list_posts(blog_slug, language)
+            |> filter_published()
+            |> filter_by_exact_language(blog_slug, language)
 
-        breadcrumbs = [
-          %{label: blog["name"], url: nil}
-        ]
+          total_count = length(all_posts)
+          posts = paginate(all_posts, page, per_page)
 
-        conn
-        |> assign(:page_title, blog["name"])
-        |> assign(:blog, blog)
-        |> assign(:posts, posts)
-        |> assign(:current_language, language)
-        |> assign(:page, page)
-        |> assign(:per_page, per_page)
-        |> assign(:total_count, total_count)
-        |> assign(:total_pages, ceil(total_count / per_page))
-        |> assign(:breadcrumbs, breadcrumbs)
-        |> render(:index)
+          breadcrumbs = [
+            %{label: blog["name"], url: nil}
+          ]
+
+          # Build translation links for blog listing
+          translations = build_listing_translations(blog_slug, language)
+
+          conn
+          |> assign(:page_title, blog["name"])
+          |> assign(:blog, blog)
+          |> assign(:posts, posts)
+          |> assign(:current_language, canonical_language)
+          |> assign(:translations, translations)
+          |> assign(:page, page)
+          |> assign(:per_page, per_page)
+          |> assign(:total_count, total_count)
+          |> assign(:total_pages, ceil(total_count / per_page))
+          |> assign(:breadcrumbs, breadcrumbs)
+          |> render(:index)
+        end
 
       {:error, reason} ->
         handle_not_found(conn, reason)
@@ -247,24 +260,34 @@ defmodule PhoenixKitWeb.BlogController do
       {:ok, post} ->
         # Check if published
         if post.metadata.status == "published" do
-          # Render markdown
-          html_content = render_markdown(post.content)
+          # Check if we need to redirect to canonical URL
+          # The canonical URL uses the display_code (base or full dialect depending on enabled languages)
+          canonical_language = get_canonical_url_language_for_post(post.language)
 
-          # Build translation links
-          translations = build_translation_links(blog_slug, post, language)
+          if canonical_language != language do
+            # Redirect to canonical URL
+            canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
+            redirect(conn, to: canonical_url)
+          else
+            # Render markdown
+            html_content = render_markdown(post.content)
 
-          # Build breadcrumbs
-          breadcrumbs = build_breadcrumbs(blog_slug, post, language)
+            # Build translation links
+            translations = build_translation_links(blog_slug, post, canonical_language)
 
-          conn
-          |> assign(:page_title, post.metadata.title)
-          |> assign(:blog_slug, blog_slug)
-          |> assign(:post, post)
-          |> assign(:html_content, html_content)
-          |> assign(:current_language, language)
-          |> assign(:translations, translations)
-          |> assign(:breadcrumbs, breadcrumbs)
-          |> render(:show)
+            # Build breadcrumbs
+            breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
+
+            conn
+            |> assign(:page_title, post.metadata.title)
+            |> assign(:blog_slug, blog_slug)
+            |> assign(:post, post)
+            |> assign(:html_content, html_content)
+            |> assign(:current_language, canonical_language)
+            |> assign(:translations, translations)
+            |> assign(:breadcrumbs, breadcrumbs)
+            |> render(:show)
+          end
         else
           log_404(conn, blog_slug, identifier, language, :unpublished)
           handle_not_found(conn, :unpublished)
@@ -307,8 +330,12 @@ defmodule PhoenixKitWeb.BlogController do
   defp fetch_post(blog_slug, {:timestamp, date, time}, language) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    # Resolve base code to dialect if needed (e.g., "en" -> "en-US")
-    resolved_language = resolve_language_for_file(language)
+    # First, detect available languages for this post
+    post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+    available_languages = detect_available_languages_in_dir(post_dir)
+
+    # Resolve the language - find matching dialect in available languages
+    resolved_language = resolve_language_for_post(language, available_languages)
 
     # Build path for timestamp mode: blog/date/time/language.phk
     path = "#{blog_slug}/#{date}/#{time}/#{resolved_language}.phk"
@@ -319,26 +346,204 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  # Resolve a language code to the appropriate file language
-  # Handles both base codes (en) and full dialect codes (en-US)
-  defp resolve_language_for_file(language) do
+  # Detect available language files in a directory
+  defp detect_available_languages_in_dir(dir_path) do
+    case File.ls(dir_path) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.map(&String.replace_suffix(&1, ".phk", ""))
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  # Resolve a language code to an actual file language
+  # Handles base codes by finding a matching dialect in available languages
+  defp resolve_language_for_post(language, available_languages) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    if String.length(language) == 2 and not String.contains?(language, "-") do
-      # It's a base code - convert to default dialect
-      DialectMapper.base_to_dialect(language)
-    else
-      # Already a full dialect code
-      language
+    cond do
+      # Direct match - language exactly matches an available file
+      language in available_languages ->
+        language
+
+      # Base code - try to find a dialect that matches
+      base_code?(language) ->
+        find_dialect_for_base_in_files(language, available_languages) ||
+          DialectMapper.base_to_dialect(language)
+
+      # Full dialect code not found - try base code match as fallback
+      true ->
+        base = DialectMapper.extract_base(language)
+        find_dialect_for_base_in_files(base, available_languages) || language
     end
+  end
+
+  # Find a dialect in available files that matches the given base code
+  defp find_dialect_for_base_in_files(base_code, available_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+    base_lower = String.downcase(base_code)
+
+    Enum.find(available_languages, fn lang ->
+      DialectMapper.extract_base(lang) == base_lower
+    end)
   end
 
   defp render_markdown(content) do
     Renderer.render_markdown(content)
   end
 
+  # Gets the canonical URL language code for a given language.
+  # If multiple dialects of the same base language are enabled, returns the full dialect.
+  # Otherwise returns the base code for cleaner URLs.
+  defp get_canonical_url_language(language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    enabled_languages = get_enabled_languages()
+
+    # Resolve base code to a specific dialect if needed
+    resolved_language =
+      if base_code?(language) do
+        # Find the matching dialect in enabled languages
+        find_dialect_for_base(language, enabled_languages) || language
+      else
+        language
+      end
+
+    # Now determine if we should use base or full dialect code
+    Storage.get_display_code(resolved_language, enabled_languages)
+  end
+
+  # Gets the canonical URL language code for a post's language.
+  # This uses the actual file language (e.g., "en-US") to determine the canonical URL code.
+  defp get_canonical_url_language_for_post(post_language) do
+    enabled_languages = get_enabled_languages()
+    Storage.get_display_code(post_language, enabled_languages)
+  end
+
+  defp get_enabled_languages do
+    Languages.enabled_locale_codes()
+  rescue
+    _ -> ["en"]
+  end
+
+  defp base_code?(code) when is_binary(code) do
+    String.length(code) == 2 and not String.contains?(code, "-")
+  end
+
+  defp base_code?(_), do: false
+
+  # Find a dialect in enabled languages that matches the given base code
+  defp find_dialect_for_base(base_code, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+    base_lower = String.downcase(base_code)
+
+    Enum.find(enabled_languages, fn lang ->
+      DialectMapper.extract_base(lang) == base_lower
+    end)
+  end
+
+  defp build_listing_translations(blog_slug, current_language) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+    alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+
+    # Get enabled languages - these are the ONLY languages that should show
+    enabled_languages =
+      try do
+        Languages.enabled_locale_codes()
+      rescue
+        _ -> ["en"]
+      end
+
+    # Extract base code from current language for comparison
+    current_base = DialectMapper.extract_base(current_language)
+
+    # Get the primary/default language
+    primary_language = List.first(enabled_languages) || "en"
+
+    # For each enabled language, check if there's published content for it
+    # Only show languages that are explicitly enabled (not just base code matches)
+    translations =
+      enabled_languages
+      |> Enum.filter(fn lang ->
+        # Check if this specific language has published content
+        has_published_content_for_language?(blog_slug, lang)
+      end)
+      |> Enum.map(fn lang ->
+        # Use display_code helper to determine if we show base or full code
+        display_code = Storage.get_display_code(lang, enabled_languages)
+
+        %{
+          code: display_code,
+          display_code: display_code,
+          name: get_language_name(lang),
+          flag: get_language_flag(lang),
+          url: BlogHTML.blog_listing_path(display_code, blog_slug),
+          current: DialectMapper.extract_base(lang) == current_base
+        }
+      end)
+
+    # Order: primary first, then the rest alphabetically
+    if Enum.any?(
+         translations,
+         &(&1.code == Storage.get_display_code(primary_language, enabled_languages))
+       ) do
+      primary_display = Storage.get_display_code(primary_language, enabled_languages)
+      {primary, others} = Enum.split_with(translations, &(&1.code == primary_display))
+      primary ++ Enum.sort_by(others, & &1.code)
+    else
+      Enum.sort_by(translations, & &1.code)
+    end
+    |> Enum.uniq_by(& &1.code)
+  end
+
+  # Check if a specific enabled language has published content in the blog
+  # ONLY checks for EXACT file matches - no base code fallback
+  # This ensures only languages with actual files show in the public switcher
+  defp has_published_content_for_language?(blog_slug, language) do
+    # Get all posts and check if any have published content for this EXACT language
+    all_posts = Blogging.list_posts(blog_slug, nil)
+
+    Enum.any?(all_posts, fn post ->
+      # Check if there's a published file for this EXACT language only
+      post.available_languages
+      |> Enum.any?(fn file_lang ->
+        # Only match exact language - no base code matching
+        file_lang == language and lang_published?(blog_slug, post, file_lang)
+      end)
+    end)
+  end
+
+  # Check if a specific language version of a post is published
+  defp lang_published?(blog_slug, post, language) do
+    # If this is the post's current language, check its metadata directly
+    if post.language == language do
+      post.metadata.status == "published"
+    else
+      # Need to read the language-specific file to check its status
+      lang_path =
+        case post.mode do
+          :slug ->
+            "#{blog_slug}/#{post.slug}/#{language}.phk"
+
+          :timestamp ->
+            date_str = Date.to_iso8601(post.date)
+            time_str = post.time |> Time.to_string() |> String.slice(0..4)
+            "#{blog_slug}/#{date_str}/#{time_str}/#{language}.phk"
+        end
+
+      case Blogging.read_post(blog_slug, lang_path) do
+        {:ok, lang_post} -> lang_post.metadata.status == "published"
+        _ -> false
+      end
+    end
+  end
+
   defp build_translation_links(blog_slug, post, current_language) do
     alias PhoenixKit.Modules.Languages.DialectMapper
+    alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
     # Get enabled languages
     enabled_languages =
@@ -351,57 +556,123 @@ defmodule PhoenixKitWeb.BlogController do
     # Extract base code from current language for comparison
     current_base = DialectMapper.extract_base(current_language)
 
-    # Filter available languages to only show enabled ones
-    languages =
+    # Get the primary/default language
+    primary_language = List.first(enabled_languages) || "en"
+
+    # Filter available languages to only show ones that:
+    # 1. Actually exist as files (from post.available_languages)
+    # 2. Are directly enabled OR are a base code with an enabled dialect
+    # 3. Are published (exact file check, no fallback)
+    available_and_published =
       post.available_languages
       |> normalize_languages(current_language)
       |> Enum.filter(fn lang ->
-        language_enabled?(lang, enabled_languages) and translation_published?(post, lang)
+        language_enabled_for_public?(lang, enabled_languages) and
+          translation_published_exact?(blog_slug, post, lang)
       end)
 
+    # Remove legacy base code files when dialect files exist
+    # e.g., if both "en" and "en-CA" exist, remove "en" to avoid duplicates
+    deduplicated =
+      deduplicate_base_and_dialect_files(available_and_published, enabled_languages)
+
+    # Order: primary first, then the rest alphabetically
+    languages =
+      if primary_language in deduplicated do
+        others =
+          deduplicated
+          |> Enum.reject(&(&1 == primary_language))
+          |> Enum.sort()
+
+        [primary_language] ++ others
+      else
+        Enum.sort(deduplicated)
+      end
+
     Enum.map(languages, fn lang ->
-      base_code = DialectMapper.extract_base(lang)
+      # Use display_code helper to determine if we show base or full code
+      display_code = Storage.get_display_code(lang, enabled_languages)
 
       %{
-        code: base_code,
+        code: display_code,
+        display_code: display_code,
         name: get_language_name(lang),
         flag: get_language_flag(lang),
-        url: BlogHTML.build_post_url(blog_slug, post, base_code),
-        current: base_code == current_base
+        url: BlogHTML.build_post_url(blog_slug, post, display_code),
+        current: DialectMapper.extract_base(lang) == current_base
       }
     end)
+  end
+
+  # Remove legacy base code files when dialect files of the same language exist
+  # This prevents showing both "en" and "en-CA" in the switcher
+  defp deduplicate_base_and_dialect_files(languages, _enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Separate base codes and dialect codes
+    {base_codes, dialect_codes} = Enum.split_with(languages, &base_code?/1)
+
+    # For each base code, check if any dialect files exist for it
+    # If so, exclude the base code
+    filtered_base_codes =
+      Enum.reject(base_codes, fn base ->
+        Enum.any?(dialect_codes, fn dialect ->
+          DialectMapper.extract_base(dialect) == base
+        end)
+      end)
+
+    # Return dialect codes plus any base codes that don't have dialect alternatives
+    dialect_codes ++ filtered_base_codes
   end
 
   defp normalize_languages([], current_language), do: [current_language]
   defp normalize_languages(languages, _current_language) when is_list(languages), do: languages
 
-  defp language_enabled?(language, enabled_languages), do: language in enabled_languages
+  # Strict check for public display - only shows files that are:
+  # 1. Directly in the enabled languages list, OR
+  # 2. Base code files where any dialect of that base is enabled
+  # This prevents showing en-US, en-GB etc when only en-CA is enabled
+  defp language_enabled_for_public?(language, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
 
-  defp translation_published?(post, language) when language == post.language do
-    Map.get(post.metadata, :status) == "published"
-  end
+    cond do
+      # Direct match - file code exactly matches an enabled language
+      language in enabled_languages ->
+        true
 
-  defp translation_published?(post, language) do
-    case fetch_translation_metadata(post, language) do
-      {:ok, metadata} -> Map.get(metadata, :status) == "published"
-      _ -> false
+      # Base code file (e.g., "en") - show if any dialect is enabled
+      base_code?(language) ->
+        Enum.any?(enabled_languages, fn enabled_lang ->
+          DialectMapper.extract_base(enabled_lang) == language
+        end)
+
+      # Dialect file (e.g., "en-US") not directly enabled - DON'T show
+      # This is the key difference from language_enabled?
+      true ->
+        false
     end
   end
 
-  defp fetch_translation_metadata(post, language) do
-    post.full_path
-    |> Path.dirname()
-    |> Path.join(Storage.language_filename(language))
-    |> read_metadata()
-  end
+  # Checks if the exact language file exists and is published
+  # Does not consider fallback/alias files - only the exact file path
+  # Used for building public translation links to show only actual files
+  defp translation_published_exact?(_blog_slug, post, language) do
+    alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
 
-  defp read_metadata(path) do
-    with true <- File.exists?(path),
-         {:ok, contents} <- File.read(path),
+    # Build the exact file path from the post's full_path
+    # Replace the language portion of the filename
+    exact_file_path =
+      post.full_path
+      |> Path.dirname()
+      |> Path.join("#{language}.phk")
+
+    # Check if the exact file exists and is published
+    with true <- File.exists?(exact_file_path),
+         {:ok, contents} <- File.read(exact_file_path),
          {:ok, metadata, _content} <- Metadata.parse_with_content(contents) do
-      {:ok, metadata}
+      metadata[:status] == "published"
     else
-      _ -> :error
+      _ -> false
     end
   end
 
@@ -438,6 +709,16 @@ defmodule PhoenixKitWeb.BlogController do
   defp filter_published(posts) do
     Enum.filter(posts, fn post ->
       post.metadata.status == "published"
+    end)
+  end
+
+  # Filter posts to only include those that have an EXACT language file
+  # This ensures when viewing en-CA listing, only posts with en-CA.phk file show
+  defp filter_by_exact_language(posts, blog_slug, language) do
+    Enum.filter(posts, fn post ->
+      # Check if this post has the exact language file
+      language in post.available_languages and
+        lang_published?(blog_slug, post, language)
     end)
   end
 

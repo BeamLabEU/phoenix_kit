@@ -1416,4 +1416,65 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     |> assign(:current_path, path)
     |> push_patch(to: path)
   end
+
+  @doc """
+  Builds language data for the blog_language_switcher component in the editor.
+  Returns a list of language maps with status info for each language.
+
+  The `current_form_status` parameter allows passing the current form's status
+  for the language being edited, so status dots update in real-time.
+  """
+  def build_editor_languages(
+        current_language,
+        available_languages,
+        all_enabled_languages,
+        blog_slug,
+        post_path,
+        current_form_status \\ nil
+      ) do
+    # Use shared ordering function for consistent display across all views
+    ordered_languages =
+      Storage.order_languages_for_display(available_languages, all_enabled_languages)
+
+    Enum.map(ordered_languages, fn lang_code ->
+      lang_info = Blogging.get_language_info(lang_code)
+      file_exists = lang_code in available_languages
+
+      # Build the path for this language version
+      lang_path =
+        Path.join([
+          Path.dirname(post_path),
+          "#{lang_code}.phk"
+        ])
+
+      # For the current language, use the form status (real-time updates)
+      # For other languages, read from disk
+      status =
+        cond do
+          lang_code == current_language && current_form_status != nil ->
+            current_form_status
+
+          file_exists ->
+            case Blogging.read_post(blog_slug, lang_path) do
+              {:ok, lang_post} -> lang_post.metadata.status
+              _ -> nil
+            end
+
+          true ->
+            nil
+        end
+
+      # Get display code (base or full dialect depending on enabled languages)
+      display_code = Storage.get_display_code(lang_code, all_enabled_languages)
+
+      %{
+        code: lang_code,
+        display_code: display_code,
+        name: if(lang_info, do: lang_info.name, else: lang_code),
+        flag: if(lang_info, do: lang_info.flag, else: ""),
+        status: status,
+        exists: file_exists
+      }
+    end)
+  end
 end

@@ -70,13 +70,13 @@
               <.input
                 field={f[:display_name]}
                 type="text"
-                placeholder={gettext("Blog Post")}
+                placeholder={gettext("Brand")}
                 phx-debounce="300"
                 disabled={@readonly?}
               />
               <.label class="label">
                 <span class="label-text-alt">
-                  {gettext("Singular form (e.g., \"Blog Post\")")}
+                  {gettext("Singular form (e.g., \"Brand\")")}
                 </span>
               </.label>
             </div>
@@ -89,13 +89,13 @@
               <.input
                 field={f[:display_name_plural]}
                 type="text"
-                placeholder={gettext("Blog Posts")}
+                placeholder={gettext("Brands")}
                 phx-debounce="300"
                 disabled={@readonly?}
               />
               <.label class="label">
                 <span class="label-text-alt">
-                  {gettext("Plural form (e.g., \"Blog Posts\")")}
+                  {gettext("Plural form (e.g., \"Brands\")")}
                 </span>
               </.label>
             </div>
@@ -117,7 +117,7 @@
               <.input
                 field={f[:name]}
                 type="text"
-                placeholder={gettext("blog_post")}
+                placeholder={gettext("brand")}
                 phx-debounce="300"
                 disabled={@readonly?}
               />
@@ -402,9 +402,7 @@
                   {gettext("Enable Public Form")}
                 </span>
                 <p class="text-xs text-base-content/60 mt-1">
-                  {gettext(
-                    "Allow this entity to be embedded as a form on public pages and blog posts"
-                  )}
+                  {gettext("Allow this entity to be embedded as a form on public pages")}
                 </p>
               </div>
             </label>
