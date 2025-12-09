@@ -344,6 +344,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     perform_save(socket)
   end
 
+  def handle_event("publish", _params, socket) do
+    # Update the form status to published and trigger a save
+    updated_form =
+      socket.assigns.form
+      |> Map.put("status", "published")
+
+    socket =
+      socket
+      |> assign(:form, updated_form)
+      |> assign(:has_pending_changes, true)
+
+    perform_save(socket)
+  end
+
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
   def handle_event("preview", _params, socket) do
@@ -631,6 +645,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             else: gettext("Post saved")
 
         form = post_form(post)
+        language = editor_language(socket.assigns)
 
         socket =
           socket
@@ -638,6 +653,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           |> assign_form_with_tracking(form)
           |> assign(:content, post.content)
           |> assign(:has_pending_changes, false)
+          |> assign(:public_url, build_public_url(post, language))
           |> push_event("changes-status", %{has_changes: false})
           |> maybe_update_current_path(old_path, post.path)
 
@@ -694,6 +710,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             else: success_message
 
         form = post_form(updated_post)
+        language = editor_language(socket.assigns)
 
         socket =
           socket
@@ -702,6 +719,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           |> assign(:content, updated_post.content)
           |> assign(:available_languages, updated_post.available_languages)
           |> assign(:has_pending_changes, false)
+          |> assign(:public_url, build_public_url(updated_post, language))
           |> assign(extra_assigns)
           |> push_event("changes-status", %{has_changes: false})
           |> push_patch(
@@ -1440,12 +1458,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       lang_info = Blogging.get_language_info(lang_code)
       file_exists = lang_code in available_languages
 
-      # Build the path for this language version
+      # Build the path for this language version (handle nil post_path for new posts)
       lang_path =
-        Path.join([
-          Path.dirname(post_path),
-          "#{lang_code}.phk"
-        ])
+        if post_path do
+          Path.join([
+            Path.dirname(post_path),
+            "#{lang_code}.phk"
+          ])
+        else
+          nil
+        end
 
       # For the current language, use the form status (real-time updates)
       # For other languages, read from disk
@@ -1454,7 +1476,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           lang_code == current_language && current_form_status != nil ->
             current_form_status
 
-          file_exists ->
+          file_exists && lang_path != nil ->
             case Blogging.read_post(blog_slug, lang_path) do
               {:ok, lang_post} -> lang_post.metadata.status
               _ -> nil

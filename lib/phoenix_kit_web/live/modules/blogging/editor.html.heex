@@ -317,13 +317,22 @@
             tabindex={if @has_pending_changes, do: "-1", else: "0"}
             title={
               if(@has_pending_changes,
-                do: "Save the post before viewing the public page",
-                else: "View this post on the public site"
+                do: gettext("Save the post before viewing the public page"),
+                else: gettext("View this post on the public site")
               )
             }
           >
-            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> {gettext("View Public")}
           </a>
+        <% else %>
+          <button
+            type="button"
+            class="btn btn-success btn-sm shadow-none"
+            phx-click="publish"
+            title={gettext("Publish this post")}
+          >
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> {gettext("Publish")}
+          </button>
         <% end %>
       </div>
     </div>

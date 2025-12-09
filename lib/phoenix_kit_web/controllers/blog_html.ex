@@ -96,6 +96,18 @@ defmodule PhoenixKitWeb.BlogHTML do
     |> Date.to_iso8601()
   end
 
+  def format_date_for_url(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.to_date()
+        |> Date.to_iso8601()
+
+      _ ->
+        "2025-01-01"
+    end
+  end
+
   def format_date_for_url(_), do: "2025-01-01"
 
   @doc """
@@ -107,6 +119,20 @@ defmodule PhoenixKitWeb.BlogHTML do
     |> Time.truncate(:second)
     |> Time.to_string()
     |> String.slice(0..4)
+  end
+
+  def format_time_for_url(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} ->
+        datetime
+        |> DateTime.to_time()
+        |> Time.truncate(:second)
+        |> Time.to_string()
+        |> String.slice(0..4)
+
+      _ ->
+        "00:00"
+    end
   end
 
   def format_time_for_url(_), do: "00:00"
