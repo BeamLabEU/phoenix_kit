@@ -526,17 +526,23 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   # Convert scheduled_at from user's local time to UTC when saving
   defp convert_scheduled_at_to_utc(post_params, user) do
     case Map.get(post_params, "scheduled_at") do
-      nil -> post_params
-      "" -> post_params
+      nil ->
+        post_params
+
+      "" ->
+        post_params
+
       local_time_str when is_binary(local_time_str) ->
         # datetime-local gives us "YYYY-MM-DDTHH:MM", need to add seconds
         case NaiveDateTime.from_iso8601(local_time_str <> ":00") do
           {:ok, naive_dt} ->
             utc_dt = shift_from_user_timezone(naive_dt, user)
             Map.put(post_params, "scheduled_at", utc_dt)
+
           _ ->
             post_params
         end
+
       _ ->
         # Already a DateTime, pass through
         post_params
@@ -552,6 +558,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         # Convert to UTC by subtracting the offset (local - offset = UTC)
         utc_naive = NaiveDateTime.add(naive_dt, -offset_hours * 3600, :second)
         DateTime.from_naive!(utc_naive, "Etc/UTC")
+
       _ ->
         DateTime.from_naive!(naive_dt, "Etc/UTC")
     end
@@ -565,6 +572,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
       {offset_hours, _} ->
         # Convert from UTC to local by adding the offset
         DateTime.add(datetime, offset_hours * 3600, :second)
+
       _ ->
         datetime
     end

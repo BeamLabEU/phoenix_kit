@@ -564,7 +564,9 @@
                 </div>
                 <.draggable_list
                   id="selected-columns-container"
-                  items={Enum.reject(@temp_selected_columns || @selected_columns, &(&1 == "actions"))}
+                  items={
+                    Enum.reject(@temp_selected_columns || @selected_columns, &(&1 == "actions"))
+                  }
                   item_id={fn col_id -> col_id end}
                   on_reorder="reorder_selected_columns"
                   layout={:list}

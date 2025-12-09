@@ -41,9 +41,7 @@ defmodule PhoenixKit.Posts.Workers.PublishScheduledPostsJob do
     {:ok, published_count} = Posts.process_scheduled_posts()
 
     if published_count > 0 do
-      Logger.info(
-        "PublishScheduledPostsJob: Successfully published #{published_count} post(s)"
-      )
+      Logger.info("PublishScheduledPostsJob: Successfully published #{published_count} post(s)")
     end
 
     :ok
