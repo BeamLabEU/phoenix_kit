@@ -1,3 +1,6 @@
+## 1.6.18 - 2025-12-09
+- Fix blogging editor issues and add publish button
+
 ## 1.6.17 - 2025-12-09
 - Fix blog language switcher and update entities module examples (Fix public blog language switcher to only show languages with actual published content, improve editor JS initialization, and replace blog post examples with brand examples in the entities module to avoid confusion.)
 
