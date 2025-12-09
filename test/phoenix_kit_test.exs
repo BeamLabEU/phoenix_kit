@@ -69,4 +69,10 @@ defmodule PhoenixKitTest do
       assert current >= 15
     end
   end
+
+  describe "Posts worker modules" do
+    test "PublishScheduledPostsJob worker is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Posts.Workers.PublishScheduledPostsJob)
+    end
+  end
 end

@@ -95,6 +95,10 @@ This will automatically:
     - [x] Full CRUD interfaces
     - [x] Settings management
   - [x] Pages Module
+  - [x] Posts Module
+    - [x] Scheduled publishing with timezone support
+  - [x] UI Components
+    - [x] [Draggable List](guides/draggable_list_component.md) - Drag-and-drop grid/list component
 
 ## 🛣️ Roadmap / Ideas / Feature requests
 
