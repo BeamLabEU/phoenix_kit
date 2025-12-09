@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   alias Phoenix.Component
   alias PhoenixKit.Posts
   alias PhoenixKit.Settings
-  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -482,7 +482,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   defp user_is_admin?(user) do
     # Check if user has admin or owner role
-    Scope.has_role?(user, ["owner", "admin"])
+    Roles.user_has_role_owner?(user) or Roles.user_has_role_admin?(user)
   end
 
   defp maybe_generate_slug(post_params) do

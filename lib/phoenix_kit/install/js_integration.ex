@@ -11,6 +11,9 @@ defmodule PhoenixKit.Install.JsIntegration do
   """
   use PhoenixKit.Install.IgniterCompat
 
+  # Mix functions only available at compile-time during installation
+  @dialyzer {:nowarn_function, fallback_phoenix_kit_assets_dir: 0}
+
   @phoenix_kit_js_marker "// PhoenixKit JS - DO NOT REMOVE"
   @phoenix_kit_import ~s|import "./vendor/phoenix_kit"|
 

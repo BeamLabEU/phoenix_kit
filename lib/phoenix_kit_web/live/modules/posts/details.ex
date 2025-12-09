@@ -23,7 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
 
   require Logger
 
-  alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Users.Roles
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Posts
@@ -228,7 +228,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   end
 
   defp user_is_admin?(user) do
-    Scope.has_role?(user, ["owner", "admin"])
+    Roles.user_has_role_owner?(user) or Roles.user_has_role_admin?(user)
   end
 
   defp can_edit_post?(user, post) do

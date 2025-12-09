@@ -11,6 +11,12 @@ defmodule PhoenixKit.Install.ObanConfig do
   """
   use PhoenixKit.Install.IgniterCompat
 
+  # Mix functions only available at compile-time during installation
+  @dialyzer {:nowarn_function, update_existing_oban_config: 3}
+  @dialyzer {:nowarn_function, ensure_posts_queue: 2}
+  @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
+  @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
+
   alias Igniter.Libs.Phoenix
   alias Igniter.Project.Application
   alias PhoenixKit.Install.IgniterHelpers
