@@ -27,6 +27,7 @@ defmodule PhoenixKitWeb.BlogController do
   - [] -> Invalid request (no blog specified)
   - [blog_slug] -> Blog listing
   - [blog_slug, post_slug] -> Slug mode post
+  - [blog_slug, date] -> Date-only timestamp (resolves to single post or first post)
   - [blog_slug, date, time] -> Timestamp mode post
   """
   def show(conn, %{"language" => language_param} = params) do
@@ -51,6 +52,9 @@ defmodule PhoenixKitWeb.BlogController do
 
             {:timestamp_post, blog_slug, date, time} ->
               render_post(conn, blog_slug, {:timestamp, date, time}, language)
+
+            {:date_only_post, blog_slug, date} ->
+              handle_date_only_url(conn, blog_slug, date, language)
 
             {:error, reason} ->
               handle_not_found(conn, reason)
@@ -81,6 +85,9 @@ defmodule PhoenixKitWeb.BlogController do
 
             {:timestamp_post, blog_slug, date, time} ->
               render_post(conn, blog_slug, {:timestamp, date, time}, language)
+
+            {:date_only_post, blog_slug, date} ->
+              handle_date_only_url(conn, blog_slug, date, language)
 
             {:error, reason} ->
               handle_not_found(conn, reason)
@@ -182,8 +189,15 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  defp parse_path([blog_slug, post_slug]) do
-    {:slug_post, blog_slug, post_slug}
+  defp parse_path([blog_slug, segment]) do
+    # Check if segment is a date (for date-only timestamp URLs)
+    # If it's a date, treat as date-only timestamp post
+    # Otherwise, treat as slug mode post
+    if date?(segment) do
+      {:date_only_post, blog_slug, segment}
+    else
+      {:slug_post, blog_slug, segment}
+    end
   end
 
   defp parse_path(_), do: {:error, :invalid_path}
@@ -297,6 +311,40 @@ defmodule PhoenixKitWeb.BlogController do
         log_404(conn, blog_slug, identifier, language, reason)
         handle_not_found(conn, reason)
     end
+  end
+
+  # Handles date-only URLs (e.g., /blog/2025-12-09)
+  # If only one post exists on that date, render it directly
+  # If multiple posts exist, redirect to the first one with time in URL
+  defp handle_date_only_url(conn, blog_slug, date, language) do
+    case fetch_blog(blog_slug) do
+      {:ok, _blog} ->
+        times = Storage.list_times_on_date(blog_slug, date)
+
+        case times do
+          [] ->
+            # No posts on this date
+            handle_not_found(conn, :post_not_found)
+
+          [single_time] ->
+            # Only one post - render it directly
+            render_post(conn, blog_slug, {:timestamp, date, single_time}, language)
+
+          [first_time | _rest] ->
+            # Multiple posts - redirect to first one with time in URL
+            canonical_language = get_canonical_url_language(language)
+            redirect_url = build_timestamp_url(blog_slug, date, first_time, canonical_language)
+            redirect(conn, to: redirect_url)
+        end
+
+      {:error, reason} ->
+        handle_not_found(conn, reason)
+    end
+  end
+
+  # Builds a timestamp URL with date and time
+  defp build_timestamp_url(blog_slug, date, time, language) do
+    BlogHTML.build_public_path_with_time(language, blog_slug, date, time)
   end
 
   # ============================================================================
@@ -712,14 +760,36 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  # Filter posts to only include those that have an EXACT language file
-  # This ensures when viewing en-CA listing, only posts with en-CA.phk file show
+  # Filter posts to only include those that have a matching language file
+  # Handles both exact matches and base code matches (e.g., "en" matches "en-US")
   defp filter_by_exact_language(posts, blog_slug, language) do
     Enum.filter(posts, fn post ->
-      # Check if this post has the exact language file
-      language in post.available_languages and
-        lang_published?(blog_slug, post, language)
+      # Find the matching language file (exact or base code match)
+      matching_language = find_matching_language(language, post.available_languages)
+
+      matching_language != nil and lang_published?(blog_slug, post, matching_language)
     end)
+  end
+
+  # Find a matching language in available languages
+  # Handles exact matches and base code matching
+  defp find_matching_language(language, available_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    cond do
+      # Direct match
+      language in available_languages ->
+        language
+
+      # Base code - find a dialect that matches
+      base_code?(language) ->
+        find_dialect_for_base_in_files(language, available_languages)
+
+      # Full dialect not found - try base code match
+      true ->
+        base = DialectMapper.extract_base(language)
+        find_dialect_for_base_in_files(base, available_languages)
+    end
   end
 
   defp default_blog_listing(language) do
