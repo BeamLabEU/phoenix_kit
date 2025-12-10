@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
 
   def mount(%{"blog" => blog_slug} = params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
@@ -49,6 +50,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   def handle_event("save", %{"blog" => params}, socket) do
     case Blogging.update_blog(socket.assigns.blog["slug"], params) do
       {:ok, updated_blog} ->
+        # Broadcast blog updated for live dashboard updates
+        BloggingPubSub.broadcast_blog_updated(updated_blog)
+
         updated_form =
           Component.to_form(
             %{"name" => updated_blog["name"], "slug" => updated_blog["slug"]},

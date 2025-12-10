@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
@@ -19,6 +20,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
+
+    # Subscribe to PubSub for live updates when connected
+    if connected?(socket) && blog_slug do
+      BloggingPubSub.subscribe_to_posts(blog_slug)
+    end
 
     # Load date/time format settings once for performance
     date_time_settings =
@@ -154,6 +160,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
             # Invalidate cache for this post
             invalidate_post_cache(socket.assigns.blog_slug, updated_post)
 
+            # Broadcast status change to other connected clients
+            BloggingPubSub.broadcast_post_status_changed(socket.assigns.blog_slug, updated_post)
+
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
@@ -191,7 +200,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         case Blogging.update_post(socket.assigns.blog_slug, post, %{"status" => new_status}, %{
                scope: scope
              }) do
-          {:ok, _updated_post} ->
+          {:ok, updated_post} ->
+            # Broadcast status change to other connected clients
+            BloggingPubSub.broadcast_post_status_changed(socket.assigns.blog_slug, updated_post)
+
             {:noreply,
              socket
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
@@ -206,6 +218,39 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Post not found"))}
+    end
+  end
+
+  # PubSub handlers for live updates
+  @impl true
+  def handle_info({:post_created, _post}, socket) do
+    # Refresh the posts list when a new post is created
+    {:noreply, refresh_posts(socket)}
+  end
+
+  def handle_info({:post_updated, _post}, socket) do
+    # Refresh the posts list when a post is updated
+    {:noreply, refresh_posts(socket)}
+  end
+
+  def handle_info({:post_status_changed, _post}, socket) do
+    # Refresh the posts list when a post status changes
+    {:noreply, refresh_posts(socket)}
+  end
+
+  def handle_info({:post_deleted, _post_path}, socket) do
+    # Refresh the posts list when a post is deleted
+    {:noreply, refresh_posts(socket)}
+  end
+
+  defp refresh_posts(socket) do
+    case socket.assigns.blog_slug do
+      nil ->
+        socket
+
+      blog_slug ->
+        posts = Blogging.list_posts(blog_slug, socket.assigns.current_locale)
+        assign(socket, :posts, posts)
     end
   end
 

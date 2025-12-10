@@ -1080,16 +1080,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Load blogging blogs configuration with legacy migration support
   defp load_blogging_blogs do
     if Blogging.enabled?() do
-      json_defaults = %{
-        "blogging_blogs" => nil,
-        "blogging_categories" => %{"types" => []}
+      json_settings = %{
+        "blogging_blogs" => PhoenixKit.Settings.get_json_setting_cached("blogging_blogs", nil),
+        "blogging_categories" =>
+          PhoenixKit.Settings.get_json_setting_cached("blogging_categories", %{"types" => []})
       }
-
-      json_settings =
-        PhoenixKit.Settings.get_json_settings_cached(
-          ["blogging_blogs", "blogging_categories"],
-          json_defaults
-        )
 
       extract_and_normalize_blogs(json_settings)
     else

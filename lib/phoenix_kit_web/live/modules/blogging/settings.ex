@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
 
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
@@ -35,6 +36,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
   def handle_event("remove_blog", %{"slug" => slug}, socket) do
     case Blogging.trash_blog(slug) do
       {:ok, trashed_name} ->
+        # Broadcast blog deleted for live dashboard updates
+        BloggingPubSub.broadcast_blog_deleted(slug)
+
         {:noreply,
          socket
          |> assign(:blogs, Blogging.list_blogs())
@@ -47,6 +51,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
         # Blog directory doesn't exist, just remove from config
         case Blogging.remove_blog(slug) do
           {:ok, _} ->
+            # Broadcast blog deleted for live dashboard updates
+            BloggingPubSub.broadcast_blog_deleted(slug)
+
             {:noreply,
              socket
              |> assign(:blogs, Blogging.list_blogs())

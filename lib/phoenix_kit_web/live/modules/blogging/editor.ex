@@ -12,6 +12,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
+  alias PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
@@ -20,6 +22,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
+
+    # Generate a unique source ID for this socket to prevent self-echoing
+    live_source =
+      socket.id ||
+        "blog-editor-" <> Base.url_encode64(:crypto.strong_rand_bytes(6), padding: false)
 
     socket =
       socket
@@ -34,6 +41,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:autosave_timer, nil)
       |> assign(:slug_manually_set, false)
       |> assign(:last_auto_slug, "")
+      # Collaborative editing assigns
+      |> assign(:live_source, live_source)
+      |> assign(:form_key, nil)
+      |> assign(:lock_owner?, true)
+      |> assign(:readonly?, false)
+      |> assign(:lock_owner_user, nil)
+      |> assign(:spectators, [])
+      |> assign(:other_viewers, [])
 
     {:ok, socket}
   end
@@ -69,6 +84,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     form = post_form(virtual_post)
 
+    # Generate form key for new post (for collaborative editing)
+    form_key = BloggingPubSub.generate_form_key(blog_slug, virtual_post, :new)
+
     socket =
       socket
       |> assign(:blog_mode, blog_mode)
@@ -88,7 +106,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
       |> assign(:public_url, nil)
+      |> assign(:form_key, form_key)
       |> push_event("changes-status", %{has_changes: false})
+
+    # Set up collaborative editing for new posts
+    socket = setup_collaborative_editing(socket, form_key)
 
     {:noreply, socket}
   end
@@ -103,7 +125,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         all_enabled_languages = Storage.enabled_language_codes()
         switch_to_lang = Map.get(params, "switch_to")
 
-        socket =
+        {socket, form_key} =
           if switch_to_lang && switch_to_lang not in post.available_languages do
             new_path =
               path
@@ -121,50 +143,63 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> Map.put(:slug, post.slug)
 
             form = post_form(virtual_post)
+            fk = BloggingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
-            socket
-            |> assign(:blog_mode, blog_mode)
-            |> assign(:post, virtual_post)
-            |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
-            |> assign_form_with_tracking(form, slug_manually_set: false)
-            |> assign(:content, "")
-            |> assign(:current_language, switch_to_lang)
-            |> assign(:available_languages, post.available_languages)
-            |> assign(:all_enabled_languages, all_enabled_languages)
-            |> assign(
-              :current_path,
-              Routes.path(
-                "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
-                locale: socket.assigns.current_locale
+            sock =
+              socket
+              |> assign(:blog_mode, blog_mode)
+              |> assign(:post, virtual_post)
+              |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
+              |> assign_form_with_tracking(form, slug_manually_set: false)
+              |> assign(:content, "")
+              |> assign(:current_language, switch_to_lang)
+              |> assign(:available_languages, post.available_languages)
+              |> assign(:all_enabled_languages, all_enabled_languages)
+              |> assign(
+                :current_path,
+                Routes.path(
+                  "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
+                  locale: socket.assigns.current_locale
+                )
               )
-            )
-            |> assign(:has_pending_changes, false)
-            |> assign(:is_new_translation, true)
-            |> assign(:original_post_path, path)
-            |> assign(:public_url, nil)
-            |> push_event("changes-status", %{has_changes: false})
+              |> assign(:has_pending_changes, false)
+              |> assign(:is_new_translation, true)
+              |> assign(:original_post_path, path)
+              |> assign(:public_url, nil)
+              |> assign(:form_key, fk)
+              |> push_event("changes-status", %{has_changes: false})
+
+            {sock, fk}
           else
             form = post_form(post)
+            fk = BloggingPubSub.generate_form_key(blog_slug, post, :edit)
 
-            socket
-            |> assign(:blog_mode, blog_mode)
-            |> assign(:post, %{post | blog: blog_slug})
-            |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
-            |> assign_form_with_tracking(form)
-            |> assign(:content, post.content)
-            |> assign(:current_language, post.language)
-            |> assign(:available_languages, post.available_languages)
-            |> assign(:all_enabled_languages, all_enabled_languages)
-            |> assign(
-              :current_path,
-              Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
-                locale: socket.assigns.current_locale
+            sock =
+              socket
+              |> assign(:blog_mode, blog_mode)
+              |> assign(:post, %{post | blog: blog_slug})
+              |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
+              |> assign_form_with_tracking(form)
+              |> assign(:content, post.content)
+              |> assign(:current_language, post.language)
+              |> assign(:available_languages, post.available_languages)
+              |> assign(:all_enabled_languages, all_enabled_languages)
+              |> assign(
+                :current_path,
+                Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
+                  locale: socket.assigns.current_locale
+                )
               )
-            )
-            |> assign(:has_pending_changes, false)
-            |> assign(:public_url, build_public_url(post, post.language))
-            |> push_event("changes-status", %{has_changes: false})
+              |> assign(:has_pending_changes, false)
+              |> assign(:public_url, build_public_url(post, post.language))
+              |> assign(:form_key, fk)
+              |> push_event("changes-status", %{has_changes: false})
+
+            {sock, fk}
           end
+
+        # Set up collaborative editing
+        socket = setup_collaborative_editing(socket, form_key)
 
         {:noreply, socket}
 
@@ -185,53 +220,58 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   @impl true
   def handle_event("update_meta", params, socket) do
-    params =
-      params
-      |> Map.drop(["_target"])
+    # Spectators cannot edit
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      params =
+        params
+        |> Map.drop(["_target"])
 
-    # No real-time validation - accept any input, validation happens on save
-    new_form =
-      socket.assigns.form
-      |> Map.merge(params)
-      |> normalize_form()
+      # No real-time validation - accept any input, validation happens on save
+      new_form =
+        socket.assigns.form
+        |> Map.merge(params)
+        |> normalize_form()
 
-    slug_manually_set =
-      if Map.has_key?(params, "slug") do
-        slug_value = Map.get(new_form, "slug", "")
-        slug_value != "" && slug_value != socket.assigns.last_auto_slug
-      else
-        socket.assigns.slug_manually_set
-      end
+      slug_manually_set =
+        if Map.has_key?(params, "slug") do
+          slug_value = Map.get(new_form, "slug", "")
+          slug_value != "" && slug_value != socket.assigns.last_auto_slug
+        else
+          socket.assigns.slug_manually_set
+        end
 
-    has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
+      has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
 
-    # Update public_url if status changed
-    updated_post = %{
-      socket.assigns.post
-      | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
-    }
+      # Update public_url if status changed
+      updated_post = %{
+        socket.assigns.post
+        | metadata: Map.merge(socket.assigns.post.metadata, %{status: new_form["status"]})
+      }
 
-    language = editor_language(socket.assigns)
-    public_url = build_public_url(updated_post, language)
+      language = editor_language(socket.assigns)
+      public_url = build_public_url(updated_post, language)
 
-    socket =
-      socket
-      |> assign(:form, new_form)
-      |> assign(:slug_manually_set, slug_manually_set)
-      |> assign(:has_pending_changes, has_changes)
-      |> assign(:public_url, public_url)
-      |> clear_flash()
-      |> push_event("changes-status", %{has_changes: has_changes})
-
-    # Trigger debounced autosave if changes detected
-    socket =
-      if has_changes do
-        schedule_autosave(socket)
-      else
+      socket =
         socket
-      end
+        |> assign(:form, new_form)
+        |> assign(:slug_manually_set, slug_manually_set)
+        |> assign(:has_pending_changes, has_changes)
+        |> assign(:public_url, public_url)
+        |> clear_flash()
+        |> push_event("changes-status", %{has_changes: has_changes})
 
-    {:noreply, socket}
+      # Trigger debounced autosave if changes detected
+      socket =
+        if has_changes do
+          schedule_autosave(socket)
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end
   end
 
   def handle_event("open_media_selector", _params, socket) do
@@ -311,33 +351,42 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_event("update_content", %{"content" => content}, socket) do
-    {socket, new_form, slug_events} = maybe_update_slug_from_content(socket, content)
+    # Spectators cannot edit
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      {socket, new_form, slug_events} = maybe_update_slug_from_content(socket, content)
 
-    has_changes = dirty?(socket.assigns.post, new_form, content)
+      has_changes = dirty?(socket.assigns.post, new_form, content)
 
-    socket =
-      socket
-      |> assign(:content, content)
-      |> assign(:form, new_form)
-      |> assign(:has_pending_changes, has_changes)
-      |> push_event("changes-status", %{has_changes: has_changes})
-
-    socket =
-      push_slug_events(socket, slug_events)
-
-    # Trigger debounced autosave if changes detected
-    socket =
-      if has_changes do
-        schedule_autosave(socket)
-      else
+      socket =
         socket
-      end
+        |> assign(:content, content)
+        |> assign(:form, new_form)
+        |> assign(:has_pending_changes, has_changes)
+        |> push_event("changes-status", %{has_changes: has_changes})
 
-    {:noreply, socket}
+      socket =
+        push_slug_events(socket, slug_events)
+
+      # Trigger debounced autosave if changes detected
+      socket =
+        if has_changes do
+          schedule_autosave(socket)
+        else
+          socket
+        end
+
+      {:noreply, socket}
+    end
   end
 
   def handle_event("save", _params, %{assigns: %{has_pending_changes: false}} = socket) do
     {:noreply, socket}
+  end
+
+  def handle_event("save", _params, %{assigns: %{readonly?: true}} = socket) do
+    {:noreply, put_flash(socket, :error, gettext("Cannot save - you are spectating"))}
   end
 
   def handle_event("save", _params, socket) do
@@ -551,6 +600,149 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   def handle_info({:editor_insert_component, _}, socket), do: {:noreply, socket}
   def handle_info({:editor_save_requested, _}, socket), do: {:noreply, socket}
 
+  # Handle save broadcasts from other users/tabs (last-save-wins sync)
+  def handle_info({:editor_saved, form_key, source}, socket) do
+    require Logger
+    Logger.debug("EDITOR_SAVED received: form_key=#{inspect(form_key)}, source=#{inspect(source)}, my_form_key=#{inspect(socket.assigns[:form_key])}, my_socket_id=#{inspect(socket.id)}")
+
+    cond do
+      # Ignore if no form_key set
+      socket.assigns.form_key == nil ->
+        Logger.debug("EDITOR_SAVED ignored: no form_key")
+        {:noreply, socket}
+
+      # Ignore if different form
+      form_key != socket.assigns.form_key ->
+        Logger.debug("EDITOR_SAVED ignored: different form_key")
+        {:noreply, socket}
+
+      # Ignore our own save broadcast
+      source == socket.id ->
+        Logger.debug("EDITOR_SAVED ignored: own broadcast")
+        {:noreply, socket}
+
+      # Another tab/user saved - reload from disk to get their changes
+      true ->
+        Logger.debug("EDITOR_SAVED: reloading from disk!")
+        socket = reload_post_from_disk(socket)
+        {:noreply, socket}
+    end
+  end
+
+  # Handle presence changes (users joining/leaving)
+  def handle_info(%Phoenix.Socket.Broadcast{event: "presence_diff"}, socket) do
+    if socket.assigns[:form_key] do
+      form_key = socket.assigns.form_key
+      was_owner = socket.assigns[:lock_owner?]
+
+      # Re-evaluate our role
+      socket = assign_editing_role(socket, form_key)
+
+      # If we were promoted from spectator to owner, we can now edit
+      if !was_owner && socket.assigns[:lock_owner?] do
+        # Reload the post from disk to get fresh state
+        socket =
+          case Blogging.read_post(socket.assigns.blog_slug, socket.assigns.post.path) do
+            {:ok, post} ->
+              form = post_form(post)
+
+              socket
+              |> assign(:post, %{post | blog: socket.assigns.blog_slug})
+              |> assign_form_with_tracking(form)
+              |> assign(:content, post.content)
+              |> assign(:has_pending_changes, false)
+              |> push_event("changes-status", %{has_changes: false})
+
+            {:error, _} ->
+              socket
+          end
+
+        {:noreply, socket}
+      else
+        {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle sync requests from new spectators
+  def handle_info({:editor_sync_request, form_key, requester_socket_id}, socket) do
+    if socket.assigns[:form_key] == form_key && socket.assigns[:lock_owner?] do
+      # Send current state to the requester
+      state = %{
+        form: socket.assigns.form,
+        content: socket.assigns.content
+      }
+
+      BloggingPubSub.broadcast_editor_sync_response(form_key, requester_socket_id, state)
+    end
+
+    {:noreply, socket}
+  end
+
+  # Handle sync responses (when we're a new spectator)
+  def handle_info({:editor_sync_response, form_key, requester_socket_id, state}, socket) do
+    if socket.assigns[:form_key] == form_key &&
+         requester_socket_id == socket.id &&
+         socket.assigns.readonly? do
+      socket = apply_remote_form_state(socket, state)
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle translation created events (update language selector in real-time)
+  def handle_info({:translation_created, blog_slug, post_slug, language}, socket) do
+    # Only update if this is the same post
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      # Refresh available languages by re-reading the post's languages from disk
+      case Blogging.read_post(blog_slug, socket.assigns.post.path) do
+        {:ok, updated_post} ->
+          socket =
+            socket
+            |> assign(:available_languages, updated_post.available_languages)
+            |> assign(:post, Map.put(socket.assigns.post, :available_languages, updated_post.available_languages))
+
+          {:noreply, socket}
+
+        {:error, _} ->
+          # If we can't read (e.g., file deleted), just add the language to available list
+          available = socket.assigns[:available_languages] || []
+
+          if language not in available do
+            {:noreply, assign(socket, :available_languages, available ++ [language])}
+          else
+            {:noreply, socket}
+          end
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle translation deleted events
+  def handle_info({:translation_deleted, blog_slug, post_slug, language}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      available = socket.assigns[:available_languages] || []
+      updated_available = List.delete(available, language)
+
+      socket =
+        socket
+        |> assign(:available_languages, updated_available)
+        |> assign(:post, Map.put(socket.assigns.post, :available_languages, updated_available))
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
     alias PhoenixKit.Storage.URLSigner
@@ -617,12 +809,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     case Blogging.create_post(socket.assigns.blog_slug, create_opts) do
       {:ok, new_post} ->
-        handle_post_update_result(
-          socket,
-          Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}),
-          gettext("Post created and saved"),
-          %{is_new_post: false}
-        )
+        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
+          {:ok, updated_post} = result ->
+            BloggingPubSub.broadcast_post_created(socket.assigns.blog_slug, updated_post)
+
+            handle_post_update_result(socket, result, gettext("Post created and saved"), %{
+              is_new_post: false
+            })
+
+          error ->
+            handle_post_update_result(socket, error, gettext("Post created and saved"), %{
+              is_new_post: false
+            })
+        end
 
       {:error, error} ->
         handle_post_creation_error(socket, error, gettext("Failed to create post"))
@@ -648,12 +847,30 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
            socket.assigns.current_language
          ) do
       {:ok, new_post} ->
-        handle_post_update_result(
-          socket,
-          Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}),
-          gettext("Translation created and saved"),
-          %{is_new_translation: false, original_post_path: nil}
-        )
+        case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
+          {:ok, updated_post} = result ->
+            BloggingPubSub.broadcast_post_updated(socket.assigns.blog_slug, updated_post)
+
+            # Broadcast translation created so other editors of the same post update their language selector
+            if updated_post.slug do
+              BloggingPubSub.broadcast_translation_created(
+                socket.assigns.blog_slug,
+                updated_post.slug,
+                socket.assigns.current_language
+              )
+            end
+
+            handle_post_update_result(socket, result, gettext("Translation created and saved"), %{
+              is_new_translation: false,
+              original_post_path: nil
+            })
+
+          error ->
+            handle_post_update_result(socket, error, gettext("Translation created and saved"), %{
+              is_new_translation: false,
+              original_post_path: nil
+            })
+        end
 
       {:error, _reason} ->
         {:noreply, put_flash(socket, :error, gettext("Failed to create translation file"))}
@@ -671,6 +888,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       {:ok, post} ->
         # Invalidate cache for this post
         invalidate_post_cache(socket.assigns.blog_slug, post)
+
+        # Broadcast the update to other connected clients (for post list refresh)
+        BloggingPubSub.broadcast_post_updated(socket.assigns.blog_slug, post)
+
+        # Broadcast save to other tabs/users so they can reload (for editor sync)
+        if socket.assigns[:form_key] do
+          require Logger
+          Logger.debug("BROADCASTING editor_saved from update_existing_post: form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}")
+          BloggingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
+        end
 
         flash_message =
           if socket.assigns.is_autosaving,
@@ -734,6 +961,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       {:ok, updated_post} ->
         # Invalidate cache for the post
         invalidate_post_cache(socket.assigns.blog_slug, updated_post)
+
+        # Broadcast save to other tabs/users so they can reload
+        if socket.assigns[:form_key] do
+          require Logger
+          Logger.debug("BROADCASTING editor_saved: form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}")
+          BloggingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
+        end
 
         flash_message =
           if socket.assigns.is_autosaving,
@@ -960,6 +1194,52 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   defp sanitize_featured_image_id(_), do: nil
+
+  @doc """
+  Builds language data for the blog_language_switcher component in the editor.
+  Returns a list of language maps with status, exists flag, and code.
+  """
+  def build_editor_languages(post, blog_slug, enabled_languages, current_language) do
+    # Use shared ordering function for consistent display across all views
+    all_languages =
+      Storage.order_languages_for_display(post.available_languages || [], enabled_languages)
+
+    Enum.map(all_languages, fn lang_code ->
+      lang_info = Blogging.get_language_info(lang_code)
+      file_exists = lang_code in (post.available_languages || [])
+      is_current = lang_code == current_language
+
+      # Read language-specific metadata for status
+      status =
+        if file_exists do
+          lang_path =
+            Path.join([
+              Path.dirname(post.path || ""),
+              "#{lang_code}.phk"
+            ])
+
+          case Blogging.read_post(blog_slug, lang_path) do
+            {:ok, lang_post} -> lang_post.metadata.status
+            _ -> nil
+          end
+        else
+          nil
+        end
+
+      # Get display code (base or full dialect depending on enabled languages)
+      display_code = Storage.get_display_code(lang_code, enabled_languages)
+
+      %{
+        code: lang_code,
+        display_code: display_code,
+        name: if(lang_info, do: lang_info.name, else: lang_code),
+        flag: if(lang_info, do: lang_info.flag, else: ""),
+        status: status,
+        exists: file_exists,
+        is_current: is_current
+      }
+    end)
+  end
 
   defp build_preview_payload(socket) do
     form = socket.assigns.form || %{}
@@ -1462,5 +1742,177 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     socket
     |> assign(:current_path, path)
     |> push_patch(to: path)
+  end
+
+  # ============================================================================
+  # Collaborative Editing
+  # ============================================================================
+
+  defp setup_collaborative_editing(socket, form_key) do
+    current_user = socket.assigns[:phoenix_kit_current_user]
+
+    if connected?(socket) && form_key && current_user do
+      # Try to set up collaborative editing, but gracefully handle failures
+      # (e.g., Presence module not started yet due to supervisor ordering)
+      try do
+        # Track this user in Presence
+        {:ok, _ref} = PresenceHelpers.track_editing_session(form_key, socket, current_user)
+
+        # Subscribe to presence changes and form events
+        PresenceHelpers.subscribe_to_editing(form_key)
+        BloggingPubSub.subscribe_to_editor_form(form_key)
+
+        # Subscribe to translation changes for this post (so language selector updates live)
+        if post_slug = socket.assigns[:post] && socket.assigns.post[:slug] do
+          BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+        end
+
+        # Determine our role (owner or spectator)
+        socket = assign_editing_role(socket, form_key)
+
+        # Load spectator state if we're not the owner
+        if socket.assigns.readonly? do
+          load_spectator_state(socket, form_key)
+        else
+          socket
+        end
+      rescue
+        ArgumentError ->
+          # Presence module not started - fall back to single-user mode
+          require Logger
+
+          Logger.warning(
+            "Blogging Presence not available - collaborative editing disabled. " <>
+              "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"
+          )
+
+          socket
+          |> assign(:lock_owner?, true)
+          |> assign(:readonly?, false)
+          |> assign(:lock_owner_user, nil)
+          |> assign(:spectators, [])
+          |> assign(:other_viewers, [])
+      end
+    else
+      # Not connected or no form key - default to owner mode
+      socket
+      |> assign(:lock_owner?, true)
+      |> assign(:readonly?, false)
+      |> assign(:lock_owner_user, nil)
+      |> assign(:spectators, [])
+      |> assign(:other_viewers, [])
+    end
+  end
+
+  defp assign_editing_role(socket, form_key) do
+    current_user = socket.assigns[:phoenix_kit_current_user]
+
+    case PresenceHelpers.get_editing_role(form_key, socket.id, current_user.id) do
+      {:owner, _presences} ->
+        # I'm the owner - I can edit
+        socket
+        |> assign(:lock_owner?, true)
+        |> assign(:readonly?, false)
+        |> populate_presence_info(form_key)
+
+      {:spectator, _owner_meta, _presences} ->
+        # Different user is the owner - I'm read-only
+        socket
+        |> assign(:lock_owner?, false)
+        |> assign(:readonly?, true)
+        |> populate_presence_info(form_key)
+    end
+  end
+
+  defp populate_presence_info(socket, form_key) do
+    presences = PresenceHelpers.get_sorted_presences(form_key)
+    my_user_id = socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.id
+
+    {lock_owner_user, spectators, other_viewers} =
+      case presences do
+        [] ->
+          {nil, [], []}
+
+        [{_owner_socket_id, owner_meta} | spectator_list] ->
+          spectators =
+            Enum.map(spectator_list, fn {_socket_id, meta} ->
+              %{
+                user: meta.user,
+                user_id: meta.user_id,
+                user_email: meta.user_email
+              }
+            end)
+
+          # Other viewers = all presences from OTHER users (not just other sockets)
+          # This prevents showing your own stale sockets during page refresh
+          other_viewers =
+            presences
+            |> Enum.reject(fn {_socket_id, meta} -> meta.user_id == my_user_id end)
+            |> Enum.map(fn {_socket_id, meta} ->
+              %{
+                user: meta.user,
+                user_id: meta.user_id,
+                user_email: meta.user_email
+              }
+            end)
+            |> Enum.uniq_by(& &1.user_id)
+
+          {owner_meta.user, spectators, other_viewers}
+      end
+
+    socket
+    |> assign(:lock_owner_user, lock_owner_user)
+    |> assign(:spectators, spectators)
+    |> assign(:other_viewers, other_viewers)
+  end
+
+  defp load_spectator_state(socket, form_key) do
+    # Owner might have unsaved changes - sync from their Presence metadata
+    case PresenceHelpers.get_lock_owner(form_key) do
+      %{form_state: form_state} when not is_nil(form_state) ->
+        apply_remote_form_state(socket, form_state)
+
+      _ ->
+        # No form state to sync
+        socket
+    end
+  end
+
+  defp apply_remote_form_state(socket, form_state) do
+    form = Map.get(form_state, :form) || Map.get(form_state, "form") || socket.assigns.form
+
+    content =
+      Map.get(form_state, :content) || Map.get(form_state, "content") || socket.assigns.content
+
+    socket
+    |> assign(:form, form)
+    |> assign(:content, content)
+    |> assign(:has_pending_changes, true)
+  end
+
+  # Reload post from disk when another tab/user saves (last-save-wins)
+  defp reload_post_from_disk(socket) do
+    blog_slug = socket.assigns.blog_slug
+    post_path = socket.assigns.post.path
+
+    case Blogging.read_post(blog_slug, post_path) do
+      {:ok, updated_post} ->
+        form = post_form(updated_post)
+
+        socket
+        |> assign(:post, %{updated_post | blog: blog_slug})
+        |> assign_form_with_tracking(form)
+        |> assign(:content, updated_post.content)
+        |> assign(:available_languages, updated_post.available_languages)
+        |> assign(:has_pending_changes, false)
+        |> push_event("changes-status", %{has_changes: false})
+        |> push_event("set-content", %{content: updated_post.content})
+        |> put_flash(:info, gettext("Post updated by another user"))
+
+      {:error, _reason} ->
+        # File might have been deleted or moved
+        socket
+        |> put_flash(:warning, gettext("Could not reload post - it may have been moved or deleted"))
+    end
   end
 end
