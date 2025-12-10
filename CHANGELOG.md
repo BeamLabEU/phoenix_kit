@@ -1,3 +1,12 @@
+## 1.6.19 - 2025-12-09
+- Add smart timestamp URL handling for blog posts
+
+## 1.6.18 - 2025-12-09
+- Fix blogging editor issues and add publish button
+
+## 1.6.17 - 2025-12-09
+- Fix blog language switcher and update entities module examples (Fix public blog language switcher to only show languages with actual published content, improve editor JS initialization, and replace blog post examples with brand examples in the entities module to avoid confusion.)
+
 ## 1.6.16 - 2025-12-07
 - Move path functions to the corresponding module
 - Improve blog language switcher UI and URL handling

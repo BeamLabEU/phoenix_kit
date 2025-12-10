@@ -7,9 +7,9 @@ defmodule PhoenixKit.Entities do
 
   ## Schema Fields
 
-  - `name`: Unique identifier for the entity (e.g., "blog_post", "product")
-  - `display_name`: Human-readable singular name shown in UI (e.g., "Blog Post")
-  - `display_name_plural`: Human-readable plural name (e.g., "Blog Posts")
+  - `name`: Unique identifier for the entity (e.g., "brand", "product")
+  - `display_name`: Human-readable singular name shown in UI (e.g., "Brand")
+  - `display_name_plural`: Human-readable plural name (e.g., "Brands")
   - `description`: Description of what this entity represents
   - `icon`: Icon identifier for UI display (hero icons)
   - `status`: Workflow status string - one of "draft", "published", or "archived"
@@ -57,28 +57,28 @@ defmodule PhoenixKit.Entities do
         # System is active
       end
 
-      # Create a blog post entity
+      # Create a brand entity
       # Note: fields_definition requires string keys, not atom keys
       {:ok, entity} = PhoenixKit.Entities.create_entity(%{
-        name: "blog_post",
-        display_name: "Blog Post",
-        display_name_plural: "Blog Posts",
-        description: "Blog post content type",
-        icon: "hero-document-text",
+        name: "brand",
+        display_name: "Brand",
+        display_name_plural: "Brands",
+        description: "Brand content type for company profiles",
+        icon: "hero-building-office",
         created_by: admin_user.id,
         fields_definition: [
-          %{"type" => "text", "key" => "title", "label" => "Title", "required" => true},
-          %{"type" => "textarea", "key" => "excerpt", "label" => "Excerpt"},
-          %{"type" => "rich_text", "key" => "content", "label" => "Content", "required" => true},
-          %{"type" => "select", "key" => "category", "label" => "Category",
-            "options" => ["Tech", "Business", "Lifestyle"]},
-          %{"type" => "date", "key" => "publish_date", "label" => "Publish Date"},
-          %{"type" => "boolean", "key" => "featured", "label" => "Featured Post"}
+          %{"type" => "text", "key" => "name", "label" => "Name", "required" => true},
+          %{"type" => "textarea", "key" => "tagline", "label" => "Tagline"},
+          %{"type" => "rich_text", "key" => "description", "label" => "Description", "required" => true},
+          %{"type" => "select", "key" => "industry", "label" => "Industry",
+            "options" => ["Technology", "Manufacturing", "Retail"]},
+          %{"type" => "date", "key" => "founded_date", "label" => "Founded Date"},
+          %{"type" => "boolean", "key" => "featured", "label" => "Featured Brand"}
         ]
       })
 
       # Get entity by name
-      entity = PhoenixKit.Entities.get_entity_by_name("blog_post")
+      entity = PhoenixKit.Entities.get_entity_by_name("brand")
 
       # List all active entities
       entities = PhoenixKit.Entities.list_active_entities()
@@ -333,7 +333,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_entity_by_name("blog_post")
+      iex> PhoenixKit.Entities.get_entity_by_name("brand")
       %PhoenixKit.Entities{}
 
       iex> PhoenixKit.Entities.get_entity_by_name("invalid")
@@ -348,7 +348,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.create_entity(%{name: "blog_post", display_name: "Blog Post"})
+      iex> PhoenixKit.Entities.create_entity(%{name: "brand", display_name: "Brand"})
       {:ok, %PhoenixKit.Entities{}}
 
       iex> PhoenixKit.Entities.create_entity(%{name: ""})

@@ -121,6 +121,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Accordion
       import PhoenixKitWeb.Components.Core.FileUpload
       import PhoenixKitWeb.Components.Core.LanguageSwitcher
+      import PhoenixKitWeb.Components.Core.BlogLanguageSwitcher
     end
   end
 
