@@ -624,6 +624,39 @@ defmodule PhoenixKit.Emails.Templates do
           "user_email" => "User's email address",
           "update_url" => "URL for email update confirmation"
         }
+      },
+      %{
+        name: "billing_invoice",
+        slug: "billing-invoice",
+        display_name: "Billing Invoice",
+        description: "Invoice email sent to customers for payment",
+        subject: "Invoice {{invoice_number}} - {{company_name}}",
+        html_body: billing_invoice_html_template(),
+        text_body: billing_invoice_text_template(),
+        category: "transactional",
+        status: "active",
+        is_system: true,
+        variables: %{
+          "user_email" => "Customer's email address",
+          "user_name" => "Customer's name",
+          "invoice_number" => "Invoice number",
+          "invoice_date" => "Invoice date",
+          "due_date" => "Payment due date",
+          "subtotal" => "Subtotal amount",
+          "tax_amount" => "Tax amount",
+          "total" => "Total amount",
+          "currency" => "Currency code",
+          "line_items_html" => "HTML table of line items",
+          "line_items_text" => "Text list of line items",
+          "company_name" => "Company name",
+          "company_address" => "Company address",
+          "company_vat" => "Company VAT number",
+          "bank_name" => "Bank name",
+          "bank_iban" => "Bank IBAN",
+          "bank_swift" => "Bank SWIFT/BIC",
+          "payment_terms" => "Payment terms",
+          "invoice_url" => "URL to view invoice online"
+        }
       }
     ]
 
@@ -1111,6 +1144,213 @@ defmodule PhoenixKit.Emails.Templates do
     If you didn't request this change, please ignore this.
 
     ==============================
+    """
+  end
+
+  @doc """
+  Returns the HTML template for billing invoice emails.
+  """
+  def billing_invoice_html_template do
+    """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Invoice {{invoice_number}}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f8f9fa; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: white; padding: 30px; }
+        .header h1 { margin: 0 0 10px 0; font-size: 28px; }
+        .header .invoice-number { font-size: 18px; opacity: 0.9; }
+        .content { padding: 30px; }
+        .invoice-meta { display: flex; justify-content: space-between; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+        .invoice-meta .column { flex: 1; }
+        .invoice-meta h3 { margin: 0 0 10px 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .invoice-meta p { margin: 0; line-height: 1.8; }
+        .line-items { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .line-items th { background: #f3f4f6; padding: 12px 15px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #e5e7eb; }
+        .line-items td { padding: 12px 15px; border-bottom: 1px solid #e5e7eb; }
+        .line-items .text-right { text-align: right; }
+        .line-items .item-name { font-weight: 500; }
+        .line-items .item-desc { font-size: 13px; color: #6b7280; }
+        .totals { margin-top: 20px; }
+        .totals-table { width: 300px; margin-left: auto; }
+        .totals-table td { padding: 8px 15px; }
+        .totals-table .label { text-align: right; color: #6b7280; }
+        .totals-table .value { text-align: right; font-weight: 500; }
+        .totals-table .total-row { font-size: 18px; font-weight: 700; border-top: 2px solid #1e3a5f; }
+        .totals-table .total-row td { padding-top: 15px; color: #1e3a5f; }
+        .bank-details { background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 8px; padding: 20px; margin: 30px 0; }
+        .bank-details h3 { margin: 0 0 15px 0; color: #0369a1; }
+        .bank-details table { width: 100%; }
+        .bank-details td { padding: 5px 0; }
+        .bank-details .label { color: #6b7280; width: 120px; }
+        .bank-details .value { font-family: monospace; font-weight: 500; }
+        .due-date-box { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 15px 20px; margin: 20px 0; text-align: center; }
+        .due-date-box strong { color: #b45309; }
+        .button { display: inline-block; padding: 14px 28px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+        .button:hover { background-color: #1d4ed8; }
+        .footer { background: #f8f9fa; padding: 20px 30px; font-size: 13px; color: #6b7280; border-top: 1px solid #e5e7eb; }
+        .footer .company-info { margin-bottom: 15px; }
+        .footer .company-name { font-weight: 600; color: #374151; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>INVOICE</h1>
+          <div class="invoice-number">{{invoice_number}}</div>
+        </div>
+
+        <div class="content">
+          <div class="invoice-meta">
+            <div class="column">
+              <h3>Bill To</h3>
+              <p>
+                <strong>{{user_name}}</strong><br>
+                {{user_email}}
+              </p>
+            </div>
+            <div class="column" style="text-align: right;">
+              <h3>Invoice Details</h3>
+              <p>
+                <strong>Date:</strong> {{invoice_date}}<br>
+                <strong>Due Date:</strong> {{due_date}}<br>
+                <strong>Currency:</strong> {{currency}}
+              </p>
+            </div>
+          </div>
+
+          <table class="line-items">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th class="text-right">Qty</th>
+                <th class="text-right">Unit Price</th>
+                <th class="text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {{line_items_html}}
+            </tbody>
+          </table>
+
+          <div class="totals">
+            <table class="totals-table">
+              <tr>
+                <td class="label">Subtotal:</td>
+                <td class="value">{{subtotal}} {{currency}}</td>
+              </tr>
+              <tr>
+                <td class="label">Tax:</td>
+                <td class="value">{{tax_amount}} {{currency}}</td>
+              </tr>
+              <tr class="total-row">
+                <td class="label">Total:</td>
+                <td class="value">{{total}} {{currency}}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="due-date-box">
+            <strong>Payment Due: {{due_date}}</strong><br>
+            {{payment_terms}}
+          </div>
+
+          <div class="bank-details">
+            <h3>💳 Bank Transfer Details</h3>
+            <table>
+              <tr>
+                <td class="label">Bank:</td>
+                <td class="value">{{bank_name}}</td>
+              </tr>
+              <tr>
+                <td class="label">IBAN:</td>
+                <td class="value">{{bank_iban}}</td>
+              </tr>
+              <tr>
+                <td class="label">SWIFT/BIC:</td>
+                <td class="value">{{bank_swift}}</td>
+              </tr>
+              <tr>
+                <td class="label">Reference:</td>
+                <td class="value">{{invoice_number}}</td>
+              </tr>
+            </table>
+          </div>
+
+          <p style="text-align: center;">
+            <a href="{{invoice_url}}" class="button">View Invoice Online</a>
+          </p>
+        </div>
+
+        <div class="footer">
+          <div class="company-info">
+            <span class="company-name">{{company_name}}</span><br>
+            {{company_address}}<br>
+            VAT: {{company_vat}}
+          </div>
+          <p>If you have any questions about this invoice, please contact us.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+  end
+
+  @doc """
+  Returns the text template for billing invoice emails.
+  """
+  def billing_invoice_text_template do
+    """
+    =============================================
+    INVOICE {{invoice_number}}
+    =============================================
+
+    Bill To: {{user_name}}
+    Email: {{user_email}}
+
+    Invoice Date: {{invoice_date}}
+    Due Date: {{due_date}}
+    Currency: {{currency}}
+
+    ---------------------------------------------
+    LINE ITEMS
+    ---------------------------------------------
+    {{line_items_text}}
+
+    ---------------------------------------------
+    SUMMARY
+    ---------------------------------------------
+    Subtotal:    {{subtotal}} {{currency}}
+    Tax:         {{tax_amount}} {{currency}}
+    ---------------------------------------------
+    TOTAL:       {{total}} {{currency}}
+    ---------------------------------------------
+
+    PAYMENT DUE: {{due_date}}
+    {{payment_terms}}
+
+    ---------------------------------------------
+    BANK TRANSFER DETAILS
+    ---------------------------------------------
+    Bank:        {{bank_name}}
+    IBAN:        {{bank_iban}}
+    SWIFT/BIC:   {{bank_swift}}
+    Reference:   {{invoice_number}}
+
+    ---------------------------------------------
+    View invoice online: {{invoice_url}}
+
+    =============================================
+    {{company_name}}
+    {{company_address}}
+    VAT: {{company_vat}}
+    =============================================
+
+    If you have any questions about this invoice, please contact us.
     """
   end
 end

@@ -1,0 +1,177 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Billing Profiles"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <h1 class="text-3xl font-bold">Billing Profiles</h1>
+          <p class="text-base-content/60 mt-1">{@total_count} total profiles</p>
+        </div>
+      </div>
+      <button phx-click="refresh" class="btn btn-ghost btn-sm">
+        <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
+      </button>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="card bg-base-100 shadow mb-6">
+      <div class="card-body py-4">
+        <form phx-change="filter" phx-submit="filter" class="flex flex-wrap gap-4 items-end">
+          <div class="form-control flex-1 min-w-[200px]">
+            <label class="label">
+              <span class="label-text">Search</span>
+            </label>
+            <input
+              type="text"
+              name="search"
+              value={@search}
+              placeholder="Name, email, company..."
+              class="input input-bordered input-sm"
+              phx-debounce="300"
+            />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Type</span>
+            </label>
+            <select name="type" class="select select-bordered select-sm">
+              <option value="all" selected={@type_filter == "all"}>All Types</option>
+              <option value="individual" selected={@type_filter == "individual"}>
+                Individual
+              </option>
+              <option value="company" selected={@type_filter == "company"}>Company</option>
+            </select>
+          </div>
+
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            Clear Filters
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <%!-- Profiles Table --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-0">
+        <%= if @loading do %>
+          <div class="flex justify-center items-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+          </div>
+        <% else %>
+          <%= if Enum.empty?(@profiles) do %>
+            <div class="text-center py-12">
+              <.icon name="hero-user-circle" class="w-16 h-16 mx-auto mb-4 text-base-content/30" />
+              <h3 class="text-xl font-semibold mb-2">No billing profiles found</h3>
+              <p class="text-base-content/60">
+                <%= if @search != "" or @type_filter != "all" do %>
+                  Try adjusting your filters or search terms
+                <% else %>
+                  Billing profiles are created by users
+                <% end %>
+              </p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th>Name / Company</th>
+                    <th>Location</th>
+                    <th>Default</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for profile <- @profiles do %>
+                    <tr class="hover">
+                      <td>
+                        <%= if profile.user do %>
+                          <div class="flex items-center gap-2">
+                            <div class="avatar placeholder">
+                              <div class="bg-neutral text-neutral-content rounded-full w-8">
+                                <span class="text-xs">
+                                  {String.first(profile.user.email) |> String.upcase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div class="text-sm">{profile.user.email}</div>
+                          </div>
+                        <% else %>
+                          <span class="text-base-content/50">-</span>
+                        <% end %>
+                      </td>
+                      <td>
+                        <span class={"badge badge-sm #{if profile.type == "company", do: "badge-primary", else: "badge-secondary"}"}>
+                          {String.capitalize(profile.type)}
+                        </span>
+                      </td>
+                      <td>
+                        <%= if profile.type == "company" do %>
+                          <div class="font-medium">{profile.company_name}</div>
+                          <%= if profile.company_vat_number do %>
+                            <div class="text-xs text-base-content/60">
+                              VAT: {profile.company_vat_number}
+                            </div>
+                          <% end %>
+                        <% else %>
+                          <div class="font-medium">
+                            {profile.first_name} {profile.last_name}
+                          </div>
+                          <%= if profile.email do %>
+                            <div class="text-xs text-base-content/60">{profile.email}</div>
+                          <% end %>
+                        <% end %>
+                      </td>
+                      <td class="text-sm text-base-content/60">
+                        <%= if profile.city do %>
+                          {profile.city}, {profile.country}
+                        <% else %>
+                          {profile.country || "-"}
+                        <% end %>
+                      </td>
+                      <td>
+                        <%= if profile.is_default do %>
+                          <span class="badge badge-success badge-sm">Default</span>
+                        <% end %>
+                      </td>
+                      <td class="text-sm text-base-content/60">
+                        <.time_ago datetime={profile.inserted_at} />
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+
+            <%!-- Pagination --%>
+            <%= if @total_pages > 1 do %>
+              <div class="flex justify-center py-4">
+                <.pagination
+                  current_page={@page}
+                  total_pages={@total_pages}
+                  base_path={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
+                  params={%{"search" => @search, "type" => @type_filter}}
+                />
+              </div>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -180,7 +180,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Preserves file_checksum field for popularity analytics across all users
   - Clearer naming convention: file_checksum vs user_file_checksum
 
-  ### V27 - Oban Background Job System ⚡ LATEST
+  ### V27 - Oban Background Job System
   - Creates Oban tables for background job processing
   - Oban_jobs table for job queue management
   - Oban_peers table for distributed coordination
@@ -189,6 +189,20 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Enables email processing (sending, tracking, analytics)
   - Uses Oban's latest schema version automatically (forward-compatible)
   - Integrated with PhoenixKit configuration system
+
+  ### V28 - User Preferred Locale
+  - Adds `preferred_locale` column to `phoenix_kit_users` table
+  - Supports user-specific language dialect preferences
+  - Enables simplified URL structure with dialect preferences
+
+  ### V29 - Billing System (Phase 1) ⚡ LATEST
+  - Phoenix_kit_currencies for multi-currency support
+  - Phoenix_kit_billing_profiles for user billing information (EU Standard)
+  - Phoenix_kit_orders for order management with line items
+  - Phoenix_kit_invoices for invoice generation with receipt functionality
+  - Bank transfer payment workflow (manual payment marking)
+  - Default currencies seeding (EUR, USD, GBP)
+  - Billing settings for prefixes and configuration
 
   ## Migration Paths
 
@@ -248,7 +262,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 28
+  @current_version 29
   @default_prefix "public"
 
   @doc false

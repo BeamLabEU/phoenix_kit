@@ -126,6 +126,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-ticket" class="w-5 h-5" />
         <% "email" -> %>
           <.icon name="hero-envelope" class="w-5 h-5" />
+        <% "billing" -> %>
+          <.icon name="hero-banknotes" class="w-5 h-5" />
         <% "entities" -> %>
           <.icon name="hero-cube" class="w-5 h-5" />
         <% "language" -> %>

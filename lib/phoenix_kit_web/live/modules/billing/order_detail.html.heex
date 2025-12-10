@@ -1,0 +1,362 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Order {@order.order_number}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold font-mono">{@order.order_number}</h1>
+            <.order_status_badge status={@order.status} size={:md} />
+          </div>
+          <p class="text-base-content/60 mt-1">
+            Created <.time_ago datetime={@order.inserted_at} />
+          </p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <%= case @order.status do %>
+          <% "draft" -> %>
+            <button phx-click="confirm_order" class="btn btn-info btn-sm">
+              <.icon name="hero-check" class="w-4 h-4" /> Confirm Order
+            </button>
+            <button phx-click="generate_invoice" class="btn btn-outline btn-sm">
+              <.icon name="hero-document-text" class="w-4 h-4" /> Generate Invoice
+            </button>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@order.id}/edit")}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+            </.link>
+          <% "pending" -> %>
+            <button phx-click="confirm_order" class="btn btn-info btn-sm">
+              <.icon name="hero-check" class="w-4 h-4" /> Confirm Order
+            </button>
+            <button phx-click="generate_invoice" class="btn btn-outline btn-sm">
+              <.icon name="hero-document-text" class="w-4 h-4" /> Generate Invoice
+            </button>
+          <% "confirmed" -> %>
+            <button phx-click="mark_paid" class="btn btn-success btn-sm">
+              <.icon name="hero-banknotes" class="w-4 h-4" /> Mark as Paid
+            </button>
+            <button phx-click="generate_invoice" class="btn btn-outline btn-sm">
+              <.icon name="hero-document-text" class="w-4 h-4" /> Generate Invoice
+            </button>
+          <% _ -> %>
+        <% end %>
+        <%= if @order.status in ["draft", "pending", "confirmed"] do %>
+          <button
+            phx-click="cancel_order"
+            class="btn btn-error btn-outline btn-sm"
+            data-confirm="Are you sure you want to cancel this order?"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+          </button>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Main Content --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Order Summary --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Order Summary</h2>
+
+            <%!-- Line Items --%>
+            <div class="overflow-x-auto mt-4">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for item <- @order.line_items || [] do %>
+                    <tr>
+                      <td>
+                        <div class="font-medium">{item["name"]}</div>
+                        <%= if item["description"] do %>
+                          <div class="text-sm text-base-content/60">{item["description"]}</div>
+                        <% end %>
+                      </td>
+                      <td class="text-right">{item["quantity"]}</td>
+                      <td class="text-right">
+                        <.currency_compact amount={item["unit_price"]} currency={@order.currency} />
+                      </td>
+                      <td class="text-right">
+                        <.currency_compact amount={item["total"]} currency={@order.currency} />
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3" class="text-right font-medium">Subtotal</td>
+                    <td class="text-right">
+                      <.currency_compact amount={@order.subtotal} currency={@order.currency} />
+                    </td>
+                  </tr>
+                  <%= if Decimal.gt?(@order.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
+                    <tr>
+                      <td colspan="3" class="text-right">
+                        Tax ({Decimal.mult(@order.tax_rate || Decimal.new(0), 100)}%)
+                      </td>
+                      <td class="text-right">
+                        <.currency_compact amount={@order.tax_amount} currency={@order.currency} />
+                      </td>
+                    </tr>
+                  <% end %>
+                  <%= if Decimal.gt?(@order.discount_amount || Decimal.new(0), Decimal.new(0)) do %>
+                    <tr>
+                      <td colspan="3" class="text-right text-success">
+                        Discount
+                        <%= if @order.discount_code do %>
+                          <span class="badge badge-sm badge-outline ml-1">
+                            {@order.discount_code}
+                          </span>
+                        <% end %>
+                      </td>
+                      <td class="text-right text-success">
+                        -<.currency_compact
+                          amount={@order.discount_amount}
+                          currency={@order.currency}
+                        />
+                      </td>
+                    </tr>
+                  <% end %>
+                  <tr class="text-lg font-bold">
+                    <td colspan="3" class="text-right">Total</td>
+                    <td class="text-right">
+                      <.currency_amount amount={@order.total} currency={@order.currency} />
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Notes --%>
+        <%= if @order.notes || @order.internal_notes do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Notes</h2>
+              <%= if @order.notes do %>
+                <div class="mt-2">
+                  <h4 class="font-medium text-sm text-base-content/60">Customer Notes</h4>
+                  <p class="mt-1">{@order.notes}</p>
+                </div>
+              <% end %>
+              <%= if @order.internal_notes do %>
+                <div class="mt-4">
+                  <h4 class="font-medium text-sm text-base-content/60">Internal Notes</h4>
+                  <p class="mt-1 bg-warning/10 p-3 rounded-lg">{@order.internal_notes}</p>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Invoices --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <div class="flex justify-between items-center">
+              <h2 class="card-title">Invoices</h2>
+              <%= if @order.status in ["draft", "pending", "confirmed"] do %>
+                <button phx-click="generate_invoice" class="btn btn-outline btn-sm">
+                  <.icon name="hero-plus" class="w-4 h-4" /> Generate Invoice
+                </button>
+              <% end %>
+            </div>
+
+            <%= if Enum.empty?(@invoices) do %>
+              <div class="text-center py-8 text-base-content/50">
+                <.icon name="hero-document-text" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No invoices generated yet</p>
+              </div>
+            <% else %>
+              <div class="overflow-x-auto mt-4">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Invoice #</th>
+                      <th>Status</th>
+                      <th>Total</th>
+                      <th>Due Date</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for invoice <- @invoices do %>
+                      <tr
+                        class="hover cursor-pointer"
+                        phx-click="view_invoice"
+                        phx-value-id={invoice.id}
+                      >
+                        <td class="font-mono">{invoice.invoice_number}</td>
+                        <td><.invoice_status_badge status={invoice.status} /></td>
+                        <td>
+                          <.currency_compact amount={invoice.total} currency={invoice.currency} />
+                        </td>
+                        <td>
+                          <%= if invoice.due_date do %>
+                            {Calendar.strftime(invoice.due_date, "%b %d, %Y")}
+                          <% else %>
+                            <span class="text-base-content/40">-</span>
+                          <% end %>
+                        </td>
+                        <td>
+                          <.link
+                            navigate={
+                              PhoenixKit.Utils.Routes.path(
+                                "/admin/billing/invoices/#{invoice.id}"
+                              )
+                            }
+                            class="btn btn-ghost btn-xs"
+                          >
+                            <.icon name="hero-eye" class="w-4 h-4" />
+                          </.link>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Sidebar --%>
+      <div class="space-y-6">
+        <%!-- Customer Info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Customer</h2>
+            <%= if @order.user do %>
+              <div class="flex items-center gap-3 mt-2">
+                <div class="avatar placeholder">
+                  <div class="bg-neutral text-neutral-content rounded-full w-12">
+                    <span>{String.first(@order.user.email) |> String.upcase()}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="font-medium">{@order.user.email}</div>
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/users/#{@order.user.id}")}
+                    class="text-sm text-primary hover:underline"
+                  >
+                    View Profile
+                  </.link>
+                </div>
+              </div>
+            <% else %>
+              <p class="text-base-content/50">No customer linked</p>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Billing Info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Billing Information</h2>
+            <%= if @order.billing_snapshot && map_size(@order.billing_snapshot) > 0 do %>
+              <div class="mt-2 space-y-2 text-sm">
+                <%= if @order.billing_snapshot["type"] == "company" do %>
+                  <div class="font-medium">{@order.billing_snapshot["company_name"]}</div>
+                  <%= if @order.billing_snapshot["company_vat_number"] do %>
+                    <div class="text-base-content/60">
+                      VAT: {@order.billing_snapshot["company_vat_number"]}
+                    </div>
+                  <% end %>
+                <% else %>
+                  <div class="font-medium">
+                    {@order.billing_snapshot["first_name"]} {@order.billing_snapshot["last_name"]}
+                  </div>
+                <% end %>
+                <%= if @order.billing_snapshot["address_line1"] do %>
+                  <div class="text-base-content/60">
+                    {@order.billing_snapshot["address_line1"]}<br />
+                    <%= if @order.billing_snapshot["address_line2"] do %>
+                      {@order.billing_snapshot["address_line2"]}<br />
+                    <% end %>
+                    {@order.billing_snapshot["city"]}, {@order.billing_snapshot["postal_code"]}<br />
+                    {@order.billing_snapshot["country"]}
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <p class="text-base-content/50 mt-2">No billing information</p>
+              <%= if @order.billing_profile do %>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
+                  class="btn btn-outline btn-sm mt-2"
+                >
+                  View Billing Profile
+                </.link>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Payment Details --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Payment</h2>
+            <div class="mt-2 space-y-3">
+              <div class="flex justify-between">
+                <span class="text-base-content/60">Method</span>
+                <span class="badge badge-outline">{String.upcase(@order.payment_method)}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-base-content/60">Currency</span>
+                <.currency_badge code={@order.currency} size={:sm} />
+              </div>
+              <%= if @order.confirmed_at do %>
+                <div class="flex justify-between">
+                  <span class="text-base-content/60">Confirmed</span>
+                  <span class="text-sm">
+                    <.time_ago datetime={@order.confirmed_at} />
+                  </span>
+                </div>
+              <% end %>
+              <%= if @order.paid_at do %>
+                <div class="flex justify-between">
+                  <span class="text-base-content/60">Paid</span>
+                  <span class="text-sm">
+                    <.time_ago datetime={@order.paid_at} />
+                  </span>
+                </div>
+              <% end %>
+              <%= if @order.cancelled_at do %>
+                <div class="flex justify-between">
+                  <span class="text-base-content/60">Cancelled</span>
+                  <span class="text-sm text-error">
+                    <.time_ago datetime={@order.cancelled_at} />
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

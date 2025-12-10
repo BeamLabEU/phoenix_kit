@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Invoice {@invoice.invoice_number} - {@project_title}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2937;
+        background: #f3f4f6;
+        padding: 20px;
+      }
+
+      .invoice-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .print-controls {
+        max-width: 800px;
+        margin: 0 auto 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .print-controls button,
+      .print-controls a {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-print {
+        background: #2563eb;
+        color: white;
+        border: none;
+      }
+
+      .btn-print:hover {
+        background: #1d4ed8;
+      }
+
+      .btn-back {
+        background: white;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+
+      .btn-back:hover {
+        background: #f9fafb;
+      }
+
+      .invoice-header {
+        background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+        color: white;
+        padding: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .invoice-title h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+
+      .invoice-number {
+        font-size: 18px;
+        opacity: 0.9;
+      }
+
+      .invoice-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+      }
+
+      .status-draft { background: #fef3c7; color: #b45309; }
+      .status-sent { background: #dbeafe; color: #1d4ed8; }
+      .status-paid { background: #d1fae5; color: #047857; }
+      .status-void { background: #fee2e2; color: #b91c1c; }
+      .status-overdue { background: #fee2e2; color: #b91c1c; }
+
+      .invoice-body {
+        padding: 40px;
+      }
+
+      .invoice-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .meta-section h3 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6b7280;
+        margin-bottom: 10px;
+      }
+
+      .meta-section p {
+        line-height: 1.8;
+      }
+
+      .meta-section strong {
+        font-weight: 600;
+      }
+
+      .company-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .line-items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+      }
+
+      .line-items-table th {
+        background: #f9fafb;
+        padding: 14px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .line-items-table td {
+        padding: 16px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .line-items-table .text-right {
+        text-align: right;
+      }
+
+      .item-name {
+        font-weight: 500;
+      }
+
+      .item-description {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+
+      .totals-section {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 40px;
+      }
+
+      .totals-table {
+        width: 300px;
+      }
+
+      .totals-table tr td {
+        padding: 10px 16px;
+      }
+
+      .totals-table .label {
+        text-align: right;
+        color: #6b7280;
+      }
+
+      .totals-table .value {
+        text-align: right;
+        font-weight: 500;
+      }
+
+      .totals-table .total-row {
+        font-size: 18px;
+        font-weight: 700;
+        border-top: 2px solid #1e3a5f;
+      }
+
+      .totals-table .total-row td {
+        padding-top: 16px;
+        color: #1e3a5f;
+      }
+
+      .payment-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .payment-box {
+        padding: 24px;
+        border-radius: 8px;
+      }
+
+      .due-date-box {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        text-align: center;
+      }
+
+      .due-date-box .due-label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #b45309;
+        margin-bottom: 8px;
+      }
+
+      .due-date-box .due-date {
+        font-size: 20px;
+        font-weight: 700;
+        color: #92400e;
+      }
+
+      .due-date-box .payment-terms {
+        font-size: 13px;
+        color: #b45309;
+        margin-top: 8px;
+      }
+
+      .bank-details-box {
+        background: #f0f9ff;
+        border: 1px solid #0ea5e9;
+      }
+
+      .bank-details-box h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #0369a1;
+        margin-bottom: 16px;
+      }
+
+      .bank-details-box table {
+        width: 100%;
+      }
+
+      .bank-details-box td {
+        padding: 6px 0;
+      }
+
+      .bank-details-box .label {
+        color: #6b7280;
+        width: 100px;
+      }
+
+      .bank-details-box .value {
+        font-family: 'Courier New', monospace;
+        font-weight: 500;
+      }
+
+      .invoice-footer {
+        background: #f9fafb;
+        padding: 30px 40px;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .footer-company {
+        margin-bottom: 15px;
+      }
+
+      .footer-company .name {
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .footer-company .details {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .footer-note {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .receipt-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #d1fae5;
+        color: #047857;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        margin-top: 20px;
+      }
+
+      @media print {
+        body {
+          background: white;
+          padding: 0;
+        }
+
+        .print-controls {
+          display: none;
+        }
+
+        .invoice-container {
+          box-shadow: none;
+          border-radius: 0;
+        }
+
+        .invoice-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .status-draft,
+        .status-sent,
+        .status-paid,
+        .status-void,
+        .status-overdue,
+        .due-date-box,
+        .bank-details-box,
+        .receipt-badge {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="print-controls">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}")}
+        class="btn-back"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </.link>
+      <button onclick="window.print()" class="btn-print">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect
+            x="6"
+            y="14"
+            width="12"
+            height="8"
+            rx="1"
+          />
+        </svg>
+        Print Invoice
+      </button>
+    </div>
+
+    <div class="invoice-container">
+      <div class="invoice-header">
+        <div class="invoice-title">
+          <h1>INVOICE</h1>
+          <div class="invoice-number">{@invoice.invoice_number}</div>
+        </div>
+        <div class={"invoice-status status-#{@invoice.status}"}>
+          {String.upcase(@invoice.status)}
+        </div>
+      </div>
+
+      <div class="invoice-body">
+        <div class="invoice-meta">
+          <div class="meta-section">
+            <h3>From</h3>
+            <p>
+              <span class="company-name">{@company.name}</span>
+              <br />
+              <%= for line <- String.split(@company.address || "", "\n") do %>
+                {line}<br />
+              <% end %>
+              <%= if @company.vat != "" do %>
+                VAT: {@company.vat}
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section">
+            <h3>Bill To</h3>
+            <p>
+              <%= if @invoice.billing_details do %>
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <strong>{@invoice.billing_details["company_name"]}</strong>
+                  <br />
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
+                  <% end %>
+                <% else %>
+                  <strong>
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </strong>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  {@invoice.billing_details["address_line1"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["city"] do %>
+                  {@invoice.billing_details["city"]}, {@invoice.billing_details["postal_code"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["country"] do %>
+                  {@invoice.billing_details["country"]}
+                <% end %>
+              <% else %>
+                <%= if @invoice.user do %>
+                  <strong>{@invoice.user.email}</strong>
+                <% else %>
+                  <em>No billing information</em>
+                <% end %>
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section" style="text-align: right;">
+            <h3>Invoice Details</h3>
+            <p>
+              <strong>Date:</strong> {Calendar.strftime(@invoice.inserted_at, "%B %d, %Y")}<br />
+              <strong>Due Date:</strong> {if @invoice.due_date,
+                do: Calendar.strftime(@invoice.due_date, "%B %d, %Y"),
+                else: "-"}<br />
+              <strong>Currency:</strong> {@invoice.currency}
+              <%= if @invoice.order do %>
+                <br /><strong>Order:</strong> {@invoice.order.order_number}
+              <% end %>
+            </p>
+          </div>
+        </div>
+
+        <table class="line-items-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="text-right" style="width: 80px;">Qty</th>
+              <th class="text-right" style="width: 120px;">Unit Price</th>
+              <th class="text-right" style="width: 120px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for item <- @invoice.line_items || [] do %>
+              <tr>
+                <td>
+                  <div class="item-name">{item["name"]}</div>
+                  <%= if item["description"] && item["description"] != "" do %>
+                    <div class="item-description">{item["description"]}</div>
+                  <% end %>
+                </td>
+                <td class="text-right">{item["quantity"]}</td>
+                <td class="text-right">{item["unit_price"]} {@invoice.currency}</td>
+                <td class="text-right">{item["total"]} {@invoice.currency}</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+
+        <div class="totals-section">
+          <table class="totals-table">
+            <tr>
+              <td class="label">Subtotal:</td>
+              <td class="value">
+                {Decimal.to_string(@invoice.subtotal || Decimal.new(0), :normal)} {@invoice.currency}
+              </td>
+            </tr>
+            <%= if Decimal.gt?(@invoice.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
+              <tr>
+                <td class="label">
+                  Tax ({Decimal.to_string(Decimal.mult(@invoice.tax_rate || Decimal.new(0), 100))}%):
+                </td>
+                <td class="value">
+                  {Decimal.to_string(@invoice.tax_amount, :normal)} {@invoice.currency}
+                </td>
+              </tr>
+            <% end %>
+            <tr class="total-row">
+              <td class="label">Total:</td>
+              <td class="value">
+                {Decimal.to_string(@invoice.total || Decimal.new(0), :normal)} {@invoice.currency}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <%= if @invoice.status != "paid" do %>
+          <div class="payment-section">
+            <div class="payment-box due-date-box">
+              <div class="due-label">Payment Due</div>
+              <div class="due-date">
+                {if @invoice.due_date,
+                  do: Calendar.strftime(@invoice.due_date, "%B %d, %Y"),
+                  else: "On receipt"}
+              </div>
+              <%= if @invoice.payment_terms do %>
+                <div class="payment-terms">{@invoice.payment_terms}</div>
+              <% end %>
+            </div>
+
+            <div class="payment-box bank-details-box">
+              <h4>Bank Transfer Details</h4>
+              <table>
+                <tr>
+                  <td class="label">Bank:</td>
+                  <td class="value">
+                    {@invoice.bank_details["bank_name"] || @company.bank_name}
+                  </td>
+                </tr>
+                <tr>
+                  <td class="label">IBAN:</td>
+                  <td class="value">{@invoice.bank_details["iban"] || @company.bank_iban}</td>
+                </tr>
+                <tr>
+                  <td class="label">SWIFT:</td>
+                  <td class="value">{@invoice.bank_details["swift"] || @company.bank_swift}</td>
+                </tr>
+                <tr>
+                  <td class="label">Reference:</td>
+                  <td class="value">{@invoice.invoice_number}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if @invoice.status == "paid" && @invoice.receipt_number do %>
+          <div class="receipt-badge">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            PAID - Receipt #{@invoice.receipt_number}
+            <%= if @invoice.paid_at do %>
+              <span style="opacity: 0.8; margin-left: 10px;">
+                on {Calendar.strftime(@invoice.paid_at, "%B %d, %Y")}
+              </span>
+            <% end %>
+          </div>
+        <% end %>
+
+        <%= if @invoice.notes do %>
+          <div style="margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+            <h4 style="font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 10px;">
+              Notes
+            </h4>
+            <p style="white-space: pre-wrap;">{@invoice.notes}</p>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="invoice-footer">
+        <div class="footer-company">
+          <div class="name">{@company.name}</div>
+          <div class="details">
+            {@company.address}
+            <%= if @company.vat != "" do %>
+              &bull; VAT: {@company.vat}
+            <% end %>
+          </div>
+        </div>
+        <div class="footer-note">
+          Thank you for your business. If you have any questions about this invoice, please contact us.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

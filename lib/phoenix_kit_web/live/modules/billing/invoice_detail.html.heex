@@ -1,0 +1,347 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Invoice {@invoice.invoice_number}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold font-mono">{@invoice.invoice_number}</h1>
+            <.invoice_status_badge status={@invoice.status} size={:md} />
+          </div>
+          <p class="text-base-content/60 mt-1">
+            Created <.time_ago datetime={@invoice.inserted_at} />
+          </p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <%= case @invoice.status do %>
+          <% "draft" -> %>
+            <button phx-click="send_invoice" class="btn btn-info btn-sm">
+              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Invoice
+            </button>
+          <% "sent" -> %>
+            <button phx-click="mark_paid" class="btn btn-success btn-sm">
+              <.icon name="hero-banknotes" class="w-4 h-4" /> Mark as Paid
+            </button>
+          <% "paid" -> %>
+            <%= if is_nil(@invoice.receipt_number) do %>
+              <button phx-click="generate_receipt" class="btn btn-outline btn-sm">
+                <.icon name="hero-document-check" class="w-4 h-4" /> Generate Receipt
+              </button>
+            <% end %>
+          <% _ -> %>
+        <% end %>
+        <%= if @invoice.status in ["draft", "sent"] do %>
+          <button
+            phx-click="void_invoice"
+            class="btn btn-error btn-outline btn-sm"
+            data-confirm="Are you sure you want to void this invoice?"
+          >
+            <.icon name="hero-x-mark" class="w-4 h-4" /> Void
+          </button>
+        <% end %>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}/print")}
+          class="btn btn-outline btn-sm"
+          target="_blank"
+        >
+          <.icon name="hero-printer" class="w-4 h-4" /> Print / PDF
+        </.link>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Main Content --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Invoice Details --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Invoice Details</h2>
+
+            <%!-- Line Items --%>
+            <div class="overflow-x-auto mt-4">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th class="text-right">Qty</th>
+                    <th class="text-right">Unit Price</th>
+                    <th class="text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for item <- @invoice.line_items || [] do %>
+                    <tr>
+                      <td>
+                        <div class="font-medium">{item["name"]}</div>
+                        <%= if item["description"] do %>
+                          <div class="text-sm text-base-content/60">{item["description"]}</div>
+                        <% end %>
+                      </td>
+                      <td class="text-right">{item["quantity"]}</td>
+                      <td class="text-right">
+                        <.currency_compact
+                          amount={item["unit_price"]}
+                          currency={@invoice.currency}
+                        />
+                      </td>
+                      <td class="text-right">
+                        <.currency_compact amount={item["total"]} currency={@invoice.currency} />
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="3" class="text-right font-medium">Subtotal</td>
+                    <td class="text-right">
+                      <.currency_compact amount={@invoice.subtotal} currency={@invoice.currency} />
+                    </td>
+                  </tr>
+                  <%= if Decimal.gt?(@invoice.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
+                    <tr>
+                      <td colspan="3" class="text-right">
+                        Tax ({Decimal.mult(@invoice.tax_rate || Decimal.new(0), 100)}%)
+                      </td>
+                      <td class="text-right">
+                        <.currency_compact
+                          amount={@invoice.tax_amount}
+                          currency={@invoice.currency}
+                        />
+                      </td>
+                    </tr>
+                  <% end %>
+                  <tr class="text-lg font-bold">
+                    <td colspan="3" class="text-right">Total</td>
+                    <td class="text-right">
+                      <.currency_amount amount={@invoice.total} currency={@invoice.currency} />
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Payment Terms & Notes --%>
+        <%= if @invoice.payment_terms || @invoice.notes do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Payment Information</h2>
+              <%= if @invoice.payment_terms do %>
+                <div class="mt-2">
+                  <h4 class="font-medium text-sm text-base-content/60">Payment Terms</h4>
+                  <p class="mt-1">{@invoice.payment_terms}</p>
+                </div>
+              <% end %>
+              <%= if @invoice.bank_details && map_size(@invoice.bank_details) > 0 do %>
+                <div class="mt-4">
+                  <h4 class="font-medium text-sm text-base-content/60">Bank Details</h4>
+                  <div class="mt-2 bg-base-200 p-4 rounded-lg font-mono text-sm">
+                    <%= if @invoice.bank_details["bank_name"] do %>
+                      <div>Bank: {@invoice.bank_details["bank_name"]}</div>
+                    <% end %>
+                    <%= if @invoice.bank_details["account_name"] do %>
+                      <div>Account: {@invoice.bank_details["account_name"]}</div>
+                    <% end %>
+                    <%= if @invoice.bank_details["iban"] do %>
+                      <div>IBAN: {@invoice.bank_details["iban"]}</div>
+                    <% end %>
+                    <%= if @invoice.bank_details["swift"] do %>
+                      <div>SWIFT/BIC: {@invoice.bank_details["swift"]}</div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+              <%= if @invoice.notes do %>
+                <div class="mt-4">
+                  <h4 class="font-medium text-sm text-base-content/60">Notes</h4>
+                  <p class="mt-1">{@invoice.notes}</p>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Receipt --%>
+        <%= if @invoice.receipt_number do %>
+          <div class="card bg-success/10 border border-success shadow-xl">
+            <div class="card-body">
+              <div class="flex items-center gap-3">
+                <.icon name="hero-document-check" class="w-8 h-8 text-success" />
+                <div>
+                  <h2 class="card-title text-success">Receipt Generated</h2>
+                  <p class="font-mono">{@invoice.receipt_number}</p>
+                  <p class="text-sm text-base-content/60 mt-1">
+                    Generated <.time_ago datetime={@invoice.receipt_generated_at} />
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Sidebar --%>
+      <div class="space-y-6">
+        <%!-- Related Order --%>
+        <%= if @invoice.order do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Related Order</h2>
+              <div class="mt-2">
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/billing/orders/#{@invoice.order.id}")
+                  }
+                  class="flex items-center gap-3 p-3 bg-base-200 rounded-lg hover:bg-base-300 transition-colors"
+                >
+                  <.icon name="hero-clipboard-document-list" class="w-6 h-6 text-primary" />
+                  <div>
+                    <div class="font-mono font-medium">{@invoice.order.order_number}</div>
+                    <div class="text-sm text-base-content/60">
+                      <.order_status_badge status={@invoice.order.status} size={:xs} />
+                    </div>
+                  </div>
+                </.link>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Customer Info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Customer</h2>
+            <%= if @invoice.user do %>
+              <div class="flex items-center gap-3 mt-2">
+                <div class="avatar placeholder">
+                  <div class="bg-neutral text-neutral-content rounded-full w-12">
+                    <span>{String.first(@invoice.user.email) |> String.upcase()}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="font-medium">{@invoice.user.email}</div>
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/users/#{@invoice.user.id}")}
+                    class="text-sm text-primary hover:underline"
+                  >
+                    View Profile
+                  </.link>
+                </div>
+              </div>
+            <% else %>
+              <p class="text-base-content/50 mt-2">No customer linked</p>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Billing Details --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Billing Details</h2>
+            <%= if @invoice.billing_details && map_size(@invoice.billing_details) > 0 do %>
+              <div class="mt-2 space-y-2 text-sm">
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <div class="font-medium">{@invoice.billing_details["company_name"]}</div>
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    <div class="text-base-content/60">
+                      VAT: {@invoice.billing_details["company_vat_number"]}
+                    </div>
+                  <% end %>
+                <% else %>
+                  <div class="font-medium">
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </div>
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  <div class="text-base-content/60">
+                    {@invoice.billing_details["address_line1"]}<br />
+                    <%= if @invoice.billing_details["address_line2"] do %>
+                      {@invoice.billing_details["address_line2"]}<br />
+                    <% end %>
+                    {@invoice.billing_details["city"]}, {@invoice.billing_details["postal_code"]}<br />
+                    {@invoice.billing_details["country"]}
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <p class="text-base-content/50 mt-2">No billing details</p>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Timeline --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Timeline</h2>
+            <ul class="timeline timeline-vertical mt-2">
+              <li>
+                <div class="timeline-start text-sm text-base-content/60">
+                  <.time_ago datetime={@invoice.inserted_at} />
+                </div>
+                <div class="timeline-middle">
+                  <.icon name="hero-document-plus" class="w-4 h-4" />
+                </div>
+                <div class="timeline-end timeline-box">Created</div>
+                <hr />
+              </li>
+              <%= if @invoice.sent_at do %>
+                <li>
+                  <hr />
+                  <div class="timeline-start text-sm text-base-content/60">
+                    <.time_ago datetime={@invoice.sent_at} />
+                  </div>
+                  <div class="timeline-middle text-info">
+                    <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                  </div>
+                  <div class="timeline-end timeline-box">Sent</div>
+                  <hr />
+                </li>
+              <% end %>
+              <%= if @invoice.paid_at do %>
+                <li>
+                  <hr />
+                  <div class="timeline-start text-sm text-base-content/60">
+                    <.time_ago datetime={@invoice.paid_at} />
+                  </div>
+                  <div class="timeline-middle text-success">
+                    <.icon name="hero-check-circle" class="w-4 h-4" />
+                  </div>
+                  <div class="timeline-end timeline-box bg-success/10 border-success">Paid</div>
+                  <hr />
+                </li>
+              <% end %>
+              <%= if @invoice.voided_at do %>
+                <li>
+                  <hr />
+                  <div class="timeline-start text-sm text-base-content/60">
+                    <.time_ago datetime={@invoice.voided_at} />
+                  </div>
+                  <div class="timeline-middle text-error">
+                    <.icon name="hero-x-circle" class="w-4 h-4" />
+                  </div>
+                  <div class="timeline-end timeline-box bg-error/10 border-error">Voided</div>
+                </li>
+              <% end %>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

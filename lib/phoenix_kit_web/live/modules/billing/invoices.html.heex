@@ -1,0 +1,195 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Invoices"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <h1 class="text-3xl font-bold">Invoices</h1>
+          <p class="text-base-content/60 mt-1">{@total_count} total invoices</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button phx-click="refresh" class="btn btn-ghost btn-sm">
+          <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
+        </button>
+      </div>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="card bg-base-100 shadow mb-6">
+      <div class="card-body py-4">
+        <form phx-change="filter" phx-submit="filter" class="flex flex-wrap gap-4 items-end">
+          <div class="form-control flex-1 min-w-[200px]">
+            <label class="label">
+              <span class="label-text">Search</span>
+            </label>
+            <input
+              type="text"
+              name="search"
+              value={@search}
+              placeholder="Invoice number, customer..."
+              class="input input-bordered input-sm"
+              phx-debounce="300"
+            />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Status</span>
+            </label>
+            <select name="status" class="select select-bordered select-sm">
+              <option value="all" selected={@status_filter == "all"}>All Statuses</option>
+              <option value="draft" selected={@status_filter == "draft"}>Draft</option>
+              <option value="sent" selected={@status_filter == "sent"}>Sent</option>
+              <option value="paid" selected={@status_filter == "paid"}>Paid</option>
+              <option value="void" selected={@status_filter == "void"}>Void</option>
+              <option value="overdue" selected={@status_filter == "overdue"}>Overdue</option>
+            </select>
+          </div>
+
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            Clear Filters
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <%!-- Invoices Table --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-0">
+        <%= if @loading do %>
+          <div class="flex justify-center items-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+          </div>
+        <% else %>
+          <%= if Enum.empty?(@invoices) do %>
+            <div class="text-center py-12">
+              <.icon
+                name="hero-document-text"
+                class="w-16 h-16 mx-auto mb-4 text-base-content/30"
+              />
+              <h3 class="text-xl font-semibold mb-2">No invoices found</h3>
+              <p class="text-base-content/60 mb-4">
+                <%= if @search != "" or @status_filter != "all" do %>
+                  Try adjusting your filters or search terms
+                <% else %>
+                  Invoices are generated from orders
+                <% end %>
+              </p>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
+                class="btn btn-primary"
+              >
+                View Orders
+              </.link>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Order #</th>
+                    <th>Customer</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Due Date</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for invoice <- @invoices do %>
+                    <tr
+                      class="hover cursor-pointer"
+                      phx-click="view_invoice"
+                      phx-value-id={invoice.id}
+                    >
+                      <td class="font-mono">{invoice.invoice_number}</td>
+                      <td class="font-mono text-sm text-base-content/60">
+                        <%= if invoice.order do %>
+                          {invoice.order.order_number}
+                        <% else %>
+                          <span class="text-base-content/40">-</span>
+                        <% end %>
+                      </td>
+                      <td>
+                        <%= if invoice.user do %>
+                          <div class="flex items-center gap-2">
+                            <div class="avatar placeholder">
+                              <div class="bg-neutral text-neutral-content rounded-full w-8">
+                                <span class="text-xs">
+                                  {String.first(invoice.user.email) |> String.upcase()}
+                                </span>
+                              </div>
+                            </div>
+                            <div class="font-medium text-sm">{invoice.user.email}</div>
+                          </div>
+                        <% else %>
+                          <span class="text-base-content/50">-</span>
+                        <% end %>
+                      </td>
+                      <td><.invoice_status_badge status={invoice.status} /></td>
+                      <td>
+                        <.currency_compact amount={invoice.total} currency={invoice.currency} />
+                      </td>
+                      <td class="text-sm">
+                        <%= if invoice.due_date do %>
+                          <% is_overdue =
+                            Date.compare(invoice.due_date, Date.utc_today()) == :lt and
+                              invoice.status != "paid" %>
+                          <span class={
+                            if is_overdue,
+                              do: "text-error font-medium",
+                              else: "text-base-content/60"
+                          }>
+                            {Calendar.strftime(invoice.due_date, "%b %d, %Y")}
+                          </span>
+                        <% else %>
+                          <span class="text-base-content/40">-</span>
+                        <% end %>
+                      </td>
+                      <td>
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{invoice.id}")
+                          }
+                          class="btn btn-ghost btn-xs"
+                        >
+                          <.icon name="hero-eye" class="w-4 h-4" />
+                        </.link>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+
+            <%!-- Pagination --%>
+            <%= if @total_pages > 1 do %>
+              <div class="flex justify-center py-4">
+                <.pagination
+                  current_page={@page}
+                  total_pages={@total_pages}
+                  base_path={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}
+                  params={%{"search" => @search, "status" => @status_filter}}
+                />
+              </div>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

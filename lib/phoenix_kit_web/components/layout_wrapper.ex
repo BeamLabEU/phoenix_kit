@@ -375,6 +375,71 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
+                    <%= if PhoenixKit.Billing.enabled?() do %>
+                      <%!-- Billing section with submenu --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                        icon="billing"
+                        label="Billing"
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/billing",
+                            "/admin/billing/orders",
+                            "/admin/billing/invoices",
+                            "/admin/billing/profiles",
+                            "/admin/billing/currencies"
+                          ])
+                        }
+                      />
+
+                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                            icon="billing"
+                            label="Dashboard"
+                            current_path={@current_path || ""}
+                            nested={true}
+                            exact_match_only={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/orders")}
+                            icon="billing"
+                            label="Orders"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/invoices")}
+                            icon="billing"
+                            label="Invoices"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/profiles")}
+                            icon="billing"
+                            label="Billing Profiles"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/currencies")}
+                            icon="billing"
+                            label="Currencies"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
+                    <% end %>
+
                     <%= if PhoenixKit.Entities.enabled?() do %>
                       <%!-- Entities section following Blogging pattern --%>
                       <.admin_nav_item
@@ -509,6 +574,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/emails")}
                             icon="email"
                             label="Emails"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Billing.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
+                            icon="billing"
+                            label="Billing"
                             current_path={@current_path || ""}
                             nested={true}
                           />

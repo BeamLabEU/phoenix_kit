@@ -343,6 +343,19 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
           live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
 
+          # Billing Management
+          live "/admin/billing", Live.Modules.Billing.Index, :index
+          live "/admin/billing/orders", Live.Modules.Billing.Orders, :index
+          live "/admin/billing/orders/new", Live.Modules.Billing.OrderForm, :new
+          live "/admin/billing/orders/:id", Live.Modules.Billing.OrderDetail, :show
+          live "/admin/billing/orders/:id/edit", Live.Modules.Billing.OrderForm, :edit
+          live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
+          live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
+          live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
+          live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
+
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
           live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -485,6 +498,19 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/modules/emails/templates/:id/edit",
                Live.Modules.Emails.TemplateEditor,
                :edit
+
+          # Billing Management
+          live "/admin/billing", Live.Modules.Billing.Index, :index
+          live "/admin/billing/orders", Live.Modules.Billing.Orders, :index
+          live "/admin/billing/orders/new", Live.Modules.Billing.OrderForm, :new
+          live "/admin/billing/orders/:id", Live.Modules.Billing.OrderDetail, :show
+          live "/admin/billing/orders/:id/edit", Live.Modules.Billing.OrderForm, :edit
+          live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
+          live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
+          live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
+          live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
