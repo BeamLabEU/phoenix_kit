@@ -551,23 +551,6 @@
               value={Enum.join(@temp_selected_columns || @selected_columns, ",")}
             />
 
-            <%!-- Hidden input specifically for reordering --%>
-            <input
-              type="hidden"
-              name="reorder_order"
-              id="reorder-order-input"
-              value=""
-            />
-
-            <%!-- Hidden button for triggering LiveView reorders --%>
-            <button
-              id="reorder-trigger-button"
-              type="button"
-              phx-click="reorder_selected_columns"
-              style="display: none;"
-            >
-              Trigger Reorder
-            </button>
             <div class="flex flex-col lg:flex-row gap-6 mb-6">
               <%!-- Selected Columns Section (Left/Top) --%>
               <div class="flex-1">
@@ -579,89 +562,48 @@
                     Drag to reorder
                   </span>
                 </div>
-                <div
+                <.draggable_list
                   id="selected-columns-container"
-                  class="min-h-[200px] max-h-[400px] overflow-y-auto border-2 border-dashed border-base-300 rounded-lg p-3 bg-base-50 space-y-2"
+                  items={
+                    Enum.reject(@temp_selected_columns || @selected_columns, &(&1 == "actions"))
+                  }
+                  item_id={fn col_id -> col_id end}
+                  on_reorder="reorder_selected_columns"
+                  layout={:list}
+                  gap="space-y-2"
+                  class="min-h-[200px] max-h-[400px] overflow-y-auto border-2 border-dashed border-base-300 rounded-lg p-3 bg-base-50"
+                  item_class="flex items-center p-3 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors"
                 >
-                  <%= for column_id <- (@temp_selected_columns || @selected_columns) do %>
-                    <%= unless column_id == "actions" do %>
-                      <% column_meta =
-                        PhoenixKit.Users.TableColumns.get_column_metadata(column_id) %>
-                      <div
-                        class="draggable-selected-field flex items-center p-3 rounded-lg bg-primary/10 border border-primary/30 hover:bg-primary/20 transition-colors cursor-move"
-                        draggable="true"
-                        data-column-id={column_id}
-                        data-section="selected"
-                      >
-                        <div class="drag-handle text-primary/60 mr-3 cursor-grab">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M4 6h16M4 12h16M4 18h16"
-                            />
-                          </svg>
-                        </div>
-                        <div class="flex flex-col flex-1">
-                          <span class="label-text font-medium text-base-content">
-                            {(column_meta && column_meta.label) || column_id}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          class="btn btn-ghost btn-xs btn-circle text-error/60 hover:text-error hover:bg-error/10"
-                          phx-click="remove_column"
-                          phx-value-column_id={column_id}
-                          title="Remove column"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            class="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    <% end %>
-                  <% end %>
-
-                  <%!-- Empty state for selected columns --%>
-                  <%= if length(@temp_selected_columns || @selected_columns) <= 1 do %>
-                    <div class="text-center py-12 text-base-content/40">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-12 w-12 mx-auto mb-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="1.5"
-                          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                        />
-                      </svg>
-                      <p class="text-sm">No columns selected yet</p>
-                      <p class="text-xs mt-1">Add columns from the options below</p>
+                  <:item :let={column_id}>
+                    <% column_meta = PhoenixKit.Users.TableColumns.get_column_metadata(column_id) %>
+                    <div class="drag-handle text-primary/60 mr-3">
+                      <.icon name="hero-bars-3" class="h-5 w-5" />
                     </div>
-                  <% end %>
-                </div>
+                    <div class="flex flex-col flex-1">
+                      <span class="label-text font-medium text-base-content">
+                        {(column_meta && column_meta.label) || column_id}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-ghost btn-xs btn-circle text-error/60 hover:text-error hover:bg-error/10"
+                      phx-click="remove_column"
+                      phx-value-column_id={column_id}
+                      title="Remove column"
+                    >
+                      <.icon name="hero-x-mark" class="h-4 w-4" />
+                    </button>
+                  </:item>
+                </.draggable_list>
+
+                <%!-- Empty state for selected columns --%>
+                <%= if length(Enum.reject(@temp_selected_columns || @selected_columns, &(&1 == "actions"))) == 0 do %>
+                  <div class="text-center py-12 text-base-content/40 border-2 border-dashed border-base-300 rounded-lg mt-2">
+                    <.icon name="hero-clipboard-document-list" class="h-12 w-12 mx-auto mb-3" />
+                    <p class="text-sm">No columns selected yet</p>
+                    <p class="text-xs mt-1">Add columns from the options below</p>
+                  </div>
+                <% end %>
               </div>
 
               <%!-- Available Fields Section (Right/Bottom) --%>
@@ -821,159 +763,3 @@
     <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    initColumnDragDrop();
-  });
-
-  // Also initialize when modal becomes visible (for LiveView updates)
-  document.addEventListener('click', function(e) {
-    const customizeButton = e.target.closest('[phx-click="show_column_modal"]');
-    if (customizeButton) {
-      // Give LiveView a moment to render the modal
-      setTimeout(() => {
-        initColumnDragDrop();
-      }, 100);
-    }
-  });
-
-  function initColumnDragDrop() {
-    const selectedContainer = document.getElementById('selected-columns-container');
-    if (!selectedContainer) return;
-
-    // Check if already initialized to avoid duplicate listeners
-    if (selectedContainer.dataset.dragInitialized === 'true') return;
-    selectedContainer.dataset.dragInitialized = 'true';
-
-    let draggedElement = null;
-    let placeholder = null;
-
-    function createPlaceholder() {
-      const div = document.createElement('div');
-      div.className = 'draggable-placeholder border-2 border-dashed border-primary rounded-lg p-3 mb-2 opacity-50 bg-primary/5';
-      div.innerHTML = '<div class="text-center text-primary text-sm">Drop here to reorder</div>';
-      return div;
-    }
-
-    function getDragAfterElement(container, y) {
-      const draggableElements = [...container.querySelectorAll('.draggable-selected-field:not([data-is-dragging="true"])')];
-
-      return draggableElements.reduce((closest, child) => {
-        const box = child.getBoundingClientRect();
-        const offset = y - box.top - box.height / 2;
-
-        if (offset < 0 && offset > closest.offset) {
-          return { offset: offset, element: child };
-        }
-        return closest;
-      }, { offset: Number.NEGATIVE_INFINITY }).element;
-    }
-
-    function collectSelectedColumnOrder() {
-      if (!selectedContainer) return [];
-
-      const fields = selectedContainer.querySelectorAll('.draggable-selected-field');
-      const order = [];
-
-      fields.forEach(field => {
-        const columnId = field.dataset.columnId;
-        if (columnId) {
-          order.push(columnId);
-        }
-      });
-
-      return order;
-    }
-
-    function handleDragStart(e) {
-      draggedElement = e.target.closest('.draggable-selected-field');
-      if (!draggedElement) return;
-
-      placeholder = createPlaceholder();
-      e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/html', draggedElement.innerHTML);
-
-      draggedElement.classList.add('opacity-50', 'scale-95', 'shadow-lg');
-      draggedElement.dataset.isDragging = 'true';
-    }
-
-    function handleDragEnd(e) {
-      if (draggedElement) {
-        draggedElement.classList.remove('opacity-50', 'scale-95', 'shadow-lg');
-        delete draggedElement.dataset.isDragging;
-      }
-
-      if (placeholder && placeholder.parentElement) {
-        placeholder.remove();
-      }
-
-      draggedElement = null;
-      placeholder = null;
-    }
-
-    function handleDragOver(e) {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-
-      if (!draggedElement || !placeholder) return;
-
-      const afterElement = getDragAfterElement(selectedContainer, e.clientY);
-
-      if (placeholder && placeholder.parentElement) {
-        placeholder.remove();
-      }
-
-      if (afterElement == null) {
-        selectedContainer.appendChild(placeholder);
-      } else {
-        selectedContainer.insertBefore(placeholder, afterElement);
-      }
-    }
-
-    function handleDrop(e) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (!draggedElement || !placeholder) return;
-
-      draggedElement.classList.remove('opacity-50', 'scale-95', 'shadow-lg');
-      delete draggedElement.dataset.isDragging;
-
-      if (placeholder && placeholder.parentElement) {
-        const parent = placeholder.parentElement;
-        parent.insertBefore(draggedElement, placeholder);
-        parent.removeChild(placeholder);
-      }
-
-      const newOrder = collectSelectedColumnOrder();
-
-      const hiddenInput = document.getElementById('column-order-input');
-      if (hiddenInput) {
-        hiddenInput.value = newOrder.join(',');
-      }
-
-      const reorderButton = document.getElementById('reorder-trigger-button');
-      const reorderInput = document.getElementById('reorder-order-input');
-
-      if (reorderButton && reorderInput) {
-        reorderInput.value = newOrder.join(',');
-        reorderButton.click();
-      }
-
-      draggedElement = null;
-      placeholder = null;
-    }
-
-    // Attach event listeners using delegation
-    selectedContainer.addEventListener('dragover', handleDragOver);
-    selectedContainer.addEventListener('drop', handleDrop);
-
-    // Attach dragstart/dragend to draggable elements
-    const draggables = selectedContainer.querySelectorAll('.draggable-selected-field');
-    draggables.forEach(element => {
-      element.addEventListener('dragstart', handleDragStart);
-      element.addEventListener('dragend', handleDragEnd);
-    });
-  }
-</script>

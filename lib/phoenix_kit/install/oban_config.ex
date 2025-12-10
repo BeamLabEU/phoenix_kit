@@ -11,6 +11,12 @@ defmodule PhoenixKit.Install.ObanConfig do
   """
   use PhoenixKit.Install.IgniterCompat
 
+  # Mix functions only available at compile-time during installation
+  @dialyzer {:nowarn_function, update_existing_oban_config: 3}
+  @dialyzer {:nowarn_function, ensure_posts_queue: 2}
+  @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
+  @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
+
   alias Igniter.Libs.Phoenix
   alias Igniter.Project.Application
   alias PhoenixKit.Install.IgniterHelpers
@@ -86,16 +92,21 @@ defmodule PhoenixKit.Install.ObanConfig do
     oban_config = """
 
     # Configure Oban for PhoenixKit background jobs
-    # Required for file processing (storage system) and email handling
+    # Required for file processing (storage system), email handling, and posts
     config :#{app_name}, Oban,
       repo: #{repo_module},
       queues: [
         default: 10,           # General purpose queue
         emails: 50,            # Email processing
-        file_processing: 20    # File variant generation (storage system)
+        file_processing: 20,   # File variant generation (storage system)
+        posts: 10              # Posts scheduled publishing
       ],
       plugins: [
-        Oban.Plugins.Pruner    # Automatic cleanup of completed jobs
+        Oban.Plugins.Pruner,   # Automatic cleanup of completed jobs
+        {Oban.Plugins.Cron,
+         crontab: [
+           {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+         ]}
       ]
     """
 
@@ -105,7 +116,8 @@ defmodule PhoenixKit.Install.ObanConfig do
 
         # Check if Oban config already exists (with more robust detection)
         if oban_config_already_exists?(content, app_name) do
-          source
+          # Update existing config to add posts queue and cron plugin
+          update_existing_oban_config(source, content, app_name)
         else
           # Find insertion point before import_config statements
           insertion_point = find_import_config_location(content)
@@ -128,6 +140,155 @@ defmodule PhoenixKit.Install.ObanConfig do
       e ->
         IO.warn("Failed to add Oban configuration: #{inspect(e)}")
         add_manual_config_notice(igniter, repo_module)
+    end
+  end
+
+  # Update existing Oban configuration to add posts queue and cron plugin
+  defp update_existing_oban_config(source, content, app_name) do
+    Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
+
+    updated_content =
+      content
+      |> ensure_posts_queue(app_name)
+      |> ensure_cron_plugin(app_name)
+
+    if updated_content == content do
+      Mix.shell().info(
+        "✅ Oban configuration already up-to-date (posts queue and cron plugin present)"
+      )
+    else
+      Mix.shell().info("✅ Updated Oban configuration with posts support")
+    end
+
+    Rewrite.Source.update(source, :content, updated_content)
+  end
+
+  # Ensure posts queue exists in the queues list
+  defp ensure_posts_queue(content, app_name) do
+    # Check if posts queue already exists
+    if Regex.match?(~r/posts:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  Posts queue already configured")
+      content
+    else
+      Mix.shell().info("  ➕ Adding posts queue to Oban configuration...")
+
+      # Find the queues configuration for this app's Oban config
+      # Pattern matches: queues: [...] within the Oban config block
+      # Improved regex to handle comments and whitespace
+      case Regex.run(
+             ~r/(config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/s,
+             content,
+             capture: :all
+           ) do
+        [full_match, before_queues, queues_content, after_queues] ->
+          Mix.shell().info("  ✓ Found queues block, adding posts queue")
+
+          # Remove trailing whitespace and check for comma
+          trimmed_content = String.trim_trailing(queues_content)
+          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+          # Add posts queue with proper formatting
+          new_queue_entry =
+            if has_trailing_comma do
+              "\n    posts: 10              # Posts scheduled publishing"
+            else
+              ",\n    posts: 10              # Posts scheduled publishing"
+            end
+
+          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
+
+          String.replace(content, full_match, updated_queues, global: false)
+
+        nil ->
+          Mix.shell().error(
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping posts queue update"
+          )
+
+          Mix.shell().error("     Please manually add: posts: 10")
+          content
+      end
+    end
+  end
+
+  # Ensure cron plugin exists in the plugins list
+  defp ensure_cron_plugin(content, app_name) do
+    # Check if Oban.Plugins.Cron already exists
+    if String.contains?(content, "Oban.Plugins.Cron") do
+      # Cron plugin exists, check if PublishScheduledPostsJob is configured
+      if String.contains?(content, "PublishScheduledPostsJob") do
+        Mix.shell().info("  ℹ️  Cron plugin and PublishScheduledPostsJob already configured")
+        content
+      else
+        Mix.shell().info("  ➕ Adding PublishScheduledPostsJob to existing cron configuration...")
+        # Add PublishScheduledPostsJob to existing crontab
+        add_scheduled_posts_job_to_crontab(content)
+      end
+    else
+      Mix.shell().info("  ➕ Adding Oban.Plugins.Cron with PublishScheduledPostsJob...")
+      # Add entire Cron plugin configuration
+      add_cron_plugin_to_plugins(content, app_name)
+    end
+  end
+
+  # Add PublishScheduledPostsJob to existing crontab
+  defp add_scheduled_posts_job_to_crontab(content) do
+    # Pattern: crontab: [...] within Cron plugin
+    case Regex.run(~r/(crontab:\s*\[)(.*?)(\])/s, content, capture: :all) do
+      [full_match, before_crontab, crontab_content, after_crontab] ->
+        # Check if crontab is empty or has entries
+        has_entries = String.trim(crontab_content) != ""
+
+        new_job_entry =
+          if has_entries do
+            ",\n           {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}"
+          else
+            "\n           {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n         "
+          end
+
+        updated_crontab = before_crontab <> crontab_content <> new_job_entry <> after_crontab
+
+        String.replace(content, full_match, updated_crontab, global: false)
+
+      _ ->
+        content
+    end
+  end
+
+  # Add Cron plugin to plugins list
+  defp add_cron_plugin_to_plugins(content, app_name) do
+    # Find the plugins configuration
+    # Improved regex to handle comments and whitespace better
+    case Regex.run(
+           ~r/(config\s+:#{app_name},\s+Oban.*?plugins:\s*\[)(.*?)(\n\s*\])/s,
+           content,
+           capture: :all
+         ) do
+      [full_match, before_plugins, plugins_content, after_plugins] ->
+        Mix.shell().info("  ✓ Found plugins block, adding Cron plugin")
+
+        # Remove trailing whitespace and check for comma
+        trimmed_content = String.trim_trailing(plugins_content)
+        has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+        # Add cron plugin with proper formatting
+        new_plugin_entry =
+          if has_trailing_comma do
+            "\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
+          else
+            ",\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
+          end
+
+        updated_plugins = before_plugins <> plugins_content <> new_plugin_entry <> after_plugins
+
+        String.replace(content, full_match, updated_plugins, global: false)
+
+      nil ->
+        Mix.shell().error(
+          "  ⚠️  Could not parse plugins block for :#{app_name} - skipping cron plugin update"
+        )
+
+        Mix.shell().error("     Please manually add Oban.Plugins.Cron configuration")
+        content
     end
   end
 
@@ -340,18 +501,23 @@ defmodule PhoenixKit.Install.ObanConfig do
         queues: [
           default: 10,
           emails: 50,
-          file_processing: 20
+          file_processing: 20,
+          posts: 10
         ],
         plugins: [
-          Oban.Plugins.Pruner
+          Oban.Plugins.Pruner,
+          {Oban.Plugins.Cron,
+           crontab: [
+             {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+           ]}
         ]
 
     And add the following to lib/#{app_name}/application.ex in the children list:
 
       {Oban, Application.get_env(:#{app_name}, Oban)}
 
-    Without this configuration, the storage system cannot process uploaded files.
-    Files will remain stuck in "processing" status.
+    Without this configuration, the storage system cannot process uploaded files,
+    and scheduled posts will not be published automatically.
     """
 
     Igniter.add_notice(igniter, notice)

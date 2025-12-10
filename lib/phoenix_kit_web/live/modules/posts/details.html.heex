@@ -1,0 +1,288 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/posts")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Posts
+      </.link>
+
+      <%!-- Admin Actions (Right aligned) --%>
+      <%= if can_edit_post?(@current_user, @post) do %>
+        <div class="absolute right-0 top-0 -mb-12 flex gap-2">
+          <.link
+            href={Routes.path("/admin/posts/#{@post.id}/edit")}
+            class="btn btn-outline btn-sm"
+          >
+            <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+          </.link>
+
+          <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-outline btn-sm">
+              <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+            </label>
+            <ul
+              tabindex="0"
+              class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52"
+            >
+              <li>
+                <button phx-click="change_status" phx-value-status="draft">
+                  Move to Draft
+                </button>
+              </li>
+              <li>
+                <button phx-click="change_status" phx-value-status="public">
+                  Publish
+                </button>
+              </li>
+              <li>
+                <button phx-click="change_status" phx-value-status="unlisted">
+                  Make Unlisted
+                </button>
+              </li>
+              <li class="divider"></li>
+              <li>
+                <button
+                  phx-click="delete_post"
+                  class="text-error"
+                  data-confirm="Are you sure you want to delete this post?"
+                >
+                  Delete Post
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      <% end %>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-4xl mx-auto space-y-6">
+      <%!-- Post Card --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <%!-- Post Header --%>
+          <div class="flex items-start justify-between mb-4">
+            <div class="flex-1">
+              <%!-- Post Type Badge --%>
+              <div class="mb-2">
+                <span class={format_type_badge_class(@post.type)}>
+                  {format_post_type(@post.type)}
+                </span>
+                <span class={format_status_badge_class(@post.status)}>
+                  {format_status(@post.status)}
+                </span>
+              </div>
+
+              <%!-- Title --%>
+              <h1 class="text-4xl font-bold text-base-content mb-2">
+                {@post.title}
+              </h1>
+
+              <%!-- Subtitle --%>
+              <%= if @post.sub_title do %>
+                <p class="text-xl text-base-content/70 mb-4">
+                  {@post.sub_title}
+                </p>
+              <% end %>
+
+              <%!-- Author & Date --%>
+              <div class="flex items-center gap-4 text-sm text-base-content/60">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-user-circle" class="w-5 h-5" />
+                  <span>
+                    <%= if @post.user do %>
+                      {@post.user.email}
+                    <% else %>
+                      Unknown
+                    <% end %>
+                  </span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-clock" class="w-5 h-5" />
+                  <span>
+                    {Calendar.strftime(@post.inserted_at, "%B %d, %Y at %I:%M %p")}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Stats --%>
+          <div class="flex gap-6 my-4 text-sm">
+            <%= if @show_view_count do %>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-eye" class="w-5 h-5 text-base-content/60" />
+                <span class="font-semibold">{@post.view_count}</span>
+                <span class="text-base-content/60">views</span>
+              </div>
+            <% end %>
+
+            <%= if @likes_enabled do %>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-heart" class="w-5 h-5 text-base-content/60" />
+                <span class="font-semibold">{@post.like_count}</span>
+                <span class="text-base-content/60">likes</span>
+              </div>
+            <% end %>
+
+            <%= if @comments_enabled do %>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-chat-bubble-left" class="w-5 h-5 text-base-content/60" />
+                <span class="font-semibold">{@post.comment_count}</span>
+                <span class="text-base-content/60">comments</span>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="divider"></div>
+
+          <%!-- Featured Image (if any) --%>
+          <% featured_image = Enum.find(@post.media || [], fn m -> m.position == 1 end) %>
+          <%= if featured_image do %>
+            <div class="mb-6">
+              <img
+                src={PhoenixKit.Storage.URLSigner.signed_url(featured_image.file_id, "original")}
+                alt={featured_image.file && featured_image.file.original_file_name}
+                class="w-full rounded-lg object-cover max-h-96"
+              />
+            </div>
+          <% end %>
+
+          <%!-- Content (Markdown Rendered) --%>
+          <.markdown_content content={@rendered_content} />
+
+          <%!-- Media Gallery (if any) --%>
+          <% gallery_media = Enum.filter(@post.media || [], fn m -> m.position != 1 end) %>
+          <%= if length(gallery_media) > 0 do %>
+            <div class="divider"></div>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <%= for media <- gallery_media do %>
+                <div class="aspect-square rounded-lg overflow-hidden">
+                  <img
+                    src={PhoenixKit.Storage.URLSigner.signed_url(media.file_id, "original")}
+                    alt={media.file && media.file.original_file_name}
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%!-- Tags --%>
+          <%= if @post.tags && length(@post.tags) > 0 do %>
+            <div class="divider"></div>
+            <div class="flex flex-wrap gap-2">
+              <%= for tag <- @post.tags do %>
+                <div class="badge badge-outline badge-lg">
+                  #{tag.name}
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%!-- Groups --%>
+          <%= if @post.groups && length(@post.groups) > 0 do %>
+            <div class="divider"></div>
+            <div class="space-y-2">
+              <h3 class="font-semibold text-base-content/70">Collections:</h3>
+              <div class="flex flex-wrap gap-2">
+                <%= for group <- @post.groups do %>
+                  <div class="badge badge-secondary badge-lg">
+                    <.icon name="hero-folder" class="w-4 h-4 mr-1" />
+                    {group.name}
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Like Button --%>
+          <%= if @likes_enabled do %>
+            <div class="divider"></div>
+            <div class="flex justify-center">
+              <button
+                phx-click="like_post"
+                class={[
+                  "btn gap-2",
+                  if(@liked_by_user, do: "btn-error", else: "btn-outline")
+                ]}
+              >
+                <.icon
+                  name={if @liked_by_user, do: "hero-heart-solid", else: "hero-heart"}
+                  class="w-5 h-5"
+                />
+                {if @liked_by_user, do: "Unlike", else: "Like"}
+              </button>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Comments Section --%>
+      <%= if @comments_enabled do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-chat-bubble-left-right" class="w-6 h-6" />
+              Comments ({@post.comment_count})
+            </h2>
+
+            <%!-- New Comment Form --%>
+            <div class="mb-6">
+              <%= if @reply_to do %>
+                <div class="alert alert-info mb-2">
+                  <div class="flex-1">
+                    <span>Replying to comment</span>
+                  </div>
+                  <button phx-click="cancel_reply" class="btn btn-ghost btn-sm">
+                    Cancel
+                  </button>
+                </div>
+              <% end %>
+
+              <.form for={%{}} phx-submit="add_comment" class="space-y-2">
+                <textarea
+                  name="comment"
+                  placeholder="Write a comment..."
+                  class="textarea textarea-bordered w-full"
+                  rows="3"
+                  required
+                ><%= @new_comment %></textarea>
+
+                <div class="flex justify-end">
+                  <button type="submit" class="btn btn-primary btn-sm">
+                    <.icon name="hero-paper-airplane" class="w-4 h-4 mr-2" /> Post Comment
+                  </button>
+                </div>
+              </.form>
+            </div>
+
+            <%!-- Comments List --%>
+            <%= if length(@comments) > 0 do %>
+              <div class="space-y-4">
+                <%= for comment <- @comments do %>
+                  {render_comment(comment, @current_user, assigns)}
+                <% end %>
+              </div>
+            <% else %>
+              <div class="text-center py-8 text-base-content/60">
+                <.icon name="hero-chat-bubble-left" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No comments yet. Be the first to comment!</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
