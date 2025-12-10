@@ -10,8 +10,14 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   Uses PhoenixKit URL prefix from config:
   - Blog listing: `/{prefix}/{blog_slug}` (default language)
   - Blog listing: `/{prefix}/{lang}/{blog_slug}` (non-default language)
-  - Individual posts: `/{prefix}/{blog_slug}/{post_slug}` (default language)
-  - Individual posts: `/{prefix}/{lang}/{blog_slug}/{post_slug}` (non-default language)
+
+  For slug mode posts:
+  - `/{prefix}/{blog_slug}/{post_slug}` (default language)
+  - `/{prefix}/{lang}/{blog_slug}/{post_slug}` (non-default language)
+
+  For timestamp mode posts:
+  - Single post on date: `/{prefix}/{blog_slug}/{date}` (e.g., /blog/2025-12-09)
+  - Multiple posts on date: `/{prefix}/{blog_slug}/{date}/{time}` (e.g., /blog/2025-12-09/16:26)
 
   ## Exclusion
 
@@ -36,6 +42,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   alias PhoenixKit.Config
   alias PhoenixKit.Sitemap.UrlEntry
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def source_name, do: :blogging
@@ -140,8 +147,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   defp build_post_entry(post, blog_slug, blog_name, language, base_url) do
-    post_slug = post.slug || extract_slug_from_path(post.path)
-    path = build_blog_path([blog_slug, post_slug], language)
+    path = build_post_path(post, blog_slug, language)
     url = build_url(path, base_url)
 
     title = get_post_title(post)
@@ -156,6 +162,100 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       category: blog_name,
       source: :blogging
     })
+  end
+
+  # Build post path based on mode (slug vs timestamp)
+  # Mirrors the URL logic from BlogHTML.build_post_url/3
+  defp build_post_path(post, blog_slug, language) do
+    case post.mode do
+      :timestamp ->
+        # For timestamp mode, use date (and time if multiple posts on same date)
+        date = extract_date_for_url(post)
+        post_count = Storage.count_posts_on_date(blog_slug, date)
+
+        if post_count > 1 do
+          # Multiple posts on this date - include time
+          time = extract_time_for_url(post)
+          build_blog_path([blog_slug, date, time], language)
+        else
+          # Single post on this date - date only
+          build_blog_path([blog_slug, date], language)
+        end
+
+      :slug ->
+        # For slug mode, use the post slug
+        post_slug = post.slug || extract_slug_from_path(post.path)
+        build_blog_path([blog_slug, post_slug], language)
+
+      _ ->
+        # Fallback to slug mode behavior
+        post_slug = post.slug || extract_slug_from_path(post.path)
+        build_blog_path([blog_slug, post_slug], language)
+    end
+  end
+
+  # Extract date string for URL from post (YYYY-MM-DD format)
+  defp extract_date_for_url(post) do
+    cond do
+      # First try post.date (set for timestamp mode posts)
+      not is_nil(post.date) ->
+        Date.to_iso8601(post.date)
+
+      # Then try metadata.published_at
+      is_binary(Map.get(post.metadata, :published_at)) ->
+        case DateTime.from_iso8601(post.metadata.published_at) do
+          {:ok, dt, _} -> Date.to_iso8601(DateTime.to_date(dt))
+          _ -> "2025-01-01"
+        end
+
+      is_binary(Map.get(post.metadata, "published_at")) ->
+        case DateTime.from_iso8601(post.metadata["published_at"]) do
+          {:ok, dt, _} -> Date.to_iso8601(DateTime.to_date(dt))
+          _ -> "2025-01-01"
+        end
+
+      true ->
+        "2025-01-01"
+    end
+  end
+
+  # Extract time string for URL from post (HH:MM format)
+  defp extract_time_for_url(post) do
+    cond do
+      # First try post.time (set for timestamp mode posts)
+      not is_nil(post.time) ->
+        post.time |> Time.truncate(:second) |> Time.to_string() |> String.slice(0..4)
+
+      # Then try metadata.published_at
+      is_binary(Map.get(post.metadata, :published_at)) ->
+        case DateTime.from_iso8601(post.metadata.published_at) do
+          {:ok, dt, _} ->
+            dt
+            |> DateTime.to_time()
+            |> Time.truncate(:second)
+            |> Time.to_string()
+            |> String.slice(0..4)
+
+          _ ->
+            "00:00"
+        end
+
+      is_binary(Map.get(post.metadata, "published_at")) ->
+        case DateTime.from_iso8601(post.metadata["published_at"]) do
+          {:ok, dt, _} ->
+            dt
+            |> DateTime.to_time()
+            |> Time.truncate(:second)
+            |> Time.to_string()
+            |> String.slice(0..4)
+
+          _ ->
+            "00:00"
+        end
+
+      true ->
+        "00:00"
+    end
   end
 
   defp extract_slug_from_path(path) do
