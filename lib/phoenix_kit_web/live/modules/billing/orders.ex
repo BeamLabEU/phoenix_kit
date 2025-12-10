@@ -148,9 +148,12 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Orders do
     }
 
     params
-    |> Enum.reject(fn {_k, v} -> v == "" or v == "all" or v == nil end)
-    |> Enum.reject(fn {k, v} -> k == "page" and v == 1 end)
-    |> Enum.reject(fn {k, v} -> k == "per_page" and v == @default_per_page end)
+    |> Enum.reject(fn
+      {_k, v} when v in ["", "all", nil] -> true
+      {"page", 1} -> true
+      {"per_page", @default_per_page} -> true
+      _ -> false
+    end)
     |> URI.encode_query()
   end
 end

@@ -46,6 +46,7 @@ defmodule PhoenixKit.Billing do
   alias PhoenixKit.Billing.Currency
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Billing.Order
+  alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Settings
 
   # ============================================
@@ -291,51 +292,39 @@ defmodule PhoenixKit.Billing do
   - `:preload` - Associations to preload
   """
   def list_billing_profiles(opts \\ []) do
-    query = BillingProfile
-
-    query =
-      case Keyword.get(opts, :user_id) do
-        nil -> query
-        user_id -> where(query, [bp], bp.user_id == ^user_id)
-      end
-
-    query =
-      case Keyword.get(opts, :type) do
-        nil -> query
-        type -> where(query, [bp], bp.type == ^type)
-      end
-
-    query =
-      case Keyword.get(opts, :search) do
-        nil ->
-          query
-
-        "" ->
-          query
-
-        search ->
-          search_term = "%#{search}%"
-
-          where(
-            query,
-            [bp],
-            ilike(bp.first_name, ^search_term) or
-              ilike(bp.last_name, ^search_term) or
-              ilike(bp.email, ^search_term) or
-              ilike(bp.company_name, ^search_term)
-          )
-      end
-
-    query = order_by(query, [bp], desc: bp.is_default, desc: bp.inserted_at)
-
-    query =
-      case Keyword.get(opts, :preload) do
-        nil -> query
-        preloads -> preload(query, ^preloads)
-      end
-
-    repo().all(query)
+    BillingProfile
+    |> filter_by_user_id(Keyword.get(opts, :user_id))
+    |> filter_by_type(Keyword.get(opts, :type))
+    |> filter_by_search(Keyword.get(opts, :search))
+    |> order_by([bp], desc: bp.is_default, desc: bp.inserted_at)
+    |> maybe_preload(Keyword.get(opts, :preload))
+    |> repo().all()
   end
+
+  defp filter_by_user_id(query, nil), do: query
+  defp filter_by_user_id(query, user_id), do: where(query, [bp], bp.user_id == ^user_id)
+
+  defp filter_by_type(query, nil), do: query
+  defp filter_by_type(query, type), do: where(query, [bp], bp.type == ^type)
+
+  defp filter_by_search(query, nil), do: query
+  defp filter_by_search(query, ""), do: query
+
+  defp filter_by_search(query, search) do
+    search_term = "%#{search}%"
+
+    where(
+      query,
+      [bp],
+      ilike(bp.first_name, ^search_term) or
+        ilike(bp.last_name, ^search_term) or
+        ilike(bp.email, ^search_term) or
+        ilike(bp.company_name, ^search_term)
+    )
+  end
+
+  defp maybe_preload(query, nil), do: query
+  defp maybe_preload(query, preloads), do: preload(query, ^preloads)
 
   @doc """
   Lists billing profiles for a user (shorthand).
@@ -948,7 +937,7 @@ defmodule PhoenixKit.Billing do
       user ->
         variables = build_invoice_email_variables(invoice, user, opts)
 
-        PhoenixKit.Emails.Templates.send_email(
+        Templates.send_email(
           "billing_invoice",
           user.email,
           variables,
@@ -972,51 +961,9 @@ defmodule PhoenixKit.Billing do
     bank_details = invoice.bank_details || %{}
     billing_details = invoice.billing_details || %{}
 
-    # Format line items for HTML
-    line_items_html =
-      (invoice.line_items || [])
-      |> Enum.map(fn item ->
-        """
-        <tr>
-          <td>
-            <div class="item-name">#{item["name"]}</div>
-            #{if item["description"], do: "<div class=\"item-desc\">#{item["description"]}</div>", else: ""}
-          </td>
-          <td class="text-right">#{item["quantity"]}</td>
-          <td class="text-right">#{item["unit_price"]}</td>
-          <td class="text-right">#{item["total"]}</td>
-        </tr>
-        """
-      end)
-      |> Enum.join("\n")
-
-    # Format line items for text
-    line_items_text =
-      (invoice.line_items || [])
-      |> Enum.map(fn item ->
-        "#{item["name"]} x #{item["quantity"]} @ #{item["unit_price"]} = #{item["total"]}"
-      end)
-      |> Enum.join("\n")
-
-    # Get user name from billing details or user
-    user_name =
-      cond do
-        billing_details["company_name"] ->
-          billing_details["company_name"]
-
-        billing_details["first_name"] ->
-          "#{billing_details["first_name"]} #{billing_details["last_name"]}"
-
-        user.first_name ->
-          "#{user.first_name} #{user.last_name}"
-
-        true ->
-          user.email
-      end
-
     %{
       "user_email" => user.email,
-      "user_name" => user_name,
+      "user_name" => extract_user_name(billing_details, user),
       "invoice_number" => invoice.invoice_number,
       "invoice_date" => format_date(invoice.inserted_at),
       "due_date" => format_date(invoice.due_date),
@@ -1024,8 +971,8 @@ defmodule PhoenixKit.Billing do
       "tax_amount" => format_decimal(invoice.tax_amount),
       "total" => format_decimal(invoice.total),
       "currency" => invoice.currency,
-      "line_items_html" => line_items_html,
-      "line_items_text" => line_items_text,
+      "line_items_html" => format_line_items_html(invoice.line_items),
+      "line_items_text" => format_line_items_text(invoice.line_items),
       "company_name" => Settings.get_setting("billing_company_name", ""),
       "company_address" => Settings.get_setting("billing_company_address", ""),
       "company_vat" => Settings.get_setting("billing_company_vat", ""),
@@ -1037,6 +984,50 @@ defmodule PhoenixKit.Billing do
           Settings.get_setting("billing_payment_terms", "Payment due within 14 days."),
       "invoice_url" => invoice_url
     }
+  end
+
+  defp extract_user_name(%{"company_name" => name}, _user) when is_binary(name) and name != "",
+    do: name
+
+  defp extract_user_name(%{"first_name" => first, "last_name" => last}, _user)
+       when is_binary(first) and first != "",
+       do: "#{first} #{last}"
+
+  defp extract_user_name(_billing, %{first_name: first, last_name: last})
+       when is_binary(first) and first != "",
+       do: "#{first} #{last}"
+
+  defp extract_user_name(_billing, user), do: user.email
+
+  defp format_line_items_html(nil), do: ""
+
+  defp format_line_items_html(items) do
+    Enum.map_join(items, "\n", fn item ->
+      desc =
+        if item["description"],
+          do: "<div class=\"item-desc\">#{item["description"]}</div>",
+          else: ""
+
+      """
+      <tr>
+        <td>
+          <div class="item-name">#{item["name"]}</div>
+          #{desc}
+        </td>
+        <td class="text-right">#{item["quantity"]}</td>
+        <td class="text-right">#{item["unit_price"]}</td>
+        <td class="text-right">#{item["total"]}</td>
+      </tr>
+      """
+    end)
+  end
+
+  defp format_line_items_text(nil), do: ""
+
+  defp format_line_items_text(items) do
+    Enum.map_join(items, "\n", fn item ->
+      "#{item["name"]} x #{item["quantity"]} @ #{item["unit_price"]} = #{item["total"]}"
+    end)
   end
 
   defp format_date(nil), do: "-"
@@ -1063,13 +1054,7 @@ defmodule PhoenixKit.Billing do
       # Also mark the order as paid if linked
       case result do
         {:ok, invoice} ->
-          if invoice.order_id do
-            case get_order!(invoice.order_id) do
-              %Order{status: "confirmed"} = order -> mark_order_paid(order)
-              _ -> :ok
-            end
-          end
-
+          maybe_mark_linked_order_paid(invoice)
           {:ok, invoice}
 
         error ->
@@ -1229,8 +1214,16 @@ defmodule PhoenixKit.Billing do
   defp extract_user_id(%{id: id}), do: id
   defp extract_user_id(id) when is_integer(id), do: id
 
+  defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
+
+  defp maybe_mark_linked_order_paid(%{order_id: order_id}) do
+    case get_order!(order_id) do
+      %Order{status: "confirmed"} = order -> mark_order_paid(order)
+      _ -> :ok
+    end
+  end
+
   defp get_bank_details do
-    # TODO: Load from settings
     %{
       bank_name: Settings.get_setting("billing_bank_name", ""),
       iban: Settings.get_setting("billing_bank_iban", ""),
