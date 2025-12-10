@@ -4,7 +4,7 @@
   page_title={@page_title}
   current_path={@conn.request_path}
   project_title={PhoenixKit.Settings.get_setting("project_title", "PhoenixKit")}
-  current_locale={assigns[:current_locale] || "en"}
+  current_locale={assigns[:current_locale] || PhoenixKit.Utils.Routes.get_default_admin_locale()}
 >
   <div class="container mx-auto px-4 py-8 max-w-4xl">
     <%!-- GitHub-style markdown rendering with custom styles --%>

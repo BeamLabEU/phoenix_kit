@@ -121,6 +121,30 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   @doc """
+  Returns the default admin locale (base code).
+
+  This is the first language in the admin_languages setting list,
+  extracted to its base code (e.g., "en-US" becomes "en").
+
+  Falls back to "en" if no admin languages are configured.
+
+  ## Examples
+
+      iex> Routes.get_default_admin_locale()
+      "en"  # or "ko" if Korean is first in admin_languages
+
+  ## Use Case
+
+  This is used automatically in the `on_mount` hook to set `current_locale`
+  in socket assigns. LiveViews can then simply use:
+
+      locale = params["locale"] || socket.assigns[:current_locale]
+  """
+  def get_default_admin_locale do
+    get_default_admin_language()
+  end
+
+  @doc """
   Returns a full url with preconfigured prefix.
 
   This function first checks for a configured site URL in Settings,

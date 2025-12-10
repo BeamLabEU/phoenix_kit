@@ -286,7 +286,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
               <a
                 href={build_locale_url(@current_path, language["code"])}
                 phx-click="phoenix_kit_set_locale"
-                phx-value-locale={language["code"]}
+                phx-value-locale={language["dialect"]}
                 phx-value-url={build_locale_url(@current_path, language["code"])}
                 class={[
                   "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",

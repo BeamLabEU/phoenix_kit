@@ -15,7 +15,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -156,7 +158,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -169,7 +171,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
   def handle_event("filter_by_entity", %{"entity_id" => ""}, socket) do
     # No entity selected - redirect to entities list since global data view no longer exists
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
 
     socket =
       socket
@@ -191,7 +193,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(entity_id)
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -210,7 +212,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -229,7 +231,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
@@ -323,7 +325,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   end
 
   def handle_info({:entity_updated, entity_id}, socket) do
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
 
     # If the currently viewed entity was updated, check if it was archived
     if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
@@ -357,7 +359,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   end
 
   def handle_info({:entity_deleted, entity_id}, socket) do
-    locale = socket.assigns[:current_locale] || "en"
+    locale = socket.assigns[:current_locale]
 
     # If the currently viewed entity was deleted, redirect to entities list
     if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
