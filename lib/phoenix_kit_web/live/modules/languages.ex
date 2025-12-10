@@ -51,6 +51,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:switcher_show_flags, true)
       |> assign(:switcher_goto_home, false)
       |> assign(:switcher_hide_current, false)
+      |> assign(:switcher_show_native_names, false)
 
     {:ok, socket}
   end
@@ -176,15 +177,16 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   end
 
   # Helper function to generate the language switcher code based on current settings
-  defp generate_switcher_code(show_flags, show_names, goto_home, hide_current) do
+  defp generate_switcher_code(show_flags, show_names, goto_home, hide_current, show_native_names) do
     flags_line = if show_flags, do: "\n  show_flags={true}", else: ""
     names_line = if show_names, do: "\n  show_names={true}", else: ""
     home_line = if goto_home, do: "\n  goto_home={true}", else: ""
     hide_line = if hide_current, do: "\n  hide_current={true}", else: ""
+    native_names_line = if show_native_names, do: "\n  show_native_names={true}", else: ""
 
     """
     <.language_switcher_dropdown
-      current_locale={@current_locale}#{flags_line}#{names_line}#{home_line}#{hide_line}
+      current_locale={@current_locale}#{flags_line}#{names_line}#{native_names_line}#{home_line}#{hide_line}
     />
     """
   end

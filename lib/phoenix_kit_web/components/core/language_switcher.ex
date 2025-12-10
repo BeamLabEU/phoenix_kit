@@ -100,6 +100,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           "base_code" => base,
           "dialect" => dialect,
           "name" => lang["name"],
+          "native" => get_native_name(dialect),
           "flag" => flag
         }
       end)
@@ -123,6 +124,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           "base_code" => current_base,
           "dialect" => locale,
           "name" => String.upcase(locale),
+          "native" => nil,
           "flag" => "🌐"
         }
 
@@ -162,13 +164,12 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
                 <%= if @show_names do %>
                   <div class="flex-1">
                     <span class="font-medium text-base-content">
-                      {language["name"]}
-                    </span>
-                    <%= if @show_native_names && Map.get(language, "native") do %>
-                      <span class="text-xs text-base-content/60 block">
+                      <%= if @show_native_names && Map.get(language, "native") do %>
                         {language["native"]}
-                      </span>
-                    <% end %>
+                      <% else %>
+                        {language["name"]}
+                      <% end %>
+                    </span>
                   </div>
                 <% else %>
                   <div class="flex-1"></div>
@@ -411,6 +412,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     case Languages.get_predefined_language(code) do
       %{flag: flag} -> flag
       nil -> "🌐"
+    end
+  end
+
+  # Helper function to get native language name
+  defp get_native_name(code) when is_binary(code) do
+    case Languages.get_predefined_language(code) do
+      %{native: native} -> native
+      nil -> nil
     end
   end
 
