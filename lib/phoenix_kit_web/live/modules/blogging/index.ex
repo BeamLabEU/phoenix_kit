@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
+  @impl true
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
@@ -60,6 +61,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
     {:ok, socket}
   end
 
+  @impl true
   def handle_params(_params, uri, socket) do
     {blogs, insights, summary} =
       dashboard_snapshot(
@@ -84,7 +86,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   @impl true
   def handle_info({:post_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
   def handle_info({:post_updated, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
-  def handle_info({:post_status_changed, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:post_status_changed, _post}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
   def handle_info({:post_deleted, _post_path}, socket), do: {:noreply, refresh_dashboard(socket)}
   def handle_info({:blog_created, _blog}, socket), do: {:noreply, refresh_dashboard(socket)}
   def handle_info({:blog_deleted, _blog_slug}, socket), do: {:noreply, refresh_dashboard(socket)}

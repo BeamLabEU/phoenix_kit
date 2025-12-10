@@ -603,7 +603,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   # Handle save broadcasts from other users/tabs (last-save-wins sync)
   def handle_info({:editor_saved, form_key, source}, socket) do
     require Logger
-    Logger.debug("EDITOR_SAVED received: form_key=#{inspect(form_key)}, source=#{inspect(source)}, my_form_key=#{inspect(socket.assigns[:form_key])}, my_socket_id=#{inspect(socket.id)}")
+
+    Logger.debug(
+      "EDITOR_SAVED received: form_key=#{inspect(form_key)}, source=#{inspect(source)}, " <>
+        "my_form_key=#{inspect(socket.assigns[:form_key])}, my_socket_id=#{inspect(socket.id)}"
+    )
 
     cond do
       # Ignore if no form_key set
@@ -705,7 +709,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           socket =
             socket
             |> assign(:available_languages, updated_post.available_languages)
-            |> assign(:post, Map.put(socket.assigns.post, :available_languages, updated_post.available_languages))
+            |> assign(
+              :post,
+              Map.put(socket.assigns.post, :available_languages, updated_post.available_languages)
+            )
 
           {:noreply, socket}
 
@@ -713,10 +720,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           # If we can't read (e.g., file deleted), just add the language to available list
           available = socket.assigns[:available_languages] || []
 
-          if language not in available do
-            {:noreply, assign(socket, :available_languages, available ++ [language])}
-          else
+          if language in available do
             {:noreply, socket}
+          else
+            {:noreply, assign(socket, :available_languages, available ++ [language])}
           end
       end
     else
@@ -895,7 +902,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         # Broadcast save to other tabs/users so they can reload (for editor sync)
         if socket.assigns[:form_key] do
           require Logger
-          Logger.debug("BROADCASTING editor_saved from update_existing_post: form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}")
+
+          Logger.debug(
+            "BROADCASTING editor_saved from update_existing_post: " <>
+              "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
+          )
+
           BloggingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
         end
 
@@ -965,7 +977,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         # Broadcast save to other tabs/users so they can reload
         if socket.assigns[:form_key] do
           require Logger
-          Logger.debug("BROADCASTING editor_saved: form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}")
+
+          Logger.debug(
+            "BROADCASTING editor_saved: " <>
+              "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
+          )
+
           BloggingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
         end
 
@@ -1826,7 +1843,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   defp populate_presence_info(socket, form_key) do
     presences = PresenceHelpers.get_sorted_presences(form_key)
-    my_user_id = socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.id
+
+    my_user_id =
+      socket.assigns[:phoenix_kit_current_user] && socket.assigns.phoenix_kit_current_user.id
 
     {lock_owner_user, spectators, other_viewers} =
       case presences do
@@ -1912,7 +1931,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       {:error, _reason} ->
         # File might have been deleted or moved
         socket
-        |> put_flash(:warning, gettext("Could not reload post - it may have been moved or deleted"))
+        |> put_flash(
+          :warning,
+          gettext("Could not reload post - it may have been moved or deleted")
+        )
     end
   end
 end
