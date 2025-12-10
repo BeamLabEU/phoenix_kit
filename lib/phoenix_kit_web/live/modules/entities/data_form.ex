@@ -20,7 +20,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   @impl true
   def mount(%{"entity_slug" => entity_slug, "id" => id} = params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -34,7 +36,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
 
   def mount(%{"entity_id" => entity_id, "id" => id} = params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -48,7 +52,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
 
   def mount(%{"entity_slug" => entity_slug} = params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -62,7 +68,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
 
   def mount(%{"entity_id" => entity_id} = params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -288,7 +296,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
               # Presence will automatically clean up when LiveView process terminates
               # Redirect to entity-specific data navigator after successful creation/update
               entity_name = socket.assigns.entity.name
-              locale = socket.assigns[:current_locale] || "en"
+              locale = socket.assigns[:current_locale]
 
               socket =
                 socket
@@ -482,7 +490,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
         {:noreply, socket}
 
       true ->
-        locale = socket.assigns[:current_locale] || "en"
+        locale = socket.assigns[:current_locale]
 
         socket =
           socket
@@ -503,7 +511,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   def handle_info({:entity_updated, entity_id}, socket) do
     if entity_id == socket.assigns.entity.id do
       entity = Entities.get_entity!(entity_id)
-      locale = socket.assigns[:current_locale] || "en"
+      locale = socket.assigns[:current_locale]
 
       # If entity was archived or unpublished, redirect to entities list
       if entity.status != "published" do
@@ -532,7 +540,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
 
   def handle_info({:entity_deleted, entity_id}, socket) do
     if entity_id == socket.assigns.entity.id do
-      locale = socket.assigns[:current_locale] || "en"
+      locale = socket.assigns[:current_locale]
 
       socket =
         socket

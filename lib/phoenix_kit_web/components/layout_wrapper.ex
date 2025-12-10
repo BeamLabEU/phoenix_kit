@@ -157,7 +157,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               current_path: assigns[:current_path],
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
-              current_locale: assigns[:current_locale] || "en",
+              current_locale: assigns[:current_locale],
               blogging_blogs: assigns[:blogging_blogs] || []
             }
 
