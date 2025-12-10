@@ -86,7 +86,8 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
      |> assign_new(:debounce, fn -> 400 end)
      |> assign_new(:protect_navigation, fn -> true end)
      |> assign_new(:script_nonce, fn -> "" end)
-     |> assign_new(:show_save_button, fn -> false end)}
+     |> assign_new(:show_save_button, fn -> false end)
+     |> assign_new(:readonly, fn -> false end)}
   end
 
   @impl true
@@ -391,6 +392,15 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
                 insertFn(text);
               }
             });
+
+            // Listen for set-content events from LiveView (for collaborative editing sync)
+            window.addEventListener('phx:set-content', function(e) {
+              const content = e.detail.content;
+              // Update all markdown editor textareas on the page
+              document.querySelectorAll('[data-markdown-editor="true"] textarea').forEach(function(textarea) {
+                textarea.value = content;
+              });
+            });
           }
         })();
       </script>
@@ -681,6 +691,7 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
         placeholder={@placeholder}
         class="textarea textarea-bordered w-full font-mono text-sm leading-6"
         style={"height: #{@height}"}
+        readonly={@readonly}
       ><%= @content %></textarea>
     </div>
     """

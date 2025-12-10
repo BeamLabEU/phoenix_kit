@@ -1058,38 +1058,71 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     defp check_supervisor_order(content, app_name) do
       lines = String.split(content, "\n")
 
+      # Convert snake_case app_name to PascalCase module name
+      app_module = Macro.camelize(to_string(app_name))
+
       # Find line numbers for each supervisor
-      repo_line = find_supervisor_line(lines, ~r/#{app_name}\.Repo[,\s]/)
+      repo_line = find_supervisor_line(lines, ~r/#{app_module}\.Repo[,\s]/)
       phoenix_kit_line = find_supervisor_line(lines, ~r/PhoenixKit\.Supervisor[,\s]/)
+      endpoint_line = find_supervisor_line(lines, ~r/#{app_module}Web\.Endpoint[,\s]/)
 
       oban_line =
         find_supervisor_line(lines, ~r/\{Oban,|Application\.get_env\(:#{app_name}, Oban\)/)
 
-      validate_supervisor_positions(repo_line, phoenix_kit_line, oban_line)
+      validate_supervisor_positions(repo_line, phoenix_kit_line, oban_line, endpoint_line)
     end
 
     # Validate supervisor positions and return check result
-    defp validate_supervisor_positions(nil, nil, nil), do: :cannot_determine
-    defp validate_supervisor_positions(nil, _, _), do: :cannot_determine
-    defp validate_supervisor_positions(repo, nil, nil) when is_integer(repo), do: :correct
+    # Correct order: Repo → PhoenixKit.Supervisor → Endpoint → Oban
+    # PhoenixKit MUST be before Endpoint so Presence is ready for LiveViews
+    defp validate_supervisor_positions(nil, nil, nil, _), do: :cannot_determine
+    defp validate_supervisor_positions(nil, _, _, _), do: :cannot_determine
+    defp validate_supervisor_positions(repo, nil, nil, _) when is_integer(repo), do: :correct
 
-    defp validate_supervisor_positions(repo, pk, nil) when is_integer(repo) and is_integer(pk) do
+    defp validate_supervisor_positions(repo, pk, nil, nil)
+         when is_integer(repo) and is_integer(pk) do
       if repo < pk, do: :correct, else: {:needs_fix, "PhoenixKit.Supervisor before Repo"}
     end
 
-    defp validate_supervisor_positions(repo, pk, oban)
-         when is_integer(repo) and is_integer(pk) and is_integer(oban) do
-      check_three_supervisor_order(repo, pk, oban)
+    defp validate_supervisor_positions(repo, pk, nil, endpoint)
+         when is_integer(repo) and is_integer(pk) and is_integer(endpoint) do
+      cond do
+        pk < repo -> {:needs_fix, "PhoenixKit.Supervisor before Repo"}
+        pk > endpoint -> {:needs_fix, "PhoenixKit.Supervisor after Endpoint"}
+        true -> :correct
+      end
     end
 
-    defp validate_supervisor_positions(_, _, _), do: :cannot_determine
+    defp validate_supervisor_positions(repo, pk, oban, nil)
+         when is_integer(repo) and is_integer(pk) and is_integer(oban) do
+      check_supervisor_order_without_endpoint(repo, pk, oban)
+    end
 
-    # Check ordering when all three supervisors exist
-    defp check_three_supervisor_order(repo, pk, oban) do
+    defp validate_supervisor_positions(repo, pk, oban, endpoint)
+         when is_integer(repo) and is_integer(pk) and is_integer(oban) and is_integer(endpoint) do
+      check_full_supervisor_order(repo, pk, oban, endpoint)
+    end
+
+    defp validate_supervisor_positions(_, _, _, _), do: :cannot_determine
+
+    # Check ordering without endpoint
+    defp check_supervisor_order_without_endpoint(repo, pk, oban) do
       cond do
         pk < repo and oban < repo -> {:needs_fix, "both PhoenixKit and Oban before Repo"}
         pk < repo -> {:needs_fix, "PhoenixKit.Supervisor before Repo"}
         oban < repo -> {:needs_fix, "Oban before Repo"}
+        oban < pk -> {:needs_fix, "Oban before PhoenixKit.Supervisor"}
+        true -> :correct
+      end
+    end
+
+    # Check full ordering with endpoint
+    # Correct order: Repo → PhoenixKit.Supervisor → Endpoint → Oban
+    defp check_full_supervisor_order(repo, pk, oban, endpoint) do
+      cond do
+        pk < repo -> {:needs_fix, "PhoenixKit.Supervisor before Repo"}
+        oban < repo -> {:needs_fix, "Oban before Repo"}
+        pk > endpoint -> {:needs_fix, "PhoenixKit.Supervisor after Endpoint"}
         oban < pk -> {:needs_fix, "Oban before PhoenixKit.Supervisor"}
         true -> :correct
       end
@@ -1127,8 +1160,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     defp reorder_supervisors(content, app_name) do
       lines = String.split(content, "\n")
 
+      # Convert snake_case app_name to PascalCase module name
+      app_module = Macro.camelize(to_string(app_name))
+
       # Extract supervisor lines
-      {repo_line, repo_index} = extract_supervisor(lines, ~r/#{app_name}\.Repo[,\s]/)
+      {repo_line, repo_index} = extract_supervisor(lines, ~r/#{app_module}\.Repo[,\s]/)
       {pk_line, pk_index} = extract_supervisor(lines, ~r/PhoenixKit\.Supervisor[,\s]/)
 
       {oban_line, oban_index} =
@@ -1230,6 +1266,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
     end
 
     # Build ordered list of supervisors with correct positioning
+    # Correct order: Repo → PhoenixKit → Endpoint → Oban
     defp build_ordered_supervisor_list(repo_line, pk_line, oban_line, filtered_children) do
       # Add Repo first (if exists)
       ordered = if repo_line, do: [repo_line], else: []
@@ -1237,15 +1274,17 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       # Split remaining children at Endpoint
       {before_endpoint, from_endpoint} = split_at_endpoint(filtered_children)
 
-      # Add PhoenixKit after Repo, before Endpoint
+      # Add children before Endpoint
       ordered = ordered ++ before_endpoint
+
+      # Add PhoenixKit BEFORE Endpoint (so Presence is ready for LiveViews)
       ordered = if pk_line, do: ordered ++ [pk_line], else: ordered
 
-      # Add Oban after PhoenixKit
-      ordered = if oban_line, do: ordered ++ [oban_line], else: ordered
+      # Add Endpoint
+      ordered = ordered ++ from_endpoint
 
-      # Add remaining children (Endpoint and after)
-      ordered ++ from_endpoint
+      # Add Oban AFTER Endpoint (typically last in the list)
+      if oban_line, do: ordered ++ [oban_line], else: ordered
     end
 
     # Split children at Endpoint line
@@ -1270,12 +1309,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
          Fixed to correct order:
            1. YourApp.Repo            (database connection - must be first)
-           2. PhoenixKit.Supervisor   (uses Repo for Settings cache)
-           3. {Oban, ...}            (uses Repo for job persistence)
-           4. Other supervisors...
+           2. PhoenixKit.Supervisor   (Presence must be ready before Endpoint)
+           3. YourAppWeb.Endpoint     (starts accepting connections)
+           4. {Oban, ...}            (uses Repo for job persistence)
 
-         This fixes startup crashes where PhoenixKit or Oban tried to access
-         the database before Repo was ready.
+         PhoenixKit.Supervisor must start BEFORE Endpoint so that Presence
+         ETS tables are ready when LiveViews mount for collaborative editing.
 
          IMPORTANT: Restart your server for changes to take effect.
       """
