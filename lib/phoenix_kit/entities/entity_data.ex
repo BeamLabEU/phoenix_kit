@@ -39,32 +39,32 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Usage Examples
 
-      # Create a blog post data record
+      # Create a brand data record
       {:ok, data} = PhoenixKit.Entities.EntityData.create(%{
-        entity_id: blog_entity.id,
-        title: "My First Post",
-        slug: "my-first-post",
+        entity_id: brand_entity.id,
+        title: "Acme Corporation",
+        slug: "acme-corporation",
         status: "published",
         created_by: user.id,
         data: %{
-          "title" => "My First Post",
-          "excerpt" => "This is my first blog post",
-          "content" => "<p>Blog content here</p>",
-          "category" => "Tech",
-          "publish_date" => "2025-09-30",
+          "name" => "Acme Corporation",
+          "tagline" => "Quality products since 1950",
+          "description" => "<p>Leading manufacturer of innovative products</p>",
+          "industry" => "Manufacturing",
+          "founded_date" => "1950-03-15",
           "featured" => true
         },
         metadata: %{
-          "tags" => ["elixir", "phoenix"],
-          "author_name" => "John Doe"
+          "tags" => ["manufacturing", "industrial"],
+          "contact_email" => "info@acme.com"
         }
       })
 
       # Get all records for an entity
-      records = PhoenixKit.Entities.EntityData.list_by_entity(blog_entity.id)
+      records = PhoenixKit.Entities.EntityData.list_by_entity(brand_entity.id)
 
       # Search by title
-      results = PhoenixKit.Entities.EntityData.search_by_title("First Post", blog_entity.id)
+      results = PhoenixKit.Entities.EntityData.search_by_title("Acme", brand_entity.id)
   """
 
   use Ecto.Schema
@@ -416,7 +416,7 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.get_by_slug(1, "my-first-post")
+      iex> PhoenixKit.Entities.EntityData.get_by_slug(1, "acme-corporation")
       %PhoenixKit.Entities.EntityData{}
 
       iex> PhoenixKit.Entities.EntityData.get_by_slug(1, "invalid")
@@ -524,7 +524,7 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.search_by_title("First Post", 1)
+      iex> PhoenixKit.Entities.EntityData.search_by_title("Acme", 1)
       [%PhoenixKit.Entities.EntityData{}, ...]
   """
   def search_by_title(search_term, entity_id \\ nil) when is_binary(search_term) do

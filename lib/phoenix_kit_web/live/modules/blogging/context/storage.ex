@@ -57,6 +57,83 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     Enum.find(all_languages, fn lang -> lang.code == language_code end)
   end
 
+  @doc """
+  Determines the display code for a language based on whether multiple dialects
+  of the same base language are enabled.
+
+  If only one dialect of a base language is enabled (e.g., just "en-US"),
+  returns the base code ("en") for cleaner display.
+
+  If multiple dialects are enabled (e.g., "en-US" and "en-GB"),
+  returns the full dialect code ("en-US") to distinguish them.
+
+  ## Parameters
+    - `language_code` - the full language/dialect code (e.g., "en-US")
+    - `enabled_languages` - list of all enabled language codes
+
+  ## Examples
+      # Only en-US enabled
+      iex> get_display_code("en-US", ["en-US", "fr-FR"])
+      "en"
+
+      # Both en-US and en-GB enabled
+      iex> get_display_code("en-US", ["en-US", "en-GB", "fr-FR"])
+      "en-US"
+  """
+  @spec get_display_code(String.t(), [String.t()]) :: String.t()
+  def get_display_code(language_code, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    base_code = DialectMapper.extract_base(language_code)
+
+    # Count how many enabled languages share this base code
+    dialects_count =
+      Enum.count(enabled_languages, fn lang ->
+        DialectMapper.extract_base(lang) == base_code
+      end)
+
+    # If more than one dialect of this base language is enabled, show full code
+    if dialects_count > 1 do
+      language_code
+    else
+      base_code
+    end
+  end
+
+  @doc """
+  Orders languages for display in the language switcher.
+
+  Order: primary language first, then languages with translations (sorted),
+  then languages without translations (sorted). This ensures consistent order
+  across all views regardless of which language is currently being edited.
+
+  ## Parameters
+    - `available_languages` - list of language codes that have translations
+    - `enabled_languages` - list of all enabled language codes
+
+  ## Returns
+    List of language codes in consistent display order.
+  """
+  @spec order_languages_for_display([String.t()], [String.t()]) :: [String.t()]
+  def order_languages_for_display(available_languages, enabled_languages) do
+    primary_language = List.first(enabled_languages) || "en"
+
+    # Languages with content (excluding primary), sorted alphabetically
+    langs_with_content =
+      available_languages
+      |> Enum.reject(&(&1 == primary_language))
+      |> Enum.sort()
+
+    # Enabled languages without content (excluding primary), sorted alphabetically
+    langs_without_content =
+      enabled_languages
+      |> Enum.reject(&(&1 in available_languages or &1 == primary_language))
+      |> Enum.sort()
+
+    # Final order: primary first, then with content, then without
+    [primary_language] ++ langs_with_content ++ langs_without_content
+  end
+
   @slug_pattern ~r/^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
   @doc """
@@ -272,6 +349,61 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       end
     else
       {:error, :not_found}
+    end
+  end
+
+  @doc """
+  Counts the number of posts on a specific date for a blog.
+  Used to determine if time should be included in URLs.
+  """
+  @spec count_posts_on_date(String.t(), Date.t() | String.t()) :: non_neg_integer()
+  def count_posts_on_date(blog_slug, %Date{} = date) do
+    count_posts_on_date(blog_slug, Date.to_iso8601(date))
+  end
+
+  def count_posts_on_date(blog_slug, date_string) when is_binary(date_string) do
+    date_path = Path.join([root_path(), blog_slug, date_string])
+
+    if File.dir?(date_path) do
+      case File.ls(date_path) do
+        {:ok, time_folders} ->
+          # Count folders that look like time folders (HH:MM format)
+          Enum.count(time_folders, fn folder ->
+            String.match?(folder, ~r/^\d{2}:\d{2}$/)
+          end)
+
+        {:error, _} ->
+          0
+      end
+    else
+      0
+    end
+  end
+
+  @doc """
+  Lists all time folders (posts) for a specific date in a blog.
+  Returns a list of time strings in HH:MM format, sorted.
+  """
+  @spec list_times_on_date(String.t(), Date.t() | String.t()) :: [String.t()]
+  def list_times_on_date(blog_slug, %Date{} = date) do
+    list_times_on_date(blog_slug, Date.to_iso8601(date))
+  end
+
+  def list_times_on_date(blog_slug, date_string) when is_binary(date_string) do
+    date_path = Path.join([root_path(), blog_slug, date_string])
+
+    if File.dir?(date_path) do
+      case File.ls(date_path) do
+        {:ok, time_folders} ->
+          time_folders
+          |> Enum.filter(fn folder -> String.match?(folder, ~r/^\d{2}:\d{2}$/) end)
+          |> Enum.sort()
+
+        {:error, _} ->
+          []
+      end
+    else
+      []
     end
   end
 

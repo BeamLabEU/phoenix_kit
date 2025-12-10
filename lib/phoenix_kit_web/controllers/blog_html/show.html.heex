@@ -24,7 +24,7 @@
     <%!-- Post Header --%>
     <header class="mb-8 border-b pb-6">
       <div class="flex items-center gap-2 text-sm text-base-content/70">
-        <%!-- Publication Date --%>
+        <%!-- Publication Date (includes time when multiple posts on same date) --%>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
@@ -34,97 +34,19 @@
           />
         </svg>
         <time datetime={@post.metadata.published_at}>
-          {format_date(@post.metadata.published_at)}
+          {format_post_date(@post, @blog_slug)}
         </time>
       </div>
-      <%!-- Language Switcher Dropdown --%>
+      <%!-- Language Switcher --%>
       <%= if length(@translations) > 1 do %>
-        <% current_translation = Enum.find(@translations, & &1.current) %>
-        <div class="mt-4 flex items-center gap-2">
-          <div class="dropdown dropdown-end" id="public-language-switcher">
-            <label tabindex="0" class="btn btn-sm btn-outline shadow-none gap-2">
-              <span class="text-lg">{current_translation[:flag] || ""}</span>
-              <span>{current_translation[:name] || @current_language}</span>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </label>
-            <div
-              tabindex="0"
-              class="dropdown-content z-50 shadow-lg bg-base-100 rounded-box w-72 border border-base-300 overflow-hidden"
-            >
-              <div class="relative">
-                <div
-                  id="public-lang-dropdown-list"
-                  class="flex flex-col p-2 max-h-80 overflow-y-auto overflow-x-hidden"
-                >
-                  <%= for translation <- @translations do %>
-                    <%= if translation.current do %>
-                      <span class="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/10 text-primary w-full">
-                        <span class="text-lg shrink-0">{translation[:flag] || ""}</span>
-                        <span class="flex-1 truncate">{translation.name}</span>
-                        <svg
-                          class="w-4 h-4 text-primary shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2.5"
-                            d="M4.5 12.75l6 6 9-13.5"
-                          />
-                        </svg>
-                      </span>
-                    <% else %>
-                      <a
-                        href={translation.url}
-                        class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 transition-colors w-full text-left"
-                      >
-                        <span class="text-lg shrink-0">{translation[:flag] || ""}</span>
-                        <span class="flex-1 truncate">{translation.name}</span>
-                      </a>
-                    <% end %>
-                  <% end %>
-                </div>
-                <%!-- Bottom gradient indicator --%>
-                <div
-                  id="public-lang-dropdown-gradient"
-                  class="pointer-events-none absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-base-100 to-transparent opacity-0 transition-opacity duration-200"
-                >
-                </div>
-              </div>
-            </div>
-          </div>
+        <div class="mt-4">
+          <.blog_language_switcher
+            languages={build_public_translations(@translations, @current_language)}
+            current_language={@current_language}
+            show_status={false}
+            size={:sm}
+          />
         </div>
-        <script>
-          (function() {
-            function updatePublicLangDropdownGradient() {
-              const list = document.getElementById('public-lang-dropdown-list');
-              const gradient = document.getElementById('public-lang-dropdown-gradient');
-              if (list && gradient) {
-                const isScrollable = list.scrollHeight > list.clientHeight;
-                const isNotAtEnd = list.scrollTop < (list.scrollHeight - list.clientHeight - 5);
-                gradient.style.opacity = (isScrollable && isNotAtEnd) ? '1' : '0';
-              }
-            }
-            document.addEventListener('click', function(e) {
-              if (e.target.closest('#public-language-switcher')) {
-                setTimeout(updatePublicLangDropdownGradient, 10);
-              }
-            });
-            const list = document.getElementById('public-lang-dropdown-list');
-            if (list) {
-              list.addEventListener('scroll', updatePublicLangDropdownGradient, { passive: true });
-            }
-          })();
-        </script>
       <% end %>
     </header>
     <%!-- Post Content --%>
