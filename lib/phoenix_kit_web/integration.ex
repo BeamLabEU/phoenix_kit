@@ -353,6 +353,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
+          live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
 
@@ -509,6 +511,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
+          live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
 

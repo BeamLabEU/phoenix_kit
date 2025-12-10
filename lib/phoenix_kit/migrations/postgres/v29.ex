@@ -415,6 +415,10 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
 
     # Update version
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '29'"
+
+    # Seed billing_invoice email template
+    flush()
+    seed_billing_invoice_template()
   end
 
   @doc """
@@ -587,4 +591,31 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
 
   defp prefix_table_name(table_name, nil), do: table_name
   defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
+
+  # Seed the billing_invoice email template if it doesn't exist
+  defp seed_billing_invoice_template do
+    alias PhoenixKit.Emails.Templates
+
+    case Code.ensure_loaded(Templates) do
+      {:module, _} ->
+        try do
+          # Check if billing_invoice template already exists
+          case Templates.get_template_by_name("billing_invoice") do
+            nil ->
+              # Template doesn't exist, run seed to create all missing system templates
+              Templates.seed_system_templates()
+              :ok
+
+            _template ->
+              # Template already exists
+              :ok
+          end
+        rescue
+          _ -> :ok
+        end
+
+      _ ->
+        :ok
+    end
+  end
 end

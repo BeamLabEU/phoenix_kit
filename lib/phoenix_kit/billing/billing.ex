@@ -395,9 +395,21 @@ defmodule PhoenixKit.Billing do
   end
 
   @doc """
-  Gets a billing profile by ID.
+  Gets a billing profile by ID, returns nil if not found.
+  """
+  def get_billing_profile(id), do: repo().get(BillingProfile, id)
+
+  @doc """
+  Gets a billing profile by ID, raises if not found.
   """
   def get_billing_profile!(id), do: repo().get!(BillingProfile, id)
+
+  @doc """
+  Returns a changeset for billing profile form.
+  """
+  def change_billing_profile(%BillingProfile{} = profile, attrs \\ %{}) do
+    BillingProfile.changeset(profile, attrs)
+  end
 
   @doc """
   Creates a billing profile.
@@ -407,7 +419,7 @@ defmodule PhoenixKit.Billing do
 
     result =
       %BillingProfile{}
-      |> BillingProfile.changeset(Map.put(attrs, :user_id, user_id))
+      |> BillingProfile.changeset(Map.put(attrs, "user_id", user_id))
       |> repo().insert()
 
     # If this is the first profile, make it default
@@ -618,6 +630,9 @@ defmodule PhoenixKit.Billing do
   """
   def update_order(%Order{} = order, attrs) do
     if Order.editable?(order) do
+      # Update billing_snapshot if billing_profile_id changed
+      attrs = maybe_update_billing_snapshot(order, attrs)
+
       order
       |> Order.changeset(attrs)
       |> repo().update()
@@ -722,6 +737,39 @@ defmodule PhoenixKit.Billing do
         profile_id = if is_binary(id), do: String.to_integer(id), else: id
         profile = get_billing_profile!(profile_id)
         Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+    end
+  end
+
+  # Updates billing_snapshot if billing_profile_id changed or snapshot is empty
+  defp maybe_update_billing_snapshot(%Order{} = order, attrs) do
+    new_profile_id = Map.get(attrs, :billing_profile_id) || Map.get(attrs, "billing_profile_id")
+
+    cond do
+      # No billing_profile_id in attrs - no change
+      is_nil(new_profile_id) ->
+        attrs
+
+      # Empty string means clearing the profile
+      new_profile_id == "" ->
+        attrs
+        |> Map.put("billing_snapshot", %{})
+        |> Map.put("billing_profile_id", nil)
+
+      # Profile ID present - update snapshot if changed or empty
+      true ->
+        new_id =
+          if is_binary(new_profile_id),
+            do: String.to_integer(new_profile_id),
+            else: new_profile_id
+
+        snapshot_empty? = is_nil(order.billing_snapshot) || order.billing_snapshot == %{}
+
+        if new_id != order.billing_profile_id || snapshot_empty? do
+          profile = get_billing_profile!(new_id)
+          Map.put(attrs, "billing_snapshot", BillingProfile.to_snapshot(profile))
+        else
+          attrs
+        end
     end
   end
 

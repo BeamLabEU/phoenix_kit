@@ -235,7 +235,9 @@
                 <div>
                   <div class="font-medium">{@invoice.user.email}</div>
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/users/#{@invoice.user.id}")}
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@invoice.user.id}")
+                    }
                     class="text-sm text-primary hover:underline"
                   >
                     View Profile

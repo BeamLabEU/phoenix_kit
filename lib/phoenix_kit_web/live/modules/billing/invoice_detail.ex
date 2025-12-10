@@ -47,11 +47,15 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
 
   @impl true
   def handle_event("send_invoice", _params, socket) do
-    case Billing.send_invoice(socket.assigns.invoice) do
-      {:ok, invoice} ->
+    invoice = socket.assigns.invoice
+    # Generate full URL using Routes.url() which handles site_url from Settings
+    invoice_url = Routes.url("/admin/billing/invoices/#{invoice.id}/print")
+
+    case Billing.send_invoice(invoice, invoice_url: invoice_url) do
+      {:ok, updated_invoice} ->
         {:noreply,
          socket
-         |> assign(:invoice, invoice)
+         |> assign(:invoice, updated_invoice)
          |> put_flash(:info, "Invoice sent successfully")}
 
       {:error, reason} ->

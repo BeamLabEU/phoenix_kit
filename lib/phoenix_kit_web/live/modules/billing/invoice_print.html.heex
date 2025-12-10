@@ -410,13 +410,44 @@
           <div class="meta-section">
             <h3>From</h3>
             <p>
-              <span class="company-name">{@company.name}</span>
-              <br />
-              <%= for line <- String.split(@company.address || "", "\n") do %>
-                {line}<br />
-              <% end %>
-              <%= if @company.vat != "" do %>
-                VAT: {@company.vat}
+              <%!-- Customer/Client billing details (who pays) --%>
+              <%= if @invoice.billing_details && map_size(@invoice.billing_details) > 0 do %>
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <span class="company-name">{@invoice.billing_details["company_name"]}</span>
+                  <br />
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
+                  <% end %>
+                <% else %>
+                  <span class="company-name">
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </span>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  {@invoice.billing_details["address_line1"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line2"] do %>
+                  {@invoice.billing_details["address_line2"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["city"] do %>
+                  {@invoice.billing_details["city"]}
+                  <%= if @invoice.billing_details["postal_code"] do %>
+                    , {@invoice.billing_details["postal_code"]}
+                  <% end %>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["country"] do %>
+                  {@invoice.billing_details["country"]}
+                <% end %>
+              <% else %>
+                <%= if @invoice.user do %>
+                  <span class="company-name">{@invoice.user.email}</span>
+                <% else %>
+                  <em>No billing information</em>
+                <% end %>
               <% end %>
             </p>
           </div>
@@ -424,36 +455,14 @@
           <div class="meta-section">
             <h3>Bill To</h3>
             <p>
-              <%= if @invoice.billing_details do %>
-                <%= if @invoice.billing_details["type"] == "company" do %>
-                  <strong>{@invoice.billing_details["company_name"]}</strong>
-                  <br />
-                  <%= if @invoice.billing_details["company_vat_number"] do %>
-                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
-                  <% end %>
-                <% else %>
-                  <strong>
-                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
-                      "last_name"
-                    ]}
-                  </strong>
-                  <br />
-                <% end %>
-                <%= if @invoice.billing_details["address_line1"] do %>
-                  {@invoice.billing_details["address_line1"]}<br />
-                <% end %>
-                <%= if @invoice.billing_details["city"] do %>
-                  {@invoice.billing_details["city"]}, {@invoice.billing_details["postal_code"]}<br />
-                <% end %>
-                <%= if @invoice.billing_details["country"] do %>
-                  {@invoice.billing_details["country"]}
-                <% end %>
-              <% else %>
-                <%= if @invoice.user do %>
-                  <strong>{@invoice.user.email}</strong>
-                <% else %>
-                  <em>No billing information</em>
-                <% end %>
+              <%!-- Our company details (who receives payment) --%>
+              <strong>{@company.name}</strong>
+              <br />
+              <%= for line <- String.split(@company.address || "", "\n") do %>
+                {line}<br />
+              <% end %>
+              <%= if @company.vat != "" do %>
+                VAT: {@company.vat}
               <% end %>
             </p>
           </div>
