@@ -1,3 +1,9 @@
+## 1.6.20 - 2025-12-11
+- Posts (for user generated content) module inital commit
+- Add authentication-aware route filtering for sitemap
+- blogging: add collaborative editing, live updating dashboards
+- Update for the language module (organizing by country)
+
 ## 1.6.19 - 2025-12-09
 - Add smart timestamp URL handling for blog posts
 
