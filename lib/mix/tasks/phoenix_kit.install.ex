@@ -194,7 +194,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             ❌ Configuration was not added successfully after automatic retry.
 
             Please check config/config.exs manually and ensure it contains:
-            - config :ueberauth, Ueberauth (with providers: %{})
+            - config :ueberauth, Ueberauth (with providers: [])
             - config :hammer (with backend and expiry_ms)
             - config :phoenix_kit, Oban (with queues configuration)
 
@@ -342,11 +342,6 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         cond do
           # Missing Ueberauth configuration entirely
           !String.contains?(content, "config :ueberauth") ->
-            :missing
-
-          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
-          String.contains?(content, "config :ueberauth, Ueberauth") &&
-              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
             :missing
 
           # Missing Hammer configuration (check for active, non-commented config)
