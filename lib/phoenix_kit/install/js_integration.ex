@@ -153,6 +153,7 @@ defmodule PhoenixKit.Install.JsIntegration do
     ]
 
     IO.puts("  ℹ️  Fallback paths to check:")
+
     Enum.each(possible_paths, fn path ->
       exists = File.dir?(path)
       IO.puts("      #{if exists, do: "✅", else: "❌"} #{path}")
