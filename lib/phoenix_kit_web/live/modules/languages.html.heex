@@ -20,7 +20,7 @@
       <%!-- Title Section --%>
       <div class="text-center">
         <h1 class="text-4xl font-bold text-base-content mb-3">Languages</h1>
-        <p class="text-lg text-base-content">Configure and manage language module</p>
+        <p class="text-lg text-base-content">Manage available languages for your frontend language switcher</p>
       </div>
     </header>
 
@@ -61,9 +61,21 @@
           </p>
         </div>
 
+        <%!-- Search Input --%>
+        <div class="mb-4">
+          <input
+            type="text"
+            placeholder="Search countries or languages..."
+            class="input input-bordered w-full"
+            phx-keyup="search_countries"
+            phx-debounce="150"
+            value={@search_query}
+          />
+        </div>
+
         <%!-- Languages List (ALL languages grouped by country) --%>
         <div class="space-y-2">
-          <%= for {country, languages} <- @grouped_languages do %>
+          <%= for {country, languages} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
             <details class="collapse collapse-arrow bg-base-200 rounded-lg" open>
               <summary class="collapse-title font-medium py-3">
                 <span class="text-lg">{hd(languages).flag}</span>

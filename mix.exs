@@ -130,7 +130,10 @@ defmodule PhoenixKit.MixProject do
       # Code generation and project patching
       # Note: Available in all environments for library code, but typically
       # only needed in :dev when used as a dependency in parent projects
-      {:igniter, "~> 0.7"}
+      {:igniter, "~> 0.7"},
+
+      # Language and country data
+      {:beamlab_countries, "~> 1.0"}
     ]
   end
 
