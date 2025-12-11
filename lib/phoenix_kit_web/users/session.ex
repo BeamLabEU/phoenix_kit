@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Users.Session do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
@@ -36,7 +37,7 @@ defmodule PhoenixKitWeb.Users.Session do
 
   defp create(conn, %{"user" => user_params}, info) do
     %{"email" => email, "password" => password} = user_params
-    ip_address = get_ip_address(conn)
+    ip_address = IpAddress.extract_from_conn(conn)
 
     case Auth.get_user_by_email_and_password(email, password, ip_address) do
       {:ok, %Auth.User{is_active: false}} ->
@@ -69,16 +70,6 @@ defmodule PhoenixKitWeb.Users.Session do
         |> put_flash(:error, "Invalid email or password")
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
-    end
-  end
-
-  defp get_ip_address(conn) do
-    %{address: address} = Plug.Conn.get_peer_data(conn)
-
-    try do
-      address |> :inet.ntoa() |> to_string()
-    rescue
-      _ -> "unknown"
     end
   end
 
