@@ -21,14 +21,14 @@ defmodule Mix.Tasks.PhoenixKit.Gen.AdminPage do
 
   """
 
+  @shortdoc "Generates admin page using template files"
+
   use Igniter.Mix.Task
 
   require Igniter.Code.Common
   require Igniter.Code.Module
   alias PhoenixKit.Install.IgniterConfig
   alias PhoenixKit.Install.IgniterHelpers
-
-  @shortdoc "Generates admin page using template files"
 
   @impl Igniter.Mix.Task
   def info(_argv, _composing_task) do
@@ -64,6 +64,45 @@ defmodule Mix.Tasks.PhoenixKit.Gen.AdminPage do
         Usage: mix phoenix_kit.gen.admin_page <category> <page_name> <page_title> --url=<url>
         Example: mix phoenix_kit.gen.admin_page Analytics Reports "Reports Dashboard" --url="/admin/analytics/reports"
         """)
+    end
+  end
+
+  @impl Mix.Task
+  def run(argv) do
+    # Handle --help flag manually
+    if "--help" in argv or "-h" in argv do
+      Mix.shell().info("""
+      Generates admin page using template files.
+
+      Usage:
+
+          mix phoenix_kit.gen.admin_page MyCategory MyPage "Page Title" --url="/admin/my-page"
+
+      Arguments:
+
+        category    - The category name
+        page_name   - The name for the page module (PascalCase)
+        page_title  - The display title for the page
+
+      Options:
+
+        --url           - The URL path for the page (required)
+        --icon          - Heroicon name for the page (optional, defaults to "hero-document-text")
+        --description   - Brief description for the page (optional)
+        --category-icon - Heroicon name for the category (optional, defaults to "hero-folder")
+
+      Example:
+
+          mix phoenix_kit.gen.admin_page Analytics Reports "Reports Dashboard" \\
+            --url="/admin/analytics/reports" \\
+            --icon="hero-chart-bar" \\
+            --category-icon="hero-chart-bar"
+      """)
+
+      :ok
+    else
+      # Delegate to Igniter.Mix.Task for standard execution
+      super(argv)
     end
   end
 
