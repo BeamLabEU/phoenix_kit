@@ -240,8 +240,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     grouped_languages
     |> Enum.filter(fn {country, languages} ->
       # Match country name
+      # Match any language in the group
       String.contains?(String.downcase(country), query_downcase) or
-        # Match any language in the group
         Enum.any?(languages, fn lang ->
           String.contains?(String.downcase(lang.name), query_downcase) or
             String.contains?(String.downcase(lang.native), query_downcase) or
