@@ -252,11 +252,7 @@
             <h2 class="card-title">Customer</h2>
             <%= if @order.user do %>
               <div class="flex items-center gap-3 mt-2">
-                <div class="avatar placeholder">
-                  <div class="bg-neutral text-neutral-content rounded-full w-12">
-                    <span>{String.first(@order.user.email) |> String.upcase()}</span>
-                  </div>
-                </div>
+                <.user_avatar user={@order.user} size="lg" />
                 <div>
                   <div class="font-medium">{@order.user.email}</div>
                   <.link

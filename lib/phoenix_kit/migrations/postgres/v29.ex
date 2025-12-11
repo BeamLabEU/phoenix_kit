@@ -344,7 +344,100 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
     """
 
     # ===========================================
-    # 5. BILLING SETTINGS
+    # 5. TRANSACTIONS TABLE
+    # ===========================================
+    create_if_not_exists table(:phoenix_kit_transactions, prefix: prefix) do
+      add :invoice_id, :integer, null: false
+      add :user_id, :integer, null: false
+      add :transaction_number, :string, size: 30, null: false
+      add :amount, :decimal, precision: 15, scale: 2, null: false
+      add :currency, :string, size: 3, null: false, default: "EUR"
+      add :payment_method, :string, size: 20, null: false, default: "bank"
+
+      add :description, :string
+
+      add :metadata, :map, null: true, default: %{}
+
+      # For future payment provider integrations
+      add :provider_transaction_id, :string
+      add :provider_data, :map, null: true, default: %{}
+
+      timestamps(type: :utc_datetime_usec)
+    end
+
+    create_if_not_exists unique_index(:phoenix_kit_transactions, [:transaction_number],
+                           name: :phoenix_kit_transactions_transaction_number_uidx,
+                           prefix: prefix
+                         )
+
+    create_if_not_exists index(:phoenix_kit_transactions, [:invoice_id],
+                           name: :phoenix_kit_transactions_invoice_id_idx,
+                           prefix: prefix
+                         )
+
+    create_if_not_exists index(:phoenix_kit_transactions, [:user_id],
+                           name: :phoenix_kit_transactions_user_id_idx,
+                           prefix: prefix
+                         )
+
+    create_if_not_exists index(:phoenix_kit_transactions, [:payment_method],
+                           name: :phoenix_kit_transactions_payment_method_idx,
+                           prefix: prefix
+                         )
+
+    # Add foreign keys for transactions
+    execute """
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'phoenix_kit_transactions_invoice_id_fkey'
+        AND conrelid = '#{prefix_table_name("phoenix_kit_transactions", prefix)}'::regclass
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_transactions", prefix)}
+        ADD CONSTRAINT phoenix_kit_transactions_invoice_id_fkey
+        FOREIGN KEY (invoice_id)
+        REFERENCES #{prefix_table_name("phoenix_kit_invoices", prefix)}(id)
+        ON DELETE RESTRICT;
+      END IF;
+    END $$;
+    """
+
+    execute """
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'phoenix_kit_transactions_user_id_fkey'
+        AND conrelid = '#{prefix_table_name("phoenix_kit_transactions", prefix)}'::regclass
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_transactions", prefix)}
+        ADD CONSTRAINT phoenix_kit_transactions_user_id_fkey
+        FOREIGN KEY (user_id)
+        REFERENCES #{prefix_table_name("phoenix_kit_users", prefix)}(id)
+        ON DELETE RESTRICT;
+      END IF;
+    END $$;
+    """
+
+    # Add paid_amount column to invoices
+    execute """
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'phoenix_kit_invoices'
+        AND column_name = 'paid_amount'
+        #{if prefix, do: "AND table_schema = '#{prefix}'", else: ""}
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_invoices", prefix)}
+        ADD COLUMN paid_amount DECIMAL(15, 2) NOT NULL DEFAULT 0;
+      END IF;
+    END $$;
+    """
+
+    # ===========================================
+    # 6. BILLING SETTINGS
     # ===========================================
     execute """
     INSERT INTO #{prefix_table_name("phoenix_kit_settings", prefix)} (key, value, module, date_added, date_updated)
@@ -356,12 +449,13 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
       ('billing_invoice_prefix', 'INV', 'billing', NOW(), NOW()),
       ('billing_order_prefix', 'ORD', 'billing', NOW(), NOW()),
       ('billing_receipt_prefix', 'RCP', 'billing', NOW(), NOW()),
-      ('billing_invoice_due_days', '14', 'billing', NOW(), NOW())
+      ('billing_invoice_due_days', '14', 'billing', NOW(), NOW()),
+      ('billing_transaction_prefix', 'TXN', 'billing', NOW(), NOW())
     ON CONFLICT (key) DO NOTHING
     """
 
     # ===========================================
-    # 6. TABLE COMMENTS
+    # 7. TABLE COMMENTS
     # ===========================================
     execute """
     COMMENT ON TABLE #{prefix_table_name("phoenix_kit_currencies", prefix)} IS
@@ -413,6 +507,16 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
     'Receipt information after payment (PDF URL, download count, etc.)'
     """
 
+    execute """
+    COMMENT ON TABLE #{prefix_table_name("phoenix_kit_transactions", prefix)} IS
+    'Payment transactions for invoices (amount > 0 = payment, amount < 0 = refund)'
+    """
+
+    execute """
+    COMMENT ON COLUMN #{prefix_table_name("phoenix_kit_transactions", prefix)}.amount IS
+    'Transaction amount: positive for payments, negative for refunds'
+    """
+
     # Update version
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '29'"
 
@@ -425,7 +529,74 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
   Rollback the V29 migration.
   """
   def down(%{prefix: prefix} = _opts) do
-    # Drop foreign keys first
+    # Drop transactions foreign keys and table first
+    execute """
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'phoenix_kit_transactions_user_id_fkey'
+        AND conrelid = '#{prefix_table_name("phoenix_kit_transactions", prefix)}'::regclass
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_transactions", prefix)}
+        DROP CONSTRAINT phoenix_kit_transactions_user_id_fkey;
+      END IF;
+    END $$;
+    """
+
+    execute """
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'phoenix_kit_transactions_invoice_id_fkey'
+        AND conrelid = '#{prefix_table_name("phoenix_kit_transactions", prefix)}'::regclass
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_transactions", prefix)}
+        DROP CONSTRAINT phoenix_kit_transactions_invoice_id_fkey;
+      END IF;
+    END $$;
+    """
+
+    drop_if_exists index(:phoenix_kit_transactions, [:payment_method],
+                     name: :phoenix_kit_transactions_payment_method_idx,
+                     prefix: prefix
+                   )
+
+    drop_if_exists index(:phoenix_kit_transactions, [:user_id],
+                     name: :phoenix_kit_transactions_user_id_idx,
+                     prefix: prefix
+                   )
+
+    drop_if_exists index(:phoenix_kit_transactions, [:invoice_id],
+                     name: :phoenix_kit_transactions_invoice_id_idx,
+                     prefix: prefix
+                   )
+
+    drop_if_exists index(:phoenix_kit_transactions, [:transaction_number],
+                     name: :phoenix_kit_transactions_transaction_number_uidx,
+                     prefix: prefix
+                   )
+
+    drop_if_exists table(:phoenix_kit_transactions, prefix: prefix)
+
+    # Remove paid_amount column from invoices
+    execute """
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'phoenix_kit_invoices'
+        AND column_name = 'paid_amount'
+        #{if prefix, do: "AND table_schema = '#{prefix}'", else: ""}
+      ) THEN
+        ALTER TABLE #{prefix_table_name("phoenix_kit_invoices", prefix)}
+        DROP COLUMN paid_amount;
+      END IF;
+    END $$;
+    """
+
+    # Drop invoices foreign keys
     execute """
     DO $$
     BEGIN
@@ -581,7 +752,8 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
       'billing_invoice_prefix',
       'billing_order_prefix',
       'billing_receipt_prefix',
-      'billing_invoice_due_days'
+      'billing_invoice_due_days',
+      'billing_transaction_prefix'
     )
     """
 

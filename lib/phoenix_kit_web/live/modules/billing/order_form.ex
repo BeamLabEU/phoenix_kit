@@ -41,7 +41,6 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     changeset =
       Billing.change_order(%Billing.Order{
         currency: socket.assigns.default_currency,
-        payment_method: "bank",
         line_items: [%{"name" => "", "quantity" => 1, "unit_price" => "0.00", "total" => "0.00"}]
       })
 
@@ -51,6 +50,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     |> assign(:form, to_form(changeset))
     |> assign(:line_items, [%{id: 0, name: "", description: "", quantity: 1, unit_price: "0.00"}])
     |> assign(:selected_user_id, nil)
+    |> assign(:selected_billing_profile_id, nil)
   end
 
   defp load_order(socket, id) do
@@ -74,6 +74,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
         |> assign(:line_items, line_items)
         |> assign(:selected_user_id, order.user_id)
         |> assign(:billing_profiles, billing_profiles)
+        |> assign(:selected_billing_profile_id, order.billing_profile_id)
     end
   end
 
@@ -107,10 +108,15 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     user_id = if user_id == "", do: nil, else: String.to_integer(user_id)
     billing_profiles = if user_id, do: Billing.list_user_billing_profiles(user_id), else: []
 
+    # Auto-select default profile if available
+    default_profile = Enum.find(billing_profiles, & &1.is_default)
+    selected_profile_id = if default_profile, do: default_profile.id, else: nil
+
     {:noreply,
      socket
      |> assign(:selected_user_id, user_id)
-     |> assign(:billing_profiles, billing_profiles)}
+     |> assign(:billing_profiles, billing_profiles)
+     |> assign(:selected_billing_profile_id, selected_profile_id)}
   end
 
   @impl true

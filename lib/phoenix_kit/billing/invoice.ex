@@ -59,6 +59,7 @@ defmodule PhoenixKit.Billing.Invoice do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Billing.Order
+  alias PhoenixKit.Billing.Transaction
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -73,6 +74,7 @@ defmodule PhoenixKit.Billing.Invoice do
     field :tax_amount, :decimal, default: Decimal.new("0")
     field :tax_rate, :decimal, default: Decimal.new("0")
     field :total, :decimal
+    field :paid_amount, :decimal, default: Decimal.new("0")
     field :currency, :string, default: "EUR"
     field :due_date, :date
 
@@ -97,6 +99,7 @@ defmodule PhoenixKit.Billing.Invoice do
 
     belongs_to :user, User
     belongs_to :order, Order
+    has_many :transactions, Transaction
 
     timestamps(type: :utc_datetime_usec)
   end
@@ -115,6 +118,7 @@ defmodule PhoenixKit.Billing.Invoice do
       :tax_amount,
       :tax_rate,
       :total,
+      :paid_amount,
       :currency,
       :due_date,
       :billing_details,
@@ -134,6 +138,7 @@ defmodule PhoenixKit.Billing.Invoice do
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_length(:currency, is: 3)
     |> validate_number(:total, greater_than_or_equal_to: 0)
+    |> validate_number(:paid_amount, greater_than_or_equal_to: 0)
     |> unique_constraint(:invoice_number)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:order_id)
@@ -230,10 +235,16 @@ defmodule PhoenixKit.Billing.Invoice do
   def editable?(_), do: false
 
   @doc """
-  Checks if invoice can be sent.
+  Checks if invoice can be sent (first time - changes status to sent).
   """
   def sendable?(%__MODULE__{status: "draft"}), do: true
   def sendable?(_), do: false
+
+  @doc """
+  Checks if invoice can be resent (already sent, paid, or overdue).
+  """
+  def resendable?(%__MODULE__{status: status}) when status in ~w(sent paid overdue), do: true
+  def resendable?(_), do: false
 
   @doc """
   Checks if invoice can be marked as paid.
@@ -297,4 +308,41 @@ defmodule PhoenixKit.Billing.Invoice do
   end
 
   def billing_name(_), do: ""
+
+  @doc """
+  Returns the remaining amount to be paid.
+  """
+  def remaining_amount(%__MODULE__{total: total, paid_amount: paid_amount}) do
+    Decimal.sub(total, paid_amount)
+  end
+
+  @doc """
+  Checks if invoice is fully paid (paid_amount >= total).
+  """
+  def fully_paid?(%__MODULE__{total: total, paid_amount: paid_amount}) do
+    Decimal.compare(paid_amount, total) != :lt
+  end
+
+  @doc """
+  Checks if invoice has any payments (paid_amount > 0).
+  """
+  def has_payments?(%__MODULE__{paid_amount: paid_amount}) do
+    Decimal.positive?(paid_amount)
+  end
+
+  @doc """
+  Checks if invoice can receive a refund (has payments).
+  """
+  def refundable?(%__MODULE__{} = invoice) do
+    has_payments?(invoice)
+  end
+
+  @doc """
+  Changeset for updating paid_amount.
+  """
+  def paid_amount_changeset(invoice, paid_amount) do
+    invoice
+    |> change(paid_amount: paid_amount)
+    |> validate_number(:paid_amount, greater_than_or_equal_to: 0)
+  end
 end

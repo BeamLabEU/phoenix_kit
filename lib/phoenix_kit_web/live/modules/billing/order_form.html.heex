@@ -47,25 +47,54 @@
               </select>
             </div>
 
-            <%= if @selected_user_id && length(@billing_profiles) > 0 do %>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Billing Profile</span>
-                </label>
-                <select name="order[billing_profile_id]" class="select select-bordered">
-                  <option value="">No billing profile</option>
-                  <%= for profile <- @billing_profiles do %>
-                    <option value={profile.id}>
-                      <%= if profile.type == "company" do %>
-                        {profile.company_name}
-                      <% else %>
-                        {profile.first_name} {profile.last_name}
-                      <% end %>
-                      {if profile.is_default, do: "(Default)"}
-                    </option>
-                  <% end %>
-                </select>
-              </div>
+            <%= if @selected_user_id do %>
+              <%= if length(@billing_profiles) > 0 do %>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">
+                      Billing Profile <span class="text-error">*</span>
+                    </span>
+                  </label>
+                  <select name="order[billing_profile_id]" class="select select-bordered" required>
+                    <%= for profile <- @billing_profiles do %>
+                      <option
+                        value={profile.id}
+                        selected={@selected_billing_profile_id == profile.id}
+                      >
+                        <%= if profile.type == "company" do %>
+                          {profile.company_name}
+                        <% else %>
+                          {profile.first_name} {profile.last_name}
+                        <% end %>
+                        {if profile.is_default, do: "(Default)"}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+              <% else %>
+                <%!-- Warning: No billing profiles - block order creation --%>
+                <div class="md:col-span-2">
+                  <div class="alert alert-warning">
+                    <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                    <div>
+                      <p class="font-semibold">No billing profile found</p>
+                      <p class="text-sm">
+                        This customer has no billing profile. A billing profile is required to create an order.
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/billing/profiles/new?user_id=#{@selected_user_id}"
+                            )
+                          }
+                          class="link font-medium"
+                        >
+                          Create one now
+                        </.link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
             <% end %>
           </div>
         </div>
@@ -166,7 +195,7 @@
         <div class="card-body">
           <h2 class="card-title">Order Settings</h2>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div class="form-control">
               <label class="label">
                 <span class="label-text">Currency</span>
@@ -177,17 +206,6 @@
                     {currency.code} - {currency.name}
                   </option>
                 <% end %>
-              </select>
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Payment Method</span>
-              </label>
-              <select name="order[payment_method]" class="select select-bordered">
-                <option value="bank" selected={@form[:payment_method].value == "bank"}>
-                  Bank Transfer
-                </option>
               </select>
             </div>
 
@@ -254,7 +272,11 @@
         >
           Cancel
         </.link>
-        <button type="submit" class="btn btn-primary">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={@selected_user_id && Enum.empty?(@billing_profiles)}
+        >
           <.icon name="hero-check" class="w-4 h-4" />
           {if @order, do: "Update Order", else: "Create Order"}
         </button>

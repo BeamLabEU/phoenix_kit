@@ -46,6 +46,7 @@ defmodule PhoenixKit.Billing do
   alias PhoenixKit.Billing.Currency
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Billing.Order
+  alias PhoenixKit.Billing.Transaction
   alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Settings
 
@@ -950,15 +951,61 @@ defmodule PhoenixKit.Billing do
   - `:invoice_url` - URL to view invoice online (optional)
   """
   def send_invoice(%Invoice{} = invoice, opts \\ []) do
-    if Invoice.sendable?(invoice) do
-      send_email? = Keyword.get(opts, :send_email, true)
+    cond do
+      Invoice.sendable?(invoice) ->
+        # First send - change status to "sent"
+        do_send_invoice(invoice, opts, change_status: true)
 
-      # Update status first
-      case invoice |> Invoice.status_changeset("sent") |> repo().update() do
+      Invoice.resendable?(invoice) ->
+        # Resend - don't change status, just send email and record in history
+        do_send_invoice(invoice, opts, change_status: false)
+
+      true ->
+        {:error, :invoice_not_sendable}
+    end
+  end
+
+  defp do_send_invoice(invoice, opts, change_status: change_status) do
+    send_email? = Keyword.get(opts, :send_email, true)
+    to_email = Keyword.get(opts, :to_email)
+
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Determine recipient email
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    if is_nil(recipient_email) do
+      {:error, :no_recipient_email}
+    else
+      # Build send history entry
+      send_entry = %{
+        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "email" => recipient_email
+      }
+
+      # Get current send history from metadata
+      current_metadata = invoice.metadata || %{}
+      send_history = Map.get(current_metadata, "send_history", [])
+      updated_send_history = send_history ++ [send_entry]
+      updated_metadata = Map.put(current_metadata, "send_history", updated_send_history)
+
+      # Build changeset
+      changeset =
+        if change_status do
+          invoice
+          |> Invoice.status_changeset("sent")
+          |> Ecto.Changeset.put_change(:metadata, updated_metadata)
+        else
+          invoice
+          |> Ecto.Changeset.change(%{metadata: updated_metadata})
+        end
+
+      case repo().update(changeset) do
         {:ok, updated_invoice} ->
-          # Send email if requested and user exists
+          # Send email if requested
           if send_email? do
-            send_invoice_email(updated_invoice, opts)
+            send_invoice_email(updated_invoice, Keyword.put(opts, :to_email, recipient_email))
           end
 
           {:ok, updated_invoice}
@@ -966,8 +1013,6 @@ defmodule PhoenixKit.Billing do
         error ->
           error
       end
-    else
-      {:error, :invoice_not_sendable}
     end
   end
 
@@ -978,18 +1023,23 @@ defmodule PhoenixKit.Billing do
     # Preload user if not loaded
     invoice = ensure_preloaded(invoice, [:user, :order])
 
-    case invoice.user do
-      nil ->
-        {:error, :no_user}
+    # Use to_email from opts, or fall back to user email
+    to_email = Keyword.get(opts, :to_email)
+    recipient_email = to_email || (invoice.user && invoice.user.email)
 
-      user ->
+    case recipient_email do
+      nil ->
+        {:error, :no_recipient_email}
+
+      email ->
+        user = invoice.user
         variables = build_invoice_email_variables(invoice, user, opts)
 
         Templates.send_email(
           "billing_invoice",
-          user.email,
+          email,
           variables,
-          user_id: user.id,
+          user_id: user && user.id,
           metadata: %{invoice_id: invoice.id, invoice_number: invoice.invoice_number}
         )
     end
@@ -1256,9 +1306,355 @@ defmodule PhoenixKit.Billing do
   end
 
   # ============================================
+  # TRANSACTIONS
+  # ============================================
+
+  @doc """
+  Lists all transactions with optional filters.
+
+  ## Options
+
+  - `:invoice_id` - Filter by invoice
+  - `:user_id` - Filter by user who created the transaction
+  - `:payment_method` - Filter by payment method
+  - `:type` - Filter by type: "payment" (amount > 0) or "refund" (amount < 0)
+  - `:search` - Search by transaction number
+  - `:limit` - Limit results
+  - `:offset` - Offset for pagination
+  - `:preload` - Associations to preload
+
+  ## Examples
+
+      Billing.list_transactions(invoice_id: 1)
+      Billing.list_transactions(type: "payment", limit: 10)
+  """
+  def list_transactions(opts \\ []) do
+    query =
+      Transaction
+      |> order_by([t], desc: t.inserted_at)
+
+    query =
+      if invoice_id = opts[:invoice_id] do
+        where(query, [t], t.invoice_id == ^invoice_id)
+      else
+        query
+      end
+
+    query =
+      if user_id = opts[:user_id] do
+        where(query, [t], t.user_id == ^user_id)
+      else
+        query
+      end
+
+    query =
+      if payment_method = opts[:payment_method] do
+        where(query, [t], t.payment_method == ^payment_method)
+      else
+        query
+      end
+
+    query =
+      case opts[:type] do
+        "payment" -> where(query, [t], t.amount > 0)
+        "refund" -> where(query, [t], t.amount < 0)
+        _ -> query
+      end
+
+    query =
+      if search = opts[:search] do
+        search_term = "%#{search}%"
+        where(query, [t], ilike(t.transaction_number, ^search_term))
+      else
+        query
+      end
+
+    query =
+      if limit = opts[:limit] do
+        limit(query, ^limit)
+      else
+        query
+      end
+
+    query =
+      if offset = opts[:offset] do
+        offset(query, ^offset)
+      else
+        query
+      end
+
+    transactions = repo().all(query)
+
+    if preloads = opts[:preload] do
+      repo().preload(transactions, preloads)
+    else
+      transactions
+    end
+  end
+
+  @doc """
+  Lists transactions with count for pagination.
+  """
+  def list_transactions_with_count(opts \\ []) do
+    transactions = list_transactions(opts)
+
+    count_query =
+      Transaction
+      |> select([t], count(t.id))
+
+    count_query =
+      if invoice_id = opts[:invoice_id] do
+        where(count_query, [t], t.invoice_id == ^invoice_id)
+      else
+        count_query
+      end
+
+    count_query =
+      if payment_method = opts[:payment_method] do
+        where(count_query, [t], t.payment_method == ^payment_method)
+      else
+        count_query
+      end
+
+    count_query =
+      case opts[:type] do
+        "payment" -> where(count_query, [t], t.amount > 0)
+        "refund" -> where(count_query, [t], t.amount < 0)
+        _ -> count_query
+      end
+
+    count_query =
+      if search = opts[:search] do
+        search_term = "%#{search}%"
+        where(count_query, [t], ilike(t.transaction_number, ^search_term))
+      else
+        count_query
+      end
+
+    count = repo().one(count_query)
+
+    {transactions, count}
+  end
+
+  @doc """
+  Gets transactions for a specific invoice.
+  """
+  def list_invoice_transactions(invoice_id) do
+    list_transactions(invoice_id: invoice_id, preload: [:user])
+  end
+
+  @doc """
+  Gets a transaction by ID.
+  """
+  def get_transaction(id, opts \\ []) do
+    transaction = repo().get(Transaction, id)
+
+    if transaction && opts[:preload] do
+      repo().preload(transaction, opts[:preload])
+    else
+      transaction
+    end
+  end
+
+  @doc """
+  Gets a transaction by ID, raises if not found.
+  """
+  def get_transaction!(id, opts \\ []) do
+    transaction = repo().get!(Transaction, id)
+
+    if opts[:preload] do
+      repo().preload(transaction, opts[:preload])
+    else
+      transaction
+    end
+  end
+
+  @doc """
+  Gets a transaction by number.
+  """
+  def get_transaction_by_number(number) do
+    repo().get_by(Transaction, transaction_number: number)
+  end
+
+  @doc """
+  Records a payment for an invoice.
+
+  Creates a transaction with positive amount and updates invoice's paid_amount.
+  If paid_amount >= total, marks invoice as paid and generates receipt.
+
+  ## Parameters
+
+  - `invoice` - The invoice to pay
+  - `attrs` - Transaction attributes including :amount, :payment_method, :description
+  - `admin_user` - The admin user recording the payment
+
+  ## Examples
+
+      {:ok, transaction} = Billing.record_payment(invoice, %{amount: "100.00", payment_method: "bank"}, admin)
+  """
+  def record_payment(%Invoice{} = invoice, attrs, admin_user) do
+    amount = parse_decimal(attrs[:amount] || attrs["amount"])
+
+    if Decimal.compare(amount, Decimal.new(0)) != :gt do
+      {:error, :invalid_amount}
+    else
+      do_record_transaction(invoice, amount, attrs, admin_user)
+    end
+  end
+
+  @doc """
+  Records a refund for an invoice.
+
+  Creates a transaction with negative amount and updates invoice's paid_amount.
+
+  ## Parameters
+
+  - `invoice` - The invoice to refund
+  - `attrs` - Transaction attributes including :amount (positive value), :description (reason)
+  - `admin_user` - The admin user recording the refund
+
+  ## Examples
+
+      {:ok, transaction} = Billing.record_refund(invoice, %{amount: "50.00", description: "Partial refund"}, admin)
+  """
+  def record_refund(%Invoice{} = invoice, attrs, admin_user) do
+    amount = parse_decimal(attrs[:amount] || attrs["amount"])
+    max_refund = invoice.paid_amount
+
+    cond do
+      Decimal.compare(amount, Decimal.new(0)) != :gt ->
+        {:error, :invalid_amount}
+
+      Decimal.compare(amount, max_refund) == :gt ->
+        {:error, :exceeds_paid_amount}
+
+      true ->
+        # Convert to negative for refund
+        negative_amount = Decimal.negate(amount)
+        do_record_transaction(invoice, negative_amount, attrs, admin_user)
+    end
+  end
+
+  defp do_record_transaction(invoice, amount, attrs, admin_user) do
+    transaction_number = generate_transaction_number()
+
+    transaction_attrs = %{
+      transaction_number: transaction_number,
+      amount: amount,
+      currency: invoice.currency,
+      payment_method: attrs[:payment_method] || attrs["payment_method"] || "bank",
+      description: attrs[:description] || attrs["description"],
+      invoice_id: invoice.id,
+      user_id: extract_user_id(admin_user)
+    }
+
+    repo().transaction(fn ->
+      # Create transaction
+      case %Transaction{} |> Transaction.changeset(transaction_attrs) |> repo().insert() do
+        {:ok, transaction} ->
+          # Update invoice paid_amount
+          new_paid_amount = calculate_invoice_paid_amount(invoice.id)
+
+          invoice
+          |> Invoice.paid_amount_changeset(new_paid_amount)
+          |> repo().update!()
+
+          # Check if fully paid and update status
+          updated_invoice = get_invoice!(invoice.id)
+
+          if Invoice.fully_paid?(updated_invoice) && updated_invoice.status in ["sent", "overdue"] do
+            config = get_config()
+            receipt_number = generate_receipt_number(config.receipt_prefix)
+
+            updated_invoice
+            |> Invoice.paid_changeset(receipt_number)
+            |> repo().update!()
+
+            # Mark linked order as paid if applicable
+            maybe_mark_linked_order_paid(updated_invoice)
+          end
+
+          transaction
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  Calculates the total paid amount for an invoice from all transactions.
+  """
+  def calculate_invoice_paid_amount(invoice_id) do
+    Transaction
+    |> where([t], t.invoice_id == ^invoice_id)
+    |> select([t], sum(t.amount))
+    |> repo().one()
+    |> case do
+      nil -> Decimal.new(0)
+      amount -> amount
+    end
+  end
+
+  @doc """
+  Updates an invoice's paid_amount based on its transactions.
+  """
+  def update_invoice_paid_amount(%Invoice{} = invoice) do
+    new_paid_amount = calculate_invoice_paid_amount(invoice.id)
+
+    invoice
+    |> Invoice.paid_amount_changeset(new_paid_amount)
+    |> repo().update()
+  end
+
+  @doc """
+  Gets the remaining amount for an invoice.
+  """
+  def get_invoice_remaining_amount(%Invoice{} = invoice) do
+    Invoice.remaining_amount(invoice)
+  end
+
+  @doc """
+  Generates a unique transaction number.
+  """
+  def generate_transaction_number do
+    prefix = Settings.get_setting("billing_transaction_prefix", "TXN")
+    year = Date.utc_today().year
+    count = count_transactions_this_year()
+    "#{prefix}-#{year}-#{String.pad_leading(Integer.to_string(count), 4, "0")}"
+  end
+
+  defp count_transactions_this_year do
+    year = Date.utc_today().year
+    start_of_year = Date.new!(year, 1, 1)
+    end_of_year = Date.new!(year, 12, 31)
+
+    count =
+      Transaction
+      |> where([t], fragment("DATE(?)", t.inserted_at) >= ^start_of_year)
+      |> where([t], fragment("DATE(?)", t.inserted_at) <= ^end_of_year)
+      |> repo().aggregate(:count, :id)
+
+    count + 1
+  end
+
+  defp parse_decimal(value) when is_binary(value) do
+    case Decimal.parse(value) do
+      {decimal, _} -> decimal
+      :error -> Decimal.new(0)
+    end
+  end
+
+  defp parse_decimal(%Decimal{} = value), do: value
+  defp parse_decimal(value) when is_integer(value), do: Decimal.new(value)
+  defp parse_decimal(value) when is_float(value), do: Decimal.from_float(value)
+  defp parse_decimal(_), do: Decimal.new(0)
+
+  # ============================================
   # HELPERS
   # ============================================
 
+  defp extract_user_id(%{user: %{id: id}}), do: id
   defp extract_user_id(%{id: id}), do: id
   defp extract_user_id(id) when is_integer(id), do: id
 

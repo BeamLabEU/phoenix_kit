@@ -352,6 +352,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+          live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
           live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
@@ -510,6 +512,8 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+          live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
           live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit

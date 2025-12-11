@@ -127,13 +127,7 @@
                       <td>
                         <%= if invoice.user do %>
                           <div class="flex items-center gap-2">
-                            <div class="avatar placeholder">
-                              <div class="bg-neutral text-neutral-content rounded-full w-8">
-                                <span class="text-xs">
-                                  {String.first(invoice.user.email) |> String.upcase()}
-                                </span>
-                              </div>
-                            </div>
+                            <.user_avatar user={invoice.user} size="sm" />
                             <div class="font-medium text-sm">{invoice.user.email}</div>
                           </div>
                         <% else %>

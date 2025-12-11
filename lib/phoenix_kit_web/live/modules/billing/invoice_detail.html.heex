@@ -25,25 +25,38 @@
           </p>
         </div>
       </div>
-      <div class="flex gap-2">
-        <%= case @invoice.status do %>
-          <% "draft" -> %>
-            <button phx-click="send_invoice" class="btn btn-info btn-sm">
-              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Invoice
-            </button>
-          <% "sent" -> %>
-            <button phx-click="mark_paid" class="btn btn-success btn-sm">
-              <.icon name="hero-banknotes" class="w-4 h-4" /> Mark as Paid
-            </button>
-          <% "paid" -> %>
-            <%= if is_nil(@invoice.receipt_number) do %>
-              <button phx-click="generate_receipt" class="btn btn-outline btn-sm">
-                <.icon name="hero-document-check" class="w-4 h-4" /> Generate Receipt
-              </button>
-            <% end %>
-          <% _ -> %>
+      <div class="flex gap-2 flex-wrap">
+        <%!-- Send/Resend Invoice - available for all except void --%>
+        <%= if @invoice.status != "void" do %>
+          <button phx-click="open_send_modal" class="btn btn-info btn-sm">
+            <.icon name="hero-paper-airplane" class="w-4 h-4" />
+            {if @invoice.status == "draft", do: "Send Invoice", else: "Resend Invoice"}
+          </button>
         <% end %>
-        <%= if @invoice.status in ["draft", "sent"] do %>
+
+        <%!-- Mark as Paid - available for sent/overdue --%>
+        <%= if @invoice.status in ["sent", "overdue"] do %>
+          <button phx-click="open_payment_modal" class="btn btn-success btn-sm">
+            <.icon name="hero-banknotes" class="w-4 h-4" /> Record Payment
+          </button>
+        <% end %>
+
+        <%!-- Issue Refund - available if has payments --%>
+        <%= if PhoenixKit.Billing.Invoice.has_payments?(@invoice) do %>
+          <button phx-click="open_refund_modal" class="btn btn-warning btn-sm">
+            <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Issue Refund
+          </button>
+        <% end %>
+
+        <%!-- Generate Receipt - available for paid without receipt --%>
+        <%= if @invoice.status == "paid" && is_nil(@invoice.receipt_number) do %>
+          <button phx-click="generate_receipt" class="btn btn-outline btn-sm">
+            <.icon name="hero-document-check" class="w-4 h-4" /> Generate Receipt
+          </button>
+        <% end %>
+
+        <%!-- Void - available for draft/sent/overdue --%>
+        <%= if @invoice.status in ["draft", "sent", "overdue"] do %>
           <button
             phx-click="void_invoice"
             class="btn btn-error btn-outline btn-sm"
@@ -52,6 +65,7 @@
             <.icon name="hero-x-mark" class="w-4 h-4" /> Void
           </button>
         <% end %>
+
         <.link
           navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}/print")}
           class="btn btn-outline btn-sm"
@@ -59,6 +73,19 @@
         >
           <.icon name="hero-printer" class="w-4 h-4" /> Print / PDF
         </.link>
+
+        <%!-- View Receipt - available when receipt is generated --%>
+        <%= if @invoice.receipt_number do %>
+          <.link
+            navigate={
+              PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}/receipt")
+            }
+            class="btn btn-success btn-sm"
+            target="_blank"
+          >
+            <.icon name="hero-document-check" class="w-4 h-4" /> View Receipt
+          </.link>
+        <% end %>
       </div>
     </div>
 
@@ -132,6 +159,127 @@
                 </tfoot>
               </table>
             </div>
+          </div>
+        </div>
+
+        <%!-- Payments & Transactions --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <div class="flex justify-between items-center">
+              <h2 class="card-title">Payments & Transactions</h2>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/billing/transactions")}
+                class="btn btn-ghost btn-xs"
+              >
+                View All <.icon name="hero-arrow-right" class="w-3 h-3" />
+              </.link>
+            </div>
+
+            <%!-- Payment Summary --%>
+            <div class="grid grid-cols-3 gap-4 mt-4">
+              <div class="bg-base-200 rounded-lg p-4 text-center">
+                <div class="text-sm text-base-content/60">Total</div>
+                <div class="text-lg font-bold">
+                  <.currency_compact amount={@invoice.total} currency={@invoice.currency} />
+                </div>
+              </div>
+              <div class="bg-success/10 rounded-lg p-4 text-center">
+                <div class="text-sm text-success">Paid</div>
+                <div class="text-lg font-bold text-success">
+                  <.currency_compact amount={@invoice.paid_amount} currency={@invoice.currency} />
+                </div>
+              </div>
+              <div class={[
+                "rounded-lg p-4 text-center",
+                if(Decimal.positive?(PhoenixKit.Billing.Invoice.remaining_amount(@invoice)),
+                  do: "bg-warning/10",
+                  else: "bg-base-200"
+                )
+              ]}>
+                <div class={[
+                  "text-sm",
+                  if(Decimal.positive?(PhoenixKit.Billing.Invoice.remaining_amount(@invoice)),
+                    do: "text-warning",
+                    else: "text-base-content/60"
+                  )
+                ]}>
+                  Remaining
+                </div>
+                <div class={[
+                  "text-lg font-bold",
+                  if(Decimal.positive?(PhoenixKit.Billing.Invoice.remaining_amount(@invoice)),
+                    do: "text-warning",
+                    else: "text-base-content/60"
+                  )
+                ]}>
+                  <.currency_compact
+                    amount={PhoenixKit.Billing.Invoice.remaining_amount(@invoice)}
+                    currency={@invoice.currency}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <%!-- Transactions Table --%>
+            <%= if Enum.empty?(@transactions) do %>
+              <div class="text-center py-6 text-base-content/50">
+                <.icon name="hero-banknotes" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No transactions recorded yet</p>
+              </div>
+            <% else %>
+              <div class="overflow-x-auto mt-4">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Number</th>
+                      <th>Type</th>
+                      <th class="text-right">Amount</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for transaction <- @transactions do %>
+                      <tr>
+                        <td class="text-sm text-base-content/60">
+                          <.time_ago datetime={transaction.inserted_at} />
+                        </td>
+                        <td class="font-mono text-xs">{transaction.transaction_number}</td>
+                        <td>
+                          <.transaction_type_badge type={
+                            PhoenixKit.Billing.Transaction.type(transaction)
+                          } />
+                        </td>
+                        <td class="text-right">
+                          <span class={[
+                            "font-mono font-medium",
+                            if(Decimal.positive?(transaction.amount),
+                              do: "text-success",
+                              else: "text-error"
+                            )
+                          ]}>
+                            <%= if Decimal.positive?(transaction.amount) do %>
+                              +<.currency_compact
+                                amount={transaction.amount}
+                                currency={transaction.currency}
+                              />
+                            <% else %>
+                              <.currency_compact
+                                amount={transaction.amount}
+                                currency={transaction.currency}
+                              />
+                            <% end %>
+                          </span>
+                        </td>
+                        <td class="max-w-[200px] truncate text-sm text-base-content/70">
+                          {transaction.description || "-"}
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
           </div>
         </div>
 
@@ -227,11 +375,7 @@
             <h2 class="card-title">Customer</h2>
             <%= if @invoice.user do %>
               <div class="flex items-center gap-3 mt-2">
-                <div class="avatar placeholder">
-                  <div class="bg-neutral text-neutral-content rounded-full w-12">
-                    <span>{String.first(@invoice.user.email) |> String.upcase()}</span>
-                  </div>
-                </div>
+                <.user_avatar user={@invoice.user} size="lg" />
                 <div>
                   <div class="font-medium">{@invoice.user.email}</div>
                   <.link
@@ -302,7 +446,25 @@
                 <div class="timeline-end timeline-box">Created</div>
                 <hr />
               </li>
-              <%= if @invoice.sent_at do %>
+              <%!-- Show all sends from history --%>
+              <%= for send_entry <- get_send_history(@invoice) do %>
+                <li>
+                  <hr />
+                  <div class="timeline-start text-sm text-base-content/60">
+                    <.time_ago datetime={parse_datetime(send_entry["sent_at"])} />
+                  </div>
+                  <div class="timeline-middle text-info">
+                    <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                  </div>
+                  <div class="timeline-end timeline-box">
+                    <div>Sent</div>
+                    <div class="text-xs text-base-content/60">{send_entry["email"]}</div>
+                  </div>
+                  <hr />
+                </li>
+              <% end %>
+              <%!-- Fallback for old invoices without send_history --%>
+              <%= if @invoice.sent_at && Enum.empty?(get_send_history(@invoice)) do %>
                 <li>
                   <hr />
                   <div class="timeline-start text-sm text-base-content/60">
@@ -346,4 +508,172 @@
       </div>
     </div>
   </div>
+
+  <%!-- Payment Modal --%>
+  <%= if @show_payment_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Record Payment</h3>
+        <p class="py-2 text-base-content/60">
+          Recording payment for invoice {@invoice.invoice_number}
+        </p>
+
+        <form phx-change="update_payment_form" phx-submit="record_payment">
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Amount ({@invoice.currency})</span>
+              <span class="label-text-alt">
+                Remaining:
+                <.currency_compact
+                  amount={PhoenixKit.Billing.Invoice.remaining_amount(@invoice)}
+                  currency={@invoice.currency}
+                />
+              </span>
+            </label>
+            <input
+              type="number"
+              name="amount"
+              step="0.01"
+              min="0.01"
+              max={Decimal.to_string(PhoenixKit.Billing.Invoice.remaining_amount(@invoice))}
+              value={@payment_amount}
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Payment Method</span>
+            </label>
+            <select name="payment_method" class="select select-bordered" disabled>
+              <option value="bank" selected>Bank Transfer</option>
+            </select>
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Description (optional)</span>
+            </label>
+            <input
+              type="text"
+              name="description"
+              value={@payment_description}
+              placeholder="Payment reference, notes..."
+              class="input input-bordered"
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_payment_modal" class="btn">Cancel</button>
+            <button type="submit" class="btn btn-success">
+              <.icon name="hero-banknotes" class="w-4 h-4" /> Record Payment
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_payment_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Refund Modal --%>
+  <%= if @show_refund_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Issue Refund</h3>
+        <p class="py-2 text-base-content/60">
+          Issue refund for invoice {@invoice.invoice_number}
+        </p>
+
+        <form phx-change="update_refund_form" phx-submit="record_refund">
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Refund Amount ({@invoice.currency})</span>
+              <span class="label-text-alt">
+                Max:
+                <.currency_compact
+                  amount={@invoice.paid_amount}
+                  currency={@invoice.currency}
+                />
+              </span>
+            </label>
+            <input
+              type="number"
+              name="amount"
+              step="0.01"
+              min="0.01"
+              max={Decimal.to_string(@invoice.paid_amount)}
+              value={@refund_amount}
+              class="input input-bordered"
+              placeholder="Enter refund amount"
+              required
+            />
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Reason <span class="text-error">*</span></span>
+            </label>
+            <input
+              type="text"
+              name="description"
+              value={@refund_description}
+              placeholder="Reason for refund (required)"
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_refund_modal" class="btn">Cancel</button>
+            <button type="submit" class="btn btn-warning">
+              <.icon name="hero-arrow-uturn-left" class="w-4 h-4" /> Issue Refund
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_refund_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Send Invoice Modal --%>
+  <%= if @show_send_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">
+          {if @invoice.status == "draft", do: "Send Invoice", else: "Resend Invoice"}
+        </h3>
+        <p class="py-2 text-base-content/60">
+          {if @invoice.status == "draft",
+            do: "Send invoice to customer's email address",
+            else: "Resend invoice to customer's email address"}
+        </p>
+
+        <form phx-change="update_send_form" phx-submit="send_invoice">
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={@send_email}
+              placeholder="customer@example.com"
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_send_modal" class="btn">Cancel</button>
+            <button type="submit" class="btn btn-info">
+              <.icon name="hero-paper-airplane" class="w-4 h-4" />
+              {if @invoice.status == "draft", do: "Send Invoice", else: "Resend Invoice"}
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_send_modal"></div>
+    </div>
+  <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
