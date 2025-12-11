@@ -310,6 +310,37 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       current_path={@current_path || ""}
                     />
 
+                    <%!-- Custom Admin Dashboard Categories --%>
+                    <%= for category <- PhoenixKit.Config.AdminDashboardCategories.get_categories() do %>
+                      <.admin_nav_item
+                        href={
+                          category.subsections
+                          |> List.first()
+                          |> Map.get(:url, "#")
+                          |> then(&Routes.locale_aware_path(assigns, &1))
+                        }
+                        icon={category.icon || "hero-folder"}
+                        label={category.title}
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={custom_category_submenu_open?(@current_path, category.subsections)}
+                      />
+
+                      <%= if custom_category_submenu_open?(@current_path, category.subsections) do %>
+                        <div class="mt-1">
+                          <%= for subsection <- category.subsections do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, subsection.url)}
+                              icon={subsection.icon || "hero-document-text"}
+                              label={subsection.title}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          <% end %>
+                        </div>
+                      <% end %>
+                    <% end %>
+
                     <%= if PhoenixKit.Emails.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
                       <.admin_nav_item
@@ -1288,4 +1319,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     base_code = DialectMapper.extract_base(new_locale)
     build_locale_url(current_path, base_code)
   end
+
+  # Check if custom category submenu should be open based on subsection URLs
+  defp custom_category_submenu_open?(current_path, subsections)
+       when is_binary(current_path) and is_list(subsections) do
+    subsection_urls = Enum.map(subsections, & &1.url)
+
+    current_path
+    |> remove_phoenix_kit_prefix()
+    |> remove_locale_prefix()
+    |> path_matches_any?(subsection_urls)
+  end
+
+  defp custom_category_submenu_open?(_, _), do: false
 end
