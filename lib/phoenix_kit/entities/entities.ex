@@ -96,6 +96,20 @@ defmodule PhoenixKit.Entities do
   @primary_key {:id, :id, autogenerate: true}
   @valid_statuses ~w(draft published archived)
 
+  @derive {Jason.Encoder,
+           only: [
+             :name,
+             :display_name,
+             :display_name_plural,
+             :description,
+             :icon,
+             :status,
+             :fields_definition,
+             :settings,
+             :date_created,
+             :date_updated
+           ]}
+
   schema "phoenix_kit_entities" do
     field :name, :string
     field :display_name, :string
@@ -244,20 +258,42 @@ defmodule PhoenixKit.Entities do
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :created) do
     Events.broadcast_entity_created(entity.id)
+    maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :updated) do
     Events.broadcast_entity_updated(entity.id)
+    maybe_mirror_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event({:ok, %__MODULE__{} = entity}, :deleted) do
     Events.broadcast_entity_deleted(entity.id)
+    maybe_delete_mirrored_entity(entity)
     {:ok, entity}
   end
 
   defp notify_entity_event(result, _event), do: result
+
+  # Mirror export helpers for auto-sync
+  defp maybe_mirror_entity(entity) do
+    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+
+    if Storage.definitions_enabled?() do
+      Task.start(fn -> Exporter.export_entity(entity) end)
+    end
+  end
+
+  defp maybe_delete_mirrored_entity(entity) do
+    alias PhoenixKit.Entities.Mirror.Storage
+
+    if Storage.definitions_enabled?() do
+      Task.start(fn ->
+        Storage.delete_entity(entity.name)
+      end)
+    end
+  end
 
   @doc """
   Returns the list of entities ordered by creation date.
