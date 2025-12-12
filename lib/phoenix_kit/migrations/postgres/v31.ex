@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V29 do
+defmodule PhoenixKit.Migrations.Postgres.V31 do
   @moduledoc """
-  PhoenixKit V29 Migration: Billing System - Phase 1
+  PhoenixKit V31 Migration: Billing System - Phase 1
 
   This migration introduces the core billing infrastructure including currencies,
   billing profiles, orders, and invoices. This is Phase 1 of the billing module,
@@ -45,7 +45,7 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
   use Ecto.Migration
 
   @doc """
-  Run the V29 migration to add the billing system.
+  Run the V31 migration to add the billing system.
   """
   def up(%{prefix: prefix} = _opts) do
     # ===========================================
@@ -526,7 +526,7 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
   end
 
   @doc """
-  Rollback the V29 migration.
+  Rollback the V31 migration.
   """
   def down(%{prefix: prefix} = _opts) do
     # Drop transactions foreign keys and table first
