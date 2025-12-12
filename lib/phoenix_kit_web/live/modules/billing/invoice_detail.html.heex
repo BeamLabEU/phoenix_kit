@@ -48,10 +48,15 @@
           </button>
         <% end %>
 
-        <%!-- Generate Receipt - available for paid without receipt --%>
-        <%= if @invoice.status == "paid" && is_nil(@invoice.receipt_number) do %>
+        <%!-- Generate Receipt - available when paid_amount > 0 and no receipt yet --%>
+        <%= if is_nil(@invoice.receipt_number) && @invoice.paid_amount && Decimal.gt?(@invoice.paid_amount, Decimal.new(0)) do %>
           <button phx-click="generate_receipt" class="btn btn-outline btn-sm">
-            <.icon name="hero-document-check" class="w-4 h-4" /> Generate Receipt
+            <.icon name="hero-document-check" class="w-4 h-4" />
+            <%= if @invoice.status == "paid" do %>
+              Generate Receipt
+            <% else %>
+              Generate Partial Receipt
+            <% end %>
           </button>
         <% end %>
 
@@ -85,6 +90,9 @@
           >
             <.icon name="hero-document-check" class="w-4 h-4" /> View Receipt
           </.link>
+          <button phx-click="open_send_receipt_modal" class="btn btn-success btn-outline btn-sm">
+            <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Receipt
+          </button>
         <% end %>
       </div>
     </div>
@@ -236,6 +244,7 @@
                       <th>Type</th>
                       <th class="text-right">Amount</th>
                       <th>Description</th>
+                      <th class="text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -273,6 +282,55 @@
                         </td>
                         <td class="max-w-[200px] truncate text-sm text-base-content/70">
                           {transaction.description || "-"}
+                        </td>
+                        <td class="text-right">
+                          <div class="flex gap-1 justify-end">
+                            <%= if Decimal.negative?(transaction.amount) do %>
+                              <%!-- Refund: Credit Note buttons --%>
+                              <.link
+                                navigate={
+                                  PhoenixKit.Utils.Routes.path(
+                                    "/admin/billing/invoices/#{@invoice.id}/credit-note/#{transaction.id}"
+                                  )
+                                }
+                                class="btn btn-warning btn-xs"
+                                target="_blank"
+                                title="Print Credit Note"
+                              >
+                                <.icon name="hero-printer" class="w-3 h-3" />
+                              </.link>
+                              <button
+                                phx-click="open_send_credit_note_modal"
+                                phx-value-transaction-id={transaction.id}
+                                class="btn btn-warning btn-outline btn-xs"
+                                title="Send Credit Note"
+                              >
+                                <.icon name="hero-paper-airplane" class="w-3 h-3" />
+                              </button>
+                            <% else %>
+                              <%!-- Payment: Payment Confirmation buttons --%>
+                              <.link
+                                navigate={
+                                  PhoenixKit.Utils.Routes.path(
+                                    "/admin/billing/invoices/#{@invoice.id}/payment/#{transaction.id}"
+                                  )
+                                }
+                                class="btn btn-success btn-xs"
+                                target="_blank"
+                                title="Print Payment Confirmation"
+                              >
+                                <.icon name="hero-printer" class="w-3 h-3" />
+                              </.link>
+                              <button
+                                phx-click="open_send_payment_confirmation_modal"
+                                phx-value-transaction-id={transaction.id}
+                                class="btn btn-success btn-outline btn-xs"
+                                title="Send Payment Confirmation"
+                              >
+                                <.icon name="hero-paper-airplane" class="w-3 h-3" />
+                              </button>
+                            <% end %>
+                          </div>
                         </td>
                       </tr>
                     <% end %>
@@ -431,75 +489,162 @@
           </div>
         </div>
 
-        <%!-- Timeline --%>
+        <%!-- Timeline (sorted by datetime) --%>
         <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
             <h2 class="card-title">Timeline</h2>
+            <% timeline_events = build_timeline_events(@invoice, @transactions) %>
             <ul class="timeline timeline-vertical mt-2">
-              <li>
-                <div class="timeline-start text-sm text-base-content/60">
-                  <.time_ago datetime={@invoice.inserted_at} />
-                </div>
-                <div class="timeline-middle">
-                  <.icon name="hero-document-plus" class="w-4 h-4" />
-                </div>
-                <div class="timeline-end timeline-box">Created</div>
-                <hr />
-              </li>
-              <%!-- Show all sends from history --%>
-              <%= for send_entry <- get_send_history(@invoice) do %>
+              <%= for {event, index} <- Enum.with_index(timeline_events) do %>
                 <li>
-                  <hr />
-                  <div class="timeline-start text-sm text-base-content/60">
-                    <.time_ago datetime={parse_datetime(send_entry["sent_at"])} />
-                  </div>
-                  <div class="timeline-middle text-info">
-                    <.icon name="hero-paper-airplane" class="w-4 h-4" />
-                  </div>
-                  <div class="timeline-end timeline-box">
-                    <div>Sent</div>
-                    <div class="text-xs text-base-content/60">{send_entry["email"]}</div>
-                  </div>
-                  <hr />
+                  <%= if index > 0 do %>
+                    <hr />
+                  <% end %>
+                  <%= case event.type do %>
+                    <% :created -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle">
+                        <.icon name="hero-document-plus" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">Created</div>
+                    <% :invoice_sent -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-info">
+                        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">
+                        <div>Invoice Sent</div>
+                        <div class="text-xs text-base-content/60">{event.data["email"]}</div>
+                      </div>
+                    <% :invoice_sent_legacy -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-info">
+                        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">Invoice Sent</div>
+                    <% :payment -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-success">
+                        <.icon name="hero-banknotes" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box bg-success/10 border-success">
+                        <div>Payment</div>
+                        <div class="text-xs font-mono">
+                          +<.currency_compact
+                            amount={event.data.amount}
+                            currency={event.data.currency}
+                          />
+                        </div>
+                        <%= if event.data.description do %>
+                          <div class="text-xs text-base-content/60">{event.data.description}</div>
+                        <% end %>
+                      </div>
+                    <% :paid -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-success">
+                        <.icon name="hero-check-circle" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box bg-success/10 border-success">
+                        Fully Paid
+                      </div>
+                    <% :receipt_generated -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-success">
+                        <.icon name="hero-document-check" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">
+                        <div>Receipt Generated</div>
+                        <div class="text-xs text-base-content/60 font-mono">{event.data}</div>
+                      </div>
+                    <% :receipt_sent -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-success">
+                        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">
+                        <div>Receipt Sent</div>
+                        <div class="text-xs text-base-content/60">{event.data["email"]}</div>
+                      </div>
+                    <% :refund -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-warning">
+                        <.icon name="hero-arrow-uturn-left" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box bg-warning/10 border-warning">
+                        <div>Refund</div>
+                        <div class="text-xs font-mono">
+                          <.currency_compact
+                            amount={Decimal.abs(event.data.amount)}
+                            currency={event.data.currency}
+                          />
+                        </div>
+                        <%= if event.data.description do %>
+                          <div class="text-xs text-base-content/60">{event.data.description}</div>
+                        <% end %>
+                      </div>
+                    <% :credit_note_sent -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-warning">
+                        <.icon name="hero-paper-airplane" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">
+                        <div>Credit Note Sent</div>
+                        <div class="text-xs text-base-content/60">{event.data["email"]}</div>
+                        <div class="text-xs text-base-content/60 font-mono">
+                          {event.data["credit_note_number"]}
+                        </div>
+                      </div>
+                    <% :voided -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle text-error">
+                        <.icon name="hero-x-circle" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box bg-error/10 border-error">Voided</div>
+                    <% _ -> %>
+                      <div class="timeline-start text-sm text-base-content/60">
+                        <.time_ago datetime={event.datetime} />
+                      </div>
+                      <div class="timeline-middle">
+                        <.icon name="hero-question-mark-circle" class="w-4 h-4" />
+                      </div>
+                      <div class="timeline-end timeline-box">Unknown Event</div>
+                  <% end %>
+                  <%= if index < length(timeline_events) - 1 do %>
+                    <hr />
+                  <% end %>
                 </li>
               <% end %>
-              <%!-- Fallback for old invoices without send_history --%>
-              <%= if @invoice.sent_at && Enum.empty?(get_send_history(@invoice)) do %>
+              <%!-- Full refund indicator (always at the end if applicable) --%>
+              <%= if fully_refunded?(@invoice, @transactions) do %>
                 <li>
                   <hr />
-                  <div class="timeline-start text-sm text-base-content/60">
-                    <.time_ago datetime={@invoice.sent_at} />
-                  </div>
-                  <div class="timeline-middle text-info">
-                    <.icon name="hero-paper-airplane" class="w-4 h-4" />
-                  </div>
-                  <div class="timeline-end timeline-box">Sent</div>
-                  <hr />
-                </li>
-              <% end %>
-              <%= if @invoice.paid_at do %>
-                <li>
-                  <hr />
-                  <div class="timeline-start text-sm text-base-content/60">
-                    <.time_ago datetime={@invoice.paid_at} />
-                  </div>
-                  <div class="timeline-middle text-success">
-                    <.icon name="hero-check-circle" class="w-4 h-4" />
-                  </div>
-                  <div class="timeline-end timeline-box bg-success/10 border-success">Paid</div>
-                  <hr />
-                </li>
-              <% end %>
-              <%= if @invoice.voided_at do %>
-                <li>
-                  <hr />
-                  <div class="timeline-start text-sm text-base-content/60">
-                    <.time_ago datetime={@invoice.voided_at} />
-                  </div>
+                  <div class="timeline-start text-sm text-base-content/60"></div>
                   <div class="timeline-middle text-error">
                     <.icon name="hero-x-circle" class="w-4 h-4" />
                   </div>
-                  <div class="timeline-end timeline-box bg-error/10 border-error">Voided</div>
+                  <div class="timeline-end timeline-box bg-error/10 border-error">
+                    <div>Fully Refunded</div>
+                  </div>
                 </li>
               <% end %>
             </ul>
@@ -674,6 +819,121 @@
         </form>
       </div>
       <div class="modal-backdrop" phx-click="close_send_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Send Receipt Modal --%>
+  <%= if @show_send_receipt_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Send Receipt</h3>
+        <p class="py-2 text-base-content/60">
+          Send payment receipt to customer's email address
+        </p>
+
+        <form phx-change="update_send_receipt_form" phx-submit="send_receipt">
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={@send_receipt_email}
+              placeholder="customer@example.com"
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_send_receipt_modal" class="btn">Cancel</button>
+            <button type="submit" class="btn btn-success">
+              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Receipt
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_send_receipt_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Send Credit Note Modal --%>
+  <%= if @show_send_credit_note_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Send Credit Note</h3>
+        <p class="py-2 text-base-content/60">
+          Send credit note (refund document) to customer's email address
+        </p>
+
+        <form phx-change="update_send_credit_note_form" phx-submit="send_credit_note">
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={@send_credit_note_email}
+              placeholder="customer@example.com"
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_send_credit_note_modal" class="btn">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-warning">
+              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Credit Note
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_send_credit_note_modal"></div>
+    </div>
+  <% end %>
+
+  <%!-- Send Payment Confirmation Modal --%>
+  <%= if @show_send_payment_confirmation_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Send Payment Confirmation</h3>
+        <p class="py-2 text-base-content/60">
+          Send payment confirmation to customer's email address
+        </p>
+
+        <form
+          phx-change="update_send_payment_confirmation_form"
+          phx-submit="send_payment_confirmation"
+        >
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={@send_payment_confirmation_email}
+              placeholder="customer@example.com"
+              class="input input-bordered"
+              required
+            />
+          </div>
+
+          <div class="modal-action">
+            <button type="button" phx-click="close_send_payment_confirmation_modal" class="btn">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-success">
+              <.icon name="hero-paper-airplane" class="w-4 h-4" /> Send Confirmation
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="modal-backdrop" phx-click="close_send_payment_confirmation_modal"></div>
     </div>
   <% end %>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

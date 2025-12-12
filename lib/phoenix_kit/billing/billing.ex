@@ -1045,6 +1045,399 @@ defmodule PhoenixKit.Billing do
     end
   end
 
+  @doc """
+  Sends receipt for a paid invoice.
+
+  Options:
+  - `:send_email` - Whether to send email (default: true)
+  - `:to_email` - Override recipient email address
+  - `:receipt_url` - URL to view receipt online (optional)
+  """
+  def send_receipt(%Invoice{} = invoice, opts \\ []) do
+    cond do
+      # Has receipt number - can send
+      not is_nil(invoice.receipt_number) ->
+        do_send_receipt(invoice, opts)
+
+      # No receipt generated yet
+      is_nil(invoice.receipt_number) ->
+        {:error, :receipt_not_generated}
+
+      true ->
+        {:error, :receipt_not_sendable}
+    end
+  end
+
+  defp do_send_receipt(invoice, opts) do
+    send_email? = Keyword.get(opts, :send_email, true)
+    to_email = Keyword.get(opts, :to_email)
+
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Get recipient email
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    if is_nil(recipient_email) do
+      {:error, :no_recipient_email}
+    else
+      # Record in receipt_data.send_history (analogous to metadata.send_history for invoices)
+      send_entry = %{
+        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "email" => recipient_email
+      }
+
+      current_receipt_data = invoice.receipt_data || %{}
+      send_history = Map.get(current_receipt_data, "send_history", [])
+      updated_send_history = send_history ++ [send_entry]
+      updated_receipt_data = Map.put(current_receipt_data, "send_history", updated_send_history)
+
+      changeset =
+        invoice
+        |> Ecto.Changeset.change(%{receipt_data: updated_receipt_data})
+
+      case repo().update(changeset) do
+        {:ok, updated_invoice} ->
+          # Send email if requested
+          if send_email? do
+            send_receipt_email(updated_invoice, Keyword.put(opts, :to_email, recipient_email))
+          end
+
+          {:ok, updated_invoice}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Sends receipt email to the customer.
+  """
+  def send_receipt_email(%Invoice{} = invoice, opts \\ []) do
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Use to_email from opts, or fall back to user email
+    to_email = Keyword.get(opts, :to_email)
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    case recipient_email do
+      nil ->
+        {:error, :no_recipient_email}
+
+      email ->
+        user = invoice.user
+        variables = build_receipt_email_variables(invoice, user, opts)
+
+        Templates.send_email(
+          "billing_receipt",
+          email,
+          variables,
+          user_id: user && user.id,
+          metadata: %{
+            invoice_id: invoice.id,
+            receipt_number: invoice.receipt_number,
+            invoice_number: invoice.invoice_number
+          }
+        )
+    end
+  end
+
+  @doc """
+  Sends a credit note email for a refund transaction.
+
+  ## Parameters
+
+  - `invoice` - The invoice associated with the refund
+  - `transaction` - The refund transaction
+  - `opts` - Options:
+    - `:to_email` - Override recipient email
+    - `:credit_note_url` - URL to view credit note online
+
+  ## Examples
+
+      {:ok, invoice} = Billing.send_credit_note(invoice, transaction, credit_note_url: "https://...")
+  """
+  def send_credit_note(%Invoice{} = invoice, %Transaction{} = transaction, opts \\ []) do
+    # Verify transaction is a refund
+    if Transaction.refund?(transaction) do
+      do_send_credit_note(invoice, transaction, opts)
+    else
+      {:error, :not_a_refund}
+    end
+  end
+
+  defp do_send_credit_note(invoice, transaction, opts) do
+    send_email? = Keyword.get(opts, :send_email, true)
+    to_email = Keyword.get(opts, :to_email)
+
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Get recipient email
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    if is_nil(recipient_email) do
+      {:error, :no_recipient_email}
+    else
+      # Record in transaction metadata.send_history
+      send_entry = %{
+        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "email" => recipient_email
+      }
+
+      current_metadata = transaction.metadata || %{}
+      send_history = Map.get(current_metadata, "credit_note_send_history", [])
+      updated_send_history = send_history ++ [send_entry]
+
+      updated_metadata =
+        Map.put(current_metadata, "credit_note_send_history", updated_send_history)
+
+      changeset =
+        transaction
+        |> Ecto.Changeset.change(%{metadata: updated_metadata})
+
+      case repo().update(changeset) do
+        {:ok, updated_transaction} ->
+          # Send email if requested
+          if send_email? do
+            send_credit_note_email(
+              invoice,
+              updated_transaction,
+              Keyword.put(opts, :to_email, recipient_email)
+            )
+          end
+
+          {:ok, updated_transaction}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Sends credit note email to the customer.
+  """
+  def send_credit_note_email(%Invoice{} = invoice, %Transaction{} = transaction, opts \\ []) do
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Use to_email from opts, or fall back to user email
+    to_email = Keyword.get(opts, :to_email)
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    case recipient_email do
+      nil ->
+        {:error, :no_recipient_email}
+
+      email ->
+        user = invoice.user
+        variables = build_credit_note_email_variables(invoice, transaction, user, opts)
+
+        Templates.send_email(
+          "billing_credit_note",
+          email,
+          variables,
+          user_id: user && user.id,
+          metadata: %{
+            invoice_id: invoice.id,
+            transaction_id: transaction.id,
+            invoice_number: invoice.invoice_number,
+            transaction_number: transaction.transaction_number
+          }
+        )
+    end
+  end
+
+  defp build_credit_note_email_variables(invoice, transaction, user, opts) do
+    credit_note_url = Keyword.get(opts, :credit_note_url, "")
+    billing_details = invoice.billing_details || %{}
+    prefix = Settings.get_setting("billing_credit_note_prefix", "CN")
+    suffix = transaction.transaction_number |> String.replace(~r/^TXN-/, "")
+    credit_note_number = "#{prefix}-#{suffix}"
+
+    %{
+      "user_email" => user && user.email,
+      "user_name" => extract_user_name(billing_details, user),
+      "credit_note_number" => credit_note_number,
+      "invoice_number" => invoice.invoice_number,
+      "refund_date" => format_date(transaction.inserted_at),
+      "refund_amount" => format_decimal(Decimal.abs(transaction.amount)),
+      "refund_reason" => transaction.description || "Refund issued",
+      "transaction_number" => transaction.transaction_number,
+      "currency" => transaction.currency,
+      "company_name" => Settings.get_setting("billing_company_name", ""),
+      "company_address" => Settings.get_setting("billing_company_address", ""),
+      "company_vat" => Settings.get_setting("billing_company_vat", ""),
+      "credit_note_url" => credit_note_url
+    }
+  end
+
+  @doc """
+  Sends a payment confirmation email for an individual payment transaction.
+
+  ## Parameters
+
+  - `invoice` - The invoice associated with the payment
+  - `transaction` - The payment transaction
+  - `opts` - Options including:
+    - `:to_email` - Override recipient email address
+    - `:payment_url` - URL to view payment confirmation online
+    - `:send_email` - Whether to send email (default: true)
+  """
+  def send_payment_confirmation(%Invoice{} = invoice, %Transaction{} = transaction, opts \\ []) do
+    # Verify transaction is a payment (positive amount)
+    if Transaction.payment?(transaction) do
+      do_send_payment_confirmation(invoice, transaction, opts)
+    else
+      {:error, :not_a_payment}
+    end
+  end
+
+  defp do_send_payment_confirmation(invoice, transaction, opts) do
+    send_email? = Keyword.get(opts, :send_email, true)
+    to_email = Keyword.get(opts, :to_email)
+
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Get recipient email
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    if is_nil(recipient_email) do
+      {:error, :no_recipient_email}
+    else
+      # Record in transaction metadata.payment_confirmation_send_history
+      send_entry = %{
+        "sent_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
+        "email" => recipient_email
+      }
+
+      current_metadata = transaction.metadata || %{}
+      send_history = Map.get(current_metadata, "payment_confirmation_send_history", [])
+      updated_send_history = send_history ++ [send_entry]
+
+      updated_metadata =
+        Map.put(current_metadata, "payment_confirmation_send_history", updated_send_history)
+
+      changeset =
+        transaction
+        |> Ecto.Changeset.change(%{metadata: updated_metadata})
+
+      case repo().update(changeset) do
+        {:ok, updated_transaction} ->
+          # Send email if requested
+          if send_email? do
+            send_payment_confirmation_email(
+              invoice,
+              updated_transaction,
+              Keyword.put(opts, :to_email, recipient_email)
+            )
+          end
+
+          {:ok, updated_transaction}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Sends payment confirmation email to the customer.
+  """
+  def send_payment_confirmation_email(
+        %Invoice{} = invoice,
+        %Transaction{} = transaction,
+        opts \\ []
+      ) do
+    # Preload user if not loaded
+    invoice = ensure_preloaded(invoice, [:user, :order])
+
+    # Use to_email from opts, or fall back to user email
+    to_email = Keyword.get(opts, :to_email)
+    recipient_email = to_email || (invoice.user && invoice.user.email)
+
+    case recipient_email do
+      nil ->
+        {:error, :no_recipient_email}
+
+      email ->
+        user = invoice.user
+        variables = build_payment_confirmation_email_variables(invoice, transaction, user, opts)
+
+        Templates.send_email(
+          "billing_payment_confirmation",
+          email,
+          variables,
+          user_id: user && user.id,
+          metadata: %{
+            invoice_id: invoice.id,
+            transaction_id: transaction.id,
+            invoice_number: invoice.invoice_number,
+            transaction_number: transaction.transaction_number
+          }
+        )
+    end
+  end
+
+  defp build_payment_confirmation_email_variables(invoice, transaction, user, opts) do
+    payment_url = Keyword.get(opts, :payment_url, "")
+    billing_details = invoice.billing_details || %{}
+    prefix = Settings.get_setting("billing_payment_confirmation_prefix", "PMT")
+    suffix = transaction.transaction_number |> String.replace(~r/^TXN-/, "")
+    confirmation_number = "#{prefix}-#{suffix}"
+
+    # Calculate remaining balance
+    remaining_balance = Decimal.sub(invoice.total, invoice.paid_amount || Decimal.new(0))
+    is_final_payment = Decimal.lte?(remaining_balance, Decimal.new(0))
+
+    %{
+      "user_email" => user && user.email,
+      "user_name" => extract_user_name(billing_details, user),
+      "confirmation_number" => confirmation_number,
+      "invoice_number" => invoice.invoice_number,
+      "payment_date" => format_date(transaction.inserted_at),
+      "payment_amount" => format_decimal(transaction.amount),
+      "payment_method" => String.capitalize(transaction.payment_method || "bank"),
+      "transaction_number" => transaction.transaction_number,
+      "invoice_total" => format_decimal(invoice.total),
+      "total_paid" => format_decimal(invoice.paid_amount),
+      "remaining_balance" => format_decimal(Decimal.max(remaining_balance, Decimal.new(0))),
+      "is_final_payment" => is_final_payment,
+      "currency" => invoice.currency,
+      "company_name" => Settings.get_setting("billing_company_name", ""),
+      "company_address" => Settings.get_setting("billing_company_address", ""),
+      "payment_url" => payment_url
+    }
+  end
+
+  defp build_receipt_email_variables(invoice, user, opts) do
+    receipt_url = Keyword.get(opts, :receipt_url, "")
+    billing_details = invoice.billing_details || %{}
+
+    %{
+      "user_email" => user.email,
+      "user_name" => extract_user_name(billing_details, user),
+      "receipt_number" => invoice.receipt_number,
+      "invoice_number" => invoice.invoice_number,
+      "payment_date" => format_date(invoice.paid_at),
+      "subtotal" => format_decimal(invoice.subtotal),
+      "tax_amount" => format_decimal(invoice.tax_amount),
+      "total" => format_decimal(invoice.total),
+      "paid_amount" => format_decimal(invoice.paid_amount),
+      "currency" => invoice.currency,
+      "line_items_html" => format_line_items_html(invoice.line_items),
+      "line_items_text" => format_line_items_text(invoice.line_items),
+      "company_name" => Settings.get_setting("billing_company_name", ""),
+      "company_address" => Settings.get_setting("billing_company_address", ""),
+      "company_vat" => Settings.get_setting("billing_company_vat", ""),
+      "receipt_url" => receipt_url
+    }
+  end
+
   defp ensure_preloaded(%{__struct__: _} = struct, preloads) do
     Enum.reduce(preloads, struct, fn preload, acc ->
       case Map.get(acc, preload) do
@@ -1184,35 +1577,109 @@ defmodule PhoenixKit.Billing do
   end
 
   @doc """
-  Generates a receipt for a paid invoice.
-  """
-  def generate_receipt(%Invoice{status: "paid"} = invoice) do
-    if is_nil(invoice.receipt_number) do
-      config = get_config()
-      receipt_number = generate_receipt_number(config.receipt_prefix)
+  Generates a receipt for an invoice.
 
-      invoice
-      |> Ecto.Changeset.change(%{
-        receipt_number: receipt_number,
-        receipt_generated_at: DateTime.utc_now(),
-        receipt_data: build_receipt_data(invoice)
-      })
-      |> repo().update()
-    else
-      {:error, :receipt_already_generated}
+  Receipts can be generated:
+  - When invoice is fully paid (status: "paid")
+  - When invoice has any payment (paid_amount > 0) - partial receipt
+
+  Receipt status:
+  - "paid" - fully paid
+  - "partially_paid" - partial payment received
+  - "refunded" - fully refunded after payment
+  """
+  def generate_receipt(%Invoice{} = invoice) do
+    cond do
+      # Already has a receipt
+      not is_nil(invoice.receipt_number) ->
+        {:error, :receipt_already_generated}
+
+      # No payments yet
+      is_nil(invoice.paid_amount) or Decimal.eq?(invoice.paid_amount, Decimal.new(0)) ->
+        {:error, :no_payments}
+
+      # Has payments - generate receipt
+      true ->
+        config = get_config()
+        receipt_number = generate_receipt_number(config.receipt_prefix)
+
+        invoice
+        |> Ecto.Changeset.change(%{
+          receipt_number: receipt_number,
+          receipt_generated_at: DateTime.utc_now(),
+          receipt_data: build_receipt_data(invoice)
+        })
+        |> repo().update()
     end
   end
 
-  def generate_receipt(_invoice), do: {:error, :invoice_not_paid}
-
   defp build_receipt_data(invoice) do
+    receipt_status = calculate_receipt_status(invoice)
+
     %{
-      invoice_number: invoice.invoice_number,
-      total: Decimal.to_string(invoice.total),
-      currency: invoice.currency,
-      paid_at: DateTime.to_iso8601(invoice.paid_at),
-      billing_details: invoice.billing_details
+      "invoice_number" => invoice.invoice_number,
+      "total" => Decimal.to_string(invoice.total),
+      "paid_amount" => Decimal.to_string(invoice.paid_amount || Decimal.new(0)),
+      "currency" => invoice.currency,
+      "paid_at" => if(invoice.paid_at, do: DateTime.to_iso8601(invoice.paid_at), else: nil),
+      "billing_details" => invoice.billing_details,
+      "status" => receipt_status
     }
+  end
+
+  @doc """
+  Calculates the current receipt status based on invoice state and transactions.
+  """
+  def calculate_receipt_status(invoice, transactions \\ nil) do
+    # Get transactions if not provided
+    transactions = transactions || list_invoice_transactions(invoice.id)
+
+    total_refunded =
+      transactions
+      |> Enum.filter(&Decimal.negative?(&1.amount))
+      |> Enum.map(& &1.amount)
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+      |> Decimal.abs()
+
+    paid_amount = invoice.paid_amount || Decimal.new(0)
+
+    cond do
+      # Fully refunded
+      Decimal.gt?(total_refunded, Decimal.new(0)) and
+          Decimal.gte?(total_refunded, paid_amount) ->
+        "refunded"
+
+      # Fully paid
+      invoice.status == "paid" or Decimal.gte?(paid_amount, invoice.total) ->
+        "paid"
+
+      # Partially paid
+      Decimal.gt?(paid_amount, Decimal.new(0)) ->
+        "partially_paid"
+
+      # No payment
+      true ->
+        "unpaid"
+    end
+  end
+
+  @doc """
+  Updates the receipt status based on current invoice state.
+  Call this after refunds to update the receipt status.
+  """
+  def update_receipt_status(%Invoice{} = invoice) do
+    if invoice.receipt_number do
+      current_receipt_data = invoice.receipt_data || %{}
+      new_status = calculate_receipt_status(invoice)
+
+      updated_receipt_data = Map.put(current_receipt_data, "status", new_status)
+
+      invoice
+      |> Ecto.Changeset.change(%{receipt_data: updated_receipt_data})
+      |> repo().update()
+    else
+      {:ok, invoice}
+    end
   end
 
   @doc """
@@ -1572,6 +2039,12 @@ defmodule PhoenixKit.Billing do
 
             # Mark linked order as paid if applicable
             maybe_mark_linked_order_paid(updated_invoice)
+          end
+
+          # Update receipt status if this is a refund and receipt exists
+          if Decimal.negative?(amount) do
+            final_invoice = get_invoice!(invoice.id)
+            update_receipt_status(final_invoice)
           end
 
           transaction

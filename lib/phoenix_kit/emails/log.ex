@@ -1001,6 +1001,32 @@ defmodule PhoenixKit.Emails.Log do
           fragment("? ->> ? = ?", l.message_tags, "email_type", ^message_tag)
         )
 
+      {:category, category}, query when is_binary(category) ->
+        # Filter by category in message_tags JSONB
+        where(
+          query,
+          [log: l],
+          fragment("? ->> ? = ?", l.message_tags, "category", ^category)
+        )
+
+      {:source_module, source_module}, query when is_binary(source_module) ->
+        # Filter by source_module through template relationship
+        # Find all templates with this source_module in metadata
+        template_names_subquery =
+          from(t in PhoenixKit.Emails.Template,
+            where: fragment("? ->> ? = ?", t.metadata, "source_module", ^source_module),
+            select: t.name
+          )
+
+        # Filter logs where template_name matches any template with this source_module
+        # Also fallback to message_tags for emails sent with explicit source_module
+        where(
+          query,
+          [log: l],
+          l.template_name in subquery(template_names_subquery) or
+            fragment("? ->> ? = ?", l.message_tags, "source_module", ^source_module)
+        )
+
       {:from_date, from_date}, query ->
         where(query, [log: l], l.sent_at >= ^from_date)
 

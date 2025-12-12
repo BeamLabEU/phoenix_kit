@@ -764,24 +764,23 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
   defp prefix_table_name(table_name, nil), do: table_name
   defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
 
-  # Seed the billing_invoice email template if it doesn't exist
+  # Seed billing email templates (billing_invoice and billing_receipt) if they don't exist
   defp seed_billing_invoice_template do
     alias PhoenixKit.Emails.Templates
 
     case Code.ensure_loaded(Templates) do
       {:module, _} ->
         try do
-          # Check if billing_invoice template already exists
-          case Templates.get_template_by_name("billing_invoice") do
-            nil ->
-              # Template doesn't exist, run seed to create all missing system templates
-              Templates.seed_system_templates()
-              :ok
+          # Check if billing templates already exist
+          invoice_exists = Templates.get_template_by_name("billing_invoice") != nil
+          receipt_exists = Templates.get_template_by_name("billing_receipt") != nil
 
-            _template ->
-              # Template already exists
-              :ok
+          # If any template is missing, run seed to create all missing system templates
+          unless invoice_exists and receipt_exists do
+            Templates.seed_system_templates()
           end
+
+          :ok
         rescue
           _ -> :ok
         end

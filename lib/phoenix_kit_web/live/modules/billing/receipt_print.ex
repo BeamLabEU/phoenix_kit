@@ -34,6 +34,11 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ReceiptPrint do
           company_info = get_company_info()
           transactions = Billing.list_invoice_transactions(invoice.id)
 
+          # Calculate receipt status and related data
+          receipt_status = Billing.calculate_receipt_status(invoice, transactions)
+          {total_refunded, last_refund_date} = calculate_refund_info(transactions)
+          last_payment_date = get_last_payment_date(transactions)
+
           socket =
             socket
             |> assign(:page_title, "Receipt #{invoice.receipt_number}")
@@ -41,6 +46,10 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ReceiptPrint do
             |> assign(:invoice, invoice)
             |> assign(:transactions, transactions)
             |> assign(:company, company_info)
+            |> assign(:receipt_status, receipt_status)
+            |> assign(:total_refunded, total_refunded)
+            |> assign(:last_refund_date, last_refund_date)
+            |> assign(:last_payment_date, last_payment_date)
 
           {:ok, socket, layout: false}
       end
@@ -66,5 +75,36 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ReceiptPrint do
       bank_iban: Settings.get_setting("billing_bank_iban", ""),
       bank_swift: Settings.get_setting("billing_bank_swift", "")
     }
+  end
+
+  defp calculate_refund_info(transactions) do
+    refunds =
+      transactions
+      |> Enum.filter(&Decimal.negative?(&1.amount))
+      |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+
+    total_refunded =
+      refunds
+      |> Enum.map(& &1.amount)
+      |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+      |> Decimal.abs()
+
+    last_refund_date =
+      case refunds do
+        [first | _] -> first.inserted_at
+        [] -> nil
+      end
+
+    {total_refunded, last_refund_date}
+  end
+
+  defp get_last_payment_date(transactions) do
+    transactions
+    |> Enum.filter(&Decimal.positive?(&1.amount))
+    |> Enum.sort_by(& &1.inserted_at, {:desc, DateTime})
+    |> case do
+      [first | _] -> first.inserted_at
+      [] -> nil
+    end
   end
 end

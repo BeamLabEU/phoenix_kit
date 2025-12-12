@@ -342,6 +342,8 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Emails do
       status: "",
       message_tag: "",
       campaign_id: "",
+      category: "",
+      source_module: "",
       from_date: "",
       to_date: ""
     }
@@ -364,6 +366,8 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Emails do
       status: params["status"] || "",
       message_tag: params["message_tag"] || "",
       campaign_id: params["campaign_id"] || "",
+      category: params["category"] || "",
+      source_module: params["source_module"] || "",
       from_date: params["from_date"] || "",
       to_date: params["to_date"] || ""
     }
@@ -430,6 +434,12 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Emails do
         {:campaign_id, campaign_id}, acc when campaign_id != "" ->
           Map.put(acc, :campaign_id, campaign_id)
 
+        {:category, category}, acc when category != "" ->
+          Map.put(acc, :category, category)
+
+        {:source_module, source_module}, acc when source_module != "" ->
+          Map.put(acc, :source_module, source_module)
+
         {:from_date, from_date}, acc when from_date != "" ->
           case Date.from_iso8601(from_date) do
             {:ok, date} -> Map.put(acc, :from_date, DateTime.new!(date, ~T[00:00:00]))
@@ -456,6 +466,8 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Emails do
       "status" => assigns.filters.status,
       "message_tag" => assigns.filters.message_tag,
       "campaign_id" => assigns.filters.campaign_id,
+      "category" => assigns.filters.category,
+      "source_module" => assigns.filters.source_module,
       "from_date" => assigns.filters.from_date,
       "to_date" => assigns.filters.to_date,
       "page" => assigns.page,

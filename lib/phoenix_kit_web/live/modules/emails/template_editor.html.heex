@@ -20,10 +20,11 @@
       <div class="text-center">
         <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
         <%= if @mode == :edit and @template do %>
+          <% source_module = PhoenixKit.Emails.Template.get_source_module(@template) %>
           <p class="text-lg text-base-content">
             Version {@template.version} • {String.capitalize(@template.category)} • {String.capitalize(
-              @template.status
-            )}
+              source_module
+            )} • {String.capitalize(@template.status)}
           </p>
         <% else %>
           <p class="text-lg text-base-content">Create a new email template</p>
@@ -104,7 +105,7 @@
                 </label>
               </div>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="form-control">
                   <label class="label">
                     <span class="label-text">Category</span>
@@ -134,10 +135,50 @@
                     >
                       System
                     </option>
+                    <option
+                      value="notification"
+                      selected={Ecto.Changeset.get_field(@changeset, :category) == "notification"}
+                    >
+                      Notification
+                    </option>
                   </select>
                   <%= if error = Keyword.get(@changeset.errors, :category) do %>
                     <div class="text-sm text-error mt-1">{elem(error, 0)}</div>
                   <% end %>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Source Module</span>
+                  </label>
+                  <% current_metadata = Ecto.Changeset.get_field(@changeset, :metadata) || %{} %>
+                  <% current_source_module = Map.get(current_metadata, "source_module", "custom") %>
+                  <select
+                    name="email_template[metadata][source_module]"
+                    class="select select-bordered"
+                  >
+                    <option value="users" selected={current_source_module == "users"}>
+                      Users
+                    </option>
+                    <option value="billing" selected={current_source_module == "billing"}>
+                      Billing
+                    </option>
+                    <option value="blogging" selected={current_source_module == "blogging"}>
+                      Blogging
+                    </option>
+                    <option value="entities" selected={current_source_module == "entities"}>
+                      Entities
+                    </option>
+                    <option value="admin" selected={current_source_module == "admin"}>
+                      Admin
+                    </option>
+                    <option value="custom" selected={current_source_module == "custom"}>
+                      Custom
+                    </option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text-alt">Module that sends this email</span>
+                  </label>
                 </div>
 
                 <div class="form-control">

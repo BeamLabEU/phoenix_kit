@@ -353,6 +353,15 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
           live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               Live.Modules.Billing.CreditNotePrint,
+               :credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               Live.Modules.Billing.PaymentConfirmationPrint,
+               :payment_confirmation
+
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
@@ -395,6 +404,7 @@ defmodule PhoenixKitWeb.Integration do
 
   # Helper function to generate non-localized routes
   defp generate_non_localized_routes(url_prefix) do
+    # credo:disable-for-next-line Credo.Check.Refactor.LongQuoteBlocks
     quote do
       # Non-localized scope for backward compatibility (defaults to "en")
       scope unquote(url_prefix), PhoenixKitWeb do
@@ -513,6 +523,15 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
           live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
           live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               Live.Modules.Billing.CreditNotePrint,
+               :credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               Live.Modules.Billing.PaymentConfirmationPrint,
+               :payment_confirmation
+
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new

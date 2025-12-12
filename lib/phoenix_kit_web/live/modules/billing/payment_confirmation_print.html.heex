@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Payment Confirmation {@confirmation_number} - {@project_title}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2937;
+        background: #f3f4f6;
+        padding: 20px;
+      }
+
+      .confirmation-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .print-controls {
+        max-width: 800px;
+        margin: 0 auto 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .print-controls button,
+      .print-controls a {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-print {
+        background: #059669;
+        color: white;
+        border: none;
+      }
+
+      .btn-print:hover {
+        background: #047857;
+      }
+
+      .btn-back {
+        background: white;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+
+      .btn-back:hover {
+        background: #f9fafb;
+      }
+
+      .confirmation-header {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: white;
+        padding: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .confirmation-title h1 {
+        font-size: 28px;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+
+      .confirmation-number {
+        font-size: 18px;
+        opacity: 0.9;
+      }
+
+      .confirmation-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        background: #d1fae5;
+        color: #047857;
+      }
+
+      .confirmation-status.partial {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .confirmation-body {
+        padding: 40px;
+      }
+
+      .confirmation-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .meta-section h3 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6b7280;
+        margin-bottom: 10px;
+      }
+
+      .meta-section p {
+        line-height: 1.8;
+      }
+
+      .meta-section strong {
+        font-weight: 600;
+      }
+
+      .company-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .payment-box {
+        background: #d1fae5;
+        border: 1px solid #059669;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 30px;
+      }
+
+      .payment-box.partial {
+        background: #fef3c7;
+        border-color: #f59e0b;
+      }
+
+      .payment-box h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #047857;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .payment-box.partial h4 {
+        color: #92400e;
+      }
+
+      .payment-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .payment-detail {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .payment-detail .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #059669;
+        margin-bottom: 4px;
+      }
+
+      .payment-box.partial .payment-detail .label {
+        color: #b45309;
+      }
+
+      .payment-detail .value {
+        font-weight: 600;
+        color: #047857;
+      }
+
+      .payment-box.partial .payment-detail .value {
+        color: #92400e;
+      }
+
+      .balance-section {
+        display: flex;
+        gap: 20px;
+        margin-bottom: 30px;
+      }
+
+      .balance-box {
+        flex: 1;
+        padding: 20px;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      .balance-box.invoice-total {
+        background: #f3f4f6;
+        border: 1px solid #e5e7eb;
+      }
+
+      .balance-box.paid-total {
+        background: #d1fae5;
+        border: 1px solid #059669;
+      }
+
+      .balance-box.remaining {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+      }
+
+      .balance-box.remaining.zero {
+        background: #d1fae5;
+        border-color: #059669;
+      }
+
+      .balance-box .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 8px;
+      }
+
+      .balance-box .value {
+        font-size: 24px;
+        font-weight: 700;
+      }
+
+      .balance-box.invoice-total .value {
+        color: #374151;
+      }
+
+      .balance-box.paid-total .value {
+        color: #047857;
+      }
+
+      .balance-box.remaining .value {
+        color: #b45309;
+      }
+
+      .balance-box.remaining.zero .value {
+        color: #047857;
+      }
+
+      .invoice-reference {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+
+      .invoice-reference h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 12px;
+      }
+
+      .invoice-reference-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .invoice-ref-item .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6b7280;
+        margin-bottom: 4px;
+      }
+
+      .invoice-ref-item .value {
+        font-weight: 500;
+        color: #1f2937;
+      }
+
+      .confirmation-footer {
+        background: #f9fafb;
+        padding: 30px 40px;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .footer-company {
+        margin-bottom: 15px;
+      }
+
+      .footer-company .name {
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .footer-company .details {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .footer-note {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      @media print {
+        body {
+          background: white;
+          padding: 0;
+        }
+
+        .print-controls {
+          display: none;
+        }
+
+        .confirmation-container {
+          box-shadow: none;
+          border-radius: 0;
+        }
+
+        .confirmation-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .confirmation-status,
+        .payment-box,
+        .balance-box {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="print-controls">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}")}
+        class="btn-back"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </.link>
+      <button onclick="window.print()" class="btn-print">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect
+            x="6"
+            y="14"
+            width="12"
+            height="8"
+            rx="1"
+          />
+        </svg>
+        Print
+      </button>
+    </div>
+
+    <div class="confirmation-container">
+      <div class="confirmation-header">
+        <div class="confirmation-title">
+          <h1>PAYMENT CONFIRMATION</h1>
+          <div class="confirmation-number">{@confirmation_number}</div>
+        </div>
+        <%= if @payment_context.is_final_payment do %>
+          <div class="confirmation-status">PAID IN FULL</div>
+        <% else %>
+          <div class="confirmation-status partial">PARTIAL PAYMENT</div>
+        <% end %>
+      </div>
+
+      <div class="confirmation-body">
+        <div class="confirmation-meta">
+          <div class="meta-section">
+            <h3>Received From</h3>
+            <p>
+              <%= if @invoice.billing_details && map_size(@invoice.billing_details) > 0 do %>
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <span class="company-name">{@invoice.billing_details["company_name"]}</span>
+                  <br />
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
+                  <% end %>
+                <% else %>
+                  <span class="company-name">
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </span>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  {@invoice.billing_details["address_line1"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["city"] do %>
+                  {@invoice.billing_details["city"]}
+                  <%= if @invoice.billing_details["postal_code"] do %>
+                    , {@invoice.billing_details["postal_code"]}
+                  <% end %>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["country"] do %>
+                  {@invoice.billing_details["country"]}
+                <% end %>
+              <% else %>
+                <%= if @invoice.user do %>
+                  <span class="company-name">{@invoice.user.email}</span>
+                <% else %>
+                  <em>No billing information</em>
+                <% end %>
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section">
+            <h3>Received By</h3>
+            <p>
+              <strong>{@company.name}</strong>
+              <br />
+              <%= for line <- String.split(@company.address || "", "\n") do %>
+                {line}<br />
+              <% end %>
+              <%= if @company.vat != "" do %>
+                VAT: {@company.vat}
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section" style="text-align: right;">
+            <h3>Payment Details</h3>
+            <p>
+              <strong>Confirmation #:</strong> {@confirmation_number}<br />
+              <strong>Payment Date:</strong>
+              {Calendar.strftime(@transaction.inserted_at, "%B %d, %Y")}<br />
+              <strong>Payment Method:</strong> {String.capitalize(@transaction.payment_method)}<br />
+              <strong>Currency:</strong> {@invoice.currency}
+            </p>
+          </div>
+        </div>
+
+        <%!-- Payment Amount Box --%>
+        <div class={["payment-box", if(!@payment_context.is_final_payment, do: "partial")]}>
+          <h4>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <%= if @payment_context.is_final_payment do %>
+              Payment Received - Invoice Paid in Full
+            <% else %>
+              Partial Payment Received
+            <% end %>
+          </h4>
+          <div class="payment-details-grid">
+            <div class="payment-detail">
+              <span class="label">Amount Received</span>
+              <span class="value" style="font-size: 24px;">
+                {Decimal.to_string(@transaction.amount, :normal)} {@invoice.currency}
+              </span>
+            </div>
+            <div class="payment-detail">
+              <span class="label">Payment Date & Time</span>
+              <span class="value">
+                {Calendar.strftime(@transaction.inserted_at, "%B %d, %Y at %H:%M")}
+              </span>
+            </div>
+            <div class="payment-detail">
+              <span class="label">Transaction Number</span>
+              <span class="value">{@transaction.transaction_number}</span>
+            </div>
+            <div class="payment-detail">
+              <span class="label">
+                Payment #{@payment_context.payment_number} of {@payment_context.total_payments}
+              </span>
+              <span class="value">{String.capitalize(@transaction.payment_method)}</span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Balance Summary --%>
+        <div class="balance-section">
+          <div class="balance-box invoice-total">
+            <div class="label">Invoice Total</div>
+            <div class="value">
+              {Decimal.to_string(@invoice.total, :normal)} {@invoice.currency}
+            </div>
+          </div>
+          <div class="balance-box paid-total">
+            <div class="label">Total Paid</div>
+            <div class="value">
+              {Decimal.to_string(@payment_context.total_paid_so_far, :normal)} {@invoice.currency}
+            </div>
+          </div>
+          <div class={[
+            "balance-box remaining",
+            if(Decimal.eq?(@payment_context.remaining_balance, Decimal.new(0)), do: "zero")
+          ]}>
+            <div class="label">Remaining Balance</div>
+            <div class="value">
+              {Decimal.to_string(@payment_context.remaining_balance, :normal)} {@invoice.currency}
+            </div>
+          </div>
+        </div>
+
+        <%!-- Invoice Reference --%>
+        <div class="invoice-reference">
+          <h4>Invoice Reference</h4>
+          <div class="invoice-reference-grid">
+            <div class="invoice-ref-item">
+              <div class="label">Invoice Number</div>
+              <div class="value">{@invoice.invoice_number}</div>
+            </div>
+            <div class="invoice-ref-item">
+              <div class="label">Invoice Date</div>
+              <div class="value">{Calendar.strftime(@invoice.inserted_at, "%B %d, %Y")}</div>
+            </div>
+            <%= if @invoice.order do %>
+              <div class="invoice-ref-item">
+                <div class="label">Order Number</div>
+                <div class="value">{@invoice.order.order_number}</div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%= if @transaction.description do %>
+          <div style="margin-top: 20px; padding: 16px; background: #f9fafb; border-radius: 8px;">
+            <h4 style="font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 8px;">
+              Payment Notes
+            </h4>
+            <p style="white-space: pre-wrap;">{@transaction.description}</p>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="confirmation-footer">
+        <div class="footer-company">
+          <div class="name">{@company.name}</div>
+          <div class="details">
+            {@company.address}
+            <%= if @company.vat != "" do %>
+              &bull; VAT: {@company.vat}
+            <% end %>
+          </div>
+        </div>
+        <div class="footer-note">
+          This document confirms receipt of the payment indicated above. Thank you for your business.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
