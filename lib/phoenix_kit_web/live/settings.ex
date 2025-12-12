@@ -13,18 +13,12 @@ defmodule PhoenixKitWeb.Live.Settings do
   alias PhoenixKit.Users.OAuthConfig
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     # Subscribe to settings changes for live updates (like entities does)
     if connected?(socket) do
       SettingsEvents.subscribe_to_settings()
     end
 
-    # Set locale for LiveView process
-    locale =
-      params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
     # Load current settings from database
     current_settings = Settings.list_all_settings()
     defaults = Settings.get_defaults()
@@ -72,7 +66,6 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:changeset, changeset)
       |> assign(:saving, false)
       |> assign(:project_title, merged_settings["project_title"] || "PhoenixKit")
-      |> assign(:current_locale, locale)
       |> assign(:languages_enabled, languages_enabled)
       |> assign(:content_language, content_language)
       |> assign(:content_language_details, content_language_details)

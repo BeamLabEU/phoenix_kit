@@ -23,9 +23,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Edit mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
     data_record = EntityData.get_data!(String.to_integer(id))
@@ -38,9 +35,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Edit mode with ID (backwards compat)
     entity = Entities.get_entity!(String.to_integer(entity_id))
@@ -55,9 +49,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Create mode with slug
     entity = Entities.get_entity_by_name(entity_slug)
     data_record = %EntityData{entity_id: entity.id}
@@ -70,9 +61,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Create mode with ID (backwards compat)
     entity = Entities.get_entity!(String.to_integer(entity_id))
@@ -296,7 +284,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
               # Presence will automatically clean up when LiveView process terminates
               # Redirect to entity-specific data navigator after successful creation/update
               entity_name = socket.assigns.entity.name
-              locale = socket.assigns[:current_locale]
 
               socket =
                 socket
@@ -304,7 +291,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
                 |> push_navigate(
                   to:
                     Routes.path("/admin/entities/#{entity_name}/data",
-                      locale: locale
+                      locale: socket.assigns.current_locale_base
                     )
                 )
 
@@ -490,15 +477,13 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
         {:noreply, socket}
 
       true ->
-        locale = socket.assigns[:current_locale]
-
         socket =
           socket
           |> put_flash(:error, gettext("This record was removed in another session."))
           |> push_navigate(
             to:
               Routes.path("/admin/entities/#{socket.assigns.entity.name}/data",
-                locale: locale
+                locale: socket.assigns.current_locale_base
               )
           )
 
@@ -511,7 +496,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
   def handle_info({:entity_updated, entity_id}, socket) do
     if entity_id == socket.assigns.entity.id do
       entity = Entities.get_entity!(entity_id)
-      locale = socket.assigns[:current_locale]
 
       # If entity was archived or unpublished, redirect to entities list
       if entity.status != "published" do
@@ -524,7 +508,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
              status: entity.status
            )
          )
-         |> redirect(to: Routes.path("/admin/entities", locale: locale))}
+         |> redirect(
+           to: Routes.path("/admin/entities", locale: socket.assigns.current_locale_base)
+         )}
       else
         socket =
           socket
@@ -540,12 +526,12 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
 
   def handle_info({:entity_deleted, entity_id}, socket) do
     if entity_id == socket.assigns.entity.id do
-      locale = socket.assigns[:current_locale]
-
       socket =
         socket
         |> put_flash(:error, gettext("Entity was deleted in another session."))
-        |> push_navigate(to: Routes.path("/admin/entities", locale: locale))
+        |> push_navigate(
+          to: Routes.path("/admin/entities", locale: socket.assigns.current_locale_base)
+        )
 
       {:noreply, socket}
     else

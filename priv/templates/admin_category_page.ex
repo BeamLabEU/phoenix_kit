@@ -10,9 +10,7 @@
 
   @impl true
   def mount(params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    locale = set_and_get_locale(params, socket)
 
     socket =
       socket

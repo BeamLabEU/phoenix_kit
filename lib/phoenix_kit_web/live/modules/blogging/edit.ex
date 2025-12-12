@@ -11,17 +11,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
 
-  def mount(%{"blog" => blog_slug} = params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(%{"blog" => blog_slug} = _params, _session, socket) do
     case find_blog(blog_slug) do
       nil ->
         {:ok,
          socket
          |> put_flash(:error, gettext("The requested blog could not be found."))
-         |> push_navigate(to: Routes.path("/admin/settings/blogging", locale: locale))}
+         |> push_navigate(
+           to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale_base)
+         )}
 
       blog ->
         form =
@@ -29,12 +27,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
 
         {:ok,
          socket
-         |> assign(:current_locale, locale)
          |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
          |> assign(:page_title, gettext("Edit Blog"))
          |> assign(
            :current_path,
-           Routes.path("/admin/settings/blogging/#{blog_slug}/edit", locale: locale)
+           Routes.path("/admin/settings/blogging/#{blog_slug}/edit",
+             locale: socket.assigns.current_locale_base
+           )
          )
          |> assign(:blog, blog)
          |> assign(:form, form)}
@@ -65,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
          |> assign(:form, updated_form)
          |> put_flash(:info, gettext("Blog updated"))
          |> push_navigate(
-           to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale)
+           to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale_base)
          )}
 
       {:error, :already_exists} ->
@@ -111,7 +110,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   def handle_event("cancel", _params, socket) do
     {:noreply,
      push_navigate(socket,
-       to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale)
+       to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale_base)
      )}
   end
 

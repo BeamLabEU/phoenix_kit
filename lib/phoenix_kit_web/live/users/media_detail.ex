@@ -25,9 +25,6 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Get file_id from params
     file_id = params["file_id"]
 

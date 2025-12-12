@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   alias Phoenix.LiveView
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{Scope, User}
@@ -624,15 +625,24 @@ defmodule PhoenixKitWeb.Users.Auth do
     user = socket.assigns.phoenix_kit_current_user
     scope = Scope.for_user(user)
 
+    # Get locale values from session (stored by plug) or process dictionary or compute defaults
+    current_locale_base =
+      session["phoenix_kit_locale_base"] ||
+        Process.get(:phoenix_kit_current_locale_base) ||
+        Routes.get_default_admin_locale()
+
+    current_locale =
+      Process.get(:phoenix_kit_current_locale) ||
+        DialectMapper.resolve_dialect(current_locale_base, user)
+
+    # Set Gettext locale for translations
+    Gettext.put_locale(PhoenixKitWeb.Gettext, current_locale)
+
     socket
     |> maybe_manage_scope_subscription(user)
     |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
-    |> Phoenix.Component.assign_new(:current_locale, fn ->
-      # Get from plug (Process dictionary) or compute default
-      Process.get(:phoenix_kit_current_locale) ||
-        Process.get(:phoenix_kit_current_locale_base) ||
-        Routes.get_default_admin_locale()
-    end)
+    |> Phoenix.Component.assign(:current_locale, current_locale)
+    |> Phoenix.Component.assign(:current_locale_base, current_locale_base)
   end
 
   defp maybe_attach_scope_refresh_hook(
@@ -1046,11 +1056,8 @@ defmodule PhoenixKitWeb.Users.Auth do
               # Set Gettext to full dialect for translations
               Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
 
-              # Store both base (for URLs) and full dialect (for translations)
-              # Also store in Process dictionary for LiveView mount functions
-              Process.put(:phoenix_kit_current_locale_base, locale)
-              Process.put(:phoenix_kit_current_locale, full_dialect)
-
+              # Store in session for LiveView mount
+              # Process dictionary storage is no longer needed
               conn
               |> assign(:current_locale_base, locale)
               |> assign(:current_locale, full_dialect)
@@ -1070,12 +1077,11 @@ defmodule PhoenixKitWeb.Users.Auth do
         default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
 
         Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
-        Process.put(:phoenix_kit_current_locale_base, default_base)
-        Process.put(:phoenix_kit_current_locale, default_dialect)
 
         conn
         |> assign(:current_locale_base, default_base)
         |> assign(:current_locale, default_dialect)
+        |> put_session(:phoenix_kit_locale_base, default_base)
     end
   end
 

@@ -19,13 +19,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    # Handle locale
-    locale =
-      params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     user_id = params["id"]
     mode = if user_id, do: :edit, else: :new
 
@@ -44,7 +37,6 @@ defmodule PhoenixKitWeb.Users.UserForm do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:mode, mode)
       |> assign(:user_id, user_id)
       |> assign(:page_title, page_title(mode))

@@ -22,9 +22,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Batch load all settings needed for this page (uses cached settings for performance)
     settings =
       Settings.get_settings_cached(

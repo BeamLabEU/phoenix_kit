@@ -40,9 +40,6 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.EmailTracking do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
