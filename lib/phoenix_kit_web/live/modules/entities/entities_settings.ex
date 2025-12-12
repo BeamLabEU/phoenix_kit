@@ -13,11 +13,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
   alias PhoenixKit.Entities.Mirror.{Exporter, Importer, Storage}
   alias PhoenixKit.Settings
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -37,7 +34,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:page_title, gettext("Entities Settings"))
       |> assign(:project_title, project_title)
       |> assign(:settings, settings)

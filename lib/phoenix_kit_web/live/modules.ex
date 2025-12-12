@@ -20,11 +20,9 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -79,7 +77,6 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:billing_orders_count, billing_config.orders_count)
       |> assign(:billing_invoices_count, billing_config.invoices_count)
       |> assign(:billing_currencies_count, billing_config.currencies_count)
-      |> assign(:current_locale, locale)
 
     {:ok, socket}
   end

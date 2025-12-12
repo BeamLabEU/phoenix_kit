@@ -14,11 +14,8 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Users.CustomFields.Events, as: CustomFieldsEvents
 
-  def mount(params, _session, socket) do
+  def mount(_params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Load current settings
     current_settings = Settings.list_all_settings()
@@ -43,7 +40,6 @@ defmodule PhoenixKitWeb.Live.Settings.Users do
       |> assign(:changeset, changeset)
       |> assign(:saving, false)
       |> assign(:project_title, merged_settings["project_title"] || "PhoenixKit")
-      |> assign(:current_locale, locale)
       |> assign(:field_definitions, field_definitions)
       |> assign(:editing_field, nil)
       |> assign(:show_field_form, false)

@@ -14,11 +14,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
-  def mount(params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(_params, _session, socket) do
     # Load date/time format settings once for performance
     date_time_settings =
       Settings.get_settings_cached(
@@ -31,7 +27,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
       )
 
     {blogs, insights, summary} =
-      dashboard_snapshot(locale, socket.assigns[:phoenix_kit_current_user], date_time_settings)
+      dashboard_snapshot(
+        socket.assigns.current_locale_base,
+        socket.assigns[:phoenix_kit_current_user],
+        date_time_settings
+      )
 
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) do
@@ -46,10 +46,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, gettext("Blogging"))
-      |> assign(:current_path, Routes.path("/admin/blogging", locale: locale))
+      |> assign(
+        :current_path,
+        Routes.path("/admin/blogging", locale: socket.assigns.current_locale_base)
+      )
       |> assign(:blogs, blogs)
       |> assign(:dashboard_insights, insights)
       |> assign(:dashboard_summary, summary)
@@ -65,7 +67,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   def handle_params(_params, uri, socket) do
     {blogs, insights, summary} =
       dashboard_snapshot(
-        socket.assigns.current_locale,
+        socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
         socket.assigns.date_time_settings
       )
@@ -98,7 +100,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   defp refresh_dashboard(socket) do
     {blogs, insights, summary} =
       dashboard_snapshot(
-        socket.assigns.current_locale,
+        socket.assigns.current_locale_base,
         socket.assigns[:phoenix_kit_current_user],
         socket.assigns.date_time_settings
       )

@@ -18,33 +18,23 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
   alias PhoenixKit.Utils.Slug
 
   @impl true
-  def mount(%{"id" => id} = params, _session, socket) do
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(%{"id" => id} = _params, _session, socket) do
     # Edit mode
     entity = Entities.get_entity!(String.to_integer(id))
     changeset = Entities.change_entity(entity)
 
-    mount_entity_form(socket, entity, changeset, gettext("Edit Entity"), locale)
+    mount_entity_form(socket, entity, changeset, gettext("Edit Entity"))
   end
 
-  def mount(params, _session, socket) do
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(_params, _session, socket) do
     # Create mode
     entity = %Entities{}
     changeset = Entities.change_entity(entity)
 
-    mount_entity_form(socket, entity, changeset, gettext("New Entity"), locale)
+    mount_entity_form(socket, entity, changeset, gettext("New Entity"))
   end
 
-  defp mount_entity_form(socket, entity, _changeset, page_title, locale) do
+  defp mount_entity_form(socket, entity, _changeset, page_title) do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
     current_user = socket.assigns[:phoenix_kit_current_user]
 
@@ -67,7 +57,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:page_title, page_title)
       |> assign(:project_title, project_title)
       |> assign(:entity, entity)

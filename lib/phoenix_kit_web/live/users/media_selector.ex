@@ -37,9 +37,6 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Get project title
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 

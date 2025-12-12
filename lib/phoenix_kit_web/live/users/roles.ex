@@ -11,11 +11,9 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.{Role, Roles}
 
-  def mount(params, _session, socket) do
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+  def mount(_params, _session, socket) do
+    # Attach locale hook for automatic locale handling
+
     # Subscribe to role events for live updates
     if connected?(socket) do
       Events.subscribe_to_roles()
@@ -40,7 +38,6 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
       |> assign(:page_title, "Roles")
       |> assign(:role_stats, role_stats)
       |> assign(:project_title, project_title)
-      |> assign(:current_locale, locale)
       |> load_roles()
 
     {:ok, socket}

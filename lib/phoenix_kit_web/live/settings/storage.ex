@@ -15,17 +15,9 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   alias PhoenixKit.System.Dependencies
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, session, socket) do
-    # Set locale for LiveView process FIRST - preserve from params or socket assigns
-    locale = params["locale"] || socket.assigns[:current_locale]
-
-    if locale do
-      Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-      Process.put(:phoenix_kit_current_locale, locale)
-    end
-
-    # Get current path for navigation (after locale is set)
-    current_path = get_current_path(socket, session)
+  def mount(_params, _session, socket) do
+    # Get current path for navigation
+    current_path = get_current_path(socket, %{})
 
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -66,7 +58,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       |> assign(:redundancy_copies, current_redundancy)
       |> assign(:auto_generate_variants, auto_generate_variants == "true")
       |> assign(:default_bucket_id, default_bucket_id)
-      |> assign(:current_locale, locale)
       |> assign(:active_buckets_count, active_buckets)
       |> assign(:max_redundancy, max_redundancy)
       |> assign(:form_redundancy, form_redundancy)

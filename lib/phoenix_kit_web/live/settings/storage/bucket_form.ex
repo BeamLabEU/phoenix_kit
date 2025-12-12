@@ -18,11 +18,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
     # Get current path for navigation
     current_path = get_current_path(socket, session)
 
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -57,7 +52,6 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
       |> assign(:project_title, project_title)
       |> assign(:form_action, page_title(mode))
       |> assign(:current_path, current_path)
-      |> assign(:current_locale, locale)
       |> assign(:bucket, bucket)
       |> assign(:changeset, changeset)
       |> assign(:current_provider, get_current_provider(changeset, bucket))

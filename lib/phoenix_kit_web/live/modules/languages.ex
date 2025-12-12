@@ -10,11 +10,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, session, socket) do
-    # Handle locale
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+  def mount(_params, session, socket) do
+    # Attach locale hook for automatic locale handling
 
     # Get current path for navigation
     current_path = get_current_path(socket, session)
@@ -36,7 +33,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     socket =
       socket
       |> assign(:current_path, current_path)
-      |> assign(:current_locale, locale)
       |> assign(:page_title, "Languages")
       |> assign(:project_title, project_title)
       |> assign(:ml_enabled, ml_config.enabled)

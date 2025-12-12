@@ -16,9 +16,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.Entities do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     stats = Entities.get_system_stats()
@@ -56,44 +53,48 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.Entities do
 
   def handle_event("toggle_view_mode", %{"mode" => mode}, socket) do
     params = build_url_params(socket.assigns.selected_status, socket.assigns.search_term, mode)
-    locale = socket.assigns[:current_locale]
 
     socket =
       socket
-      |> push_patch(to: Routes.path("/admin/entities#{params}", locale: locale))
+      |> push_patch(
+        to: Routes.path("/admin/entities#{params}", locale: socket.assigns.current_locale_base)
+      )
 
     {:noreply, socket}
   end
 
   def handle_event("filter_by_status", %{"status" => status}, socket) do
     params = build_url_params(status, socket.assigns.search_term, socket.assigns.view_mode)
-    locale = socket.assigns[:current_locale]
 
     socket =
       socket
-      |> push_patch(to: Routes.path("/admin/entities#{params}", locale: locale))
+      |> push_patch(
+        to: Routes.path("/admin/entities#{params}", locale: socket.assigns.current_locale_base)
+      )
 
     {:noreply, socket}
   end
 
   def handle_event("search", %{"search" => %{"term" => term}}, socket) do
     params = build_url_params(socket.assigns.selected_status, term, socket.assigns.view_mode)
-    locale = socket.assigns[:current_locale]
 
     socket =
       socket
-      |> push_patch(to: Routes.path("/admin/entities#{params}", locale: locale))
+      |> push_patch(
+        to: Routes.path("/admin/entities#{params}", locale: socket.assigns.current_locale_base)
+      )
 
     {:noreply, socket}
   end
 
   def handle_event("clear_filters", _params, socket) do
     params = build_url_params("all", "", socket.assigns.view_mode)
-    locale = socket.assigns[:current_locale]
 
     socket =
       socket
-      |> push_patch(to: Routes.path("/admin/entities#{params}", locale: locale))
+      |> push_patch(
+        to: Routes.path("/admin/entities#{params}", locale: socket.assigns.current_locale_base)
+      )
 
     {:noreply, socket}
   end

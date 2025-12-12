@@ -17,9 +17,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   @impl true
   def mount(params, _session, socket) do
     blog_slug = params["blog"] || params["category"] || params["type"]
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) && blog_slug do
@@ -39,17 +36,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
     blogs = Blogging.list_blogs()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
-    posts = if blog_slug, do: Blogging.list_posts(blog_slug, locale), else: []
+
+    posts =
+      if blog_slug,
+        do: Blogging.list_posts(blog_slug, socket.assigns.current_locale_base),
+        else: []
 
     current_path =
       case blog_slug do
-        nil -> Routes.path("/admin/blogging", locale: locale)
-        slug -> Routes.path("/admin/blogging/#{slug}", locale: locale)
+        nil -> Routes.path("/admin/blogging", locale: socket.assigns.current_locale_base)
+        slug -> Routes.path("/admin/blogging/#{slug}", locale: socket.assigns.current_locale_base)
       end
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Blogging")
       |> assign(:current_path, current_path)
@@ -69,7 +69,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     posts =
       case socket.assigns.blog_slug do
         nil -> []
-        slug -> Blogging.list_posts(slug, socket.assigns.current_locale)
+        slug -> Blogging.list_posts(slug, socket.assigns.current_locale_base)
       end
 
     endpoint_url = extract_endpoint_url(uri)
@@ -90,7 +90,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
        to:
          Routes.path(
            "/admin/blogging/#{blog_slug}/edit?new=true",
-           locale: socket.assigns.current_locale
+           locale: socket.assigns.current_locale_base
          )
      )}
   end
@@ -100,7 +100,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
      assign(
        socket,
        :posts,
-       Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale)
+       Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale_base)
      )}
   end
 
@@ -111,7 +111,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
        to:
          Routes.path(
            "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-           locale: socket.assigns.current_locale
+           locale: socket.assigns.current_locale_base
          )
      )}
   end
@@ -124,7 +124,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
        to:
          Routes.path(
            "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}",
-           locale: socket.assigns.current_locale
+           locale: socket.assigns.current_locale_base
          )
      )}
   end
@@ -140,7 +140,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
          to:
            Routes.path(
              "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-             locale: socket.assigns.current_locale
+             locale: socket.assigns.current_locale_base
            )
        )}
     else
@@ -168,7 +168,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
              |> assign(
                :posts,
-               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale)
+               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale_base)
              )}
 
           {:error, _reason} ->
@@ -209,7 +209,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
              |> put_flash(:info, gettext("Status updated to %{status}", status: new_status))
              |> assign(
                :posts,
-               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale)
+               Blogging.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale_base)
              )}
 
           {:error, _reason} ->
@@ -249,7 +249,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         socket
 
       blog_slug ->
-        posts = Blogging.list_posts(blog_slug, socket.assigns.current_locale)
+        posts = Blogging.list_posts(blog_slug, socket.assigns.current_locale_base)
         assign(socket, :posts, posts)
     end
   end
@@ -258,12 +258,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     case socket.assigns.blogs do
       [%{"slug" => slug} | _] ->
         push_navigate(socket,
-          to: Routes.path("/admin/blogging/#{slug}", locale: socket.assigns.current_locale)
+          to: Routes.path("/admin/blogging/#{slug}", locale: socket.assigns.current_locale_base)
         )
 
       [] ->
         push_navigate(socket,
-          to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale)
+          to: Routes.path("/admin/settings/blogging", locale: socket.assigns.current_locale_base)
         )
     end
   end

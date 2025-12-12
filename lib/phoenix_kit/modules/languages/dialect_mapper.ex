@@ -187,6 +187,7 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
 
   Splits on hyphen and returns first part (lowercased).
   Handles both dialect codes (en-US) and base codes (en).
+  Returns "en" as default fallback for nil and empty string values.
 
   ## Examples
 
@@ -204,7 +205,17 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
 
       iex> DialectMapper.extract_base("EN-GB")
       "en"
+
+      iex> DialectMapper.extract_base(nil)
+      "en"
+
+      iex> DialectMapper.extract_base("")
+      "en"
   """
+  # Default fallback for nil and empty strings
+  def extract_base(nil), do: "en"
+  def extract_base(""), do: "en"
+
   def extract_base(locale) when is_binary(locale) do
     locale
     |> String.split("-")
