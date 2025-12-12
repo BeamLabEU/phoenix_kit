@@ -9,15 +9,11 @@
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(params, _session, socket) do
-    locale = set_and_get_locale(params, socket)
-
+  def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, gettext("<%= @page_title %>"))
-      |> assign(:current_path, Routes.path("<%= @url %>", locale: locale))
 
     {:ok, socket}
   end
@@ -29,9 +25,8 @@
       flash={@flash}
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title={@page_title}
-      current_path={@current_path}
+      current_path={Routes.locale_aware_path(assigns, "<%= @url %>")}
       project_title={@project_title}
-      current_locale={@current_locale}
     >
       <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg m-10 p-6">
         <div class="prose prose-sm dark:prose-invert max-w-none">
