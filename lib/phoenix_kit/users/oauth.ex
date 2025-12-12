@@ -29,6 +29,7 @@ if Code.ensure_loaded?(Ueberauth) do
         with {:ok, user, _status} <-
                find_or_create_user(oauth_data, track_geolocation, ip_address),
              {:ok, _provider} <- link_oauth_provider(user, oauth_data),
+             {:ok, user} <- maybe_save_oauth_avatar(user, oauth_data),
              :ok <- maybe_process_referral_code(user, referral_code) do
           user
         else
@@ -65,6 +66,23 @@ if Code.ensure_loaded?(Ueberauth) do
     end
 
     defp maybe_confirm_user(%User{} = user), do: {:ok, user}
+
+    # Save OAuth avatar URL to user's custom_fields if available
+    # This enables displaying the OAuth provider's avatar in the UI
+    defp maybe_save_oauth_avatar(user, %{image: image}) when is_binary(image) and image != "" do
+      # Only update if user doesn't already have a custom avatar
+      case user.custom_fields do
+        %{"avatar_file_id" => file_id} when is_binary(file_id) and file_id != "" ->
+          # User has a custom avatar, don't override
+          {:ok, user}
+
+        _ ->
+          # Save OAuth avatar URL for fallback display
+          Auth.set_user_custom_field(user, "oauth_avatar_url", image)
+      end
+    end
+
+    defp maybe_save_oauth_avatar(user, _oauth_data), do: {:ok, user}
 
     @doc """
     Links an OAuth provider to a user account.
