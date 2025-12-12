@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
 
   alias PhoenixKit.Admin.{Events, Presence}
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -213,11 +214,28 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
       |> Enum.drop((page - 1) * socket.assigns.per_page)
       |> Enum.take(socket.assigns.per_page)
 
+    # Preload users for avatar display
+    users_map = preload_users_for_sessions(page_sessions)
+
     socket
     |> assign(:sessions, page_sessions)
+    |> assign(:users_map, users_map)
     |> assign(:total_sessions, total_count)
     |> assign(:total_pages, total_pages)
     |> assign(:page, page)
+  end
+
+  defp preload_users_for_sessions(sessions) do
+    user_ids =
+      sessions
+      |> Enum.filter(&(&1.type == :authenticated))
+      |> Enum.map(& &1.user_id)
+      |> Enum.uniq()
+
+    case user_ids do
+      [] -> %{}
+      ids -> Auth.get_users_by_ids(ids) |> Map.new(&{&1.id, &1})
+    end
   end
 
   defp load_stats(socket) do

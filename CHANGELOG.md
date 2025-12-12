@@ -1,3 +1,36 @@
+## 1.7.0 - 2025-12-12
+
+### Added
+- **Billing Module** (V31 migration)
+  - Multi-currency support with ISO 4217 codes (EUR, USD, GBP)
+  - Billing profiles for individuals and companies (EU Standard)
+  - Orders with line items and status tracking
+  - Invoices with receipt functionality
+  - Payment transactions and receipts
+  - Credit notes support
+  - Tax rate calculations
+  - Print templates (invoice, receipt, credit note, payment confirmation)
+  - Email integration for billing documents
+  - Admin UI for billing management
+- **Add file mirror/export system** for Entities with import UI
+
+### Changed
+- Email templates system enhancements for billing documents
+- User avatars in admin UI with cascading fallback
+- Theme-aware dropdown for email status legend
+- Add custom admin dashboard sections
+- Update to the language module to use new beamlab dep 
+- Refactor locale usages
+- Fix admin category page template
+- Moved all storage files to the modules/storage folder
+
+### Merged from upstream
+- Posts system (V29 migration) - social posts with comments, likes, tags
+- Preferred locale moved to custom_fields (V30 migration)
+- Collaborative editing and live updating dashboards for blogging
+- IPv4/IPv6 session creation fixes
+- Ueberauth igniter setup fixes
+
 ## 1.6.20 - 2025-12-11
 - Posts (for user generated content) module inital commit
 - Add authentication-aware route filtering for sitemap

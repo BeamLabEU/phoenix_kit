@@ -18,13 +18,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   @per_page 10
   @max_cell_length 20
 
-  def mount(params, _session, socket) do
-    # Set locale for LiveView process
-    locale =
-      params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+  def mount(_params, _session, socket) do
     # Subscribe to user events for live updates
     if connected?(socket) do
       Events.subscribe_to_users()
@@ -70,7 +64,6 @@ defmodule PhoenixKitWeb.Live.Users.Users do
       |> assign(:page_title, "Users")
       |> assign(:project_title, project_title)
       |> assign(:date_time_settings, date_time_settings)
-      |> assign(:current_locale, locale)
       |> assign(:selected_columns, valid_columns)
       |> assign(:available_columns, TableColumns.get_available_columns())
       |> load_users()

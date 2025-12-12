@@ -83,16 +83,21 @@ defmodule PhoenixKit.Install.JsIntegration do
       |> Path.dirname()
       |> Path.join("vendor")
 
+    IO.puts("  📂 Creating vendor directory: #{vendor_dir}")
+
     # Create vendor directory if it doesn't exist
     File.mkdir_p!(vendor_dir)
 
     # Get source directory from PhoenixKit package
     source_dir = get_phoenix_kit_assets_dir()
+    IO.puts("  📂 Source directory: #{source_dir}")
 
     # Copy each source file directly (not through Igniter, so they exist immediately)
     Enum.each(@source_files, fn file ->
       source_path = Path.join(source_dir, file)
       dest_path = Path.join(vendor_dir, file)
+
+      IO.puts("  📄 Checking source: #{source_path}")
 
       if File.exists?(source_path) do
         content = File.read!(source_path)
@@ -102,10 +107,12 @@ defmodule PhoenixKit.Install.JsIntegration do
 
         if should_write do
           File.write!(dest_path, content)
-          IO.puts("  📦 Copied #{file} to #{vendor_dir}/")
+          IO.puts("  ✅ Copied #{file} to #{vendor_dir}/")
+        else
+          IO.puts("  ⏭️  #{file} already up to date")
         end
       else
-        IO.puts("  ⚠️  Source file not found: #{source_path}")
+        IO.puts("  ❌ Source file not found: #{source_path}")
       end
     end)
 
@@ -117,36 +124,48 @@ defmodule PhoenixKit.Install.JsIntegration do
     # Use :code.priv_dir to get the actual priv directory of the phoenix_kit application
     # This works for both Hex packages and local path dependencies
     case :code.priv_dir(:phoenix_kit) do
-      {:error, _} ->
+      {:error, reason} ->
         # Fallback: try common locations
+        IO.puts("  ℹ️  :code.priv_dir(:phoenix_kit) returned error: #{inspect(reason)}")
         fallback_phoenix_kit_assets_dir()
 
       priv_dir ->
         assets_path = Path.join([to_string(priv_dir), "static", "assets"])
+        IO.puts("  ℹ️  Checking priv_dir assets at: #{assets_path}")
 
         if File.dir?(assets_path) do
+          IO.puts("  ✅ Found assets directory via :code.priv_dir")
           assets_path
         else
+          IO.puts("  ⚠️  Assets directory not found at priv_dir, trying fallback")
           fallback_phoenix_kit_assets_dir()
         end
     end
   end
 
   defp fallback_phoenix_kit_assets_dir do
+    IO.puts("  ℹ️  Trying fallback paths for assets directory...")
+
     possible_paths = [
       # Standard deps location
       "deps/phoenix_kit/priv/static/assets",
       Path.join([Mix.Project.deps_path(), "phoenix_kit", "priv", "static", "assets"])
     ]
 
+    IO.puts("  ℹ️  Fallback paths to check:")
+
+    Enum.each(possible_paths, fn path ->
+      exists = File.dir?(path)
+      IO.puts("      #{if exists, do: "✅", else: "❌"} #{path}")
+    end)
+
     found = Enum.find(possible_paths, &File.dir?/1)
 
     if found do
+      IO.puts("  ✅ Found assets directory at: #{found}")
       found
     else
-      IO.puts("  ⚠️  Could not find PhoenixKit assets directory. Tried:")
-      IO.puts("      - :code.priv_dir(:phoenix_kit)/static/assets")
-      Enum.each(possible_paths, &IO.puts("      - #{&1}"))
+      IO.puts("  ❌ Could not find PhoenixKit assets directory in any location!")
       List.first(possible_paths)
     end
   end

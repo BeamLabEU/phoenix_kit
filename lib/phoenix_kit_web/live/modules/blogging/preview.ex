@@ -16,20 +16,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
   @impl true
   def mount(params, _session, socket) do
     blog_slug = params["blog"] || params["category"] || params["type"]
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Preview")
       |> assign(:blog_slug, blog_slug)
       |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
       |> assign(
         :current_path,
-        Routes.path("/admin/blogging/#{blog_slug}/preview", locale: locale)
+        Routes.path("/admin/blogging/#{blog_slug}/preview", socket.assigns.current_locale_base)
       )
       |> assign(:rendered_content, nil)
       |> assign(:error, nil)
@@ -57,7 +53,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
 
     case Phoenix.Token.verify(endpoint, "blog-preview", token, max_age: 300) do
       {:ok, data} ->
-        post = build_preview_post(data, socket.assigns.blog_slug, socket.assigns.current_locale)
+        post =
+          build_preview_post(data, socket.assigns.blog_slug, socket.assigns.current_locale_base)
 
         case render_markdown_content(data[:content] || "") do
           {:ok, rendered_html} ->
@@ -126,7 +123,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
          |> push_navigate(
            to:
              Routes.path("/admin/blogging/#{blog_slug}",
-               locale: socket.assigns.current_locale
+               locale: socket.assigns.current_locale_base
              )
          )}
     end
@@ -140,7 +137,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
     destination =
       Routes.path(
         "/admin/blogging/#{socket.assigns.blog_slug}/edit#{query}",
-        locale: socket.assigns.current_locale
+        locale: socket.assigns.current_locale_base
       )
 
     {:noreply, push_navigate(socket, to: destination)}

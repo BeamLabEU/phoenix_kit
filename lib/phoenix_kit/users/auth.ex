@@ -67,6 +67,7 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
   alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
@@ -162,6 +163,27 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def get_user!(id), do: Repo.get!(User, id)
+
+  @doc """
+  Gets users by list of IDs.
+
+  Returns list of users with all fields including custom_fields.
+  Useful for batch loading users when you have a list of IDs.
+
+  ## Examples
+
+      iex> get_users_by_ids([1, 2, 3])
+      [%User{id: 1, ...}, %User{id: 2, ...}]
+
+      iex> get_users_by_ids([])
+      []
+  """
+  def get_users_by_ids([]), do: []
+
+  def get_users_by_ids(ids) when is_list(ids) do
+    from(u in User, where: u.id in ^ids)
+    |> Repo.all()
+  end
 
   @doc """
   Gets the first admin user (Owner or Admin role).
@@ -1328,7 +1350,7 @@ defmodule PhoenixKit.Users.Auth do
     ext = Path.extname(filename) |> String.replace_leading(".", "")
 
     # Store file in buckets (automatically queues ProcessFileJob for variants)
-    case PhoenixKit.Storage.store_file_in_buckets(
+    case Storage.store_file_in_buckets(
            file_path,
            "image",
            user_id,

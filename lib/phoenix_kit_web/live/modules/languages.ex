@@ -10,11 +10,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, session, socket) do
-    # Handle locale
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+  def mount(_params, session, socket) do
+    # Attach locale hook for automatic locale handling
 
     # Get current path for navigation
     current_path = get_current_path(socket, session)
@@ -36,7 +33,6 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     socket =
       socket
       |> assign(:current_path, current_path)
-      |> assign(:current_locale, locale)
       |> assign(:page_title, "Languages")
       |> assign(:project_title, project_title)
       |> assign(:ml_enabled, ml_config.enabled)
@@ -46,6 +42,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:default_code, default_code)
       |> assign(:language_count, length(display_languages))
       |> assign(:enabled_count, length(enabled_codes))
+      # Search filter
+      |> assign(:search_query, "")
       # Switcher preview settings
       |> assign(:switcher_show_names, true)
       |> assign(:switcher_show_flags, true)
@@ -117,6 +115,10 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     {:noreply, assign(socket, setting_atom, !current_value)}
   end
 
+  def handle_event("search_countries", %{"value" => query}, socket) do
+    {:noreply, assign(socket, :search_query, query)}
+  end
+
   def handle_event("toggle_language_availability", %{"code" => code}, socket) do
     # Check if language is currently enabled
     is_enabled = code in socket.assigns.enabled_codes
@@ -166,6 +168,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)
 
+    # Sync the admin_languages setting so the admin navbar updates too
+    sync_admin_languages(display_languages)
+
     socket
     |> assign(:ml_enabled, enabled)
     |> assign(:languages, display_languages)
@@ -174,6 +179,16 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> assign(:default_code, default_code)
     |> assign(:language_count, length(display_languages))
     |> assign(:enabled_count, length(enabled_codes))
+  end
+
+  # Sync the admin_languages setting with the current display languages
+  defp sync_admin_languages(display_languages) do
+    enabled_codes =
+      display_languages
+      |> Enum.filter(& &1["is_enabled"])
+      |> Enum.map(& &1["code"])
+
+    Settings.update_setting("admin_languages", Jason.encode!(enabled_codes))
   end
 
   # Helper function to generate the language switcher code based on current settings
@@ -209,5 +224,25 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   # Count enabled languages in a list
   defp count_enabled(languages, enabled_codes) do
     Enum.count(languages, fn lang -> lang.code in enabled_codes end)
+  end
+
+  # Filter grouped languages by search query
+  defp filter_grouped_languages(grouped_languages, ""), do: grouped_languages
+  defp filter_grouped_languages(grouped_languages, nil), do: grouped_languages
+
+  defp filter_grouped_languages(grouped_languages, query) do
+    query_downcase = String.downcase(query)
+
+    grouped_languages
+    |> Enum.filter(fn {country, languages} ->
+      # Match country name
+      # Match any language in the group
+      String.contains?(String.downcase(country), query_downcase) or
+        Enum.any?(languages, fn lang ->
+          String.contains?(String.downcase(lang.name), query_downcase) or
+            String.contains?(String.downcase(lang.native), query_downcase) or
+            String.contains?(String.downcase(lang.code), query_downcase)
+        end)
+    end)
   end
 end

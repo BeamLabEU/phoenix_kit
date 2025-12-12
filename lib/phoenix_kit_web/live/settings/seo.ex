@@ -12,10 +12,8 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+  def mount(_params, _session, socket) do
+    # Attach locale hook for automatic locale handling
 
     if SEO.module_enabled?() do
       project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -25,8 +23,7 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
         socket
         |> assign(:page_title, "SEO Settings")
         |> assign(:project_title, project_title)
-        |> assign(:current_locale, locale)
-        |> assign(:current_path, get_current_path(locale))
+        |> assign(:current_path, get_current_path(socket.assigns.current_locale_base))
         |> assign(:no_index_enabled, config.no_index_enabled)
 
       {:ok, socket}
@@ -39,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
             "SEO module is disabled. Enable it from the Modules page to configure settings."
           )
         )
-        |> redirect(to: Routes.path("/admin/modules", locale: locale))
+        |> redirect(to: Routes.path("/admin/modules", socket.assigns.current_locale_base))
 
       {:ok, socket}
     end
@@ -81,6 +78,6 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
   end
 
   defp get_current_path(locale) do
-    Routes.path("/admin/settings/seo", locale: locale)
+    Routes.path("/admin/settings/seo", locale)
   end
 end

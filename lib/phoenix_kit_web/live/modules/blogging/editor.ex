@@ -7,7 +7,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -18,10 +17,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   @impl true
   def mount(params, _session, socket) do
+    # Attach locale hook for automatic locale handling
+
     blog_slug = params["blog"] || params["category"] || params["type"]
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Generate a unique source ID for this socket to prevent self-echoing
     live_source =
@@ -30,7 +28,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Blogging Editor")
       |> assign(:blog_slug, blog_slug)
@@ -100,7 +97,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(
         :current_path,
         Routes.path("/admin/blogging/#{blog_slug}/edit?new=true",
-          locale: socket.assigns.current_locale
+          locale: socket.assigns.current_locale_base
         )
       )
       |> assign(:has_pending_changes, false)
@@ -159,7 +156,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                 :current_path,
                 Routes.path(
                   "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
-                  locale: socket.assigns.current_locale
+                  locale: socket.assigns.current_locale_base
                 )
               )
               |> assign(:has_pending_changes, false)
@@ -187,7 +184,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> assign(
                 :current_path,
                 Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
-                  locale: socket.assigns.current_locale
+                  locale: socket.assigns.current_locale_base
                 )
               )
               |> assign(:has_pending_changes, false)
@@ -208,7 +205,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
          socket
          |> put_flash(:error, gettext("Post not found"))
          |> push_navigate(
-           to: Routes.path("/admin/blogging/#{blog_slug}", locale: socket.assigns.current_locale)
+           to:
+             Routes.path("/admin/blogging/#{blog_slug}",
+               locale: socket.assigns.current_locale_base
+             )
          )}
     end
   end
@@ -416,7 +416,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        to:
          Routes.path(
            "/admin/blogging/#{socket.assigns.blog_slug}/preview#{query_string}",
-           locale: socket.assigns.current_locale
+           locale: socket.assigns.current_locale_base
          )
      )}
   end
@@ -436,7 +436,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
      |> push_navigate(
        to:
          Routes.path("/admin/blogging/#{socket.assigns.blog_slug}",
-           locale: socket.assigns.current_locale
+           locale: socket.assigns.current_locale_base
          )
      )}
   end
@@ -460,7 +460,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
          to:
            Routes.path(
              "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
-             locale: socket.assigns.current_locale
+             locale: socket.assigns.current_locale_base
            )
        )}
     else
@@ -752,7 +752,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
-    alias PhoenixKit.Storage.URLSigner
+    alias PhoenixKit.Modules.Storage.URLSigner
     URLSigner.signed_url(file_id, "original")
   end
 
@@ -1006,7 +1006,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             to:
               Routes.path(
                 "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
-                locale: socket.assigns.current_locale
+                locale: socket.assigns.current_locale_base
               )
           )
 
@@ -1496,7 +1496,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       end
 
     Routes.path("/admin/blogging/#{blog_slug}/edit#{query}",
-      locale: socket.assigns.current_locale
+      locale: socket.assigns.current_locale_base
     )
   end
 
@@ -1753,7 +1753,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     path =
       Routes.path(
         "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{encoded}",
-        locale: socket.assigns.current_locale
+        locale: socket.assigns.current_locale_base
       )
 
     socket

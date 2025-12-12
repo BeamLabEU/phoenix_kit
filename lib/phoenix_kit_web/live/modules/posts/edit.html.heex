@@ -94,7 +94,10 @@
                         <div class="relative group aspect-square">
                           <img
                             src={
-                              PhoenixKit.Storage.URLSigner.signed_url(media.file_id, "thumbnail")
+                              PhoenixKit.Modules.Storage.URLSigner.signed_url(
+                                media.file_id,
+                                "thumbnail"
+                              )
                             }
                             alt="Post image"
                             class="w-full h-full object-cover rounded-lg border-2 border-base-300"

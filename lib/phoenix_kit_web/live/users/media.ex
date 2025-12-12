@@ -11,9 +11,10 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
   import Ecto.Query
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage.FileInstance
-  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
@@ -21,9 +22,6 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     # Set locale for LiveView process
     locale =
       params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
 
     # Batch load all settings needed for this page (uses cached settings for performance)
     settings =
@@ -33,7 +31,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
       )
 
     # Check if any enabled buckets exist
-    enabled_buckets = PhoenixKit.Storage.list_enabled_buckets()
+    enabled_buckets = Storage.list_enabled_buckets()
     has_buckets = length(enabled_buckets) > 0
 
     socket =
@@ -204,14 +202,14 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     repo = PhoenixKit.Config.get_repo()
 
     # Get total count
-    total_count = repo.aggregate(PhoenixKit.Storage.File, :count, :id)
+    total_count = repo.aggregate(Storage.File, :count, :id)
 
     # Calculate offset
     offset = (page - 1) * per_page
 
     # Query files ordered by most recent first with pagination
     files =
-      from(f in PhoenixKit.Storage.File,
+      from(f in Storage.File,
         order_by: [desc: f.inserted_at],
         limit: ^per_page,
         offset: ^offset
@@ -272,7 +270,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
     file_hash = Auth.calculate_file_hash(path)
 
     # Store file in storage
-    case PhoenixKit.Storage.store_file_in_buckets(
+    case Storage.store_file_in_buckets(
            path,
            file_type,
            user_id,

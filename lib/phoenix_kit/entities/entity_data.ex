@@ -79,6 +79,17 @@ defmodule PhoenixKit.Entities.EntityData do
 
   @primary_key {:id, :id, autogenerate: true}
 
+  @derive {Jason.Encoder,
+           only: [
+             :title,
+             :slug,
+             :status,
+             :data,
+             :metadata,
+             :date_created,
+             :date_updated
+           ]}
+
   schema "phoenix_kit_entity_data" do
     field :title, :string
     field :slug, :string
@@ -306,20 +317,46 @@ defmodule PhoenixKit.Entities.EntityData do
 
   defp notify_data_event({:ok, %__MODULE__{} = entity_data}, :created) do
     Events.broadcast_data_created(entity_data.entity_id, entity_data.id)
+    maybe_mirror_data(entity_data)
     {:ok, entity_data}
   end
 
   defp notify_data_event({:ok, %__MODULE__{} = entity_data}, :updated) do
     Events.broadcast_data_updated(entity_data.entity_id, entity_data.id)
+    maybe_mirror_data(entity_data)
     {:ok, entity_data}
   end
 
   defp notify_data_event({:ok, %__MODULE__{} = entity_data}, :deleted) do
     Events.broadcast_data_deleted(entity_data.entity_id, entity_data.id)
+    maybe_delete_mirrored_data(entity_data)
     {:ok, entity_data}
   end
 
   defp notify_data_event(result, _event), do: result
+
+  # Mirror export helpers for auto-sync
+  defp maybe_mirror_data(entity_data) do
+    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+
+    if Storage.data_enabled?() do
+      Task.start(fn -> Exporter.export_entity_data(entity_data) end)
+    end
+  end
+
+  defp maybe_delete_mirrored_data(entity_data) do
+    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+
+    # Re-export the entity file to update the data array
+    if Storage.data_enabled?() do
+      Task.start(fn ->
+        case Entities.get_entity(entity_data.entity_id) do
+          nil -> :ok
+          entity -> Exporter.export_entity(entity)
+        end
+      end)
+    end
+  end
 
   @doc """
   Returns all entity data records ordered by creation date.

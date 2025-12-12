@@ -42,20 +42,11 @@ defmodule PhoenixKit.Utils.Routes do
   defp determine_locale do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    # Check if we have base code in process dictionary (preferred)
-    case Process.get(:phoenix_kit_current_locale_base) do
-      nil ->
-        # Fall back to extracting base from full dialect
-        full_dialect =
-          Process.get(:phoenix_kit_current_locale) ||
-            Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-            "en-US"
-
-        DialectMapper.extract_base(full_dialect)
-
-      base_code ->
-        base_code
-    end
+    # Fall back to extracting base from Gettext locale
+    # This is only used when locale is not explicitly passed to Routes.path
+    # Gettext.get_locale/1 always returns a string
+    locale = Gettext.get_locale(PhoenixKitWeb.Gettext)
+    DialectMapper.extract_base(locale)
   end
 
   # Check if the given locale is the default (first in admin_languages list)

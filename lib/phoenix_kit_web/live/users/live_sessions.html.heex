@@ -233,10 +233,9 @@
                   </.table_default_cell>
                   <.table_default_cell>
                     <%= if session.type == :authenticated do %>
+                      <% user = Map.get(@users_map, session.user_id) %>
                       <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 bg-success rounded-full flex items-center justify-center text-success-content text-xs font-bold">
-                          {String.first(session.user_email || "?") |> String.upcase()}
-                        </div>
+                        <.user_avatar user={user || %{email: session.user_email}} size="sm" />
                         <div>
                           <div class="font-medium text-sm">
                             {session.user_email}

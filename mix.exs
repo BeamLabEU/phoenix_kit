@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.20"
+  @version "1.7.0"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -130,7 +130,10 @@ defmodule PhoenixKit.MixProject do
       # Code generation and project patching
       # Note: Available in all environments for library code, but typically
       # only needed in :dev when used as a dependency in parent projects
-      {:igniter, "~> 0.7"}
+      {:igniter, "~> 0.7"},
+
+      # Language and country data
+      {:beamlab_countries, "~> 1.0.1"}
     ]
   end
 
@@ -161,6 +164,7 @@ defmodule PhoenixKit.MixProject do
         "guides/making-pages-live.md",
         "guides/phk_blogging_format.md",
         "guides/AUTH_HEADER_INTEGRATION.md",
+        "guides/draggable_list_component.md",
         "guides/README.md"
       ],
       groups_for_extras: [

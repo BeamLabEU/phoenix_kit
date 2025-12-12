@@ -167,18 +167,21 @@
                     <.table_default_cell>
                       <%= cond do %>
                         <% column_id == "email" -> %>
-                          <div class="flex flex-col gap-1">
-                            <div class="flex flex-wrap items-center gap-2">
-                              <span class="font-medium">{user.email}</span>
-                              <%= if user.id == @phoenix_kit_current_user.id do %>
-                                <span class="badge badge-info badge-xs">you</span>
+                          <div class="flex items-center gap-3">
+                            <.user_avatar user={user} size="sm" />
+                            <div class="flex flex-col gap-1">
+                              <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-medium">{user.email}</span>
+                                <%= if user.id == @phoenix_kit_current_user.id do %>
+                                  <span class="badge badge-info badge-xs">you</span>
+                                <% end %>
+                              </div>
+                              <%= if user.username do %>
+                                <div class="text-sm text-base-content/60">
+                                  @{user.username}
+                                </div>
                               <% end %>
                             </div>
-                            <%= if user.username do %>
-                              <div class="text-sm text-base-content/60">
-                                @{user.username}
-                              </div>
-                            <% end %>
                           </div>
                         <% column_id == "full_name" -> %>
                           <div class="flex flex-col gap-1">

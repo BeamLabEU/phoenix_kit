@@ -1,0 +1,276 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Billing Settings"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">Billing Settings</h1>
+        <p class="text-base-content/60 mt-1">Configure billing module options</p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <%!-- Module Status --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Module Status</h2>
+          <div class="flex items-center justify-between mt-4">
+            <div>
+              <p class="font-medium">Billing Module</p>
+              <p class="text-sm text-base-content/60">Enable or disable billing functionality</p>
+            </div>
+            <label class="cursor-pointer">
+              <input
+                type="checkbox"
+                class="toggle toggle-success toggle-lg"
+                checked={@billing_enabled}
+                phx-click="toggle_billing"
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- General Settings --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">General Settings</h2>
+          <form phx-submit="save_general" class="space-y-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Default Currency</span>
+              </label>
+              <select name="default_currency" class="select select-bordered">
+                <option value="EUR" selected={@default_currency == "EUR"}>EUR - Euro</option>
+                <option value="USD" selected={@default_currency == "USD"}>USD - US Dollar</option>
+                <option value="GBP" selected={@default_currency == "GBP"}>
+                  GBP - British Pound
+                </option>
+              </select>
+            </div>
+
+            <div class="grid grid-cols-3 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Order Prefix</span>
+                </label>
+                <input
+                  type="text"
+                  name="order_prefix"
+                  value={@order_prefix}
+                  class="input input-bordered input-sm"
+                  placeholder="ORD"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Invoice Prefix</span>
+                </label>
+                <input
+                  type="text"
+                  name="invoice_prefix"
+                  value={@invoice_prefix}
+                  class="input input-bordered input-sm"
+                  placeholder="INV"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Receipt Prefix</span>
+                </label>
+                <input
+                  type="text"
+                  name="receipt_prefix"
+                  value={@receipt_prefix}
+                  class="input input-bordered input-sm"
+                  placeholder="RCP"
+                />
+              </div>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Invoice Due Days</span>
+              </label>
+              <input
+                type="number"
+                name="invoice_due_days"
+                value={@invoice_due_days}
+                class="input input-bordered input-sm w-32"
+                min="1"
+                max="90"
+              />
+            </div>
+
+            <div class="divider">Tax Settings</div>
+
+            <div class="grid grid-cols-2 gap-4 items-end">
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="tax_enabled"
+                    value="true"
+                    checked={@tax_enabled}
+                    class="checkbox checkbox-primary checkbox-sm"
+                  />
+                  <span class="label-text">Enable Tax</span>
+                </label>
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Default Tax Rate (%)</span>
+                </label>
+                <input
+                  type="number"
+                  name="tax_rate"
+                  value={@tax_rate}
+                  class="input input-bordered input-sm"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <button type="submit" class="btn btn-primary btn-sm">Save General Settings</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Company Information --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Company Information</h2>
+          <p class="text-sm text-base-content/60">Shown on invoices and receipts</p>
+          <form phx-submit="save_company" class="space-y-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Company Name</span>
+              </label>
+              <input
+                type="text"
+                name="company_name"
+                value={@company_name}
+                class="input input-bordered"
+                placeholder="Your Company Name"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Company Address</span>
+              </label>
+              <textarea
+                name="company_address"
+                class="textarea textarea-bordered"
+                rows="3"
+                placeholder="Street, City, Country"
+              >{@company_address}</textarea>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">VAT Number</span>
+              </label>
+              <input
+                type="text"
+                name="company_vat"
+                value={@company_vat}
+                class="input input-bordered"
+                placeholder="EE123456789"
+              />
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <button type="submit" class="btn btn-primary btn-sm">Save Company Info</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Bank Details --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Bank Details</h2>
+          <p class="text-sm text-base-content/60">For bank transfer payments</p>
+          <form phx-submit="save_bank" class="space-y-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Bank Name</span>
+              </label>
+              <input
+                type="text"
+                name="bank_name"
+                value={@bank_name}
+                class="input input-bordered"
+                placeholder="Bank Name"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">IBAN</span>
+              </label>
+              <input
+                type="text"
+                name="bank_iban"
+                value={@bank_iban}
+                class="input input-bordered font-mono"
+                placeholder="EE00 0000 0000 0000 0000"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">SWIFT/BIC</span>
+              </label>
+              <input
+                type="text"
+                name="bank_swift"
+                value={@bank_swift}
+                class="input input-bordered font-mono"
+                placeholder="XXXXEEHH"
+              />
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <button type="submit" class="btn btn-primary btn-sm">Save Bank Details</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Quick Links --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <h2 class="card-title">Related Settings</h2>
+        <div class="flex flex-wrap gap-4 mt-4">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-currency-dollar" class="w-5 h-5" /> Manage Currencies
+          </.link>
+          <.link navigate={PhoenixKit.Utils.Routes.path("/admin/modules")} class="btn btn-outline">
+            <.icon name="hero-squares-2x2" class="w-5 h-5" /> All Modules
+          </.link>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

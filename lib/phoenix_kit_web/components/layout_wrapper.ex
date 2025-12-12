@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   """
   use Phoenix.Component
   use PhoenixKitWeb, :verified_routes
+  use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
   import PhoenixKitWeb.Components.AdminNav
@@ -68,7 +69,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_path, :string, default: nil
   attr :inner_content, :string, default: nil
   attr :project_title, :string, default: "PhoenixKit"
-  attr :current_locale, :string, default: "en"
+  attr :current_locale, :string, default: nil
 
   slot :inner_block, required: false
 
@@ -77,7 +78,19 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     assigns =
       assigns
       |> assign_new(:content_language, fn ->
-        PhoenixKit.Settings.get_content_language()
+        # Use the current locale from LiveView, falling back to content language setting
+        # Extract base code from full dialect if necessary (e.g., "en-US" -> "en")
+        case assigns[:current_locale] do
+          nil ->
+            PhoenixKit.Settings.get_content_language()
+
+          locale when is_binary(locale) ->
+            alias PhoenixKit.Modules.Languages.DialectMapper
+            DialectMapper.extract_base(locale)
+
+          _ ->
+            PhoenixKit.Settings.get_content_language()
+        end
       end)
       |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
       |> assign_new(:seo_no_index, fn -> SEO.no_index_enabled?() end)
@@ -194,7 +207,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                     <PhoenixKitWeb.Components.Core.Icons.icon_shield />
                   </div>
-                  <span class="font-bold text-base-content">{@project_title} Admin</span>
+                  <span class="font-bold text-base-content">{@project_title} {gettext("Admin")}</span>
                 </div>
 
                 <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
@@ -233,7 +246,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/dashboard")}
                       icon="dashboard"
-                      label="Dashboard"
+                      label={gettext("Dashboard")}
                       current_path={@current_path || ""}
                     />
 
@@ -241,7 +254,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/users")}
                       icon="users"
-                      label="Users"
+                      label={gettext("Users")}
                       current_path={@current_path || ""}
                       disable_active={true}
                       submenu_open={
@@ -261,7 +274,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/users")}
                           icon="users"
-                          label="Manage Users"
+                          label={gettext("Manage Users")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -269,7 +282,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/users/live_sessions")}
                           icon="live_sessions"
-                          label="Live Sessions"
+                          label={gettext("Live Sessions")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -277,7 +290,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/users/sessions")}
                           icon="sessions"
-                          label="Sessions"
+                          label={gettext("Sessions")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -285,7 +298,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/users/roles")}
                           icon="roles"
-                          label="Roles"
+                          label={gettext("Roles")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -294,7 +307,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/users/referral-codes")}
                             icon="referral_codes"
-                            label="Referral Codes"
+                            label={gettext("Referral Codes")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -306,16 +319,47 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/media")}
                       icon="photo"
-                      label="Media"
+                      label={gettext("Media")}
                       current_path={@current_path || ""}
                     />
+
+                    <%!-- Custom Admin Dashboard Categories --%>
+                    <%= for category <- PhoenixKit.Config.AdminDashboardCategories.get_categories() do %>
+                      <.admin_nav_item
+                        href={
+                          category.subsections
+                          |> List.first()
+                          |> Map.get(:url, "#")
+                          |> then(&Routes.locale_aware_path(assigns, &1))
+                        }
+                        icon={category.icon || "hero-folder"}
+                        label={category.title}
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={custom_category_submenu_open?(@current_path, category.subsections)}
+                      />
+
+                      <%= if custom_category_submenu_open?(@current_path, category.subsections) do %>
+                        <div class="mt-1">
+                          <%= for subsection <- category.subsections do %>
+                            <.admin_nav_item
+                              href={Routes.locale_aware_path(assigns, subsection.url)}
+                              icon={subsection.icon || "hero-document-text"}
+                              label={subsection.title}
+                              current_path={@current_path || ""}
+                              nested={true}
+                            />
+                          <% end %>
+                        </div>
+                      <% end %>
+                    <% end %>
 
                     <%= if PhoenixKit.Emails.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/emails/dashboard")}
                         icon="email"
-                        label="Emails"
+                        label={gettext("Emails")}
                         current_path={@current_path || ""}
                         disable_active={true}
                         submenu_open={
@@ -335,7 +379,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/emails/dashboard")}
                             icon="email"
-                            label="Dashboard"
+                            label={gettext("Dashboard")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -343,7 +387,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/emails")}
                             icon="email"
-                            label="Emails"
+                            label={gettext("Emails")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -351,7 +395,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.path("/admin/modules/emails/templates")}
                             icon="email"
-                            label="Templates"
+                            label={gettext("Templates")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -359,7 +403,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/emails/queue")}
                             icon="email"
-                            label="Queue"
+                            label={gettext("Queue")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -367,7 +411,81 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/emails/blocklist")}
                             icon="email"
-                            label="Blocklist"
+                            label={gettext("Blocklist")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
+                    <% end %>
+
+                    <%= if PhoenixKit.Billing.enabled?() do %>
+                      <%!-- Billing section with submenu --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                        icon="billing"
+                        label="Billing"
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/billing",
+                            "/admin/billing/orders",
+                            "/admin/billing/invoices",
+                            "/admin/billing/transactions",
+                            "/admin/billing/profiles",
+                            "/admin/billing/currencies"
+                          ])
+                        }
+                      />
+
+                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                            icon="billing"
+                            label="Dashboard"
+                            current_path={@current_path || ""}
+                            nested={true}
+                            exact_match_only={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/orders")}
+                            icon="billing"
+                            label="Orders"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/invoices")}
+                            icon="billing"
+                            label="Invoices"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/transactions")}
+                            icon="billing"
+                            label="Transactions"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/profiles")}
+                            icon="billing"
+                            label="Billing Profiles"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/currencies")}
+                            icon="billing"
+                            label="Currencies"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -380,7 +498,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/entities")}
                         icon="entities"
-                        label="Entities"
+                        label={gettext("Entities")}
                         current_path={@current_path || ""}
                         disable_active={true}
                         submenu_open={submenu_open?(@current_path, ["/admin/entities"])}
@@ -392,7 +510,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/entities")}
                             icon="entities"
-                            label="Entities"
+                            label={gettext("Entities")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -421,7 +539,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/posts")}
                       icon="document"
-                      label="Posts"
+                      label={gettext("Posts")}
                       current_path={@current_path || ""}
                       disable_active={true}
                       submenu_open={submenu_open?(@current_path, ["/admin/posts"])}
@@ -432,7 +550,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/posts")}
                           icon="document"
-                          label="All Posts"
+                          label={gettext("All Posts")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -440,7 +558,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/posts/groups")}
                           icon="hero-folder"
-                          label="Groups"
+                          label={gettext("Groups")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -451,7 +569,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/blogging")}
                         icon="document"
-                        label="Blogging"
+                        label={gettext("Blogging")}
                         current_path={@current_path || ""}
                         exact_match_only={true}
                         submenu_open={submenu_open?(@current_path, ["/admin/blogging"])}
@@ -475,7 +593,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
                       icon="modules"
-                      label="Modules"
+                      label={gettext("Modules")}
                       current_path={@current_path || ""}
                     />
 
@@ -483,7 +601,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/settings")}
                       icon="settings"
-                      label="Settings"
+                      label={gettext("Settings")}
                       current_path={@current_path || ""}
                       disable_active={true}
                       submenu_open={
@@ -510,7 +628,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings")}
                           icon="settings"
-                          label="General"
+                          label={gettext("General")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -518,7 +636,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings/users")}
                           icon="users"
-                          label="Users"
+                          label={gettext("Users")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -527,7 +645,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/referral-codes")}
                             icon="referral_codes"
-                            label="Referrals"
+                            label={gettext("Referrals")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -537,7 +655,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
                             icon="document"
-                            label="Blogging"
+                            label={gettext("Blogging")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -547,7 +665,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/posts")}
                             icon="document"
-                            label="Posts"
+                            label={gettext("Posts")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -559,7 +677,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/emails")}
                             icon="email"
-                            label="Emails"
+                            label={gettext("Emails")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Billing.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
+                            icon="billing"
+                            label="Billing"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -569,7 +697,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/languages")}
                             icon="language"
-                            label="Languages"
+                            label={gettext("Languages")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -579,7 +707,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
                             icon="seo"
-                            label="SEO"
+                            label={gettext("SEO")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -589,7 +717,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/maintenance")}
                             icon="maintenance"
-                            label="Maintenance"
+                            label={gettext("Maintenance")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -599,7 +727,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings/media")}
                           icon="photo"
-                          label="Media"
+                          label={gettext("Media")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
@@ -610,7 +738,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             <.admin_nav_item
                               href={Routes.locale_aware_path(assigns, "/admin/settings/media/dimensions")}
                               icon="photo"
-                              label="Dimensions"
+                              label={gettext("Dimensions")}
                               current_path={@current_path || ""}
                               nested={true}
                             />
@@ -621,7 +749,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           <.admin_nav_item
                             href={Routes.path("/admin/settings/entities")}
                             icon="entities"
-                            label="Entities"
+                            label={gettext("Entities")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -1153,7 +1281,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   # Language switcher component for admin sidebar
   attr :current_path, :string, required: true
-  attr :current_locale, :string, default: "en"
+  attr :current_locale, :string, default: nil
 
   defp admin_language_switcher(assigns) do
     alias PhoenixKit.Modules.Languages.DialectMapper
@@ -1165,7 +1293,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
       # Only show if there are multiple languages (more than current one)
       if length(enabled_languages) > 1 do
         # Extract base code from current locale for matching
-        current_base = DialectMapper.extract_base(assigns.current_locale)
+        current_base =
+          case assigns.current_locale do
+            # Default fallback
+            nil -> "en"
+            locale -> DialectMapper.extract_base(locale)
+          end
 
         # Transform languages to use base codes as main identifier
         # %{"code" => "en", "dialect" => "en-US", "name" => "English (US)", ...}
@@ -1288,4 +1421,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     base_code = DialectMapper.extract_base(new_locale)
     build_locale_url(current_path, base_code)
   end
+
+  # Check if custom category submenu should be open based on subsection URLs
+  defp custom_category_submenu_open?(current_path, subsections)
+       when is_binary(current_path) and is_list(subsections) do
+    subsection_urls = Enum.map(subsections, & &1.url)
+
+    current_path
+    |> remove_phoenix_kit_prefix()
+    |> remove_locale_prefix()
+    |> path_matches_any?(subsection_urls)
+  end
+
+  defp custom_category_submenu_open?(_, _), do: false
 end

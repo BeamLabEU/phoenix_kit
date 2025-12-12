@@ -29,6 +29,12 @@ defmodule PhoenixKit.Config do
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
+  - `:admin_dashboard_categories` - List of custom admin dashboard categories with subsections
+
+  ## Admin Dashboard Categories
+
+  For detailed information about configuring custom admin dashboard categories,
+  see `PhoenixKit.Config.AdminDashboardCategories`.
 
   ## Type-Safe Functions
 
@@ -63,7 +69,9 @@ defmodule PhoenixKit.Config do
     oauth_base_url: nil,
     # Module-specific settings
     users_module: PhoenixKit.Users.Auth.User,
-    blogging_settings_module: PhoenixKit.Settings
+    blogging_settings_module: PhoenixKit.Settings,
+    # Admin dashboard categories
+    admin_dashboard_categories: []
   ]
 
   @doc """

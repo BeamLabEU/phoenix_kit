@@ -1226,7 +1226,7 @@ defmodule PhoenixKit.Posts do
   ## Parameters
 
   - `post_id` - Post ID
-  - `file_id` - File ID (from PhoenixKit.Storage)
+  - `file_id` - File ID (from PhoenixKit.Modules.Storage)
   - `opts` - Options
     - `:position` - Display position (default: 1)
     - `:caption` - Image caption
@@ -1351,7 +1351,7 @@ defmodule PhoenixKit.Posts do
   ## Parameters
 
   - `post_id` - Post ID
-  - `file_id` - File ID (from PhoenixKit.Storage)
+  - `file_id` - File ID (from PhoenixKit.Modules.Storage)
 
   ## Examples
 

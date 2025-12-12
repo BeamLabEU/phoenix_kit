@@ -14,13 +14,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    # Set locale for LiveView process
-    locale =
-      params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     entities = Entities.list_entities()
@@ -52,7 +45,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
 
     socket =
       socket
-      |> assign(:current_locale, locale)
       |> assign(:page_title, page_title)
       |> assign(:project_title, project_title)
       |> assign(:entities, entities)
@@ -158,25 +150,22 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
       socket
       |> assign(:view_mode, mode)
-      |> push_patch(to: Routes.path(full_path, locale: locale))
+      |> push_patch(to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
 
   def handle_event("filter_by_entity", %{"entity_id" => ""}, socket) do
     # No entity selected - redirect to entities list since global data view no longer exists
-    locale = socket.assigns[:current_locale]
-
     socket =
       socket
       |> put_flash(:info, gettext("Please select an entity to view its data"))
-      |> redirect(to: Routes.path("/admin/entities", locale: locale))
+      |> redirect(to: Routes.path("/admin/entities", locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -193,11 +182,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(entity_id)
-    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -212,11 +200,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -231,11 +218,10 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
       )
 
     path = build_base_path(socket.assigns.selected_entity_id)
-    locale = socket.assigns[:current_locale]
     full_path = if params != "", do: "#{path}?#{params}", else: path
 
     socket =
-      push_patch(socket, to: Routes.path(full_path, locale: locale))
+      push_patch(socket, to: Routes.path(full_path, locale: socket.assigns.current_locale_base))
 
     {:noreply, socket}
   end
@@ -325,8 +311,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   end
 
   def handle_info({:entity_updated, entity_id}, socket) do
-    locale = socket.assigns[:current_locale]
-
     # If the currently viewed entity was updated, check if it was archived
     if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
       entity = Entities.get_entity!(entity_id)
@@ -342,7 +326,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
              status: entity.status
            )
          )
-         |> redirect(to: Routes.path("/admin/entities", locale: locale))}
+         |> redirect(
+           to: Routes.path("/admin/entities", locale: socket.assigns.current_locale_base)
+         )}
       else
         # Update the selected entity and page title with fresh data
         socket =
@@ -359,14 +345,12 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   end
 
   def handle_info({:entity_deleted, entity_id}, socket) do
-    locale = socket.assigns[:current_locale]
-
     # If the currently viewed entity was deleted, redirect to entities list
     if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
       {:noreply,
        socket
        |> put_flash(:error, gettext("Entity was deleted in another session."))
-       |> redirect(to: Routes.path("/admin/entities", locale: locale))}
+       |> redirect(to: Routes.path("/admin/entities", locale: socket.assigns.current_locale_base))}
     else
       {:noreply, refresh_entities_and_data(socket)}
     end

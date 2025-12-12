@@ -7,7 +7,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Storage
+  alias PhoenixKit.Modules.Storage
 
   embed_templates("blog_html/*")
 

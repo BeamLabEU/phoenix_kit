@@ -43,7 +43,7 @@ defmodule PhoenixKit.Posts.PostMedia do
           position: integer(),
           caption: String.t() | nil,
           post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
-          file: PhoenixKit.Storage.File.t() | Ecto.Association.NotLoaded.t(),
+          file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -53,7 +53,7 @@ defmodule PhoenixKit.Posts.PostMedia do
     field :caption, :string
 
     belongs_to :post, PhoenixKit.Posts.Post
-    belongs_to :file, PhoenixKit.Storage.File
+    belongs_to :file, PhoenixKit.Modules.Storage.File
 
     timestamps(type: :naive_datetime)
   end

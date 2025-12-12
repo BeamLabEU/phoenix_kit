@@ -565,39 +565,40 @@ defmodule PhoenixKit.Emails.Interceptor do
   defp build_message_tags(%Email{} = email, opts) do
     base_tags = Keyword.get(opts, :message_tags, %{})
 
-    auto_tags = %{}
-
-    # Add template tag if available
     auto_tags =
-      case Keyword.get(opts, :template_name) do
-        nil -> auto_tags
-        template -> Map.put(auto_tags, "template", template)
-      end
-
-    # Add campaign tag if available
-    auto_tags =
-      case Keyword.get(opts, :campaign_id) do
-        nil -> auto_tags
-        campaign -> Map.put(auto_tags, "campaign", campaign)
-      end
-
-    # Add user context if available
-    auto_tags =
-      case Keyword.get(opts, :user_id) do
-        nil -> auto_tags
-        user_id -> Map.put(auto_tags, "user_id", to_string(user_id))
-      end
-
-    # Add email type detection
-    auto_tags = Map.put(auto_tags, "email_type", detect_email_type(email))
+      %{}
+      |> maybe_add_tag("template", Keyword.get(opts, :template_name))
+      |> maybe_add_tag("campaign", Keyword.get(opts, :campaign_id))
+      |> maybe_add_user_id(Keyword.get(opts, :user_id))
+      |> maybe_add_tag("category", Keyword.get(opts, :category))
+      |> maybe_add_tag("source_module", Keyword.get(opts, :source_module))
+      |> add_email_type(email, opts)
 
     Map.merge(auto_tags, base_tags)
   end
 
-  # Build message tags for log record
+  # Build message tags for log record (fallback clause)
   defp build_message_tags(_log_or_email, opts) do
-    # Simplified for now
     build_message_tags(%Email{}, opts)
+  end
+
+  # Add tag to map if value is not nil
+  defp maybe_add_tag(tags, _key, nil), do: tags
+  defp maybe_add_tag(tags, key, value), do: Map.put(tags, key, value)
+
+  # Add user_id tag with string conversion
+  defp maybe_add_user_id(tags, nil), do: tags
+  defp maybe_add_user_id(tags, user_id), do: Map.put(tags, "user_id", to_string(user_id))
+
+  # Add email type - use template category if available, otherwise detect from content
+  defp add_email_type(tags, email, opts) do
+    email_type =
+      case Keyword.get(opts, :category) do
+        nil -> detect_email_type(email)
+        category -> category
+      end
+
+    Map.put(tags, "email_type", email_type)
   end
 
   # Detect email type from content

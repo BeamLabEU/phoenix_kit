@@ -14,14 +14,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, session, socket) do
-    # Set locale for LiveView process - check params first, then socket assigns, then default admin locale
-    locale =
-      params["locale"] || socket.assigns[:current_locale]
-
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(_params, session, socket) do
     # Subscribe to statistics updates for live data
     if connected?(socket) do
       Events.subscribe_to_stats()
@@ -59,7 +52,6 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       |> assign(:project_title, project_title)
       |> assign(:page_title, "Dashboard")
       |> assign(:cached_user_roles, user_roles)
-      |> assign(:current_locale, locale)
 
     {:ok, socket}
   end
