@@ -67,6 +67,7 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
   alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
@@ -1349,7 +1350,7 @@ defmodule PhoenixKit.Users.Auth do
     ext = Path.extname(filename) |> String.replace_leading(".", "")
 
     # Store file in buckets (automatically queues ProcessFileJob for variants)
-    case PhoenixKit.Storage.store_file_in_buckets(
+    case Storage.store_file_in_buckets(
            file_path,
            "image",
            user_id,

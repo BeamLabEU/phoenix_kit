@@ -26,6 +26,8 @@ defmodule PhoenixKitWeb.Components.Blogging.Image do
   """
   use Phoenix.Component
 
+  alias PhoenixKit.Modules.Storage
+
   attr :attributes, :map, default: %{}
   attr :variant, :string, default: "default"
   attr :content, :string, default: nil
@@ -79,10 +81,10 @@ defmodule PhoenixKitWeb.Components.Blogging.Image do
 
   # Helper function to get file URL from Storage
   defp get_file_url(file_id, variant) do
-    case PhoenixKit.Storage.get_public_url_by_id(file_id, variant) do
+    case Storage.get_public_url_by_id(file_id, variant) do
       nil ->
         # Try without variant (fallback to original)
-        PhoenixKit.Storage.get_public_url_by_id(file_id)
+        Storage.get_public_url_by_id(file_id)
 
       url ->
         url

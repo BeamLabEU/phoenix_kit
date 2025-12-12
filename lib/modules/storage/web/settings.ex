@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Settings.Storage do
+defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
   @moduledoc """
   Storage settings management LiveView for PhoenixKit.
 
@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
 
   import Ecto.Query
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.System.Dependencies
   alias PhoenixKit.Utils.Routes
@@ -23,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     # Load buckets
-    buckets = PhoenixKit.Storage.list_buckets()
+    buckets = Storage.list_buckets()
 
     # Load file counts per bucket (unique files, not instances)
     bucket_file_counts = get_bucket_file_counts(buckets)
@@ -257,12 +258,12 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
   end
 
   def handle_event("delete_bucket", %{"id" => bucket_id}, socket) do
-    bucket = PhoenixKit.Storage.get_bucket(bucket_id)
+    bucket = Storage.get_bucket(bucket_id)
 
-    case PhoenixKit.Storage.delete_bucket(bucket) do
+    case Storage.delete_bucket(bucket) do
       {:ok, _bucket} ->
         # Reload buckets and recalculate max redundancy
-        buckets = PhoenixKit.Storage.list_buckets()
+        buckets = Storage.list_buckets()
         active_buckets_count = Enum.count(buckets, & &1.enabled)
         max_redundancy = max(1, active_buckets_count)
 
@@ -315,10 +316,10 @@ defmodule PhoenixKitWeb.Live.Settings.Storage do
       # We count files, not instances or locations
       count =
         repo.one(
-          from f in PhoenixKit.Storage.File,
-            join: fi in PhoenixKit.Storage.FileInstance,
+          from f in Storage.File,
+            join: fi in Storage.FileInstance,
             on: fi.file_id == f.id,
-            join: fl in PhoenixKit.Storage.FileLocation,
+            join: fl in Storage.FileLocation,
             on: fl.file_instance_id == fi.id,
             where: fl.bucket_id == ^bucket.id and fl.status == "active",
             select: count(f.id, :distinct)

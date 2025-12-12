@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.FileServer do
+defmodule PhoenixKit.Modules.Storage.FileServer do
   @moduledoc """
   File serving logic with multi-location failover support.
 
@@ -16,7 +16,7 @@ defmodule PhoenixKit.Storage.FileServer do
 
   ## Examples
 
-      iex> {:ok, file_info} = PhoenixKit.Storage.FileServer.get_file_location(
+      iex> {:ok, file_info} = PhoenixKit.Modules.Storage.FileServer.get_file_location(
       ...>   "018e3c4a-9f6b-7890",
       ...>   "thumbnail"
       ...> )
@@ -28,8 +28,8 @@ defmodule PhoenixKit.Storage.FileServer do
 
   import Ecto.Query
 
-  alias PhoenixKit.Storage.FileInstance
-  alias PhoenixKit.Storage.FileLocation
+  alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.FileLocation
 
   @doc """
   Get file location with priority-ordered failover list.
@@ -87,7 +87,7 @@ defmodule PhoenixKit.Storage.FileServer do
       from fi in FileInstance,
         where: fi.file_id == ^file_id and fi.variant_name == ^instance_name,
         preload: [
-          file_locations: [
+          locations: [
             bucket: []
           ]
         ]
@@ -99,7 +99,7 @@ defmodule PhoenixKit.Storage.FileServer do
       instance ->
         # Filter for active locations only
         active_locations =
-          instance.file_locations
+          instance.locations
           |> Enum.filter(&(&1.status == "active"))
           |> Enum.sort_by(&location_priority/1)
 
@@ -136,7 +136,7 @@ defmodule PhoenixKit.Storage.FileServer do
 
   ## Example
 
-      iex> headers = PhoenixKit.Storage.FileServer.http_headers(file_instance)
+      iex> headers = PhoenixKit.Modules.Storage.FileServer.http_headers(file_instance)
       iex> headers[:content_type]
       "image/jpeg"
       iex> headers[:cache_control]
@@ -180,13 +180,13 @@ defmodule PhoenixKit.Storage.FileServer do
 
   ## Example
 
-      iex> PhoenixKit.Storage.FileServer.parse_range_header(
+      iex> PhoenixKit.Modules.Storage.FileServer.parse_range_header(
       ...>   "bytes=0-1023",
       ...>   5000
       ...> )
       {:ok, 0, 1023, [content_range: "bytes 0-1023/5000"]}
 
-      iex> PhoenixKit.Storage.FileServer.parse_range_header(
+      iex> PhoenixKit.Modules.Storage.FileServer.parse_range_header(
       ...>   "bytes=1000-",
       ...>   5000
       ...> )

@@ -45,7 +45,7 @@
                 <div class="w-32 h-32 bg-primary rounded-lg overflow-hidden flex items-center justify-center relative">
                   <%= if avatar_file_id do %>
                     <% avatar_url =
-                      PhoenixKit.Storage.URLSigner.signed_url(avatar_file_id, variant) %>
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(avatar_file_id, variant) %>
                     <img
                       src={avatar_url}
                       alt="Avatar"

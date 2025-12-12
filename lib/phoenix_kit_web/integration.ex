@@ -321,21 +321,21 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
 
-          live "/admin/settings/media", Live.Settings.Storage, :index
-          live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/media/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/media/dimensions", Live.Settings.Storage.Dimensions, :index
+          live "/admin/settings/media", Live.Modules.Storage.Settings, :index
+          live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
+          live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
+          live "/admin/settings/media/dimensions", Live.Modules.Storage.Dimensions, :index
 
           live "/admin/settings/media/dimensions/new/image",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :new_image
 
           live "/admin/settings/media/dimensions/new/video",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :new_video
 
           live "/admin/settings/media/dimensions/:id/edit",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :edit
 
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
@@ -493,21 +493,21 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
 
-          live "/admin/settings/media", Live.Settings.Storage, :index
-          live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
-          live "/admin/settings/media/buckets/:id/edit", Live.Settings.Storage.BucketForm, :edit
-          live "/admin/settings/media/dimensions", Live.Settings.Storage.Dimensions, :index
+          live "/admin/settings/media", Live.Modules.Storage.Settings, :index
+          live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
+          live "/admin/settings/media/buckets/:id/edit", Live.Modules.Storage.BucketForm, :edit
+          live "/admin/settings/media/dimensions", Live.Modules.Storage.Dimensions, :index
 
           live "/admin/settings/media/dimensions/new/image",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :new_image
 
           live "/admin/settings/media/dimensions/new/video",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :new_video
 
           live "/admin/settings/media/dimensions/:id/edit",
-               Live.Settings.Storage.DimensionForm,
+               Live.Modules.Storage.DimensionForm,
                :edit
 
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index

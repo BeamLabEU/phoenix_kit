@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.FileInstance do
+defmodule PhoenixKit.Modules.Storage.FileInstance do
   @moduledoc """
   Schema for file variants (thumbnails, resizes, video qualities).
 
@@ -95,8 +95,9 @@ defmodule PhoenixKit.Storage.FileInstance do
           height: integer() | nil,
           processing_status: String.t(),
           file_id: UUIDv7.t() | nil,
-          file: PhoenixKit.Storage.File.t() | Ecto.Association.NotLoaded.t(),
-          locations: [PhoenixKit.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
+          file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
+          locations:
+            [PhoenixKit.Modules.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -112,8 +113,8 @@ defmodule PhoenixKit.Storage.FileInstance do
     field :height, :integer
     field :processing_status, :string, default: "pending"
 
-    belongs_to :file, PhoenixKit.Storage.File
-    has_many :locations, PhoenixKit.Storage.FileLocation
+    belongs_to :file, PhoenixKit.Modules.Storage.File
+    has_many :locations, PhoenixKit.Modules.Storage.FileLocation
 
     timestamps(type: :naive_datetime)
   end

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
+defmodule PhoenixKit.Modules.Storage.ProcessFileJob do
   @moduledoc """
   Oban job for background processing of uploaded files.
 
@@ -11,9 +11,9 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
 
   require Logger
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.ImageProcessor
-  alias PhoenixKit.Storage.VariantGenerator
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.VariantGenerator
 
   @doc """
   Process a file and generate variants.
@@ -55,7 +55,7 @@ defmodule PhoenixKit.Storage.Workers.ProcessFileJob do
   @impl Oban.Worker
   def timeout(_job), do: :timer.minutes(5)
 
-  defp process_file(%PhoenixKit.Storage.File{} = file) do
+  defp process_file(%PhoenixKit.Modules.Storage.File{} = file) do
     case file.file_type do
       "image" ->
         process_image(file)

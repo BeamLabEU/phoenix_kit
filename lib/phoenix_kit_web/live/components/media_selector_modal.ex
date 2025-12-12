@@ -38,8 +38,8 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
   require Logger
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{File, FileInstance, URLSigner}
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Users.Auth
 
   import Ecto.Query

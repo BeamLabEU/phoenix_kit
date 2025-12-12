@@ -11,12 +11,12 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   import Ecto.Query
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.File
+  alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.FileLocation
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.File
-  alias PhoenixKit.Storage.FileInstance
-  alias PhoenixKit.Storage.FileLocation
-  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 

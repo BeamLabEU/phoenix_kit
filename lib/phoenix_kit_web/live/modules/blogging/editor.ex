@@ -7,7 +7,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -753,7 +752,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
-    alias PhoenixKit.Storage.URLSigner
+    alias PhoenixKit.Modules.Storage.URLSigner
     URLSigner.signed_url(file_id, "original")
   end
 
