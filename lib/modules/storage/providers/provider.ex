@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Provider do
+defmodule PhoenixKit.Modules.Storage.Provider do
   @moduledoc """
   Behavior for storage providers.
 
@@ -22,7 +22,7 @@ defmodule PhoenixKit.Storage.Provider do
   - `{:error, reason}` - Failed to store file
   """
   @callback store_file(
-              bucket :: PhoenixKit.Storage.Bucket.t(),
+              bucket :: PhoenixKit.Modules.Storage.Bucket.t(),
               source_path :: String.t(),
               destination_path :: String.t(),
               opts :: keyword()
@@ -43,7 +43,7 @@ defmodule PhoenixKit.Storage.Provider do
   - `{:error, reason}` - Failed to retrieve file
   """
   @callback retrieve_file(
-              bucket :: PhoenixKit.Storage.Bucket.t(),
+              bucket :: PhoenixKit.Modules.Storage.Bucket.t(),
               file_path :: String.t(),
               destination_path :: String.t()
             ) :: :ok | {:error, term()}
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Storage.Provider do
   - `:ok` - File deleted successfully
   - `{:error, reason}` - Failed to delete file
   """
-  @callback delete_file(bucket :: PhoenixKit.Storage.Bucket.t(), file_path :: String.t()) ::
+  @callback delete_file(bucket :: PhoenixKit.Modules.Storage.Bucket.t(), file_path :: String.t()) ::
               :ok | {:error, term()}
 
   @doc """
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Storage.Provider do
 
   - `true` if file exists, `false` otherwise
   """
-  @callback file_exists?(bucket :: PhoenixKit.Storage.Bucket.t(), file_path :: String.t()) ::
+  @callback file_exists?(bucket :: PhoenixKit.Modules.Storage.Bucket.t(), file_path :: String.t()) ::
               boolean()
 
   @doc """
@@ -91,7 +91,7 @@ defmodule PhoenixKit.Storage.Provider do
 
   - Public URL string or `nil` if not applicable
   """
-  @callback public_url(bucket :: PhoenixKit.Storage.Bucket.t(), file_path :: String.t()) ::
+  @callback public_url(bucket :: PhoenixKit.Modules.Storage.Bucket.t(), file_path :: String.t()) ::
               String.t() | nil
 
   @doc """
@@ -106,5 +106,6 @@ defmodule PhoenixKit.Storage.Provider do
   - `:ok` - Connection successful
   - `{:error, reason}` - Connection failed
   """
-  @callback test_connection(bucket :: PhoenixKit.Storage.Bucket.t()) :: :ok | {:error, term()}
+  @callback test_connection(bucket :: PhoenixKit.Modules.Storage.Bucket.t()) ::
+              :ok | {:error, term()}
 end

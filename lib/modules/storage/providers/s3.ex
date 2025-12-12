@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Providers.S3 do
+defmodule PhoenixKit.Modules.Storage.Providers.S3 do
   @moduledoc """
   AWS S3 storage provider.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKit.Storage.Providers.S3 do
   Supports all S3-compatible services (like DigitalOcean Spaces, MinIO, etc.).
   """
 
-  @behaviour PhoenixKit.Storage.Provider
+  @behaviour PhoenixKit.Modules.Storage.Provider
 
   @impl true
   def store_file(bucket, source_path, destination_path, opts \\ []) do

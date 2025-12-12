@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.FileLocation do
+defmodule PhoenixKit.Modules.Storage.FileLocation do
   @moduledoc """
   Schema for physical storage locations (redundancy tracking).
 
@@ -78,8 +78,9 @@ defmodule PhoenixKit.Storage.FileLocation do
           last_verified_at: NaiveDateTime.t() | nil,
           file_instance_id: UUIDv7.t() | nil,
           bucket_id: UUIDv7.t() | nil,
-          file_instance: PhoenixKit.Storage.FileInstance.t() | Ecto.Association.NotLoaded.t(),
-          bucket: PhoenixKit.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
+          file_instance:
+            PhoenixKit.Modules.Storage.FileInstance.t() | Ecto.Association.NotLoaded.t(),
+          bucket: PhoenixKit.Modules.Storage.Bucket.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -90,8 +91,8 @@ defmodule PhoenixKit.Storage.FileLocation do
     field :priority, :integer, default: 0
     field :last_verified_at, :naive_datetime
 
-    belongs_to :file_instance, PhoenixKit.Storage.FileInstance
-    belongs_to :bucket, PhoenixKit.Storage.Bucket
+    belongs_to :file_instance, PhoenixKit.Modules.Storage.FileInstance
+    belongs_to :bucket, PhoenixKit.Modules.Storage.Bucket
 
     timestamps(type: :naive_datetime)
   end

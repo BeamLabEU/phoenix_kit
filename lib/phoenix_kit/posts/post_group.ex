@@ -60,7 +60,7 @@ defmodule PhoenixKit.Posts.PostGroup do
           is_public: boolean(),
           position: integer(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          cover_image: PhoenixKit.Storage.File.t() | Ecto.Association.NotLoaded.t() | nil,
+          cover_image: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t() | nil,
           posts: [PhoenixKit.Posts.Post.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -75,7 +75,7 @@ defmodule PhoenixKit.Posts.PostGroup do
     field :position, :integer, default: 0
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    belongs_to :cover_image, PhoenixKit.Storage.File, type: UUIDv7
+    belongs_to :cover_image, PhoenixKit.Modules.Storage.File, type: UUIDv7
 
     many_to_many :posts, PhoenixKit.Posts.Post, join_through: PhoenixKit.Posts.PostGroupAssignment
 

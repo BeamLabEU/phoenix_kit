@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.URLSigner do
+defmodule PhoenixKit.Modules.Storage.URLSigner do
   # NOTE: Temporarily supporting the blogging component system until the storage/media team ships their replacement.
   import Bitwise
 
@@ -16,22 +16,22 @@ defmodule PhoenixKit.Storage.URLSigner do
   Token = first 4 chars of MD5(file_id:instance_name + secret_key_base)
 
   This ensures:
-  - ✅ Prevents file enumeration (can't guess URLs)
-  - ✅ Each instance has unique token
-  - ✅ Token changes if secret changes
-  - ✅ Secure comparison prevents timing attacks
-  - ✅ No user-guessable patterns
+  - Prevents file enumeration (can't guess URLs)
+  - Each instance has unique token
+  - Token changes if secret changes
+  - Secure comparison prevents timing attacks
+  - No user-guessable patterns
 
   ## Examples
 
       iex> file_id = "018e3c4a-9f6b-7890-abcd-ef1234567890"
-      iex> PhoenixKit.Storage.URLSigner.signed_url(file_id, "thumbnail")
+      iex> PhoenixKit.Modules.Storage.URLSigner.signed_url(file_id, "thumbnail")
       "/file/018e3c4a-9f6b-7890-abcd-ef1234567890/thumbnail/a3f2"
 
-      iex> PhoenixKit.Storage.URLSigner.verify_token(file_id, "thumbnail", "a3f2")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "a3f2")
       true
 
-      iex> PhoenixKit.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
       false
   """
 
@@ -49,7 +49,7 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   ## Examples
 
-      iex> PhoenixKit.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
+      iex> PhoenixKit.Modules.Storage.URLSigner.signed_url("018e3c4a-9f6b-7890", "thumbnail")
       "/phoenix_kit/file/018e3c4a-9f6b-7890/thumbnail/abc1"  # With default prefix
   """
   def signed_url(file_id, instance_name, opts \\ [])
@@ -76,11 +76,11 @@ defmodule PhoenixKit.Storage.URLSigner do
   ## Examples
 
       iex> file_id = "018e3c4a-9f6b-7890"
-      iex> token = PhoenixKit.Storage.URLSigner.generate_token(file_id, "thumbnail")
-      iex> PhoenixKit.Storage.URLSigner.verify_token(file_id, "thumbnail", token)
+      iex> token = PhoenixKit.Modules.Storage.URLSigner.generate_token(file_id, "thumbnail")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", token)
       true
 
-      iex> PhoenixKit.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
+      iex> PhoenixKit.Modules.Storage.URLSigner.verify_token(file_id, "thumbnail", "xxxx")
       false
   """
   def verify_token(file_id, instance_name, token)
@@ -106,7 +106,7 @@ defmodule PhoenixKit.Storage.URLSigner do
 
   ## Examples
 
-      iex> PhoenixKit.Storage.URLSigner.generate_token("018e3c4a", "thumbnail")
+      iex> PhoenixKit.Modules.Storage.URLSigner.generate_token("018e3c4a", "thumbnail")
       "abc1"
   """
   def generate_token(file_id, instance_name)

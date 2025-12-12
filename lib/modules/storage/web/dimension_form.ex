@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
+defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
   @moduledoc """
   Dimension form LiveView for storage dimension management.
 
@@ -7,8 +7,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.DimensionForm do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do

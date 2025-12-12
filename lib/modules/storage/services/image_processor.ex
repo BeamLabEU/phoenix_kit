@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.ImageProcessor do
+defmodule PhoenixKit.Modules.Storage.ImageProcessor do
   @moduledoc """
   ImageMagick-based image processing module.
 

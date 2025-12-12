@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.VariantGenerator do
+defmodule PhoenixKit.Modules.Storage.VariantGenerator do
   @moduledoc """
   Variant generation system for images and videos.
 
@@ -26,9 +26,9 @@ defmodule PhoenixKit.Storage.VariantGenerator do
 
   """
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.ImageProcessor
-  alias PhoenixKit.Storage.Manager
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.ImageProcessor
+  alias PhoenixKit.Modules.Storage.Manager
 
   require Logger
 

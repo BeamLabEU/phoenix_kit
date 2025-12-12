@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Manager do
+defmodule PhoenixKit.Modules.Storage.Manager do
   @moduledoc """
   Storage manager for handling file operations with redundancy and failover.
 
@@ -6,7 +6,9 @@ defmodule PhoenixKit.Storage.Manager do
   redundancy, failover, and variant generation.
   """
 
-  alias PhoenixKit.Storage.ProviderRegistry
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.ProviderRegistry
+  alias PhoenixKit.Settings
 
   # Cache TTL for bucket list (5 minutes)
   @buckets_cache_ttl 300_000
@@ -121,7 +123,7 @@ defmodule PhoenixKit.Storage.Manager do
     if Enum.empty?(priority_buckets) do
       # Get fresh bucket list from database (don't use cache for selection)
       # This ensures we get the current state and can shuffle properly
-      all_buckets = PhoenixKit.Storage.list_enabled_buckets()
+      all_buckets = Storage.list_enabled_buckets()
 
       # Separate buckets by priority
       {auto_priority_buckets, fixed_priority_buckets} =
@@ -136,7 +138,7 @@ defmodule PhoenixKit.Storage.Manager do
       |> Enum.take(redundancy_copies)
     else
       # Use specified buckets
-      PhoenixKit.Storage.list_enabled_buckets()
+      Storage.list_enabled_buckets()
       |> Enum.filter(&(&1.id in priority_buckets))
       |> Enum.take(redundancy_copies)
     end
@@ -238,20 +240,20 @@ defmodule PhoenixKit.Storage.Manager do
 
       _ ->
         # Cache miss or expired - fetch fresh buckets
-        buckets = PhoenixKit.Storage.list_enabled_buckets()
+        buckets = Storage.list_enabled_buckets()
         :persistent_term.put(cache_key, {current_time, buckets})
         buckets
     end
   end
 
   defp get_redundancy_copies do
-    PhoenixKit.Settings.get_setting("storage_redundancy_copies", "1")
+    Settings.get_setting("storage_redundancy_copies", "1")
     |> String.to_integer()
     |> max(1)
     |> min(5)
   end
 
   defp get_auto_generate_variants do
-    PhoenixKit.Settings.get_setting("storage_auto_generate_variants", "true") == "true"
+    Settings.get_setting("storage_auto_generate_variants", "true") == "true"
   end
 end

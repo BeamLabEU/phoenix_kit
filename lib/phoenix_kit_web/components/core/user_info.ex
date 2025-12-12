@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
 
   use Phoenix.Component
 
-  alias PhoenixKit.Storage.URLSigner
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Users.Role
 
   # Gradient colors for avatar fallback (15 variants)

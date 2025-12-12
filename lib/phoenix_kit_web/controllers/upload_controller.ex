@@ -6,9 +6,9 @@ defmodule PhoenixKitWeb.UploadController do
   """
   use PhoenixKitWeb, :controller
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.File, as: StorageFile
-  alias PhoenixKit.Storage.Workers.ProcessFileJob
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.File, as: StorageFile
+  alias PhoenixKit.Modules.Storage.ProcessFileJob
 
   @upload_config %{
     # 100MB max file size
