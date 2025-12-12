@@ -157,7 +157,8 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
   defp handle_entity_conflict(existing_entity, definition, :merge) do
     attrs = %{
       display_name: definition["display_name"] || existing_entity.display_name,
-      display_name_plural: definition["display_name_plural"] || existing_entity.display_name_plural,
+      display_name_plural:
+        definition["display_name_plural"] || existing_entity.display_name_plural,
       description: definition["description"] || existing_entity.description,
       icon: definition["icon"] || existing_entity.icon,
       status: definition["status"] || existing_entity.status,
@@ -182,19 +183,17 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
   defp import_data_record(entity, record_data, strategy) do
     slug = record_data["slug"]
 
-    cond do
-      is_nil(slug) or slug == "" ->
-        # Records without slugs can't be matched to existing records, so always create new
-        create_data_from_import(entity, record_data)
+    if is_nil(slug) or slug == "" do
+      # Records without slugs can't be matched to existing records, so always create new
+      create_data_from_import(entity, record_data)
+    else
+      case EntityData.get_by_slug(entity.id, slug) do
+        nil ->
+          create_data_from_import(entity, record_data)
 
-      true ->
-        case EntityData.get_by_slug(entity.id, slug) do
-          nil ->
-            create_data_from_import(entity, record_data)
-
-          existing_record ->
-            handle_data_conflict(existing_record, record_data, strategy)
-        end
+        existing_record ->
+          handle_data_conflict(existing_record, record_data, strategy)
+      end
     end
   end
 
@@ -218,7 +217,8 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
     end
   end
 
-  defp generate_slug_if_missing(_entity_id, slug, _title) when is_binary(slug) and slug != "", do: slug
+  defp generate_slug_if_missing(_entity_id, slug, _title) when is_binary(slug) and slug != "",
+    do: slug
 
   defp generate_slug_if_missing(entity_id, _slug, title) when is_binary(title) and title != "" do
     base_slug = Slug.slugify(title)
@@ -249,7 +249,8 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
   defp preview_generated_slug(_), do: "(auto-generated)"
 
   # Find the next available slug for preview, considering DB and batch
-  defp find_next_available_slug_preview(base_slug, _entity_id, _batch_counts) when base_slug in ["(auto-generated)", ""] do
+  defp find_next_available_slug_preview(base_slug, _entity_id, _batch_counts)
+       when base_slug in ["(auto-generated)", ""] do
     # Can't predict for auto-generated slugs
     "(auto-generated)"
   end
@@ -394,46 +395,47 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
   defp import_entity_selective(entity_name, %{definition: def_action, data: data_actions}) do
     case Storage.read_entity(entity_name) do
       {:ok, %{"definition" => definition, "data" => data}} ->
-        # Import definition if not skipped
-        definition_result =
-          if def_action == :skip do
-            {:ok, :skipped, nil}
-          else
-            import_definition(definition, def_action)
-          end
-
-        # Get the entity for data import
-        entity_name_from_def = definition["name"]
-
-        data_results =
-          case Entities.get_entity_by_name(entity_name_from_def) do
-            nil ->
-              # Entity doesn't exist, can't import data
-              Enum.map(data, fn record ->
-                {:error, {:entity_not_found, entity_name_from_def, record["slug"]}}
-              end)
-
-            entity ->
-              data
-              |> Enum.with_index()
-              |> Enum.map(fn {record_data, index} ->
-                slug = record_data["slug"]
-                # Use index-based key for records without slugs (matches preview)
-                selection_key = if is_nil(slug) or slug == "", do: "new-#{index}", else: slug
-                action = Map.get(data_actions, selection_key, :skip)
-
-                if action == :skip do
-                  {:ok, :skipped, nil}
-                else
-                  import_data_record(entity, record_data, action)
-                end
-              end)
-          end
-
+        definition_result = import_definition_selective(definition, def_action)
+        data_results = import_data_selective(definition["name"], data, data_actions)
         %{definition: definition_result, data: data_results}
 
       {:error, reason} ->
         %{definition: {:error, reason}, data: []}
+    end
+  end
+
+  defp import_definition_selective(_definition, :skip), do: {:ok, :skipped, nil}
+  defp import_definition_selective(definition, action), do: import_definition(definition, action)
+
+  defp import_data_selective(entity_name, data, data_actions) do
+    case Entities.get_entity_by_name(entity_name) do
+      nil ->
+        Enum.map(data, fn record ->
+          {:error, {:entity_not_found, entity_name, record["slug"]}}
+        end)
+
+      entity ->
+        import_data_records_with_actions(entity, data, data_actions)
+    end
+  end
+
+  defp import_data_records_with_actions(entity, data, data_actions) do
+    data
+    |> Enum.with_index()
+    |> Enum.map(fn {record_data, index} ->
+      import_single_data_record(entity, record_data, index, data_actions)
+    end)
+  end
+
+  defp import_single_data_record(entity, record_data, index, data_actions) do
+    slug = record_data["slug"]
+    selection_key = if is_nil(slug) or slug == "", do: "new-#{index}", else: slug
+    action = Map.get(data_actions, selection_key, :skip)
+
+    if action == :skip do
+      {:ok, :skipped, nil}
+    else
+      import_data_record(entity, record_data, action)
     end
   end
 
@@ -517,73 +519,40 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
 
   defp preview_entity_file(entity_name, definition, data) do
     existing_entity = Entities.get_entity_by_name(definition["name"])
-
-    definition_preview =
-      case existing_entity do
-        nil ->
-          %{name: entity_name, action: :create}
-
-        existing ->
-          if entity_definitions_match?(existing, definition) do
-            %{name: entity_name, action: :identical, existing_id: existing.id}
-          else
-            %{name: entity_name, action: :conflict, existing_id: existing.id}
-          end
-      end
-
-    # For data preview: if entity exists, check each record
-    # If entity doesn't exist (will be created), all data records will be new
-    # Track generated slugs to show uniqueness suffix for duplicates
-    # Also consider existing database slugs when generating previews
+    definition_preview = preview_definition(entity_name, existing_entity, definition)
     entity_id_for_slugs = if existing_entity, do: existing_entity.id, else: nil
+    data_previews = preview_data_records(entity_name, existing_entity, entity_id_for_slugs, data)
 
+    %{definition: definition_preview, data: data_previews}
+  end
+
+  defp preview_definition(entity_name, nil, _definition) do
+    %{name: entity_name, action: :create}
+  end
+
+  defp preview_definition(entity_name, existing, definition) do
+    if entity_definitions_match?(existing, definition) do
+      %{name: entity_name, action: :identical, existing_id: existing.id}
+    else
+      %{name: entity_name, action: :conflict, existing_id: existing.id}
+    end
+  end
+
+  defp preview_data_records(entity_name, existing_entity, entity_id_for_slugs, data) do
     {data_previews, _slug_counts} =
       data
       |> Enum.with_index()
       |> Enum.reduce({[], %{}}, fn {record, index}, {previews, slug_counts} ->
-        slug = record["slug"]
-        title = record["title"]
-
         preview =
-          cond do
-            is_nil(slug) or slug == "" ->
-              # Records without slugs can't be matched, so they're always new
-              # Use index-based key for unique identification
-              base_slug = preview_generated_slug(title)
-              import_key = "new-#{index}"
+          preview_single_record(
+            entity_name,
+            existing_entity,
+            entity_id_for_slugs,
+            record,
+            index,
+            slug_counts
+          )
 
-              # Find the next available slug considering both DB and batch
-              display_generated = find_next_available_slug_preview(
-                base_slug,
-                entity_id_for_slugs,
-                slug_counts
-              )
-
-              %{entity_name: entity_name, slug: import_key, display_slug: "(no slug)", title: title, generated_slug: display_generated, action: :create, is_new_record: true, _base_slug: base_slug}
-
-            existing_entity == nil ->
-              # Entity will be created, so all data records will be new
-              %{entity_name: entity_name, slug: slug, title: title, action: :create}
-
-            true ->
-              case EntityData.get_by_slug(existing_entity.id, slug) do
-                nil ->
-                  %{entity_name: entity_name, slug: slug, title: title, action: :create}
-
-                existing ->
-                  # Record exists - calculate what slug would be used if imported as new
-                  # This helps user understand that re-importing would create a duplicate
-                  new_slug_if_imported = find_next_available_slug_preview(slug, entity_id_for_slugs, slug_counts)
-
-                  if data_records_match?(existing, record) do
-                    %{entity_name: entity_name, slug: slug, title: title, action: :identical, existing_id: existing.id, generated_slug: new_slug_if_imported}
-                  else
-                    %{entity_name: entity_name, slug: slug, title: title, action: :conflict, existing_id: existing.id, generated_slug: new_slug_if_imported}
-                  end
-              end
-          end
-
-        # Update slug counts for new records
         new_counts =
           if preview[:_base_slug] do
             Map.update(slug_counts, preview[:_base_slug], 1, &(&1 + 1))
@@ -594,7 +563,75 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
         {previews ++ [Map.delete(preview, :_base_slug)], new_counts}
       end)
 
-    %{definition: definition_preview, data: data_previews}
+    data_previews
+  end
+
+  defp preview_single_record(
+         entity_name,
+         _existing_entity,
+         entity_id_for_slugs,
+         record,
+         index,
+         slug_counts
+       ) do
+    slug = record["slug"]
+    title = record["title"]
+
+    if is_nil(slug) or slug == "" do
+      preview_new_record_without_slug(entity_name, entity_id_for_slugs, title, index, slug_counts)
+    else
+      preview_record_with_slug(entity_name, entity_id_for_slugs, record, slug, title, slug_counts)
+    end
+  end
+
+  defp preview_new_record_without_slug(
+         entity_name,
+         entity_id_for_slugs,
+         title,
+         index,
+         slug_counts
+       ) do
+    base_slug = preview_generated_slug(title)
+    import_key = "new-#{index}"
+
+    display_generated =
+      find_next_available_slug_preview(base_slug, entity_id_for_slugs, slug_counts)
+
+    %{
+      entity_name: entity_name,
+      slug: import_key,
+      display_slug: "(no slug)",
+      title: title,
+      generated_slug: display_generated,
+      action: :create,
+      is_new_record: true,
+      _base_slug: base_slug
+    }
+  end
+
+  defp preview_record_with_slug(entity_name, nil, _record, slug, title, _slug_counts) do
+    # Entity will be created, so all data records will be new
+    %{entity_name: entity_name, slug: slug, title: title, action: :create}
+  end
+
+  defp preview_record_with_slug(entity_name, entity_id, record, slug, title, slug_counts) do
+    case EntityData.get_by_slug(entity_id, slug) do
+      nil ->
+        %{entity_name: entity_name, slug: slug, title: title, action: :create}
+
+      existing ->
+        new_slug_if_imported = find_next_available_slug_preview(slug, entity_id, slug_counts)
+        action = if data_records_match?(existing, record), do: :identical, else: :conflict
+
+        %{
+          entity_name: entity_name,
+          slug: slug,
+          title: title,
+          action: action,
+          existing_id: existing.id,
+          generated_slug: new_slug_if_imported
+        }
+    end
   end
 
   @doc """

@@ -271,19 +271,31 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
     {:noreply, assign(socket, :import_active_tab, entity_name)}
   end
 
-  def handle_event("set_definition_action", %{"entity" => entity_name, "action" => action}, socket) do
+  def handle_event(
+        "set_definition_action",
+        %{"entity" => entity_name, "action" => action},
+        socket
+      ) do
     action_atom = String.to_existing_atom(action)
     selections = put_in(socket.assigns.import_selections, [entity_name, :definition], action_atom)
     {:noreply, assign(socket, :import_selections, selections)}
   end
 
-  def handle_event("set_record_action", %{"entity" => entity_name, "slug" => slug, "action" => action}, socket) do
+  def handle_event(
+        "set_record_action",
+        %{"entity" => entity_name, "slug" => slug, "action" => action},
+        socket
+      ) do
     action_atom = String.to_existing_atom(action)
     selections = put_in(socket.assigns.import_selections, [entity_name, :data, slug], action_atom)
     {:noreply, assign(socket, :import_selections, selections)}
   end
 
-  def handle_event("set_all_records_action", %{"entity" => entity_name, "action" => action}, socket) do
+  def handle_event(
+        "set_all_records_action",
+        %{"entity" => entity_name, "action" => action},
+        socket
+      ) do
     action_atom = String.to_existing_atom(action)
 
     # Find the entity in preview to get all slugs
@@ -295,7 +307,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
         |> Enum.map(fn record -> {record.slug, action_atom} end)
         |> Map.new()
 
-      selections = put_in(socket.assigns.import_selections, [entity_name, :data], new_data_selections)
+      selections =
+        put_in(socket.assigns.import_selections, [entity_name, :data], new_data_selections)
+
       {:noreply, assign(socket, :import_selections, selections)}
     else
       {:noreply, socket}

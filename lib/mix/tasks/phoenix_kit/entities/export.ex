@@ -91,12 +91,10 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
     # Ensure directory exists
     Storage.ensure_directory()
 
-    cond do
-      options[:entity] ->
-        export_single_entity(options[:entity], options)
-
-      true ->
-        export_all(options)
+    if options[:entity] do
+      export_single_entity(options[:entity], options)
+    else
+      export_all(options)
     end
   end
 

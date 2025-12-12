@@ -134,73 +134,97 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Import do
     end
 
     preview = Importer.preview_import()
-    summary = preview.summary
 
-    unless options[:quiet] do
-      Mix.shell().info("--- Entity Definitions ---")
-      Mix.shell().info("Total files: #{summary.definitions.total}")
-      Mix.shell().info("New entities: #{summary.definitions.new}")
-      Mix.shell().info("Identical: #{summary.definitions.identical}")
-      Mix.shell().info("Changed: #{summary.definitions.conflicts}")
+    log_definition_summary(preview.summary.definitions, options)
+    log_entity_details(preview.entities, options)
+    log_data_summary(preview.summary.data, options)
+    log_data_details(preview.entities, preview.summary.data.total, options)
+    log_dry_run_footer(options)
+  end
 
-      if length(preview.entities) > 0 do
-        Mix.shell().info("\nDetails:")
+  defp log_definition_summary(summary, %{quiet: true}), do: summary
 
-        Enum.each(preview.entities, fn entity ->
-          case entity.definition.action do
-            :create ->
-              Mix.shell().info("  [NEW] #{entity.name}")
+  defp log_definition_summary(summary, _options) do
+    Mix.shell().info("--- Entity Definitions ---")
+    Mix.shell().info("Total files: #{summary.total}")
+    Mix.shell().info("New entities: #{summary.new}")
+    Mix.shell().info("Identical: #{summary.identical}")
+    Mix.shell().info("Changed: #{summary.conflicts}")
+    summary
+  end
 
-            :identical ->
-              Mix.shell().info("  [IDENTICAL] #{entity.name}")
+  defp log_entity_details(_entities, %{quiet: true}), do: :ok
+  defp log_entity_details([], _options), do: :ok
 
-            :conflict ->
-              Mix.shell().info("  [CHANGED] #{entity.name} (existing id: #{entity.definition.existing_id})")
+  defp log_entity_details(entities, _options) do
+    Mix.shell().info("\nDetails:")
+    Enum.each(entities, &log_entity_definition/1)
+  end
 
-            :error ->
-              Mix.shell().error("  [ERROR] #{entity.name}")
-          end
-        end)
-      end
+  defp log_entity_definition(entity) do
+    case entity.definition.action do
+      :create ->
+        Mix.shell().info("  [NEW] #{entity.name}")
+
+      :identical ->
+        Mix.shell().info("  [IDENTICAL] #{entity.name}")
+
+      :conflict ->
+        Mix.shell().info(
+          "  [CHANGED] #{entity.name} (existing id: #{entity.definition.existing_id})"
+        )
+
+      :error ->
+        Mix.shell().error("  [ERROR] #{entity.name}")
     end
+  end
 
-    unless options[:quiet] do
-      Mix.shell().info("\n--- Entity Data Records ---")
-      Mix.shell().info("Total records: #{summary.data.total}")
-      Mix.shell().info("New records: #{summary.data.new}")
-      Mix.shell().info("Identical: #{summary.data.identical}")
-      Mix.shell().info("Changed: #{summary.data.conflicts}")
+  defp log_data_summary(_summary, %{quiet: true}), do: :ok
 
-      if summary.data.total > 0 do
-        Mix.shell().info("\nDetails:")
+  defp log_data_summary(summary, _options) do
+    Mix.shell().info("\n--- Entity Data Records ---")
+    Mix.shell().info("Total records: #{summary.total}")
+    Mix.shell().info("New records: #{summary.new}")
+    Mix.shell().info("Identical: #{summary.identical}")
+    Mix.shell().info("Changed: #{summary.conflicts}")
+  end
 
-        Enum.each(preview.entities, fn entity ->
-          Enum.each(entity.data, fn record ->
-            case record.action do
-              :create ->
-                Mix.shell().info("  [NEW] #{entity.name}/#{record.slug}")
+  defp log_data_details(_entities, _total, %{quiet: true}), do: :ok
+  defp log_data_details(_entities, 0, _options), do: :ok
 
-              :identical ->
-                Mix.shell().info("  [IDENTICAL] #{entity.name}/#{record.slug}")
+  defp log_data_details(entities, _total, _options) do
+    Mix.shell().info("\nDetails:")
+    Enum.each(entities, &log_entity_data_records/1)
+  end
 
-              :conflict ->
-                Mix.shell().info(
-                  "  [CHANGED] #{entity.name}/#{record.slug} (existing id: #{record.existing_id})"
-                )
+  defp log_entity_data_records(entity) do
+    Enum.each(entity.data, fn record -> log_data_record(entity.name, record) end)
+  end
 
-              :error ->
-                Mix.shell().error("  [ERROR] #{entity.name}/#{record.slug}")
-            end
-          end)
-        end)
-      end
+  defp log_data_record(entity_name, record) do
+    case record.action do
+      :create ->
+        Mix.shell().info("  [NEW] #{entity_name}/#{record.slug}")
+
+      :identical ->
+        Mix.shell().info("  [IDENTICAL] #{entity_name}/#{record.slug}")
+
+      :conflict ->
+        Mix.shell().info(
+          "  [CHANGED] #{entity_name}/#{record.slug} (existing id: #{record.existing_id})"
+        )
+
+      :error ->
+        Mix.shell().error("  [ERROR] #{entity_name}/#{record.slug}")
     end
+  end
 
-    unless options[:quiet] do
-      Mix.shell().info("\n--- Summary ---")
-      Mix.shell().info("To proceed with import, run without --dry-run")
-      Mix.shell().info("Use --on-conflict to specify how to handle conflicts")
-    end
+  defp log_dry_run_footer(%{quiet: true}), do: :ok
+
+  defp log_dry_run_footer(_options) do
+    Mix.shell().info("\n--- Summary ---")
+    Mix.shell().info("To proceed with import, run without --dry-run")
+    Mix.shell().info("Use --on-conflict to specify how to handle conflicts")
   end
 
   defp import_single_entity(entity_name, strategy, options) do

@@ -304,7 +304,9 @@
                     phx-value-entity={entity.name}
                   >
                     {entity.name}
-                    <span class={"badge badge-sm ml-2 #{if @import_active_tab == entity.name, do: "badge-primary", else: "badge-ghost"}"}>{length(entity.data)}</span>
+                    <span class={"badge badge-sm ml-2 #{if @import_active_tab == entity.name, do: "badge-primary", else: "badge-ghost"}"}>
+                      {length(entity.data)}
+                    </span>
                   </button>
                 <% end %>
               </div>
@@ -334,13 +336,28 @@
                         phx-value-entity={entity.name}
                         name="action"
                       >
-                        <option value="skip" selected={get_definition_action(@import_selections, entity.name) == :skip}>
+                        <option
+                          value="skip"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :skip
+                          }
+                        >
                           {gettext("Skip")}
                         </option>
-                        <option value="overwrite" selected={get_definition_action(@import_selections, entity.name) == :overwrite}>
+                        <option
+                          value="overwrite"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :overwrite
+                          }
+                        >
                           {gettext("Import/Overwrite")}
                         </option>
-                        <option value="merge" selected={get_definition_action(@import_selections, entity.name) == :merge}>
+                        <option
+                          value="merge"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :merge
+                          }
+                        >
                           {gettext("Merge")}
                         </option>
                       </select>
@@ -350,7 +367,9 @@
                   <%!-- Data Records Section --%>
                   <%= if length(entity.data) > 0 do %>
                     <div class="flex items-center justify-between mb-2">
-                      <span class="font-semibold">{gettext("Data Records")} ({length(entity.data)})</span>
+                      <span class="font-semibold">
+                        {gettext("Data Records")} ({length(entity.data)})
+                      </span>
                       <div class="flex gap-2">
                         <button
                           class="btn btn-xs btn-ghost"
@@ -387,23 +406,37 @@
                               <td>
                                 <%= case record.action do %>
                                   <% :create -> %>
-                                    <span class="badge badge-success badge-xs">{gettext("NEW")}</span>
+                                    <span class="badge badge-success badge-xs">
+                                      {gettext("NEW")}
+                                    </span>
                                   <% :identical -> %>
-                                    <span class="badge badge-ghost badge-xs">{gettext("IDENTICAL")}</span>
+                                    <span class="badge badge-ghost badge-xs">
+                                      {gettext("IDENTICAL")}
+                                    </span>
                                   <% :conflict -> %>
-                                    <span class="badge badge-warning badge-xs">{gettext("CHANGED")}</span>
+                                    <span class="badge badge-warning badge-xs">
+                                      {gettext("CHANGED")}
+                                    </span>
                                   <% _ -> %>
-                                    <span class="badge badge-error badge-xs">{gettext("ERROR")}</span>
+                                    <span class="badge badge-error badge-xs">
+                                      {gettext("ERROR")}
+                                    </span>
                                 <% end %>
                               </td>
                               <td class="font-mono text-xs">
                                 <%= if record[:is_new_record] do %>
-                                  <span class="text-base-content/50">{record[:display_slug]}</span>
-                                  <span class="text-success text-xs block">→ {record[:generated_slug]}</span>
+                                  <span class="text-base-content/50">
+                                    {record[:display_slug]}
+                                  </span>
+                                  <span class="text-success text-xs block">
+                                    → {record[:generated_slug]}
+                                  </span>
                                 <% else %>
                                   {record.slug}
                                   <%= if record[:generated_slug] do %>
-                                    <span class="text-warning text-xs block">→ {record[:generated_slug]}</span>
+                                    <span class="text-warning text-xs block">
+                                      → {record[:generated_slug]}
+                                    </span>
                                   <% end %>
                                 <% end %>
                               </td>
@@ -416,13 +449,40 @@
                                   phx-value-slug={record.slug}
                                   name="action"
                                 >
-                                  <option value="skip" selected={get_record_action(@import_selections, entity.name, record.slug) == :skip}>
+                                  <option
+                                    value="skip"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :skip
+                                    }
+                                  >
                                     {gettext("Skip")}
                                   </option>
-                                  <option value="overwrite" selected={get_record_action(@import_selections, entity.name, record.slug) == :overwrite}>
+                                  <option
+                                    value="overwrite"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :overwrite
+                                    }
+                                  >
                                     {gettext("Import")}
                                   </option>
-                                  <option value="merge" selected={get_record_action(@import_selections, entity.name, record.slug) == :merge}>
+                                  <option
+                                    value="merge"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :merge
+                                    }
+                                  >
                                     {gettext("Merge")}
                                   </option>
                                 </select>
