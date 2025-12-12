@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Refactor.LongQuoteBlocks
 defmodule PhoenixKitWeb.Integration do
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
