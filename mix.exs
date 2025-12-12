@@ -161,6 +161,7 @@ defmodule PhoenixKit.MixProject do
         "guides/making-pages-live.md",
         "guides/phk_blogging_format.md",
         "guides/AUTH_HEADER_INTEGRATION.md",
+        "guides/draggable_list_component.md",
         "guides/README.md"
       ],
       groups_for_extras: [
