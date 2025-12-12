@@ -180,7 +180,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Preserves file_checksum field for popularity analytics across all users
   - Clearer naming convention: file_checksum vs user_file_checksum
 
-  ### V27 - Oban Background Job System ⚡ LATEST
+  ### V27 - Oban Background Job System
   - Creates Oban tables for background job processing
   - Oban_jobs table for job queue management
   - Oban_peers table for distributed coordination
@@ -189,6 +189,33 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Enables email processing (sending, tracking, analytics)
   - Uses Oban's latest schema version automatically (forward-compatible)
   - Integrated with PhoenixKit configuration system
+
+  ### V28 - User Preferred Locale
+  - Adds `preferred_locale` column to `phoenix_kit_users` table
+  - Supports user-specific language dialect preferences
+  - Enables simplified URL structure with dialect preferences
+
+  ### V29 - Posts System
+  - Complete social posts system with media attachments
+  - Posts with privacy controls (draft/public/unlisted/scheduled)
+  - Post comments with nested threading
+  - Post likes and user mentions
+  - Post tags and user groups
+
+  ### V30 - Move Preferred Locale to Custom Fields
+  - Migrates preferred_locale from column to custom_fields JSONB
+  - Reduces schema complexity
+  - Backward compatible data access
+
+  ### V31 - Billing System (Phase 1) ⚡ LATEST
+  - Phoenix_kit_currencies for multi-currency support
+  - Phoenix_kit_billing_profiles for user billing information (EU Standard)
+  - Phoenix_kit_orders for order management with line items
+  - Phoenix_kit_invoices for invoice generation with receipt functionality
+  - Phoenix_kit_transactions for payment tracking
+  - Bank transfer payment workflow (manual payment marking)
+  - Default currencies seeding (EUR, USD, GBP)
+  - Billing settings for prefixes and configuration
 
   ## Migration Paths
 
@@ -248,7 +275,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 30
+  @current_version 31
   @default_prefix "public"
 
   @doc false

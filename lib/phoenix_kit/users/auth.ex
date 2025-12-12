@@ -164,6 +164,27 @@ defmodule PhoenixKit.Users.Auth do
   def get_user!(id), do: Repo.get!(User, id)
 
   @doc """
+  Gets users by list of IDs.
+
+  Returns list of users with all fields including custom_fields.
+  Useful for batch loading users when you have a list of IDs.
+
+  ## Examples
+
+      iex> get_users_by_ids([1, 2, 3])
+      [%User{id: 1, ...}, %User{id: 2, ...}]
+
+      iex> get_users_by_ids([])
+      []
+  """
+  def get_users_by_ids([]), do: []
+
+  def get_users_by_ids(ids) when is_list(ids) do
+    from(u in User, where: u.id in ^ids)
+    |> Repo.all()
+  end
+
+  @doc """
   Gets the first admin user (Owner or Admin role).
 
   Useful for programmatic operations that require a user ID, such as

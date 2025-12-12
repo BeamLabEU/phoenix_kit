@@ -100,348 +100,7 @@ defmodule PhoenixKit.Modules.Languages do
   @enabled_key "languages_enabled"
   @module_name "languages"
 
-  # Predefined list of available languages
-  # Each language includes a countries list for grouping (language can appear under multiple countries)
-  @available_languages [
-    %{code: "sq", name: "Albanian", native: "Shqip", flag: "🇦🇱", countries: ["Albania"]},
-    %{code: "am", name: "Amharic", native: "አማርኛ", flag: "🇪🇹", countries: ["Ethiopia"]},
-    %{
-      code: "ar",
-      name: "Arabic",
-      native: "العربية",
-      flag: "🇸🇦",
-      countries: ["Saudi Arabia", "Egypt", "United Arab Emirates", "Morocco", "Iraq", "Jordan"]
-    },
-    %{code: "hy", name: "Armenian", native: "Հայdelays", flag: "🇦🇲", countries: ["Armenia"]},
-    %{
-      code: "az",
-      name: "Azerbaijani",
-      native: "Azərbaycan",
-      flag: "🇦🇿",
-      countries: ["Azerbaijan"]
-    },
-    %{
-      code: "eu",
-      name: "Basque",
-      native: "Euskera",
-      flag: "🏴",
-      countries: ["Basque Country", "Spain"]
-    },
-    %{code: "bn", name: "Bengali", native: "বাংলা", flag: "🇧🇩", countries: ["Bangladesh", "India"]},
-    %{
-      code: "bs",
-      name: "Bosnian",
-      native: "Bosanski",
-      flag: "🇧🇦",
-      countries: ["Bosnia and Herzegovina"]
-    },
-    %{code: "bg", name: "Bulgarian", native: "Български", flag: "🇧🇬", countries: ["Bulgaria"]},
-    %{
-      code: "ca",
-      name: "Catalan",
-      native: "Català",
-      flag: "🏴",
-      countries: ["Catalonia", "Spain"]
-    },
-    %{
-      code: "zh-CN",
-      name: "Chinese (Simplified)",
-      native: "简体中文",
-      flag: "🇨🇳",
-      countries: ["China", "Singapore", "Malaysia"]
-    },
-    %{
-      code: "zh-TW",
-      name: "Chinese (Traditional)",
-      native: "繁體中文",
-      flag: "🇹🇼",
-      countries: ["Taiwan", "Hong Kong", "Macau"]
-    },
-    %{
-      code: "hr",
-      name: "Croatian",
-      native: "Hrvatski",
-      flag: "🇭🇷",
-      countries: ["Croatia", "Bosnia and Herzegovina"]
-    },
-    %{code: "cs", name: "Czech", native: "Čeština", flag: "🇨🇿", countries: ["Czech Republic"]},
-    %{code: "da", name: "Danish", native: "Dansk", flag: "🇩🇰", countries: ["Denmark"]},
-    %{
-      code: "nl",
-      name: "Dutch",
-      native: "Nederlands",
-      flag: "🇳🇱",
-      countries: ["Netherlands", "Belgium"]
-    },
-    %{
-      code: "en-US",
-      name: "English (United States)",
-      native: "English (US)",
-      flag: "🇺🇸",
-      countries: [
-        "United States",
-        "Canada",
-        "United Kingdom",
-        "Australia",
-        "Ireland",
-        "New Zealand"
-      ]
-    },
-    %{
-      code: "en-GB",
-      name: "English (United Kingdom)",
-      native: "English (UK)",
-      flag: "🇬🇧",
-      countries: [
-        "United Kingdom",
-        "United States",
-        "Canada",
-        "Australia",
-        "Ireland",
-        "New Zealand"
-      ]
-    },
-    %{
-      code: "en-CA",
-      name: "English (Canada)",
-      native: "English (CA)",
-      flag: "🇨🇦",
-      countries: ["Canada", "United States", "United Kingdom", "Australia"]
-    },
-    %{
-      code: "en-AU",
-      name: "English (Australia)",
-      native: "English (AU)",
-      flag: "🇦🇺",
-      countries: ["Australia", "United States", "United Kingdom", "New Zealand"]
-    },
-    %{code: "et", name: "Estonian", native: "Eesti", flag: "🇪🇪", countries: ["Estonia"]},
-    %{code: "tl", name: "Filipino", native: "Filipino", flag: "🇵🇭", countries: ["Philippines"]},
-    %{code: "fi", name: "Finnish", native: "Suomi", flag: "🇫🇮", countries: ["Finland"]},
-    %{
-      code: "fr-FR",
-      name: "French (France)",
-      native: "Français (France)",
-      flag: "🇫🇷",
-      countries: ["France", "Canada", "Belgium", "Switzerland"]
-    },
-    %{
-      code: "fr-CA",
-      name: "French (Canada)",
-      native: "Français (Canada)",
-      flag: "🇨🇦",
-      countries: ["Canada", "France", "Belgium"]
-    },
-    %{code: "gl", name: "Galician", native: "Galego", flag: "🏴", countries: ["Galicia", "Spain"]},
-    %{code: "ka", name: "Georgian", native: "ქართული", flag: "🇬🇪", countries: ["Georgia"]},
-    %{
-      code: "de-DE",
-      name: "German (Germany)",
-      native: "Deutsch (Deutschland)",
-      flag: "🇩🇪",
-      countries: ["Germany", "Austria", "Switzerland"]
-    },
-    %{
-      code: "de-AT",
-      name: "German (Austria)",
-      native: "Deutsch (Österreich)",
-      flag: "🇦🇹",
-      countries: ["Austria", "Germany", "Switzerland"]
-    },
-    %{
-      code: "de-CH",
-      name: "German (Switzerland)",
-      native: "Deutsch (Schweiz)",
-      flag: "🇨🇭",
-      countries: ["Switzerland", "Germany", "Austria"]
-    },
-    %{code: "gu", name: "Gujarati", native: "ગુજરાતી", flag: "🇮🇳", countries: ["India"]},
-    %{code: "he", name: "Hebrew", native: "עברית", flag: "🇮🇱", countries: ["Israel"]},
-    %{code: "hi", name: "Hindi", native: "हिन्दी", flag: "🇮🇳", countries: ["India"]},
-    %{code: "hu", name: "Hungarian", native: "Magyar", flag: "🇭🇺", countries: ["Hungary"]},
-    %{code: "is", name: "Icelandic", native: "Íslenska", flag: "🇮🇸", countries: ["Iceland"]},
-    %{
-      code: "id",
-      name: "Indonesian",
-      native: "Bahasa Indonesia",
-      flag: "🇮🇩",
-      countries: ["Indonesia"]
-    },
-    %{
-      code: "ga",
-      name: "Irish",
-      native: "Gaeilge",
-      flag: "🇮🇪",
-      countries: ["Ireland", "United Kingdom"]
-    },
-    %{
-      code: "it",
-      name: "Italian",
-      native: "Italiano",
-      flag: "🇮🇹",
-      countries: ["Italy", "Switzerland"]
-    },
-    %{code: "ja", name: "Japanese", native: "日本語", flag: "🇯🇵", countries: ["Japan"]},
-    %{code: "kn", name: "Kannada", native: "ಕನ್ನಡ", flag: "🇮🇳", countries: ["India"]},
-    %{code: "kk", name: "Kazakh", native: "Қазақша", flag: "🇰🇿", countries: ["Kazakhstan"]},
-    %{code: "km", name: "Khmer", native: "ខ្មែរ", flag: "🇰🇭", countries: ["Cambodia"]},
-    %{
-      code: "ko",
-      name: "Korean",
-      native: "한국어",
-      flag: "🇰🇷",
-      countries: ["South Korea", "North Korea"]
-    },
-    %{code: "ky", name: "Kyrgyz", native: "Кыргызча", flag: "🇰🇬", countries: ["Kyrgyzstan"]},
-    %{code: "lo", name: "Lao", native: "ລາວ", flag: "🇱🇦", countries: ["Laos"]},
-    %{code: "lv", name: "Latvian", native: "Latviešu", flag: "🇱🇻", countries: ["Latvia"]},
-    %{code: "lt", name: "Lithuanian", native: "Lietuvių", flag: "🇱🇹", countries: ["Lithuania"]},
-    %{
-      code: "mk",
-      name: "Macedonian",
-      native: "Македонски",
-      flag: "🇲🇰",
-      countries: ["North Macedonia"]
-    },
-    %{
-      code: "ms",
-      name: "Malay",
-      native: "Bahasa Melayu",
-      flag: "🇲🇾",
-      countries: ["Malaysia", "Singapore", "Brunei"]
-    },
-    %{code: "ml", name: "Malayalam", native: "മലയാളം", flag: "🇮🇳", countries: ["India"]},
-    %{code: "mt", name: "Maltese", native: "Malti", flag: "🇲🇹", countries: ["Malta"]},
-    %{code: "mr", name: "Marathi", native: "मराठी", flag: "🇮🇳", countries: ["India"]},
-    %{code: "mn", name: "Mongolian", native: "Монгол", flag: "🇲🇳", countries: ["Mongolia"]},
-    %{
-      code: "me",
-      name: "Montenegrin",
-      native: "Crnogorski",
-      flag: "🇲🇪",
-      countries: ["Montenegro"]
-    },
-    %{code: "my", name: "Myanmar", native: "မြန်မာ", flag: "🇲🇲", countries: ["Myanmar"]},
-    %{code: "ne", name: "Nepali", native: "नेपाली", flag: "🇳🇵", countries: ["Nepal", "India"]},
-    %{code: "no", name: "Norwegian", native: "Norsk", flag: "🇳🇴", countries: ["Norway"]},
-    %{
-      code: "fa",
-      name: "Persian",
-      native: "فارسی",
-      flag: "🇮🇷",
-      countries: ["Iran", "Afghanistan", "Tajikistan"]
-    },
-    %{code: "pl", name: "Polish", native: "Polski", flag: "🇵🇱", countries: ["Poland"]},
-    %{
-      code: "pt-PT",
-      name: "Portuguese (Portugal)",
-      native: "Português (Portugal)",
-      flag: "🇵🇹",
-      countries: ["Portugal", "Brazil"]
-    },
-    %{
-      code: "pt-BR",
-      name: "Portuguese (Brazil)",
-      native: "Português (Brasil)",
-      flag: "🇧🇷",
-      countries: ["Brazil", "Portugal"]
-    },
-    %{code: "pa", name: "Punjabi", native: "ਪੰਜਾਬੀ", flag: "🇮🇳", countries: ["India", "Pakistan"]},
-    %{
-      code: "ro",
-      name: "Romanian",
-      native: "Română",
-      flag: "🇷🇴",
-      countries: ["Romania", "Moldova"]
-    },
-    %{
-      code: "ru",
-      name: "Russian",
-      native: "Русский",
-      flag: "🇷🇺",
-      countries: ["Russia", "Belarus", "Kazakhstan", "Ukraine"]
-    },
-    %{
-      code: "gd",
-      name: "Scottish Gaelic",
-      native: "Gàidhlig",
-      flag: "🏴",
-      countries: ["Scotland", "United Kingdom"]
-    },
-    %{
-      code: "sr",
-      name: "Serbian",
-      native: "Српски",
-      flag: "🇷🇸",
-      countries: ["Serbia", "Bosnia and Herzegovina", "Montenegro"]
-    },
-    %{code: "si", name: "Sinhala", native: "සිංහල", flag: "🇱🇰", countries: ["Sri Lanka"]},
-    %{code: "sk", name: "Slovak", native: "Slovenčina", flag: "🇸🇰", countries: ["Slovakia"]},
-    %{code: "sl", name: "Slovenian", native: "Slovenščina", flag: "🇸🇮", countries: ["Slovenia"]},
-    %{
-      code: "es-ES",
-      name: "Spanish (Spain)",
-      native: "Español (España)",
-      flag: "🇪🇸",
-      countries: ["Spain", "Mexico", "Argentina", "Colombia", "Chile", "Peru", "United States"]
-    },
-    %{
-      code: "es-MX",
-      name: "Spanish (Mexico)",
-      native: "Español (México)",
-      flag: "🇲🇽",
-      countries: ["Mexico", "Spain", "Argentina", "Colombia", "United States"]
-    },
-    %{
-      code: "es-AR",
-      name: "Spanish (Argentina)",
-      native: "Español (Argentina)",
-      flag: "🇦🇷",
-      countries: ["Argentina", "Spain", "Mexico", "Colombia", "Chile"]
-    },
-    %{
-      code: "es-CO",
-      name: "Spanish (Colombia)",
-      native: "Español (Colombia)",
-      flag: "🇨🇴",
-      countries: ["Colombia", "Spain", "Mexico", "Argentina"]
-    },
-    %{
-      code: "sw",
-      name: "Swahili",
-      native: "Kiswahili",
-      flag: "🇰🇪",
-      countries: ["Kenya", "Tanzania", "Uganda"]
-    },
-    %{
-      code: "sv",
-      name: "Swedish",
-      native: "Svenska",
-      flag: "🇸🇪",
-      countries: ["Sweden", "Finland"]
-    },
-    %{
-      code: "ta",
-      name: "Tamil",
-      native: "தமிழ்",
-      flag: "🇱🇰",
-      countries: ["Sri Lanka", "India", "Singapore", "Malaysia"]
-    },
-    %{code: "te", name: "Telugu", native: "తెలుగు", flag: "🇮🇳", countries: ["India"]},
-    %{code: "th", name: "Thai", native: "ไทย", flag: "🇹🇭", countries: ["Thailand"]},
-    %{code: "tr", name: "Turkish", native: "Türkçe", flag: "🇹🇷", countries: ["Turkey", "Cyprus"]},
-    %{code: "tk", name: "Turkmen", native: "Türkmen", flag: "🇹🇲", countries: ["Turkmenistan"]},
-    %{code: "ur", name: "Urdu", native: "اردو", flag: "🇵🇰", countries: ["Pakistan", "India"]},
-    %{code: "uz", name: "Uzbek", native: "O'zbek", flag: "🇺🇿", countries: ["Uzbekistan"]},
-    %{code: "vi", name: "Vietnamese", native: "Tiếng Việt", flag: "🇻🇳", countries: ["Vietnam"]},
-    %{
-      code: "cy",
-      name: "Welsh",
-      native: "Cymraeg",
-      flag: "🏴",
-      countries: ["Wales", "United Kingdom"]
-    }
-  ]
+  # Available languages are sourced from BeamLabCountries.Languages
 
   # Default configuration when system is first enabled
   @default_config %{
@@ -855,7 +514,16 @@ defmodule PhoenixKit.Modules.Languages do
       [%{code: "en-US", name: "English (United States)", native: "English (US)", flag: "🇺🇸"}, ...]
   """
   def get_available_languages do
-    @available_languages
+    BeamLabCountries.Languages.all_locales()
+    |> Enum.map(fn locale ->
+      %{
+        code: locale.code,
+        name: locale.name,
+        native: locale.native_name,
+        flag: locale.flag,
+        countries: BeamLabCountries.Languages.country_names_for_language(locale.base_code)
+      }
+    end)
   end
 
   @doc """
@@ -870,13 +538,15 @@ defmodule PhoenixKit.Modules.Languages do
       [%{code: "es-ES", name: "Spanish (Spain)", native: "Español (España)", flag: "🇪🇸"}, ...]
   """
   def get_available_languages_for_selection do
+    all_languages = get_available_languages()
+
     if enabled?() do
       current_codes = get_languages() |> Enum.map(& &1["code"])
 
-      @available_languages
+      all_languages
       |> Enum.reject(fn lang -> lang.code in current_codes end)
     else
-      @available_languages
+      all_languages
     end
   end
 
@@ -894,7 +564,19 @@ defmodule PhoenixKit.Modules.Languages do
       nil
   """
   def get_predefined_language(code) when is_binary(code) do
-    Enum.find(@available_languages, &(&1.code == code))
+    case BeamLabCountries.Languages.get_locale(code) do
+      nil ->
+        nil
+
+      locale ->
+        %{
+          code: locale.code,
+          name: locale.name,
+          native: locale.native_name,
+          flag: locale.flag,
+          countries: BeamLabCountries.Languages.country_names_for_language(locale.base_code)
+        }
+    end
   end
 
   @doc """
@@ -916,7 +598,7 @@ defmodule PhoenixKit.Modules.Languages do
       ]
   """
   def get_languages_grouped_by_country do
-    @available_languages
+    get_available_languages()
     |> Enum.flat_map(fn lang ->
       # Create one entry per country for this language
       Enum.map(lang.countries, fn country ->

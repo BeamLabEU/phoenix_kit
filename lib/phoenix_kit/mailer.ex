@@ -25,6 +25,7 @@ defmodule PhoenixKit.Mailer do
   import Swoosh.Email
 
   alias PhoenixKit.Emails.Interceptor
+  alias PhoenixKit.Emails.Template
   alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Emails.Utils
   alias PhoenixKit.Users.Auth.User
@@ -139,12 +140,17 @@ defmodule PhoenixKit.Mailer do
           # Track template usage
           Templates.track_usage(template)
 
-          # Prepare delivery options
+          # Extract source_module from template metadata
+          source_module = Template.get_source_module(template)
+
+          # Prepare delivery options with category and source_module from template
           delivery_opts =
             opts
             |> Keyword.put(:template_name, template_name)
             |> Keyword.put(:template_id, template.id)
             |> Keyword.put_new(:campaign_id, template.category)
+            |> Keyword.put(:category, template.category)
+            |> Keyword.put_new(:source_module, source_module)
             |> Keyword.put(:provider, detect_provider())
 
           # Send email with tracking
@@ -274,6 +280,8 @@ defmodule PhoenixKit.Mailer do
       user_id: user.id,
       template_name: "magic_link",
       campaign_id: "authentication",
+      category: "system",
+      source_module: "users",
       provider: detect_provider()
     )
   end
@@ -502,6 +510,8 @@ defmodule PhoenixKit.Mailer do
       user_id: user_id,
       template_name: "test_email",
       campaign_id: "test",
+      category: "system",
+      source_module: "admin",
       provider: detect_provider()
     )
   end

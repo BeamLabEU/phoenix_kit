@@ -1,3 +1,4 @@
+# credo:disable-for-this-file Credo.Check.Refactor.LongQuoteBlocks
 defmodule PhoenixKitWeb.Integration do
   @moduledoc """
   Integration helpers for adding PhoenixKit to Phoenix applications.
@@ -346,6 +347,32 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
           live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
 
+          # Billing Management
+          live "/admin/billing", Live.Modules.Billing.Index, :index
+          live "/admin/billing/orders", Live.Modules.Billing.Orders, :index
+          live "/admin/billing/orders/new", Live.Modules.Billing.OrderForm, :new
+          live "/admin/billing/orders/:id", Live.Modules.Billing.OrderDetail, :show
+          live "/admin/billing/orders/:id/edit", Live.Modules.Billing.OrderForm, :edit
+          live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
+          live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
+          live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               Live.Modules.Billing.CreditNotePrint,
+               :credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               Live.Modules.Billing.PaymentConfirmationPrint,
+               :payment_confirmation
+
+          live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
+          live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
+          live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
+          live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
+          live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
+
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
           live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -381,6 +408,7 @@ defmodule PhoenixKitWeb.Integration do
 
   # Helper function to generate non-localized routes
   defp generate_non_localized_routes(url_prefix) do
+    # credo:disable-for-next-line Credo.Check.Refactor.LongQuoteBlocks
     quote do
       # Non-localized scope for backward compatibility (defaults to "en")
       scope unquote(url_prefix), PhoenixKitWeb do
@@ -498,6 +526,32 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/modules/emails/templates/:id/edit",
                Live.Modules.Emails.TemplateEditor,
                :edit
+
+          # Billing Management
+          live "/admin/billing", Live.Modules.Billing.Index, :index
+          live "/admin/billing/orders", Live.Modules.Billing.Orders, :index
+          live "/admin/billing/orders/new", Live.Modules.Billing.OrderForm, :new
+          live "/admin/billing/orders/:id", Live.Modules.Billing.OrderDetail, :show
+          live "/admin/billing/orders/:id/edit", Live.Modules.Billing.OrderForm, :edit
+          live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
+          live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
+          live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
+          live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               Live.Modules.Billing.CreditNotePrint,
+               :credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               Live.Modules.Billing.PaymentConfirmationPrint,
+               :payment_confirmation
+
+          live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
+          live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
+          live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
+          live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
+          live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
+          live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
