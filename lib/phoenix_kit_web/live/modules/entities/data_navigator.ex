@@ -311,7 +311,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataNavigator do
   end
 
   def handle_info({:entity_updated, entity_id}, socket) do
-
     # If the currently viewed entity was updated, check if it was archived
     if socket.assigns.selected_entity_id && entity_id == socket.assigns.selected_entity_id do
       entity = Entities.get_entity!(entity_id)

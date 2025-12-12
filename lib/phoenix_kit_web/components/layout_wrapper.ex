@@ -204,7 +204,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <PhoenixKitWeb.Components.Core.Icons.icon_menu />
                   </label>
 
-                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                     <PhoenixKitWeb.Components.Core.Icons.icon_shield />
                   </div>
                   <span class="font-bold text-base-content">{@project_title} {gettext("Admin")}</span>

@@ -44,11 +44,9 @@ defmodule PhoenixKit.Utils.Routes do
 
     # Fall back to extracting base from Gettext locale
     # This is only used when locale is not explicitly passed to Routes.path
-    # Gettext.get_locale/1 can return nil if no locale is set
-    case Gettext.get_locale(PhoenixKitWeb.Gettext) do
-      nil -> "en"  # Default fallback when no locale is set
-      locale -> DialectMapper.extract_base(locale)  # Handles both valid locales and empty strings
-    end
+    # Gettext.get_locale/1 always returns a string
+    locale = Gettext.get_locale(PhoenixKitWeb.Gettext)
+    DialectMapper.extract_base(locale)
   end
 
   # Check if the given locale is the default (first in admin_languages list)
