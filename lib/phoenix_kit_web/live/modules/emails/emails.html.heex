@@ -273,14 +273,49 @@
                       <%= if field == "status" do %>
                         <div class="flex items-center gap-1">
                           <span>{column.label}</span>
-                          <div
-                            class="tooltip tooltip-bottom"
-                            data-tip="⚪ Queued | 🔵 Sent | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Hard/Soft/Rejected/Failed | 🟠 Delayed | ⚠️ Complaint"
-                          >
-                            <.icon
-                              name="hero-information-circle"
-                              class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
-                            />
+                          <div class="dropdown dropdown-hover dropdown-bottom dropdown-end">
+                            <div tabindex="0" role="button">
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
+                            <div
+                              tabindex="0"
+                              class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-40 border border-base-300 text-base-content"
+                            >
+                              <div class="text-xs font-medium mb-2">Legend:</div>
+                              <div class="flex flex-col gap-1.5">
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-ghost badge-xs"></span>
+                                  <span class="text-xs">Queued</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-info badge-xs"></span>
+                                  <span class="text-xs">Sent</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-success badge-xs"></span>
+                                  <span class="text-xs">Delivered</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-primary badge-xs"></span>
+                                  <span class="text-xs">Opened</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-secondary badge-xs"></span>
+                                  <span class="text-xs">Clicked</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-warning badge-xs"></span>
+                                  <span class="text-xs">Delayed</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-error badge-xs"></span>
+                                  <span class="text-xs">Error</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       <% else %>
