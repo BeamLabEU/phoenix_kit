@@ -33,7 +33,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
       ├── Installed: V03 ✅
       ├── Database: Connected ✅
       ├── Assets: Built ✅
-      └── Status: Ready to use
+      └── Status: Ready
 
   """
 
@@ -185,7 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.Status do
   end
 
   defp determine_next_action({:up_to_date, _version}, _prefix) do
-    {:ready, "Ready to use"}
+    {:ready, "Ready"}
   end
 
   # Format installation status for display
