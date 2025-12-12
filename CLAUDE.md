@@ -181,9 +181,8 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management Protocol
 
-**Current Version**: 1.3.3 (in mix.exs)
-**Version Strategy**: Semantic versioning (MAJOR.MINOR.PATCH)
-**Migration Version**: V23 (latest migration version with session fingerprinting)
+**Current Version**: 1.7.0 (in mix.exs)
+**Migration Version**: V31 (billing system)
 
 **MANDATORY steps for version updates:**
 

@@ -191,10 +191,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <PhoenixKitWeb.Components.Core.Icons.icon_menu />
                   </label>
 
-                  <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <PhoenixKitWeb.Components.Core.Icons.icon_shield />
-                  </div>
-                  <span class="font-bold text-base-content">{@project_title} Admin</span>
+                  <.link href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+                    <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                      <PhoenixKitWeb.Components.Core.Icons.icon_shield />
+                    </div>
+                    <span class="font-bold text-base-content">{@project_title} Admin</span>
+                  </.link>
                 </div>
 
                 <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
@@ -368,6 +370,80 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/emails/blocklist")}
                             icon="email"
                             label="Blocklist"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
+                    <% end %>
+
+                    <%= if PhoenixKit.Billing.enabled?() do %>
+                      <%!-- Billing section with submenu --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                        icon="billing"
+                        label="Billing"
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/billing",
+                            "/admin/billing/orders",
+                            "/admin/billing/invoices",
+                            "/admin/billing/transactions",
+                            "/admin/billing/profiles",
+                            "/admin/billing/currencies"
+                          ])
+                        }
+                      />
+
+                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing")}
+                            icon="billing"
+                            label="Dashboard"
+                            current_path={@current_path || ""}
+                            nested={true}
+                            exact_match_only={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/orders")}
+                            icon="billing"
+                            label="Orders"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/invoices")}
+                            icon="billing"
+                            label="Invoices"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/transactions")}
+                            icon="billing"
+                            label="Transactions"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/profiles")}
+                            icon="billing"
+                            label="Billing Profiles"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/currencies")}
+                            icon="billing"
+                            label="Currencies"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -560,6 +636,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/emails")}
                             icon="email"
                             label="Emails"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Billing.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
+                            icon="billing"
+                            label="Billing"
                             current_path={@current_path || ""}
                             nested={true}
                           />

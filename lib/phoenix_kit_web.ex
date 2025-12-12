@@ -124,6 +124,10 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.BlogLanguageSwitcher
       import PhoenixKitWeb.Components.Core.MarkdownContent
       import PhoenixKitWeb.Components.Core.DraggableList
+      import PhoenixKitWeb.Components.Core.OrderStatusBadge
+      import PhoenixKitWeb.Components.Core.InvoiceStatusBadge
+      import PhoenixKitWeb.Components.Core.TransactionTypeBadge
+      import PhoenixKitWeb.Components.Core.CurrencyDisplay
     end
   end
 

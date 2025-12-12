@@ -124,31 +124,59 @@
             </select>
           </div>
 
-          <%!-- Message Tags Filter --%>
+          <%!-- Category Filter --%>
           <div class="form-control">
             <label class="label">
-              <span class="label-text">Message Type</span>
+              <span class="label-text">Category</span>
             </label>
-            <select name="filter[message_tag]" class="select select-bordered">
-              <option value="">All Types</option>
-              <option value="authentication" selected={@filters.message_tag == "authentication"}>
-                Authentication
+            <select name="filter[category]" class="select select-bordered">
+              <option value="">All Categories</option>
+              <option value="system" selected={@filters.category == "system"}>
+                System
               </option>
-              <option value="registration" selected={@filters.message_tag == "registration"}>
-                Registration
+              <option value="transactional" selected={@filters.category == "transactional"}>
+                Transactional
               </option>
-              <option value="marketing" selected={@filters.message_tag == "marketing"}>
+              <option value="marketing" selected={@filters.category == "marketing"}>
                 Marketing
               </option>
-              <option value="notification" selected={@filters.message_tag == "notification"}>
+              <option value="notification" selected={@filters.category == "notification"}>
                 Notification
-              </option>
-              <option value="transactional" selected={@filters.message_tag == "transactional"}>
-                Transactional
               </option>
             </select>
           </div>
 
+          <%!-- Source Module Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Source Module</span>
+            </label>
+            <select name="filter[source_module]" class="select select-bordered">
+              <option value="">All Modules</option>
+              <option value="users" selected={@filters.source_module == "users"}>
+                Users
+              </option>
+              <option value="billing" selected={@filters.source_module == "billing"}>
+                Billing
+              </option>
+              <option value="blogging" selected={@filters.source_module == "blogging"}>
+                Blogging
+              </option>
+              <option value="entities" selected={@filters.source_module == "entities"}>
+                Entities
+              </option>
+              <option value="admin" selected={@filters.source_module == "admin"}>
+                Admin
+              </option>
+              <option value="custom" selected={@filters.source_module == "custom"}>
+                Custom
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <%!-- Second Filter Row: Date Range --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <%!-- Date Range --%>
           <div class="form-control">
             <label class="label">
@@ -245,28 +273,83 @@
                       <%= if field == "status" do %>
                         <div class="flex items-center gap-1">
                           <span>{column.label}</span>
-                          <div
-                            class="tooltip tooltip-bottom"
-                            data-tip="⚪ Queued | 🔵 Sent | 🟢 Delivered | 🟡 Opened | 🟣 Clicked | 🔴 Bounced/Hard/Soft/Rejected/Failed | 🟠 Delayed | ⚠️ Complaint"
-                          >
-                            <.icon
-                              name="hero-information-circle"
-                              class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
-                            />
+                          <div class="dropdown dropdown-hover dropdown-bottom dropdown-end">
+                            <div tabindex="0" role="button">
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
+                            <div
+                              tabindex="0"
+                              class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-40 border border-base-300 text-base-content"
+                            >
+                              <div class="text-xs font-medium mb-2">Legend:</div>
+                              <div class="flex flex-col gap-1.5">
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-ghost badge-xs"></span>
+                                  <span class="text-xs">Queued</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-info badge-xs"></span>
+                                  <span class="text-xs">Sent</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-success badge-xs"></span>
+                                  <span class="text-xs">Delivered</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-primary badge-xs"></span>
+                                  <span class="text-xs">Opened</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-secondary badge-xs"></span>
+                                  <span class="text-xs">Clicked</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-warning badge-xs"></span>
+                                  <span class="text-xs">Delayed</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-error badge-xs"></span>
+                                  <span class="text-xs">Error</span>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       <% else %>
                         <%= if field == "details" do %>
                           <div class="flex items-center gap-1">
                             <span>{column.label}</span>
-                            <div
-                              class="tooltip tooltip-bottom"
-                              data-tip="🔵 Campaign ID (primary) | 🟣 Message Tag (secondary) | ⚪ Template Name (outline)"
-                            >
-                              <.icon
-                                name="hero-information-circle"
-                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
-                              />
+                            <div class="dropdown dropdown-hover dropdown-bottom dropdown-end">
+                              <div tabindex="0" role="button">
+                                <.icon
+                                  name="hero-information-circle"
+                                  class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                                />
+                              </div>
+                              <div
+                                tabindex="0"
+                                class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-48 border border-base-300 text-base-content"
+                              >
+                                <div class="text-xs font-medium mb-2">Legend:</div>
+                                <div class="flex flex-col gap-1.5">
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-accent"></span>
+                                    <span class="text-xs">Source Module</span>
+                                  </div>
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs">Campaign</span>
+                                  </div>
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full border-2 border-base-content/30 bg-transparent">
+                                    </span>
+                                    <span class="text-xs">Template</span>
+                                  </div>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         <% else %>
@@ -299,18 +382,24 @@
                         <% "status" -> %>
                           <.email_activity_badges log={log} />
                         <% "details" -> %>
-                          <div class="space-y-1">
+                          <div class="flex flex-wrap gap-1">
+                            <%!-- Source module badge (accent - primary info) --%>
+                            <% source_module =
+                              is_map(log.message_tags) &&
+                                Map.get(log.message_tags, "source_module") %>
+                            <%= if source_module do %>
+                              <div class="badge badge-accent badge-xs">{source_module}</div>
+                            <% end %>
+                            <%!-- Campaign badge (primary) --%>
                             <%= if log.campaign_id do %>
                               <div class="badge badge-primary badge-xs">{log.campaign_id}</div>
                             <% end %>
-                            <.message_tag_badge message_tags={log.message_tags} />
+                            <%!-- Template name badge (outline) --%>
                             <%= if log.template_name do %>
                               <div class="badge badge-outline badge-xs">{log.template_name}</div>
                             <% end %>
                             <% has_details =
-                              log.campaign_id ||
-                                (is_map(log.message_tags) &&
-                                   Map.get(log.message_tags, "email_type")) || log.template_name %>
+                              source_module || log.campaign_id || log.template_name %>
                             <%= if !has_details do %>
                               <span class="text-xs text-base-content/50">—</span>
                             <% end %>
@@ -355,7 +444,8 @@
               %{
                 "search" => @filters.search,
                 "status" => @filters.status,
-                "message_tag" => @filters.message_tag,
+                "category" => @filters.category,
+                "source_module" => @filters.source_module,
                 "campaign_id" => @filters.campaign_id,
                 "from_date" => @filters.from_date,
                 "to_date" => @filters.to_date,

@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Receipt {@invoice.receipt_number} - {@project_title}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2937;
+        background: #f3f4f6;
+        padding: 20px;
+      }
+
+      .receipt-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .print-controls {
+        max-width: 800px;
+        margin: 0 auto 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .print-controls button,
+      .print-controls a {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-print {
+        background: #059669;
+        color: white;
+        border: none;
+      }
+
+      .btn-print:hover {
+        background: #047857;
+      }
+
+      .btn-back {
+        background: white;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+
+      .btn-back:hover {
+        background: #f9fafb;
+      }
+
+      .receipt-header {
+        background: linear-gradient(135deg, #047857 0%, #059669 100%);
+        color: white;
+        padding: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .receipt-title h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+
+      .receipt-number {
+        font-size: 18px;
+        opacity: 0.9;
+      }
+
+      .receipt-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+      }
+
+      .receipt-status.paid {
+        background: #d1fae5;
+        color: #047857;
+      }
+
+      .receipt-status.partially-paid {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .receipt-status.refunded {
+        background: #fee2e2;
+        color: #991b1b;
+      }
+
+      .receipt-body {
+        padding: 40px;
+      }
+
+      .receipt-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .meta-section h3 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6b7280;
+        margin-bottom: 10px;
+      }
+
+      .meta-section p {
+        line-height: 1.8;
+      }
+
+      .meta-section strong {
+        font-weight: 600;
+      }
+
+      .company-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .line-items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+      }
+
+      .line-items-table th {
+        background: #f9fafb;
+        padding: 14px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .line-items-table td {
+        padding: 16px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .line-items-table .text-right {
+        text-align: right;
+      }
+
+      .item-name {
+        font-weight: 500;
+      }
+
+      .item-description {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+
+      .totals-section {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 40px;
+      }
+
+      .totals-table {
+        width: 300px;
+      }
+
+      .totals-table tr td {
+        padding: 10px 16px;
+      }
+
+      .totals-table .label {
+        text-align: right;
+        color: #6b7280;
+      }
+
+      .totals-table .value {
+        text-align: right;
+        font-weight: 500;
+      }
+
+      .totals-table .total-row {
+        font-size: 18px;
+        font-weight: 700;
+        border-top: 2px solid #047857;
+      }
+
+      .totals-table .total-row td {
+        padding-top: 16px;
+        color: #047857;
+      }
+
+      .payment-confirmation {
+        background: #d1fae5;
+        border: 1px solid #059669;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 30px;
+      }
+
+      .payment-confirmation.partial {
+        background: #fef3c7;
+        border-color: #f59e0b;
+      }
+
+      .payment-confirmation.refunded {
+        background: #fee2e2;
+        border-color: #ef4444;
+      }
+
+      .payment-confirmation h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #047857;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .payment-confirmation.partial h4 {
+        color: #92400e;
+      }
+
+      .payment-confirmation.refunded h4 {
+        color: #991b1b;
+      }
+
+      .payment-confirmation.partial .label {
+        color: #b45309;
+      }
+
+      .payment-confirmation.partial .value {
+        color: #92400e;
+      }
+
+      .payment-confirmation.refunded .label {
+        color: #dc2626;
+      }
+
+      .payment-confirmation.refunded .value {
+        color: #991b1b;
+      }
+
+      .remaining-balance {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 16px 24px;
+        margin-bottom: 30px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .remaining-balance .label {
+        font-weight: 600;
+        color: #92400e;
+      }
+
+      .remaining-balance .value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #b45309;
+      }
+
+      .refund-info {
+        background: #fee2e2;
+        border: 1px solid #ef4444;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 30px;
+      }
+
+      .refund-info h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #991b1b;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .refund-info .label {
+        color: #dc2626;
+      }
+
+      .refund-info .value {
+        color: #991b1b;
+      }
+
+      .payment-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .payment-detail {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .payment-detail .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #059669;
+        margin-bottom: 4px;
+      }
+
+      .payment-detail .value {
+        font-weight: 600;
+        color: #047857;
+      }
+
+      .transactions-section {
+        margin-bottom: 30px;
+      }
+
+      .transactions-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 16px;
+      }
+
+      .transactions-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .transactions-table th {
+        background: #f9fafb;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .transactions-table td {
+        padding: 12px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 13px;
+      }
+
+      .transactions-table .amount-positive {
+        color: #059669;
+        font-weight: 600;
+      }
+
+      .transactions-table .amount-negative {
+        color: #dc2626;
+        font-weight: 600;
+      }
+
+      .receipt-footer {
+        background: #f9fafb;
+        padding: 30px 40px;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .footer-company {
+        margin-bottom: 15px;
+      }
+
+      .footer-company .name {
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .footer-company .details {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .footer-note {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .paid-stamp {
+        position: relative;
+        display: inline-block;
+      }
+
+      .paid-stamp::after {
+        content: 'PAID';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-15deg);
+        font-size: 60px;
+        font-weight: 900;
+        color: rgba(5, 150, 105, 0.15);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      @media print {
+        body {
+          background: white;
+          padding: 0;
+        }
+
+        .print-controls {
+          display: none;
+        }
+
+        .receipt-container {
+          box-shadow: none;
+          border-radius: 0;
+        }
+
+        .receipt-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .receipt-status,
+        .payment-confirmation {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="print-controls">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}")}
+        class="btn-back"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </.link>
+      <button onclick="window.print()" class="btn-print">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect
+            x="6"
+            y="14"
+            width="12"
+            height="8"
+            rx="1"
+          />
+        </svg>
+        Print Receipt
+      </button>
+    </div>
+
+    <div class="receipt-container">
+      <div class="receipt-header">
+        <div class="receipt-title">
+          <h1>RECEIPT</h1>
+          <div class="receipt-number">{@invoice.receipt_number}</div>
+        </div>
+        <%= cond do %>
+          <% @receipt_status == "refunded" -> %>
+            <div class="receipt-status refunded">REFUNDED</div>
+          <% @receipt_status == "partially_paid" -> %>
+            <div class="receipt-status partially-paid">PARTIALLY PAID</div>
+          <% true -> %>
+            <div class="receipt-status paid">PAID</div>
+        <% end %>
+      </div>
+
+      <div class="receipt-body">
+        <div class="receipt-meta">
+          <div class="meta-section">
+            <h3>Received From</h3>
+            <p>
+              <%= if @invoice.billing_details && map_size(@invoice.billing_details) > 0 do %>
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <span class="company-name">{@invoice.billing_details["company_name"]}</span>
+                  <br />
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
+                  <% end %>
+                <% else %>
+                  <span class="company-name">
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </span>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  {@invoice.billing_details["address_line1"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line2"] do %>
+                  {@invoice.billing_details["address_line2"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["city"] do %>
+                  {@invoice.billing_details["city"]}
+                  <%= if @invoice.billing_details["postal_code"] do %>
+                    , {@invoice.billing_details["postal_code"]}
+                  <% end %>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["country"] do %>
+                  {@invoice.billing_details["country"]}
+                <% end %>
+              <% else %>
+                <%= if @invoice.user do %>
+                  <span class="company-name">{@invoice.user.email}</span>
+                <% else %>
+                  <em>No billing information</em>
+                <% end %>
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section">
+            <h3>Received By</h3>
+            <p>
+              <strong>{@company.name}</strong>
+              <br />
+              <%= for line <- String.split(@company.address || "", "\n") do %>
+                {line}<br />
+              <% end %>
+              <%= if @company.vat != "" do %>
+                VAT: {@company.vat}
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section" style="text-align: right;">
+            <h3>Receipt Details</h3>
+            <p>
+              <strong>Receipt #:</strong> {@invoice.receipt_number}<br />
+              <strong>Invoice #:</strong> {@invoice.invoice_number}<br />
+              <strong>Date:</strong>
+              {if @invoice.receipt_generated_at,
+                do: Calendar.strftime(@invoice.receipt_generated_at, "%B %d, %Y"),
+                else: Calendar.strftime(@invoice.paid_at || @invoice.updated_at, "%B %d, %Y")}<br />
+              <strong>Currency:</strong> {@invoice.currency}
+              <%= if @invoice.order do %>
+                <br /><strong>Order:</strong> {@invoice.order.order_number}
+              <% end %>
+            </p>
+          </div>
+        </div>
+
+        <%!-- Payment/Refund Status Box --%>
+        <%= cond do %>
+          <% @receipt_status == "refunded" -> %>
+            <%!-- Refund Information Box --%>
+            <div class="refund-info">
+              <h4>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+                </svg>
+                Payment Refunded
+              </h4>
+              <div class="payment-details-grid">
+                <div class="payment-detail">
+                  <span class="label">Original Amount Paid</span>
+                  <span class="value">
+                    {Decimal.to_string(@invoice.paid_amount || @invoice.total, :normal)} {@invoice.currency}
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Total Refunded</span>
+                  <span class="value">
+                    {Decimal.to_string(@total_refunded, :normal)} {@invoice.currency}
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Refund Date</span>
+                  <span class="value">
+                    <%= if @last_refund_date do %>
+                      {Calendar.strftime(@last_refund_date, "%B %d, %Y")}
+                    <% else %>
+                      -
+                    <% end %>
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Reference</span>
+                  <span class="value">{@invoice.invoice_number}</span>
+                </div>
+              </div>
+            </div>
+          <% @receipt_status == "partially_paid" -> %>
+            <%!-- Partial Payment Box --%>
+            <div class="payment-confirmation partial">
+              <h4>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="M12 6v6l4 2" />
+                </svg>
+                Partial Payment Received
+              </h4>
+              <div class="payment-details-grid">
+                <div class="payment-detail">
+                  <span class="label">Amount Paid</span>
+                  <span class="value">
+                    {Decimal.to_string(@invoice.paid_amount || Decimal.new(0), :normal)} {@invoice.currency}
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Last Payment Date</span>
+                  <span class="value">
+                    <%= if @last_payment_date do %>
+                      {Calendar.strftime(@last_payment_date, "%B %d, %Y at %H:%M")}
+                    <% else %>
+                      -
+                    <% end %>
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Payment Method</span>
+                  <span class="value">Bank Transfer</span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Reference</span>
+                  <span class="value">{@invoice.invoice_number}</span>
+                </div>
+              </div>
+            </div>
+            <%!-- Remaining Balance Box --%>
+            <div class="remaining-balance">
+              <span class="label">Remaining Balance</span>
+              <span class="value">
+                {Decimal.to_string(
+                  Decimal.sub(@invoice.total, @invoice.paid_amount || Decimal.new(0)),
+                  :normal
+                )} {@invoice.currency}
+              </span>
+            </div>
+          <% true -> %>
+            <%!-- Full Payment Confirmed --%>
+            <div class="payment-confirmation">
+              <h4>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                Payment Confirmed
+              </h4>
+              <div class="payment-details-grid">
+                <div class="payment-detail">
+                  <span class="label">Amount Paid</span>
+                  <span class="value">
+                    {Decimal.to_string(@invoice.paid_amount || @invoice.total, :normal)} {@invoice.currency}
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Payment Date</span>
+                  <span class="value">
+                    {if @invoice.paid_at,
+                      do: Calendar.strftime(@invoice.paid_at, "%B %d, %Y at %H:%M"),
+                      else: "-"}
+                  </span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Payment Method</span>
+                  <span class="value">Bank Transfer</span>
+                </div>
+                <div class="payment-detail">
+                  <span class="label">Reference</span>
+                  <span class="value">{@invoice.invoice_number}</span>
+                </div>
+              </div>
+            </div>
+        <% end %>
+
+        <%!-- Line Items --%>
+        <table class="line-items-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="text-right" style="width: 80px;">Qty</th>
+              <th class="text-right" style="width: 120px;">Unit Price</th>
+              <th class="text-right" style="width: 120px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for item <- @invoice.line_items || [] do %>
+              <tr>
+                <td>
+                  <div class="item-name">{item["name"]}</div>
+                  <%= if item["description"] && item["description"] != "" do %>
+                    <div class="item-description">{item["description"]}</div>
+                  <% end %>
+                </td>
+                <td class="text-right">{item["quantity"]}</td>
+                <td class="text-right">{item["unit_price"]} {@invoice.currency}</td>
+                <td class="text-right">{item["total"]} {@invoice.currency}</td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+
+        <div class="totals-section">
+          <table class="totals-table">
+            <tr>
+              <td class="label">Subtotal:</td>
+              <td class="value">
+                {Decimal.to_string(@invoice.subtotal || Decimal.new(0), :normal)} {@invoice.currency}
+              </td>
+            </tr>
+            <%= if Decimal.gt?(@invoice.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
+              <tr>
+                <td class="label">
+                  Tax ({Decimal.round(Decimal.mult(@invoice.tax_rate || Decimal.new(0), 100), 2)
+                  |> Decimal.normalize()
+                  |> Decimal.to_string()}%):
+                </td>
+                <td class="value">
+                  {Decimal.to_string(@invoice.tax_amount, :normal)} {@invoice.currency}
+                </td>
+              </tr>
+            <% end %>
+            <tr class="total-row">
+              <td class="label">Total Paid:</td>
+              <td class="value">
+                {Decimal.to_string(@invoice.paid_amount || @invoice.total, :normal)} {@invoice.currency}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <%!-- Transactions History --%>
+        <%= if length(@transactions) > 0 do %>
+          <div class="transactions-section">
+            <h4>Payment Transactions</h4>
+            <table class="transactions-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Transaction #</th>
+                  <th>Method</th>
+                  <th>Description</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for txn <- @transactions do %>
+                  <tr>
+                    <td>{Calendar.strftime(txn.inserted_at, "%b %d, %Y")}</td>
+                    <td>{txn.transaction_number}</td>
+                    <td>{String.capitalize(txn.payment_method)}</td>
+                    <td>{txn.description || "-"}</td>
+                    <td style="text-align: right;">
+                      <span class={
+                        if Decimal.positive?(txn.amount),
+                          do: "amount-positive",
+                          else: "amount-negative"
+                      }>
+                        {if Decimal.positive?(txn.amount), do: "+", else: ""}{Decimal.to_string(
+                          txn.amount,
+                          :normal
+                        )} {@invoice.currency}
+                      </span>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+
+        <%= if @invoice.notes do %>
+          <div style="margin-top: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+            <h4 style="font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 10px;">
+              Notes
+            </h4>
+            <p style="white-space: pre-wrap;">{@invoice.notes}</p>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="receipt-footer">
+        <div class="footer-company">
+          <div class="name">{@company.name}</div>
+          <div class="details">
+            {@company.address}
+            <%= if @company.vat != "" do %>
+              &bull; VAT: {@company.vat}
+            <% end %>
+          </div>
+        </div>
+        <div class="footer-note">
+          This receipt confirms payment has been received. Thank you for your business.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

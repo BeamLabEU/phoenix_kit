@@ -21,6 +21,29 @@ defmodule PhoenixKit.Emails.Template do
   - **system** - Core authentication and system emails (protected)
   - **marketing** - Promotional and marketing communications
   - **transactional** - Order confirmations, notifications, etc.
+  - **notification** - Event-driven notifications (new posts, comments, etc.)
+
+  ## Source Modules
+
+  Templates can be tagged with a source module in the `metadata` field to track
+  which part of the application sends the email:
+
+  - **users** - User management (magic_link, password_reset, email_confirmation)
+  - **billing** - Billing module (invoices, receipts, payment notifications)
+  - **blogging** - Blog module (new posts, comments)
+  - **entities** - Entities module (entity notifications)
+  - **admin** - Admin functions (test emails, manual sends)
+  - **custom** - Custom/user-defined emails
+
+  ## Metadata Structure
+
+  The `metadata` field can contain:
+
+      %{
+        "source_module" => "users",    # Source module identifier
+        "priority" => "high",           # Email priority (optional)
+        "requires_user" => true         # Whether user_id is required (optional)
+      }
 
   ## Status
 
@@ -71,10 +94,13 @@ defmodule PhoenixKit.Emails.Template do
         }
 
   # Valid categories for email templates
-  @valid_categories ["system", "marketing", "transactional"]
+  @valid_categories ["system", "marketing", "transactional", "notification"]
 
   # Valid statuses for email templates
   @valid_statuses ["active", "draft", "archived"]
+
+  # Valid source modules for email templates
+  @valid_source_modules ["users", "billing", "blogging", "entities", "admin", "custom"]
 
   # Common template variables that can be used
   @common_variables [
@@ -123,6 +149,51 @@ defmodule PhoenixKit.Emails.Template do
   Returns the list of common template variables.
   """
   def common_variables, do: @common_variables
+
+  @doc """
+  Returns the list of valid source modules for email templates.
+  """
+  def valid_source_modules, do: @valid_source_modules
+
+  @doc """
+  Gets the source module from a template's metadata.
+
+  Returns the source_module value if present, otherwise "custom".
+
+  ## Examples
+
+      iex> template = %EmailTemplate{metadata: %{"source_module" => "auth"}}
+      iex> EmailTemplate.get_source_module(template)
+      "auth"
+
+      iex> template = %EmailTemplate{metadata: %{}}
+      iex> EmailTemplate.get_source_module(template)
+      "custom"
+
+  """
+  def get_source_module(%__MODULE__{metadata: metadata}) when is_map(metadata) do
+    Map.get(metadata, "source_module", "custom")
+  end
+
+  def get_source_module(_), do: "custom"
+
+  @doc """
+  Sets the source module in a template's metadata.
+
+  Returns updated metadata map with source_module set.
+
+  ## Examples
+
+      iex> EmailTemplate.set_source_module(%{}, "auth")
+      %{"source_module" => "auth"}
+
+  """
+  def set_source_module(metadata, source_module)
+      when is_map(metadata) and source_module in @valid_source_modules do
+    Map.put(metadata, "source_module", source_module)
+  end
+
+  def set_source_module(metadata, _source_module), do: metadata
 
   @doc """
   Creates a changeset for email template creation and updates.

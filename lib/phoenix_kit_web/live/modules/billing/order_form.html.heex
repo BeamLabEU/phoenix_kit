@@ -1,0 +1,286 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} {@page_title}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6 max-w-4xl">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">{@page_title}</h1>
+        <p class="text-base-content/60 mt-1">
+          {if @order, do: "Modify order details", else: "Create a new order"}
+        </p>
+      </div>
+    </div>
+
+    <.form for={@form} phx-submit="save" class="space-y-6">
+      <%!-- Customer Selection --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Customer</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Select Customer</span>
+              </label>
+              <select
+                name="user_id"
+                class="select select-bordered"
+                phx-change="select_user"
+              >
+                <option value="">Select a customer...</option>
+                <%= for user <- @users do %>
+                  <option value={user.id} selected={@selected_user_id == user.id}>
+                    {user.email}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <%= if @selected_user_id do %>
+              <%= if length(@billing_profiles) > 0 do %>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">
+                      Billing Profile <span class="text-error">*</span>
+                    </span>
+                  </label>
+                  <select name="order[billing_profile_id]" class="select select-bordered" required>
+                    <%= for profile <- @billing_profiles do %>
+                      <option
+                        value={profile.id}
+                        selected={@selected_billing_profile_id == profile.id}
+                      >
+                        <%= if profile.type == "company" do %>
+                          {profile.company_name}
+                        <% else %>
+                          {profile.first_name} {profile.last_name}
+                        <% end %>
+                        {if profile.is_default, do: "(Default)"}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+              <% else %>
+                <%!-- Warning: No billing profiles - block order creation --%>
+                <div class="md:col-span-2">
+                  <div class="alert alert-warning">
+                    <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                    <div>
+                      <p class="font-semibold">No billing profile found</p>
+                      <p class="text-sm">
+                        This customer has no billing profile. A billing profile is required to create an order.
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/billing/profiles/new?user_id=#{@selected_user_id}"
+                            )
+                          }
+                          class="link font-medium"
+                        >
+                          Create one now
+                        </.link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Line Items --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex justify-between items-center">
+            <h2 class="card-title">Line Items</h2>
+            <button type="button" phx-click="add_line_item" class="btn btn-outline btn-sm">
+              <.icon name="hero-plus" class="w-4 h-4" /> Add Item
+            </button>
+          </div>
+
+          <div class="overflow-x-auto mt-4">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th class="w-24">Qty</th>
+                  <th class="w-32">Unit Price</th>
+                  <th class="w-16"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for item <- @line_items do %>
+                  <tr>
+                    <td>
+                      <input
+                        type="text"
+                        value={item.name}
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Item name"
+                        phx-blur="update_line_item"
+                        phx-value-id={item.id}
+                        phx-value-field="name"
+                        name={"line_item_#{item.id}_name"}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={item.description}
+                        class="input input-bordered input-sm w-full"
+                        placeholder="Description (optional)"
+                        phx-blur="update_line_item"
+                        phx-value-id={item.id}
+                        phx-value-field="description"
+                        name={"line_item_#{item.id}_desc"}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        value={item.quantity}
+                        class="input input-bordered input-sm w-full"
+                        min="1"
+                        phx-blur="update_line_item"
+                        phx-value-id={item.id}
+                        phx-value-field="quantity"
+                        name={"line_item_#{item.id}_qty"}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        value={item.unit_price}
+                        class="input input-bordered input-sm w-full font-mono"
+                        placeholder="0.00"
+                        phx-blur="update_line_item"
+                        phx-value-id={item.id}
+                        phx-value-field="unit_price"
+                        name={"line_item_#{item.id}_price"}
+                      />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        phx-click="remove_line_item"
+                        phx-value-id={item.id}
+                        class="btn btn-ghost btn-sm btn-square text-error"
+                      >
+                        <.icon name="hero-trash" class="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Order Settings --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Order Settings</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Currency</span>
+              </label>
+              <select name="order[currency]" class="select select-bordered">
+                <%= for currency <- @currencies do %>
+                  <option value={currency.code} selected={@form[:currency].value == currency.code}>
+                    {currency.code} - {currency.name}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Status</span>
+              </label>
+              <select
+                name="order[status]"
+                class="select select-bordered"
+                disabled={is_nil(@order)}
+              >
+                <option value="draft" selected={@form[:status].value == "draft"}>Draft</option>
+                <option value="pending" selected={@form[:status].value == "pending"}>
+                  Pending
+                </option>
+                <option value="confirmed" selected={@form[:status].value == "confirmed"}>
+                  Confirmed
+                </option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Notes --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">Notes</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Customer Notes</span>
+              </label>
+              <textarea
+                name="order[notes]"
+                class="textarea textarea-bordered"
+                rows="3"
+                placeholder="Notes visible to customer..."
+              >{@form[:notes].value}</textarea>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Internal Notes</span>
+              </label>
+              <textarea
+                name="order[internal_notes]"
+                class="textarea textarea-bordered"
+                rows="3"
+                placeholder="Admin-only notes..."
+              >{@form[:internal_notes].value}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Actions --%>
+      <div class="flex justify-end gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
+          class="btn btn-ghost"
+        >
+          Cancel
+        </.link>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          disabled={@selected_user_id && Enum.empty?(@billing_profiles)}
+        >
+          <.icon name="hero-check" class="w-4 h-4" />
+          {if @order, do: "Update Order", else: "Create Order"}
+        </button>
+      </div>
+    </.form>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
