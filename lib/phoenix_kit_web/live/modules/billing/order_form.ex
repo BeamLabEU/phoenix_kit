@@ -6,6 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Billing
+  alias PhoenixKit.Billing.Order
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
@@ -159,6 +160,10 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
 
   @impl true
   def handle_event("save", %{"order" => order_params}, socket) do
+    # Get tax configuration
+    config = Billing.get_config()
+    tax_rate = get_tax_rate_decimal(config)
+
     line_items =
       socket.assigns.line_items
       |> Enum.filter(&(&1.name != ""))
@@ -176,16 +181,16 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
         }
       end)
 
-    subtotal =
-      Enum.reduce(line_items, Decimal.new(0), fn item, acc ->
-        Decimal.add(acc, Decimal.new(item["total"]))
-      end)
+    # Calculate totals with tax using Order.calculate_totals
+    {subtotal, tax_amount, total} = Order.calculate_totals(line_items, tax_rate, Decimal.new("0"))
 
     order_params =
       order_params
       |> Map.put("line_items", line_items)
       |> Map.put("subtotal", Decimal.to_string(subtotal))
-      |> Map.put("total", Decimal.to_string(subtotal))
+      |> Map.put("tax_rate", Decimal.to_string(tax_rate))
+      |> Map.put("tax_amount", Decimal.to_string(tax_amount))
+      |> Map.put("total", Decimal.to_string(total))
       |> Map.put("user_id", socket.assigns.selected_user_id)
 
     save_order(socket, order_params)
@@ -230,4 +235,15 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
   end
 
   defp parse_decimal(_), do: Decimal.new(0)
+
+  defp get_tax_rate_decimal(config) do
+    if config.tax_enabled do
+      # Settings stores "20" for 20%, schema needs 0.20
+      config.default_tax_rate
+      |> Decimal.new()
+      |> Decimal.div(Decimal.new(100))
+    else
+      Decimal.new("0")
+    end
+  end
 end

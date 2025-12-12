@@ -148,7 +148,7 @@
                   <%= if Decimal.gt?(@invoice.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
                     <tr>
                       <td colspan="3" class="text-right">
-                        Tax ({Decimal.mult(@invoice.tax_rate || Decimal.new(0), 100)}%)
+                        Tax ({Decimal.round(Decimal.mult(@invoice.tax_rate || Decimal.new(0), 100), 2) |> Decimal.normalize() |> Decimal.to_string()}%)
                       </td>
                       <td class="text-right">
                         <.currency_compact

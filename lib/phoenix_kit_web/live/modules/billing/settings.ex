@@ -37,6 +37,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     |> assign(:order_prefix, Settings.get_setting("billing_order_prefix", "ORD"))
     |> assign(:receipt_prefix, Settings.get_setting("billing_receipt_prefix", "RCP"))
     |> assign(:invoice_due_days, Settings.get_setting("billing_invoice_due_days", "14"))
+    |> assign(:tax_enabled, Settings.get_setting("billing_tax_enabled", "false") == "true")
     |> assign(:tax_rate, Settings.get_setting("billing_default_tax_rate", "0"))
     |> assign(:company_name, Settings.get_setting("billing_company_name", ""))
     |> assign(:company_address, Settings.get_setting("billing_company_address", ""))
@@ -71,12 +72,16 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
 
   @impl true
   def handle_event("save_general", params, socket) do
+    # Convert checkbox value to "true"/"false" string
+    tax_enabled = if params["tax_enabled"] == "true", do: "true", else: "false"
+
     settings = [
       {"billing_default_currency", params["default_currency"]},
       {"billing_invoice_prefix", params["invoice_prefix"]},
       {"billing_order_prefix", params["order_prefix"]},
       {"billing_receipt_prefix", params["receipt_prefix"]},
       {"billing_invoice_due_days", params["invoice_due_days"]},
+      {"billing_tax_enabled", tax_enabled},
       {"billing_default_tax_rate", params["tax_rate"]}
     ]
 

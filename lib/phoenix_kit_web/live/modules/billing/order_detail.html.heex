@@ -116,7 +116,7 @@
                   <%= if Decimal.gt?(@order.tax_amount || Decimal.new(0), Decimal.new(0)) do %>
                     <tr>
                       <td colspan="3" class="text-right">
-                        Tax ({Decimal.mult(@order.tax_rate || Decimal.new(0), 100)}%)
+                        Tax ({Decimal.round(Decimal.mult(@order.tax_rate || Decimal.new(0), 100), 2) |> Decimal.normalize() |> Decimal.to_string()}%)
                       </td>
                       <td class="text-right">
                         <.currency_compact amount={@order.tax_amount} currency={@order.currency} />
