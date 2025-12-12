@@ -195,11 +195,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Supports user-specific language dialect preferences
   - Enables simplified URL structure with dialect preferences
 
-  ### V29 - Billing System (Phase 1) ⚡ LATEST
+  ### V31 - Billing System (Phase 1) ⚡ LATEST
   - Phoenix_kit_currencies for multi-currency support
   - Phoenix_kit_billing_profiles for user billing information (EU Standard)
   - Phoenix_kit_orders for order management with line items
   - Phoenix_kit_invoices for invoice generation with receipt functionality
+  - Phoenix_kit_transactions for payment tracking
   - Bank transfer payment workflow (manual payment marking)
   - Default currencies seeding (EUR, USD, GBP)
   - Billing settings for prefixes and configuration
@@ -262,7 +263,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 29
+  @current_version 31
   @default_prefix "public"
 
   @doc false
