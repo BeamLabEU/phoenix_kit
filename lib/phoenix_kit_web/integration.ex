@@ -203,13 +203,6 @@ defmodule PhoenixKitWeb.Integration do
 
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
-
-        # Sitemap routes (public, no authentication required)
-        get "/sitemap.xml", SitemapController, :xml
-        get "/sitemap.html", SitemapController, :html
-        get "/sitemaps/:index", SitemapController, :index_part
-        # XSL stylesheets served via static/assets or explicit route
-        get "/assets/sitemap/:style", SitemapController, :xsl_stylesheet
       end
 
       # Email export routes (require admin or owner role)
@@ -305,6 +298,17 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
           live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
           live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
+
+          # Posts module routes
+          live "/admin/posts", Live.Modules.Posts.Posts, :index
+          live "/admin/posts/new", Live.Modules.Posts.Edit, :new
+          live "/admin/posts/groups", Live.Modules.Posts.Groups, :index
+          live "/admin/posts/groups/new", Live.Modules.Posts.GroupEdit, :new
+          live "/admin/posts/groups/:id/edit", Live.Modules.Posts.GroupEdit, :edit
+          live "/admin/posts/:id", Live.Modules.Posts.Details, :show
+          live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
+          live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
+
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -315,7 +319,6 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
-          live "/admin/settings/sitemap", Live.Modules.Sitemaps.Settings, :index
 
           live "/admin/settings/media", Live.Settings.Storage, :index
           live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
@@ -382,7 +385,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/entities/:entity_slug/data/new", Live.Modules.Entities.DataForm, :new,
             as: :entities_data_new
 
-          live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataView, :show,
+          live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataForm, :show,
             as: :entities_data_show
 
           live "/admin/entities/:entity_slug/data/:id/edit",
@@ -467,6 +470,17 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
           live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
           live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
+
+          # Posts module routes
+          live "/admin/posts", Live.Modules.Posts.Posts, :index
+          live "/admin/posts/new", Live.Modules.Posts.Edit, :new
+          live "/admin/posts/groups", Live.Modules.Posts.Groups, :index
+          live "/admin/posts/groups/new", Live.Modules.Posts.GroupEdit, :new
+          live "/admin/posts/groups/:id/edit", Live.Modules.Posts.GroupEdit, :edit
+          live "/admin/posts/:id", Live.Modules.Posts.Details, :show
+          live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
+          live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
+
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
@@ -477,7 +491,6 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
-          live "/admin/settings/sitemap", Live.Modules.Sitemaps.Settings, :index
 
           live "/admin/settings/media", Live.Settings.Storage, :index
           live "/admin/settings/media/buckets/new", Live.Settings.Storage.BucketForm, :new
@@ -552,7 +565,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/entities/:entity_slug/data/new", Live.Modules.Entities.DataForm, :new,
             as: :entities_data_new
 
-          live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataView, :show,
+          live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataForm, :show,
             as: :entities_data_show
 
           live "/admin/entities/:entity_slug/data/:id/edit",
@@ -584,22 +597,9 @@ defmodule PhoenixKitWeb.Integration do
       scope blog_scope_multi, PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        # Public entity form submission
-        post "/entities/:entity_slug/submit", EntityFormController, :submit,
-          as: :entity_form_submit
-
-        # Exclude admin, sitemap, assets, entities paths from blogging catch-all routes
-        get "/:blog", BlogController, :show,
-          constraints: %{
-            "blog" =>
-              ~r/^(?!admin$|sitemap|assets$|sitemaps$|users$|webhooks$|api$|file$|entities$)/
-          }
-
-        get "/:blog/*path", BlogController, :show,
-          constraints: %{
-            "blog" =>
-              ~r/^(?!admin$|sitemap|assets$|sitemaps$|users$|webhooks$|api$|file$|entities$)/
-          }
+        # Exclude admin paths from blogging catch-all routes
+        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
       end
 
       # Non-localized blog routes (for when url_prefix is "/")
@@ -612,22 +612,9 @@ defmodule PhoenixKitWeb.Integration do
       scope blog_scope_non_localized, PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        # Public entity form submission
-        post "/entities/:entity_slug/submit", EntityFormController, :submit,
-          as: :entity_form_submit_non_localized
-
-        # Exclude admin, sitemap, assets, entities paths from blogging catch-all routes
-        get "/:blog", BlogController, :show,
-          constraints: %{
-            "blog" =>
-              ~r/^(?!admin$|sitemap|assets$|sitemaps$|users$|webhooks$|api$|file$|entities$)/
-          }
-
-        get "/:blog/*path", BlogController, :show,
-          constraints: %{
-            "blog" =>
-              ~r/^(?!admin$|sitemap|assets$|sitemaps$|users$|webhooks$|api$|file$|entities$)/
-          }
+        # Exclude admin paths from blogging catch-all routes
+        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
       end
     end
   end

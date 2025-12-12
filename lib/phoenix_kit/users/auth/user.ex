@@ -45,7 +45,6 @@ defmodule PhoenixKit.Users.Auth.User do
           registration_region: String.t() | nil,
           registration_city: String.t() | nil,
           custom_fields: map() | nil,
-          preferred_locale: String.t() | nil,
           inserted_at: NaiveDateTime.t(),
           updated_at: NaiveDateTime.t()
         }
@@ -66,7 +65,6 @@ defmodule PhoenixKit.Users.Auth.User do
     field :registration_region, :string
     field :registration_city, :string
     field :custom_fields, :map, default: %{}
-    field :preferred_locale, :string
 
     has_many :role_assignments, PhoenixKit.Users.RoleAssignment
     many_to_many :roles, PhoenixKit.Users.Role, join_through: PhoenixKit.Users.RoleAssignment
@@ -283,12 +281,13 @@ defmodule PhoenixKit.Users.Auth.User do
 
   This allows authenticated users to select their preferred dialect variant
   (e.g., en-GB instead of en-US) while URLs continue to show base codes.
+  The locale is stored in the `custom_fields` JSONB column.
 
   ## Validation
 
   - Format: Must match ~r/^[a-z]{2}(-[A-Z]{2})?$/
   - Existence: Must exist in predefined language list
-  - NULL allowed: Indicates "use system default"
+  - NULL/empty allowed: Indicates "use system default"
 
   ## Examples
 
@@ -302,33 +301,81 @@ defmodule PhoenixKit.Users.Auth.User do
       #Ecto.Changeset<errors: [preferred_locale: {"must be a valid locale format", []}]>
   """
   def preferred_locale_changeset(user, attrs) do
-    user
-    |> cast(attrs, [:preferred_locale])
-    |> validate_locale_format()
-    |> validate_locale_exists()
+    locale = Map.get(attrs, :preferred_locale) || Map.get(attrs, "preferred_locale")
+
+    case validate_locale_value(locale) do
+      :ok ->
+        # Merge locale into custom_fields
+        current_fields = user.custom_fields || %{}
+
+        updated_fields =
+          if locale && locale != "" do
+            Map.put(current_fields, "preferred_locale", locale)
+          else
+            Map.delete(current_fields, "preferred_locale")
+          end
+
+        user
+        |> change(custom_fields: updated_fields)
+
+      {:error, message} ->
+        user
+        |> change()
+        |> add_error(:preferred_locale, message)
+    end
   end
 
-  defp validate_locale_format(changeset) do
-    validate_change(changeset, :preferred_locale, fn :preferred_locale, locale ->
-      if locale && !Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/, locale) do
-        [preferred_locale: "must be a valid locale format (e.g., en-US, es-MX)"]
-      else
-        []
-      end
-    end)
-  end
+  @doc """
+  Validates a locale value for format and existence.
 
-  defp validate_locale_exists(changeset) do
+  Returns `:ok` if valid, `{:error, message}` if invalid.
+
+  ## Examples
+
+      iex> validate_locale_value("en-US")
+      :ok
+
+      iex> validate_locale_value("invalid")
+      {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
+  """
+  def validate_locale_value(nil), do: :ok
+  def validate_locale_value(""), do: :ok
+
+  def validate_locale_value(locale) when is_binary(locale) do
     alias PhoenixKit.Modules.Languages
 
-    validate_change(changeset, :preferred_locale, fn :preferred_locale, locale ->
-      if locale && !Languages.get_predefined_language(locale) do
-        [preferred_locale: "is not a recognized language code"]
-      else
-        []
-      end
-    end)
+    cond do
+      !Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/, locale) ->
+        {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
+
+      !Languages.get_predefined_language(locale) ->
+        {:error, "is not a recognized language code"}
+
+      true ->
+        :ok
+    end
   end
+
+  def validate_locale_value(_), do: {:error, "must be a string"}
+
+  @doc """
+  Gets the user's preferred locale from custom_fields.
+
+  Returns nil if not set (indicating system default should be used).
+
+  ## Examples
+
+      iex> get_preferred_locale(%User{custom_fields: %{"preferred_locale" => "en-GB"}})
+      "en-GB"
+
+      iex> get_preferred_locale(%User{custom_fields: %{}})
+      nil
+  """
+  def get_preferred_locale(%__MODULE__{custom_fields: fields}) when is_map(fields) do
+    Map.get(fields, "preferred_locale")
+  end
+
+  def get_preferred_locale(%__MODULE__{}), do: nil
 
   @doc """
   Verifies the password.

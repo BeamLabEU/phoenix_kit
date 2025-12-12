@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   def mount(params, _session, socket) do
@@ -118,6 +119,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
     case Blogging.add_blog(name, mode, slug_to_validate) do
       {:ok, blog} ->
         locale = socket.assigns.current_locale
+
+        # Broadcast blog created for live dashboard updates
+        BloggingPubSub.broadcast_blog_created(blog)
 
         {:noreply,
          socket

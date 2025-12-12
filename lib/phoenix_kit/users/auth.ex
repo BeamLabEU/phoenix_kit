@@ -1165,25 +1165,38 @@ defmodule PhoenixKit.Users.Auth do
 
   This allows users to select specific language dialects (e.g., en-GB, en-US)
   while URLs continue to use base codes (e.g., /en/).
+  The locale is stored in the `custom_fields` JSONB column.
+
+  Uses `update_user_custom_fields/2` internally for consistency.
 
   ## Examples
 
       iex> update_user_locale_preference(user, "en-GB")
-      {:ok, %User{preferred_locale: "en-GB"}}
+      {:ok, %User{custom_fields: %{"preferred_locale" => "en-GB", ...}}}
 
       iex> update_user_locale_preference(user, "invalid")
-      {:error, %Ecto.Changeset{}}
-  """
-  def update_user_locale_preference(%User{} = user, preferred_locale)
-      when is_binary(preferred_locale) do
-    case user
-         |> User.preferred_locale_changeset(%{preferred_locale: preferred_locale})
-         |> Repo.update() do
-      {:ok, updated_user} ->
-        {:ok, updated_user}
+      {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
 
-      {:error, changeset} ->
-        {:error, changeset}
+      iex> update_user_locale_preference(user, nil)
+      {:ok, %User{...}}  # Clears the preference
+  """
+  def update_user_locale_preference(%User{} = user, preferred_locale) do
+    case User.validate_locale_value(preferred_locale) do
+      :ok ->
+        # Merge locale into existing custom_fields
+        current_fields = user.custom_fields || %{}
+
+        updated_fields =
+          if preferred_locale && preferred_locale != "" do
+            Map.put(current_fields, "preferred_locale", preferred_locale)
+          else
+            Map.delete(current_fields, "preferred_locale")
+          end
+
+        update_user_custom_fields(user, updated_fields)
+
+      {:error, message} ->
+        {:error, message}
     end
   end
 

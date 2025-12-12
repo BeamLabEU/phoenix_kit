@@ -37,7 +37,9 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.EmailTracking do
 
   def mount(params, _session, socket) do
     # Handle locale
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 

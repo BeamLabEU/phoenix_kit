@@ -26,7 +26,7 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
         ↓
   Extract base: "en"
         ↓
-  Resolve dialect: "en-US" (default) or user.preferred_locale ("en-GB")
+  Resolve dialect: "en-US" (default) or user.custom_fields["preferred_locale"] ("en-GB")
         ↓
   Set Gettext: "en-US" or "en-GB"
         ↓
@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
   ## User Preferences
 
   Authenticated users can override default mappings:
-  - User prefers British English: sets `preferred_locale` = "en-GB"
+  - User prefers British English: sets `custom_fields["preferred_locale"]` = "en-GB"
   - Visits `/en/dashboard`
   - System uses "en-GB" for translations
   - URLs remain `/en/` (not `/en-GB/`)
@@ -67,8 +67,8 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
       iex> DialectMapper.base_to_dialect("pt")
       "pt-BR"
 
-      # Resolve dialect with user preference
-      iex> user = %User{preferred_locale: "en-GB"}
+      # Resolve dialect with user preference (stored in custom_fields)
+      iex> user = %User{custom_fields: %{"preferred_locale" => "en-GB"}}
       iex> DialectMapper.resolve_dialect("en", user)
       "en-GB"
 
@@ -246,11 +246,11 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
 
   ## Examples
 
-      iex> user = %User{preferred_locale: "en-GB"}
+      iex> user = %User{custom_fields: %{"preferred_locale" => "en-GB"}}
       iex> DialectMapper.resolve_dialect("en", user)
       "en-GB"
 
-      iex> user = %User{preferred_locale: "es-MX"}
+      iex> user = %User{custom_fields: %{"preferred_locale" => "es-MX"}}
       iex> DialectMapper.resolve_dialect("en", user)
       "en-US"  # Preference doesn't match base, use default
 
@@ -273,7 +273,7 @@ defmodule PhoenixKit.Modules.Languages.DialectMapper do
   """
   def resolve_dialect(base_code, user \\ nil)
 
-  def resolve_dialect(base_code, %{preferred_locale: preferred} = _user)
+  def resolve_dialect(base_code, %{custom_fields: %{"preferred_locale" => preferred}} = _user)
       when is_binary(preferred) do
     # Verify user's preference matches the base code in URL
     # Security: prevents locale preference injection attacks

@@ -15,7 +15,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
 
   @impl true
   def mount(%{"entity_slug" => entity_slug, "id" => id} = params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 
@@ -26,7 +28,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
   end
 
   def mount(%{"entity_id" => entity_id, "id" => id} = params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
 

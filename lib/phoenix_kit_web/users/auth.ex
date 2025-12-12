@@ -627,6 +627,12 @@ defmodule PhoenixKitWeb.Users.Auth do
     socket
     |> maybe_manage_scope_subscription(user)
     |> Phoenix.Component.assign(:phoenix_kit_current_scope, scope)
+    |> Phoenix.Component.assign_new(:current_locale, fn ->
+      # Get from plug (Process dictionary) or compute default
+      Process.get(:phoenix_kit_current_locale) ||
+        Process.get(:phoenix_kit_current_locale_base) ||
+        Routes.get_default_admin_locale()
+    end)
   end
 
   defp maybe_attach_scope_refresh_hook(
@@ -1034,7 +1040,7 @@ defmodule PhoenixKitWeb.Users.Auth do
               redirect_default_locale_to_clean_url(conn, locale)
             else
               # Non-default language: process normally with locale prefix
-              current_user = conn.assigns[:current_user]
+              current_user = get_user_for_locale_resolution(conn)
               full_dialect = DialectMapper.resolve_dialect(locale, current_user)
 
               # Set Gettext to full dialect for translations
@@ -1060,7 +1066,8 @@ defmodule PhoenixKitWeb.Users.Auth do
         # No locale in URL - use default language (first admin language or "en")
         # This is the expected case for the default language which gets clean URLs
         default_base = get_default_admin_language()
-        default_dialect = DialectMapper.resolve_dialect(default_base, conn.assigns[:current_user])
+        current_user = get_user_for_locale_resolution(conn)
+        default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
 
         Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
         Process.put(:phoenix_kit_current_locale_base, default_base)
@@ -1069,6 +1076,22 @@ defmodule PhoenixKitWeb.Users.Auth do
         conn
         |> assign(:current_locale_base, default_base)
         |> assign(:current_locale, default_dialect)
+    end
+  end
+
+  # Helper to get user for locale resolution
+  # Checks conn assigns first, then tries to fetch from session token if available
+  defp get_user_for_locale_resolution(conn) do
+    case conn.assigns[:phoenix_kit_current_user] do
+      nil ->
+        # User not assigned yet, try to fetch from session token
+        case get_session(conn, "user_token") do
+          nil -> nil
+          token -> Auth.get_user_by_session_token(token)
+        end
+
+      user ->
+        user
     end
   end
 

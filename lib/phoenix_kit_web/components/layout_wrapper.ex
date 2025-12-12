@@ -74,14 +74,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   def app_layout(assigns) do
     # Batch load all page settings in a single operation for optimal database performance
-    # Note: blogging_blogs uses assign/2 instead of assign_new/2 to ensure fresh data
-    # after creating/deleting blogs (LiveView push_navigate preserves assigns)
     assigns =
       assigns
       |> assign_new(:content_language, fn ->
         PhoenixKit.Settings.get_content_language()
       end)
-      |> assign(:blogging_blogs, load_blogging_blogs())
+      |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
       |> assign_new(:seo_no_index, fn -> SEO.no_index_enabled?() end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
@@ -159,7 +157,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               current_path: assigns[:current_path],
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
-              current_locale: assigns[:current_locale] || "en",
+              current_locale: assigns[:current_locale],
               blogging_blogs: assigns[:blogging_blogs] || []
             }
 
@@ -454,34 +452,75 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <% end %>
 
                     <%= if PhoenixKit.Entities.enabled?() do %>
-                      <%!-- Entities section following Blogging pattern --%>
+                      <%!-- Entities section with direct link and conditional submenu --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/entities")}
                         icon="entities"
                         label="Entities"
                         current_path={@current_path || ""}
-                        exact_match_only={true}
+                        disable_active={true}
                         submenu_open={submenu_open?(@current_path, ["/admin/entities"])}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
-                        <%!-- Dynamically list each published entity --%>
+                        <%!-- Entities submenu items --%>
                         <div class="mt-1">
-                          <%= for entity <- PhoenixKit.Entities.list_entities() do %>
-                            <%= if entity.status == "published" do %>
-                              <.admin_nav_item
-                                href={
-                                  Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")
-                                }
-                                icon={entity.icon || "hero-cube"}
-                                label={entity.display_name_plural || entity.display_name}
-                                current_path={@current_path || ""}
-                                nested={true}
-                              />
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/entities")}
+                            icon="entities"
+                            label="Entities"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <%!-- Dynamically list each published entity (one level deeper) --%>
+                          <div class="pl-4">
+                            <%= for entity <- PhoenixKit.Entities.list_entities() do %>
+                              <%= if entity.status == "published" do %>
+                                <.admin_nav_item
+                                  href={
+                                    Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")
+                                  }
+                                  icon={entity.icon || "hero-cube"}
+                                  label={entity.display_name_plural || entity.display_name}
+                                  current_path={@current_path || ""}
+                                  nested={true}
+                                />
+                              <% end %>
                             <% end %>
-                          <% end %>
+                          </div>
                         </div>
                       <% end %>
+                    <% end %>
+
+                    <%!-- Posts Section --%>
+                    <.admin_nav_item
+                      href={Routes.locale_aware_path(assigns, "/admin/posts")}
+                      icon="document"
+                      label="Posts"
+                      current_path={@current_path || ""}
+                      disable_active={true}
+                      submenu_open={submenu_open?(@current_path, ["/admin/posts"])}
+                    />
+
+                    <%= if submenu_open?(@current_path, ["/admin/posts"]) do %>
+                      <div class="mt-1">
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/posts")}
+                          icon="document"
+                          label="All Posts"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/posts/groups")}
+                          icon="hero-folder"
+                          label="Groups"
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+                      </div>
                     <% end %>
 
                     <%= if Blogging.enabled?() do %>
@@ -536,12 +575,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/maintenance",
                           "/admin/settings/blogging",
                           "/admin/settings/seo",
-                          "/admin/settings/sitemap"
+                          "/admin/settings/posts"
                         ])
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/posts"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -575,6 +614,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
                             icon="document"
                             label="Blogging"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Settings.get_setting("posts_enabled", "true") == "true" do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/posts")}
+                            icon="document"
+                            label="Posts"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -617,16 +666,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}
                             icon="seo"
                             label="SEO"
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
-                        <% end %>
-
-                        <%= if PhoenixKit.Sitemap.enabled?() do %>
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/sitemap")}
-                            icon="sitemap"
-                            label="Sitemap"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -997,24 +1036,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     # Wrap inner content with admin navigation if needed
     assigns = wrap_inner_block_with_admin_nav_if_needed(assigns)
 
-    # Store parent layout info in assigns for wrapper template
-    assigns =
-      assigns
-      |> Map.put(:__parent_module__, module)
-      |> Map.put(:__parent_function__, function)
-      |> Map.put(:__parent_base_assigns__, prepare_parent_layout_assigns(assigns))
-
-    # Use HEEx to render slot and pass to parent layout
-    # This is needed because embedded Phoenix templates expect @inner_content,
-    # but LayoutWrapper receives content as inner_block slot
-    ~H"""
-    <% inner_content = render_slot(@inner_block) %>
-    <% parent_assigns =
-      @__parent_base_assigns__
-      |> Map.put(:inner_content, inner_content)
-      |> Map.put(:flash, @flash) %>
-    {apply(@__parent_module__, @__parent_function__, [parent_assigns])}
-    """
+    # Use apply/3 to dynamically call the parent layout function
+    apply(module, function, [assigns])
   rescue
     UndefinedFunctionError ->
       # Fallback to PhoenixKit layout if parent function doesn't exist
@@ -1140,15 +1163,79 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
-  # Load blogging blogs configuration
-  # Uses Blogging.list_blogs() which handles caching, legacy migration, and normalization
+  # Load blogging blogs configuration with legacy migration support
   defp load_blogging_blogs do
     if Blogging.enabled?() do
-      Blogging.list_blogs()
+      json_settings = %{
+        "blogging_blogs" => PhoenixKit.Settings.get_json_setting_cached("blogging_blogs", nil),
+        "blogging_categories" =>
+          PhoenixKit.Settings.get_json_setting_cached("blogging_categories", %{"types" => []})
+      }
+
+      extract_and_normalize_blogs(json_settings)
     else
       []
     end
   end
+
+  defp extract_and_normalize_blogs(json_settings) do
+    case json_settings["blogging_blogs"] do
+      %{"blogs" => blogs} when is_list(blogs) ->
+        normalize_blogs(blogs)
+
+      list when is_list(list) ->
+        normalize_blogs(list)
+
+      _ ->
+        handle_legacy_blogging_categories(json_settings)
+    end
+  end
+
+  defp handle_legacy_blogging_categories(json_settings) do
+    legacy =
+      case json_settings["blogging_categories"] do
+        %{"types" => types} when is_list(types) -> types
+        other when is_list(other) -> other
+        _ -> []
+      end
+
+    migrate_legacy_categories_if_present(legacy)
+    normalize_blogs(legacy)
+  end
+
+  defp migrate_legacy_categories_if_present([]), do: :ok
+
+  defp migrate_legacy_categories_if_present(legacy) do
+    PhoenixKit.Settings.update_json_setting("blogging_blogs", %{"blogs" => legacy})
+  end
+
+  # Normalize blogs list to ensure consistent structure
+  defp normalize_blogs(blogs) do
+    blogs
+    |> Enum.map(&normalize_blog_keys/1)
+    |> Enum.map(fn
+      %{"mode" => mode} = blog when mode in ["timestamp", "slug"] ->
+        blog
+
+      blog ->
+        Map.put(blog, "mode", "timestamp")
+    end)
+  end
+
+  defp normalize_blog_keys(blog) when is_map(blog) do
+    Enum.reduce(blog, %{}, fn
+      {key, value}, acc when is_binary(key) ->
+        Map.put(acc, key, value)
+
+      {key, value}, acc when is_atom(key) ->
+        Map.put(acc, Atom.to_string(key), value)
+
+      {key, value}, acc ->
+        Map.put(acc, to_string(key), value)
+    end)
+  end
+
+  defp normalize_blog_keys(other), do: other
 
   # Language switcher component for admin sidebar
   attr :current_path, :string, required: true

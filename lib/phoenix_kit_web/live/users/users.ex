@@ -20,7 +20,9 @@ defmodule PhoenixKitWeb.Live.Users.Users do
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
     Process.put(:phoenix_kit_current_locale, locale)
     # Subscribe to user events for live updates
@@ -365,9 +367,13 @@ defmodule PhoenixKitWeb.Live.Users.Users do
   end
 
   def handle_event("reorder_selected_columns", params, socket) do
-    # Try to get the order from the reorder input (button approach)
+    # Get the order from various possible param formats
     new_order =
       case params do
+        # SortableGrid component format
+        %{"ordered_ids" => order} when is_list(order) ->
+          order
+
         %{"reorder_order" => order_string} when is_binary(order_string) ->
           # Parse comma-separated string from reorder input
           order_string

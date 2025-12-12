@@ -195,6 +195,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Supports user-specific language dialect preferences
   - Enables simplified URL structure with dialect preferences
 
+  ### V29 - Posts System
+  - Complete social posts system with media attachments
+  - Posts with privacy controls (draft/public/unlisted/scheduled)
+  - Post comments with nested threading
+  - Post likes and user mentions
+  - Post tags and user groups
+
+  ### V30 - Move Preferred Locale to Custom Fields
+  - Migrates preferred_locale from column to custom_fields JSONB
+  - Reduces schema complexity
+  - Backward compatible data access
+
   ### V31 - Billing System (Phase 1) ⚡ LATEST
   - Phoenix_kit_currencies for multi-currency support
   - Phoenix_kit_billing_profiles for user billing information (EU Standard)

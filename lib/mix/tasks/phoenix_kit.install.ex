@@ -53,6 +53,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BrowserPipelineIntegration,
       CssIntegration,
       DemoFiles,
+      JsIntegration,
       LayoutConfig,
       MailerConfig,
       MigrationStrategy,
@@ -101,6 +102,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
+      |> JsIntegration.add_automatic_js_integration()
       |> DemoFiles.copy_test_demo_files()
       |> RouterIntegration.add_router_integration(opts[:router_path])
       |> BrowserPipelineIntegration.add_integration_to_browser_pipeline()
@@ -192,6 +194,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
             ❌ Configuration was not added successfully after automatic retry.
 
             Please check config/config.exs manually and ensure it contains:
+            - config :ueberauth, Ueberauth (with providers: [])
             - config :hammer (with backend and expiry_ms)
             - config :phoenix_kit, Oban (with queues configuration)
 
@@ -316,6 +319,7 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       ⚠️  Required configuration is missing from config/config.exs
 
       PhoenixKit requires configuration for:
+      - Ueberauth (OAuth authentication)
       - Hammer (rate limiting)
       - Oban (background jobs for file processing)
 
@@ -336,6 +340,10 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         lines = String.split(content, "\n")
 
         cond do
+          # Missing Ueberauth configuration entirely
+          !String.contains?(content, "config :ueberauth") ->
+            :missing
+
           # Missing Hammer configuration (check for active, non-commented config)
           !has_active_hammer_config?(lines) ->
             :missing

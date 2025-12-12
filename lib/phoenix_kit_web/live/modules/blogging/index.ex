@@ -10,8 +10,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
+  @impl true
   def mount(params, _session, socket) do
     locale = params["locale"] || socket.assigns[:current_locale] || "en"
     Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
@@ -31,6 +33,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
     {blogs, insights, summary} =
       dashboard_snapshot(locale, socket.assigns[:phoenix_kit_current_user], date_time_settings)
 
+    # Subscribe to PubSub for live updates when connected
+    if connected?(socket) do
+      # Subscribe to all blogs' post updates
+      Enum.each(blogs, fn blog ->
+        BloggingPubSub.subscribe_to_posts(blog["slug"])
+      end)
+
+      # Subscribe to global blogs topic (for blog creation/deletion)
+      BloggingPubSub.subscribe_to_blogs()
+    end
+
     socket =
       socket
       |> assign(:current_locale, locale)
@@ -48,6 +61,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
     {:ok, socket}
   end
 
+  @impl true
   def handle_params(_params, uri, socket) do
     {blogs, insights, summary} =
       dashboard_snapshot(
@@ -66,6 +80,40 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
        empty_state?: blogs == [],
        endpoint_url: endpoint_url
      )}
+  end
+
+  # PubSub handlers for live updates
+  @impl true
+  def handle_info({:post_created, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:post_updated, _post}, socket), do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:post_status_changed, _post}, socket),
+    do: {:noreply, refresh_dashboard(socket)}
+
+  def handle_info({:post_deleted, _post_path}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:blog_created, _blog}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:blog_deleted, _blog_slug}, socket), do: {:noreply, refresh_dashboard(socket)}
+  def handle_info({:blog_updated, _blog}, socket), do: {:noreply, refresh_dashboard(socket)}
+
+  defp refresh_dashboard(socket) do
+    {blogs, insights, summary} =
+      dashboard_snapshot(
+        socket.assigns.current_locale,
+        socket.assigns[:phoenix_kit_current_user],
+        socket.assigns.date_time_settings
+      )
+
+    # Resubscribe to any new blogs that may have been created
+    Enum.each(blogs, fn blog ->
+      BloggingPubSub.subscribe_to_posts(blog["slug"])
+    end)
+
+    assign(socket,
+      blogs: blogs,
+      dashboard_insights: insights,
+      dashboard_summary: summary,
+      empty_state?: blogs == []
+    )
   end
 
   defp dashboard_snapshot(locale, current_user, date_time_settings) do

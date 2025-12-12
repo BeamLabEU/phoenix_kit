@@ -54,6 +54,10 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     enabled_buckets = Storage.list_enabled_buckets()
     has_buckets = length(enabled_buckets) > 0
 
+    # Save previous state BEFORE assigning new values
+    was_shown = socket.assigns[:show] || false
+    previous_selected_ids = socket.assigns[:selected_ids]
+
     socket =
       socket
       |> assign(assigns)
@@ -67,12 +71,21 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign_new(:total_pages, fn -> 0 end)
       |> maybe_allow_upload(has_buckets)
 
-    # Convert selected_ids to MapSet if it's a list
+    # Handle selected_ids - only reset when modal is opening, otherwise preserve selection
     socket =
-      if socket.assigns[:selected_ids] && is_list(socket.assigns.selected_ids) do
-        assign(socket, :selected_ids, MapSet.new(socket.assigns.selected_ids))
-      else
-        assign_new(socket, :selected_ids, fn -> MapSet.new([]) end)
+      cond do
+        # Modal is opening (show transitions from false to true) - initialize from incoming assigns
+        assigns[:show] && !was_shown ->
+          selected_ids_list = assigns[:selected_ids] || []
+          assign(socket, :selected_ids, MapSet.new(selected_ids_list))
+
+        # Modal already open and has selection state - preserve it
+        is_struct(previous_selected_ids, MapSet) ->
+          assign(socket, :selected_ids, previous_selected_ids)
+
+        # First mount or no previous state - initialize empty
+        true ->
+          assign(socket, :selected_ids, MapSet.new([]))
       end
 
     # Load files if modal is shown
@@ -120,6 +133,8 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     selected_ids = socket.assigns.selected_ids
     mode = socket.assigns.mode
 
+    Logger.debug("MediaSelectorModal toggle_selection: mode=#{inspect(mode)}, file_id=#{file_id}")
+
     new_selected_ids =
       case mode do
         :single ->
@@ -131,6 +146,21 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
           else
             MapSet.put(selected_ids, file_id)
           end
+
+        # Handle string versions in case they come through as strings
+        "single" ->
+          MapSet.new([file_id])
+
+        "multiple" ->
+          if MapSet.member?(selected_ids, file_id) do
+            MapSet.delete(selected_ids, file_id)
+          else
+            MapSet.put(selected_ids, file_id)
+          end
+
+        # Default to single select for any unexpected value
+        _ ->
+          MapSet.new([file_id])
       end
 
     {:noreply, assign(socket, :selected_ids, new_selected_ids)}

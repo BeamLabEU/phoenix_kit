@@ -30,8 +30,14 @@ config :ueberauth, Ueberauth, providers: []
 # Configure Oban (if using job processing)
 config :phoenix_kit, Oban,
   repo: PhoenixKit.Repo,
-  queues: [default: 10, emails: 50, file_processing: 20],
-  plugins: [Oban.Plugins.Pruner, {Oban.Plugins.Cron, crontab: []}]
+  queues: [default: 10, emails: 50, file_processing: 20, posts: 10],
+  plugins: [
+    Oban.Plugins.Pruner,
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+     ]}
+  ]
 
 # Configure Logger metadata
 config :logger, :console,

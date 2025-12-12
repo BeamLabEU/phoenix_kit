@@ -25,7 +25,9 @@ defmodule PhoenixKit.Supervisor do
       # OAuth config loader - now guaranteed to have critical settings in cache
       # No longer needs retry logic as cache is pre-warmed with OAuth settings
       PhoenixKit.Workers.OAuthConfigLoader,
+      # Presence modules for collaborative editing
       PhoenixKit.Entities.Presence,
+      PhoenixKitWeb.Live.Modules.Blogging.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
       PhoenixKit.Emails.Supervisor
     ]
