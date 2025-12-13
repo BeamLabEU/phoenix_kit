@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Providers.Local do
+defmodule PhoenixKit.Modules.Storage.Providers.Local do
   @moduledoc """
   Local filesystem storage provider.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKit.Storage.Providers.Local do
   Suitable for development, testing, and single-server deployments.
   """
 
-  @behaviour PhoenixKit.Storage.Provider
+  @behaviour PhoenixKit.Modules.Storage.Provider
 
   @impl true
   def store_file(bucket, source_path, destination_path, _opts \\ []) do

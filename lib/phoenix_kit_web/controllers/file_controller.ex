@@ -6,8 +6,8 @@ defmodule PhoenixKitWeb.FileController do
   """
   use PhoenixKitWeb, :controller
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{Manager, URLSigner, Workers.ProcessFileJob}
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{Manager, ProcessFileJob, URLSigner}
   alias PhoenixKit.Utils.Routes
 
   @doc """

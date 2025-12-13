@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.File do
+defmodule PhoenixKit.Modules.Storage.File do
   @moduledoc """
   Schema for original file uploads.
 
@@ -109,7 +109,8 @@ defmodule PhoenixKit.Storage.File do
           metadata: map() | nil,
           user_id: integer() | nil,
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          instances: [PhoenixKit.Storage.FileInstance.t()] | Ecto.Association.NotLoaded.t(),
+          instances:
+            [PhoenixKit.Modules.Storage.FileInstance.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -131,7 +132,7 @@ defmodule PhoenixKit.Storage.File do
     field :metadata, :map
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
-    has_many :instances, PhoenixKit.Storage.FileInstance
+    has_many :instances, PhoenixKit.Modules.Storage.FileInstance
 
     timestamps(type: :naive_datetime)
   end

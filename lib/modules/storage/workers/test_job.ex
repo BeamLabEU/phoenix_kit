@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Workers.TestJob do
+defmodule PhoenixKit.Modules.Storage.TestJob do
   @moduledoc """
   Simple test job to verify Oban is working
   """
@@ -8,7 +8,7 @@ defmodule PhoenixKit.Storage.Workers.TestJob do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: %{"message" => message}}) do
-    Logger.info("✅ TestJob: SUCCESS! Message: #{message}")
+    Logger.info("TestJob: SUCCESS! Message: #{message}")
     :ok
   end
 end

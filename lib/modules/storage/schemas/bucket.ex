@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Bucket do
+defmodule PhoenixKit.Modules.Storage.Bucket do
   @moduledoc """
   Schema for storage provider configurations.
 
@@ -82,7 +82,8 @@ defmodule PhoenixKit.Storage.Bucket do
           enabled: boolean(),
           priority: integer(),
           max_size_mb: integer() | nil,
-          file_locations: [PhoenixKit.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
+          file_locations:
+            [PhoenixKit.Modules.Storage.FileLocation.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -100,7 +101,7 @@ defmodule PhoenixKit.Storage.Bucket do
     field :priority, :integer, default: 0
     field :max_size_mb, :integer
 
-    has_many :file_locations, PhoenixKit.Storage.FileLocation
+    has_many :file_locations, PhoenixKit.Modules.Storage.FileLocation
 
     timestamps(type: :naive_datetime)
   end

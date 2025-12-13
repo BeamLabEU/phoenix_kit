@@ -151,7 +151,12 @@
           <%= if featured_image do %>
             <div class="mb-6">
               <img
-                src={PhoenixKit.Storage.URLSigner.signed_url(featured_image.file_id, "original")}
+                src={
+                  PhoenixKit.Modules.Storage.URLSigner.signed_url(
+                    featured_image.file_id,
+                    "original"
+                  )
+                }
                 alt={featured_image.file && featured_image.file.original_file_name}
                 class="w-full rounded-lg object-cover max-h-96"
               />
@@ -169,7 +174,9 @@
               <%= for media <- gallery_media do %>
                 <div class="aspect-square rounded-lg overflow-hidden">
                   <img
-                    src={PhoenixKit.Storage.URLSigner.signed_url(media.file_id, "original")}
+                    src={
+                      PhoenixKit.Modules.Storage.URLSigner.signed_url(media.file_id, "original")
+                    }
                     alt={media.file && media.file.original_file_name}
                     class="w-full h-full object-cover"
                   />

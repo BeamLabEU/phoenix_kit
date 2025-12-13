@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.ProviderRegistry do
+defmodule PhoenixKit.Modules.Storage.ProviderRegistry do
   @moduledoc """
   Registry for storage providers.
 
@@ -6,23 +6,23 @@ defmodule PhoenixKit.Storage.ProviderRegistry do
   """
 
   @providers %{
-    "local" => PhoenixKit.Storage.Providers.Local,
-    "s3" => PhoenixKit.Storage.Providers.S3,
+    "local" => PhoenixKit.Modules.Storage.Providers.Local,
+    "s3" => PhoenixKit.Modules.Storage.Providers.S3,
     # B2 uses S3-compatible API
-    "b2" => PhoenixKit.Storage.Providers.S3,
+    "b2" => PhoenixKit.Modules.Storage.Providers.S3,
     # R2 uses S3-compatible API
-    "r2" => PhoenixKit.Storage.Providers.S3
+    "r2" => PhoenixKit.Modules.Storage.Providers.S3
   }
 
   @doc """
   Gets the provider module for a given provider type.
   """
-  def get_provider("local"), do: {:ok, PhoenixKit.Storage.Providers.Local}
-  def get_provider("s3"), do: {:ok, PhoenixKit.Storage.Providers.S3}
+  def get_provider("local"), do: {:ok, PhoenixKit.Modules.Storage.Providers.Local}
+  def get_provider("s3"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   # B2 is S3-compatible
-  def get_provider("b2"), do: {:ok, PhoenixKit.Storage.Providers.S3}
+  def get_provider("b2"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   # R2 is S3-compatible
-  def get_provider("r2"), do: {:ok, PhoenixKit.Storage.Providers.S3}
+  def get_provider("r2"), do: {:ok, PhoenixKit.Modules.Storage.Providers.S3}
   def get_provider(provider), do: {:error, "Unknown provider: #{provider}"}
 
   @doc """

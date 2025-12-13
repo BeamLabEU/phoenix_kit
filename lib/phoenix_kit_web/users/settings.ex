@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Users.Settings do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
@@ -485,7 +486,7 @@ defmodule PhoenixKitWeb.Users.Settings do
         file_hash = Auth.calculate_file_hash(path)
 
         # Store file in storage
-        case PhoenixKit.Storage.store_file_in_buckets(
+        case Storage.store_file_in_buckets(
                path,
                "image",
                user_id,

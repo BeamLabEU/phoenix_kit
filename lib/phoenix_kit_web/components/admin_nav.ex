@@ -338,7 +338,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-content font-bold cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
         >
           <%= if @avatar_file_id do %>
-            <% avatar_url = PhoenixKit.Storage.URLSigner.signed_url(@avatar_file_id, "medium") %>
+            <% avatar_url = PhoenixKit.Modules.Storage.URLSigner.signed_url(@avatar_file_id, "medium") %>
             <img
               src={avatar_url}
               alt="Avatar"
@@ -467,7 +467,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
         <div class="flex items-center gap-2 mb-2">
           <div class="w-8 h-8 bg-primary rounded-md flex items-center justify-center text-primary-content text-xs font-bold overflow-hidden">
             <%= if @avatar_file_id do %>
-              <% avatar_url = PhoenixKit.Storage.URLSigner.signed_url(@avatar_file_id, "small") %>
+              <% avatar_url =
+                PhoenixKit.Modules.Storage.URLSigner.signed_url(@avatar_file_id, "small") %>
               <img
                 src={avatar_url}
                 alt="Avatar"

@@ -12,11 +12,17 @@
   - Print templates (invoice, receipt, credit note, payment confirmation)
   - Email integration for billing documents
   - Admin UI for billing management
+- **Add file mirror/export system** for Entities with import UI
 
 ### Changed
 - Email templates system enhancements for billing documents
 - User avatars in admin UI with cascading fallback
 - Theme-aware dropdown for email status legend
+- Add custom admin dashboard sections
+- Update to the language module to use new beamlab dep 
+- Refactor locale usages
+- Fix admin category page template
+- Moved all storage files to the modules/storage folder
 
 ### Merged from upstream
 - Posts system (V29 migration) - social posts with comments, likes, tags
@@ -24,6 +30,12 @@
 - Collaborative editing and live updating dashboards for blogging
 - IPv4/IPv6 session creation fixes
 - Ueberauth igniter setup fixes
+
+## 1.6.20 - 2025-12-11
+- Posts (for user generated content) module inital commit
+- Add authentication-aware route filtering for sitemap
+- blogging: add collaborative editing, live updating dashboards
+- Update for the language module (organizing by country)
 
 ## 1.6.19 - 2025-12-09
 - Add smart timestamp URL handling for blog posts

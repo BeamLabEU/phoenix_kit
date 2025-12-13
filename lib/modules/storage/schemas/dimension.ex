@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Storage.Dimension do
+defmodule PhoenixKit.Modules.Storage.Dimension do
   @moduledoc """
   Schema for dimension presets for automatic file variant generation.
 
@@ -258,7 +258,7 @@ defmodule PhoenixKit.Storage.Dimension do
     size_desc =
       cond do
         maintain_aspect && width -> "#{width}px wide (aspect ratio maintained)"
-        width && height -> "#{width}×#{height}"
+        width && height -> "#{width}x#{height}"
         width -> "#{width}px wide"
         height -> "#{height}px tall"
         true -> "auto"

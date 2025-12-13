@@ -14,7 +14,7 @@ Complete social posts system with media attachments, comments, likes, tags, user
 ### Key Features
 
 - ✅ Multiple post types (post/snippet/repost) with different display layouts
-- ✅ Multi-image uploads via PhoenixKit.Storage integration
+- ✅ Multi-image uploads via PhoenixKit.Modules.Storage integration
 - ✅ Unlimited nested comment threading
 - ✅ User-created groups (Pinterest-style collections)
 - ✅ Privacy controls (draft/public/unlisted/scheduled)
@@ -70,7 +70,7 @@ Complete social posts system with media attachments, comments, likes, tags, user
 |--------|------|-------------|
 | `id` | UUIDv7 | Primary key |
 | `post_id` | uuid | FK → posts |
-| `file_id` | uuid | FK → files (PhoenixKit.Storage) |
+| `file_id` | uuid | FK → files (PhoenixKit.Modules.Storage) |
 | `position` | integer | Display order (1, 2, 3...) |
 | `caption` | text | Image caption/alt text (nullable) |
 | `date_added` | naive_datetime | Created timestamp |
@@ -664,7 +664,7 @@ lib/phoenix_kit/migrations/postgres/
   - [ ] Add in-app notifications
 
 - [ ] **4.4 Image Processing Integration**
-  - [ ] Verify PhoenixKit.Storage handles image uploads
+  - [ ] Verify PhoenixKit.Modules.Storage handles image uploads
   - [ ] Ensure variant generation (thumbnail, medium, large)
   - [ ] Add image optimization
   - [ ] Add dimension validation
@@ -760,7 +760,7 @@ lib/phoenix_kit/migrations/postgres/
 4. **User-Specific Groups** - Each user manages their own collections (Pinterest model)
 5. **Scheduled Publishing** - Via Oban background jobs (leverages V27 migration)
 6. **Type-Specific Layouts** - Single schema, different UI per type (post/snippet/repost)
-7. **Media Integration** - Use existing PhoenixKit.Storage system (no new file tables)
+7. **Media Integration** - Use existing PhoenixKit.Modules.Storage system (no new file tables)
 8. **Settings-Based Validation** - Dynamic limits from admin settings (flexible configuration)
 9. **Soft Deletes** - Status field instead of hard deletes (enables moderation/recovery)
 10. **SEO-Friendly** - Auto-generate slugs, support for scheduled publishing, unlisted posts

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
+defmodule PhoenixKitWeb.Live.Modules.Storage.BucketForm do
   @moduledoc """
   Bucket form LiveView for storage bucket management.
 
@@ -7,8 +7,8 @@ defmodule PhoenixKitWeb.Live.Settings.Storage.BucketForm do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
   alias PhoenixKit.Utils.Routes
 
   def mount(params, session, socket) do

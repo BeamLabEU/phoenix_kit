@@ -22,9 +22,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
 
   require Logger
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
