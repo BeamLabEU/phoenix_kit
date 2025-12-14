@@ -455,7 +455,7 @@
             <.link
               navigate={
                 PhoenixKit.Utils.Routes.path("/admin/settings/sitemap",
-                  locale: @current_locale || "en"
+                  locale: :none
                 )
               }
               class={"btn btn-sm #{if @sitemap_enabled, do: "btn-primary", else: "btn-outline"}"}

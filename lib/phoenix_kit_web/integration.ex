@@ -202,6 +202,13 @@ defmodule PhoenixKitWeb.Integration do
         get "/file/:file_id/:variant/:token", FileController, :show
         get "/api/files/:file_id/info", FileController, :info
 
+        # Sitemap routes (public, no authentication required)
+        get "/sitemap.xml", SitemapController, :xml
+        get "/sitemap.html", SitemapController, :html
+        get "/sitemaps/:index", SitemapController, :index_part
+        get "/sitemap.xsl", SitemapController, :xsl_stylesheet
+        get "/assets/sitemap/:style", SitemapController, :xsl_stylesheet
+
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
       end
@@ -320,6 +327,7 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
+          live "/admin/settings/sitemap", Live.Modules.Sitemaps.Settings, :index
 
           live "/admin/settings/media", Live.Modules.Storage.Settings, :index
           live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
@@ -492,6 +500,7 @@ defmodule PhoenixKitWeb.Integration do
                :index
 
           live "/admin/settings/seo", Live.Settings.SEO, :index
+          live "/admin/settings/sitemap", Live.Modules.Sitemaps.Settings, :index
 
           live "/admin/settings/media", Live.Modules.Storage.Settings, :index
           live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new

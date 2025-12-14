@@ -31,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:page_title, "Blogging Editor")
       |> assign(:blog_slug, blog_slug)
+      |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
       |> assign(:show_media_selector, false)
       |> assign(:media_selection_mode, :single)
       |> assign(:media_selected_ids, MapSet.new())
@@ -46,6 +47,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:lock_owner_user, nil)
       |> assign(:spectators, [])
       |> assign(:other_viewers, [])
+      # Default editor form/content assigns (will be overridden by handle_params)
+      |> assign(:form, %{})
+      |> assign(:post, nil)
+      |> assign(:content, "")
+      |> assign(:blog_mode, nil)
+      |> assign(:current_language, nil)
+      |> assign(:available_languages, [])
+      |> assign(:all_enabled_languages, [])
+      |> assign(:has_pending_changes, false)
+      |> assign(:is_new_post, false)
+      |> assign(:is_new_translation, false)
+      |> assign(:public_url, nil)
+      |> assign(:current_path, Routes.path("/admin/blogging/#{blog_slug}/edit", locale: socket.assigns.current_locale_base))
 
     {:ok, socket}
   end
