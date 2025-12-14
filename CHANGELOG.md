@@ -1,3 +1,7 @@
+## 1.7.1 - 2025-12-14
+### Fixes
+- Fix sitemap module: restore missing routes and add sidebar menu
+
 ## 1.7.0 - 2025-12-12
 
 ### Added
