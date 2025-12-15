@@ -179,12 +179,16 @@ defmodule PhoenixKit.Sitemap.RouteResolver do
   ## Types
 
   - `:pages` - Finds routes that look like page routes (contain :slug and plug name contains "page")
+  - `:posts` - Finds routes that look like post routes (contain :slug and plug name contains "post")
   - `:entity` - Finds routes matching entity name (singular or plural form)
 
   ## Examples
 
       find_content_route(:pages)
       # => "/pages/:slug"
+
+      find_content_route(:posts)
+      # => "/posts/:slug"
 
       find_content_route(:entity, "product")
       # => "/products/:slug"
@@ -205,6 +209,24 @@ defmodule PhoenixKit.Sitemap.RouteResolver do
     |> Enum.find(fn route ->
       plug_name = to_string(route.plug) |> String.downcase()
       String.contains?(plug_name, "page") or String.contains?(plug_name, "content")
+    end)
+    |> extract_path()
+  end
+
+  def find_content_route(:posts, _name) do
+    get_routes()
+    |> Enum.filter(fn route ->
+      route.verb == :get and
+        (String.contains?(route.path, ":slug") or String.contains?(route.path, ":id"))
+    end)
+    |> Enum.find(fn route ->
+      path_lower = String.downcase(route.path)
+      plug_name = to_string(route.plug) |> String.downcase()
+
+      # Match routes with /posts/ in path or plug name containing "post"
+      String.contains?(path_lower, "/posts/") or
+        String.starts_with?(path_lower, "/posts/") or
+        (String.contains?(plug_name, "post") and not String.contains?(plug_name, "page"))
     end)
     |> extract_path()
   end
@@ -241,9 +263,12 @@ defmodule PhoenixKit.Sitemap.RouteResolver do
   def find_content_route(_, _), do: nil
 
   @doc """
-  Finds index route for entity (list page without :slug).
+  Finds index route for content type (list page without :slug).
 
   ## Examples
+
+      find_index_route(:posts)
+      # => "/posts"
 
       find_index_route(:entity, "page")
       # => "/page" or "/pages"
@@ -251,7 +276,29 @@ defmodule PhoenixKit.Sitemap.RouteResolver do
       find_index_route(:entity, "product")
       # => "/products"
   """
-  @spec find_index_route(atom(), String.t()) :: String.t() | nil
+  @spec find_index_route(atom(), String.t() | nil) :: String.t() | nil
+  def find_index_route(type, name \\ nil)
+
+  def find_index_route(:posts, _name) do
+    get_routes()
+    |> Enum.filter(fn route ->
+      route.verb == :get and
+        not String.contains?(route.path, ":") and
+        not String.contains?(route.path, "*")
+    end)
+    |> Enum.find(fn route ->
+      path_lower = String.downcase(route.path)
+      plug_name = to_string(route.plug) |> String.downcase()
+
+      # Match /posts path or plug name containing "post"
+      path_lower == "/posts" or
+        String.ends_with?(path_lower, "/posts") or
+        (String.contains?(plug_name, "post") and not String.contains?(plug_name, "page") and
+           not String.contains?(path_lower, ":"))
+    end)
+    |> extract_path()
+  end
+
   def find_index_route(:entity, entity_name) when is_binary(entity_name) do
     entity_lower = String.downcase(entity_name)
 

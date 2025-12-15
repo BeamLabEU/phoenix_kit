@@ -92,9 +92,11 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
   @impl true
   def collect(opts \\ []) do
     base_url = Keyword.get(opts, :base_url)
+    language = Keyword.get(opts, :language)
+    is_default = Keyword.get(opts, :is_default_language, true)
 
-    static_entries = collect_static_routes(base_url)
-    custom_entries = collect_custom_urls(base_url)
+    static_entries = collect_static_routes(base_url, language, is_default)
+    custom_entries = collect_custom_urls(base_url, language, is_default)
 
     (static_entries ++ custom_entries)
     |> Enum.reject(&is_nil/1)
@@ -105,14 +107,14 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
       []
   end
 
-  defp collect_static_routes(base_url) do
+  defp collect_static_routes(base_url, language, is_default) do
     get_static_routes_config()
-    |> Enum.map(&build_static_entry(&1, base_url))
+    |> Enum.map(&build_static_entry(&1, base_url, language, is_default))
   end
 
-  defp collect_custom_urls(base_url) do
+  defp collect_custom_urls(base_url, language, is_default) do
     get_custom_urls_config()
-    |> Enum.map(&build_custom_entry(&1, base_url))
+    |> Enum.map(&build_custom_entry(&1, base_url, language, is_default))
   end
 
   defp get_static_routes_config do
@@ -153,12 +155,15 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
     end
   end
 
-  defp build_static_entry(config, base_url) do
+  defp build_static_entry(config, base_url, language, is_default) do
     path = resolve_path(config)
 
     if path do
       prefixed = Map.get(config, "prefixed", false)
-      url = build_url(path, base_url, prefixed)
+      # Canonical path without language prefix (for hreflang grouping)
+      canonical_path = if prefixed, do: Routes.path(path), else: path
+      localized_path = build_path_with_language(canonical_path, language, is_default)
+      url = build_url_from_localized_path(localized_path, base_url, prefixed)
 
       UrlEntry.new(%{
         loc: url,
@@ -167,7 +172,8 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
         priority: Map.get(config, "priority", 0.5),
         title: Map.get(config, "title", path),
         category: Map.get(config, "category", "Static"),
-        source: :static
+        source: :static,
+        canonical_path: canonical_path
       })
     else
       # Route not found and no explicit path - skip
@@ -175,11 +181,14 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
     end
   end
 
-  defp build_custom_entry(config, base_url) do
+  defp build_custom_entry(config, base_url, language, is_default) do
     path = Map.get(config, "path")
 
     if path do
-      url = build_url(path, base_url, false)
+      # Canonical path without language prefix (for hreflang grouping)
+      canonical_path = path
+      localized_path = build_path_with_language(path, language, is_default)
+      url = build_url_from_localized_path(localized_path, base_url, false)
 
       UrlEntry.new(%{
         loc: url,
@@ -188,7 +197,8 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
         priority: Map.get(config, "priority", 0.5),
         title: Map.get(config, "title", path),
         category: Map.get(config, "category", "Custom"),
-        source: :static
+        source: :static,
+        canonical_path: canonical_path
       })
     else
       nil
@@ -211,35 +221,31 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
 
   defp resolve_path(_), do: nil
 
-  # Build URL with or without PhoenixKit prefix
-  defp build_url(path, base_url, true = _prefixed) do
-    build_prefixed_url(path, base_url)
-  end
-
-  defp build_url(path, base_url, false = _prefixed) do
-    build_public_url(path, base_url)
-  end
-
-  # Build URL for public pages (no PhoenixKit prefix)
-  defp build_public_url(path, nil) do
+  # Build URL from already localized path
+  defp build_url_from_localized_path(path, nil, _prefixed) do
     base = Settings.get_setting("site_url", "")
     normalized_base = String.trim_trailing(base, "/")
     "#{normalized_base}#{path}"
   end
 
-  defp build_public_url(path, base_url) when is_binary(base_url) do
+  defp build_url_from_localized_path(path, base_url, _prefixed) when is_binary(base_url) do
     normalized_base = String.trim_trailing(base_url, "/")
     "#{normalized_base}#{path}"
   end
 
-  # Build URL for PhoenixKit pages (with prefix)
-  defp build_prefixed_url(path, nil) do
-    Routes.url(path)
+  # Add language prefix to path if not default language
+  defp build_path_with_language(path, language, is_default) do
+    if language && !is_default do
+      "/#{extract_base(language)}#{path}"
+    else
+      path
+    end
   end
 
-  defp build_prefixed_url(path, base_url) when is_binary(base_url) do
-    normalized_base = String.trim_trailing(base_url, "/")
-    full_path = Routes.path(path)
-    "#{normalized_base}#{full_path}"
+  # Extract base language code (e.g., "en" from "en-US")
+  defp extract_base(code) when is_binary(code) do
+    code |> String.split("-") |> List.first() |> String.downcase()
   end
+
+  defp extract_base(_), do: "en"
 end

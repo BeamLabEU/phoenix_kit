@@ -59,7 +59,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:is_new_post, false)
       |> assign(:is_new_translation, false)
       |> assign(:public_url, nil)
-      |> assign(:current_path, Routes.path("/admin/blogging/#{blog_slug}/edit", locale: socket.assigns.current_locale_base))
+      |> assign(
+        :current_path,
+        Routes.path("/admin/blogging/#{blog_slug}/edit",
+          locale: socket.assigns.current_locale_base
+        )
+      )
 
     {:ok, socket}
   end

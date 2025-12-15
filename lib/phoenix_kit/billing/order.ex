@@ -81,6 +81,7 @@ defmodule PhoenixKit.Billing.Order do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Billing.BillingProfile
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -261,6 +262,41 @@ defmodule PhoenixKit.Billing.Order do
     total = Decimal.add(taxable, tax_amount)
 
     {subtotal, tax_amount, total}
+  end
+
+  @doc """
+  Calculates totals with automatic tax rate from country.
+
+  Uses standard VAT rate from BeamLabCountries based on the billing country.
+  Returns `{subtotal, tax_amount, total}` as Decimals.
+
+  ## Examples
+
+      iex> items = [%{"total" => "100.00"}]
+      iex> {subtotal, tax, total} = Order.calculate_totals_for_country(items, "EE")
+      iex> Decimal.to_string(tax)
+      "20.00"
+      iex> Decimal.to_string(total)
+      "120.00"
+  """
+  def calculate_totals_for_country(line_items, country_code, discount \\ Decimal.new("0")) do
+    tax_rate = CountryData.get_standard_vat_rate(country_code)
+    calculate_totals(line_items, tax_rate, discount)
+  end
+
+  @doc """
+  Gets the standard VAT rate for a country as a Decimal.
+
+  ## Examples
+
+      iex> Order.get_country_tax_rate("EE")
+      #Decimal<0.20>
+
+      iex> Order.get_country_tax_rate("US")
+      #Decimal<0>
+  """
+  def get_country_tax_rate(country_code) do
+    CountryData.get_standard_vat_rate(country_code)
   end
 
   defp to_decimal(%Decimal{} = d), do: d

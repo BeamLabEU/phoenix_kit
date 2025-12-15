@@ -382,19 +382,11 @@
               </label>
               <select name="billing_profile[country]" class="select select-bordered">
                 <option value="">Select country...</option>
-                <option value="EE" selected={@form[:country].value == "EE"}>Estonia</option>
-                <option value="LV" selected={@form[:country].value == "LV"}>Latvia</option>
-                <option value="LT" selected={@form[:country].value == "LT"}>Lithuania</option>
-                <option value="FI" selected={@form[:country].value == "FI"}>Finland</option>
-                <option value="SE" selected={@form[:country].value == "SE"}>Sweden</option>
-                <option value="DE" selected={@form[:country].value == "DE"}>Germany</option>
-                <option value="FR" selected={@form[:country].value == "FR"}>France</option>
-                <option value="NL" selected={@form[:country].value == "NL"}>Netherlands</option>
-                <option value="PL" selected={@form[:country].value == "PL"}>Poland</option>
-                <option value="GB" selected={@form[:country].value == "GB"}>
-                  United Kingdom
-                </option>
-                <option value="US" selected={@form[:country].value == "US"}>United States</option>
+                <%= for {name, code} <- @countries do %>
+                  <option value={code} selected={@form[:country].value == code}>
+                    {name}
+                  </option>
+                <% end %>
               </select>
             </div>
           </div>

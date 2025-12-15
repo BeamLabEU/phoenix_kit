@@ -59,13 +59,16 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     if enabled?() do
       base_url = Keyword.get(opts, :base_url)
       language = Keyword.get(opts, :language)
+      is_default = Keyword.get(opts, :is_default_language, true)
 
       blogs = Blogging.list_blogs()
 
-      blog_listings = collect_blog_listings(blogs, language, base_url)
+      blog_listings = collect_blog_listings(blogs, language, is_default, base_url)
 
       blog_posts =
-        Enum.flat_map(blogs, fn blog -> collect_blog_posts(blog, language, base_url) end)
+        Enum.flat_map(blogs, fn blog ->
+          collect_blog_posts(blog, language, is_default, base_url)
+        end)
 
       blog_listings ++ blog_posts
     else
@@ -80,11 +83,13 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       []
   end
 
-  defp collect_blog_listings(blogs, language, base_url) do
+  defp collect_blog_listings(blogs, language, is_default, base_url) do
     Enum.map(blogs, fn blog ->
       slug = blog["slug"]
       name = blog["name"]
-      path = build_blog_path([slug], language)
+      # Canonical path without language prefix (for hreflang grouping)
+      canonical_path = build_blog_path([slug], nil, true)
+      path = build_blog_path([slug], language, is_default)
       url = build_url(path, base_url)
 
       UrlEntry.new(%{
@@ -94,7 +99,8 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
         priority: 0.7,
         title: "#{name} - Blog",
         category: name,
-        source: :blogging
+        source: :blogging,
+        canonical_path: canonical_path
       })
     end)
   rescue
@@ -106,7 +112,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       []
   end
 
-  defp collect_blog_posts(blog, language, base_url) do
+  defp collect_blog_posts(blog, language, is_default, base_url) do
     slug = blog["slug"]
     name = blog["name"]
     post_language = language || get_default_language()
@@ -115,7 +121,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     |> Enum.filter(&published?/1)
     |> Enum.reject(&excluded?/1)
     |> Enum.map(fn post ->
-      build_post_entry(post, slug, name, language, base_url)
+      build_post_entry(post, slug, name, language, is_default, base_url)
     end)
   rescue
     error ->
@@ -146,8 +152,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     end
   end
 
-  defp build_post_entry(post, blog_slug, blog_name, language, base_url) do
-    path = build_post_path(post, blog_slug, language)
+  defp build_post_entry(post, blog_slug, blog_name, language, is_default, base_url) do
+    # Canonical path without language prefix (for hreflang grouping)
+    canonical_path = build_post_path(post, blog_slug, nil, true)
+    path = build_post_path(post, blog_slug, language, is_default)
     url = build_url(path, base_url)
 
     title = get_post_title(post)
@@ -160,13 +168,14 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       priority: 0.8,
       title: title,
       category: blog_name,
-      source: :blogging
+      source: :blogging,
+      canonical_path: canonical_path
     })
   end
 
   # Build post path based on mode (slug vs timestamp)
   # Mirrors the URL logic from BlogHTML.build_post_url/3
-  defp build_post_path(post, blog_slug, language) do
+  defp build_post_path(post, blog_slug, language, is_default) do
     case post.mode do
       :timestamp ->
         # For timestamp mode, use date (and time if multiple posts on same date)
@@ -176,21 +185,21 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
         if post_count > 1 do
           # Multiple posts on this date - include time
           time = extract_time_for_url(post)
-          build_blog_path([blog_slug, date, time], language)
+          build_blog_path([blog_slug, date, time], language, is_default)
         else
           # Single post on this date - date only
-          build_blog_path([blog_slug, date], language)
+          build_blog_path([blog_slug, date], language, is_default)
         end
 
       :slug ->
         # For slug mode, use the post slug
         post_slug = post.slug || extract_slug_from_path(post.path)
-        build_blog_path([blog_slug, post_slug], language)
+        build_blog_path([blog_slug, post_slug], language, is_default)
 
       _ ->
         # Fallback to slug mode behavior
         post_slug = post.slug || extract_slug_from_path(post.path)
-        build_blog_path([blog_slug, post_slug], language)
+        build_blog_path([blog_slug, post_slug], language, is_default)
     end
   end
 
@@ -347,13 +356,16 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   # Build blog path with PhoenixKit prefix and optional language
   # Format: /{prefix}/{lang?}/{segments...}
-  defp build_blog_path(segments, language) do
+  # When is_default is true, language prefix is NOT added (default language uses clean URLs)
+  defp build_blog_path(segments, language, is_default) do
     prefix_parts = url_prefix_segments()
 
-    # Add language if not default
+    # Add language prefix only if:
+    # 1. Language is specified
+    # 2. This is NOT the default language (is_default = false)
     lang_parts =
-      if language && not default_language?(language) do
-        [language]
+      if language && !is_default do
+        [extract_base(language)]
       else
         []
       end
@@ -378,12 +390,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       "/" -> []
       prefix -> prefix |> String.trim("/") |> String.split("/", trim: true)
     end
-  end
-
-  # Check if language is the default (first admin language)
-  defp default_language?(language) do
-    default = get_default_language()
-    language == default or extract_base(language) == extract_base(default)
   end
 
   # Get default language from admin settings
