@@ -138,68 +138,10 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Settings do
 
   @impl true
   def handle_event("update_slot", params, socket) do
-    slots = socket.assigns.slots
-    slot_type = socket.assigns.slot_type
-
-    # Handle form-based params (nested under "slot")
     if params["slot"] do
-      slot = params["slot"]
-      slot_index = String.to_integer(slot["index"] || "0")
-      current_slot = Enum.at(slots, slot_index)
-
-      new_account_id = parse_int(slot["account_id"])
-      old_account_id = current_slot["account_id"]
-      account_changed = new_account_id != old_account_id
-
-      new_model = if(account_changed, do: "", else: slot["model"] || "")
-      old_model = current_slot["model"] || ""
-      model_changed = new_model != old_model && new_model != ""
-
-      # Base slot fields
-      new_slot = %{
-        "name" => slot["name"] || current_slot["name"] || "",
-        "description" => slot["description"] || current_slot["description"] || "",
-        "account_id" => new_account_id,
-        # Clear model if account changed
-        "model" => new_model,
-        "enabled" => current_slot["enabled"] || false
-      }
-
-      # Add type-specific fields
-      new_slot = add_type_specific_fields(new_slot, slot, current_slot, slot_type)
-
-      updated_slots = List.replace_at(slots, slot_index, new_slot)
-
-      socket = assign(socket, :slots, updated_slots)
-
-      # Fetch models for the new account if not already cached
-      socket =
-        if account_changed && new_account_id do
-          maybe_fetch_models_for_account(socket, new_account_id)
-        else
-          socket
-        end
-
-      {:noreply, socket}
+      handle_slot_form_update(params["slot"], socket)
     else
-      # Handle checkbox toggle (flat params)
-      slot_index = String.to_integer(params["slot-index"] || "0")
-      current_slot = Enum.at(slots, slot_index)
-
-      # Base slot fields
-      new_slot = %{
-        "name" => params["slot-name"] || current_slot["name"] || "",
-        "description" => params["slot-description"] || current_slot["description"] || "",
-        "account_id" => parse_int(params["slot-account_id"]) || current_slot["account_id"],
-        "model" => params["slot-model"] || current_slot["model"] || "",
-        "enabled" => params["slot-enabled"] == "true"
-      }
-
-      # Add type-specific fields from flat params
-      new_slot = add_type_specific_fields_flat(new_slot, params, current_slot, slot_type)
-
-      updated_slots = List.replace_at(slots, slot_index, new_slot)
-      {:noreply, assign(socket, :slots, updated_slots)}
+      handle_slot_flat_update(params, socket)
     end
   end
 
@@ -229,6 +171,75 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Settings do
         {:noreply, socket}
     end
   end
+
+  # Slot update helper functions
+
+  defp handle_slot_form_update(slot, socket) do
+    slots = socket.assigns.slots
+    slot_type = socket.assigns.slot_type
+    slot_index = String.to_integer(slot["index"] || "0")
+    current_slot = Enum.at(slots, slot_index)
+
+    new_account_id = parse_int(slot["account_id"])
+    old_account_id = current_slot["account_id"]
+    account_changed = new_account_id != old_account_id
+
+    new_model = if(account_changed, do: "", else: slot["model"] || "")
+
+    new_slot =
+      build_slot_from_form(slot, current_slot, new_account_id, new_model)
+      |> add_type_specific_fields(slot, current_slot, slot_type)
+
+    updated_slots = List.replace_at(slots, slot_index, new_slot)
+
+    socket =
+      socket
+      |> assign(:slots, updated_slots)
+      |> maybe_fetch_models_on_account_change(account_changed, new_account_id)
+
+    {:noreply, socket}
+  end
+
+  defp handle_slot_flat_update(params, socket) do
+    slots = socket.assigns.slots
+    slot_type = socket.assigns.slot_type
+    slot_index = String.to_integer(params["slot-index"] || "0")
+    current_slot = Enum.at(slots, slot_index)
+
+    new_slot =
+      build_slot_from_flat_params(params, current_slot)
+      |> add_type_specific_fields_flat(params, current_slot, slot_type)
+
+    updated_slots = List.replace_at(slots, slot_index, new_slot)
+    {:noreply, assign(socket, :slots, updated_slots)}
+  end
+
+  defp build_slot_from_form(slot, current_slot, new_account_id, new_model) do
+    %{
+      "name" => slot["name"] || current_slot["name"] || "",
+      "description" => slot["description"] || current_slot["description"] || "",
+      "account_id" => new_account_id,
+      "model" => new_model,
+      "enabled" => current_slot["enabled"] || false
+    }
+  end
+
+  defp build_slot_from_flat_params(params, current_slot) do
+    %{
+      "name" => params["slot-name"] || current_slot["name"] || "",
+      "description" => params["slot-description"] || current_slot["description"] || "",
+      "account_id" => parse_int(params["slot-account_id"]) || current_slot["account_id"],
+      "model" => params["slot-model"] || current_slot["model"] || "",
+      "enabled" => params["slot-enabled"] == "true"
+    }
+  end
+
+  defp maybe_fetch_models_on_account_change(socket, true, account_id)
+       when not is_nil(account_id) do
+    maybe_fetch_models_for_account(socket, account_id)
+  end
+
+  defp maybe_fetch_models_on_account_change(socket, _, _), do: socket
 
   defp slot_type_label(:text), do: "Text processing"
   defp slot_type_label(:vision), do: "Vision processing"

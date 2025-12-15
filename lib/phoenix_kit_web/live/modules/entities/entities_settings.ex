@@ -184,70 +184,32 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
   def handle_event("toggle_entity_definitions", %{"id" => entity_id}, socket) do
     entity_id = String.to_integer(entity_id)
 
-    case Entities.get_entity(entity_id) do
-      nil ->
+    with {:ok, entity} <- fetch_entity(entity_id),
+         {:ok, updated_entity} <- toggle_definitions_setting(entity) do
+      maybe_export_entity(updated_entity, Entities.mirror_definitions_enabled?(updated_entity))
+      {:noreply, refresh_entities_list(socket)}
+    else
+      {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, gettext("Entity not found"))}
 
-      entity ->
-        current_value = Entities.mirror_definitions_enabled?(entity)
-        new_value = !current_value
-
-        # When disabling definitions, also disable data sync
-        new_settings =
-          if new_value do
-            %{"mirror_definitions" => true}
-          else
-            %{"mirror_definitions" => false, "mirror_data" => false}
-          end
-
-        case Entities.update_mirror_settings(entity, new_settings) do
-          {:ok, updated_entity} ->
-            # If enabling, export immediately
-            if new_value do
-              Task.start(fn -> Exporter.export_entity(updated_entity) end)
-            end
-
-            socket =
-              socket
-              |> assign(:entities_list, Entities.list_entities_with_mirror_status())
-              |> assign(:export_stats, Storage.get_stats())
-
-            {:noreply, socket}
-
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
-        end
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
     end
   end
 
   def handle_event("toggle_entity_data", %{"id" => entity_id}, socket) do
     entity_id = String.to_integer(entity_id)
 
-    case Entities.get_entity(entity_id) do
-      nil ->
+    with {:ok, entity} <- fetch_entity(entity_id),
+         {:ok, updated_entity} <- toggle_data_setting(entity) do
+      maybe_export_entity(updated_entity, Entities.mirror_data_enabled?(updated_entity))
+      {:noreply, refresh_entities_list(socket)}
+    else
+      {:error, :not_found} ->
         {:noreply, put_flash(socket, :error, gettext("Entity not found"))}
 
-      entity ->
-        current_value = Entities.mirror_data_enabled?(entity)
-        new_value = !current_value
-
-        case Entities.update_mirror_settings(entity, %{"mirror_data" => new_value}) do
-          {:ok, updated_entity} ->
-            # If enabling, export immediately with data
-            if new_value do
-              Task.start(fn -> Exporter.export_entity(updated_entity) end)
-            end
-
-            socket =
-              socket
-              |> assign(:entities_list, Entities.list_entities_with_mirror_status())
-              |> assign(:export_stats, Storage.get_stats())
-
-            {:noreply, socket}
-
-          {:error, _changeset} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
-        end
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
     end
   end
 
@@ -455,6 +417,40 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
       |> assign(:export_stats, Storage.get_stats())
 
     {:noreply, socket}
+  end
+
+  ## Per-entity mirror helpers
+
+  defp fetch_entity(entity_id) do
+    case Entities.get_entity(entity_id) do
+      nil -> {:error, :not_found}
+      entity -> {:ok, entity}
+    end
+  end
+
+  defp toggle_definitions_setting(entity) do
+    new_value = !Entities.mirror_definitions_enabled?(entity)
+
+    new_settings =
+      if new_value,
+        do: %{"mirror_definitions" => true},
+        else: %{"mirror_definitions" => false, "mirror_data" => false}
+
+    Entities.update_mirror_settings(entity, new_settings)
+  end
+
+  defp toggle_data_setting(entity) do
+    new_value = !Entities.mirror_data_enabled?(entity)
+    Entities.update_mirror_settings(entity, %{"mirror_data" => new_value})
+  end
+
+  defp maybe_export_entity(entity, true), do: Task.start(fn -> Exporter.export_entity(entity) end)
+  defp maybe_export_entity(_entity, false), do: :ok
+
+  defp refresh_entities_list(socket) do
+    socket
+    |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+    |> assign(:export_stats, Storage.get_stats())
   end
 
   ## Live updates

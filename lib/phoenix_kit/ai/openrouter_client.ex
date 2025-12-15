@@ -233,7 +233,7 @@ defmodule PhoenixKit.AI.OpenRouterClient do
         "id" => "voyage/voyage-3",
         "name" => "Voyage 3",
         "description" => "Voyage AI's general-purpose embedding model",
-        "context_length" => 32000,
+        "context_length" => 32_000,
         "dimensions" => 1024,
         "pricing" => %{"prompt" => 0.00000006, "completion" => 0}
       },
@@ -241,7 +241,7 @@ defmodule PhoenixKit.AI.OpenRouterClient do
         "id" => "voyage/voyage-3-lite",
         "name" => "Voyage 3 Lite",
         "description" => "Voyage AI's lightweight embedding model",
-        "context_length" => 32000,
+        "context_length" => 32_000,
         "dimensions" => 512,
         "pricing" => %{"prompt" => 0.00000002, "completion" => 0}
       },
@@ -249,7 +249,7 @@ defmodule PhoenixKit.AI.OpenRouterClient do
         "id" => "voyage/voyage-code-3",
         "name" => "Voyage Code 3",
         "description" => "Voyage AI's code-optimized embedding model",
-        "context_length" => 32000,
+        "context_length" => 32_000,
         "dimensions" => 1024,
         "pricing" => %{"prompt" => 0.00000006, "completion" => 0}
       },
@@ -270,23 +270,19 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   Fetches embedding models grouped by provider.
   """
   def fetch_embedding_models_grouped(api_key, opts \\ []) do
-    case fetch_embedding_models(api_key, opts) do
-      {:ok, models} ->
-        grouped =
-          models
-          |> Enum.group_by(fn model ->
-            case String.split(model["id"], "/") do
-              [provider | _] -> provider
-              _ -> "other"
-            end
-          end)
-          |> Enum.sort_by(fn {provider, _} -> provider end)
+    {:ok, models} = fetch_embedding_models(api_key, opts)
 
-        {:ok, grouped}
+    grouped =
+      models
+      |> Enum.group_by(fn model ->
+        case String.split(model["id"], "/") do
+          [provider | _] -> provider
+          _ -> "other"
+        end
+      end)
+      |> Enum.sort_by(fn {provider, _} -> provider end)
 
-      {:error, reason} ->
-        {:error, reason}
-    end
+    {:ok, grouped}
   end
 
   @doc """
@@ -549,8 +545,7 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   defp humanize_provider(provider) do
     provider
     |> String.split("-")
-    |> Enum.map(&String.capitalize/1)
-    |> Enum.join(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   defp maybe_add_header(headers, _name, nil), do: headers
