@@ -39,9 +39,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
       |> assign(:settings, settings)
       |> assign(:changeset, changeset)
       |> assign(:entities_stats, get_entities_stats())
-      # Mirror settings
-      |> assign(:mirror_definitions_enabled, Storage.definitions_enabled?())
-      |> assign(:mirror_data_enabled, Storage.data_enabled?())
+      # Per-entity mirror settings
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
       |> assign(:mirror_path, Storage.root_path())
       |> assign(:export_stats, Storage.get_stats())
       |> assign(:import_preview, nil)
@@ -180,53 +179,165 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
     {:noreply, socket}
   end
 
-  ## Mirror & Export Events
+  ## Per-Entity Mirror Events
 
-  def handle_event("toggle_mirror_definitions", _params, socket) do
-    if socket.assigns.mirror_definitions_enabled do
-      Storage.disable_definitions()
+  def handle_event("toggle_entity_definitions", %{"id" => entity_id}, socket) do
+    entity_id = String.to_integer(entity_id)
 
-      socket =
-        socket
-        |> assign(:mirror_definitions_enabled, false)
-        |> assign(:mirror_data_enabled, false)
-        |> put_flash(:info, gettext("Entity definitions mirroring disabled"))
+    case Entities.get_entity(entity_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Entity not found"))}
 
-      {:noreply, socket}
-    else
-      Storage.enable_definitions()
+      entity ->
+        current_value = Entities.mirror_definitions_enabled?(entity)
+        new_value = !current_value
 
-      socket =
-        socket
-        |> assign(:mirror_definitions_enabled, true)
-        |> assign(:exporting, true)
+        # When disabling definitions, also disable data sync
+        new_settings =
+          if new_value do
+            %{"mirror_definitions" => true}
+          else
+            %{"mirror_definitions" => false, "mirror_data" => false}
+          end
 
-      send(self(), :initial_definitions_export)
-      {:noreply, socket}
+        case Entities.update_mirror_settings(entity, new_settings) do
+          {:ok, updated_entity} ->
+            # If enabling, export immediately
+            if new_value do
+              Task.start(fn -> Exporter.export_entity(updated_entity) end)
+            end
+
+            socket =
+              socket
+              |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+              |> assign(:export_stats, Storage.get_stats())
+
+            {:noreply, socket}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
+        end
     end
   end
 
-  def handle_event("toggle_mirror_data", _params, socket) do
-    if socket.assigns.mirror_data_enabled do
-      Storage.disable_data()
+  def handle_event("toggle_entity_data", %{"id" => entity_id}, socket) do
+    entity_id = String.to_integer(entity_id)
 
-      socket =
-        socket
-        |> assign(:mirror_data_enabled, false)
-        |> put_flash(:info, gettext("Entity data mirroring disabled"))
+    case Entities.get_entity(entity_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Entity not found"))}
 
-      {:noreply, socket}
-    else
-      Storage.enable_data()
+      entity ->
+        current_value = Entities.mirror_data_enabled?(entity)
+        new_value = !current_value
 
-      socket =
-        socket
-        |> assign(:mirror_data_enabled, true)
-        |> assign(:exporting, true)
+        case Entities.update_mirror_settings(entity, %{"mirror_data" => new_value}) do
+          {:ok, updated_entity} ->
+            # If enabling, export immediately with data
+            if new_value do
+              Task.start(fn -> Exporter.export_entity(updated_entity) end)
+            end
 
-      send(self(), :initial_data_export)
-      {:noreply, socket}
+            socket =
+              socket
+              |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+              |> assign(:export_stats, Storage.get_stats())
+
+            {:noreply, socket}
+
+          {:error, _changeset} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to update mirror settings"))}
+        end
     end
+  end
+
+  def handle_event("export_entity_now", %{"id" => entity_id}, socket) do
+    entity_id = String.to_integer(entity_id)
+
+    case Entities.get_entity(entity_id) do
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Entity not found"))}
+
+      entity ->
+        message =
+          case Exporter.export_entity(entity) do
+            {:ok, _path, :with_data} ->
+              gettext("Exported %{name} (definition + records)", name: entity.display_name)
+
+            {:ok, _path, :definition_only} ->
+              gettext("Exported %{name} (definition only)", name: entity.display_name)
+
+            {:error, _reason} ->
+              nil
+          end
+
+        socket =
+          socket
+          |> assign(:export_stats, Storage.get_stats())
+          |> then(fn s ->
+            if message, do: put_flash(s, :info, message), else: put_flash(s, :error, gettext("Export failed"))
+          end)
+
+        {:noreply, socket}
+    end
+  end
+
+  ## Bulk Mirror Actions
+
+  def handle_event("enable_all_definitions", _params, socket) do
+    {:ok, count} = Entities.enable_all_definitions_mirror()
+
+    # Export all entities
+    socket = assign(socket, :exporting, true)
+    send(self(), :do_full_export)
+
+    socket =
+      socket
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> put_flash(:info, gettext("Enabled definition sync for %{count} entities", count: count))
+
+    {:noreply, socket}
+  end
+
+  def handle_event("disable_all_definitions", _params, socket) do
+    # Disabling definitions also disables data
+    {:ok, _} = Entities.disable_all_data_mirror()
+    {:ok, count} = Entities.disable_all_definitions_mirror()
+
+    socket =
+      socket
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> put_flash(:info, gettext("Disabled definition sync for %{count} entities", count: count))
+
+    {:noreply, socket}
+  end
+
+  def handle_event("enable_all_data", _params, socket) do
+    # Enabling data also requires definitions to be enabled
+    {:ok, _} = Entities.enable_all_definitions_mirror()
+    {:ok, count} = Entities.enable_all_data_mirror()
+
+    # Export all entities with data
+    socket = assign(socket, :exporting, true)
+    send(self(), :do_full_export)
+
+    socket =
+      socket
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> put_flash(:info, gettext("Enabled data sync for %{count} entities", count: count))
+
+    {:noreply, socket}
+  end
+
+  def handle_event("disable_all_data", _params, socket) do
+    {:ok, count} = Entities.disable_all_data_mirror()
+
+    socket =
+      socket
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> put_flash(:info, gettext("Disabled data sync for %{count} entities", count: count))
+
+    {:noreply, socket}
   end
 
   def handle_event("export_now", _params, socket) do
@@ -348,49 +459,27 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
 
   def handle_info({event, _entity_id}, socket)
       when event in [:entity_created, :entity_updated, :entity_deleted] do
-    {:noreply, assign(socket, :entities_stats, get_entities_stats())}
+    socket =
+      socket
+      |> assign(:entities_stats, get_entities_stats())
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> assign(:export_stats, Storage.get_stats())
+
+    {:noreply, socket}
   end
 
   def handle_info({event, _entity_id, _data_id}, socket)
       when event in [:data_created, :data_updated, :data_deleted] do
-    {:noreply, assign(socket, :entities_stats, get_entities_stats())}
+    socket =
+      socket
+      |> assign(:entities_stats, get_entities_stats())
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
+      |> assign(:export_stats, Storage.get_stats())
+
+    {:noreply, socket}
   end
 
   ## Mirror background operations
-
-  def handle_info(:initial_definitions_export, socket) do
-    {:ok, results} = Exporter.export_all_entities()
-    success_count = Enum.count(results, &match?({:ok, _}, &1))
-
-    socket =
-      socket
-      |> assign(:exporting, false)
-      |> assign(:export_stats, Storage.get_stats())
-      |> put_flash(
-        :info,
-        gettext("Definitions mirroring enabled. Exported %{count} definitions.",
-          count: success_count
-        )
-      )
-
-    {:noreply, socket}
-  end
-
-  def handle_info(:initial_data_export, socket) do
-    {:ok, results} = Exporter.export_all_data()
-    success_count = Enum.count(results, &match?({:ok, _}, &1))
-
-    socket =
-      socket
-      |> assign(:exporting, false)
-      |> assign(:export_stats, Storage.get_stats())
-      |> put_flash(
-        :info,
-        gettext("Data mirroring enabled. Exported %{count} records.", count: success_count)
-      )
-
-    {:noreply, socket}
-  end
 
   def handle_info(:do_full_export, socket) do
     {:ok, %{definitions: def_count, data: data_count}} = Exporter.export_all()
@@ -399,6 +488,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
       socket
       |> assign(:exporting, false)
       |> assign(:export_stats, Storage.get_stats())
+      |> assign(:entities_list, Entities.list_entities_with_mirror_status())
       |> put_flash(
         :info,
         gettext("Export complete. %{defs} definitions, %{data} records.",
