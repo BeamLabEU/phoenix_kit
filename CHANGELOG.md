@@ -1,3 +1,27 @@
+## 1.7.2 - 2025-12-15
+
+### Added
+- **Multilingual Sitemap Support**
+  - Add hreflang alternate links for SEO optimization
+  - Automatic language detection from Languages module
+  - XML sitemap with xhtml:link elements for all language versions
+  - x-default hreflang for default language pages
+- **Posts Sitemap Source** - new source module for PhoenixKit Posts system
+- **RouteResolver** - add :posts support in find_content_route/find_index_route
+- **BeamLabCountries Integration for Billing**
+  - Add CountryData wrapper module with billing-specific functions
+  - Replace hardcoded 11-country select with dynamic 250-country dropdown with flags
+  - Use CountryData.eu_member?/1 for dynamic EU membership validation
+  - Add calculate_totals_for_country/3 for automatic VAT rate by country
+  - Auto tax rate calculation in OrderForm when billing profile is selected
+  - Include workaround for BeamLabCountries charlist bug in reduced VAT rates
+  - PR #2 submitted to fix upstream charlist bug in beamlab_countries
+
+### Changed
+- Update Blogging, Entities, Static sitemap sources with language prefix support
+- Add canonical_path field to UrlEntry for hreflang grouping
+- Make project title a clickable link to home page in admin header
+
 ## 1.7.1 - 2025-12-14
 ### Fixes
 - Fix sitemap module: restore missing routes and add sidebar menu
