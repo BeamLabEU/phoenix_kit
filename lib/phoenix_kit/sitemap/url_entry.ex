@@ -14,6 +14,14 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
   - `title` - Display title for HTML sitemap
   - `category` - Category/group for organizing HTML sitemap
   - `source` - Source module that generated this entry (:entities, :blogging, etc.)
+  - `alternates` - List of alternate language versions for hreflang (optional)
+  - `canonical_path` - Canonical path without language prefix (for grouping alternates)
+
+  ## Alternates Format
+
+  Each alternate is a map with:
+  - `hreflang` - Language code (e.g., "en", "et", "x-default")
+  - `href` - Full URL for that language version
 
   ## Usage
 
@@ -24,11 +32,18 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
         priority: 0.8,
         title: "My Blog Post",
         category: "Blog",
-        source: :blogging
+        source: :blogging,
+        alternates: [
+          %{hreflang: "en", href: "https://example.com/blog/my-post"},
+          %{hreflang: "et", href: "https://example.com/et/blog/my-post"},
+          %{hreflang: "x-default", href: "https://example.com/blog/my-post"}
+        ]
       })
 
       xml = UrlEntry.to_xml(entry)
   """
+
+  @type alternate :: %{hreflang: String.t(), href: String.t()}
 
   @type t :: %__MODULE__{
           loc: String.t(),
@@ -37,10 +52,22 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
           priority: float() | String.t() | nil,
           title: String.t() | nil,
           category: String.t() | nil,
-          source: atom()
+          source: atom(),
+          alternates: [alternate()] | nil,
+          canonical_path: String.t() | nil
         }
 
-  defstruct [:loc, :lastmod, :changefreq, :priority, :title, :category, :source]
+  defstruct [
+    :loc,
+    :lastmod,
+    :changefreq,
+    :priority,
+    :title,
+    :category,
+    :source,
+    :alternates,
+    :canonical_path
+  ]
 
   @valid_changefreq ~w(always hourly daily weekly monthly yearly never)
 
@@ -63,11 +90,23 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
   @doc """
   Converts a UrlEntry to XML format for sitemap.
 
+  Supports hreflang alternate links via xhtml:link elements when `alternates` is set.
+
   ## Examples
 
       iex> entry = UrlEntry.new(%{loc: "https://example.com", lastmod: ~D[2025-01-15]})
       iex> UrlEntry.to_xml(entry)
       "<url>\\n  <loc>https://example.com</loc>\\n  <lastmod>2025-01-15</lastmod>\\n</url>"
+
+      iex> entry = UrlEntry.new(%{
+      ...>   loc: "https://example.com/page",
+      ...>   alternates: [
+      ...>     %{hreflang: "en", href: "https://example.com/page"},
+      ...>     %{hreflang: "et", href: "https://example.com/et/page"}
+      ...>   ]
+      ...> })
+      iex> UrlEntry.to_xml(entry) |> String.contains?("xhtml:link")
+      true
   """
   @spec to_xml(t()) :: String.t()
   def to_xml(%__MODULE__{} = entry) do
@@ -93,6 +132,19 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
       if entry.priority do
         priority_value = normalize_priority(entry.priority)
         parts ++ ["  <priority>#{priority_value}</priority>"]
+      else
+        parts
+      end
+
+    # Add hreflang alternate links if present
+    parts =
+      if entry.alternates && length(entry.alternates) > 0 do
+        alternate_links =
+          Enum.map(entry.alternates, fn alt ->
+            ~s(  <xhtml:link rel="alternate" hreflang="#{alt.hreflang}" href="#{escape_xml(alt.href)}"/>)
+          end)
+
+        parts ++ alternate_links
       else
         parts
       end

@@ -58,7 +58,8 @@ defmodule PhoenixKit.Sitemap.Generator do
 
   @max_urls_per_file 50_000
   @xml_declaration ~s(<?xml version="1.0" encoding="UTF-8"?>)
-  @urlset_open ~s(<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">)
+  # Include xhtml namespace for hreflang alternate links
+  @urlset_open ~s(<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">)
   @urlset_close "</urlset>"
   @sitemapindex_open ~s(<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">)
   @sitemapindex_close "</sitemapindex>"
@@ -193,11 +194,15 @@ defmodule PhoenixKit.Sitemap.Generator do
   @doc """
   Collects URL entries from all enabled sources.
 
+  When the Languages module is enabled, automatically collects entries for all
+  enabled languages and adds hreflang alternate links between language versions.
+
   ## Options
 
   - `:base_url` - Base URL for building full URLs (required)
-  - `:language` - Preferred language for content (optional)
+  - `:language` - Preferred language for content (optional, auto-detected if Languages enabled)
   - `:sources` - List of source modules to collect from (optional)
+  - `:multilingual` - Enable multilingual collection (default: auto-detect from Languages module)
 
   ## Examples
 
@@ -206,8 +211,23 @@ defmodule PhoenixKit.Sitemap.Generator do
   """
   @spec collect_all_entries(keyword(), [module()]) :: [UrlEntry.t()]
   def collect_all_entries(opts \\ [], sources \\ get_sources()) do
-    Logger.debug("Sitemap: Collecting entries from #{length(sources)} sources")
+    languages = get_languages()
+    multilingual_enabled = length(languages) > 1
 
+    Logger.debug(
+      "Sitemap: Collecting entries from #{length(sources)} sources, " <>
+        "languages: #{inspect(Enum.map(languages, & &1.code))}, multilingual: #{multilingual_enabled}"
+    )
+
+    if multilingual_enabled do
+      collect_multilingual_entries(opts, sources, languages)
+    else
+      collect_single_language_entries(opts, sources)
+    end
+  end
+
+  # Collect entries for a single language (legacy behavior)
+  defp collect_single_language_entries(opts, sources) do
     sources
     |> Enum.flat_map(fn source_module ->
       entries = Source.safe_collect(source_module, opts)
@@ -218,6 +238,105 @@ defmodule PhoenixKit.Sitemap.Generator do
     end)
     |> Enum.uniq_by(& &1.loc)
     |> Enum.sort_by(& &1.loc)
+  end
+
+  # Collect entries for all languages and add hreflang alternates
+  defp collect_multilingual_entries(opts, sources, languages) do
+    base_url = Keyword.get(opts, :base_url)
+    all_language_codes = Enum.map(languages, & &1.code)
+
+    # Collect entries for each language
+    entries_by_language =
+      languages
+      |> Enum.map(fn lang ->
+        language_opts =
+          opts ++
+            [
+              language: lang.code,
+              is_default_language: lang.is_default,
+              all_languages: all_language_codes
+            ]
+
+        entries =
+          sources
+          |> Enum.flat_map(fn source_module ->
+            Source.safe_collect(source_module, language_opts)
+          end)
+
+        {lang.code, entries}
+      end)
+      |> Map.new()
+
+    # Group entries by canonical_path and add hreflang alternates
+    all_entries =
+      entries_by_language
+      |> Enum.flat_map(fn {_lang, entries} -> entries end)
+
+    # Build alternates map by canonical_path
+    alternates_by_canonical =
+      all_entries
+      |> Enum.filter(& &1.canonical_path)
+      |> Enum.group_by(& &1.canonical_path)
+      |> Enum.map(fn {canonical_path, entries} ->
+        # Find default language entry for x-default
+        default_entry =
+          Enum.find(entries, fn e ->
+            # Entry from default language has no language prefix in loc
+            not String.contains?(e.loc, "/et/") and
+              not String.contains?(e.loc, "/ru/") and
+              not String.contains?(e.loc, "/de/")
+          end) || List.first(entries)
+
+        alternates =
+          entries
+          |> Enum.map(fn entry ->
+            # Extract language from entry (stored during collection)
+            lang_code = extract_language_from_entry(entry, base_url)
+            %{hreflang: lang_code, href: entry.loc}
+          end)
+
+        # Add x-default pointing to default language
+        alternates =
+          if default_entry do
+            alternates ++ [%{hreflang: "x-default", href: default_entry.loc}]
+          else
+            alternates
+          end
+
+        {canonical_path, alternates}
+      end)
+      |> Map.new()
+
+    # Add alternates to each entry
+    all_entries
+    |> Enum.map(fn entry ->
+      if entry.canonical_path do
+        alternates = Map.get(alternates_by_canonical, entry.canonical_path, [])
+        %{entry | alternates: alternates}
+      else
+        entry
+      end
+    end)
+    |> Enum.uniq_by(& &1.loc)
+    |> Enum.sort_by(& &1.loc)
+  end
+
+  # Extract language code from entry URL
+  defp extract_language_from_entry(entry, base_url) do
+    # Try to extract language from URL path
+    path =
+      if base_url do
+        String.replace(entry.loc, base_url, "")
+      else
+        entry.loc
+      end
+
+    # Check for language prefix pattern like /et/, /ru/, /de/
+    case Regex.run(~r/^\/([a-z]{2})(?:\/|$)/, path) do
+      [_, lang] -> lang
+      # Default to English if no prefix found
+      _ -> "en"
+    end
   end
 
   @doc """
@@ -591,9 +710,47 @@ defmodule PhoenixKit.Sitemap.Generator do
       PhoenixKit.Sitemap.Sources.RouterDiscovery,
       PhoenixKit.Sitemap.Sources.Static,
       PhoenixKit.Sitemap.Sources.Blogging,
-      PhoenixKit.Sitemap.Sources.Entities
+      PhoenixKit.Sitemap.Sources.Entities,
+      PhoenixKit.Sitemap.Sources.Posts
     ]
   end
+
+  # Get list of enabled languages from Languages module
+  # Returns list of maps with :code and :is_default keys
+  defp get_languages do
+    alias PhoenixKit.Modules.Languages
+
+    try do
+      if Languages.enabled?() do
+        case Languages.get_enabled_languages() do
+          languages when is_list(languages) and length(languages) > 0 ->
+            languages
+            |> Enum.map(fn lang ->
+              %{
+                code: extract_base_language(lang["code"] || lang[:code] || "en"),
+                is_default: lang["is_default"] || lang[:is_default] || false
+              }
+            end)
+
+          _ ->
+            [%{code: "en", is_default: true}]
+        end
+      else
+        [%{code: "en", is_default: true}]
+      end
+    rescue
+      _ ->
+        # Languages module not available or error
+        [%{code: "en", is_default: true}]
+    end
+  end
+
+  # Extract base language code from full dialect (e.g., "en-US" -> "en")
+  defp extract_base_language(code) when is_binary(code) do
+    code |> String.split("-") |> List.first() |> String.downcase()
+  end
+
+  defp extract_base_language(_), do: "en"
 
   # Helper to normalize dates to DateTime for comparison
   defp normalize_to_datetime(%DateTime{} = dt), do: dt

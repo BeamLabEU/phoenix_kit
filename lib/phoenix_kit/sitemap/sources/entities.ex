@@ -117,30 +117,32 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
 
   defp do_collect(opts) do
     base_url = Keyword.get(opts, :base_url)
+    language = Keyword.get(opts, :language)
+    is_default = Keyword.get(opts, :is_default_language, true)
     include_index = Settings.get_boolean_setting("sitemap_entities_include_index", true)
 
     Entities.list_active_entities()
-    |> Enum.flat_map(&collect_entity_entries(&1, base_url, include_index))
+    |> Enum.flat_map(&collect_entity_entries(&1, base_url, include_index, language, is_default))
   end
 
-  defp collect_entity_entries(entity, base_url, include_index) do
-    records = collect_entity_records(entity, base_url)
+  defp collect_entity_entries(entity, base_url, include_index, language, is_default) do
+    records = collect_entity_records(entity, base_url, language, is_default)
 
     if include_index do
-      prepend_index_entry(records, entity, base_url)
+      prepend_index_entry(records, entity, base_url, language, is_default)
     else
       records
     end
   end
 
-  defp prepend_index_entry(records, entity, base_url) do
-    case collect_entity_index(entity, base_url) do
+  defp prepend_index_entry(records, entity, base_url, language, is_default) do
+    case collect_entity_index(entity, base_url, language, is_default) do
       nil -> records
       index_entry -> [index_entry | records]
     end
   end
 
-  defp collect_entity_records(entity, base_url) do
+  defp collect_entity_records(entity, base_url, language, is_default) do
     url_pattern = get_url_pattern(entity)
 
     # If no URL pattern found (no route, no settings) - use entity name as fallback
@@ -162,7 +164,7 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
       records
       |> Enum.reject(&excluded?/1)
       |> Enum.map(fn record ->
-        build_entry(record, entity, effective_pattern, base_url)
+        build_entry(record, entity, effective_pattern, base_url, language, is_default)
       end)
     else
       Logger.warning(
@@ -188,11 +190,14 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   end
 
   # Collect index page entry for entity (e.g., /page, /products)
-  defp collect_entity_index(entity, base_url) do
+  defp collect_entity_index(entity, base_url, language, is_default) do
     index_path = get_index_path(entity)
 
     if index_path do
-      url = build_url(index_path, base_url)
+      # Canonical path without language prefix (for hreflang grouping)
+      canonical_path = index_path
+      path = build_path_with_language(index_path, language, is_default)
+      url = build_url(path, base_url)
 
       UrlEntry.new(%{
         loc: url,
@@ -201,7 +206,8 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
         priority: 0.7,
         title: "#{entity.display_name || String.capitalize(entity.name)} - Index",
         category: entity.display_name || entity.name,
-        source: :entities
+        source: :entities,
+        canonical_path: canonical_path
       })
     else
       nil
@@ -300,8 +306,10 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   end
 
-  defp build_entry(record, entity, url_pattern, base_url) do
-    path = build_path(url_pattern, record)
+  defp build_entry(record, entity, url_pattern, base_url, language, is_default) do
+    # Canonical path without language prefix (for hreflang grouping)
+    canonical_path = build_path(url_pattern, record)
+    path = build_path_with_language(canonical_path, language, is_default)
     url = build_url(path, base_url)
 
     UrlEntry.new(%{
@@ -311,7 +319,8 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
       priority: 0.8,
       title: record.title,
       category: entity.display_name || entity.name,
-      source: :entities
+      source: :entities,
+      canonical_path: canonical_path
     })
   end
 
@@ -320,6 +329,22 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     |> String.replace(":slug", record.slug || to_string(record.id))
     |> String.replace(":id", to_string(record.id))
   end
+
+  # Add language prefix to path if not default language
+  defp build_path_with_language(path, language, is_default) do
+    if language && !is_default do
+      "/#{extract_base(language)}#{path}"
+    else
+      path
+    end
+  end
+
+  # Extract base language code (e.g., "en" from "en-US")
+  defp extract_base(code) when is_binary(code) do
+    code |> String.split("-") |> List.first() |> String.downcase()
+  end
+
+  defp extract_base(_), do: "en"
 
   # Build URL for public entity pages (no PhoenixKit prefix)
   defp build_url(path, nil) do
