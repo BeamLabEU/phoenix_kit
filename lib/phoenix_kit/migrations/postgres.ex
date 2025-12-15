@@ -207,7 +207,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Reduces schema complexity
   - Backward compatible data access
 
-  ### V31 - Billing System (Phase 1) ⚡ LATEST
+  ### V31 - Billing System (Phase 1)
   - Phoenix_kit_currencies for multi-currency support
   - Phoenix_kit_billing_profiles for user billing information (EU Standard)
   - Phoenix_kit_orders for order management with line items
@@ -216,6 +216,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Bank transfer payment workflow (manual payment marking)
   - Default currencies seeding (EUR, USD, GBP)
   - Billing settings for prefixes and configuration
+
+  ### V32 - AI System ⚡ LATEST
+  - Phoenix_kit_ai_accounts for AI provider account management
+  - Phoenix_kit_ai_requests for usage tracking and statistics
+  - OpenRouter integration with API key validation
+  - Text processing slots configuration (3 presets/fallback chain)
+  - JSONB storage for flexible settings and metadata
+  - AI system enable/disable toggle
+  - Usage statistics and request history
 
   ## Migration Paths
 
@@ -275,7 +284,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 31
+  @current_version 32
   @default_prefix "public"
 
   @doc false

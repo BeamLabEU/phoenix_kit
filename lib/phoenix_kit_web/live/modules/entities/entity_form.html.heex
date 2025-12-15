@@ -1008,14 +1008,18 @@
                     class="toggle toggle-primary"
                     checked={PhoenixKit.Entities.mirror_data_enabled?(@entity)}
                     phx-click="toggle_backup_data"
-                    disabled={@readonly? or not PhoenixKit.Entities.mirror_definitions_enabled?(@entity)}
+                    disabled={
+                      @readonly? or not PhoenixKit.Entities.mirror_definitions_enabled?(@entity)
+                    }
                   />
                   <div>
                     <span class="label-text font-semibold">
                       {gettext("Sync Records to File")}
                     </span>
                     <p class="text-xs text-base-content/60 mt-1">
-                      {gettext("Automatically export data records when they are created or updated")}
+                      {gettext(
+                        "Automatically export data records when they are created or updated"
+                      )}
                     </p>
                   </div>
                 </label>

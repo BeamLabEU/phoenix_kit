@@ -275,7 +275,9 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
           socket
           |> assign(:export_stats, Storage.get_stats())
           |> then(fn s ->
-            if message, do: put_flash(s, :info, message), else: put_flash(s, :error, gettext("Export failed"))
+            if message,
+              do: put_flash(s, :info, message),
+              else: put_flash(s, :error, gettext("Export failed"))
           end)
 
         {:noreply, socket}
