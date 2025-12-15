@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
 
   alias PhoenixKit.Billing
   alias PhoenixKit.Billing.BillingProfile
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
@@ -16,11 +17,13 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
     if Billing.enabled?() do
       project_title = Settings.get_setting("project_title", "PhoenixKit")
       %{users: users} = Auth.list_users_paginated(limit: 100)
+      countries = CountryData.countries_for_select()
 
       socket =
         socket
         |> assign(:project_title, project_title)
         |> assign(:users, users)
+        |> assign(:countries, countries)
         |> assign(:profile_type, "individual")
         |> load_profile(params["id"])
 
