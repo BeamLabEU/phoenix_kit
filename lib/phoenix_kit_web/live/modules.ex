@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
+  alias PhoenixKit.Posts
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
@@ -39,6 +40,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     storage_config = Storage.get_config()
     sitemap_config = Sitemap.get_config()
     billing_config = Billing.get_config()
+    posts_config = Posts.get_config()
     ai_config = AI.get_config()
 
     socket =
@@ -83,6 +85,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:ai_accounts_count, ai_config.accounts_count)
       |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
       |> assign(:ai_total_requests, ai_config.total_requests)
+      |> assign(:posts_enabled, posts_config.enabled)
+      |> assign(:posts_total, posts_config.total_posts)
+      |> assign(:posts_published, posts_config.published_posts)
+      |> assign(:posts_draft, posts_config.draft_posts)
 
     {:ok, socket}
   end
@@ -464,6 +470,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update AI module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_posts", _params, socket) do
+    new_enabled = !socket.assigns.posts_enabled
+
+    result =
+      if new_enabled do
+        Posts.enable_system()
+      else
+        Posts.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        posts_config = Posts.get_config()
+
+        socket =
+          socket
+          |> assign(:posts_enabled, new_enabled)
+          |> assign(:posts_total, posts_config.total_posts)
+          |> assign(:posts_published, posts_config.published_posts)
+          |> assign(:posts_draft, posts_config.draft_posts)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Posts module enabled",
+              else: "Posts module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update posts module")
         {:noreply, socket}
     end
   end

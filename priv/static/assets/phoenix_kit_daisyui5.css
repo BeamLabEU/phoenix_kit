@@ -1,0 +1,226 @@
+/* PhoenixKit DaisyUI 5 Theme Definitions */
+/* Color-only themes to prevent layout jumping */
+
+/* Custom Phoenix Themes */
+[data-theme=phoenix-light] {
+  color-scheme: light;
+  --color-primary: oklch(57.38% 0.233 262.08);
+  --color-primary-content: oklch(98% 0.02 262.08);
+  --color-secondary: oklch(75.61% 0.194 333.67);
+  --color-secondary-content: oklch(20% 0.02 333.67);
+  --color-accent: oklch(74.22% 0.209 6.35);
+  --color-accent-content: oklch(20% 0.02 6.35);
+  --color-neutral: oklch(23.04% 0.065 269.31);
+  --color-neutral-content: oklch(98% 0.02 269.31);
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(96% 0 0);
+  --color-base-300: oklch(92% 0.005 286.88);
+  --color-base-content: oklch(20% 0.02 269.31);
+  --color-info: oklch(72.06% 0.191 231.6);
+  --color-info-content: oklch(20% 0.02 231.6);
+  --color-success: oklch(64.8% 0.150 160);
+  --color-success-content: oklch(20% 0.02 160);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(20% 0.02 83.87);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(20% 0.02 22.18);
+}
+
+[data-theme=phoenix-dark] {
+  color-scheme: dark;
+  --color-primary: oklch(57.38% 0.233 262.08);
+  --color-primary-content: oklch(98% 0.02 262.08);
+  --color-secondary: oklch(75.61% 0.194 333.67);
+  --color-secondary-content: oklch(20% 0.02 333.67);
+  --color-accent: oklch(74.22% 0.209 6.35);
+  --color-accent-content: oklch(20% 0.02 6.35);
+  --color-neutral: oklch(32.77% 0.033 264.54);
+  --color-neutral-content: oklch(85% 0.02 264.54);
+  --color-base-100: oklch(25.33% 0.024 265.76);
+  --color-base-200: oklch(23.45% 0.022 265.76);
+  --color-base-300: oklch(21.68% 0.020 265.76);
+  --color-base-content: oklch(85% 0.02 265.76);
+  --color-info: oklch(72.06% 0.191 231.6);
+  --color-info-content: oklch(20% 0.02 231.6);
+  --color-success: oklch(64.8% 0.150 160);
+  --color-success-content: oklch(20% 0.02 160);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(20% 0.02 83.87);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(20% 0.02 22.18);
+}
+
+/* Black Theme - OLED-friendly */
+[data-theme=black] {
+  color-scheme: dark;
+  --color-primary: oklch(65.91% 0.196 273.21);
+  --color-primary-content: oklch(17.43% 0.037 277.02);
+  --color-secondary: oklch(47.73% 0.103 236.64);
+  --color-secondary-content: oklch(89.19% 0.023 236.59);
+  --color-accent: oklch(70.71% 0.191 327.17);
+  --color-accent-content: oklch(12.19% 0.042 329.69);
+  --color-neutral: oklch(14.86% 0.046 272.16);
+  --color-neutral-content: oklch(86.9% 0.017 272.16);
+  --color-base-100: oklch(9.04% 0 0);
+  --color-base-200: oklch(11.13% 0.019 272.16);
+  --color-base-300: oklch(15.31% 0.038 272.16);
+  --color-base-content: oklch(86.9% 0.017 272.16);
+  --color-info: oklch(64.04% 0.197 247.86);
+  --color-info-content: oklch(17.43% 0.037 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(17.43% 0.037 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(17.43% 0.037 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(17.43% 0.037 22.18);
+}
+
+/* Cupcake Theme - Soft pastel light theme */
+[data-theme=cupcake] {
+  color-scheme: light;
+  --color-primary: oklch(69.71% 0.196 12.19);
+  --color-primary-content: oklch(27.19% 0.046 12.19);
+  --color-secondary: oklch(76.76% 0.152 346.53);
+  --color-secondary-content: oklch(23.26% 0.038 346.53);
+  --color-accent: oklch(74.83% 0.172 49.77);
+  --color-accent-content: oklch(24.92% 0.048 49.77);
+  --color-neutral: oklch(89.8% 0.011 319.24);
+  --color-neutral-content: oklch(27.19% 0.046 319.24);
+  --color-base-100: oklch(100% 0 0);
+  --color-base-200: oklch(98.41% 0.014 319.24);
+  --color-base-300: oklch(95.27% 0.018 319.24);
+  --color-base-content: oklch(27.19% 0.046 319.24);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(27.19% 0.046 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(27.19% 0.046 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(27.19% 0.046 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(27.19% 0.046 22.18);
+}
+
+/* Synthwave Theme - Neon purple/cyan dark theme */
+[data-theme=synthwave] {
+  color-scheme: dark;
+  --color-primary: oklch(69.71% 0.196 331.56);
+  --color-primary-content: oklch(17.43% 0.037 331.56);
+  --color-secondary: oklch(47.73% 0.103 256.76);
+  --color-secondary-content: oklch(89.19% 0.023 256.76);
+  --color-accent: oklch(74.83% 0.172 186.39);
+  --color-accent-content: oklch(17.43% 0.037 186.39);
+  --color-neutral: oklch(21.7% 0.044 264.79);
+  --color-neutral-content: oklch(89.19% 0.023 264.79);
+  --color-base-100: oklch(26.47% 0.021 264.79);
+  --color-base-200: oklch(23.11% 0.018 264.79);
+  --color-base-300: oklch(20.14% 0.016 264.79);
+  --color-base-content: oklch(89.19% 0.023 264.79);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(17.43% 0.037 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(17.43% 0.037 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(17.43% 0.037 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(17.43% 0.037 22.18);
+}
+
+/* Cyberpunk Theme - Bold yellow/pink light theme */
+[data-theme=cyberpunk] {
+  color-scheme: light;
+  --color-primary: oklch(62.95% 0.238 65.62);
+  --color-primary-content: oklch(32.54% 0.058 65.62);
+  --color-secondary: oklch(74.51% 0.172 334.94);
+  --color-secondary-content: oklch(27.84% 0.053 334.94);
+  --color-accent: oklch(74.83% 0.172 0.19);
+  --color-accent-content: oklch(27.84% 0.053 0.19);
+  --color-neutral: oklch(29.37% 0.066 281.49);
+  --color-neutral-content: oklch(92.84% 0.019 281.49);
+  --color-base-100: oklch(95.47% 0.019 281.49);
+  --color-base-200: oklch(90.41% 0.016 281.49);
+  --color-base-300: oklch(84.34% 0.014 281.49);
+  --color-base-content: oklch(32.54% 0.058 281.49);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(32.54% 0.058 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(32.54% 0.058 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(32.54% 0.058 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(32.54% 0.058 22.18);
+}
+
+/* Forest Theme - Green nature dark theme */
+[data-theme=forest] {
+  color-scheme: dark;
+  --color-primary: oklch(67.69% 0.187 152.23);
+  --color-primary-content: oklch(17.43% 0.037 152.23);
+  --color-secondary: oklch(47.73% 0.103 172.79);
+  --color-secondary-content: oklch(89.19% 0.023 172.79);
+  --color-accent: oklch(74.83% 0.172 142.5);
+  --color-accent-content: oklch(17.43% 0.037 142.5);
+  --color-neutral: oklch(25.25% 0.032 152.23);
+  --color-neutral-content: oklch(89.19% 0.023 152.23);
+  --color-base-100: oklch(20.65% 0.025 152.23);
+  --color-base-200: oklch(17.85% 0.022 152.23);
+  --color-base-300: oklch(15.43% 0.019 152.23);
+  --color-base-content: oklch(89.19% 0.023 152.23);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(17.43% 0.037 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(17.43% 0.037 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(17.43% 0.037 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(17.43% 0.037 22.18);
+}
+
+/* Dracula Theme - Purple/pink vampire dark theme */
+[data-theme=dracula] {
+  color-scheme: dark;
+  --color-primary: oklch(65.91% 0.196 327.17);
+  --color-primary-content: oklch(17.43% 0.037 327.17);
+  --color-secondary: oklch(47.73% 0.103 296.67);
+  --color-secondary-content: oklch(89.19% 0.023 296.67);
+  --color-accent: oklch(74.83% 0.172 12.19);
+  --color-accent-content: oklch(17.43% 0.037 12.19);
+  --color-neutral: oklch(26.95% 0.041 277.02);
+  --color-neutral-content: oklch(89.19% 0.023 277.02);
+  --color-base-100: oklch(21.7% 0.032 277.02);
+  --color-base-200: oklch(18.73% 0.028 277.02);
+  --color-base-300: oklch(16.17% 0.024 277.02);
+  --color-base-content: oklch(89.19% 0.023 277.02);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(17.43% 0.037 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(17.43% 0.037 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(17.43% 0.037 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(17.43% 0.037 22.18);
+}
+
+/* Sunset Theme - Warm orange/purple dark theme */
+[data-theme=sunset] {
+  color-scheme: dark;
+  --color-primary: oklch(69.71% 0.196 38.4);
+  --color-primary-content: oklch(17.43% 0.037 38.4);
+  --color-secondary: oklch(47.73% 0.103 327.17);
+  --color-secondary-content: oklch(89.19% 0.023 327.17);
+  --color-accent: oklch(74.83% 0.172 274.97);
+  --color-accent-content: oklch(17.43% 0.037 274.97);
+  --color-neutral: oklch(26.76% 0.036 19.18);
+  --color-neutral-content: oklch(89.19% 0.023 19.18);
+  --color-base-100: oklch(21.31% 0.028 19.18);
+  --color-base-200: oklch(18.43% 0.024 19.18);
+  --color-base-300: oklch(15.93% 0.021 19.18);
+  --color-base-content: oklch(89.19% 0.023 19.18);
+  --color-info: oklch(65.68% 0.196 247.86);
+  --color-info-content: oklch(17.43% 0.037 247.96);
+  --color-success: oklch(64.04% 0.197 142.5);
+  --color-success-content: oklch(17.43% 0.037 142.5);
+  --color-warning: oklch(84.71% 0.199 83.87);
+  --color-warning-content: oklch(17.43% 0.037 84.24);
+  --color-error: oklch(71.76% 0.221 22.18);
+  --color-error-content: oklch(17.43% 0.037 22.18);
+}

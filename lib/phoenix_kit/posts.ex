@@ -58,6 +58,80 @@ defmodule PhoenixKit.Posts do
     PostTagAssignment
   }
 
+  alias PhoenixKit.Settings
+
+  # ============================================================================
+  # Module Status
+  # ============================================================================
+
+  @doc """
+  Checks if the Posts module is enabled.
+
+  ## Examples
+
+      iex> enabled?()
+      true
+  """
+  def enabled? do
+    Settings.get_boolean_setting("posts_enabled", true)
+  end
+
+  @doc """
+  Enables the Posts module.
+
+  ## Examples
+
+      iex> enable_system()
+      {:ok, %Setting{}}
+  """
+  def enable_system do
+    Settings.update_boolean_setting_with_module("posts_enabled", true, "posts")
+  end
+
+  @doc """
+  Disables the Posts module.
+
+  ## Examples
+
+      iex> disable_system()
+      {:ok, %Setting{}}
+  """
+  def disable_system do
+    Settings.update_boolean_setting_with_module("posts_enabled", false, "posts")
+  end
+
+  @doc """
+  Gets the current Posts module configuration and stats.
+
+  ## Examples
+
+      iex> get_config()
+      %{enabled: true, total_posts: 42, published_posts: 30, ...}
+  """
+  def get_config do
+    %{
+      enabled: enabled?(),
+      total_posts: count_posts(),
+      published_posts: count_posts_by_status("public"),
+      draft_posts: count_posts_by_status("draft"),
+      comments_enabled: Settings.get_boolean_setting("posts_comments_enabled", true),
+      likes_enabled: Settings.get_boolean_setting("posts_likes_enabled", true)
+    }
+  end
+
+  defp count_posts do
+    repo().aggregate(Post, :count, :id)
+  rescue
+    _ -> 0
+  end
+
+  defp count_posts_by_status(status) do
+    from(p in Post, where: p.status == ^status)
+    |> repo().aggregate(:count, :id)
+  rescue
+    _ -> 0
+  end
+
   # ============================================================================
   # CRUD Operations
   # ============================================================================

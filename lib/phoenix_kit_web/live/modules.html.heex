@@ -390,6 +390,67 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- Posts Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Posts"
+        description="User-generated content with comments, likes, tags, and groups"
+        icon="📝"
+        enabled={@posts_enabled}
+        toggle_event="toggle_posts"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@posts_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @posts_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @posts_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/posts")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> Manage Posts
+              </.link>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/posts")}
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Settings
+              </.link>
+            <% else %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings/posts")}
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Total:</span>
+              <span class="font-medium">{@posts_total}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Published:</span>
+              <span class="font-medium">{@posts_published}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Drafts:</span>
+              <span class="font-medium">{@posts_draft}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- SEO Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="SEO"

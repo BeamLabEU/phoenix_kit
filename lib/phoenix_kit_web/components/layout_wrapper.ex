@@ -552,34 +552,36 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       />
                     <% end %>
 
-                    <%!-- Posts Section --%>
-                    <.admin_nav_item
-                      href={Routes.locale_aware_path(assigns, "/admin/posts")}
-                      icon="document"
-                      label={gettext("Posts")}
-                      current_path={@current_path || ""}
-                      disable_active={true}
-                      submenu_open={submenu_open?(@current_path, ["/admin/posts"])}
-                    />
+                    <%= if PhoenixKit.Posts.enabled?() do %>
+                      <%!-- Posts Section --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/posts")}
+                        icon="document"
+                        label={gettext("Posts")}
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={submenu_open?(@current_path, ["/admin/posts"])}
+                      />
 
-                    <%= if submenu_open?(@current_path, ["/admin/posts"]) do %>
-                      <div class="mt-1">
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/posts")}
-                          icon="document"
-                          label={gettext("All Posts")}
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
+                      <%= if submenu_open?(@current_path, ["/admin/posts"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/posts")}
+                            icon="document"
+                            label={gettext("All Posts")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
 
-                        <.admin_nav_item
-                          href={Routes.locale_aware_path(assigns, "/admin/posts/groups")}
-                          icon="hero-folder"
-                          label={gettext("Groups")}
-                          current_path={@current_path || ""}
-                          nested={true}
-                        />
-                      </div>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/posts/groups")}
+                            icon="hero-folder"
+                            label={gettext("Groups")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
                     <% end %>
 
                     <%= if Blogging.enabled?() do %>
