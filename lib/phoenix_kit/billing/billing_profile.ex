@@ -58,11 +58,11 @@ defmodule PhoenixKit.Billing.BillingProfile do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
   @valid_types ~w(individual company)
-  @eu_countries ~w(AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE)
 
   schema "phoenix_kit_billing_profiles" do
     field :type, :string, default: "individual"
@@ -159,7 +159,7 @@ defmodule PhoenixKit.Billing.BillingProfile do
       is_nil(vat) or vat == "" ->
         changeset
 
-      country in @eu_countries ->
+      CountryData.eu_member?(country) ->
         # Basic EU VAT format validation
         if Regex.match?(~r/^[A-Z]{2}[0-9A-Z]{2,12}$/, String.upcase(vat)) do
           put_change(changeset, :company_vat_number, String.upcase(vat))
@@ -167,7 +167,7 @@ defmodule PhoenixKit.Billing.BillingProfile do
           add_error(
             changeset,
             :company_vat_number,
-            "must be a valid EU VAT number (e.g., EE123456789)"
+            "must be a valid EU VAT number (e.g., #{country}123456789)"
           )
         end
 

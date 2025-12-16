@@ -6,6 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Billing
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Billing.Order
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -52,6 +53,9 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     |> assign(:line_items, [%{id: 0, name: "", description: "", quantity: 1, unit_price: "0.00"}])
     |> assign(:selected_user_id, nil)
     |> assign(:selected_billing_profile_id, nil)
+    |> assign(:country_tax_rate, nil)
+    |> assign(:country_name, nil)
+    |> assign(:country_vat_percent, nil)
   end
 
   defp load_order(socket, id) do
@@ -68,6 +72,14 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
         billing_profiles =
           if order.user_id, do: Billing.list_user_billing_profiles(order.user_id), else: []
 
+        # Get country tax info from billing profile
+        {country_tax_rate, country_name, country_vat_percent} =
+          if order.billing_profile do
+            get_country_tax_info(order.billing_profile.country)
+          else
+            {nil, nil, nil}
+          end
+
         socket
         |> assign(:page_title, "Edit Order #{order.order_number}")
         |> assign(:order, order)
@@ -76,6 +88,9 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
         |> assign(:selected_user_id, order.user_id)
         |> assign(:billing_profiles, billing_profiles)
         |> assign(:selected_billing_profile_id, order.billing_profile_id)
+        |> assign(:country_tax_rate, country_tax_rate)
+        |> assign(:country_name, country_name)
+        |> assign(:country_vat_percent, country_vat_percent)
     end
   end
 
@@ -113,11 +128,44 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     default_profile = Enum.find(billing_profiles, & &1.is_default)
     selected_profile_id = if default_profile, do: default_profile.id, else: nil
 
+    # Get country tax info for default profile
+    {country_tax_rate, country_name, country_vat_percent} =
+      if default_profile do
+        get_country_tax_info(default_profile.country)
+      else
+        {nil, nil, nil}
+      end
+
     {:noreply,
      socket
      |> assign(:selected_user_id, user_id)
      |> assign(:billing_profiles, billing_profiles)
-     |> assign(:selected_billing_profile_id, selected_profile_id)}
+     |> assign(:selected_billing_profile_id, selected_profile_id)
+     |> assign(:country_tax_rate, country_tax_rate)
+     |> assign(:country_name, country_name)
+     |> assign(:country_vat_percent, country_vat_percent)}
+  end
+
+  @impl true
+  def handle_event("select_billing_profile", %{"profile_id" => profile_id}, socket) do
+    profile_id = if profile_id == "", do: nil, else: String.to_integer(profile_id)
+
+    {country_tax_rate, country_name, country_vat_percent} =
+      if profile_id do
+        case Billing.get_billing_profile(profile_id) do
+          nil -> {nil, nil, nil}
+          profile -> get_country_tax_info(profile.country)
+        end
+      else
+        {nil, nil, nil}
+      end
+
+    {:noreply,
+     socket
+     |> assign(:selected_billing_profile_id, profile_id)
+     |> assign(:country_tax_rate, country_tax_rate)
+     |> assign(:country_name, country_name)
+     |> assign(:country_vat_percent, country_vat_percent)}
   end
 
   @impl true
@@ -160,9 +208,16 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
 
   @impl true
   def handle_event("save", %{"order" => order_params}, socket) do
-    # Get tax configuration
-    config = Billing.get_config()
-    tax_rate = get_tax_rate_decimal(config)
+    # Get tax rate - prefer country-based rate from billing profile, fallback to config
+    tax_rate =
+      case socket.assigns.country_tax_rate do
+        %Decimal{} = rate ->
+          rate
+
+        _ ->
+          config = Billing.get_config()
+          get_tax_rate_decimal(config)
+      end
 
     line_items =
       socket.assigns.line_items
@@ -192,6 +247,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
       |> Map.put("tax_amount", Decimal.to_string(tax_amount))
       |> Map.put("total", Decimal.to_string(total))
       |> Map.put("user_id", socket.assigns.selected_user_id)
+      |> Map.put("billing_profile_id", socket.assigns.selected_billing_profile_id)
 
     save_order(socket, order_params)
   end
@@ -246,4 +302,16 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
       Decimal.new("0")
     end
   end
+
+  defp get_country_tax_info(nil), do: {nil, nil, nil}
+
+  defp get_country_tax_info(country_code) when is_binary(country_code) do
+    tax_rate = CountryData.get_standard_vat_rate(country_code)
+    vat_percent = CountryData.get_standard_vat_percent(country_code)
+    country_name = CountryData.get_country_name(country_code)
+
+    {tax_rate, country_name, vat_percent}
+  end
+
+  defp get_country_tax_info(_), do: {nil, nil, nil}
 end
