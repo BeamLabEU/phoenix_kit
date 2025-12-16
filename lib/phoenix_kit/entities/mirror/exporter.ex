@@ -44,13 +44,19 @@ defmodule PhoenixKit.Entities.Mirror.Exporter do
     - `{:ok, file_path}` on success
     - `{:error, reason}` on failure
   """
-  @spec export_entity(struct() | String.t()) :: {:ok, String.t()} | {:error, term()}
+  @spec export_entity(struct() | String.t()) ::
+          {:ok, String.t(), :with_data | :definition_only} | {:error, term()}
   def export_entity(%{name: name} = entity) do
-    include_data = Storage.data_enabled?()
+    # Check per-entity mirror_data setting
+    include_data = Entities.mirror_data_enabled?(entity)
     data_records = if include_data, do: get_entity_data(entity), else: []
 
     content = build_export_content(entity, data_records)
-    Storage.write_entity(name, content)
+
+    case Storage.write_entity(name, content) do
+      {:ok, path} -> {:ok, path, if(include_data, do: :with_data, else: :definition_only)}
+      {:error, reason} -> {:error, reason}
+    end
   end
 
   def export_entity(entity_name) when is_binary(entity_name) do

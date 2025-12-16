@@ -130,6 +130,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-banknotes" class="w-5 h-5" />
         <% "entities" -> %>
           <.icon name="hero-cube" class="w-5 h-5" />
+        <% "ai" -> %>
+          <.icon name="hero-cpu-chip" class="w-5 h-5" />
         <% "language" -> %>
           <.icon name="hero-language" class="w-5 h-5" />
         <% "seo" -> %>

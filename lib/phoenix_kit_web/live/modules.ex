@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.AI
   alias PhoenixKit.Billing
   alias PhoenixKit.Entities
   alias PhoenixKit.Modules.Languages
@@ -38,6 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     storage_config = Storage.get_config()
     sitemap_config = Sitemap.get_config()
     billing_config = Billing.get_config()
+    ai_config = AI.get_config()
 
     socket =
       socket
@@ -77,6 +79,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:billing_orders_count, billing_config.orders_count)
       |> assign(:billing_invoices_count, billing_config.invoices_count)
       |> assign(:billing_currencies_count, billing_config.currencies_count)
+      |> assign(:ai_enabled, ai_config.enabled)
+      |> assign(:ai_accounts_count, ai_config.accounts_count)
+      |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+      |> assign(:ai_total_requests, ai_config.total_requests)
 
     {:ok, socket}
   end
@@ -422,6 +428,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update billing module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_ai", _params, socket) do
+    new_enabled = !socket.assigns.ai_enabled
+
+    result =
+      if new_enabled do
+        AI.enable_system()
+      else
+        AI.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        ai_config = AI.get_config()
+
+        socket =
+          socket
+          |> assign(:ai_enabled, new_enabled)
+          |> assign(:ai_accounts_count, ai_config.accounts_count)
+          |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+          |> assign(:ai_total_requests, ai_config.total_requests)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "AI module enabled",
+              else: "AI module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update AI module")
         {:noreply, socket}
     end
   end

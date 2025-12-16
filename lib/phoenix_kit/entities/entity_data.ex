@@ -335,26 +335,35 @@ defmodule PhoenixKit.Entities.EntityData do
 
   defp notify_data_event(result, _event), do: result
 
-  # Mirror export helpers for auto-sync
+  # Mirror export helpers for auto-sync (per-entity settings)
   defp maybe_mirror_data(entity_data) do
-    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+    alias PhoenixKit.Entities.Mirror.Exporter
 
-    if Storage.data_enabled?() do
-      Task.start(fn -> Exporter.export_entity_data(entity_data) end)
+    # Check if the parent entity has data mirroring enabled
+    case Entities.get_entity(entity_data.entity_id) do
+      nil ->
+        :ok
+
+      entity ->
+        if Entities.mirror_data_enabled?(entity) do
+          Task.start(fn -> Exporter.export_entity_data(entity_data) end)
+        end
     end
   end
 
   defp maybe_delete_mirrored_data(entity_data) do
-    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+    alias PhoenixKit.Entities.Mirror.Exporter
 
     # Re-export the entity file to update the data array
-    if Storage.data_enabled?() do
-      Task.start(fn ->
-        case Entities.get_entity(entity_data.entity_id) do
-          nil -> :ok
-          entity -> Exporter.export_entity(entity)
+    # Only if the entity has data mirroring enabled
+    case Entities.get_entity(entity_data.entity_id) do
+      nil ->
+        :ok
+
+      entity ->
+        if Entities.mirror_data_enabled?(entity) do
+          Task.start(fn -> Exporter.export_entity(entity) end)
         end
-      end)
     end
   end
 
