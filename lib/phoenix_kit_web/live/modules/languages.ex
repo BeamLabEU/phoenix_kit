@@ -234,7 +234,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     query_downcase = String.downcase(query)
 
     grouped_languages
-    |> Enum.filter(fn {country, languages} ->
+    |> Enum.filter(fn {country, _flag, languages} ->
       # Match country name
       # Match any language in the group
       String.contains?(String.downcase(country), query_downcase) or

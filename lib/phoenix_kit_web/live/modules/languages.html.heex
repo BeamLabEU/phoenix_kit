@@ -77,10 +77,10 @@
 
         <%!-- Languages List (ALL languages grouped by country) --%>
         <div class="space-y-2">
-          <%= for {country, languages} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
+          <%= for {country, country_flag, languages} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
             <details class="collapse collapse-arrow bg-base-200 rounded-lg" open>
               <summary class="collapse-title font-medium py-3">
-                <span class="text-lg">{hd(languages).flag}</span>
+                <span class="text-lg">{country_flag}</span>
                 <span class="ml-2">{country}</span>
                 <span class="badge badge-ghost badge-sm ml-2">
                   {count_enabled(languages, @enabled_codes)}/{length(languages)}

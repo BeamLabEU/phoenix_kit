@@ -608,8 +608,18 @@ defmodule PhoenixKit.Modules.Languages do
     |> Enum.group_by(& &1.country)
     |> Enum.sort_by(fn {country, _languages} -> country end)
     |> Enum.map(fn {country, languages} ->
-      {country, Enum.sort_by(languages, & &1.name)}
+      # Get country flag from BeamLabCountries
+      country_flag = get_country_flag(country)
+      {country, country_flag, Enum.sort_by(languages, & &1.name)}
     end)
+  end
+
+  # Get flag emoji for a country by name
+  defp get_country_flag(country_name) do
+    case BeamLabCountries.get_by(:name, country_name) do
+      %{flag: flag} -> flag
+      nil -> "🌐"
+    end
   end
 
   @doc """
