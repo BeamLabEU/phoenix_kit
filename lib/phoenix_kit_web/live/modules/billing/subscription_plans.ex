@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.SubscriptionPlans do
         socket
         |> assign(:page_title, "Subscription Plans")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/billing/plans"))
         |> load_plans()
 
       {:ok, socket}

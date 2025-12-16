@@ -24,12 +24,17 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.SubscriptionDetail do
 
         subscription ->
           project_title = Settings.get_setting("project_title", "PhoenixKit")
+          plans = Billing.list_subscription_plans(active_only: true)
 
           socket =
             socket
             |> assign(:page_title, "Subscription ##{subscription.id}")
             |> assign(:project_title, project_title)
+            |> assign(:url_path, Routes.path("/admin/billing/subscriptions/#{subscription.id}"))
             |> assign(:subscription, subscription)
+            |> assign(:plans, plans)
+            |> assign(:show_change_plan_modal, false)
+            |> assign(:selected_new_plan_id, nil)
 
           {:ok, socket}
       end
@@ -99,6 +104,46 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.SubscriptionDetail do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to pause: #{inspect(reason)}")}
+    end
+  end
+
+  @impl true
+  def handle_event("open_change_plan_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_change_plan_modal, true)
+     |> assign(:selected_new_plan_id, nil)}
+  end
+
+  @impl true
+  def handle_event("close_change_plan_modal", _params, socket) do
+    {:noreply, assign(socket, :show_change_plan_modal, false)}
+  end
+
+  @impl true
+  def handle_event("select_new_plan", %{"plan_id" => plan_id}, socket) do
+    plan_id = if plan_id == "", do: nil, else: String.to_integer(plan_id)
+    {:noreply, assign(socket, :selected_new_plan_id, plan_id)}
+  end
+
+  @impl true
+  def handle_event("change_plan", _params, socket) do
+    %{subscription: subscription, selected_new_plan_id: new_plan_id} = socket.assigns
+
+    if new_plan_id && new_plan_id != subscription.plan_id do
+      case Billing.change_subscription_plan(subscription, new_plan_id) do
+        {:ok, updated_subscription} ->
+          {:noreply,
+           socket
+           |> assign(:subscription, reload_subscription(updated_subscription.id))
+           |> assign(:show_change_plan_modal, false)
+           |> put_flash(:info, "Subscription plan changed successfully")}
+
+        {:error, reason} ->
+          {:noreply, put_flash(socket, :error, "Failed to change plan: #{inspect(reason)}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Please select a different plan")}
     end
   end
 

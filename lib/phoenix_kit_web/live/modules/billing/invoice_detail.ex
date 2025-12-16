@@ -33,6 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
             socket
             |> assign(:page_title, "Invoice #{invoice.invoice_number}")
             |> assign(:project_title, project_title)
+            |> assign(:url_path, Routes.path("/admin/billing/invoices/#{invoice.id}"))
             |> assign(:invoice, invoice)
             |> assign(:transactions, transactions)
             |> assign(:available_providers, available_providers)

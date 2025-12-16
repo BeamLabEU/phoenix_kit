@@ -48,6 +48,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
 
     socket
     |> assign(:page_title, "New Order")
+    |> assign(:url_path, Routes.path("/admin/billing/orders/new"))
     |> assign(:order, nil)
     |> assign(:form, to_form(changeset))
     |> assign(:line_items, [%{id: 0, name: "", description: "", quantity: 1, unit_price: "0.00"}])
@@ -82,6 +83,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
 
         socket
         |> assign(:page_title, "Edit Order #{order.order_number}")
+        |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.id}/edit"))
         |> assign(:order, order)
         |> assign(:form, to_form(changeset))
         |> assign(:line_items, line_items)

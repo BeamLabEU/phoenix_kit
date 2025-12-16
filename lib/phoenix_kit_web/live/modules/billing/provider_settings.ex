@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ProviderSettings do
         socket
         |> assign(:page_title, "Payment Providers")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/settings/billing/providers"))
         |> load_provider_settings()
 
       {:ok, socket}

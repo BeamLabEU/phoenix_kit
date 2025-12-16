@@ -36,10 +36,18 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.SubscriptionPlanForm do
       if plan do
         changeset = SubscriptionPlan.changeset(plan, %{})
 
+        url_path =
+          case mode do
+            :new -> Routes.path("/admin/billing/plans/new")
+            :edit -> Routes.path("/admin/billing/plans/#{plan.id}/edit")
+            _ -> Routes.path("/admin/billing/plans")
+          end
+
         socket =
           socket
           |> assign(:page_title, title)
           |> assign(:project_title, project_title)
+          |> assign(:url_path, url_path)
           |> assign(:mode, mode)
           |> assign(:plan, plan)
           |> assign(:changeset, changeset)

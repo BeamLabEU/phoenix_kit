@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
   alias PhoenixKit.Billing
   alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
@@ -20,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
       socket
       |> assign(:page_title, "Billing Settings")
       |> assign(:project_title, project_title)
+      |> assign(:url_path, Routes.path("/admin/billing/settings"))
       |> assign(:billing_enabled, billing_enabled)
       |> load_settings()
 

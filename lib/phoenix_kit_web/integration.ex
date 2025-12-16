@@ -386,6 +386,10 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Billing.SubscriptionDetail,
                :show
 
+          live "/admin/billing/subscriptions/new",
+               Live.Modules.Billing.SubscriptionForm,
+               :new
+
           live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
           live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
           live "/admin/billing/plans/:id/edit", Live.Modules.Billing.SubscriptionPlanForm, :edit
@@ -576,6 +580,10 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/subscriptions/:id",
                Live.Modules.Billing.SubscriptionDetail,
                :show
+
+          live "/admin/billing/subscriptions/new",
+               Live.Modules.Billing.SubscriptionForm,
+               :new
 
           live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
           live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
