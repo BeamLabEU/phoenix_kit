@@ -144,6 +144,24 @@
               </div>
             </div>
 
+            <%= if @suggested_tax_rate do %>
+              <div class="alert alert-info py-2 mt-2">
+                <div class="flex items-center gap-2">
+                  <.icon name="hero-light-bulb" class="w-4 h-4" />
+                  <span class="text-sm">
+                    Suggested rate for selected country: <strong>{@suggested_tax_rate}%</strong>
+                  </span>
+                  <button
+                    type="button"
+                    class="btn btn-xs btn-primary"
+                    phx-click="apply_suggested_tax"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            <% end %>
+
             <div class="card-actions justify-end mt-4">
               <button type="submit" class="btn btn-primary btn-sm">Save General Settings</button>
             </div>
@@ -157,9 +175,10 @@
           <h2 class="card-title">Company Information</h2>
           <p class="text-sm text-base-content/60">Shown on invoices and receipts</p>
           <form phx-submit="save_company" class="space-y-4 mt-4">
+            <%!-- Company Name (required) --%>
             <div class="form-control">
               <label class="label">
-                <span class="label-text">Company Name</span>
+                <span class="label-text">Company Name <span class="text-error">*</span></span>
               </label>
               <input
                 type="text"
@@ -167,32 +186,117 @@
                 value={@company_name}
                 class="input input-bordered"
                 placeholder="Your Company Name"
+                required
               />
             </div>
 
+            <%!-- VAT Number (required) --%>
             <div class="form-control">
               <label class="label">
-                <span class="label-text">Company Address</span>
-              </label>
-              <textarea
-                name="company_address"
-                class="textarea textarea-bordered"
-                rows="3"
-                placeholder="Street, City, Country"
-              >{@company_address}</textarea>
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">VAT Number</span>
+                <span class="label-text">VAT Number <span class="text-error">*</span></span>
               </label>
               <input
                 type="text"
                 name="company_vat"
                 value={@company_vat}
-                class="input input-bordered"
+                class="input input-bordered font-mono"
                 placeholder="EE123456789"
+                required
               />
+            </div>
+
+            <div class="divider">Address</div>
+
+            <%!-- Street Address (required) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Street Address <span class="text-error">*</span></span>
+              </label>
+              <input
+                type="text"
+                name="company_address_line1"
+                value={@company_address_line1}
+                class="input input-bordered"
+                placeholder="123 Business Street"
+                required
+              />
+            </div>
+
+            <%!-- Address Line 2 (optional) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Address Line 2</span>
+              </label>
+              <input
+                type="text"
+                name="company_address_line2"
+                value={@company_address_line2}
+                class="input input-bordered"
+                placeholder="Suite, Floor, Building (optional)"
+              />
+            </div>
+
+            <%!-- City + State row --%>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">City <span class="text-error">*</span></span>
+                </label>
+                <input
+                  type="text"
+                  name="company_city"
+                  value={@company_city}
+                  class="input input-bordered"
+                  placeholder="Tallinn"
+                  required
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">State/Region</span>
+                </label>
+                <input
+                  type="text"
+                  name="company_state"
+                  value={@company_state}
+                  class="input input-bordered"
+                  placeholder="(optional)"
+                />
+              </div>
+            </div>
+
+            <%!-- Postal Code + Country row --%>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Postal Code</span>
+                </label>
+                <input
+                  type="text"
+                  name="company_postal_code"
+                  value={@company_postal_code}
+                  class="input input-bordered font-mono"
+                  placeholder="10115"
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Country <span class="text-error">*</span></span>
+                </label>
+                <select
+                  name="company_country"
+                  class="select select-bordered"
+                  phx-change="country_changed"
+                  required
+                >
+                  <option value="">Select country...</option>
+                  <%= for {name, code} <- @countries do %>
+                    <option value={code} selected={@company_country == code}>
+                      {name}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
             </div>
 
             <div class="card-actions justify-end mt-4">
@@ -260,6 +364,12 @@
       <div class="card-body">
         <h2 class="card-title">Related Settings</h2>
         <div class="flex flex-wrap gap-4 mt-4">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-credit-card" class="w-5 h-5" /> Payment Providers
+          </.link>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
             class="btn btn-outline"

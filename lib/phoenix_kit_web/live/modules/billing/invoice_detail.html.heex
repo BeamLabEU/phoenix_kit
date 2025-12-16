@@ -41,6 +41,39 @@
           </button>
         <% end %>
 
+        <%!-- Online Payment Providers - available for sent/overdue with remaining balance --%>
+        <%= if @invoice.status in ["sent", "overdue"] && Decimal.positive?(PhoenixKit.Billing.Invoice.remaining_amount(@invoice)) do %>
+          <%= for provider <- @available_providers do %>
+            <button
+              phx-click="pay_with_provider"
+              phx-value-provider={provider}
+              class={[
+                "btn btn-sm",
+                provider == :stripe && "btn-primary",
+                provider == :paypal && "btn-info",
+                provider == :razorpay && "btn-secondary"
+              ]}
+              disabled={@checkout_loading != nil}
+            >
+              <%= if @checkout_loading == provider do %>
+                <span class="loading loading-spinner loading-xs"></span>
+              <% else %>
+                <%= case provider do %>
+                  <% :stripe -> %>
+                    <.icon name="hero-credit-card" class="w-4 h-4" />
+                  <% :paypal -> %>
+                    <.icon name="hero-currency-dollar" class="w-4 h-4" />
+                  <% :razorpay -> %>
+                    <.icon name="hero-banknotes" class="w-4 h-4" />
+                  <% _ -> %>
+                    <.icon name="hero-credit-card" class="w-4 h-4" />
+                <% end %>
+              <% end %>
+              Pay with {provider |> Atom.to_string() |> String.capitalize()}
+            </button>
+          <% end %>
+        <% end %>
+
         <%!-- Issue Refund - available if has payments --%>
         <%= if PhoenixKit.Billing.Invoice.has_payments?(@invoice) do %>
           <button phx-click="open_refund_modal" class="btn btn-warning btn-sm">

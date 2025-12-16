@@ -440,13 +440,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             "/admin/billing/orders",
                             "/admin/billing/invoices",
                             "/admin/billing/transactions",
+                            "/admin/billing/subscriptions",
+                            "/admin/billing/plans",
                             "/admin/billing/profiles",
                             "/admin/billing/currencies"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/subscriptions", "/admin/billing/plans", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
                         <div class="mt-1">
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/billing")}
@@ -477,6 +479,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/billing/transactions")}
                             icon="billing"
                             label="Transactions"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/subscriptions")}
+                            icon="billing"
+                            label="Subscriptions"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/plans")}
+                            icon="billing"
+                            label="Plans"
                             current_path={@current_path || ""}
                             nested={true}
                           />

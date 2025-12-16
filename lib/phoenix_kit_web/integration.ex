@@ -197,6 +197,11 @@ defmodule PhoenixKitWeb.Integration do
         # Email webhook endpoint (no authentication required)
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
 
+        # Billing webhook endpoints (no authentication - verified via signature)
+        post "/webhooks/billing/stripe", Controllers.BillingWebhookController, :stripe
+        post "/webhooks/billing/paypal", Controllers.BillingWebhookController, :paypal
+        post "/webhooks/billing/razorpay", Controllers.BillingWebhookController, :razorpay
+
         # Storage API routes (file upload and serving)
         post "/api/upload", UploadController, :create
         get "/file/:file_id/:variant/:token", FileController, :show
@@ -375,11 +380,21 @@ defmodule PhoenixKitWeb.Integration do
                :payment_confirmation
 
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
+          live "/admin/billing/subscriptions", Live.Modules.Billing.Subscriptions, :index
+
+          live "/admin/billing/subscriptions/:id",
+               Live.Modules.Billing.SubscriptionDetail,
+               :show
+
+          live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
+          live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
+          live "/admin/billing/plans/:id/edit", Live.Modules.Billing.SubscriptionPlanForm, :edit
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
           live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
+          live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -556,11 +571,21 @@ defmodule PhoenixKitWeb.Integration do
                :payment_confirmation
 
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
+          live "/admin/billing/subscriptions", Live.Modules.Billing.Subscriptions, :index
+
+          live "/admin/billing/subscriptions/:id",
+               Live.Modules.Billing.SubscriptionDetail,
+               :show
+
+          live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
+          live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
+          live "/admin/billing/plans/:id/edit", Live.Modules.Billing.SubscriptionPlanForm, :edit
           live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
           live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
           live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
+          live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities

@@ -1,0 +1,241 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Subscriptions"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <h1 class="text-3xl font-bold">Subscriptions</h1>
+          <p class="text-base-content/60 mt-1">Manage recurring billing subscriptions</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+          class="btn btn-outline btn-sm"
+        >
+          <.icon name="hero-squares-2x2" class="w-4 h-4" /> Manage Plans
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Stats Cards --%>
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-title">Total</div>
+        <div class="stat-value text-2xl">{@stats.total}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-title">Active</div>
+        <div class="stat-value text-2xl text-success">{@stats.active}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-title">Trialing</div>
+        <div class="stat-value text-2xl text-info">{@stats.trialing}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-title">Past Due</div>
+        <div class="stat-value text-2xl text-warning">{@stats.past_due}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-title">Cancelled</div>
+        <div class="stat-value text-2xl text-error">{@stats.cancelled}</div>
+      </div>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body py-4">
+        <div class="flex flex-col md:flex-row gap-4 items-center">
+          <%!-- Status Filter --%>
+          <div class="join">
+            <button
+              phx-click="filter_status"
+              phx-value-status="all"
+              class={["join-item btn btn-sm", @status_filter == "all" && "btn-active"]}
+            >
+              All
+            </button>
+            <button
+              phx-click="filter_status"
+              phx-value-status="active"
+              class={["join-item btn btn-sm", @status_filter == "active" && "btn-active"]}
+            >
+              Active
+            </button>
+            <button
+              phx-click="filter_status"
+              phx-value-status="trialing"
+              class={["join-item btn btn-sm", @status_filter == "trialing" && "btn-active"]}
+            >
+              Trialing
+            </button>
+            <button
+              phx-click="filter_status"
+              phx-value-status="past_due"
+              class={["join-item btn btn-sm", @status_filter == "past_due" && "btn-active"]}
+            >
+              Past Due
+            </button>
+            <button
+              phx-click="filter_status"
+              phx-value-status="cancelled"
+              class={["join-item btn btn-sm", @status_filter == "cancelled" && "btn-active"]}
+            >
+              Cancelled
+            </button>
+          </div>
+
+          <%!-- Search --%>
+          <form phx-submit="search" class="flex-1 md:max-w-xs">
+            <div class="join w-full">
+              <input
+                type="text"
+                name="search"
+                value={@search}
+                placeholder="Search by email..."
+                class="input input-bordered input-sm join-item flex-1"
+              />
+              <button type="submit" class="btn btn-sm join-item">
+                <.icon name="hero-magnifying-glass" class="w-4 h-4" />
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Subscriptions Table --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body">
+        <%= if Enum.empty?(@subscriptions) do %>
+          <div class="text-center py-12 text-base-content/50">
+            <.icon name="hero-credit-card" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p class="text-lg">No subscriptions found</p>
+            <p class="text-sm mt-2">
+              Subscriptions will appear here when customers subscribe to plans
+            </p>
+          </div>
+        <% else %>
+          <div class="overflow-x-auto">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Plan</th>
+                  <th>Status</th>
+                  <th>Current Period</th>
+                  <th>Price</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for subscription <- @subscriptions do %>
+                  <tr>
+                    <td>
+                      <%= if subscription.user do %>
+                        <div class="flex items-center gap-3">
+                          <.user_avatar user={subscription.user} size="sm" />
+                          <div>
+                            <div class="font-medium text-sm">{subscription.user.email}</div>
+                            <div class="text-xs text-base-content/60">
+                              ID: {subscription.id}
+                            </div>
+                          </div>
+                        </div>
+                      <% else %>
+                        <span class="text-base-content/50">No user</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      <%= if subscription.plan do %>
+                        <div>
+                          <div class="font-medium">{subscription.plan.name}</div>
+                          <div class="text-xs text-base-content/60">
+                            {format_interval(
+                              subscription.plan.interval,
+                              subscription.plan.interval_count
+                            )}
+                          </div>
+                        </div>
+                      <% else %>
+                        <span class="text-base-content/50">No plan</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      <span class={["badge badge-sm", status_badge_class(subscription.status)]}>
+                        {subscription.status}
+                      </span>
+                      <%= if subscription.cancel_at_period_end do %>
+                        <span class="badge badge-warning badge-xs ml-1">Cancels at end</span>
+                      <% end %>
+                    </td>
+                    <td>
+                      <div class="text-sm">
+                        <%= if subscription.current_period_start && subscription.current_period_end do %>
+                          <div>
+                            <.time_ago datetime={subscription.current_period_start} /> →
+                          </div>
+                          <div class="text-base-content/60">
+                            <.time_ago datetime={subscription.current_period_end} />
+                          </div>
+                        <% else %>
+                          <span class="text-base-content/50">-</span>
+                        <% end %>
+                      </div>
+                    </td>
+                    <td>
+                      <%= if subscription.plan do %>
+                        <.currency_compact
+                          amount={subscription.plan.price}
+                          currency={subscription.plan.currency}
+                        />
+                      <% else %>
+                        <span class="text-base-content/50">-</span>
+                      <% end %>
+                    </td>
+                    <td class="text-right">
+                      <div class="flex gap-1 justify-end">
+                        <.link
+                          navigate={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/billing/subscriptions/#{subscription.id}"
+                            )
+                          }
+                          class="btn btn-ghost btn-xs"
+                        >
+                          <.icon name="hero-eye" class="w-4 h-4" />
+                        </.link>
+                        <%= if subscription.status in ["active", "trialing"] && !subscription.cancel_at_period_end do %>
+                          <button
+                            phx-click="cancel_subscription"
+                            phx-value-id={subscription.id}
+                            class="btn btn-ghost btn-xs text-error"
+                            data-confirm="Cancel this subscription at period end?"
+                          >
+                            <.icon name="hero-x-mark" class="w-4 h-4" />
+                          </button>
+                        <% end %>
+                      </div>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

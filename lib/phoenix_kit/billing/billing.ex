@@ -2124,12 +2124,499 @@ defmodule PhoenixKit.Billing do
   defp parse_decimal(_), do: Decimal.new(0)
 
   # ============================================
+  # SUBSCRIPTIONS
+  # ============================================
+
+  alias PhoenixKit.Billing.{PaymentMethod, Subscription, SubscriptionPlan}
+
+  @doc """
+  Lists all subscriptions for a user.
+
+  ## Options
+
+  - `:status` - Filter by status (e.g., "active", "cancelled")
+  - `:preload` - Associations to preload (default: [:plan])
+
+  ## Examples
+
+      Billing.list_subscriptions(user_id)
+      Billing.list_subscriptions(user_id, status: "active")
+  """
+  def list_subscriptions(opts \\ [])
+
+  def list_subscriptions(opts) when is_list(opts) do
+    import Ecto.Query
+
+    status = Keyword.get(opts, :status)
+    search = Keyword.get(opts, :search)
+    preloads = Keyword.get(opts, :preload, [:plan])
+
+    query =
+      from(s in Subscription,
+        order_by: [desc: s.inserted_at]
+      )
+
+    query =
+      if status do
+        from(s in query, where: s.status == ^status)
+      else
+        query
+      end
+
+    query =
+      if search && search != "" do
+        search_term = "%#{search}%"
+        from(s in query, join: u in assoc(s, :user), where: ilike(u.email, ^search_term))
+      else
+        query
+      end
+
+    query
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  @doc """
+  Lists all subscriptions for a specific user.
+
+  ## Options
+    * `:status` - filter by status (e.g., "active", "cancelled")
+    * `:preload` - list of associations to preload (default: [:plan])
+
+  ## Examples
+
+      Billing.list_user_subscriptions(user_id)
+      Billing.list_user_subscriptions(user_id, status: "active")
+  """
+  def list_user_subscriptions(user_id, opts \\ []) do
+    import Ecto.Query
+
+    status = Keyword.get(opts, :status)
+    preloads = Keyword.get(opts, :preload, [:plan])
+
+    query =
+      from(s in Subscription,
+        where: s.user_id == ^user_id,
+        order_by: [desc: s.inserted_at]
+      )
+
+    query =
+      if status do
+        from(s in query, where: s.status == ^status)
+      else
+        query
+      end
+
+    query
+    |> repo().all()
+    |> repo().preload(preloads)
+  end
+
+  @doc """
+  Gets a subscription by ID.
+
+  ## Options
+    * `:preload` - list of associations to preload (default: [])
+  """
+  def get_subscription(id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    case repo().get(Subscription, id) do
+      nil -> nil
+      subscription -> repo().preload(subscription, preloads)
+    end
+  end
+
+  @doc """
+  Gets a subscription by ID, raises if not found.
+  """
+  def get_subscription!(id) do
+    repo().get!(Subscription, id)
+  end
+
+  @doc """
+  Creates a new subscription for a user.
+
+  This creates the master subscription record. The first payment should be
+  processed separately via checkout session.
+
+  ## Parameters
+
+  - `user_id` - The user creating the subscription
+  - `attrs` - Subscription attributes:
+    - `:plan_id` - Required: subscription plan ID
+    - `:billing_profile_id` - Optional: billing profile to use
+    - `:payment_method_id` - Optional: saved payment method for renewals
+    - `:trial_days` - Optional: override plan's trial days
+
+  ## Examples
+
+      Billing.create_subscription(user.id, %{plan_id: plan.id})
+      Billing.create_subscription(user.id, %{plan_id: plan.id, trial_days: 14})
+  """
+  def create_subscription(user_id, attrs) do
+    plan_id = attrs[:plan_id] || attrs["plan_id"]
+
+    with {:ok, plan} <- get_subscription_plan(plan_id) do
+      trial_days = attrs[:trial_days] || plan.trial_days || 0
+      now = DateTime.utc_now()
+
+      {status, trial_end, period_start, period_end} =
+        if trial_days > 0 do
+          trial_end = DateTime.add(now, trial_days, :day)
+          period_end = SubscriptionPlan.next_billing_date(plan, DateTime.to_date(trial_end))
+          {"trialing", trial_end, now, datetime_from_date(period_end)}
+        else
+          period_end = SubscriptionPlan.next_billing_date(plan, Date.utc_today())
+          {"active", nil, now, datetime_from_date(period_end)}
+        end
+
+      subscription_attrs = %{
+        user_id: user_id,
+        plan_id: plan.id,
+        billing_profile_id: attrs[:billing_profile_id],
+        payment_method_id: attrs[:payment_method_id],
+        status: status,
+        current_period_start: period_start,
+        current_period_end: period_end,
+        trial_start: if(trial_days > 0, do: now),
+        trial_end: trial_end
+      }
+
+      %Subscription{}
+      |> Subscription.changeset(subscription_attrs)
+      |> repo().insert()
+    end
+  end
+
+  @doc """
+  Cancels a subscription.
+
+  ## Options
+
+  - `immediately: true` - Cancel immediately instead of at period end
+
+  ## Examples
+
+      Billing.cancel_subscription(subscription)
+      Billing.cancel_subscription(subscription, immediately: true)
+  """
+  def cancel_subscription(%Subscription{} = subscription, opts \\ []) do
+    immediately = Keyword.get(opts, :immediately, false)
+
+    subscription
+    |> Subscription.cancel_changeset(immediately)
+    |> repo().update()
+  end
+
+  @doc """
+  Pauses a subscription.
+
+  Paused subscriptions don't renew until resumed.
+  """
+  def pause_subscription(%Subscription{} = subscription) do
+    subscription
+    |> Subscription.pause_changeset()
+    |> repo().update()
+  end
+
+  @doc """
+  Resumes a paused subscription.
+  """
+  def resume_subscription(%Subscription{} = subscription) do
+    subscription
+    |> Subscription.resume_changeset()
+    |> repo().update()
+  end
+
+  @doc """
+  Changes a subscription's plan.
+
+  By default, the new plan takes effect at the next billing cycle.
+  """
+  def change_subscription_plan(%Subscription{} = subscription, new_plan_id, _opts \\ []) do
+    subscription
+    |> Ecto.Changeset.change(%{plan_id: new_plan_id})
+    |> repo().update()
+  end
+
+  # ============================================
+  # SUBSCRIPTION PLANS
+  # ============================================
+
+  @doc """
+  Lists all subscription plans.
+
+  ## Options
+
+  - `:active_only` - Only return active plans (default: true)
+  """
+  def list_subscription_plans(opts \\ []) do
+    import Ecto.Query
+
+    active_only = Keyword.get(opts, :active_only, true)
+
+    query =
+      from(p in SubscriptionPlan,
+        order_by: [asc: p.sort_order, asc: p.name]
+      )
+
+    query =
+      if active_only do
+        from(p in query, where: p.active == true)
+      else
+        query
+      end
+
+    repo().all(query)
+  end
+
+  @doc """
+  Gets a subscription plan by ID.
+  """
+  def get_subscription_plan(id) do
+    case repo().get(SubscriptionPlan, id) do
+      nil -> {:error, :plan_not_found}
+      plan -> {:ok, plan}
+    end
+  end
+
+  @doc """
+  Gets a subscription plan by code.
+  """
+  def get_subscription_plan_by_code(code) do
+    case repo().get_by(SubscriptionPlan, code: code) do
+      nil -> {:error, :plan_not_found}
+      plan -> {:ok, plan}
+    end
+  end
+
+  @doc """
+  Creates a subscription plan.
+  """
+  def create_subscription_plan(attrs) do
+    %SubscriptionPlan{}
+    |> SubscriptionPlan.changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Updates a subscription plan.
+  """
+  def update_subscription_plan(%SubscriptionPlan{} = plan, attrs) do
+    plan
+    |> SubscriptionPlan.changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes a subscription plan.
+
+  Plans with active subscriptions cannot be deleted.
+  """
+  def delete_subscription_plan(%SubscriptionPlan{} = plan) do
+    import Ecto.Query
+
+    active_count =
+      from(s in Subscription,
+        where: s.plan_id == ^plan.id and s.status in ["active", "trialing", "past_due"],
+        select: count(s.id)
+      )
+      |> repo().one()
+
+    if active_count > 0 do
+      {:error, :has_active_subscriptions}
+    else
+      repo().delete(plan)
+    end
+  end
+
+  # ============================================
+  # PAYMENT METHODS
+  # ============================================
+
+  @doc """
+  Lists saved payment methods for a user.
+  """
+  def list_payment_methods(user_id, opts \\ []) do
+    import Ecto.Query
+
+    active_only = Keyword.get(opts, :active_only, true)
+
+    query =
+      from(pm in PaymentMethod,
+        where: pm.user_id == ^user_id,
+        order_by: [desc: pm.is_default, desc: pm.inserted_at]
+      )
+
+    query =
+      if active_only do
+        from(pm in query, where: pm.status == "active")
+      else
+        query
+      end
+
+    repo().all(query)
+  end
+
+  @doc """
+  Gets a payment method by ID.
+  """
+  def get_payment_method(id) do
+    repo().get(PaymentMethod, id)
+  end
+
+  @doc """
+  Gets the default payment method for a user.
+  """
+  def get_default_payment_method(user_id) do
+    import Ecto.Query
+
+    from(pm in PaymentMethod,
+      where: pm.user_id == ^user_id and pm.is_default == true and pm.status == "active",
+      limit: 1
+    )
+    |> repo().one()
+  end
+
+  @doc """
+  Creates a payment method record.
+
+  Usually called after a successful setup session webhook.
+  """
+  def create_payment_method(attrs) do
+    %PaymentMethod{}
+    |> PaymentMethod.changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Sets a payment method as the default for a user.
+
+  Unsets any existing default.
+  """
+  def set_default_payment_method(%PaymentMethod{} = payment_method) do
+    import Ecto.Query
+
+    repo().transaction(fn ->
+      # Unset current default
+      from(pm in PaymentMethod,
+        where: pm.user_id == ^payment_method.user_id and pm.is_default == true
+      )
+      |> repo().update_all(set: [is_default: false])
+
+      # Set new default
+      payment_method
+      |> PaymentMethod.set_default_changeset()
+      |> repo().update!()
+    end)
+  end
+
+  @doc """
+  Removes a payment method.
+
+  Marks as removed in database. Should also delete from provider.
+  """
+  def remove_payment_method(%PaymentMethod{} = payment_method) do
+    payment_method
+    |> PaymentMethod.remove_changeset()
+    |> repo().update()
+  end
+
+  # ============================================
+  # CHECKOUT SESSIONS
+  # ============================================
+
+  alias PhoenixKit.Billing.Providers
+
+  @doc """
+  Creates a checkout session for paying an invoice.
+
+  Returns the checkout URL to redirect the user to.
+
+  ## Parameters
+
+  - `invoice` - The invoice to pay
+  - `provider` - Payment provider atom (:stripe, :paypal, :razorpay)
+  - `opts` - Options:
+    - `:success_url` - URL to redirect after success
+    - `:cancel_url` - URL to redirect if cancelled
+
+  ## Examples
+
+      {:ok, url} = Billing.create_checkout_session(invoice, :stripe, success_url: "/success")
+  """
+  def create_checkout_session(%Invoice{} = invoice, provider, opts \\ []) do
+    success_url = Keyword.fetch!(opts, :success_url)
+    cancel_url = Keyword.get(opts, :cancel_url, success_url)
+
+    amount_cents = Decimal.to_integer(Decimal.mult(invoice.total, 100))
+
+    session_opts = %{
+      amount: amount_cents,
+      currency: invoice.currency,
+      description: "Invoice #{invoice.invoice_number}",
+      success_url: success_url,
+      cancel_url: cancel_url,
+      metadata: %{
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number
+      }
+    }
+
+    case Providers.create_checkout_session(provider, session_opts) do
+      {:ok, session} ->
+        # Update invoice with checkout session info
+        invoice
+        |> Ecto.Changeset.change(%{
+          checkout_session_id: session[:session_id],
+          checkout_url: session[:url]
+        })
+        |> repo().update()
+
+        {:ok, session[:url]}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Creates a setup session for saving a payment method.
+
+  Returns the setup URL to redirect the user to.
+
+  ## Parameters
+
+  - `user_id` - The user saving the payment method
+  - `provider` - Payment provider atom
+  - `opts` - Options (success_url required)
+  """
+  def create_setup_session(user_id, provider, opts \\ []) do
+    success_url = Keyword.fetch!(opts, :success_url)
+    cancel_url = Keyword.get(opts, :cancel_url, success_url)
+
+    session_opts = %{
+      user_id: user_id,
+      success_url: success_url,
+      cancel_url: cancel_url
+    }
+
+    Providers.create_setup_session(provider, session_opts)
+  end
+
+  defp datetime_from_date(date) do
+    DateTime.new!(date, ~T[00:00:00], "Etc/UTC")
+  end
+
+  # ============================================
   # HELPERS
   # ============================================
 
   defp extract_user_id(%{user: %{id: id}}), do: id
   defp extract_user_id(%{id: id}), do: id
   defp extract_user_id(id) when is_integer(id), do: id
+  defp extract_user_id(nil), do: nil
 
   defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
 

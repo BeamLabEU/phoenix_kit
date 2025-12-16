@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
 
   alias PhoenixKit.Billing
   alias PhoenixKit.Billing.Invoice
+  alias PhoenixKit.Billing.Providers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -26,12 +27,16 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
           project_title = Settings.get_setting("project_title", "PhoenixKit")
           transactions = Billing.list_invoice_transactions(invoice.id)
 
+          available_providers = Providers.list_available_providers()
+
           socket =
             socket
             |> assign(:page_title, "Invoice #{invoice.invoice_number}")
             |> assign(:project_title, project_title)
             |> assign(:invoice, invoice)
             |> assign(:transactions, transactions)
+            |> assign(:available_providers, available_providers)
+            |> assign(:checkout_loading, nil)
             |> assign(:show_payment_modal, false)
             |> assign(:show_refund_modal, false)
             |> assign(:show_send_modal, false)
@@ -177,6 +182,45 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, "Failed to record payment: #{inspect(reason)}")}
+    end
+  end
+
+  @impl true
+  def handle_event("pay_with_provider", %{"provider" => provider_str}, socket) do
+    provider = String.to_existing_atom(provider_str)
+    invoice = socket.assigns.invoice
+
+    # Build success/cancel URLs
+    success_url = Routes.url("/admin/billing/invoices/#{invoice.id}?payment=success")
+    cancel_url = Routes.url("/admin/billing/invoices/#{invoice.id}?payment=cancelled")
+
+    opts = [
+      success_url: success_url,
+      cancel_url: cancel_url,
+      currency: invoice.currency,
+      metadata: %{
+        invoice_id: invoice.id,
+        invoice_number: invoice.invoice_number
+      }
+    ]
+
+    socket = assign(socket, :checkout_loading, provider)
+
+    case Billing.create_checkout_session(invoice, provider, opts) do
+      {:ok, %{url: checkout_url}} ->
+        {:noreply, redirect(socket, external: checkout_url)}
+
+      {:error, :provider_not_available} ->
+        {:noreply,
+         socket
+         |> assign(:checkout_loading, nil)
+         |> put_flash(:error, "Payment provider #{provider} is not available")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:checkout_loading, nil)
+         |> put_flash(:error, "Failed to create checkout session: #{inspect(reason)}")}
     end
   end
 

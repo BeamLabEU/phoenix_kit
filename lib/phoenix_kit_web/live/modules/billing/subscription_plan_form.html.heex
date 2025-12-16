@@ -1,0 +1,336 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} {@page_title}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">{@page_title}</h1>
+        <p class="text-base-content/60 mt-1">
+          <%= if @mode == :new do %>
+            Create a new subscription plan
+          <% else %>
+            Edit plan details and pricing
+          <% end %>
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Form --%>
+      <div class="lg:col-span-2">
+        <.form for={@form} phx-change="validate" phx-submit="save">
+          <%!-- Basic Info --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Basic Information</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Plan Name <span class="text-error">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    name="subscription_plan[name]"
+                    value={@form[:name].value}
+                    class={["input input-bordered", @form[:name].errors != [] && "input-error"]}
+                    placeholder="Pro Plan"
+                    required
+                  />
+                  <%= if @form[:name].errors != [] do %>
+                    <label class="label">
+                      <span class="label-text-alt text-error">
+                        {error_to_string(@form[:name].errors)}
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Slug <span class="text-error">*</span></span>
+                  </label>
+                  <input
+                    type="text"
+                    name="subscription_plan[slug]"
+                    value={@form[:slug].value}
+                    class={[
+                      "input input-bordered font-mono",
+                      @form[:slug].errors != [] && "input-error"
+                    ]}
+                    placeholder="pro-monthly"
+                    required
+                  />
+                  <%= if @form[:slug].errors != [] do %>
+                    <label class="label">
+                      <span class="label-text-alt text-error">
+                        {error_to_string(@form[:slug].errors)}
+                      </span>
+                    </label>
+                  <% else %>
+                    <label class="label">
+                      <span class="label-text-alt">URL-friendly unique identifier</span>
+                    </label>
+                  <% end %>
+                </div>
+              </div>
+
+              <div class="form-control mt-4">
+                <label class="label">
+                  <span class="label-text">Description</span>
+                </label>
+                <textarea
+                  name="subscription_plan[description]"
+                  class="textarea textarea-bordered"
+                  rows="2"
+                  placeholder="A brief description of this plan"
+                >{@form[:description].value}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Pricing --%>
+          <div class="card bg-base-100 shadow-xl mt-6">
+            <div class="card-body">
+              <h2 class="card-title">Pricing</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Price <span class="text-error">*</span></span>
+                  </label>
+                  <input
+                    type="number"
+                    name="subscription_plan[price]"
+                    value={@form[:price].value}
+                    class={["input input-bordered", @form[:price].errors != [] && "input-error"]}
+                    step="0.01"
+                    min="0"
+                    placeholder="9.99"
+                    required
+                  />
+                  <%= if @form[:price].errors != [] do %>
+                    <label class="label">
+                      <span class="label-text-alt text-error">
+                        {error_to_string(@form[:price].errors)}
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Currency</span>
+                  </label>
+                  <select name="subscription_plan[currency]" class="select select-bordered">
+                    <option value="EUR" selected={@form[:currency].value == "EUR"}>EUR</option>
+                    <option value="USD" selected={@form[:currency].value == "USD"}>USD</option>
+                    <option value="GBP" selected={@form[:currency].value == "GBP"}>GBP</option>
+                    <option value="INR" selected={@form[:currency].value == "INR"}>INR</option>
+                  </select>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Trial Days</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="subscription_plan[trial_days]"
+                    value={@form[:trial_days].value}
+                    class="input input-bordered"
+                    min="0"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Billing Interval</span>
+                  </label>
+                  <select name="subscription_plan[interval]" class="select select-bordered">
+                    <option value="day" selected={@form[:interval].value == "day"}>Day</option>
+                    <option value="week" selected={@form[:interval].value == "week"}>Week</option>
+                    <option value="month" selected={@form[:interval].value == "month"}>
+                      Month
+                    </option>
+                    <option value="year" selected={@form[:interval].value == "year"}>Year</option>
+                  </select>
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Interval Count</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="subscription_plan[interval_count]"
+                    value={@form[:interval_count].value || 1}
+                    class="input input-bordered"
+                    min="1"
+                    max="12"
+                    placeholder="1"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt">
+                      e.g. 3 months = interval "month", count 3
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Features --%>
+          <div class="card bg-base-100 shadow-xl mt-6">
+            <div class="card-body">
+              <h2 class="card-title">Features</h2>
+              <p class="text-sm text-base-content/60">
+                List the features included in this plan (one per line)
+              </p>
+
+              <div class="form-control mt-4">
+                <textarea
+                  name="features"
+                  phx-change="update_features"
+                  phx-debounce="300"
+                  class="textarea textarea-bordered font-mono"
+                  rows="6"
+                  placeholder="Unlimited users&#10;Priority support&#10;Advanced analytics&#10;Custom integrations"
+                >{@features_input}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Settings --%>
+          <div class="card bg-base-100 shadow-xl mt-6">
+            <div class="card-body">
+              <h2 class="card-title">Settings</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">Sort Order</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="subscription_plan[sort_order]"
+                    value={@form[:sort_order].value}
+                    class="input input-bordered"
+                    min="0"
+                    placeholder="0"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt">Lower numbers appear first</span>
+                  </label>
+                </div>
+
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="checkbox"
+                      name="subscription_plan[active]"
+                      value="true"
+                      checked={@form[:active].value == true}
+                      class="checkbox checkbox-primary"
+                    />
+                    <span class="label-text">Active</span>
+                  </label>
+                  <label class="label">
+                    <span class="label-text-alt">
+                      Only active plans are shown to customers
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Actions --%>
+          <div class="flex justify-end gap-4 mt-6">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+              class="btn btn-ghost"
+            >
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary">
+              <.icon name="hero-check" class="w-4 h-4" />
+              {if @mode == :new, do: "Create Plan", else: "Update Plan"}
+            </button>
+          </div>
+        </.form>
+      </div>
+
+      <%!-- Preview --%>
+      <div class="lg:col-span-1">
+        <div class="card bg-base-100 shadow-xl sticky top-6">
+          <div class="card-body">
+            <h2 class="card-title">Preview</h2>
+            <div class="divider my-2"></div>
+
+            <h3 class="text-xl font-bold">{@form[:name].value || "Plan Name"}</h3>
+            <p class="text-sm text-base-content/60">
+              {@form[:description].value || "Plan description"}
+            </p>
+
+            <div class="mt-4">
+              <div class="text-3xl font-bold">
+                <%= if @form[:price].value do %>
+                  <.currency_amount
+                    amount={@form[:price].value}
+                    currency={@form[:currency].value || "EUR"}
+                  />
+                <% else %>
+                  <span class="text-base-content/30">$0.00</span>
+                <% end %>
+              </div>
+              <div class="text-sm text-base-content/60">
+                <% interval = @form[:interval].value || "month" %>
+                <% count = @form[:interval_count].value || 1 %> per {if count == 1,
+                  do: interval,
+                  else: "#{count} #{interval}s"}
+              </div>
+            </div>
+
+            <%= if @form[:trial_days].value && @form[:trial_days].value != "" && @form[:trial_days].value != "0" do %>
+              <div class="badge badge-info badge-outline mt-2">
+                {@form[:trial_days].value} day trial
+              </div>
+            <% end %>
+
+            <% features =
+              @features_input
+              |> String.split("\n")
+              |> Enum.map(&String.trim/1)
+              |> Enum.reject(&(&1 == "")) %>
+            <%= if length(features) > 0 do %>
+              <div class="divider my-2"></div>
+              <ul class="space-y-1">
+                <%= for feature <- features do %>
+                  <li class="flex items-center gap-2 text-sm">
+                    <.icon name="hero-check" class="w-4 h-4 text-success flex-shrink-0" />
+                    <span>{feature}</span>
+                  </li>
+                <% end %>
+              </ul>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

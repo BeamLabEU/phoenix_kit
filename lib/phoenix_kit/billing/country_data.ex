@@ -24,7 +24,13 @@ defmodule PhoenixKit.Billing.CountryData do
       # Получить информацию о стране
       country = CountryData.get_country("DE")
       # %BeamLabCountries.Country{name: "Germany", ...}
+
+      # Форматировать адрес компании из Settings
+      address = CountryData.format_company_address()
+      # "123 Business Street\\nTallinn 10115\\nEstonia"
   """
+
+  alias PhoenixKit.Settings
 
   @doc """
   Получить все страны отсортированные по имени.
@@ -336,8 +342,145 @@ defmodule PhoenixKit.Billing.CountryData do
 
   def exists?(_), do: false
 
+  @doc """
+  Форматирует адрес компании из Settings для печати документов.
+
+  Собирает адрес из отдельных полей (address_line1, address_line2, city, state,
+  postal_code, country) в единую строку с переносами строк.
+
+  ## Returns
+
+  Отформатированный адрес в виде строки, например:
+  ```
+  123 Business Street
+  Suite 100
+  Tallinn 10115
+  Estonia
+  ```
+
+  ## Examples
+
+      iex> CountryData.format_company_address()
+      "123 Business Street\\nTallinn 10115\\nEstonia"
+  """
+  def format_company_address do
+    address_line1 = Settings.get_setting("billing_company_address_line1", "")
+    address_line2 = Settings.get_setting("billing_company_address_line2", "")
+    city = Settings.get_setting("billing_company_city", "")
+    state = Settings.get_setting("billing_company_state", "")
+    postal_code = Settings.get_setting("billing_company_postal_code", "")
+    country_code = Settings.get_setting("billing_company_country", "")
+
+    country_name =
+      case get_country(country_code) do
+        %{name: name} -> name
+        _ -> country_code
+      end
+
+    city_postal =
+      [city, postal_code]
+      |> Enum.filter(&(&1 != ""))
+      |> Enum.join(" ")
+
+    [address_line1, address_line2, city_postal, state, country_name]
+    |> Enum.filter(&(&1 != "" && &1 != " "))
+    |> Enum.join("\n")
+  end
+
   # ==========================================================================
-  # Private Functions - Workaround для charlist бага в BeamLabCountries
+  # Banking Validation Functions
+  # ==========================================================================
+
+  alias PhoenixKit.Billing.IbanData
+
+  @doc """
+  Validate IBAN format (length and country prefix only, not checksum).
+
+  Returns :ok or {:error, reason}.
+
+  ## Examples
+
+      iex> CountryData.validate_iban_format("EE382200221020145685", "EE")
+      :ok
+
+      iex> CountryData.validate_iban_format("DE123", "DE")
+      {:error, "IBAN must be 22 characters for DE"}
+
+      iex> CountryData.validate_iban_format("EE382200221020145685", "DE")
+      {:error, "IBAN country code (EE) does not match company country (DE)"}
+  """
+  def validate_iban_format(iban, country_code)
+      when is_binary(iban) and is_binary(country_code) do
+    iban = String.replace(iban, ~r/\s/, "") |> String.upcase()
+    expected_length = IbanData.get_iban_length(country_code)
+    iban_country = String.slice(iban, 0, 2)
+
+    cond do
+      iban == "" ->
+        :ok
+
+      expected_length == nil ->
+        :ok
+
+      iban_country != String.upcase(country_code) ->
+        {:error,
+         "IBAN country code (#{iban_country}) does not match company country (#{country_code})"}
+
+      String.length(iban) != expected_length ->
+        {:error, "IBAN must be #{expected_length} characters for #{country_code}"}
+
+      not Regex.match?(~r/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, iban) ->
+        {:error, "Invalid IBAN format"}
+
+      true ->
+        :ok
+    end
+  end
+
+  def validate_iban_format(_, _), do: :ok
+
+  @doc """
+  Validate SWIFT/BIC format (8 or 11 characters).
+
+  SWIFT codes structure:
+  - 4 letters: bank code
+  - 2 letters: country code (ISO 3166)
+  - 2 characters: location code
+  - 3 characters (optional): branch code
+
+  ## Examples
+
+      iex> CountryData.validate_swift_format("HABAEE2X")
+      :ok
+
+      iex> CountryData.validate_swift_format("HABAEE2XXXX")
+      :ok
+
+      iex> CountryData.validate_swift_format("INVALID")
+      {:error, "SWIFT/BIC must be 8 or 11 characters"}
+  """
+  def validate_swift_format(swift) when is_binary(swift) do
+    swift = String.replace(swift, ~r/\s/, "") |> String.upcase()
+
+    cond do
+      swift == "" ->
+        :ok
+
+      String.length(swift) not in [8, 11] ->
+        {:error, "SWIFT/BIC must be 8 or 11 characters"}
+
+      not Regex.match?(~r/^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/, swift) ->
+        {:error, "Invalid SWIFT/BIC format"}
+
+      true ->
+        :ok
+    end
+  end
+
+  def validate_swift_format(_), do: :ok
+
+  # ==========================================================================
+  # Private Functions - Workaround for charlist bug in BeamLabCountries
   # ==========================================================================
   #
   # YAML парсер интерпретирует однозначные числа в списках как charlist:
