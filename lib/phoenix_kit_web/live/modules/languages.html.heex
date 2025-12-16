@@ -91,7 +91,10 @@
                   <%= for language <- languages do %>
                     <div class="flex items-center justify-between p-2 hover:bg-base-100 rounded-lg">
                       <div class="flex items-center gap-2 flex-1">
-                        <span class="font-medium">{language.native}</span>
+                        <span class="font-medium">
+                          {language.native}
+                          <span class="text-base-content/60">({language.name})</span>
+                        </span>
                         <span class="badge badge-outline badge-xs">{language.code}</span>
                         <%= if language.code == @default_code do %>
                           <span class="badge badge-primary badge-xs">Default</span>
