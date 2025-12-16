@@ -276,11 +276,11 @@ defmodule PhoenixKit.Entities do
 
   defp notify_entity_event(result, _event), do: result
 
-  # Mirror export helpers for auto-sync
+  # Mirror export helpers for auto-sync (per-entity settings)
   defp maybe_mirror_entity(entity) do
-    alias PhoenixKit.Entities.Mirror.{Exporter, Storage}
+    alias PhoenixKit.Entities.Mirror.Exporter
 
-    if Storage.definitions_enabled?() do
+    if mirror_definitions_enabled?(entity) do
       Task.start(fn -> Exporter.export_entity(entity) end)
     end
   end
@@ -288,7 +288,9 @@ defmodule PhoenixKit.Entities do
   defp maybe_delete_mirrored_entity(entity) do
     alias PhoenixKit.Entities.Mirror.Storage
 
-    if Storage.definitions_enabled?() do
+    # Delete the file if it exists (regardless of current setting)
+    # This ensures cleanup when entity is deleted
+    if Storage.entity_exists?(entity.name) do
       Task.start(fn ->
         Storage.delete_entity(entity.name)
       end)
@@ -642,6 +644,188 @@ defmodule PhoenixKit.Entities do
       entity_count: count_entities(),
       total_data_count: count_all_entity_data()
     }
+  end
+
+  # ============================================================================
+  # Per-Entity Mirror Settings
+  # ============================================================================
+
+  @doc """
+  Gets the mirror settings for an entity.
+
+  Returns a map with mirror_definitions and mirror_data booleans.
+  Defaults to false if not explicitly set.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.get_mirror_settings(entity)
+      %{mirror_definitions: true, mirror_data: false}
+  """
+  def get_mirror_settings(%__MODULE__{settings: settings}) do
+    settings = settings || %{}
+
+    %{
+      mirror_definitions: Map.get(settings, "mirror_definitions", false),
+      mirror_data: Map.get(settings, "mirror_data", false)
+    }
+  end
+
+  @doc """
+  Checks if definition mirroring is enabled for this entity.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.mirror_definitions_enabled?(entity)
+      true
+  """
+  def mirror_definitions_enabled?(%__MODULE__{settings: settings}) do
+    settings = settings || %{}
+    Map.get(settings, "mirror_definitions", false) == true
+  end
+
+  @doc """
+  Checks if data mirroring is enabled for this entity.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.mirror_data_enabled?(entity)
+      false
+  """
+  def mirror_data_enabled?(%__MODULE__{settings: settings}) do
+    settings = settings || %{}
+    Map.get(settings, "mirror_data", false) == true
+  end
+
+  @doc """
+  Updates the mirror settings for an entity.
+
+  ## Parameters
+    - `entity` - The entity to update
+    - `mirror_settings` - Map with keys "mirror_definitions" and/or "mirror_data"
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.update_mirror_settings(entity, %{"mirror_definitions" => true})
+      {:ok, %PhoenixKit.Entities{}}
+  """
+  def update_mirror_settings(%__MODULE__{} = entity, mirror_settings)
+      when is_map(mirror_settings) do
+    current_settings = entity.settings || %{}
+    new_settings = Map.merge(current_settings, mirror_settings)
+    update_entity(entity, %{settings: new_settings})
+  end
+
+  @doc """
+  Lists all entities with their mirror status and data counts.
+
+  Returns a list of maps suitable for the settings UI.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.list_entities_with_mirror_status()
+      [%{id: 1, name: "test", display_name: "Test", data_count: 8, mirror_definitions: true, mirror_data: false}, ...]
+  """
+  def list_entities_with_mirror_status do
+    alias PhoenixKit.Entities.EntityData
+    alias PhoenixKit.Entities.Mirror.Storage
+
+    entities = list_entities()
+
+    Enum.map(entities, fn entity ->
+      mirror_settings = get_mirror_settings(entity)
+      data_count = EntityData.count_by_entity(entity.id)
+      file_exists = Storage.entity_exists?(entity.name)
+
+      %{
+        id: entity.id,
+        name: entity.name,
+        display_name: entity.display_name,
+        data_count: data_count,
+        mirror_definitions: mirror_settings.mirror_definitions,
+        mirror_data: mirror_settings.mirror_data,
+        file_exists: file_exists
+      }
+    end)
+  end
+
+  @doc """
+  Enables definition mirroring for all entities.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.enable_all_definitions_mirror()
+      {:ok, count}
+  """
+  def enable_all_definitions_mirror do
+    entities = list_entities()
+
+    results =
+      Enum.map(entities, fn entity ->
+        update_mirror_settings(entity, %{"mirror_definitions" => true})
+      end)
+
+    success_count = Enum.count(results, &match?({:ok, _}, &1))
+    {:ok, success_count}
+  end
+
+  @doc """
+  Disables definition mirroring for all entities.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.disable_all_definitions_mirror()
+      {:ok, count}
+  """
+  def disable_all_definitions_mirror do
+    entities = list_entities()
+
+    results =
+      Enum.map(entities, fn entity ->
+        update_mirror_settings(entity, %{"mirror_definitions" => false})
+      end)
+
+    success_count = Enum.count(results, &match?({:ok, _}, &1))
+    {:ok, success_count}
+  end
+
+  @doc """
+  Enables data mirroring for all entities.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.enable_all_data_mirror()
+      {:ok, count}
+  """
+  def enable_all_data_mirror do
+    entities = list_entities()
+
+    results =
+      Enum.map(entities, fn entity ->
+        update_mirror_settings(entity, %{"mirror_data" => true})
+      end)
+
+    success_count = Enum.count(results, &match?({:ok, _}, &1))
+    {:ok, success_count}
+  end
+
+  @doc """
+  Disables data mirroring for all entities.
+
+  ## Examples
+
+      iex> PhoenixKit.Entities.disable_all_data_mirror()
+      {:ok, count}
+  """
+  def disable_all_data_mirror do
+    entities = list_entities()
+
+    results =
+      Enum.map(entities, fn entity ->
+        update_mirror_settings(entity, %{"mirror_data" => false})
+      end)
+
+    success_count = Enum.count(results, &match?({:ok, _}, &1))
+    {:ok, success_count}
   end
 
   defp repo do

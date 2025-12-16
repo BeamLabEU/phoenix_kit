@@ -115,143 +115,232 @@
           )}
         </p>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <%!-- Auto-Sync Toggles --%>
-          <div class="space-y-4">
-            <h3 class="text-lg font-semibold">{gettext("Auto-Sync Settings")}</h3>
-
-            <%!-- Mirror Definitions Toggle --%>
-            <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-              <div>
-                <p class="font-medium">{gettext("Mirror Entity Definitions")}</p>
-                <p class="text-sm text-base-content/70">
-                  {gettext("Automatically export entity schemas on changes")}
-                </p>
-              </div>
-              <%= if @mirror_definitions_enabled do %>
-                <button
-                  class="btn btn-success btn-sm"
-                  phx-click="toggle_mirror_definitions"
-                  disabled={@exporting}
-                >
-                  <.icon name="hero-check" class="w-4 h-4" />
-                  {gettext("On")}
-                </button>
-              <% else %>
-                <button
-                  class="btn btn-outline btn-sm"
-                  phx-click="toggle_mirror_definitions"
-                  disabled={@exporting}
-                >
-                  <.icon name="hero-x-mark" class="w-4 h-4" />
-                  {gettext("Off")}
-                </button>
-              <% end %>
+        <%!-- Bulk Actions --%>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-sm btn-outline">
+              <.icon name="hero-document-text" class="w-4 h-4" />
+              {gettext("Definitions")}
+              <.icon name="hero-chevron-down" class="w-3 h-3" />
             </div>
-
-            <%!-- Mirror Data Toggle (only visible if definitions enabled) --%>
-            <%= if @mirror_definitions_enabled do %>
-              <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
-                <div>
-                  <p class="font-medium">{gettext("Mirror Entity Data")}</p>
-                  <p class="text-sm text-base-content/70">
-                    {gettext("Also export entity records on changes")}
-                  </p>
-                </div>
-                <%= if @mirror_data_enabled do %>
-                  <button
-                    class="btn btn-success btn-sm"
-                    phx-click="toggle_mirror_data"
-                    disabled={@exporting}
-                  >
-                    <.icon name="hero-check" class="w-4 h-4" />
-                    {gettext("On")}
-                  </button>
-                <% else %>
-                  <button
-                    class="btn btn-outline btn-sm"
-                    phx-click="toggle_mirror_data"
-                    disabled={@exporting}
-                  >
-                    <.icon name="hero-x-mark" class="w-4 h-4" />
-                    {gettext("Off")}
-                  </button>
-                <% end %>
-              </div>
-            <% end %>
-
-            <%!-- Export Path --%>
-            <div class="p-3 bg-base-200 rounded-lg">
-              <p class="font-medium mb-1">{gettext("Export Path")}</p>
-              <code class="text-sm text-base-content/70 break-all">{@mirror_path}</code>
-            </div>
-
-            <%!-- Export Now Button --%>
-            <button
-              class="btn btn-primary w-full"
-              phx-click="export_now"
-              disabled={@exporting}
+            <ul
+              tabindex="0"
+              class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
             >
-              <%= if @exporting do %>
-                <span class="loading loading-spinner loading-sm"></span>
-                {gettext("Exporting...")}
-              <% else %>
-                <.icon name="hero-arrow-up-tray" class="w-5 h-5 mr-2" />
-                {gettext("Export Now")}
-              <% end %>
-            </button>
+              <li>
+                <button phx-click="enable_all_definitions" class="text-success">
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  {gettext("Enable All")}
+                </button>
+              </li>
+              <li>
+                <button phx-click="disable_all_definitions" class="text-error">
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                  {gettext("Disable All")}
+                </button>
+              </li>
+            </ul>
           </div>
 
-          <%!-- Export Statistics --%>
-          <div class="space-y-4">
-            <div class="flex items-center justify-between">
-              <h3 class="text-lg font-semibold">{gettext("Export Statistics")}</h3>
-              <button
-                class="btn btn-ghost btn-xs"
-                phx-click="refresh_export_stats"
-                title={gettext("Refresh")}
-              >
-                <.icon name="hero-arrow-path" class="w-4 h-4" />
-              </button>
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-sm btn-outline">
+              <.icon name="hero-circle-stack" class="w-4 h-4" />
+              {gettext("Records")}
+              <.icon name="hero-chevron-down" class="w-3 h-3" />
             </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div class="stat bg-base-200 rounded p-3">
-                <div class="stat-title text-xs">{gettext("Definition Files")}</div>
-                <div class="stat-value text-lg">{@export_stats.definitions_count}</div>
-              </div>
-              <div class="stat bg-base-200 rounded p-3">
-                <div class="stat-title text-xs">{gettext("Data Files")}</div>
-                <div class="stat-value text-lg">{@export_stats.data_count}</div>
-              </div>
-            </div>
-
-            <%= if @export_stats.last_export do %>
-              <div class="text-sm text-base-content/70">
-                {gettext("Last export: %{time}", time: @export_stats.last_export)}
-              </div>
-            <% end %>
-
-            <%!-- Import Section --%>
-            <div class="divider">{gettext("Import")}</div>
-
-            <p class="text-sm text-base-content/70">
-              {gettext("Import entity definitions and data from JSON files in the mirror path.")}
-            </p>
-
-            <button
-              class="btn btn-outline btn-secondary w-full"
-              phx-click="show_import_modal"
-              disabled={@importing}
+            <ul
+              tabindex="0"
+              class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
             >
-              <%= if @importing do %>
-                <span class="loading loading-spinner loading-sm"></span>
-                {gettext("Importing...")}
+              <li>
+                <button phx-click="enable_all_data" class="text-success">
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  {gettext("Enable All")}
+                </button>
+              </li>
+              <li>
+                <button phx-click="disable_all_data" class="text-error">
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                  {gettext("Disable All")}
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <button
+            class="btn btn-sm btn-primary"
+            phx-click="export_now"
+            disabled={@exporting}
+          >
+            <%= if @exporting do %>
+              <span class="loading loading-spinner loading-xs"></span>
+              {gettext("Exporting...")}
+            <% else %>
+              <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
+              {gettext("Export All")}
+            <% end %>
+          </button>
+
+          <button
+            class="btn btn-sm btn-outline btn-secondary"
+            phx-click="show_import_modal"
+            disabled={@importing}
+          >
+            <%= if @importing do %>
+              <span class="loading loading-spinner loading-xs"></span>
+              {gettext("Importing...")}
+            <% else %>
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+              {gettext("Import")}
+            <% end %>
+          </button>
+        </div>
+
+        <%!-- Entities Table --%>
+        <%= if length(@entities_list) > 0 do %>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra">
+              <thead>
+                <tr>
+                  <th>{gettext("Entity")}</th>
+                  <th class="text-center">{gettext("Records")}</th>
+                  <th class="text-center">{gettext("Live Sync")}</th>
+                  <th class="text-center">{gettext("Actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for entity <- @entities_list do %>
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">{entity.display_name}</span>
+                        <span class="text-xs text-base-content/50">({entity.name})</span>
+                        <%= if entity.file_exists do %>
+                          <span class="badge badge-ghost badge-xs" title={gettext("File exists")}>
+                            <.icon name="hero-document-check" class="w-3 h-3" />
+                          </span>
+                        <% end %>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge badge-ghost">{entity.data_count}</span>
+                    </td>
+                    <td class="text-center">
+                      <div class="flex flex-col items-center gap-1">
+                        <%!-- Definition toggle --%>
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs text-base-content/70 w-14 text-right">
+                            {gettext("Definition")}
+                          </span>
+                          <%= if entity.mirror_definitions do %>
+                            <button
+                              class="btn btn-outline btn-success btn-xs"
+                              phx-click="toggle_entity_definitions"
+                              phx-value-id={entity.id}
+                              title={gettext("Definition sync enabled - click to disable")}
+                            >
+                              <.icon name="hero-check" class="w-3 h-3" />
+                            </button>
+                          <% else %>
+                            <button
+                              class="btn btn-outline btn-xs"
+                              phx-click="toggle_entity_definitions"
+                              phx-value-id={entity.id}
+                              title={gettext("Definition sync disabled - click to enable")}
+                            >
+                              <.icon name="hero-x-mark" class="w-3 h-3" />
+                            </button>
+                          <% end %>
+                        </div>
+
+                        <%!-- Records toggle (label greyed out when definition sync is disabled) --%>
+                        <div class="flex items-center gap-2">
+                          <span class={"text-xs text-base-content/70 w-14 text-right #{unless entity.mirror_definitions, do: "opacity-50"}"}>
+                            {gettext("Records")}
+                          </span>
+                          <%= if entity.mirror_definitions do %>
+                            <%= if entity.mirror_data do %>
+                              <button
+                                class="btn btn-outline btn-success btn-xs"
+                                phx-click="toggle_entity_data"
+                                phx-value-id={entity.id}
+                                title={gettext("Records sync enabled - click to disable")}
+                              >
+                                <.icon name="hero-check" class="w-3 h-3" />
+                              </button>
+                            <% else %>
+                              <button
+                                class="btn btn-outline btn-xs"
+                                phx-click="toggle_entity_data"
+                                phx-value-id={entity.id}
+                                title={gettext("Records sync disabled - click to enable")}
+                              >
+                                <.icon name="hero-x-mark" class="w-3 h-3" />
+                              </button>
+                            <% end %>
+                          <% else %>
+                            <button
+                              class="btn btn-outline btn-xs"
+                              disabled
+                              title={gettext("Enable definition sync first")}
+                            >
+                              <.icon name="hero-x-mark" class="w-3 h-3" />
+                            </button>
+                          <% end %>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button
+                        class="btn btn-ghost btn-xs"
+                        phx-click="export_entity_now"
+                        phx-value-id={entity.id}
+                        title={gettext("Export now")}
+                      >
+                        <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% else %>
+          <div class="text-center py-8 text-base-content/50">
+            <.icon name="hero-inbox" class="w-12 h-12 mx-auto mb-2" />
+            <p>{gettext("No entities defined yet")}</p>
+          </div>
+        <% end %>
+
+        <%!-- Export Info Footer --%>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-4 border-t border-base-300">
+          <%!-- Export Path --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Export Path")}</p>
+            <code class="text-xs text-base-content/70 break-all">{@mirror_path}</code>
+          </div>
+
+          <%!-- Export Stats --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Exported Files")}</p>
+            <p class="text-sm text-base-content/70">
+              {gettext("%{defs} definitions, %{data} data records",
+                defs: @export_stats.definitions_count,
+                data: @export_stats.data_count
+              )}
+            </p>
+          </div>
+
+          <%!-- Last Export --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Last Export")}</p>
+            <p class="text-sm text-base-content/70">
+              <%= if @export_stats.last_export do %>
+                {@export_stats.last_export}
               <% else %>
-                <.icon name="hero-arrow-down-tray" class="w-5 h-5 mr-2" />
-                {gettext("Import from Files")}
+                {gettext("Never")}
               <% end %>
-            </button>
+            </p>
           </div>
         </div>
       </div>

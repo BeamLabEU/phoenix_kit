@@ -381,6 +381,12 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
 
+          # AI Module
+          live "/admin/ai", Live.Modules.AI.Settings, :index
+          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
+          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
+          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
+
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
           live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -561,6 +567,12 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
+
+          # AI Module
+          live "/admin/ai", Live.Modules.AI.Settings, :index
+          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
+          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
+          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities

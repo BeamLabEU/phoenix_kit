@@ -542,6 +542,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
+                    <%= if PhoenixKit.AI.enabled?() do %>
+                      <%!-- AI section --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/ai")}
+                        icon="ai"
+                        label={gettext("AI")}
+                        current_path={@current_path || ""}
+                      />
+                    <% end %>
+                    
                     <%= if PhoenixKit.Posts.enabled?() do %>
                       <%!-- Posts Section --%>
                       <.admin_nav_item
