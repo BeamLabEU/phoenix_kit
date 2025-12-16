@@ -394,7 +394,10 @@ defmodule PhoenixKit.Billing.CountryData do
   alias PhoenixKit.Billing.IbanData
 
   @doc """
-  Validate IBAN format (length and country prefix only, not checksum).
+  Validate IBAN format (length based on bank country, not company country).
+
+  Bank can be in a different country than the company - this is legal.
+  Validates format and length based on IBAN's country prefix.
 
   Returns :ok or {:error, reason}.
 
@@ -403,31 +406,32 @@ defmodule PhoenixKit.Billing.CountryData do
       iex> CountryData.validate_iban_format("EE382200221020145685", "EE")
       :ok
 
-      iex> CountryData.validate_iban_format("DE123", "DE")
-      {:error, "IBAN must be 22 characters for DE"}
+      iex> CountryData.validate_iban_format("DE89370400440532013000", "EE")
+      :ok  # German bank for Estonian company is valid
 
-      iex> CountryData.validate_iban_format("EE382200221020145685", "DE")
-      {:error, "IBAN country code (EE) does not match company country (DE)"}
+      iex> CountryData.validate_iban_format("DE123", "EE")
+      {:error, "IBAN must be 22 characters for DE"}
   """
-  def validate_iban_format(iban, country_code)
-      when is_binary(iban) and is_binary(country_code) do
+  def validate_iban_format(iban, _country_code)
+      when is_binary(iban) do
     iban = String.replace(iban, ~r/\s/, "") |> String.upcase()
-    expected_length = IbanData.get_iban_length(country_code)
     iban_country = String.slice(iban, 0, 2)
+    expected_length = IbanData.get_iban_length(iban_country)
 
     cond do
       iban == "" ->
         :ok
 
       expected_length == nil ->
-        :ok
-
-      iban_country != String.upcase(country_code) ->
-        {:error,
-         "IBAN country code (#{iban_country}) does not match company country (#{country_code})"}
+        # Unknown IBAN country - just validate basic format
+        if Regex.match?(~r/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, iban) do
+          :ok
+        else
+          {:error, "Invalid IBAN format"}
+        end
 
       String.length(iban) != expected_length ->
-        {:error, "IBAN must be #{expected_length} characters for #{country_code}"}
+        {:error, "IBAN must be #{expected_length} characters for #{iban_country}"}
 
       not Regex.match?(~r/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/, iban) ->
         {:error, "Invalid IBAN format"}

@@ -154,7 +154,7 @@ defmodule PhoenixKit.Billing.Order do
       :paid_at,
       :cancelled_at
     ])
-    |> validate_required([:user_id, :total, :currency])
+    |> validate_required([:user_id, :billing_profile_id, :total, :currency])
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_inclusion(:payment_method, @valid_payment_methods)
     |> validate_length(:currency, is: 3)
