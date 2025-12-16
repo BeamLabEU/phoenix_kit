@@ -20,6 +20,34 @@
       </div>
     </div>
 
+    <%!-- Navigation Tabs --%>
+    <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+        class="tab tab-active"
+      >
+        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> General
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+        class="tab"
+      >
+        <.icon name="hero-credit-card" class="w-4 h-4 mr-2" /> Payment Providers
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+        class="tab"
+      >
+        <.icon name="hero-currency-dollar" class="w-4 h-4 mr-2" /> Currencies
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="tab"
+      >
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 mr-2" /> Plans
+      </.link>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <%!-- Module Status --%>
       <div class="card bg-base-100 shadow-xl">

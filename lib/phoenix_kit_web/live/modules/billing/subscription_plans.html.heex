@@ -10,7 +10,7 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
       <div class="flex items-center gap-4">
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
           class="btn btn-ghost btn-sm"
         >
           <.icon name="hero-arrow-left" class="w-4 h-4" />
@@ -25,6 +25,34 @@
         class="btn btn-primary btn-sm"
       >
         <.icon name="hero-plus" class="w-4 h-4" /> Create Plan
+      </.link>
+    </div>
+
+    <%!-- Navigation Tabs --%>
+    <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+        class="tab"
+      >
+        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> General
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+        class="tab"
+      >
+        <.icon name="hero-credit-card" class="w-4 h-4 mr-2" /> Payment Providers
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+        class="tab"
+      >
+        <.icon name="hero-currency-dollar" class="w-4 h-4 mr-2" /> Currencies
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="tab tab-active"
+      >
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 mr-2" /> Plans
       </.link>
     </div>
 

@@ -39,23 +39,20 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ProviderSettings do
   end
 
   defp load_provider_settings(socket) do
-    # Generate webhook URLs
-    base_url = PhoenixKitWeb.Endpoint.url()
-
     socket
     # Stripe settings
     |> assign(:stripe_enabled, Settings.get_setting("billing_stripe_enabled", "false") == "true")
     |> assign(:stripe_secret_key, Settings.get_setting("billing_stripe_secret_key", ""))
     |> assign(:stripe_publishable_key, Settings.get_setting("billing_stripe_publishable_key", ""))
     |> assign(:stripe_webhook_secret, Settings.get_setting("billing_stripe_webhook_secret", ""))
-    |> assign(:stripe_webhook_url, "#{base_url}#{Routes.path("/webhooks/billing/stripe")}")
+    |> assign(:stripe_webhook_url, Routes.url("/webhooks/billing/stripe"))
     # PayPal settings
     |> assign(:paypal_enabled, Settings.get_setting("billing_paypal_enabled", "false") == "true")
     |> assign(:paypal_client_id, Settings.get_setting("billing_paypal_client_id", ""))
     |> assign(:paypal_client_secret, Settings.get_setting("billing_paypal_client_secret", ""))
     |> assign(:paypal_webhook_id, Settings.get_setting("billing_paypal_webhook_id", ""))
     |> assign(:paypal_mode, Settings.get_setting("billing_paypal_mode", "sandbox"))
-    |> assign(:paypal_webhook_url, "#{base_url}#{Routes.path("/webhooks/billing/paypal")}")
+    |> assign(:paypal_webhook_url, Routes.url("/webhooks/billing/paypal"))
     # Razorpay settings
     |> assign(
       :razorpay_enabled,
@@ -67,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ProviderSettings do
       :razorpay_webhook_secret,
       Settings.get_setting("billing_razorpay_webhook_secret", "")
     )
-    |> assign(:razorpay_webhook_url, "#{base_url}#{Routes.path("/webhooks/billing/razorpay")}")
+    |> assign(:razorpay_webhook_url, Routes.url("/webhooks/billing/razorpay"))
     # Provider availability
     |> assign(:available_providers, Providers.list_available_providers())
   end
