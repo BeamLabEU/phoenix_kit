@@ -551,7 +551,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         current_path={@current_path || ""}
                       />
                     <% end %>
-                    
+
                     <%= if PhoenixKit.Posts.enabled?() do %>
                       <%!-- Posts Section --%>
                       <.admin_nav_item

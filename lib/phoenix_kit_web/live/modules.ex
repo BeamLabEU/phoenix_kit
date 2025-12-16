@@ -473,7 +473,7 @@ defmodule PhoenixKitWeb.Live.Modules do
         {:noreply, socket}
     end
   end
-  
+
   def handle_event("toggle_posts", _params, socket) do
     new_enabled = !socket.assigns.posts_enabled
 
