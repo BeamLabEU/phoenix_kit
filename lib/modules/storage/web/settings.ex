@@ -282,6 +282,24 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end
   end
 
+  def handle_event("repair_storage_module", _params, socket) do
+    case Storage.repair_storage_module() do
+      {:ok, repairs} ->
+        repair_summary = format_repairs(repairs)
+
+        socket =
+          socket
+          |> reload_settings_data()
+          |> put_flash(:info, "Storage module repaired: #{repair_summary}")
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        socket = put_flash(socket, :error, "Failed to repair: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
   defp get_current_path(_socket, _session) do
     # For Storage settings page
     Routes.path("/admin/settings/media")
@@ -329,5 +347,40 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     end)
   rescue
     _ -> %{}
+  end
+
+  defp format_repairs(repairs) do
+    Enum.map_join(repairs, ", ", fn
+      {:bucket_created, name} -> "created bucket '#{name}'"
+      {:dimensions_reset, count} -> "reset #{count} dimensions"
+      {:settings_reset, count} -> "reset #{count} settings"
+    end)
+  end
+
+  defp reload_settings_data(socket) do
+    # Reload buckets
+    buckets = Storage.list_buckets()
+    bucket_file_counts = get_bucket_file_counts(buckets)
+
+    # Reload storage settings
+    redundancy_copies = Settings.get_setting("storage_redundancy_copies", "1")
+    auto_generate_variants = Settings.get_setting("storage_auto_generate_variants", "true")
+    default_bucket_id = Settings.get_setting("storage_default_bucket_id", nil)
+
+    # Recalculate max redundancy
+    active_buckets_count = Enum.count(buckets, & &1.enabled)
+    max_redundancy = if active_buckets_count > 0, do: active_buckets_count, else: 1
+    current_redundancy = String.to_integer(redundancy_copies)
+
+    socket
+    |> assign(:buckets, buckets)
+    |> assign(:bucket_file_counts, bucket_file_counts)
+    |> assign(:redundancy_copies, current_redundancy)
+    |> assign(:auto_generate_variants, auto_generate_variants == "true")
+    |> assign(:default_bucket_id, default_bucket_id)
+    |> assign(:active_buckets_count, active_buckets_count)
+    |> assign(:max_redundancy, max_redundancy)
+    |> assign(:form_redundancy, current_redundancy)
+    |> assign(:form_auto_generate_variants, auto_generate_variants == "true")
   end
 end

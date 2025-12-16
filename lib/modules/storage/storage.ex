@@ -348,6 +348,110 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   @doc """
+  Repairs the storage module by resetting configuration to defaults.
+
+  This is a safe, non-destructive operation that:
+  1. Creates a default local bucket if no buckets exist
+  2. Resets dimensions to 8 defaults (4 image + 4 video)
+  3. Resets storage settings to recommended defaults
+
+  All existing files are preserved.
+
+  ## Returns
+
+  - `{:ok, repairs}` - List of repairs performed
+  - `{:error, reason}` - If repair failed
+
+  ## Examples
+
+      iex> repair_storage_module()
+      {:ok, [{:bucket_created, "Local Storage"}, {:dimensions_reset, 8}, {:settings_reset, 3}]}
+
+  """
+  def repair_storage_module do
+    repo().transaction(fn ->
+      repairs = []
+
+      # 1. Ensure at least one bucket exists
+      repairs =
+        case ensure_default_bucket_exists() do
+          {:created, bucket} -> [{:bucket_created, bucket.name} | repairs]
+          :exists -> repairs
+        end
+
+      # 2. Reset dimensions to defaults
+      case reset_dimensions_to_defaults() do
+        {:ok, _} -> :ok
+        {:error, reason} -> repo().rollback(reason)
+      end
+
+      repairs = [{:dimensions_reset, 8} | repairs]
+
+      # 3. Reset settings to defaults
+      reset_settings_to_defaults()
+      repairs = [{:settings_reset, 3} | repairs]
+
+      Enum.reverse(repairs)
+    end)
+  end
+
+  @doc """
+  Ensures at least one default bucket exists.
+
+  If no buckets exist, creates a default local storage bucket.
+
+  ## Returns
+
+  - `{:created, bucket}` - If a new bucket was created
+  - `:exists` - If buckets already exist
+
+  ## Examples
+
+      iex> ensure_default_bucket_exists()
+      {:created, %Bucket{name: "Local Storage"}}
+
+      iex> ensure_default_bucket_exists()
+      :exists
+
+  """
+  def ensure_default_bucket_exists do
+    if Enum.empty?(list_buckets()) do
+      {:ok, bucket} =
+        create_bucket(%{
+          name: "Local Storage",
+          provider: "local",
+          endpoint: "priv/media",
+          enabled: true,
+          priority: 0
+        })
+
+      {:created, bucket}
+    else
+      :exists
+    end
+  end
+
+  @doc """
+  Resets storage settings to their default values.
+
+  Resets:
+  - `storage_redundancy_copies` to "1"
+  - `storage_auto_generate_variants` to "true"
+  - `storage_default_bucket_id` to nil
+
+  ## Returns
+
+  - `:ok`
+
+  """
+  def reset_settings_to_defaults do
+    Settings.update_setting("storage_redundancy_copies", "1")
+    Settings.update_setting("storage_auto_generate_variants", "true")
+    Settings.update_setting("storage_default_bucket_id", nil)
+    :ok
+  end
+
+  @doc """
   Creates a new dimension.
 
   ## Examples
