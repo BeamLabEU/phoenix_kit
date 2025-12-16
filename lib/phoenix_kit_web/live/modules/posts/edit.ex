@@ -239,7 +239,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     socket =
       cond do
         # Post images selection (supports multiple files)
-        length(file_ids) > 0 && socket.assigns.selecting_featured_image ->
+        not Enum.empty?(file_ids) && socket.assigns.selecting_featured_image ->
           post_id = Map.get(socket.assigns.post, :id)
 
           if post_id do
@@ -287,7 +287,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
           end
 
         # Content image insertion (supports multiple files)
-        length(file_ids) > 0 && socket.assigns.inserting_media_type ->
+        not Enum.empty?(file_ids) && socket.assigns.inserting_media_type ->
           media_type = socket.assigns.inserting_media_type
 
           # Build JS commands for all selected files

@@ -33,22 +33,26 @@ defmodule PhoenixKit.Migrations.Postgres.V30 do
   use Ecto.Migration
 
   def up(%{prefix: prefix} = _opts) do
-    # Step 1: Migrate existing preferred_locale data to custom_fields
-    execute """
-    UPDATE #{prefix_table_name("phoenix_kit_users", prefix)}
-    SET custom_fields = COALESCE(custom_fields, '{}'::jsonb) || jsonb_build_object('preferred_locale', preferred_locale)
-    WHERE preferred_locale IS NOT NULL
-    """
+    # Only migrate and remove if preferred_locale column exists
+    # (column may not exist if V28 was skipped or fresh install)
+    if column_exists?(:phoenix_kit_users, :preferred_locale, prefix) do
+      # Step 1: Migrate existing preferred_locale data to custom_fields
+      execute """
+      UPDATE #{prefix_table_name("phoenix_kit_users", prefix)}
+      SET custom_fields = COALESCE(custom_fields, '{}'::jsonb) || jsonb_build_object('preferred_locale', preferred_locale)
+      WHERE preferred_locale IS NOT NULL
+      """
 
-    # Step 2: Drop the index on preferred_locale
-    drop_if_exists index(:phoenix_kit_users, [:preferred_locale], prefix: prefix)
+      # Step 2: Drop the index on preferred_locale
+      drop_if_exists index(:phoenix_kit_users, [:preferred_locale], prefix: prefix)
 
-    # Step 3: Drop the preferred_locale column
-    alter table(:phoenix_kit_users, prefix: prefix) do
-      remove :preferred_locale
+      # Step 3: Drop the preferred_locale column
+      alter table(:phoenix_kit_users, prefix: prefix) do
+        remove :preferred_locale
+      end
     end
 
-    # Update version comment on phoenix_kit table for version tracking
+    # Update version comment on phoenix_kit table for version tracking (always run)
     execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '30'"
   end
 
@@ -83,4 +87,24 @@ defmodule PhoenixKit.Migrations.Postgres.V30 do
 
   defp prefix_table_name(table_name, nil), do: table_name
   defp prefix_table_name(table_name, prefix), do: "#{prefix}.#{table_name}"
+
+  defp column_exists?(table, column, prefix) do
+    schema = prefix || "public"
+
+    query = """
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = '#{schema}'
+      AND table_name = '#{table}'
+      AND column_name = '#{column}'
+    )
+    """
+
+    %{rows: [[exists]]} = get_repo().query!(query)
+    exists
+  end
+
+  defp get_repo do
+    Application.get_env(:phoenix_kit, :repo) || raise "PhoenixKit repo not configured"
+  end
 end

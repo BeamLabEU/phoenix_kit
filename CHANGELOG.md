@@ -1,3 +1,7 @@
+## 1.7.3 - 2025-12-16
+- Add AI module and per-entity backup controls
+- Updated languages settings page by continent, updated gitignore to include assets
+
 ## 1.7.2 - 2025-12-15
 
 ### Added

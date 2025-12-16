@@ -40,6 +40,25 @@
       </div>
     </div>
 
+    <%!-- Repair Storage Module Section --%>
+    <div class="alert alert-warning mb-6">
+      <.icon name="hero-wrench-screwdriver" class="w-5 h-5" />
+      <div class="flex-1">
+        <h3 class="font-bold">Storage Module Repair</h3>
+        <p class="text-sm">
+          If your storage module isn't working correctly, use this to reset configuration to defaults.
+          This will NOT delete any uploaded files.
+        </p>
+      </div>
+      <button
+        phx-click="repair_storage_module"
+        data-confirm="This will reset dimensions and settings to defaults, and create a local bucket if none exist. Your uploaded files will NOT be deleted. Continue?"
+        class="btn btn-warning btn-sm"
+      >
+        <.icon name="hero-wrench-screwdriver" class="w-4 h-4 mr-1" /> Repair Storage Module
+      </button>
+    </div>
+
     <%!-- System Dependencies Check --%>
     <%= if match?({:error, :not_installed}, @imagemagick_status) do %>
       <div class="alert alert-error mb-6">

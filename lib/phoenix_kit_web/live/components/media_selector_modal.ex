@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   def update(assigns, socket) do
     # Check if any enabled buckets exist
     enabled_buckets = Storage.list_enabled_buckets()
-    has_buckets = length(enabled_buckets) > 0
+    has_buckets = not Enum.empty?(enabled_buckets)
 
     # Save previous state BEFORE assigning new values
     was_shown = socket.assigns[:show] || false

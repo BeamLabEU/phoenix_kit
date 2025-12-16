@@ -136,11 +136,11 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
           updates
       end
 
-    if length(updates) > 0 do
+    if Enum.empty?(updates) do
+      IO.puts("\n❌ No configuration changes made")
+    else
       IO.puts("\n✅ Configuration updated: #{Enum.join(updates, ", ")}")
       IO.puts("💡 Run 'mix phoenix_kit.configure_aws_ses --status' to verify")
-    else
-      IO.puts("\n❌ No configuration changes made")
     end
   end
 

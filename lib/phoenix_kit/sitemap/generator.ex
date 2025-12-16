@@ -723,7 +723,7 @@ defmodule PhoenixKit.Sitemap.Generator do
     try do
       if Languages.enabled?() do
         case Languages.get_enabled_languages() do
-          languages when is_list(languages) and length(languages) > 0 ->
+          languages when is_list(languages) and languages != [] ->
             languages
             |> Enum.map(fn lang ->
               %{

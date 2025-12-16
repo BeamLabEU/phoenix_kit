@@ -1,0 +1,226 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  phoenix_kit_current_scope={@phoenix_kit_current_scope}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="max-w-2xl mx-auto p-6">
+    <%!-- Header --%>
+    <div class="mb-6">
+      <.link navigate={Routes.path("/admin/ai/accounts")} class="btn btn-ghost btn-sm gap-2 mb-4">
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Accounts
+      </.link>
+
+      <h1 class="text-2xl font-bold">{@page_title}</h1>
+      <p class="text-base-content/70 mt-1">
+        <%= if @account do %>
+          Update your AI provider account settings.
+        <% else %>
+          Add a new AI provider account.
+        <% end %>
+      </p>
+    </div>
+
+    <%!-- Form --%>
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Account Name and Provider --%>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Account Name *</span>
+              </label>
+              <input
+                type="text"
+                name="account[name]"
+                value={@form.params["name"] || (@account && @account.name) || ""}
+                class={["input input-bordered", @form.errors[:name] && "input-error"]}
+                placeholder="e.g., Main OpenRouter"
+                required
+              />
+              <%= if @form.errors[:name] do %>
+                <label class="label">
+                  <span class="label-text-alt text-error">
+                    {translate_error(@form.errors[:name])}
+                  </span>
+                </label>
+              <% end %>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Provider</span>
+              </label>
+              <select name="account[provider]" class="select select-bordered">
+                <%= for {label, value} <- Account.provider_options() do %>
+                  <option
+                    value={value}
+                    selected={
+                      (@form.params["provider"] || (@account && @account.provider) || "openrouter") ==
+                        value
+                    }
+                  >
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+          </div>
+
+          <%!-- API Key --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">API Key *</span>
+            </label>
+            <div class="join w-full">
+              <input
+                type="password"
+                name="account[api_key]"
+                value={@form.params["api_key"] || (@account && @account.api_key) || ""}
+                class={[
+                  "input input-bordered join-item flex-1",
+                  @form.errors[:api_key] && "input-error"
+                ]}
+                placeholder="sk-or-v1-..."
+                required
+              />
+              <button
+                type="button"
+                class={["btn join-item", @validating_api_key && "loading"]}
+                phx-click="validate_api_key"
+                disabled={@validating_api_key}
+              >
+                <%= if @validating_api_key do %>
+                  Validating...
+                <% else %>
+                  Validate
+                <% end %>
+              </button>
+            </div>
+
+            <%!-- Validation Result --%>
+            <%= if @api_key_valid == true do %>
+              <label class="label">
+                <span class="label-text-alt text-success flex items-center gap-1">
+                  <.icon name="hero-check-circle" class="w-4 h-4" /> API key is valid
+                </span>
+              </label>
+            <% end %>
+
+            <%= if @api_key_error do %>
+              <label class="label">
+                <span class="label-text-alt text-error flex items-center gap-1">
+                  <.icon name="hero-x-circle" class="w-4 h-4" />
+                  {@api_key_error}
+                </span>
+              </label>
+            <% end %>
+
+            <%= if @form.errors[:api_key] do %>
+              <label class="label">
+                <span class="label-text-alt text-error">
+                  {translate_error(@form.errors[:api_key])}
+                </span>
+              </label>
+            <% end %>
+          </div>
+
+          <div class="divider">Optional Settings</div>
+
+          <%!-- HTTP Referer --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">HTTP Referer</span>
+            </label>
+            <input
+              type="url"
+              name="account[settings][http_referer]"
+              value={
+                get_in(@form.params, ["settings", "http_referer"]) ||
+                  (@account && get_in(@account.settings, ["http_referer"])) || ""
+              }
+              class="input input-bordered"
+              placeholder="https://yourapp.com"
+            />
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">
+                Used for OpenRouter rankings and analytics
+              </span>
+            </label>
+          </div>
+
+          <%!-- X-Title --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">X-Title</span>
+            </label>
+            <input
+              type="text"
+              name="account[settings][x_title]"
+              value={
+                get_in(@form.params, ["settings", "x_title"]) ||
+                  (@account && get_in(@account.settings, ["x_title"])) || ""
+              }
+              class="input input-bordered"
+              placeholder="My Application"
+            />
+            <label class="label">
+              <span class="label-text-alt text-base-content/50">
+                App name for OpenRouter rankings
+              </span>
+            </label>
+          </div>
+
+          <%!-- Actions --%>
+          <div class="flex justify-end gap-3 pt-4">
+            <.link navigate={Routes.path("/admin/ai/accounts")} class="btn btn-ghost">
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary">
+              <%= if @account do %>
+                Update Account
+              <% else %>
+                Create Account
+              <% end %>
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- How to get an API key (only show for new accounts) --%>
+    <%= unless @account do %>
+      <div class="card bg-base-100 shadow-lg mt-6">
+        <div class="card-body">
+          <h3 class="card-title text-lg">
+            <.icon name="hero-question-mark-circle" class="w-5 h-5" /> How to get an API key
+          </h3>
+          <ol class="list-decimal list-inside space-y-2 text-base-content/70 mt-2">
+            <li>
+              Visit
+              <a href="https://openrouter.ai" target="_blank" class="link link-primary">
+                openrouter.ai
+              </a>
+            </li>
+            <li>Create an account or sign in</li>
+            <li>
+              Go to
+              <a
+                href="https://openrouter.ai/settings/keys"
+                target="_blank"
+                class="link link-primary"
+              >
+                Keys
+              </a>
+              section
+            </li>
+            <li>Click "Create Key" and copy your new API key</li>
+          </ol>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

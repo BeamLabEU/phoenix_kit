@@ -951,6 +951,103 @@
         </div>
       </div>
 
+      <%!-- Backup Settings Section --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="card-title text-2xl">
+                <.icon name="hero-arrow-down-tray" class="w-6 h-6" />
+                {gettext("Backup Settings")}
+              </h2>
+              <p class="text-sm text-base-content/70 mt-1">
+                {gettext("Configure automatic backup to file for this entity")}
+              </p>
+            </div>
+            <%= if @entity.id do %>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                phx-click="export_entity_now"
+                disabled={@readonly?}
+              >
+                <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                {gettext("Export Now")}
+              </button>
+            <% end %>
+          </div>
+
+          <%= if @entity.id do %>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <%!-- Definition Sync Toggle --%>
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-4">
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-primary"
+                    checked={PhoenixKit.Entities.mirror_definitions_enabled?(@entity)}
+                    phx-click="toggle_backup_definitions"
+                    disabled={@readonly?}
+                  />
+                  <div>
+                    <span class="label-text font-semibold">
+                      {gettext("Sync Definition to File")}
+                    </span>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext("Automatically export entity schema when changes are saved")}
+                    </p>
+                  </div>
+                </label>
+              </div>
+
+              <%!-- Records Sync Toggle --%>
+              <div class={"form-control #{unless PhoenixKit.Entities.mirror_definitions_enabled?(@entity), do: "opacity-50"}"}>
+                <label class="label cursor-pointer justify-start gap-4">
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-primary"
+                    checked={PhoenixKit.Entities.mirror_data_enabled?(@entity)}
+                    phx-click="toggle_backup_data"
+                    disabled={
+                      @readonly? or not PhoenixKit.Entities.mirror_definitions_enabled?(@entity)
+                    }
+                  />
+                  <div>
+                    <span class="label-text font-semibold">
+                      {gettext("Sync Records to File")}
+                    </span>
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext(
+                        "Automatically export data records when they are created or updated"
+                      )}
+                    </p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <%!-- File Info --%>
+            <div class="mt-4 p-4 bg-base-200 rounded-lg">
+              <div class="flex items-center gap-2 text-sm">
+                <.icon name="hero-folder" class="w-4 h-4 text-base-content/70" />
+                <span class="text-base-content/70">{gettext("Export path")}:</span>
+                <code class="text-xs bg-base-300 px-2 py-1 rounded break-all">
+                  {@mirror_path}/{@entity.name}.json
+                </code>
+              </div>
+            </div>
+          <% else %>
+            <%!-- New entity - show message --%>
+            <div class="alert alert-info">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <span>
+                {gettext("Save the entity first to configure backup settings.")}
+              </span>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
       <%!-- Form Actions --%>
       <div class="flex justify-between items-center">
         <div class="flex gap-2">

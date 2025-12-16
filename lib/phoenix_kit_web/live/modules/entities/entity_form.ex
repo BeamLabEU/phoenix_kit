@@ -10,6 +10,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.Events
   alias PhoenixKit.Entities.FieldTypes
+  alias PhoenixKit.Entities.Mirror.Exporter
+  alias PhoenixKit.Entities.Mirror.Storage
   alias PhoenixKit.Entities.Presence
   alias PhoenixKit.Entities.PresenceHelpers
   alias PhoenixKit.Settings
@@ -78,6 +80,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
       |> assign(:live_source, live_source)
       |> assign(:delete_confirm_index, nil)
       |> assign(:has_unsaved_changes, false)
+      |> assign(:mirror_path, Storage.root_path())
 
     socket =
       if connected?(socket) do
@@ -833,6 +836,91 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
       reply_with_broadcast(socket)
     else
       {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
+  # Backup Settings Events
+
+  def handle_event("toggle_backup_definitions", _params, socket) do
+    if socket.assigns[:lock_owner?] do
+      entity = socket.assigns.entity
+      current_value = Entities.mirror_definitions_enabled?(entity)
+      new_value = !current_value
+
+      # When disabling definitions, also disable data sync
+      new_settings =
+        if new_value do
+          %{"mirror_definitions" => true}
+        else
+          %{"mirror_definitions" => false, "mirror_data" => false}
+        end
+
+      case Entities.update_mirror_settings(entity, new_settings) do
+        {:ok, updated_entity} ->
+          socket =
+            socket
+            |> assign(:entity, updated_entity)
+            |> assign(:changeset, Entities.change_entity(updated_entity))
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to update backup settings"))}
+      end
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
+  def handle_event("toggle_backup_data", _params, socket) do
+    if socket.assigns[:lock_owner?] do
+      entity = socket.assigns.entity
+      current_value = Entities.mirror_data_enabled?(entity)
+      new_value = !current_value
+
+      case Entities.update_mirror_settings(entity, %{"mirror_data" => new_value}) do
+        {:ok, updated_entity} ->
+          socket =
+            socket
+            |> assign(:entity, updated_entity)
+            |> assign(:changeset, Entities.change_entity(updated_entity))
+
+          {:noreply, socket}
+
+        {:error, _changeset} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to update backup settings"))}
+      end
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot edit - you are spectating"))}
+    end
+  end
+
+  def handle_event("export_entity_now", _params, socket) do
+    if socket.assigns[:lock_owner?] do
+      entity = socket.assigns.entity
+
+      message =
+        case Exporter.export_entity(entity) do
+          {:ok, _path, :with_data} ->
+            gettext("Exported %{name} (definition + records)", name: entity.display_name)
+
+          {:ok, _path, :definition_only} ->
+            gettext("Exported %{name} (definition only)", name: entity.display_name)
+
+          {:error, _reason} ->
+            nil
+        end
+
+      socket =
+        if message do
+          put_flash(socket, :info, message)
+        else
+          put_flash(socket, :error, gettext("Export failed"))
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, put_flash(socket, :error, gettext("Cannot export - you are spectating"))}
     end
   end
 

@@ -580,24 +580,24 @@ defmodule PhoenixKit.Modules.Languages do
   end
 
   @doc """
-  Gets all available languages grouped by country.
+  Gets all available languages grouped by continent, then by country.
 
-  Returns a list of {country, languages} tuples sorted alphabetically by country name.
+  Returns a list of {continent, countries} tuples where countries is a list of
+  {country, flag, languages} tuples. Sorted alphabetically by continent and country.
   Languages are sorted by name within each country group.
   A language can appear under multiple countries based on its `countries` list.
-  This is useful for displaying languages in a grouped dropdown or list.
 
   ## Examples
 
-      iex> PhoenixKit.Modules.Languages.get_languages_grouped_by_country()
+      iex> PhoenixKit.Modules.Languages.get_languages_grouped_by_continent()
       [
-        {"Argentina", [%{code: "es-AR", name: "Spanish (Argentina)", ...}, %{code: "es-ES", ...}]},
-        {"Australia", [%{code: "en-AU", ...}, %{code: "en-GB", ...}, %{code: "en-US", ...}]},
-        {"Canada", [%{code: "en-CA", ...}, %{code: "en-GB", ...}, %{code: "fr-CA", ...}, %{code: "fr-FR", ...}]},
+        {"Africa", [{"South Africa", "🇿🇦", [%{code: "en-ZA", ...}]}, ...]},
+        {"Asia", [{"China", "🇨🇳", [%{code: "zh-CN", ...}]}, ...]},
+        {"Europe", [{"Germany", "🇩🇪", [%{code: "de-DE", ...}]}, ...]},
         ...
       ]
   """
-  def get_languages_grouped_by_country do
+  def get_languages_grouped_by_continent do
     get_available_languages()
     |> Enum.flat_map(fn lang ->
       # Create one entry per country for this language
@@ -606,9 +606,22 @@ defmodule PhoenixKit.Modules.Languages do
       end)
     end)
     |> Enum.group_by(& &1.country)
-    |> Enum.sort_by(fn {country, _languages} -> country end)
     |> Enum.map(fn {country, languages} ->
-      {country, Enum.sort_by(languages, & &1.name)}
+      # Get country data from BeamLabCountries
+      country_data = BeamLabCountries.get_by(:name, country)
+      continent = if country_data, do: country_data.continent, else: "Other"
+      country_flag = if country_data, do: country_data.flag, else: "🌐"
+      {continent, country, country_flag, Enum.sort_by(languages, & &1.name)}
+    end)
+    |> Enum.group_by(fn {continent, _, _, _} -> continent end)
+    |> Enum.sort_by(fn {continent, _} -> continent end)
+    |> Enum.map(fn {continent, countries} ->
+      sorted_countries =
+        countries
+        |> Enum.map(fn {_, country, flag, langs} -> {country, flag, langs} end)
+        |> Enum.sort_by(fn {country, _, _} -> country end)
+
+      {continent, sorted_countries}
     end)
   end
 

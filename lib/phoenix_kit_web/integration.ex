@@ -381,14 +381,11 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/subscriptions", Live.Modules.Billing.Subscriptions, :index
+          live "/admin/billing/subscriptions/new", Live.Modules.Billing.SubscriptionForm, :new
 
           live "/admin/billing/subscriptions/:id",
                Live.Modules.Billing.SubscriptionDetail,
                :show
-
-          live "/admin/billing/subscriptions/new",
-               Live.Modules.Billing.SubscriptionForm,
-               :new
 
           live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
           live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
@@ -399,6 +396,12 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
           live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
+
+          # AI Module
+          live "/admin/ai", Live.Modules.AI.Settings, :index
+          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
+          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
+          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -576,14 +579,11 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
           live "/admin/billing/subscriptions", Live.Modules.Billing.Subscriptions, :index
+          live "/admin/billing/subscriptions/new", Live.Modules.Billing.SubscriptionForm, :new
 
           live "/admin/billing/subscriptions/:id",
                Live.Modules.Billing.SubscriptionDetail,
                :show
-
-          live "/admin/billing/subscriptions/new",
-               Live.Modules.Billing.SubscriptionForm,
-               :new
 
           live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
           live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
@@ -594,6 +594,12 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
           live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
           live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
+
+          # AI Module
+          live "/admin/ai", Live.Modules.AI.Settings, :index
+          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
+          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
+          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities

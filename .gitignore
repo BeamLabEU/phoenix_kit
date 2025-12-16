@@ -88,7 +88,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # Assets compilation (legacy Phoenix apps)
-/priv/static/assets/
 /priv/static/cache_manifest.json
 /assets/node_modules/
 
