@@ -75,53 +75,67 @@
           />
         </div>
 
-        <%!-- Languages List (ALL languages grouped by country) --%>
-        <div class="space-y-2">
-          <%= for {country, country_flag, languages} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
-            <details class="collapse collapse-arrow bg-base-200 rounded-lg" open>
-              <summary class="collapse-title font-medium py-3">
-                <span class="text-lg">{country_flag}</span>
-                <span class="ml-2">{country}</span>
+        <%!-- Languages List grouped by Continent -> Country --%>
+        <div class="space-y-4">
+          <%= for {continent, countries} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
+            <details class="collapse collapse-arrow bg-base-300 rounded-lg" open>
+              <summary class="collapse-title font-bold text-lg py-3">
+                <span class="ml-2">{continent}</span>
                 <span class="badge badge-ghost badge-sm ml-2">
-                  {count_enabled(languages, @enabled_codes)}/{length(languages)}
+                  {count_enabled_in_continent(countries, @enabled_codes)} enabled
                 </span>
               </summary>
               <div class="collapse-content px-2 pb-2">
-                <div class="space-y-1">
-                  <%= for language <- languages do %>
-                    <div class="flex items-center justify-between p-2 hover:bg-base-100 rounded-lg">
-                      <div class="flex items-center gap-2 flex-1">
-                        <span class="font-medium">
-                          {language.native}
-                          <span class="text-base-content/60">({language.name})</span>
+                <div class="space-y-2">
+                  <%= for {country, country_flag, languages} <- countries do %>
+                    <details class="collapse collapse-arrow bg-base-200 rounded-lg">
+                      <summary class="collapse-title font-medium py-2">
+                        <span class="text-lg">{country_flag}</span>
+                        <span class="ml-2">{country}</span>
+                        <span class="badge badge-ghost badge-xs ml-2">
+                          {count_enabled(languages, @enabled_codes)}/{length(languages)}
                         </span>
-                        <span class="badge badge-outline badge-xs">{language.code}</span>
-                        <%= if language.code == @default_code do %>
-                          <span class="badge badge-primary badge-xs">Default</span>
-                        <% end %>
+                      </summary>
+                      <div class="collapse-content px-2 pb-2">
+                        <div class="space-y-1">
+                          <%= for language <- languages do %>
+                            <div class="flex items-center justify-between p-2 hover:bg-base-100 rounded-lg">
+                              <div class="flex items-center gap-2 flex-1">
+                                <span class="font-medium">
+                                  {language.native}
+                                  <span class="text-base-content/60">({language.name})</span>
+                                </span>
+                                <span class="badge badge-outline badge-xs">{language.code}</span>
+                                <%= if language.code == @default_code do %>
+                                  <span class="badge badge-primary badge-xs">Default</span>
+                                <% end %>
+                              </div>
+                              <div class="flex items-center gap-2">
+                                <%!-- Set Default Button (only for enabled, non-default languages) --%>
+                                <%= if language.code in @enabled_codes and language.code != @default_code do %>
+                                  <button
+                                    class="btn btn-ghost btn-xs"
+                                    phx-click="set_default"
+                                    phx-value-code={language.code}
+                                  >
+                                    Set Default
+                                  </button>
+                                <% end %>
+                                <%!-- Enable/Disable Toggle --%>
+                                <input
+                                  type="checkbox"
+                                  class="toggle toggle-sm toggle-primary"
+                                  checked={language.code in @enabled_codes}
+                                  phx-click="toggle_language_availability"
+                                  phx-value-code={language.code}
+                                  disabled={language.code == @default_code}
+                                />
+                              </div>
+                            </div>
+                          <% end %>
+                        </div>
                       </div>
-                      <div class="flex items-center gap-2">
-                        <%!-- Set Default Button (only for enabled, non-default languages) --%>
-                        <%= if language.code in @enabled_codes and language.code != @default_code do %>
-                          <button
-                            class="btn btn-ghost btn-xs"
-                            phx-click="set_default"
-                            phx-value-code={language.code}
-                          >
-                            Set Default
-                          </button>
-                        <% end %>
-                        <%!-- Enable/Disable Toggle --%>
-                        <input
-                          type="checkbox"
-                          class="toggle toggle-sm toggle-primary"
-                          checked={language.code in @enabled_codes}
-                          phx-click="toggle_language_availability"
-                          phx-value-code={language.code}
-                          disabled={language.code == @default_code}
-                        />
-                      </div>
-                    </div>
+                    </details>
                   <% end %>
                 </div>
               </div>

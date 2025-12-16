@@ -23,8 +23,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     ml_config = Languages.get_config()
     display_languages = Languages.get_display_languages()
 
-    # Get ALL languages grouped by country for display
-    grouped_languages = Languages.get_languages_grouped_by_country()
+    # Get ALL languages grouped by continent -> country for display
+    grouped_languages = Languages.get_languages_grouped_by_continent()
 
     # Get enabled language codes and default code
     enabled_codes = get_enabled_codes(display_languages)
@@ -164,7 +164,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   defp reload_display_languages(socket, enabled \\ nil) do
     enabled = enabled || Languages.enabled?()
     display_languages = Languages.get_display_languages()
-    grouped_languages = Languages.get_languages_grouped_by_country()
+    grouped_languages = Languages.get_languages_grouped_by_continent()
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)
 
@@ -226,7 +226,14 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     Enum.count(languages, fn lang -> lang.code in enabled_codes end)
   end
 
-  # Filter grouped languages by search query
+  # Count enabled languages across all countries in a continent
+  defp count_enabled_in_continent(countries, enabled_codes) do
+    Enum.reduce(countries, 0, fn {_country, _flag, languages}, acc ->
+      acc + count_enabled(languages, enabled_codes)
+    end)
+  end
+
+  # Filter grouped languages by search query (continent -> country -> languages structure)
   defp filter_grouped_languages(grouped_languages, ""), do: grouped_languages
   defp filter_grouped_languages(grouped_languages, nil), do: grouped_languages
 
@@ -234,15 +241,20 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     query_downcase = String.downcase(query)
 
     grouped_languages
-    |> Enum.filter(fn {country, _flag, languages} ->
-      # Match country name
-      # Match any language in the group
-      String.contains?(String.downcase(country), query_downcase) or
-        Enum.any?(languages, fn lang ->
-          String.contains?(String.downcase(lang.name), query_downcase) or
-            String.contains?(String.downcase(lang.native), query_downcase) or
-            String.contains?(String.downcase(lang.code), query_downcase)
+    |> Enum.map(fn {continent, countries} ->
+      filtered_countries =
+        Enum.filter(countries, fn {country, _flag, languages} ->
+          # Match country name or any language in the group
+          String.contains?(String.downcase(country), query_downcase) or
+            Enum.any?(languages, fn lang ->
+              String.contains?(String.downcase(lang.name), query_downcase) or
+                String.contains?(String.downcase(lang.native), query_downcase) or
+                String.contains?(String.downcase(lang.code), query_downcase)
+            end)
         end)
+
+      {continent, filtered_countries}
     end)
+    |> Enum.reject(fn {_continent, countries} -> countries == [] end)
   end
 end
