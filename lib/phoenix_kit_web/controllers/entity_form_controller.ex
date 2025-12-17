@@ -115,11 +115,11 @@ defmodule PhoenixKitWeb.EntityFormController do
 
     cond do
       # If any flag requires rejection
-      length(reject_flags) > 0 ->
+      not Enum.empty?(reject_flags) ->
         handle_rejection(conn, entity, reject_flags)
 
       # If flags only require saving with markers
-      length(save_flags) > 0 ->
+      not Enum.empty?(save_flags) ->
         handle_submission(conn, entity, params, save_flags)
 
       # Fallback - should not happen
@@ -369,7 +369,7 @@ defmodule PhoenixKitWeb.EntityFormController do
     enabled = Map.get(settings, "public_form_enabled", false)
     fields = Map.get(settings, "public_form_fields", [])
     # Form is only truly enabled if it's enabled AND has at least one field selected
-    enabled && length(fields) > 0
+    enabled && not Enum.empty?(fields)
   end
 
   defp generate_submission_title(entity, data) do

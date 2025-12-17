@@ -160,7 +160,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
         |> String.trim_leading("# ")
         |> String.trim()
 
-      length(lines) > 0 ->
+      not Enum.empty?(lines) ->
         # Fallback to first non-empty line
         List.first(lines)
         |> String.slice(0, 100)

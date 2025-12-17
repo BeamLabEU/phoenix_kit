@@ -260,12 +260,12 @@ defmodule PhoenixKit.Emails.Metrics do
 
   # Calculate average engagement from daily stats
   defp calculate_avg_engagement(daily_stats) do
-    if length(daily_stats) > 0 do
+    if Enum.empty?(daily_stats) do
+      0.0
+    else
       total_opened = Enum.sum(Enum.map(daily_stats, & &1.opened))
       total_delivered = Enum.sum(Enum.map(daily_stats, & &1.delivered))
       calculate_percentage(total_opened, total_delivered)
-    else
-      0.0
     end
   end
 

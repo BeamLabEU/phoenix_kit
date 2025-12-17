@@ -394,7 +394,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
     if requires_options?(field["type"]) do
       options = Map.get(field, "options", [])
 
-      if is_list(options) && length(options) > 0 do
+      if is_list(options) && not Enum.empty?(options) do
         {:ok, field}
       else
         {:error, "Field type '#{field["type"]}' requires options"}

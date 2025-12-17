@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Orders do
         socket
         |> assign(:page_title, "Orders")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/billing/orders"))
         |> assign(:orders, [])
         |> assign(:total_count, 0)
         |> assign(:loading, true)

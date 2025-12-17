@@ -20,7 +20,7 @@ defmodule PhoenixKit.Billing.Transaction do
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Users.Auth.User
 
-  @payment_methods ~w(bank)
+  @payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_transactions" do
     field :transaction_number, :string

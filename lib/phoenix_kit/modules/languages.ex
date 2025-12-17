@@ -584,8 +584,8 @@ defmodule PhoenixKit.Modules.Languages do
 
   Returns a list of {continent, countries} tuples where countries is a list of
   {country, flag, languages} tuples. Sorted alphabetically by continent and country.
-  Languages are sorted by name within each country group.
-  A language can appear under multiple countries based on its `countries` list.
+  Only shows languages that are actually used in each country based on the
+  `language_locales` field from BeamLabCountries.
 
   ## Examples
 
@@ -611,8 +611,13 @@ defmodule PhoenixKit.Modules.Languages do
       country_data = BeamLabCountries.get_by(:name, country)
       continent = if country_data, do: country_data.continent, else: "Other"
       country_flag = if country_data, do: country_data.flag, else: "🌐"
-      {continent, country, country_flag, Enum.sort_by(languages, & &1.name)}
+
+      # Filter languages based on language_locales if available
+      filtered_languages = filter_languages_by_locale(languages, country_data)
+
+      {continent, country, country_flag, Enum.sort_by(filtered_languages, & &1.name)}
     end)
+    |> Enum.reject(fn {_, _, _, langs} -> langs == [] end)
     |> Enum.group_by(fn {continent, _, _, _} -> continent end)
     |> Enum.sort_by(fn {continent, _} -> continent end)
     |> Enum.map(fn {continent, countries} ->
@@ -623,6 +628,30 @@ defmodule PhoenixKit.Modules.Languages do
 
       {continent, sorted_countries}
     end)
+  end
+
+  # Filter languages based on country's languages_spoken and language_locales
+  # - languages_spoken: determines WHICH languages to show (e.g., ["et", "ru", "en"])
+  # - language_locales: determines which SPECIFIC LOCALE to use (e.g., %{en: "en-GB"})
+  defp filter_languages_by_locale(languages, nil), do: languages
+
+  defp filter_languages_by_locale(languages, country_data) do
+    languages_spoken = country_data.languages_spoken || []
+    language_locales = country_data.language_locales || %{}
+
+    if languages_spoken == [] do
+      languages
+    else
+      languages_spoken
+      |> Enum.map(&find_language_for_code(languages, &1, language_locales))
+      |> Enum.reject(&is_nil/1)
+    end
+  end
+
+  # Find the appropriate language for a given code, using specific locale if available
+  defp find_language_for_code(languages, lang_code, language_locales) do
+    locale_code = Map.get(language_locales, String.to_atom(lang_code), lang_code)
+    Enum.find(languages, fn lang -> lang.code == locale_code end)
   end
 
   @doc """

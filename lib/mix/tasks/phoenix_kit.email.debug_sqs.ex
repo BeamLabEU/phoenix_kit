@@ -185,7 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
       )
 
     case ExAws.request(request) do
-      {:ok, %{body: %{messages: messages}}} when is_list(messages) and length(messages) > 0 ->
+      {:ok, %{body: %{messages: messages}}} when is_list(messages) and messages != [] ->
         new_acc = acc ++ messages
         new_remaining = remaining - length(messages)
 

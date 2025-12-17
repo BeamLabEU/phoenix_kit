@@ -42,6 +42,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
 
     socket
     |> assign(:page_title, "New Billing Profile")
+    |> assign(:url_path, Routes.path("/admin/billing/profiles/new"))
     |> assign(:profile, nil)
     |> assign(:form, to_form(changeset))
     |> assign(:selected_user_id, nil)
@@ -59,6 +60,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
 
         socket
         |> assign(:page_title, "Edit Billing Profile")
+        |> assign(:url_path, Routes.path("/admin/billing/profiles/#{profile.id}/edit"))
         |> assign(:profile, profile)
         |> assign(:form, to_form(changeset))
         |> assign(:selected_user_id, profile.user_id)

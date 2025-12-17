@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.2"
+  @version "1.7.4"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -127,13 +127,16 @@ defmodule PhoenixKit.MixProject do
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
 
+      # HTTP client for payment providers
+      {:req, "~> 0.5"},
+
       # Code generation and project patching
       # Note: Available in all environments for library code, but typically
       # only needed in :dev when used as a dependency in parent projects
       {:igniter, "~> 0.7"},
 
       # Language and country data
-      {:beamlab_countries, "~> 1.0.3"}
+      {:beamlab_countries, "~> 1.0.5"}
     ]
   end
 

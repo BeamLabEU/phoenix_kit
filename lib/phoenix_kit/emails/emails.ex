@@ -333,7 +333,7 @@ defmodule PhoenixKit.Emails do
                total_events_found: length(all_events),
                sqs_events_found: length(sqs_events),
                dlq_events_found: length(dlq_events),
-               log_updated: length(successful_results) > 0,
+               log_updated: not Enum.empty?(successful_results),
                existing_log_found: existing_log != nil,
                results: successful_results,
                failed_results: failed_results,
@@ -1855,12 +1855,12 @@ defmodule PhoenixKit.Emails do
       days = days_old || get_retention_days()
       logs_to_archive = Log.get_logs_for_archival(days)
 
-      if length(logs_to_archive) > 0 do
+      if Enum.empty?(logs_to_archive) do
+        {:ok, archived_count: 0, logs: []}
+      else
         # This would be implemented in a separate Archiver module
         # For now, return a placeholder
         {:ok, archived_count: length(logs_to_archive), logs: logs_to_archive}
-      else
-        {:ok, archived_count: 0, logs: []}
       end
     else
       {:ok, :skipped}

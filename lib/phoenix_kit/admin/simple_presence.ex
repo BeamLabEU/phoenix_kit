@@ -279,7 +279,7 @@ defmodule PhoenixKit.Admin.SimplePresence do
       end
     end)
 
-    if length(@table_name |> :ets.tab2list()) > 0 do
+    if not Enum.empty?(:ets.tab2list(@table_name)) do
       broadcast_presence_stats()
     end
   end

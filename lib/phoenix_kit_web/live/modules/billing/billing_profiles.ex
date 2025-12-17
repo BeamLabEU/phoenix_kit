@@ -22,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfiles do
         socket
         |> assign(:page_title, "Billing Profiles")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/billing/profiles"))
         |> assign(:profiles, [])
         |> assign(:total_count, 0)
         |> assign(:loading, true)

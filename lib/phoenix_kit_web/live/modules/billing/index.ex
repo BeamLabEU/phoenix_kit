@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Index do
         socket
         |> assign(:page_title, "Billing Dashboard")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/billing"))
         |> load_dashboard_data()
 
       {:ok, socket}

@@ -466,7 +466,7 @@ defmodule PhoenixKit.Config do
       required_keys
       |> Enum.reject(&Keyword.has_key?(config, &1))
 
-    if length(missing_keys) > 0 do
+    if not Enum.empty?(missing_keys) do
       raise """
       Missing required PhoenixKit configuration keys: #{inspect(missing_keys)}
 

@@ -47,7 +47,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Settings do
 
     # Load accounts
     accounts = AI.list_accounts()
-    has_accounts = length(accounts) > 0
+    has_accounts = not Enum.empty?(accounts)
 
     # Default slot type
     default_slot_type = :text

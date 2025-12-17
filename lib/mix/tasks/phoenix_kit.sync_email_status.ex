@@ -230,7 +230,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
   defp print_process_details(details) do
     IO.puts("\n🔍 Processing Details:")
 
-    if length(details.successful) > 0 do
+    if not Enum.empty?(details.successful) do
       IO.puts("   ✅ Successful events:")
 
       Enum.each(details.successful, fn result ->
@@ -238,7 +238,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
       end)
     end
 
-    if length(details.failed) > 0 do
+    if not Enum.empty?(details.failed) do
       IO.puts("   ❌ Failed events:")
 
       Enum.each(details.failed, fn {event, reason} ->

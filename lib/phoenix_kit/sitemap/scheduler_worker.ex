@@ -35,6 +35,7 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
 
   require Logger
 
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
   alias PhoenixKit.Sitemap.Generator
@@ -47,10 +48,22 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   """
   @impl Oban.Worker
   def perform(%Oban.Job{args: args}) do
-    Logger.info("SitemapSchedulerWorker: Starting scheduled regeneration")
+    is_manual = args["manual"] == true
+
+    if is_manual do
+      Logger.info("SitemapSchedulerWorker: Starting manual regeneration")
+    else
+      Logger.info("SitemapSchedulerWorker: Starting scheduled regeneration")
+    end
 
     cond do
-      not Sitemap.enabled?() or not schedule_enabled?() ->
+      # Sitemap module must be enabled for any regeneration
+      not Sitemap.enabled?() ->
+        Logger.info("SitemapSchedulerWorker: Sitemap module disabled, skipping regeneration")
+        :ok
+
+      # Schedule check only applies to scheduled jobs, not manual ones
+      not is_manual and not schedule_enabled?() ->
         Logger.info("SitemapSchedulerWorker: Scheduling disabled, skipping regeneration")
         :ok
 
@@ -189,6 +202,10 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   defp regenerate_sitemap(base_url) do
     config = Sitemap.get_config()
 
+    # Collect entries first to get URL count
+    entries = Generator.collect_all_entries(base_url: base_url)
+    url_count = length(entries)
+
     # Generate XML sitemap
     case Generator.generate_xml(base_url: base_url, cache: true) do
       {:ok, _xml} ->
@@ -201,8 +218,11 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
           )
         end
 
-        # Update generation stats
-        Sitemap.update_generation_stats(%{})
+        # Update generation stats with actual URL count
+        Sitemap.update_generation_stats(%{url_count: url_count})
+
+        # Broadcast completion for real-time UI updates
+        broadcast_sitemap_generated(url_count)
         :ok
 
       {:ok, _xml, _parts} ->
@@ -215,12 +235,24 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
           )
         end
 
-        Sitemap.update_generation_stats(%{})
+        Sitemap.update_generation_stats(%{url_count: url_count})
+        broadcast_sitemap_generated(url_count)
         :ok
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  # Broadcast sitemap generation completion for real-time UI updates
+  defp broadcast_sitemap_generated(url_count) do
+    PubSubManager.broadcast(
+      "sitemap:updates",
+      {:sitemap_generated, %{url_count: url_count, timestamp: DateTime.utc_now()}}
+    )
+  rescue
+    # PubSub may not be available in all environments
+    _ -> :ok
   end
 
   defp schedule_enabled? do

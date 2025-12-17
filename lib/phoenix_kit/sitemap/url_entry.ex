@@ -138,7 +138,7 @@ defmodule PhoenixKit.Sitemap.UrlEntry do
 
     # Add hreflang alternate links if present
     parts =
-      if entry.alternates && length(entry.alternates) > 0 do
+      if entry.alternates && not Enum.empty?(entry.alternates) do
         alternate_links =
           Enum.map(entry.alternates, fn alt ->
             ~s(  <xhtml:link rel="alternate" hreflang="#{alt.hreflang}" href="#{escape_xml(alt.href)}"/>)

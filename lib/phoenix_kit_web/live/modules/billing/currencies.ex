@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Currencies do
         socket
         |> assign(:page_title, "Currencies")
         |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/billing/currencies"))
         |> assign(:currencies, [])
         |> assign(:loading, true)
         |> assign(:show_form, false)
