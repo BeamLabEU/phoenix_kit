@@ -72,12 +72,15 @@ defmodule PhoenixKitWeb.AuthRouter do
       as: :user_confirmation_instructions
   end
 
-  scope "/" do
-    pipe_through [:browser, :require_authenticated]
+  if PhoenixKit.Config.user_dashboard_enabled?() do
+    scope "/" do
+      pipe_through [:browser, :require_authenticated]
 
-    live "/settings", PhoenixKitWeb.Users.Settings, :edit, as: :user_settings
+      live "/settings", PhoenixKitWeb.Live.Dashboard.Settings, :edit, as: :user_settings
 
-    live "/settings/confirm_email/:token", PhoenixKitWeb.Users.Settings, :confirm_email,
-      as: :user_settings
+      live "/settings/confirm_email/:token",
+           PhoenixKitWeb.Live.Dashboard.Settings,
+           :confirm_email, as: :user_settings
+    end
   end
 end

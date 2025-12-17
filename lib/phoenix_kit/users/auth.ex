@@ -504,7 +504,7 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Examples
 
-      iex> deliver_user_update_email_instructions(user, current_email, &PhoenixKit.Utils.Routes.url("/users/settings/confirm_email/#{&1}"))
+      iex> deliver_user_update_email_instructions(user, current_email, &PhoenixKit.Utils.Routes.url("/dashboard/settings/confirm_email/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
   """

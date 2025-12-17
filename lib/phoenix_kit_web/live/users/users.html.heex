@@ -353,7 +353,7 @@
                             <% else %>
                               <%= if user.id == @phoenix_kit_current_user.id do %>
                                 <.link
-                                  navigate={PhoenixKit.Utils.Routes.path("/users/settings")}
+                                  navigate={PhoenixKit.Utils.Routes.path("/dashboard/settings")}
                                   class="btn btn-xs btn-outline btn-info"
                                   title="User settings"
                                 >

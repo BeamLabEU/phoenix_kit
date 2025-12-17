@@ -29,6 +29,7 @@ defmodule PhoenixKit.Config do
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
+  - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
   - `:admin_dashboard_categories` - List of custom admin dashboard categories with subsections
 
   ## Admin Dashboard Categories
@@ -70,6 +71,8 @@ defmodule PhoenixKit.Config do
     # Module-specific settings
     users_module: PhoenixKit.Users.Auth.User,
     blogging_settings_module: PhoenixKit.Settings,
+    # Dashboard settings
+    user_dashboard_enabled: true,
     # Admin dashboard categories
     admin_dashboard_categories: []
   ]
@@ -394,6 +397,26 @@ defmodule PhoenixKit.Config do
         in your application configuration.
         """
     end
+  end
+
+  @doc """
+  Gets the user dashboard enabled flag.
+
+  Returns true if the user dashboard is enabled, false otherwise.
+  This can be used to conditionally show/hide dashboard routes and navigation.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.user_dashboard_enabled?()
+      true
+
+      iex> PhoenixKit.Config.user_dashboard_enabled?()
+      false
+
+  """
+  @spec user_dashboard_enabled?() :: boolean()
+  def user_dashboard_enabled? do
+    get_boolean(:user_dashboard_enabled, true)
   end
 
   @doc """

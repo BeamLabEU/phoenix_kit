@@ -66,7 +66,7 @@ Update your header navigation to conditionally display authentication status and
         <%= Scope.user_email(assigns.phoenix_kit_current_scope) %>
       </li>
       <li>
-        <.link href={PhoenixKit.Utils.Routes.path("/users/settings")} class="btn btn-ghost btn-sm">
+        <.link href={PhoenixKit.Utils.Routes.path("/dashboard/settings")} class="btn btn-ghost btn-sm">
           <.icon name="hero-user" class="size-4" />
           <span class="hidden sm:inline ml-1">Account</span>
         </.link>
@@ -102,12 +102,17 @@ Update your header navigation to conditionally display authentication status and
 
 After integration, these authentication routes are available:
 
+### User Authentication Routes
 - `{prefix}/users/log-in` - User login page
 - `{prefix}/users/register` - User registration page
-- `{prefix}/users/settings` - User account settings
 - `{prefix}/users/log-out` - Logout endpoint (DELETE method)
 - `{prefix}/users/magic-link` - Passwordless login
 - `{prefix}/users/reset-password` - Password reset flow
+- `{prefix}/users/confirm/:token` - Email confirmation
+
+### User Dashboard Routes (when enabled)
+- `{prefix}/dashboard/settings` - User account settings
+- `{prefix}/dashboard` - User dashboard home
 
 Where `{prefix}` is your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 
