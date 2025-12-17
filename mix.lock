@@ -1,6 +1,6 @@
 %{
   "bcrypt_elixir": {:hex, :bcrypt_elixir, "3.3.2", "d50091e3c9492d73e17fc1e1619a9b09d6a5ef99160eb4d736926fd475a16ca3", [:make, :mix], [{:comeonin, "~> 5.3", [hex: :comeonin, repo: "hexpm", optional: false]}, {:elixir_make, "~> 0.6", [hex: :elixir_make, repo: "hexpm", optional: false]}], "hexpm", "471be5151874ae7931911057d1467d908955f93554f7a6cd1b7d804cac8cef53"},
-  "beamlab_countries": {:hex, :beamlab_countries, "1.0.3", "4e9b2a9e15f1a82ca9b64d242463c158125c5b7f15de3b9b263420c575b8648f", [:mix], [{:yaml_elixir, "~> 2.12", [hex: :yaml_elixir, repo: "hexpm", optional: false]}], "hexpm", "055d5129d9231bcfbc1236c4784f53f256550317fa795204869a1ef85ebb6a08"},
+  "beamlab_countries": {:hex, :beamlab_countries, "1.0.4", "79c7550051dacc774fca6adeb8def8c8fbeeed4a3dcf98ed3abc2f32a43a6458", [:mix], [{:yaml_elixir, "~> 2.12", [hex: :yaml_elixir, repo: "hexpm", optional: false]}], "hexpm", "467bb0f477e7d0c96510a1af3c8870357158258b9568b76c7856829bc596f19c"},
   "bunt": {:hex, :bunt, "1.0.0", "081c2c665f086849e6d57900292b3a161727ab40431219529f13c4ddcf3e7a44", [:mix], [], "hexpm", "dc5f86aa08a5f6fa6b8096f0735c4e76d54ae5c9fa2c143e5a1fc7c1cd9bb6b5"},
   "certifi": {:hex, :certifi, "2.15.0", "0e6e882fcdaaa0a5a9f2b3db55b1394dba07e8d6d9bcad08318fb604c6839712", [:rebar3], [], "hexpm", "b147ed22ce71d72eafdad94f055165c1c182f61a2ff49df28bcc71d1d5b94a60"},
   "combine": {:hex, :combine, "0.10.0", "eff8224eeb56498a2af13011d142c5e7997a80c8f5b97c499f84c841032e429f", [:mix], [], "hexpm", "1b1dbc1790073076580d0d1d64e42eae2366583e7aecd455d1215b0d16f2451b"},

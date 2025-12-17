@@ -111,9 +111,13 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
 
   @impl true
   def handle_event("country_changed", %{"company_country" => country_code}, socket) do
+    current_rate = parse_tax_rate(socket.assigns.tax_rate)
+
     suggested_rate =
       if country_code != "" do
-        CountryData.get_standard_vat_percent(country_code)
+        rate = CountryData.get_standard_vat_percent(country_code)
+        # Hide suggestion if it matches current rate
+        if rate == current_rate, do: nil, else: rate
       else
         nil
       end
@@ -121,6 +125,25 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     {:noreply,
      socket
      |> assign(:company_country, country_code)
+     |> assign(:suggested_tax_rate, suggested_rate)}
+  end
+
+  @impl true
+  def handle_event("tax_rate_changed", %{"tax_rate" => tax_rate}, socket) do
+    current_rate = parse_tax_rate(tax_rate)
+    country_code = socket.assigns.company_country
+
+    suggested_rate =
+      if country_code != "" do
+        rate = CountryData.get_standard_vat_percent(country_code)
+        if rate == current_rate, do: nil, else: rate
+      else
+        nil
+      end
+
+    {:noreply,
+     socket
+     |> assign(:tax_rate, tax_rate)
      |> assign(:suggested_tax_rate, suggested_rate)}
   end
 
@@ -250,16 +273,29 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
 
   defp assign_suggested_tax_rate(socket) do
     country_code = socket.assigns.company_country
+    current_rate = parse_tax_rate(socket.assigns.tax_rate)
 
     suggested_rate =
       if country_code != "" do
-        CountryData.get_standard_vat_percent(country_code)
+        rate = CountryData.get_standard_vat_percent(country_code)
+        # Hide suggestion if it matches current rate
+        if rate == current_rate, do: nil, else: rate
       else
         nil
       end
 
     assign(socket, :suggested_tax_rate, suggested_rate)
   end
+
+  defp parse_tax_rate(rate) when is_binary(rate) do
+    case Float.parse(rate) do
+      {value, _} -> if value == trunc(value), do: trunc(value), else: value
+      :error -> 0
+    end
+  end
+
+  defp parse_tax_rate(rate) when is_number(rate), do: rate
+  defp parse_tax_rate(_), do: 0
 
   # Bank validation helpers
 
