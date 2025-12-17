@@ -640,25 +640,18 @@ defmodule PhoenixKit.Modules.Languages do
     language_locales = country_data.language_locales || %{}
 
     if languages_spoken == [] do
-      # No languages_spoken defined, show all languages
       languages
     else
-      # Filter to languages_spoken, using specific locale when available
       languages_spoken
-      |> Enum.map(fn lang_code ->
-        # Check if there's a specific locale for this language
-        specific_locale = Map.get(language_locales, String.to_atom(lang_code))
-
-        if specific_locale do
-          # Use the specific locale (e.g., "en" -> "en-GB")
-          Enum.find(languages, fn lang -> lang.code == specific_locale end)
-        else
-          # Use the base language code (e.g., "et" -> find "et")
-          Enum.find(languages, fn lang -> lang.code == lang_code end)
-        end
-      end)
+      |> Enum.map(&find_language_for_code(languages, &1, language_locales))
       |> Enum.reject(&is_nil/1)
     end
+  end
+
+  # Find the appropriate language for a given code, using specific locale if available
+  defp find_language_for_code(languages, lang_code, language_locales) do
+    locale_code = Map.get(language_locales, String.to_atom(lang_code), lang_code)
+    Enum.find(languages, fn lang -> lang.code == locale_code end)
   end
 
   @doc """
