@@ -187,7 +187,7 @@ defmodule PhoenixKit.Billing.Invoice do
       "draft" => ~w(sent void),
       "sent" => ~w(paid overdue void),
       "overdue" => ~w(paid void),
-      "paid" => [],
+      "paid" => ~w(void),
       "void" => []
     }
 

@@ -654,14 +654,37 @@ defmodule PhoenixKit.Billing do
 
   @doc """
   Marks an order as paid.
+
+  ## Options
+
+  - `:payment_method` - The payment method used (e.g., "bank", "stripe", "paypal")
   """
-  def mark_order_paid(%Order{} = order) do
+  def mark_order_paid(%Order{} = order, opts \\ []) do
     if Order.payable?(order) do
-      order
-      |> Order.status_changeset("paid")
-      |> repo().update()
+      changeset = Order.status_changeset(order, "paid")
+
+      changeset =
+        case opts[:payment_method] do
+          nil -> changeset
+          pm -> Ecto.Changeset.put_change(changeset, :payment_method, pm)
+        end
+
+      repo().update(changeset)
     else
       {:error, :order_not_payable}
+    end
+  end
+
+  @doc """
+  Marks an order as refunded.
+  """
+  def mark_order_refunded(%Order{} = order) do
+    if order.status == "paid" do
+      order
+      |> Order.status_changeset("refunded")
+      |> repo().update()
+    else
+      {:error, :order_not_refundable}
     end
   end
 
@@ -2042,11 +2065,8 @@ defmodule PhoenixKit.Billing do
             maybe_mark_linked_order_paid(updated_invoice)
           end
 
-          # Update receipt status if this is a refund and receipt exists
-          if Decimal.negative?(amount) do
-            final_invoice = get_invoice!(invoice.id)
-            update_receipt_status(final_invoice)
-          end
+          # Handle refund: update receipt status and check for full refund
+          if Decimal.negative?(amount), do: handle_refund_transaction(invoice.id)
 
           transaction
 
@@ -2637,10 +2657,55 @@ defmodule PhoenixKit.Billing do
 
   defp maybe_mark_linked_order_paid(%{order_id: nil}), do: :ok
 
-  defp maybe_mark_linked_order_paid(%{order_id: order_id}) do
+  defp maybe_mark_linked_order_paid(%{order_id: order_id} = invoice) do
+    # Get the primary payment method from the invoice's transactions
+    invoice_with_txns = repo().preload(invoice, :transactions)
+    payment_method = Invoice.primary_payment_method(invoice_with_txns)
+
     case get_order!(order_id) do
-      %Order{status: "confirmed"} = order -> mark_order_paid(order)
-      _ -> :ok
+      %Order{status: "confirmed"} = order ->
+        mark_order_paid(order, payment_method: payment_method)
+
+      %Order{status: "draft"} = order ->
+        # Auto-confirm draft order, then mark as paid
+        with {:ok, confirmed_order} <- confirm_order(order) do
+          mark_order_paid(confirmed_order, payment_method: payment_method)
+        end
+
+      %Order{status: "pending"} = order ->
+        # Auto-confirm pending order, then mark as paid
+        with {:ok, confirmed_order} <- confirm_order(order) do
+          mark_order_paid(confirmed_order, payment_method: payment_method)
+        end
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp maybe_mark_linked_order_refunded(%{order_id: nil}), do: :ok
+
+  defp maybe_mark_linked_order_refunded(%{order_id: order_id}) do
+    case get_order!(order_id) do
+      %Order{status: "paid"} = order ->
+        mark_order_refunded(order)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp handle_refund_transaction(invoice_id) do
+    invoice = get_invoice!(invoice_id)
+    update_receipt_status(invoice)
+
+    # If fully refunded (paid_amount = 0), mark invoice as void and order as refunded
+    if Decimal.eq?(invoice.paid_amount, Decimal.new(0)) do
+      invoice
+      |> Invoice.status_changeset("void")
+      |> repo().update!()
+
+      maybe_mark_linked_order_refunded(invoice)
     end
   end
 

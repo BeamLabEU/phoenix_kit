@@ -142,9 +142,13 @@
                       </td>
                       <td><.order_status_badge status={order.status} /></td>
                       <td>
-                        <span class="badge badge-outline badge-sm">
-                          {String.upcase(order.payment_method)}
-                        </span>
+                        <%= if order.payment_method do %>
+                          <span class="badge badge-outline badge-sm">
+                            {String.upcase(order.payment_method)}
+                          </span>
+                        <% else %>
+                          <span class="text-base-content/40">-</span>
+                        <% end %>
                       </td>
                       <td>
                         <.currency_compact amount={order.total} currency={order.currency} />
