@@ -196,7 +196,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> Enum.filter(& &1["is_enabled"])
       |> Enum.map(& &1["code"])
 
-    Settings.update_setting("admin_languages", Jason.encode!(enabled_codes))
+    Settings.update_json_setting("admin_languages", enabled_codes)
   end
 
   # Helper function to generate the language switcher code based on current settings
