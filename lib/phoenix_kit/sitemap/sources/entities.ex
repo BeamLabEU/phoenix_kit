@@ -104,7 +104,11 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
 
   @impl true
   def collect(opts \\ []) do
-    if enabled?() do
+    is_default = Keyword.get(opts, :is_default_language, true)
+
+    # Entities only generate URLs for the default language
+    # Non-default language URLs would lead to 404 errors
+    if enabled?() and is_default do
       do_collect(opts)
     else
       []

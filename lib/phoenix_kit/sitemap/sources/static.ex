@@ -91,15 +91,22 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
 
   @impl true
   def collect(opts \\ []) do
-    base_url = Keyword.get(opts, :base_url)
-    language = Keyword.get(opts, :language)
     is_default = Keyword.get(opts, :is_default_language, true)
 
-    static_entries = collect_static_routes(base_url, language, is_default)
-    custom_entries = collect_custom_urls(base_url, language, is_default)
+    # Static pages only generate URLs for the default language
+    # Non-default language URLs would lead to 404 errors
+    if is_default do
+      base_url = Keyword.get(opts, :base_url)
+      language = Keyword.get(opts, :language)
 
-    (static_entries ++ custom_entries)
-    |> Enum.reject(&is_nil/1)
+      static_entries = collect_static_routes(base_url, language, is_default)
+      custom_entries = collect_custom_urls(base_url, language, is_default)
+
+      (static_entries ++ custom_entries)
+      |> Enum.reject(&is_nil/1)
+    else
+      []
+    end
   rescue
     error ->
       require Logger
