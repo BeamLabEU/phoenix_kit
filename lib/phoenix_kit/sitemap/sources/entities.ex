@@ -57,7 +57,7 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
 
   ## Configuration
 
-  - `sitemap_entities_auto_pattern` - Enable auto URL pattern generation (default: true)
+  - `sitemap_entities_auto_pattern` - Enable auto URL pattern generation (default: false)
   - `sitemap_entities_include_index` - Include entity index pages (default: true)
   - `sitemap_entity_{name}_pattern` - Per-entity URL pattern override
   - `sitemap_entity_{name}_index_path` - Per-entity index page path override
@@ -184,9 +184,11 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
       []
   end
 
-  # Fallback pattern using entity name - can be disabled via settings
+  # Fallback pattern using entity name - disabled by default
+  # Enable via Settings: sitemap_entities_auto_pattern = true
+  # WARNING: Only enable if you're sure routes exist for all entities
   defp get_fallback_pattern(entity) do
-    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", true) do
+    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", false) do
       "/#{entity.name}/:slug"
     else
       nil
@@ -252,9 +254,9 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   end
 
-  # Fallback index path using entity name - can be disabled via settings
+  # Fallback index path using entity name - disabled by default
   defp get_fallback_index_path(entity) do
-    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", true) do
+    if Settings.get_boolean_setting("sitemap_entities_auto_pattern", false) do
       "/#{entity.name}"
     else
       nil
