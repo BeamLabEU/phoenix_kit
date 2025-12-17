@@ -125,7 +125,7 @@
               <summary class="collapse-title font-bold text-lg py-3">
                 <span class="ml-2">{continent}</span>
                 <span class="badge badge-ghost badge-sm ml-2">
-                  {count_enabled_in_continent(countries, @enabled_codes)} enabled
+                  {count_covered_countries_in_continent(countries, @enabled_codes)}/{length(countries)} countries
                 </span>
               </summary>
               <div class="collapse-content px-2 pb-2">
