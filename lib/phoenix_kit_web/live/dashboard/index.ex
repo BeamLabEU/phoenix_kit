@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(:page_title, "Dashboard")
+      |> assign(:page_title, gettext("Dashboard"))
 
     {:ok, socket}
   end
@@ -20,10 +20,12 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
       <div class="flex flex-col items-center justify-center min-h-[60vh] text-center">
         <div class="max-w-2xl mx-auto">
           <h2 class="text-4xl font-bold text-base-content mb-4">
-            Welcome to your Dashboard
+            {gettext("Welcome to your Dashboard")}
           </h2>
           <p class="text-lg text-base-content/70">
-            Your personal dashboard is ready. Explore your account settings and manage your profile from here.
+            {gettext(
+              "Your personal dashboard is ready. Explore your account settings and manage your profile from here."
+            )}
           </p>
         </div>
       </div>

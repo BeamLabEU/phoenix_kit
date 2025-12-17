@@ -7,9 +7,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   use PhoenixKitWeb, :html
 
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
-  alias PhoenixKit.Utils.Routes
 
   @doc """
   Renders user dropdown for dashboard navigation.
@@ -67,23 +65,23 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
           <div class="divider my-0"></div>
 
           <li>
-            <.link
-              navigate="/dashboard"
+            <a
+              href={PhoenixKit.Utils.Routes.path("/dashboard", locale: @current_locale)}
               class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/dashboard"), do: " bg-primary text-primary-content", else: "")}
             >
               <.icon name="hero-home" class="w-4 h-4" />
               <span>Dashboard</span>
-            </.link>
+            </a>
           </li>
 
           <li>
-            <.link
-              navigate="/dashboard/settings"
+            <a
+              href={PhoenixKit.Utils.Routes.path("/dashboard/settings", locale: @current_locale)}
               class={"flex items-center gap-3" <> if(active_path?(assigns[:current_path], "/dashboard/settings"), do: " bg-primary text-primary-content", else: "")}
             >
               <.icon name="hero-cog-6-tooth" class="w-4 h-4" />
               <span>Settings</span>
-            </.link>
+            </a>
           </li>
 
           <li>
@@ -110,15 +108,15 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             </label>
           </li>
 
-          <% admin_languages = get_admin_languages() %>
-          <%= if length(admin_languages) > 0 do %>
+          <% user_languages = get_user_languages() %>
+          <%= if length(user_languages) > 1 do %>
             <div class="divider my-0"></div>
 
             <li class="menu-title px-4 py-1">
               <span class="text-xs">Language</span>
             </li>
 
-            <%= for language <- admin_languages do %>
+            <%= for language <- user_languages do %>
               <li>
                 <a
                   href={generate_language_switch_url(@current_path, language["code"])}
@@ -162,27 +160,32 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
     """
   end
 
-  # Helper function to get admin languages from settings
-  # Default is ["en-US"] - a fresh install only has English enabled
-  defp get_admin_languages do
-    admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
-
+  # Helper function to get user languages from Languages module
+  # Returns enabled languages or falls back to English if module is disabled
+  defp get_user_languages do
+    # Get enabled languages from the Languages module
     languages =
-      case Jason.decode(admin_languages_json) do
-        {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en-US"]
+      if PhoenixKit.Modules.Languages.enabled?() do
+        PhoenixKit.Modules.Languages.get_enabled_languages()
+      else
+        # Fallback to English when module is disabled
+        [%{"code" => "en-US", "name" => "English (United States)", "is_enabled" => true}]
       end
 
-    # Map language codes to language details
+    # Map to expected format
     languages
-    |> Enum.map(fn code ->
-      case Languages.get_predefined_language(code) do
+    |> Enum.map(fn lang ->
+      case Languages.get_predefined_language(lang["code"]) do
         %{name: name, flag: flag, native: native} ->
-          %{"code" => code, "name" => name, "flag" => flag, "native" => native}
+          %{"code" => lang["code"], "name" => name, "flag" => flag, "native" => native}
 
         nil ->
-          %{"code" => code, "name" => String.upcase(code), "flag" => "🌐", "native" => ""}
+          %{
+            "code" => lang["code"],
+            "name" => String.upcase(lang["code"]),
+            "flag" => "🌐",
+            "native" => ""
+          }
       end
     end)
   end
@@ -242,6 +245,35 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   defp generate_language_switch_url(current_path, new_locale) do
     alias PhoenixKit.Modules.Languages.DialectMapper
     base_code = DialectMapper.extract_base(new_locale)
-    Routes.path(current_path, locale: base_code)
+
+    # Extract the path without locale and regenerate with new locale
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    base_prefix = if url_prefix === "/", do: "", else: url_prefix
+
+    # Remove prefix and locale from current_path
+    clean_path =
+      current_path
+      |> String.replace_prefix(base_prefix, "")
+      |> remove_locale_from_path()
+
+    # Generate new path with the new locale
+    PhoenixKit.Utils.Routes.path(clean_path, locale: base_code)
+  end
+
+  # Remove locale from path
+  defp remove_locale_from_path(path) do
+    case String.split(path, "/", trim: true) do
+      [segment | rest] when byte_size(segment) in [2, 5] ->
+        # Check if segment looks like a locale
+        if String.length(segment) == 2 or
+             (String.length(segment) == 5 and String.contains?(segment, "-")) do
+          "/" <> Path.join(rest)
+        else
+          path
+        end
+
+      _ ->
+        path
+    end
   end
 end

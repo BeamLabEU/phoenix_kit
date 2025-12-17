@@ -24,11 +24,14 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       case Auth.update_user_email(socket.assigns.phoenix_kit_current_user, token) do
         :ok ->
           socket
-          |> assign(:email_success_message, "Email changed successfully.")
+          |> assign(:email_success_message, gettext("Email changed successfully."))
 
         :error ->
           socket
-          |> assign(:email_error_message, "Email change link is invalid or it has expired.")
+          |> assign(
+            :email_error_message,
+            gettext("Email change link is invalid or it has expired.")
+          )
       end
 
     {:ok, push_navigate(socket, to: Routes.path("/dashboard/settings"))}
@@ -57,7 +60,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
     socket =
       socket
-      |> assign(:page_title, "Settings")
+      |> assign(:page_title, gettext("Settings"))
       |> assign(:profile_success_message, nil)
       |> assign(:email_success_message, nil)
       |> assign(:email_error_message, nil)
@@ -128,7 +131,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
           socket
           |> assign(
             :email_success_message,
-            "A link to confirm your email change has been sent to the new address."
+            gettext("A link to confirm your email change has been sent to the new address.")
           )
           |> assign(email_form_current_password: nil)
 
@@ -177,7 +180,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
         socket =
           socket
           |> assign(trigger_submit: true, password_form: password_form)
-          |> assign(:password_success_message, "Password changed successfully.")
+          |> assign(:password_success_message, gettext("Password changed successfully."))
 
         {:noreply, socket}
 
@@ -271,7 +274,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
         socket =
           socket
           |> assign(:phoenix_kit_current_user, updated_user)
-          |> assign(:profile_success_message, "Profile updated successfully")
+          |> assign(:profile_success_message, gettext("Profile updated successfully"))
 
         {:noreply, socket}
 
@@ -339,7 +342,9 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
             |> assign(:available_providers, available_providers)
             |> assign(
               :oauth_success_message,
-              "#{format_provider_name(provider)} account disconnected successfully"
+              gettext("%{provider} account disconnected successfully",
+                provider: format_provider_name(provider)
+              )
             )
             |> assign(:oauth_error_message, nil)
 
@@ -347,7 +352,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
         {:error, :not_found} ->
           socket =
-            assign(socket, :oauth_error_message, "Provider not found")
+            assign(socket, :oauth_error_message, gettext("Provider not found"))
             |> assign(:oauth_success_message, nil)
 
           {:noreply, socket}
@@ -357,7 +362,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
             assign(
               socket,
               :oauth_error_message,
-              "Failed to disconnect provider. Please try again."
+              gettext("Failed to disconnect provider. Please try again.")
             )
             |> assign(:oauth_success_message, nil)
 
@@ -367,9 +372,15 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
       # User cannot disconnect - show warning
       warning_message =
         if user.hashed_password == nil do
-          "Cannot disconnect #{format_provider_name(provider)}. This is your only sign-in method. Please set a password or connect another provider first."
+          gettext(
+            "Cannot disconnect %{provider}. This is your only sign-in method. Please set a password or connect another provider first.",
+            provider: format_provider_name(provider)
+          )
         else
-          "Cannot disconnect #{format_provider_name(provider)}. Please ensure you have at least one sign-in method available."
+          gettext(
+            "Cannot disconnect %{provider}. Please ensure you have at least one sign-in method available.",
+            provider: format_provider_name(provider)
+          )
         end
 
       socket =
@@ -612,7 +623,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
             socket
             |> assign(:phoenix_kit_current_user, updated_user)
             |> assign(:last_uploaded_avatar_id, avatar_file_id)
-            |> assign(:avatar_success_message, "Avatar uploaded successfully!")
+            |> assign(:avatar_success_message, gettext("Avatar uploaded successfully!"))
             |> assign(:avatar_error_message, nil)
 
           {:error, changeset} ->
@@ -620,12 +631,15 @@ defmodule PhoenixKitWeb.Live.Dashboard.Settings do
 
             socket
             |> assign(:last_uploaded_avatar_id, avatar_file_id)
-            |> assign(:avatar_error_message, "Avatar uploaded but failed to save to profile")
+            |> assign(
+              :avatar_error_message,
+              gettext("Avatar uploaded but failed to save to profile")
+            )
             |> assign(:avatar_success_message, nil)
         end
       else
         socket
-        |> assign(:avatar_error_message, "Failed to upload avatar")
+        |> assign(:avatar_error_message, gettext("Failed to upload avatar"))
         |> assign(:avatar_success_message, nil)
       end
 
