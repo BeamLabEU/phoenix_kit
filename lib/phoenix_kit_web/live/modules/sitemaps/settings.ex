@@ -13,18 +13,28 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
   alias PhoenixKit.Sitemap.Generator
+  alias PhoenixKit.Sitemap.SchedulerWorker
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(params, _session, socket) do
+    # Subscribe to sitemap updates for real-time UI refresh
+    if connected?(socket) do
+      PubSubManager.subscribe("sitemap:updates")
+    end
+
     locale = params["locale"] || "en"
     project_title = Settings.get_setting("project_title", "PhoenixKit")
     site_url = Settings.get_setting("site_url", "")
     config = Sitemap.get_config()
+
+    # Generate sitemap version from last_generated or current time
+    sitemap_version = get_sitemap_version(config)
 
     socket =
       socket
@@ -39,6 +49,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
       |> assign(:preview_content, nil)
       |> assign(:show_preview, false)
       |> assign(:show_html_preview, false)
+      |> assign(:sitemap_version, sitemap_version)
 
     {:ok, socket}
   end
@@ -156,58 +167,26 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
 
   @impl true
   def handle_event("regenerate", _params, socket) do
-    socket = assign(socket, :generating, true)
-
     # Get base URL for generation
     base_url = Sitemap.get_base_url()
 
     if base_url != "" do
-      # Collect entries first to get URL count
-      entries = Generator.collect_all_entries(base_url: base_url)
-      url_count = length(entries)
-
-      # Get XSL style from config (mapped from html_style)
-      xsl_style = get_xsl_style(socket.assigns.config.html_style)
-
-      opts = [
-        base_url: base_url,
-        cache: true,
-        xsl_style: xsl_style,
-        xsl_enabled: socket.assigns.config.html_enabled
-      ]
-
-      case Generator.generate_xml(opts) do
-        {:ok, _xml} ->
-          # Update stats with actual URL count
-          Sitemap.update_generation_stats(%{url_count: url_count})
-          config = Sitemap.get_config()
-
+      # Use Oban worker for async generation (non-blocking UI)
+      case SchedulerWorker.regenerate_now() do
+        {:ok, _job} ->
           {:noreply,
            socket
-           |> assign(:generating, false)
-           |> assign(:config, config)
-           |> put_flash(:info, "Sitemap regenerated successfully (#{url_count} URLs)")}
-
-        {:ok, _xml, _parts} ->
-          Sitemap.update_generation_stats(%{url_count: url_count})
-          config = Sitemap.get_config()
-
-          {:noreply,
-           socket
-           |> assign(:generating, false)
-           |> assign(:config, config)
-           |> put_flash(:info, "Sitemap regenerated with index (#{url_count} URLs)")}
+           |> assign(:generating, true)
+           |> put_flash(:info, "Sitemap generation queued. Stats will update automatically.")}
 
         {:error, reason} ->
           {:noreply,
            socket
-           |> assign(:generating, false)
-           |> put_flash(:error, "Regeneration failed: #{inspect(reason)}")}
+           |> put_flash(:error, "Failed to queue generation: #{inspect(reason)}")}
       end
     else
       {:noreply,
        socket
-       |> assign(:generating, false)
        |> put_flash(:error, "Please configure Base URL before generating")}
     end
   end
@@ -261,9 +240,30 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
   def handle_event("invalidate_cache", _params, socket) do
     Generator.invalidate_cache()
 
+    # Update version to force iframe reload after cache clear
+    new_version = DateTime.utc_now() |> DateTime.to_unix()
+
     {:noreply,
      socket
+     |> assign(:sitemap_version, new_version)
      |> put_flash(:info, "Sitemap cache cleared")}
+  end
+
+  # Handle PubSub message when sitemap generation completes
+  @impl true
+  def handle_info({:sitemap_generated, %{url_count: count}}, socket) do
+    # Refresh config to get updated stats
+    config = Sitemap.get_config()
+
+    # Update sitemap version to force iframe reload
+    sitemap_version = get_sitemap_version(config)
+
+    {:noreply,
+     socket
+     |> assign(:generating, false)
+     |> assign(:config, config)
+     |> assign(:sitemap_version, sitemap_version)
+     |> put_flash(:info, "Sitemap generated successfully (#{count} URLs)")}
   end
 
   # Maps old HTML style names to new XSL style names
@@ -294,4 +294,20 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
   end
 
   def format_timestamp(_), do: "Never"
+
+  # Generate sitemap version string for cache busting
+  # Uses last_generated timestamp or current time
+  defp get_sitemap_version(config) do
+    case config.last_generated do
+      nil ->
+        # No sitemap generated yet, use current timestamp
+        DateTime.utc_now() |> DateTime.to_unix()
+
+      iso_string when is_binary(iso_string) ->
+        case DateTime.from_iso8601(iso_string) do
+          {:ok, dt, _} -> DateTime.to_unix(dt)
+          _ -> DateTime.utc_now() |> DateTime.to_unix()
+        end
+    end
+  end
 end

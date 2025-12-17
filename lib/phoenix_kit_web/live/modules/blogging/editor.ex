@@ -1799,8 +1799,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         BloggingPubSub.subscribe_to_editor_form(form_key)
 
         # Subscribe to translation changes for this post (so language selector updates live)
-        if post_slug = socket.assigns[:post] && socket.assigns.post[:slug] do
-          BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+        case socket.assigns[:post] && socket.assigns.post[:slug] do
+          post_slug when is_binary(post_slug) ->
+            BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+
+          _ ->
+            :ok
         end
 
         # Determine our role (owner or spectator)

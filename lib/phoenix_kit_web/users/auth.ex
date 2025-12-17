@@ -308,10 +308,9 @@ defmodule PhoenixKitWeb.Users.Auth do
     else
       conn = fetch_cookies(conn, signed: [@remember_me_cookie])
 
-      if token = conn.cookies[@remember_me_cookie] do
-        {token, put_token_in_session(conn, token)}
-      else
-        {nil, conn}
+      case conn.cookies[@remember_me_cookie] do
+        token when is_binary(token) -> {token, put_token_in_session(conn, token)}
+        _ -> {nil, conn}
       end
     end
   end

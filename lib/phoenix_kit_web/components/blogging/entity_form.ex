@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
         enabled = Map.get(settings, "public_form_enabled", false)
         fields = Map.get(settings, "public_form_fields", [])
         # Form is only truly enabled if it's enabled AND has at least one field selected
-        actually_enabled = enabled && length(fields) > 0
+        actually_enabled = enabled && not Enum.empty?(fields)
         title = Map.get(settings, "public_form_title", "")
         description = Map.get(settings, "public_form_description", "")
         submit_text = Map.get(settings, "public_form_submit_text", gettext("Submit"))

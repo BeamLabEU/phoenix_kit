@@ -390,14 +390,14 @@ defmodule PhoenixKit.Emails.Template do
             # Check for undefined variables in template
             undefined_vars = extracted_vars -- declared_vars
 
-            if length(undefined_vars) > 0 do
+            if Enum.empty?(undefined_vars) do
+              changeset
+            else
               add_error(
                 changeset,
                 :variables,
                 "Template uses undefined variables: #{Enum.join(undefined_vars, ", ")}"
               )
-            else
-              changeset
             end
 
           _ ->

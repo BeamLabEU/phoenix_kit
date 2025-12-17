@@ -440,13 +440,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             "/admin/billing/orders",
                             "/admin/billing/invoices",
                             "/admin/billing/transactions",
+                            "/admin/billing/subscriptions",
+                            "/admin/billing/plans",
                             "/admin/billing/profiles",
-                            "/admin/billing/currencies"
+                            "/admin/billing/currencies",
+                            "/admin/settings/billing/providers"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/profiles", "/admin/billing/currencies"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/billing", "/admin/billing/orders", "/admin/billing/invoices", "/admin/billing/transactions", "/admin/billing/subscriptions", "/admin/billing/plans", "/admin/billing/profiles", "/admin/billing/currencies", "/admin/settings/billing/providers"]) do %>
                         <div class="mt-1">
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/billing")}
@@ -482,6 +485,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
 
                           <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/subscriptions")}
+                            icon="billing"
+                            label="Subscriptions"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/billing/plans")}
+                            icon="billing"
+                            label="Plans"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/billing/profiles")}
                             icon="billing"
                             label="Billing Profiles"
@@ -493,6 +512,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/billing/currencies")}
                             icon="billing"
                             label="Currencies"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/billing/providers")}
+                            icon="billing"
+                            label="Payment Providers"
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -636,12 +663,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/maintenance",
                           "/admin/settings/blogging",
                           "/admin/settings/seo",
-                          "/admin/settings/posts"
+                          "/admin/settings/posts",
+                          "/admin/settings/billing",
+                          "/admin/settings/billing/providers"
                         ])
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item

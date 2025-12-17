@@ -29,6 +29,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderDetail do
             socket
             |> assign(:page_title, "Order #{order.order_number}")
             |> assign(:project_title, project_title)
+            |> assign(:url_path, Routes.path("/admin/billing/orders/#{order.id}"))
             |> assign(:order, order)
             |> assign(:invoices, invoices)
             |> assign(:show_status_modal, false)

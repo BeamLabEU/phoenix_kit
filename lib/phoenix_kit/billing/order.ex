@@ -91,7 +91,7 @@ defmodule PhoenixKit.Billing.Order do
   schema "phoenix_kit_orders" do
     field :order_number, :string
     field :status, :string, default: "draft"
-    field :payment_method, :string, default: "bank"
+    field :payment_method, :string
 
     # Line items (JSONB)
     field :line_items, {:array, :map}, default: []
@@ -154,9 +154,9 @@ defmodule PhoenixKit.Billing.Order do
       :paid_at,
       :cancelled_at
     ])
-    |> validate_required([:user_id, :total, :currency])
+    |> validate_required([:user_id, :billing_profile_id, :total, :currency])
     |> validate_inclusion(:status, @valid_statuses)
-    |> validate_inclusion(:payment_method, @valid_payment_methods)
+    |> validate_payment_method()
     |> validate_length(:currency, is: 3)
     |> validate_number(:total, greater_than_or_equal_to: 0)
     |> validate_number(:subtotal, greater_than_or_equal_to: 0)
@@ -202,6 +202,14 @@ defmodule PhoenixKit.Billing.Order do
       changeset
     else
       add_error(changeset, :status, "cannot transition from #{from} to #{to}")
+    end
+  end
+
+  # Validate payment_method only when provided (nil is allowed)
+  defp validate_payment_method(changeset) do
+    case get_field(changeset, :payment_method) do
+      nil -> changeset
+      _ -> validate_inclusion(changeset, :payment_method, @valid_payment_methods)
     end
   end
 

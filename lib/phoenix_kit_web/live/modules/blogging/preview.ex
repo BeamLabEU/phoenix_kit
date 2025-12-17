@@ -25,7 +25,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
       |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
       |> assign(
         :current_path,
-        Routes.path("/admin/blogging/#{blog_slug}/preview", socket.assigns.current_locale_base)
+        Routes.path("/admin/blogging/#{blog_slug}/preview",
+          locale: socket.assigns.current_locale_base
+        )
       )
       |> assign(:rendered_content, nil)
       |> assign(:error, nil)

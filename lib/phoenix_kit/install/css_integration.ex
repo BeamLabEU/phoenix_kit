@@ -307,7 +307,7 @@ defmodule PhoenixKit.Install.CssIntegration do
 
   # Add missing parts with proper spacing
   defp format_missing_parts(missing_parts, insertion_point) do
-    if insertion_point > 0 and length(missing_parts) > 0 do
+    if insertion_point > 0 and not Enum.empty?(missing_parts) do
       [""] ++ missing_parts
     else
       missing_parts
