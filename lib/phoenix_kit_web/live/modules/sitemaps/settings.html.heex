@@ -449,7 +449,7 @@
 
         <div class="flex-1 min-h-0">
           <iframe
-            src={Routes.path("/sitemap.xml", locale: :none) <> "?format=html&style=#{get_xsl_style(@config.html_style)}"}
+            src={Routes.path("/sitemap.xml", locale: :none) <> "?format=html&style=#{get_xsl_style(@config.html_style)}&v=#{@sitemap_version}"}
             class="w-full h-full border border-base-300 rounded-lg bg-base-100"
             title="Sitemap Preview"
           />
