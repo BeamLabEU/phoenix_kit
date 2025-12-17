@@ -72,10 +72,6 @@ defmodule PhoenixKitWeb.Integration do
       # config/dev.exs or config/runtime.exs
       config :phoenix_kit, user_dashboard_enabled: false
 
-  Or via environment variable:
-
-      export USER_DASHBOARD_ENABLED=false
-
   This will disable all dashboard routes (/dashboard/*). Users trying to access
   the dashboard will get a 404 error.
 
@@ -298,17 +294,6 @@ defmodule PhoenixKitWeb.Integration do
             as: :user_confirmation_instructions
         end
 
-        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
-          live_session :phoenix_kit_require_authenticated_user_locale,
-            on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-            live "/dashboard/settings", Live.Dashboard.Settings, :edit, as: :user_settings
-
-            live "/dashboard/settings/confirm-email/:token",
-                 Live.Dashboard.Settings,
-                 :confirm_email, as: :user_settings_confirm_email
-          end
-        end
-
         live_session :phoenix_kit_admin_locale,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/dashboard", Live.Dashboard, :index
@@ -503,16 +488,7 @@ defmodule PhoenixKitWeb.Integration do
             as: :user_confirmation_instructions
         end
 
-        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
-          live_session :phoenix_kit_require_authenticated_user,
-            on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-            live "/dashboard/settings", Live.Dashboard.Settings, :edit, as: :user_settings
-
-            live "/dashboard/settings/confirm-email/:token",
-                 Live.Dashboard.Settings,
-                 :confirm_email, as: :user_settings_confirm_email
-          end
-        end
+        # Dashboard routes are now in phoenix_kit_user_dashboard session
 
         live_session :phoenix_kit_admin,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
