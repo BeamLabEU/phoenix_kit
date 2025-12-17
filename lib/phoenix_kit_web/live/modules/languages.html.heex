@@ -53,6 +53,49 @@
       </div>
     </div>
 
+    <%!-- Summary Section --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h3 class="card-title text-xl">Summary</h3>
+
+        <%!-- Stats Row --%>
+        <div class="stats stats-vertical lg:stats-horizontal shadow bg-base-200 mt-2">
+          <div class="stat">
+            <div class="stat-title">Languages Enabled</div>
+            <div class="stat-value text-primary">{@enabled_count}</div>
+          </div>
+          <div class="stat">
+            <div class="stat-title">Countries Covered</div>
+            <div class="stat-value text-secondary">{@covered_count}</div>
+          </div>
+        </div>
+
+        <%= if @enabled_count > 0 do %>
+          <%!-- Enabled Languages List --%>
+          <div class="mt-4">
+            <h4 class="font-semibold mb-2">Enabled Languages</h4>
+            <div class="flex flex-wrap gap-2">
+              <%= for lang <- @languages |> Enum.filter(& &1["is_enabled"]) do %>
+                <span class="badge badge-primary">{lang["code"]}</span>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Covered Countries List --%>
+          <div class="mt-4">
+            <h4 class="font-semibold mb-2">Countries Covered</h4>
+            <div class="flex flex-wrap gap-2">
+              <%= for {country, flag} <- @covered_countries do %>
+                <span class="badge badge-outline">{flag} {country}</span>
+              <% end %>
+            </div>
+          </div>
+        <% else %>
+          <p class="text-base-content/60 mt-4">No languages enabled yet.</p>
+        <% end %>
+      </div>
+    </div>
+
     <%!-- Languages Management Section --%>
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body">

@@ -30,6 +30,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)
 
+    # Calculate covered countries
+    covered_countries = get_covered_countries(enabled_codes, grouped_languages)
+
     socket =
       socket
       |> assign(:current_path, current_path)
@@ -42,6 +45,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> assign(:default_code, default_code)
       |> assign(:language_count, length(display_languages))
       |> assign(:enabled_count, length(enabled_codes))
+      |> assign(:covered_countries, covered_countries)
+      |> assign(:covered_count, length(covered_countries))
       # Search filter
       |> assign(:search_query, "")
       # Switcher preview settings
@@ -167,6 +172,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     grouped_languages = Languages.get_languages_grouped_by_continent()
     enabled_codes = get_enabled_codes(display_languages)
     default_code = get_default_code(display_languages)
+    covered_countries = get_covered_countries(enabled_codes, grouped_languages)
 
     # Sync the admin_languages setting so the admin navbar updates too
     sync_admin_languages(display_languages)
@@ -179,6 +185,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     |> assign(:default_code, default_code)
     |> assign(:language_count, length(display_languages))
     |> assign(:enabled_count, length(enabled_codes))
+    |> assign(:covered_countries, covered_countries)
+    |> assign(:covered_count, length(covered_countries))
   end
 
   # Sync the admin_languages setting with the current display languages
@@ -256,5 +264,20 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       {continent, filtered_countries}
     end)
     |> Enum.reject(fn {_continent, countries} -> countries == [] end)
+  end
+
+  # Get list of countries that have ALL their languages enabled
+  defp get_covered_countries(enabled_codes, grouped_languages) do
+    grouped_languages
+    |> Enum.flat_map(fn {_continent, countries} ->
+      countries
+      |> Enum.filter(fn {_country, _flag, languages} ->
+        # Country is covered only if ALL its languages are enabled
+        languages != [] and Enum.all?(languages, fn lang -> lang.code in enabled_codes end)
+      end)
+      |> Enum.map(fn {country, flag, _langs} -> {country, flag} end)
+    end)
+    |> Enum.uniq()
+    |> Enum.sort_by(fn {country, _} -> country end)
   end
 end
