@@ -121,7 +121,7 @@
         <%!-- Languages List grouped by Continent -> Country --%>
         <div class="space-y-4">
           <%= for {continent, countries} <- filter_grouped_languages(@grouped_languages, @search_query) do %>
-            <details class="collapse collapse-arrow bg-base-300 rounded-lg" open>
+            <details class="collapse collapse-arrow bg-base-300 rounded-lg">
               <summary class="collapse-title font-bold text-lg py-3">
                 <span class="ml-2">{continent}</span>
                 <span class="badge badge-ghost badge-sm ml-2">
