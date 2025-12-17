@@ -199,12 +199,24 @@
     <div class="card bg-base-100 shadow-xl mt-6">
       <div class="card-body">
         <h2 class="card-title mb-4">Quick Actions</h2>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/new")}
             class="btn btn-outline"
           >
             <.icon name="hero-plus" class="w-5 h-5" /> New Order
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-credit-card" class="w-5 h-5" /> Subscriptions
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-squares-2x2" class="w-5 h-5" /> Plans
           </.link>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
@@ -213,16 +225,16 @@
             <.icon name="hero-users" class="w-5 h-5" /> Billing Profiles
           </.link>
           <.link
-            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
-            class="btn btn-outline"
-          >
-            <.icon name="hero-currency-dollar" class="w-5 h-5" /> Currencies
-          </.link>
-          <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
             class="btn btn-outline"
           >
             <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Settings
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-credit-card" class="w-5 h-5" /> Payment Providers
           </.link>
         </div>
       </div>

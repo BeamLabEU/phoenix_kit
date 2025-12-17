@@ -36,7 +36,7 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
             "SEO module is disabled. Enable it from the Modules page to configure settings."
           )
         )
-        |> redirect(to: Routes.path("/admin/modules", socket.assigns.current_locale_base))
+        |> redirect(to: Routes.path("/admin/modules", locale: socket.assigns.current_locale_base))
 
       {:ok, socket}
     end

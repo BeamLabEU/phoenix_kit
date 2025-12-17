@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.2"
+  @version "1.7.4"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -126,6 +126,9 @@ defmodule PhoenixKit.MixProject do
       {:ex_aws_ec2, "~> 2.0"},
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
+
+      # HTTP client for payment providers
+      {:req, "~> 0.5"},
 
       # Code generation and project patching
       # Note: Available in all environments for library code, but typically

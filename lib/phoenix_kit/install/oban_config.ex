@@ -14,6 +14,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   # Mix functions only available at compile-time during installation
   @dialyzer {:nowarn_function, update_existing_oban_config: 3}
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
+  @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
 
@@ -92,14 +93,15 @@ defmodule PhoenixKit.Install.ObanConfig do
     oban_config = """
 
     # Configure Oban for PhoenixKit background jobs
-    # Required for file processing (storage system), email handling, and posts
+    # Required for file processing (storage system), email handling, posts, and sitemap
     config :#{app_name}, Oban,
       repo: #{repo_module},
       queues: [
         default: 10,           # General purpose queue
         emails: 50,            # Email processing
         file_processing: 20,   # File variant generation (storage system)
-        posts: 10              # Posts scheduled publishing
+        posts: 10,             # Posts scheduled publishing
+        sitemap: 5             # Sitemap generation
       ],
       plugins: [
         Oban.Plugins.Pruner,   # Automatic cleanup of completed jobs
@@ -143,21 +145,22 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Update existing Oban configuration to add posts queue and cron plugin
+  # Update existing Oban configuration to add posts/sitemap queues and cron plugin
   defp update_existing_oban_config(source, content, app_name) do
     Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
 
     updated_content =
       content
       |> ensure_posts_queue(app_name)
+      |> ensure_sitemap_queue(app_name)
       |> ensure_cron_plugin(app_name)
 
     if updated_content == content do
       Mix.shell().info(
-        "✅ Oban configuration already up-to-date (posts queue and cron plugin present)"
+        "✅ Oban configuration already up-to-date (posts/sitemap queues and cron plugin present)"
       )
     else
-      Mix.shell().info("✅ Updated Oban configuration with posts support")
+      Mix.shell().info("✅ Updated Oban configuration with posts and sitemap support")
     end
 
     Rewrite.Source.update(source, :content, updated_content)
@@ -205,6 +208,51 @@ defmodule PhoenixKit.Install.ObanConfig do
           )
 
           Mix.shell().error("     Please manually add: posts: 10")
+          content
+      end
+    end
+  end
+
+  # Ensure sitemap queue exists in the queues list
+  defp ensure_sitemap_queue(content, app_name) do
+    # Check if sitemap queue already exists
+    if Regex.match?(~r/sitemap:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  Sitemap queue already configured")
+      content
+    else
+      Mix.shell().info("  ➕ Adding sitemap queue to Oban configuration...")
+
+      # Find the queues configuration for this app's Oban config
+      case Regex.run(
+             ~r/(config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/s,
+             content,
+             capture: :all
+           ) do
+        [full_match, before_queues, queues_content, after_queues] ->
+          Mix.shell().info("  ✓ Found queues block, adding sitemap queue")
+
+          # Remove trailing whitespace and check for comma
+          trimmed_content = String.trim_trailing(queues_content)
+          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+          # Add sitemap queue with proper formatting
+          new_queue_entry =
+            if has_trailing_comma do
+              "\n    sitemap: 5              # Sitemap generation"
+            else
+              ",\n    sitemap: 5              # Sitemap generation"
+            end
+
+          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
+
+          String.replace(content, full_match, updated_queues, global: false)
+
+        nil ->
+          Mix.shell().error(
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping sitemap queue update"
+          )
+
+          Mix.shell().error("     Please manually add: sitemap: 5")
           content
       end
     end
@@ -407,7 +455,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     if oban_config_exists?(igniter) do
       Igniter.add_notice(
         igniter,
-        "⚙️  Oban configured for background jobs (file processing, emails)"
+        "⚙️  Oban configured for background jobs (file processing, emails, sitemap)"
       )
     else
       Igniter.add_notice(
@@ -502,7 +550,8 @@ defmodule PhoenixKit.Install.ObanConfig do
           default: 10,
           emails: 50,
           file_processing: 20,
-          posts: 10
+          posts: 10,
+          sitemap: 5
         ],
         plugins: [
           Oban.Plugins.Pruner,
@@ -517,7 +566,8 @@ defmodule PhoenixKit.Install.ObanConfig do
       {Oban, Application.get_env(:#{app_name}, Oban)}
 
     Without this configuration, the storage system cannot process uploaded files,
-    and scheduled posts will not be published automatically.
+    scheduled posts will not be published automatically, and sitemap generation
+    will not work asynchronously.
     """
 
     Igniter.add_notice(igniter, notice)

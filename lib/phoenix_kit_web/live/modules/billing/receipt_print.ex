@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ReceiptPrint do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Billing
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -69,7 +70,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.ReceiptPrint do
   defp get_company_info do
     %{
       name: Settings.get_setting("billing_company_name", ""),
-      address: Settings.get_setting("billing_company_address", ""),
+      address: CountryData.format_company_address(),
       vat: Settings.get_setting("billing_company_vat", ""),
       bank_name: Settings.get_setting("billing_bank_name", ""),
       bank_iban: Settings.get_setting("billing_bank_iban", ""),

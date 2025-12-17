@@ -120,6 +120,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     Blogging.list_posts(slug, post_language)
     |> Enum.filter(&published?/1)
     |> Enum.reject(&excluded?/1)
+    |> Enum.filter(fn post -> has_translation?(post, language) end)
     |> Enum.map(fn post ->
       build_post_entry(post, slug, name, language, is_default, base_url)
     end)
@@ -150,6 +151,21 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       %{metadata: %{"sitemap_exclude" => "true"}} -> true
       _ -> false
     end
+  end
+
+  # Check if post has translation for the requested language.
+  # Returns true if:
+  # - language is nil (default language request, always include)
+  # - language matches one of available_languages (exact or base code match)
+  defp has_translation?(_post, nil), do: true
+
+  defp has_translation?(post, language) do
+    available = Map.get(post, :available_languages, [])
+    base_lang = extract_base(language)
+
+    Enum.any?(available, fn lang ->
+      lang == language || extract_base(lang) == base_lang
+    end)
   end
 
   defp build_post_entry(post, blog_slug, blog_name, language, is_default, base_url) do

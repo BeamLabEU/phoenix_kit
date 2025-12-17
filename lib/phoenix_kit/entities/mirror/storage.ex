@@ -272,7 +272,7 @@ defmodule PhoenixKit.Entities.Mirror.Storage do
       entities
       |> Enum.reduce({0, []}, fn entity_name, {count, with_data} ->
         case read_entity(entity_name) do
-          {:ok, %{"data" => data}} when is_list(data) and length(data) > 0 ->
+          {:ok, %{"data" => data}} when is_list(data) and data != [] ->
             {count + length(data), [entity_name | with_data]}
 
           {:ok, _} ->

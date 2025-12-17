@@ -1,0 +1,454 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Payment Providers"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">Payment Providers</h1>
+        <p class="text-base-content/60 mt-1">Configure online payment integrations</p>
+      </div>
+    </div>
+
+    <%!-- Navigation Tabs --%>
+    <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+        class="tab"
+      >
+        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> General
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+        class="tab tab-active"
+      >
+        <.icon name="hero-credit-card" class="w-4 h-4 mr-2" /> Payment Providers
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+        class="tab"
+      >
+        <.icon name="hero-currency-dollar" class="w-4 h-4 mr-2" /> Currencies
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="tab"
+      >
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 mr-2" /> Plans
+      </.link>
+    </div>
+
+    <%!-- Active Providers Summary --%>
+    <div class="alert alert-info mb-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <span class="font-medium">Active Providers:</span>
+        <%= if Enum.empty?(@available_providers) do %>
+          <span class="text-base-content/60">None configured</span>
+        <% else %>
+          <%= for {provider, index} <- Enum.with_index(@available_providers) do %>
+            <span class="badge badge-success badge-sm ml-1">
+              {provider |> Atom.to_string() |> String.capitalize()}
+            </span>
+            <%= if index < length(@available_providers) - 1 do %>
+              <span class="mx-1"></span>
+            <% end %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      <%!-- Stripe Provider --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <.icon name="hero-credit-card" class="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <h2 class="card-title text-lg">Stripe</h2>
+                <p class="text-xs text-base-content/60">Cards, Apple Pay, Google Pay</p>
+              </div>
+            </div>
+            <label class="cursor-pointer">
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@stripe_enabled}
+                phx-click="toggle_stripe"
+              />
+            </label>
+          </div>
+
+          <div class="divider my-2"></div>
+
+          <form phx-submit="save_stripe" class="space-y-3">
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Secret Key</span>
+                <%= if has_credentials?(@stripe_secret_key) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="password"
+                name="secret_key"
+                placeholder="sk_live_..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Publishable Key</span>
+                <%= if has_credentials?(@stripe_publishable_key) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="text"
+                name="publishable_key"
+                placeholder="pk_live_..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook Secret</span>
+                <%= if has_credentials?(@stripe_webhook_secret) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="password"
+                name="webhook_secret"
+                placeholder="whsec_..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook URL</span>
+              </label>
+              <div class="join w-full">
+                <input
+                  type="text"
+                  value={@stripe_webhook_url}
+                  class="input input-bordered input-sm font-mono join-item flex-1 text-xs"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-sm join-item"
+                  onclick={"navigator.clipboard.writeText('#{@stripe_webhook_url}')"}
+                  title="Copy to clipboard"
+                >
+                  <.icon name="hero-clipboard" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div class="card-actions justify-end pt-2">
+              <button type="submit" class="btn btn-primary btn-sm">Save Stripe</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- PayPal Provider --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                <.icon name="hero-currency-dollar" class="w-6 h-6 text-info" />
+              </div>
+              <div>
+                <h2 class="card-title text-lg">PayPal</h2>
+                <p class="text-xs text-base-content/60">PayPal, Venmo, Cards</p>
+              </div>
+            </div>
+            <label class="cursor-pointer">
+              <input
+                type="checkbox"
+                class="toggle toggle-info"
+                checked={@paypal_enabled}
+                phx-click="toggle_paypal"
+              />
+            </label>
+          </div>
+
+          <div class="divider my-2"></div>
+
+          <form phx-submit="save_paypal" class="space-y-3">
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Mode</span>
+              </label>
+              <select name="mode" class="select select-bordered select-sm">
+                <option value="sandbox" selected={@paypal_mode == "sandbox"}>
+                  Sandbox (Test)
+                </option>
+                <option value="live" selected={@paypal_mode == "live"}>Live (Production)</option>
+              </select>
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Client ID</span>
+                <%= if has_credentials?(@paypal_client_id) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="text"
+                name="client_id"
+                placeholder="AW..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Client Secret</span>
+                <%= if has_credentials?(@paypal_client_secret) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="password"
+                name="client_secret"
+                placeholder="EL..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook ID</span>
+                <%= if has_credentials?(@paypal_webhook_id) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="text"
+                name="webhook_id"
+                placeholder="WH-..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook URL</span>
+              </label>
+              <div class="join w-full">
+                <input
+                  type="text"
+                  value={@paypal_webhook_url}
+                  class="input input-bordered input-sm font-mono join-item flex-1 text-xs"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-sm join-item"
+                  onclick={"navigator.clipboard.writeText('#{@paypal_webhook_url}')"}
+                  title="Copy to clipboard"
+                >
+                  <.icon name="hero-clipboard" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div class="card-actions justify-end pt-2">
+              <button type="submit" class="btn btn-info btn-sm">Save PayPal</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Razorpay Provider --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center">
+                <.icon name="hero-banknotes" class="w-6 h-6 text-secondary" />
+              </div>
+              <div>
+                <h2 class="card-title text-lg">Razorpay</h2>
+                <p class="text-xs text-base-content/60">India payments (UPI, Cards)</p>
+              </div>
+            </div>
+            <label class="cursor-pointer">
+              <input
+                type="checkbox"
+                class="toggle toggle-secondary"
+                checked={@razorpay_enabled}
+                phx-click="toggle_razorpay"
+              />
+            </label>
+          </div>
+
+          <div class="divider my-2"></div>
+
+          <form phx-submit="save_razorpay" class="space-y-3">
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Key ID</span>
+                <%= if has_credentials?(@razorpay_key_id) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="text"
+                name="key_id"
+                placeholder="rzp_live_..."
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Key Secret</span>
+                <%= if has_credentials?(@razorpay_key_secret) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="password"
+                name="key_secret"
+                placeholder="••••••••••••"
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook Secret</span>
+                <%= if has_credentials?(@razorpay_webhook_secret) do %>
+                  <span class="label-text-alt text-success text-xs">
+                    <.icon name="hero-check-circle" class="w-3 h-3 inline" /> Set
+                  </span>
+                <% end %>
+              </label>
+              <input
+                type="password"
+                name="webhook_secret"
+                placeholder="••••••••••••"
+                class="input input-bordered input-sm font-mono"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Webhook URL</span>
+              </label>
+              <div class="join w-full">
+                <input
+                  type="text"
+                  value={@razorpay_webhook_url}
+                  class="input input-bordered input-sm font-mono join-item flex-1 text-xs"
+                  readonly
+                />
+                <button
+                  type="button"
+                  class="btn btn-sm join-item"
+                  onclick={"navigator.clipboard.writeText('#{@razorpay_webhook_url}')"}
+                  title="Copy to clipboard"
+                >
+                  <.icon name="hero-clipboard" class="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div class="card-actions justify-end pt-2">
+              <button type="submit" class="btn btn-secondary btn-sm">Save Razorpay</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Quick Help --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <h2 class="card-title">Setup Instructions</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div class="bg-base-200 p-4 rounded-lg">
+            <h3 class="font-medium flex items-center gap-2">
+              <.icon name="hero-credit-card" class="w-5 h-5 text-primary" /> Stripe
+            </h3>
+            <ol class="text-sm text-base-content/70 mt-2 space-y-1 list-decimal list-inside">
+              <li>Create account at stripe.com</li>
+              <li>Get API keys from Dashboard → Developers</li>
+              <li>Create webhook with events: checkout.session.completed, payment_intent.*</li>
+              <li>Copy webhook signing secret</li>
+            </ol>
+          </div>
+          <div class="bg-base-200 p-4 rounded-lg">
+            <h3 class="font-medium flex items-center gap-2">
+              <.icon name="hero-currency-dollar" class="w-5 h-5 text-info" /> PayPal
+            </h3>
+            <ol class="text-sm text-base-content/70 mt-2 space-y-1 list-decimal list-inside">
+              <li>Create app at developer.paypal.com</li>
+              <li>Get Client ID and Secret</li>
+              <li>Configure webhook with events: CHECKOUT.ORDER.*, PAYMENT.*</li>
+              <li>Copy Webhook ID</li>
+            </ol>
+          </div>
+          <div class="bg-base-200 p-4 rounded-lg">
+            <h3 class="font-medium flex items-center gap-2">
+              <.icon name="hero-banknotes" class="w-5 h-5 text-secondary" /> Razorpay
+            </h3>
+            <ol class="text-sm text-base-content/70 mt-2 space-y-1 list-decimal list-inside">
+              <li>Create account at razorpay.com</li>
+              <li>Get Key ID and Secret from Settings → API Keys</li>
+              <li>Create webhook with events: payment.*, order.paid</li>
+              <li>Copy webhook secret</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

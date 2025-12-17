@@ -1,0 +1,181 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Subscription Plans"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <h1 class="text-3xl font-bold">Subscription Plans</h1>
+          <p class="text-base-content/60 mt-1">Manage pricing and features for subscriptions</p>
+        </div>
+      </div>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans/new")}
+        class="btn btn-primary btn-sm"
+      >
+        <.icon name="hero-plus" class="w-4 h-4" /> Create Plan
+      </.link>
+    </div>
+
+    <%!-- Navigation Tabs --%>
+    <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+        class="tab"
+      >
+        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> General
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+        class="tab"
+      >
+        <.icon name="hero-credit-card" class="w-4 h-4 mr-2" /> Payment Providers
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+        class="tab"
+      >
+        <.icon name="hero-currency-dollar" class="w-4 h-4 mr-2" /> Currencies
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="tab tab-active"
+      >
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 mr-2" /> Plans
+      </.link>
+    </div>
+
+    <%!-- Plans Grid --%>
+    <%= if Enum.empty?(@plans) do %>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body text-center py-12">
+          <.icon name="hero-squares-2x2" class="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <h3 class="text-lg font-medium">No Plans Created</h3>
+          <p class="text-base-content/60 mt-2">
+            Create your first subscription plan to start accepting recurring payments.
+          </p>
+          <div class="mt-6">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans/new")}
+              class="btn btn-primary"
+            >
+              <.icon name="hero-plus" class="w-4 h-4" /> Create First Plan
+            </.link>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <%= for plan <- @plans do %>
+          <div class={[
+            "card bg-base-100 shadow-xl",
+            !plan.active && "opacity-60"
+          ]}>
+            <div class="card-body">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h2 class="card-title">
+                    {plan.name}
+                    <%= if !plan.active do %>
+                      <span class="badge badge-neutral badge-sm">Inactive</span>
+                    <% end %>
+                  </h2>
+                  <p class="text-sm text-base-content/60">{plan.description}</p>
+                </div>
+                <div class="dropdown dropdown-end">
+                  <label tabindex="0" class="btn btn-ghost btn-sm btn-circle">
+                    <.icon name="hero-ellipsis-vertical" class="w-4 h-4" />
+                  </label>
+                  <ul
+                    tabindex="0"
+                    class="dropdown-content menu p-2 shadow bg-base-200 rounded-box w-52 z-10"
+                  >
+                    <li>
+                      <.link navigate={
+                        PhoenixKit.Utils.Routes.path("/admin/billing/plans/#{plan.id}/edit")
+                      }>
+                        <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+                      </.link>
+                    </li>
+                    <li>
+                      <button phx-click="toggle_active" phx-value-id={plan.id}>
+                        <%= if plan.active do %>
+                          <.icon name="hero-pause" class="w-4 h-4" /> Deactivate
+                        <% else %>
+                          <.icon name="hero-play" class="w-4 h-4" /> Activate
+                        <% end %>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        phx-click="delete_plan"
+                        phx-value-id={plan.id}
+                        class="text-error"
+                        data-confirm="Delete this plan? This cannot be undone."
+                      >
+                        <.icon name="hero-trash" class="w-4 h-4" /> Delete
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <div class="text-3xl font-bold">
+                  <.currency_amount amount={plan.price} currency={plan.currency} />
+                </div>
+                <div class="text-sm text-base-content/60">
+                  {format_interval(plan.interval, plan.interval_count)}
+                </div>
+              </div>
+
+              <%= if plan.trial_days && plan.trial_days > 0 do %>
+                <div class="badge badge-info badge-outline mt-2">
+                  {plan.trial_days} day trial
+                </div>
+              <% end %>
+
+              <%!-- Features --%>
+              <%= if plan.features && is_list(plan.features) && length(plan.features) > 0 do %>
+                <div class="divider my-2"></div>
+                <ul class="space-y-1">
+                  <%= for feature <- plan.features do %>
+                    <li class="flex items-center gap-2 text-sm">
+                      <.icon name="hero-check" class="w-4 h-4 text-success flex-shrink-0" />
+                      <span>{feature}</span>
+                    </li>
+                  <% end %>
+                </ul>
+              <% end %>
+
+              <%!-- Meta Info --%>
+              <div class="mt-auto pt-4 border-t border-base-200 text-xs text-base-content/50">
+                <div class="flex justify-between">
+                  <span>Slug:</span>
+                  <span class="font-mono">{plan.slug}</span>
+                </div>
+                <%= if plan.sort_order do %>
+                  <div class="flex justify-between mt-1">
+                    <span>Sort Order:</span>
+                    <span>{plan.sort_order}</span>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

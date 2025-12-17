@@ -315,6 +315,59 @@
         margin-top: 20px;
       }
 
+      .refund-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: #fef3c7;
+        color: #b45309;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        margin-top: 10px;
+      }
+
+      .payment-history {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f9fafb;
+        border-radius: 8px;
+      }
+
+      .payment-history h4 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #6b7280;
+        margin-bottom: 15px;
+      }
+
+      .payment-history-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .payment-history-table th,
+      .payment-history-table td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .payment-history-table th {
+        font-weight: 600;
+        color: #374151;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+
+      .payment-history-table .refund-row {
+        color: #b45309;
+      }
+
+      .payment-history-table .payment-row {
+        color: #047857;
+      }
+
       @media print {
         body {
           background: white;
@@ -342,7 +395,9 @@
         .status-overdue,
         .due-date-box,
         .bank-details-box,
-        .receipt-badge {
+        .receipt-badge,
+        .refund-badge,
+        .payment-history {
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
@@ -598,6 +653,69 @@
                 on {Calendar.strftime(@invoice.paid_at, "%B %d, %Y")}
               </span>
             <% end %>
+          </div>
+        <% end %>
+
+        <%!-- Refund information --%>
+        <%= if @refund_info do %>
+          <div class="refund-badge">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            REFUNDED - {Decimal.to_string(@refund_info.total, :normal)} {@invoice.currency}
+            <span style="opacity: 0.8; margin-left: 10px;">
+              on {Calendar.strftime(@refund_info.latest_date, "%B %d, %Y")}
+            </span>
+          </div>
+
+          <%!-- Payment history table when refunds exist --%>
+          <div class="payment-history">
+            <h4>Payment History</h4>
+            <table class="payment-history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Method</th>
+                  <th style="text-align: right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for txn <- @invoice.transactions do %>
+                  <tr class={
+                    if Decimal.negative?(txn.amount), do: "refund-row", else: "payment-row"
+                  }>
+                    <td>{Calendar.strftime(txn.inserted_at, "%B %d, %Y")}</td>
+                    <td>
+                      <%= if Decimal.negative?(txn.amount) do %>
+                        Refund
+                      <% else %>
+                        Payment
+                      <% end %>
+                    </td>
+                    <td>{String.capitalize(txn.payment_method || "bank")}</td>
+                    <td style="text-align: right;">
+                      <%= if Decimal.negative?(txn.amount) do %>
+                        -{Decimal.to_string(Decimal.abs(txn.amount), :normal)} {@invoice.currency}
+                      <% else %>
+                        +{Decimal.to_string(txn.amount, :normal)} {@invoice.currency}
+                      <% end %>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
           </div>
         <% end %>
 

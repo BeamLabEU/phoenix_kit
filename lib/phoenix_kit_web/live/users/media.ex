@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Users.Media do
 
     # Check if any enabled buckets exist
     enabled_buckets = Storage.list_enabled_buckets()
-    has_buckets = length(enabled_buckets) > 0
+    has_buckets = not Enum.empty?(enabled_buckets)
 
     socket =
       socket

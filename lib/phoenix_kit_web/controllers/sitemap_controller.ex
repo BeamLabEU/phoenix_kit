@@ -77,11 +77,15 @@ defmodule PhoenixKitWeb.SitemapController do
       xsl_enabled: false
     ]
 
+    # Generate ETag from last_generated timestamp for proper HTTP caching
+    etag = generate_etag(config)
+
     case Generator.generate_xml(opts) do
       {:ok, xml_content} ->
         conn
         |> put_resp_content_type("application/xml")
         |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+        |> put_resp_header("etag", etag)
         |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
         |> send_resp(200, xml_content)
 
@@ -89,6 +93,7 @@ defmodule PhoenixKitWeb.SitemapController do
         conn
         |> put_resp_content_type("application/xml")
         |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+        |> put_resp_header("etag", etag)
         |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
         |> send_resp(200, xml_content)
 
@@ -108,9 +113,13 @@ defmodule PhoenixKitWeb.SitemapController do
     entries = Generator.collect_all_entries(base_url: config.base_url)
     html_content = render_sitemap_html(entries, xsl_style, config)
 
+    # Generate ETag from last_generated timestamp for proper HTTP caching
+    etag = generate_etag(config)
+
     conn
     |> put_resp_content_type("text/html")
     |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+    |> put_resp_header("etag", etag)
     |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
     |> send_resp(200, html_content)
   end
@@ -179,6 +188,9 @@ defmodule PhoenixKitWeb.SitemapController do
   """
   def index_part(conn, %{"index" => index_str}) do
     if Sitemap.enabled?() do
+      config = Sitemap.get_config()
+      etag = generate_etag(config)
+
       case Integer.parse(index_str) do
         {index, ""} when index > 0 ->
           case Generator.get_sitemap_part(index) do
@@ -186,6 +198,7 @@ defmodule PhoenixKitWeb.SitemapController do
               conn
               |> put_resp_content_type("application/xml")
               |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+              |> put_resp_header("etag", etag)
               |> send_resp(200, xml_content)
 
             {:error, :not_found} ->
@@ -428,6 +441,20 @@ defmodule PhoenixKitWeb.SitemapController do
   end
 
   defp escape(other), do: escape(to_string(other))
+
+  # Generate ETag based on last_generated timestamp and url_count
+  # Used for proper HTTP caching - browsers can check if content changed
+  defp generate_etag(config) do
+    last_generated = Map.get(config, :last_generated) || "none"
+    url_count = Map.get(config, :url_count) || 0
+
+    hash =
+      :crypto.hash(:md5, "#{last_generated}-#{url_count}")
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+
+    "\"#{hash}\""
+  end
 
   # Maps old HTML style names to new XSL style names
   # hierarchical -> cards, grouped -> table, flat -> minimal

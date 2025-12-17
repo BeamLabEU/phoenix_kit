@@ -247,7 +247,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Details do
     cond do
       total_events_found > 0 and events_processed > 0 ->
         details = build_event_details(sqs_events, dlq_events, events_failed)
-        source_info = if length(details) > 0, do: " (#{Enum.join(details, ", ")})", else: ""
+        source_info = if Enum.empty?(details), do: "", else: " (#{Enum.join(details, ", ")})"
         status_info = if log_updated, do: " - Email status updated", else: ""
 
         "✅ Processed #{events_processed}/#{total_events_found} events#{source_info}#{status_info} using #{id_type}"

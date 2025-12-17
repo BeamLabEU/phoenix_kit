@@ -1264,12 +1264,12 @@ defmodule PhoenixKit.Emails.Log do
 
   # Calculate average engagement rate
   defp calculate_average_engagement(daily_stats) do
-    if length(daily_stats) > 0 do
+    if Enum.empty?(daily_stats) do
+      0.0
+    else
       total_delivered = Enum.sum(Enum.map(daily_stats, & &1.delivered))
       total_opened = Enum.sum(Enum.map(daily_stats, & &1.opened))
       safe_percentage(total_opened, total_delivered)
-    else
-      0.0
     end
   end
 

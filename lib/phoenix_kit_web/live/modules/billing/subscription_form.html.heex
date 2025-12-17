@@ -1,0 +1,302 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} {@page_title}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">{@page_title}</h1>
+        <p class="text-base-content/60 mt-1">
+          Manually create a subscription for a customer
+        </p>
+      </div>
+    </div>
+
+    <%!-- Error Alert --%>
+    <%= if @error do %>
+      <div class="alert alert-error mb-6">
+        <.icon name="hero-exclamation-circle" class="w-5 h-5" />
+        <span>{@error}</span>
+        <button type="button" phx-click="clear_error" class="btn btn-ghost btn-sm btn-circle">
+          <.icon name="hero-x-mark" class="w-4 h-4" />
+        </button>
+      </div>
+    <% end %>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Form --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Customer Selection --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">
+              <.icon name="hero-user" class="w-5 h-5" /> Customer
+            </h2>
+
+            <%= if @selected_user do %>
+              <%!-- Selected user display --%>
+              <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg mt-4">
+                <div class="flex items-center gap-3">
+                  <.user_avatar user={@selected_user} size="md" />
+                  <div>
+                    <div class="font-medium">{@selected_user.email}</div>
+                    <div class="text-sm text-base-content/60">ID: {@selected_user.id}</div>
+                  </div>
+                </div>
+                <button type="button" phx-click="clear_user" class="btn btn-ghost btn-sm">
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Change
+                </button>
+              </div>
+            <% else %>
+              <%!-- User search --%>
+              <div class="form-control mt-4">
+                <label class="label">
+                  <span class="label-text">
+                    Search by email <span class="text-error">*</span>
+                  </span>
+                </label>
+                <div class="relative">
+                  <input
+                    type="text"
+                    value={@user_search}
+                    phx-keyup="search_user"
+                    phx-debounce="300"
+                    name="query"
+                    class="input input-bordered w-full"
+                    placeholder="Enter email address..."
+                    autocomplete="off"
+                  />
+                  <%= if @user_search != "" && length(@user_results) > 0 do %>
+                    <div class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      <%= for user <- @user_results do %>
+                        <button
+                          type="button"
+                          phx-click="select_user"
+                          phx-value-id={user.id}
+                          class="w-full px-4 py-3 text-left hover:bg-base-200 flex items-center gap-3 border-b border-base-200 last:border-b-0"
+                        >
+                          <.user_avatar user={user} size="sm" />
+                          <div>
+                            <div class="font-medium">{user.email}</div>
+                            <div class="text-xs text-base-content/60">ID: {user.id}</div>
+                          </div>
+                        </button>
+                      <% end %>
+                    </div>
+                  <% end %>
+                  <%= if @user_search != "" && length(@user_results) == 0 do %>
+                    <div class="absolute z-10 w-full mt-1 bg-base-100 border border-base-300 rounded-lg shadow-lg p-4 text-center text-base-content/60">
+                      No users found matching "{@user_search}"
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Plan Selection --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">
+              <.icon name="hero-squares-2x2" class="w-5 h-5" /> Subscription Plan
+            </h2>
+
+            <div class="form-control mt-4">
+              <label class="label">
+                <span class="label-text">Select a plan <span class="text-error">*</span></span>
+              </label>
+              <select
+                name="plan_id"
+                phx-change="select_plan"
+                class="select select-bordered w-full"
+              >
+                <option value="">Choose a plan...</option>
+                <%= for plan <- @plans do %>
+                  <option value={plan.id} selected={@selected_plan_id == plan.id}>
+                    {plan.name} -
+                    <.currency_compact amount={plan.price} currency={plan.currency} />
+                    / {format_interval(plan.interval, plan.interval_count)}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <%!-- Trial Period --%>
+            <div class="form-control mt-4">
+              <label class="label cursor-pointer justify-start gap-3">
+                <input
+                  type="checkbox"
+                  name="enable"
+                  value="true"
+                  checked={@enable_trial}
+                  phx-click="toggle_trial"
+                  phx-value-enable={if @enable_trial, do: "false", else: "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Start with trial period</span>
+              </label>
+            </div>
+
+            <%= if @enable_trial do %>
+              <div class="form-control mt-2">
+                <label class="label">
+                  <span class="label-text">Trial days</span>
+                </label>
+                <input
+                  type="number"
+                  name="days"
+                  value={@trial_days}
+                  phx-keyup="update_trial_days"
+                  phx-debounce="300"
+                  class="input input-bordered w-32"
+                  min="1"
+                  max="365"
+                  placeholder="14"
+                />
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Payment Method (if user selected) --%>
+        <%= if @selected_user && length(@payment_methods) > 0 do %>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">
+                <.icon name="hero-credit-card" class="w-5 h-5" /> Payment Method
+                <span class="badge badge-ghost">Optional</span>
+              </h2>
+
+              <div class="form-control mt-4">
+                <label class="label">
+                  <span class="label-text">Select a saved payment method</span>
+                </label>
+                <select
+                  name="payment_method_id"
+                  phx-change="select_payment_method"
+                  class="select select-bordered w-full"
+                >
+                  <option value="">No payment method</option>
+                  <%= for pm <- @payment_methods do %>
+                    <option value={pm.id} selected={@selected_payment_method_id == pm.id}>
+                      {format_payment_method(pm)}
+                      <%= if pm.is_default do %>
+                        (Default)
+                      <% end %>
+                    </option>
+                  <% end %>
+                </select>
+                <label class="label">
+                  <span class="label-text-alt text-base-content/60">
+                    Payment method is optional for manually created subscriptions
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Actions --%>
+        <div class="flex justify-end gap-4">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+            class="btn btn-ghost"
+          >
+            Cancel
+          </.link>
+          <button
+            type="button"
+            phx-click="save"
+            class="btn btn-primary"
+            disabled={is_nil(@selected_user) || is_nil(@selected_plan_id)}
+          >
+            <.icon name="hero-plus" class="w-4 h-4" /> Create Subscription
+          </button>
+        </div>
+      </div>
+
+      <%!-- Summary Sidebar --%>
+      <div class="lg:col-span-1">
+        <div class="card bg-base-100 shadow-xl sticky top-6">
+          <div class="card-body">
+            <h2 class="card-title">Summary</h2>
+            <div class="divider my-2"></div>
+
+            <%!-- Customer --%>
+            <div class="space-y-1">
+              <div class="text-sm text-base-content/60">Customer</div>
+              <%= if @selected_user do %>
+                <div class="font-medium">{@selected_user.email}</div>
+              <% else %>
+                <div class="text-base-content/40">Not selected</div>
+              <% end %>
+            </div>
+
+            <div class="divider my-2"></div>
+
+            <%!-- Plan --%>
+            <div class="space-y-1">
+              <div class="text-sm text-base-content/60">Plan</div>
+              <%= if @selected_plan_id do %>
+                <% plan = Enum.find(@plans, &(&1.id == @selected_plan_id)) %>
+                <%= if plan do %>
+                  <div class="font-medium">{plan.name}</div>
+                  <div class="text-2xl font-bold mt-1">
+                    <.currency_amount amount={plan.price} currency={plan.currency} />
+                  </div>
+                  <div class="text-sm text-base-content/60">
+                    {format_interval(plan.interval, plan.interval_count)}
+                  </div>
+                <% end %>
+              <% else %>
+                <div class="text-base-content/40">Not selected</div>
+              <% end %>
+            </div>
+
+            <%= if @enable_trial && @trial_days != "" do %>
+              <div class="divider my-2"></div>
+              <div class="space-y-1">
+                <div class="text-sm text-base-content/60">Trial Period</div>
+                <div class="badge badge-info">{@trial_days} days</div>
+              </div>
+            <% end %>
+
+            <%= if @selected_payment_method_id do %>
+              <div class="divider my-2"></div>
+              <div class="space-y-1">
+                <div class="text-sm text-base-content/60">Payment Method</div>
+                <% pm = Enum.find(@payment_methods, &(&1.id == @selected_payment_method_id)) %>
+                <%= if pm do %>
+                  <div class="font-medium">{format_payment_method(pm)}</div>
+                <% end %>
+              </div>
+            <% end %>
+
+            <div class="divider my-2"></div>
+
+            <%!-- Status Preview --%>
+            <div class="space-y-1">
+              <div class="text-sm text-base-content/60">Initial Status</div>
+              <%= if @enable_trial && @trial_days != "" do %>
+                <div class="badge badge-info">Trialing</div>
+              <% else %>
+                <div class="badge badge-success">Active</div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

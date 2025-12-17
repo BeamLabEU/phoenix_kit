@@ -272,6 +272,12 @@ defmodule PhoenixKit.Sitemap.Generator do
       entries_by_language
       |> Enum.flat_map(fn {_lang, entries} -> entries end)
 
+    # Get non-default language codes for default entry detection
+    non_default_codes =
+      languages
+      |> Enum.reject(& &1.is_default)
+      |> Enum.map(& &1.code)
+
     # Build alternates map by canonical_path
     alternates_by_canonical =
       all_entries
@@ -279,12 +285,12 @@ defmodule PhoenixKit.Sitemap.Generator do
       |> Enum.group_by(& &1.canonical_path)
       |> Enum.map(fn {canonical_path, entries} ->
         # Find default language entry for x-default
+        # Entry from default language has no language prefix in loc
         default_entry =
           Enum.find(entries, fn e ->
-            # Entry from default language has no language prefix in loc
-            not String.contains?(e.loc, "/et/") and
-              not String.contains?(e.loc, "/ru/") and
-              not String.contains?(e.loc, "/de/")
+            not Enum.any?(non_default_codes, fn code ->
+              String.contains?(e.loc, "/#{code}/")
+            end)
           end) || List.first(entries)
 
         alternates =
@@ -331,7 +337,7 @@ defmodule PhoenixKit.Sitemap.Generator do
         entry.loc
       end
 
-    # Check for language prefix pattern like /et/, /ru/, /de/
+    # Check for language prefix pattern like /en/, /et/, /fr/
     case Regex.run(~r/^\/([a-z]{2})(?:\/|$)/, path) do
       [_, lang] -> lang
       # Default to English if no prefix found
@@ -723,7 +729,7 @@ defmodule PhoenixKit.Sitemap.Generator do
     try do
       if Languages.enabled?() do
         case Languages.get_enabled_languages() do
-          languages when is_list(languages) and length(languages) > 0 ->
+          languages when is_list(languages) and languages != [] ->
             languages
             |> Enum.map(fn lang ->
               %{

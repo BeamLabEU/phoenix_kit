@@ -118,7 +118,7 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
       {:ok, config} ->
         # Try to get regions from EC2 API first
         case get_regions_from_ec2(config) do
-          {:ok, regions} when is_list(regions) and length(regions) > 0 ->
+          {:ok, regions} when is_list(regions) and regions != [] ->
             {:ok, regions}
 
           {:error, :permission_denied} ->
@@ -176,10 +176,10 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
       |> Enum.filter(&is_binary/1)
       |> Enum.sort()
 
-    if length(regions) > 0 do
-      {:ok, regions}
-    else
+    if Enum.empty?(regions) do
       {:error, :empty_regions_list}
+    else
+      {:ok, regions}
     end
   rescue
     e ->

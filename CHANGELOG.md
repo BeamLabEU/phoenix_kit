@@ -1,3 +1,28 @@
+## 1.7.4 - 2025-12-17
+
+### Sitemap Improvements
+- **Translation filtering** - Blog posts without translation files are excluded from sitemap for that language
+- **Default language only** - Static, Entities, and Posts sources generate URLs only for default language (prevents 404s)
+- **Disable auto_pattern** - Changed `sitemap_entities_auto_pattern` default to false (entities require real routes)
+- **Async regeneration** - PubSub broadcast for real-time UI updates after regeneration
+- **ETag caching** - Add ETag headers to sitemap controller for HTTP caching
+- **UI cleanup** - Remove non-functional source toggles, improve layout
+
+### Billing Improvements
+- **Auto status sync** - Orders auto-confirm when invoice is fully paid
+- **Refund handling** - Mark order as refunded and invoice as void on full refund
+- **Payment method sync** - Update order payment_method from invoice transaction
+- **Invoice print** - Add refund information and payment history
+- **V33 migration fix** - Make payment_method nullable for draft orders
+
+### Other Changes
+- Update beamlab_countries dependency to 1.0.4
+- Hide suggested VAT rate when it matches current rate
+
+## 1.7.3 - 2025-12-16
+- Add AI module and per-entity backup controls
+- Updated languages settings page by continent, updated gitignore to include assets
+
 ## 1.7.2 - 2025-12-15
 
 ### Added
