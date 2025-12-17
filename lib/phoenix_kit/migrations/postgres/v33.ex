@@ -279,6 +279,13 @@ defmodule PhoenixKit.Migrations.Postgres.V33 do
       add_if_not_exists :checkout_expires_at, :utc_datetime_usec
     end
 
+    # Make payment_method nullable - method is determined after payment
+    execute """
+    ALTER TABLE #{prefix_table_name("phoenix_kit_orders", prefix)}
+    ALTER COLUMN payment_method DROP DEFAULT,
+    ALTER COLUMN payment_method DROP NOT NULL
+    """
+
     # ===========================================
     # 7. MODIFY INVOICES TABLE - Add subscription reference
     # ===========================================
@@ -350,6 +357,18 @@ defmodule PhoenixKit.Migrations.Postgres.V33 do
     alter table(:phoenix_kit_invoices, prefix: prefix) do
       remove_if_exists :subscription_id, :integer
     end
+
+    # Restore NOT NULL and default "bank" for payment_method
+    execute """
+    UPDATE #{prefix_table_name("phoenix_kit_orders", prefix)}
+    SET payment_method = 'bank' WHERE payment_method IS NULL
+    """
+
+    execute """
+    ALTER TABLE #{prefix_table_name("phoenix_kit_orders", prefix)}
+    ALTER COLUMN payment_method SET NOT NULL,
+    ALTER COLUMN payment_method SET DEFAULT 'bank'
+    """
 
     # Remove columns from orders
     alter table(:phoenix_kit_orders, prefix: prefix) do

@@ -729,8 +729,12 @@
             <label class="label">
               <span class="label-text">Payment Method</span>
             </label>
-            <select name="payment_method" class="select select-bordered" disabled>
-              <option value="bank" selected>Bank Transfer</option>
+            <select name="payment_method" class="select select-bordered">
+              <%= for method <- @available_payment_methods do %>
+                <option value={method} selected={method == @selected_payment_method}>
+                  {format_payment_method_name(method)}
+                </option>
+              <% end %>
             </select>
           </div>
 
@@ -805,6 +809,19 @@
               class="input input-bordered"
               required
             />
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Refund Method</span>
+            </label>
+            <select name="payment_method" class="select select-bordered">
+              <%= for method <- @available_payment_methods do %>
+                <option value={method} selected={method == @selected_refund_payment_method}>
+                  {format_payment_method_name(method)}
+                </option>
+              <% end %>
+            </select>
           </div>
 
           <div class="modal-action">

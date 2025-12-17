@@ -55,7 +55,12 @@
                       Billing Profile <span class="text-error">*</span>
                     </span>
                   </label>
-                  <select name="order[billing_profile_id]" class="select select-bordered" required>
+                  <select
+                    name="order[billing_profile_id]"
+                    class="select select-bordered"
+                    phx-change="select_billing_profile"
+                    required
+                  >
                     <%= for profile <- @billing_profiles do %>
                       <option
                         value={profile.id}

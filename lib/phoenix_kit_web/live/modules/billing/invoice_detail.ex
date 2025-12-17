@@ -48,6 +48,9 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
             |> assign(:refund_amount, "")
             |> assign(:payment_description, "")
             |> assign(:refund_description, "")
+            |> assign(:available_payment_methods, Billing.available_payment_methods())
+            |> assign(:selected_payment_method, "bank")
+            |> assign(:selected_refund_payment_method, "bank")
             |> assign(:send_email, get_default_email(invoice))
             |> assign(:send_receipt_email, get_default_email(invoice))
             |> assign(:send_credit_note_email, get_default_email(invoice))
@@ -124,19 +127,37 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
 
   # Form Updates
   @impl true
-  def handle_event("update_payment_form", %{"amount" => amount, "description" => desc}, socket) do
-    {:noreply,
-     socket
-     |> assign(:payment_amount, amount)
-     |> assign(:payment_description, desc)}
+  def handle_event("update_payment_form", params, socket) do
+    socket =
+      socket
+      |> assign(:payment_amount, params["amount"] || socket.assigns.payment_amount)
+      |> assign(:payment_description, params["description"] || socket.assigns.payment_description)
+
+    socket =
+      if params["payment_method"] do
+        assign(socket, :selected_payment_method, params["payment_method"])
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
-  def handle_event("update_refund_form", %{"amount" => amount, "description" => desc}, socket) do
-    {:noreply,
-     socket
-     |> assign(:refund_amount, amount)
-     |> assign(:refund_description, desc)}
+  def handle_event("update_refund_form", params, socket) do
+    socket =
+      socket
+      |> assign(:refund_amount, params["amount"] || socket.assigns.refund_amount)
+      |> assign(:refund_description, params["description"] || socket.assigns.refund_description)
+
+    socket =
+      if params["payment_method"] do
+        assign(socket, :selected_refund_payment_method, params["payment_method"])
+      else
+        socket
+      end
+
+    {:noreply, socket}
   end
 
   @impl true
@@ -147,12 +168,18 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
   # Actions
   @impl true
   def handle_event("record_payment", _params, socket) do
-    %{invoice: invoice, payment_amount: amount, payment_description: desc} = socket.assigns
+    %{
+      invoice: invoice,
+      payment_amount: amount,
+      payment_description: desc,
+      selected_payment_method: payment_method
+    } = socket.assigns
+
     current_scope = socket.assigns[:phoenix_kit_current_scope]
 
     attrs = %{
       amount: amount,
-      payment_method: "bank",
+      payment_method: payment_method,
       description: if(desc == "", do: nil, else: desc)
     }
 
@@ -227,7 +254,13 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
 
   @impl true
   def handle_event("record_refund", _params, socket) do
-    %{invoice: invoice, refund_amount: amount, refund_description: desc} = socket.assigns
+    %{
+      invoice: invoice,
+      refund_amount: amount,
+      refund_description: desc,
+      selected_refund_payment_method: payment_method
+    } = socket.assigns
+
     current_scope = socket.assigns[:phoenix_kit_current_scope]
 
     if desc == "" do
@@ -235,7 +268,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
     else
       attrs = %{
         amount: amount,
-        payment_method: "bank",
+        payment_method: payment_method,
         description: desc
       }
 
@@ -687,4 +720,14 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoiceDetail do
       if t.id == updated_transaction.id, do: updated_transaction, else: t
     end)
   end
+
+  @doc """
+  Formats payment method name for display.
+  """
+  def format_payment_method_name("bank"), do: "Bank Transfer"
+  def format_payment_method_name("stripe"), do: "Stripe"
+  def format_payment_method_name("paypal"), do: "PayPal"
+  def format_payment_method_name("razorpay"), do: "Razorpay"
+  def format_payment_method_name(other) when is_binary(other), do: String.capitalize(other)
+  def format_payment_method_name(_), do: "Unknown"
 end

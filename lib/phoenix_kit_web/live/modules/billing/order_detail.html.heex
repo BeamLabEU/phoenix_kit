@@ -324,7 +324,11 @@
             <div class="mt-2 space-y-3">
               <div class="flex justify-between">
                 <span class="text-base-content/60">Method</span>
-                <span class="badge badge-outline">{String.upcase(@order.payment_method)}</span>
+                <%= if @order.payment_method do %>
+                  <span class="badge badge-outline">{String.upcase(@order.payment_method)}</span>
+                <% else %>
+                  <span class="text-base-content/40 text-sm">Not specified</span>
+                <% end %>
               </div>
               <div class="flex justify-between">
                 <span class="text-base-content/60">Currency</span>

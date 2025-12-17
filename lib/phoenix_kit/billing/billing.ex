@@ -46,6 +46,7 @@ defmodule PhoenixKit.Billing do
   alias PhoenixKit.Billing.Currency
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Billing.Order
+  alias PhoenixKit.Billing.Providers
   alias PhoenixKit.Billing.Transaction
   alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Settings
@@ -2436,6 +2437,24 @@ defmodule PhoenixKit.Billing do
   # ============================================
 
   @doc """
+  Returns list of available payment methods for manual recording.
+  Bank transfer is always available, plus any enabled providers (Stripe/PayPal/Razorpay).
+
+  ## Examples
+
+      iex> Billing.available_payment_methods()
+      ["bank"]  # Only bank if no providers enabled
+
+      iex> Billing.available_payment_methods()
+      ["bank", "stripe", "paypal"]  # Bank + enabled providers
+  """
+  def available_payment_methods do
+    providers = Providers.list_available_providers()
+    provider_names = Enum.map(providers, &Atom.to_string/1)
+    ["bank" | provider_names] |> Enum.uniq()
+  end
+
+  @doc """
   Lists saved payment methods for a user.
   """
   def list_payment_methods(user_id, opts \\ []) do
@@ -2526,8 +2545,6 @@ defmodule PhoenixKit.Billing do
   # ============================================
   # CHECKOUT SESSIONS
   # ============================================
-
-  alias PhoenixKit.Billing.Providers
 
   @doc """
   Creates a checkout session for paying an invoice.

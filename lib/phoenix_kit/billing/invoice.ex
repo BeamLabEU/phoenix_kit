@@ -345,4 +345,52 @@ defmodule PhoenixKit.Billing.Invoice do
     |> change(paid_amount: paid_amount)
     |> validate_number(:paid_amount, greater_than_or_equal_to: 0)
   end
+
+  # ============================================
+  # PAYMENT METHODS AGGREGATION
+  # ============================================
+
+  @doc """
+  Returns all unique payment methods used in transactions for this invoice.
+  Requires transactions to be preloaded.
+
+  ## Examples
+
+      iex> Invoice.payment_methods(invoice_with_transactions)
+      ["bank", "stripe"]
+
+      iex> Invoice.payment_methods(invoice_without_transactions)
+      []
+  """
+  def payment_methods(%__MODULE__{transactions: txns}) when is_list(txns) do
+    txns
+    |> Enum.map(& &1.payment_method)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  def payment_methods(_), do: []
+
+  @doc """
+  Returns the primary payment method (most used in positive transactions).
+  Useful for display when there are multiple payment methods.
+  Requires transactions to be preloaded.
+
+  ## Examples
+
+      iex> Invoice.primary_payment_method(invoice)
+      "stripe"
+
+      iex> Invoice.primary_payment_method(invoice_without_transactions)
+      nil
+  """
+  def primary_payment_method(%__MODULE__{transactions: txns}) when is_list(txns) do
+    txns
+    |> Enum.filter(&Decimal.positive?(&1.amount))
+    |> Enum.frequencies_by(& &1.payment_method)
+    |> Enum.max_by(fn {_method, count} -> count end, fn -> {nil, 0} end)
+    |> elem(0)
+  end
+
+  def primary_payment_method(_), do: nil
 end

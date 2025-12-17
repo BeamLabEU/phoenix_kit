@@ -126,14 +126,15 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
     user_id = if user_id == "", do: nil, else: String.to_integer(user_id)
     billing_profiles = if user_id, do: Billing.list_user_billing_profiles(user_id), else: []
 
-    # Auto-select default profile if available
+    # Auto-select default profile if available, otherwise select first profile
     default_profile = Enum.find(billing_profiles, & &1.is_default)
-    selected_profile_id = if default_profile, do: default_profile.id, else: nil
+    selected_profile = default_profile || List.first(billing_profiles)
+    selected_profile_id = if selected_profile, do: selected_profile.id, else: nil
 
-    # Get country tax info for default profile
+    # Get country tax info for selected profile
     {country_tax_rate, country_name, country_vat_percent} =
-      if default_profile do
-        get_country_tax_info(default_profile.country)
+      if selected_profile do
+        get_country_tax_info(selected_profile.country)
       else
         {nil, nil, nil}
       end
@@ -149,25 +150,17 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
   end
 
   @impl true
+  def handle_event(
+        "select_billing_profile",
+        %{"order" => %{"billing_profile_id" => profile_id}},
+        socket
+      ) do
+    handle_billing_profile_selection(profile_id, socket)
+  end
+
+  @impl true
   def handle_event("select_billing_profile", %{"profile_id" => profile_id}, socket) do
-    profile_id = if profile_id == "", do: nil, else: String.to_integer(profile_id)
-
-    {country_tax_rate, country_name, country_vat_percent} =
-      if profile_id do
-        case Billing.get_billing_profile(profile_id) do
-          nil -> {nil, nil, nil}
-          profile -> get_country_tax_info(profile.country)
-        end
-      else
-        {nil, nil, nil}
-      end
-
-    {:noreply,
-     socket
-     |> assign(:selected_billing_profile_id, profile_id)
-     |> assign(:country_tax_rate, country_tax_rate)
-     |> assign(:country_name, country_name)
-     |> assign(:country_vat_percent, country_vat_percent)}
+    handle_billing_profile_selection(profile_id, socket)
   end
 
   @impl true
@@ -272,6 +265,27 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.OrderForm do
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
     end
+  end
+
+  defp handle_billing_profile_selection(profile_id, socket) do
+    profile_id = if profile_id == "", do: nil, else: String.to_integer(profile_id)
+
+    {country_tax_rate, country_name, country_vat_percent} =
+      if profile_id do
+        case Billing.get_billing_profile(profile_id) do
+          nil -> {nil, nil, nil}
+          profile -> get_country_tax_info(profile.country)
+        end
+      else
+        {nil, nil, nil}
+      end
+
+    {:noreply,
+     socket
+     |> assign(:selected_billing_profile_id, profile_id)
+     |> assign(:country_tax_rate, country_tax_rate)
+     |> assign(:country_name, country_name)
+     |> assign(:country_vat_percent, country_vat_percent)}
   end
 
   defp parse_number(value, _default) when is_integer(value), do: value
