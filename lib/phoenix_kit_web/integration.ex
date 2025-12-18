@@ -409,6 +409,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
           live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
+          # DB Transfer Module
+          live "/admin/db-transfer", Live.Modules.DBTransfer.Index, :index
+          live "/admin/db-transfer/receive", Live.Modules.DBTransfer.Receiver, :receive
+          live "/admin/db-transfer/send", Live.Modules.DBTransfer.Sender, :send
+
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
           live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -613,6 +618,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
           live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
+          # DB Transfer Module
+          live "/admin/db-transfer", Live.Modules.DBTransfer.Index, :index
+          live "/admin/db-transfer/receive", Live.Modules.DBTransfer.Receiver, :receive
+          live "/admin/db-transfer/send", Live.Modules.DBTransfer.Sender, :send
+
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
           live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -735,6 +745,41 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate catch-all route for pages at root level (must be last)
       unquote(generate_pages_catch_all())
+    end
+  end
+
+  @doc """
+  Adds PhoenixKit sockets to your endpoint.
+
+  Call this macro in your endpoint.ex to enable PhoenixKit WebSocket features
+  like DB Transfer.
+
+  ## Usage
+
+  In your endpoint.ex:
+
+      defmodule MyAppWeb.Endpoint do
+        use Phoenix.Endpoint, otp_app: :my_app
+        import PhoenixKitWeb.Integration
+
+        # Add PhoenixKit sockets (for DB Transfer, etc.)
+        phoenix_kit_socket()
+
+        # ... rest of your endpoint config
+      end
+
+  This adds:
+  - `/db-transfer/websocket` endpoint for cross-site data transfer
+
+  ## Implementation Note
+
+  Uses WebSock directly (via Plug) instead of Phoenix.Socket/Channel to avoid
+  cross-OTP-app channel supervision issues. The WebSocket handler processes
+  JSON messages in Phoenix channel format for compatibility.
+  """
+  defmacro phoenix_kit_socket do
+    quote do
+      plug PhoenixKitWeb.Plugs.DBTransferSocketPlug
     end
   end
 

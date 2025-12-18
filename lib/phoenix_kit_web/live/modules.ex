@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
+  alias PhoenixKit.DBTransfer
   alias PhoenixKit.Entities
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
@@ -42,6 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     billing_config = Billing.get_config()
     posts_config = Posts.get_config()
     ai_config = AI.get_config()
+    db_transfer_config = DBTransfer.get_config()
 
     socket =
       socket
@@ -89,6 +91,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:posts_total, posts_config.total_posts)
       |> assign(:posts_published, posts_config.published_posts)
       |> assign(:posts_draft, posts_config.draft_posts)
+      |> assign(:db_transfer_enabled, db_transfer_config.enabled)
+      |> assign(:db_transfer_active_sessions, db_transfer_config.active_sessions)
 
     {:ok, socket}
   end
@@ -506,6 +510,40 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update posts module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_db_transfer", _params, socket) do
+    new_enabled = !socket.assigns.db_transfer_enabled
+
+    result =
+      if new_enabled do
+        DBTransfer.enable_system()
+      else
+        DBTransfer.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        db_transfer_config = DBTransfer.get_config()
+
+        socket =
+          socket
+          |> assign(:db_transfer_enabled, new_enabled)
+          |> assign(:db_transfer_active_sessions, db_transfer_config.active_sessions)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "DB Transfer module enabled",
+              else: "DB Transfer module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update DB Transfer module")
         {:noreply, socket}
     end
   end

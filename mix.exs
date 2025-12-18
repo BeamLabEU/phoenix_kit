@@ -116,6 +116,9 @@ defmodule PhoenixKit.MixProject do
       # Rate limiting (ETS backend is built into Hammer 6.x)
       {:hammer, "~> 7.1"},
 
+      # DB Transfer - WebSocket client for cross-site data transfer
+      {:websockex, "~> 0.4.3"},
+
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},
       {:ex_aws, "~> 2.4"},

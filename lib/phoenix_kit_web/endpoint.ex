@@ -13,6 +13,11 @@ defmodule PhoenixKitWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: false
 
+  # DB Transfer socket for cross-site data transfer
+  socket "/db-transfer", PhoenixKitWeb.DBTransferSocket,
+    websocket: [connect_info: [:peer_data, :x_headers]],
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   plug Plug.Static,
     at: "/",

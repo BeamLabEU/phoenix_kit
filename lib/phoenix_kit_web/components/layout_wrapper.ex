@@ -579,6 +579,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       />
                     <% end %>
 
+                    <%= if PhoenixKit.DBTransfer.enabled?() do %>
+                      <%!-- DB Transfer section --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/db-transfer")}
+                        icon="db_transfer"
+                        label={gettext("DB Transfer")}
+                        current_path={@current_path || ""}
+                      />
+                    <% end %>
+
                     <%= if PhoenixKit.Posts.enabled?() do %>
                       <%!-- Posts Section --%>
                       <.admin_nav_item

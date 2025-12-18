@@ -339,5 +339,6 @@ PhoenixKit includes several modules with their own detailed documentation:
 - **AI Module**: `lib/phoenix_kit_web/live/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
 - **Emails Module**: `lib/phoenix_kit_web/live/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
 - **Blogging Module**: `lib/phoenix_kit_web/live/modules/blogging/README.md` - Filesystem-based CMS with multi-language support
+- **DB Transfer Module**: `lib/phoenix_kit_web/live/modules/db_transfer/README.md` - Peer-to-peer data transfer between PhoenixKit instances with programmatic API
 
 See `CLAUDE.md` for comprehensive PhoenixKit documentation including architecture, configuration, and development guidelines.

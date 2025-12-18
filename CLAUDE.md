@@ -642,6 +642,8 @@ config :phoenix_kit,
 
 **Blogging module:** See `lib/phoenix_kit_web/live/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
 
+**DB Transfer module:** See `lib/phoenix_kit_web/live/modules/db_transfer/README.md` for peer-to-peer data transfer, programmatic API, conflict strategies, and remote operations.
+
 ### Migration Architecture
 
 - **PhoenixKit.Migrations.Postgres** - PostgreSQL-specific migrator with Oban-style versioning
