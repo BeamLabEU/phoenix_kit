@@ -1,3 +1,20 @@
+## 1.7.5 - 2025-12-18
+
+### Email System Improvements
+- **Oban-based SQS polling** - Replace GenServer with Oban Worker for AWS SES event processing
+  - Self-scheduling pattern for continuous queue polling
+  - Automatic retries and job persistence
+  - Graceful handling of application restarts
+- **SQSPollingManager API** - New management interface with enable/disable/status operations
+- **Improved reliability** - Better error handling and recovery for SQS message processing
+
+### Sitemap Improvements
+- **Auth route filtering** - Exclude routes requiring authentication from sitemap generation
+
+### Install/Update Improvements
+- **Oban config fix** - Regex patterns now correctly ignore commented-out config blocks
+- **SQS polling queue** - Automatically added to Oban configuration during install/update
+
 ## 1.7.4 - 2025-12-17
 
 ### Sitemap Improvements
