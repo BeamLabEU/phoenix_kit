@@ -447,8 +447,9 @@ defmodule PhoenixKit.Sitemap.Generator do
     xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
     xsl_line = build_xsl_reference(opts)
 
+    # XML declaration MUST be first, then XSL stylesheet PI, then content
     xml =
-      [xsl_line, @xml_declaration, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
+      [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
       |> Enum.reject(&(&1 == ""))
       |> Enum.join("\n")
 
@@ -529,10 +530,11 @@ defmodule PhoenixKit.Sitemap.Generator do
         """
       end)
 
+    # XML declaration MUST be first, then XSL stylesheet PI, then content
     index_xml =
       [
-        xsl_line,
         @xml_declaration,
+        xsl_line,
         @sitemapindex_open,
         Enum.join(sitemap_entries, "\n"),
         @sitemapindex_close

@@ -147,35 +147,42 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   end
 
   defp collect_entity_records(entity, base_url, language, is_default) do
-    url_pattern = get_url_pattern(entity)
-
-    # If no URL pattern found (no route, no settings) - use entity name as fallback
-    effective_pattern = url_pattern || get_fallback_pattern(entity)
-
-    if effective_pattern do
-      records = EntityData.published_records(entity.id)
-
-      if url_pattern do
-        Logger.debug(
-          "Sitemap: Entity '#{entity.name}' using URL pattern: #{url_pattern} (#{length(records)} published records)"
-        )
-      else
-        Logger.info(
-          "Sitemap: Entity '#{entity.name}' using fallback pattern: #{effective_pattern} (#{length(records)} published records)"
-        )
-      end
-
-      records
-      |> Enum.reject(&excluded?/1)
-      |> Enum.map(fn record ->
-        build_entry(record, entity, effective_pattern, base_url, language, is_default)
-      end)
-    else
-      Logger.warning(
-        "Sitemap: Entity '#{entity.name}' skipped - no URL pattern configured and fallback disabled"
-      )
+    # Skip entities whose routes require authentication
+    if entity_requires_auth?(entity) do
+      Logger.debug("Sitemap: Entity '#{entity.name}' skipped - routes require authentication")
 
       []
+    else
+      url_pattern = get_url_pattern(entity)
+
+      # If no URL pattern found (no route, no settings) - use entity name as fallback
+      effective_pattern = url_pattern || get_fallback_pattern(entity)
+
+      if effective_pattern do
+        records = EntityData.published_records(entity.id)
+
+        if url_pattern do
+          Logger.debug(
+            "Sitemap: Entity '#{entity.name}' using URL pattern: #{url_pattern} (#{length(records)} published records)"
+          )
+        else
+          Logger.info(
+            "Sitemap: Entity '#{entity.name}' using fallback pattern: #{effective_pattern} (#{length(records)} published records)"
+          )
+        end
+
+        records
+        |> Enum.reject(&excluded?/1)
+        |> Enum.map(fn record ->
+          build_entry(record, entity, effective_pattern, base_url, language, is_default)
+        end)
+      else
+        Logger.warning(
+          "Sitemap: Entity '#{entity.name}' skipped - no URL pattern configured and fallback disabled"
+        )
+
+        []
+      end
     end
   rescue
     error ->
@@ -364,5 +371,12 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     # Entity pages are public - no PhoenixKit prefix needed
     normalized_base = String.trim_trailing(base_url, "/")
     "#{normalized_base}#{path}"
+  end
+
+  # Check if entity routes require authentication
+  defp entity_requires_auth?(entity) do
+    RouteResolver.content_route_requires_auth?(:entity, entity.name)
+  rescue
+    _ -> false
   end
 end

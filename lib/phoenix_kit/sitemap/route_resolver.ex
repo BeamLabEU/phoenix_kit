@@ -414,4 +414,127 @@ defmodule PhoenixKit.Sitemap.RouteResolver do
 
   defp extract_path(nil), do: nil
   defp extract_path(route), do: route.path
+
+  @doc """
+  Checks if a route requires authentication based on its on_mount hooks.
+
+  Returns true if the route uses authentication-requiring on_mount hooks:
+  - `:phoenix_kit_ensure_authenticated_scope`
+  - `:phoenix_kit_ensure_admin`
+
+  ## Examples
+
+      route_requires_auth?(%{metadata: %{...}})
+      # => true/false
+
+      # Check by path pattern
+      route_requires_auth?("/posts")
+      # => true/false
+  """
+  @spec route_requires_auth?(map() | String.t()) :: boolean()
+  def route_requires_auth?(route) when is_map(route) do
+    on_mount_hooks = extract_on_mount_hooks(route)
+
+    Enum.any?(on_mount_hooks, fn hook ->
+      hook in [
+        :phoenix_kit_ensure_authenticated_scope,
+        :phoenix_kit_ensure_admin,
+        :ensure_authenticated,
+        :require_authenticated_user
+      ]
+    end)
+  end
+
+  def route_requires_auth?(path) when is_binary(path) do
+    get_routes()
+    |> Enum.find(fn route ->
+      route.verb == :get and routes_match?(route.path, path)
+    end)
+    |> case do
+      nil -> false
+      route -> route_requires_auth?(route)
+    end
+  end
+
+  @doc """
+  Checks if a content route (posts, entities, etc.) requires authentication.
+
+  ## Examples
+
+      content_route_requires_auth?(:posts)
+      # => false
+
+      content_route_requires_auth?(:entity, "product")
+      # => false
+  """
+  @spec content_route_requires_auth?(atom(), String.t() | nil) :: boolean()
+  def content_route_requires_auth?(type, name \\ nil)
+
+  def content_route_requires_auth?(:posts, _name) do
+    get_routes()
+    |> Enum.filter(fn route ->
+      route.verb == :get and
+        (String.contains?(route.path, ":slug") or String.contains?(route.path, ":id"))
+    end)
+    |> Enum.find(fn route ->
+      path_lower = String.downcase(route.path)
+      plug_name = to_string(route.plug) |> String.downcase()
+
+      String.contains?(path_lower, "/posts/") or
+        String.starts_with?(path_lower, "/posts/") or
+        (String.contains?(plug_name, "post") and not String.contains?(plug_name, "page"))
+    end)
+    |> case do
+      nil -> false
+      route -> route_requires_auth?(route)
+    end
+  end
+
+  def content_route_requires_auth?(:entity, entity_name) when is_binary(entity_name) do
+    case find_content_route(:entity, entity_name) do
+      nil ->
+        false
+
+      path ->
+        route_requires_auth?(path)
+    end
+  end
+
+  def content_route_requires_auth?(_, _), do: false
+
+  # Extract on_mount hooks from route metadata
+  defp extract_on_mount_hooks(route) do
+    case get_in(route.metadata, [:phoenix_live_view]) do
+      {_, _, _, %{extra: %{on_mount: on_mount}}} ->
+        Enum.map(on_mount, fn
+          %{id: {_mod, id}} -> id
+          {_mod, id} -> id
+          _ -> nil
+        end)
+        |> Enum.reject(&is_nil/1)
+
+      _ ->
+        []
+    end
+  rescue
+    _ -> []
+  end
+
+  # Check if route patterns match (handles :params and *wildcards)
+  defp routes_match?(pattern, path) do
+    pattern_parts = String.split(pattern, "/")
+    path_parts = String.split(path, "/")
+
+    if length(pattern_parts) != length(path_parts) do
+      false
+    else
+      Enum.zip(pattern_parts, path_parts)
+      |> Enum.all?(fn
+        {":" <> _, _} -> true
+        {"*" <> _, _} -> true
+        {same, same} -> true
+        _ -> false
+      end)
+    end
+  end
 end

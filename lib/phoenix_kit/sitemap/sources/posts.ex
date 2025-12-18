@@ -15,6 +15,13 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
   This source is enabled when:
   1. Posts module is enabled (`posts_enabled` setting)
   2. Public routes exist for posts in the parent router
+  3. Routes do NOT require authentication (checked via on_mount hooks)
+
+  Routes with the following on_mount hooks are considered private and excluded:
+  - `:phoenix_kit_ensure_authenticated_scope` - requires logged-in user
+  - `:phoenix_kit_ensure_admin` - requires admin access
+  - `:ensure_authenticated` - generic authentication requirement
+  - `:require_authenticated_user` - requires authenticated user
 
   ## Exclusion
 
@@ -47,7 +54,7 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
 
   @impl true
   def enabled? do
-    posts_module_enabled?() and has_public_routes?()
+    posts_module_enabled?() and has_public_routes?() and not requires_authentication?()
   rescue
     _ -> false
   end
@@ -81,6 +88,13 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
       nil -> false
       _ -> true
     end
+  rescue
+    _ -> false
+  end
+
+  defp requires_authentication? do
+    # Check if posts routes require authentication (admin-only or authenticated users)
+    RouteResolver.content_route_requires_auth?(:posts)
   rescue
     _ -> false
   end

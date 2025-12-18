@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Admin.{Events, Presence}
+  alias PhoenixKit.Migrations.Postgres, as: Migrations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.{Roles, Sessions}
@@ -33,6 +34,10 @@ defmodule PhoenixKitWeb.Live.Dashboard do
     # Get PhoenixKit version from application specification
     version = Application.spec(:phoenix_kit, :vsn) |> to_string()
 
+    # Get migration versions
+    migration_current = Migrations.current_version()
+    migration_db = Migrations.migrated_version_runtime(%{prefix: "public"})
+
     # Get project title from settings
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
@@ -49,6 +54,8 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       |> assign(:session_stats, session_stats)
       |> assign(:presence_stats, presence_stats)
       |> assign(:phoenix_kit_version, version)
+      |> assign(:migration_current, migration_current)
+      |> assign(:migration_db, migration_db)
       |> assign(:project_title, project_title)
       |> assign(:page_title, "Dashboard")
       |> assign(:cached_user_roles, user_roles)
