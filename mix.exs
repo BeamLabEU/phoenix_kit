@@ -136,7 +136,7 @@ defmodule PhoenixKit.MixProject do
       {:igniter, "~> 0.7"},
 
       # Language and country data
-      {:beamlab_countries, "~> 1.0.4"}
+      {:beamlab_countries, "~> 1.0.5"}
     ]
   end
 
