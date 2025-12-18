@@ -80,7 +80,8 @@ defmodule PhoenixKitWeb.AuthRouter do
 
       live "/settings/confirm_email/:token",
            PhoenixKitWeb.Live.Dashboard.Settings,
-           :confirm_email, as: :user_settings
+           :confirm_email,
+           as: :user_settings
     end
   end
 end

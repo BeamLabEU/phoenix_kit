@@ -261,7 +261,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
     # Delete orphaned sessions
     Enum.each(orphaned, &:ets.delete(@table_name, &1))
 
-    if length(orphaned) > 0 do
+    if orphaned != [] do
       Logger.debug("DBTransfer.SessionStore: Cleaned up #{length(orphaned)} orphaned sessions")
     end
   end

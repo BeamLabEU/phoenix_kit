@@ -153,19 +153,17 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
       Plug.Conn.get_req_header(conn, "x-forwarded-for")
       |> List.first()
 
-    cond do
-      forwarded_for ->
-        # Take the first IP in the chain (original client)
-        forwarded_for
-        |> String.split(",")
-        |> List.first()
-        |> String.trim()
-
-      true ->
-        # Fall back to direct connection IP
-        conn.remote_ip
-        |> :inet.ntoa()
-        |> to_string()
+    if forwarded_for do
+      # Take the first IP in the chain (original client)
+      forwarded_for
+      |> String.split(",")
+      |> List.first()
+      |> String.trim()
+    else
+      # Fall back to direct connection IP
+      conn.remote_ip
+      |> :inet.ntoa()
+      |> to_string()
     end
   end
 

@@ -758,7 +758,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
     # Queue import job for this batch
     socket =
-      if length(records) > 0 do
+      if records != [] do
         case queue_import_job(table, records, strategy, offset, schema: table_schema) do
           {:ok, _job} ->
             assign(socket, :transfer_progress, %{
@@ -807,7 +807,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
           })
 
         # Fetch next table if any
-        if length(tables_pending) > 0 do
+        if tables_pending != [] do
           fetch_next_table(socket)
         else
           # All tables fetched, transfer complete
@@ -839,7 +839,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
     # Continue with next table
     socket =
-      if length(tables_pending) > 0 do
+      if tables_pending != [] do
         fetch_next_table(socket)
       else
         complete_transfer(socket)

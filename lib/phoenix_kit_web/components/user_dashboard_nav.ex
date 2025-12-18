@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Utils.Routes
 
   @doc """
   Renders user dropdown for dashboard navigation.
@@ -165,8 +166,8 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   defp get_user_languages do
     # Get enabled languages from the Languages module
     languages =
-      if PhoenixKit.Modules.Languages.enabled?() do
-        PhoenixKit.Modules.Languages.get_enabled_languages()
+      if Languages.enabled?() do
+        Languages.get_enabled_languages()
       else
         # Fallback to English when module is disabled
         [%{"code" => "en-US", "name" => "English (United States)", "is_enabled" => true}]
@@ -257,7 +258,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       |> remove_locale_from_path()
 
     # Generate new path with the new locale
-    PhoenixKit.Utils.Routes.path(clean_path, locale: base_code)
+    Routes.path(clean_path, locale: base_code)
   end
 
   # Remove locale from path
