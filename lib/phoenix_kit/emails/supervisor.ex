@@ -55,6 +55,7 @@ defmodule PhoenixKit.Emails.Supervisor do
 
   use Supervisor
 
+  alias PhoenixKit.Emails.SQSPollingManager
   alias PhoenixKit.Emails.SQSWorker
 
   @doc """
@@ -76,6 +77,9 @@ defmodule PhoenixKit.Emails.Supervisor do
   @doc false
   def init(_opts) do
     children = build_children()
+
+    # Start initial SQS polling job if enabled
+    start_initial_sqs_polling_job()
 
     # Use :one_for_one strategy - if one process crashes,
     # only that one is restarted
@@ -236,5 +240,53 @@ defmodule PhoenixKit.Emails.Supervisor do
       # 10 seconds for graceful shutdown
       shutdown: 10_000
     }
+  end
+
+  # Start initial SQS polling job if enabled
+  # Uses spawn to defer job creation until Oban is ready
+  defp start_initial_sqs_polling_job do
+    if should_start_oban_polling?() do
+      # Spawn a process that waits for Oban to be ready before creating the job
+      spawn(fn ->
+        require Logger
+
+        # Wait for Oban to start (max 10 attempts with 500ms delay)
+        wait_for_oban(10, 500)
+
+        Logger.info("Email Supervisor: Starting initial SQS polling job via Oban")
+
+        case SQSPollingManager.enable_polling() do
+          {:ok, job} ->
+            Logger.info("Email Supervisor: Initial SQS polling job started", %{job_id: job.id})
+
+          {:error, reason} ->
+            Logger.warning("Email Supervisor: Failed to start initial SQS polling job", %{
+              reason: inspect(reason)
+            })
+        end
+      end)
+    end
+  end
+
+  # Wait for Oban to be available
+  defp wait_for_oban(0, _delay), do: :timeout
+
+  defp wait_for_oban(attempts, delay) do
+    case Oban.Registry.config(Oban) do
+      %Oban.Config{} ->
+        :ok
+    end
+  catch
+    _, _ ->
+      Process.sleep(delay)
+      wait_for_oban(attempts - 1, delay)
+  end
+
+  # Check if Oban-based polling should start
+  defp should_start_oban_polling? do
+    PhoenixKit.Emails.enabled?() &&
+      PhoenixKit.Emails.ses_events_enabled?() &&
+      PhoenixKit.Emails.sqs_polling_enabled?() &&
+      has_sqs_configuration?()
   end
 end
