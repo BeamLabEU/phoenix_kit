@@ -1326,15 +1326,13 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       config_exists = ObanConfig.oban_config_exists?(igniter)
       supervisor_exists = ObanConfig.oban_supervisor_exists?(igniter)
 
+      # Always call add_oban_configuration - it handles both:
+      # - Adding new configuration if missing
+      # - Updating existing configuration with new queues (posts, sitemap, sqs_polling)
       igniter =
-        if config_exists do
-          igniter
-        else
-          # Configuration missing, add it
-          igniter
-          |> ObanConfig.add_oban_configuration()
-          |> add_oban_config_added_notice()
-        end
+        igniter
+        |> ObanConfig.add_oban_configuration()
+        |> maybe_add_oban_config_notice(config_exists)
 
       # Check and add supervisor separately
       if supervisor_exists do
@@ -1346,12 +1344,34 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       end
     end
 
+    # Add appropriate notice based on whether config existed
+    defp maybe_add_oban_config_notice(igniter, config_existed) do
+      if config_existed do
+        # Config existed, might have been updated with new queues
+        add_oban_config_updated_notice(igniter)
+      else
+        # Config was newly added
+        add_oban_config_added_notice(igniter)
+      end
+    end
+
     # Add notice about Oban configuration being added
     defp add_oban_config_added_notice(igniter) do
       notice = """
       ⚠️  Added missing Oban configuration to config.exs
          IMPORTANT: Restart your server if it's currently running.
          Without Oban, the storage system cannot process uploaded files.
+      """
+
+      Igniter.add_notice(igniter, String.trim(notice))
+    end
+
+    # Add notice about Oban configuration being updated with new queues
+    defp add_oban_config_updated_notice(igniter) do
+      notice = """
+      ⚙️  Oban configuration verified/updated in config.exs
+         New queues may have been added: posts, sitemap, sqs_polling
+         IMPORTANT: If your server is running, restart it to apply changes.
       """
 
       Igniter.add_notice(igniter, String.trim(notice))

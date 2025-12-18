@@ -15,6 +15,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, update_existing_oban_config: 3}
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
+  @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
 
@@ -101,7 +102,8 @@ defmodule PhoenixKit.Install.ObanConfig do
         emails: 50,            # Email processing
         file_processing: 20,   # File variant generation (storage system)
         posts: 10,             # Posts scheduled publishing
-        sitemap: 5             # Sitemap generation
+        sitemap: 5,            # Sitemap generation
+        sqs_polling: 1         # SQS polling for email events (only one concurrent job)
       ],
       plugins: [
         Oban.Plugins.Pruner,   # Automatic cleanup of completed jobs
@@ -145,7 +147,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Update existing Oban configuration to add posts/sitemap queues and cron plugin
+  # Update existing Oban configuration to add posts/sitemap/sqs_polling queues and cron plugin
   defp update_existing_oban_config(source, content, app_name) do
     Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
 
@@ -153,14 +155,17 @@ defmodule PhoenixKit.Install.ObanConfig do
       content
       |> ensure_posts_queue(app_name)
       |> ensure_sitemap_queue(app_name)
+      |> ensure_sqs_polling_queue(app_name)
       |> ensure_cron_plugin(app_name)
 
     if updated_content == content do
       Mix.shell().info(
-        "✅ Oban configuration already up-to-date (posts/sitemap queues and cron plugin present)"
+        "✅ Oban configuration already up-to-date (posts/sitemap/sqs_polling queues and cron plugin present)"
       )
     else
-      Mix.shell().info("✅ Updated Oban configuration with posts and sitemap support")
+      Mix.shell().info(
+        "✅ Updated Oban configuration with posts, sitemap, and sqs_polling support"
+      )
     end
 
     Rewrite.Source.update(source, :content, updated_content)
@@ -175,11 +180,10 @@ defmodule PhoenixKit.Install.ObanConfig do
     else
       Mix.shell().info("  ➕ Adding posts queue to Oban configuration...")
 
-      # Find the queues configuration for this app's Oban config
-      # Pattern matches: queues: [...] within the Oban config block
-      # Improved regex to handle comments and whitespace
+      # Find the ACTIVE queues configuration (not commented out)
+      # Pattern: line starts with 'config' (not #), then matches queues block
       case Regex.run(
-             ~r/(config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/s,
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
              content,
              capture: :all
            ) do
@@ -222,9 +226,9 @@ defmodule PhoenixKit.Install.ObanConfig do
     else
       Mix.shell().info("  ➕ Adding sitemap queue to Oban configuration...")
 
-      # Find the queues configuration for this app's Oban config
+      # Find the ACTIVE queues configuration (not commented out)
       case Regex.run(
-             ~r/(config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/s,
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
              content,
              capture: :all
            ) do
@@ -253,6 +257,51 @@ defmodule PhoenixKit.Install.ObanConfig do
           )
 
           Mix.shell().error("     Please manually add: sitemap: 5")
+          content
+      end
+    end
+  end
+
+  # Ensure sqs_polling queue exists in the queues list
+  defp ensure_sqs_polling_queue(content, app_name) do
+    # Check if sqs_polling queue already exists
+    if Regex.match?(~r/sqs_polling:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  SQS polling queue already configured")
+      content
+    else
+      Mix.shell().info("  ➕ Adding sqs_polling queue to Oban configuration...")
+
+      # Find the ACTIVE queues configuration (not commented out)
+      case Regex.run(
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
+             content,
+             capture: :all
+           ) do
+        [full_match, before_queues, queues_content, after_queues] ->
+          Mix.shell().info("  ✓ Found queues block, adding sqs_polling queue")
+
+          # Remove trailing whitespace and check for comma
+          trimmed_content = String.trim_trailing(queues_content)
+          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+          # Add sqs_polling queue with proper formatting
+          new_queue_entry =
+            if has_trailing_comma do
+              "\n    sqs_polling: 1         # SQS polling for email events"
+            else
+              ",\n    sqs_polling: 1         # SQS polling for email events"
+            end
+
+          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
+
+          String.replace(content, full_match, updated_queues, global: false)
+
+        nil ->
+          Mix.shell().error(
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping sqs_polling queue update"
+          )
+
+          Mix.shell().error("     Please manually add: sqs_polling: 1")
           content
       end
     end
@@ -304,29 +353,29 @@ defmodule PhoenixKit.Install.ObanConfig do
 
   # Add Cron plugin to plugins list
   defp add_cron_plugin_to_plugins(content, app_name) do
-    # Find the plugins configuration
-    # Improved regex to handle comments and whitespace better
+    # Find the ACTIVE plugins block - must not be commented out
+    # Pattern: line starts with spaces (not #), then plugins: [
     case Regex.run(
-           ~r/(config\s+:#{app_name},\s+Oban.*?plugins:\s*\[)(.*?)(\n\s*\])/s,
+           ~r/(^[ \t]+plugins:\s*\[\n)(.*?)(\n[ \t]+\])/ms,
            content,
            capture: :all
          ) do
-      [full_match, before_plugins, plugins_content, after_plugins] ->
+      [full_match, plugins_open, plugins_content, plugins_close] ->
         Mix.shell().info("  ✓ Found plugins block, adding Cron plugin")
 
-        # Remove trailing whitespace and check for comma
-        trimmed_content = String.trim_trailing(plugins_content)
+        # Check if content ends with comma
+        trimmed_content = String.trim(plugins_content)
         has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-        # Add cron plugin with proper formatting
-        new_plugin_entry =
+        # Add cron plugin with proper formatting (matching existing indentation)
+        cron_plugin =
           if has_trailing_comma do
             "\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
           else
             ",\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
           end
 
-        updated_plugins = before_plugins <> plugins_content <> new_plugin_entry <> after_plugins
+        updated_plugins = plugins_open <> plugins_content <> cron_plugin <> plugins_close
 
         String.replace(content, full_match, updated_plugins, global: false)
 
@@ -455,12 +504,20 @@ defmodule PhoenixKit.Install.ObanConfig do
     if oban_config_exists?(igniter) do
       Igniter.add_notice(
         igniter,
-        "⚙️  Oban configured for background jobs (file processing, emails, sitemap)"
+        """
+        ⚙️  Oban configured for background jobs (file processing, emails, sitemap, sqs_polling)
+           If queues were added/updated, restart your server to apply changes.
+        """
+        |> String.trim()
       )
     else
       Igniter.add_notice(
         igniter,
-        "⚠️  Oban configuration added - restart your server if running"
+        """
+        ⚠️  Oban configuration added to config.exs
+           IMPORTANT: Restart your server to apply configuration changes.
+        """
+        |> String.trim()
       )
     end
   end
@@ -551,7 +608,8 @@ defmodule PhoenixKit.Install.ObanConfig do
           emails: 50,
           file_processing: 20,
           posts: 10,
-          sitemap: 5
+          sitemap: 5,
+          sqs_polling: 1
         ],
         plugins: [
           Oban.Plugins.Pruner,
@@ -565,9 +623,11 @@ defmodule PhoenixKit.Install.ObanConfig do
 
       {Oban, Application.get_env(:#{app_name}, Oban)}
 
+    IMPORTANT: Restart your server after making these changes.
+
     Without this configuration, the storage system cannot process uploaded files,
-    scheduled posts will not be published automatically, and sitemap generation
-    will not work asynchronously.
+    scheduled posts will not be published automatically, sitemap generation
+    will not work asynchronously, and SQS polling for email events will not function.
     """
 
     Igniter.add_notice(igniter, notice)

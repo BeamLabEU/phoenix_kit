@@ -2,8 +2,36 @@ defmodule PhoenixKit.Emails.SQSWorker do
   @moduledoc """
   SQS Worker for processing email events from AWS SQS Queue.
 
-  This GenServer continuously polls the SQS queue, receives events from AWS SES
-  through SNS, processes them and updates email statuses in the database.
+  ## ⚠️ DEPRECATION NOTICE
+
+  This GenServer-based worker is deprecated in favor of the Oban-based approach.
+  For new installations, use `PhoenixKit.Emails.SQSPollingManager` instead.
+
+  The GenServer approach has been replaced with Oban jobs to allow:
+  - Dynamic enabling/disabling without application restart
+  - Better job monitoring and failure tracking
+  - Automatic retries via Oban's built-in retry mechanism
+  - Integration with existing Oban infrastructure
+
+  ## Migration Path
+
+  If you're currently using SQSWorker, you can migrate to the new approach:
+
+      # Old approach (GenServer)
+      PhoenixKit.Emails.SQSWorker.status()
+      PhoenixKit.Emails.SQSWorker.pause()
+      PhoenixKit.Emails.SQSWorker.resume()
+
+      # New approach (Oban-based)
+      PhoenixKit.Emails.SQSPollingManager.status()
+      PhoenixKit.Emails.SQSPollingManager.disable_polling()
+      PhoenixKit.Emails.SQSPollingManager.enable_polling()
+
+  ## Backward Compatibility
+
+  This module maintains backward compatibility by delegating to SQSPollingManager
+  where appropriate. The GenServer will still work but is not recommended for
+  new installations.
 
   ## Architecture
 
@@ -11,64 +39,34 @@ defmodule PhoenixKit.Emails.SQSWorker do
   AWS SES → SNS Topic → SQS Queue → SQS Worker → Database
   ```
 
-  ## Features
-
-  - **Long Polling**: Efficient message retrieval with long polling
-  - **Batch Processing**: Process up to 10 messages at a time
-  - **Error Handling**: Retry logic with Dead Letter Queue
-  - **Graceful Shutdown**: Proper work completion on shutdown
-  - **Metrics**: Processing metrics collection for monitoring
-  - **Backpressure**: Load control through visibility timeout
-  - **Dynamic Configuration**: Automatically responds to settings changes without restart
-
   ## Configuration
 
   All settings are retrieved from PhoenixKit Settings and checked dynamically:
 
-  - `email_ses_events` - master switch for AWS SES events processing (checked before each cycle)
-  - `sqs_polling_enabled` - enable/disable polling (checked before each cycle)
+  - `email_ses_events` - master switch for AWS SES events processing
+  - `sqs_polling_enabled` - enable/disable polling
   - `sqs_polling_interval_ms` - interval between polling cycles
   - `sqs_max_messages_per_poll` - maximum messages per batch
-  - `sqs_visibility_timeout` - time for message processing
   - `aws_sqs_queue_url` - SQS queue URL
   - `aws_region` - AWS region
 
-  **Note**: When `email_ses_events` or `sqs_polling_enabled` is changed in settings,
-  the worker will automatically stop or resume polling without requiring a restart.
-  Status checks occur every 30 seconds when polling is disabled to detect re-enablement.
+  ## Usage (Legacy)
 
-  ## Security
-
-  - Uses AWS IAM for SQS access
-  - Automatic deletion of processed messages
-  - Retry mechanism for failed messages
-  - Dead Letter Queue for problematic messages
-
-  ## Usage
-
-      # In supervision tree
+      # In supervision tree (deprecated)
       {PhoenixKit.Emails.SQSWorker, []}
 
-      # Worker management
+      # Worker management (delegates to new API)
       PhoenixKit.Emails.SQSWorker.status()
       PhoenixKit.Emails.SQSWorker.process_now()
       PhoenixKit.Emails.SQSWorker.pause()
       PhoenixKit.Emails.SQSWorker.resume()
-
-  ## Monitoring
-
-  Worker provides metrics for monitoring:
-
-  - Number of processed messages
-  - Number of processing errors
-  - Last polling time
-  - Average processing speed
 
   """
 
   use GenServer
   require Logger
 
+  alias PhoenixKit.Emails.SQSPollingManager
   alias PhoenixKit.Emails.SQSProcessor
 
   # 20 seconds
@@ -95,6 +93,8 @@ defmodule PhoenixKit.Emails.SQSWorker do
   @doc """
   Returns the current status of the worker process.
 
+  **Note**: This function now delegates to SQSPollingManager for consistency.
+
   ## Examples
 
       iex> PhoenixKit.Emails.SQSWorker.status()
@@ -108,47 +108,90 @@ defmodule PhoenixKit.Emails.SQSWorker do
       }
   """
   def status(worker \\ __MODULE__) do
+    # Try new API first, fallback to GenServer if needed
+    case get_status_from_manager() do
+      {:ok, status} -> status
+      :error -> get_status_from_genserver(worker)
+    end
+  end
+
+  defp get_status_from_manager do
+    {:ok, SQSPollingManager.status()}
+  catch
+    _, _ -> :error
+  end
+
+  defp get_status_from_genserver(worker) do
     GenServer.call(worker, :status)
+  catch
+    _, _ ->
+      %{
+        error: "Worker not responding",
+        message: "Consider using PhoenixKit.Emails.SQSPollingManager.status() instead"
+      }
   end
 
   @doc """
   Forces a polling cycle to start immediately.
 
-  Useful for testing or when you need to process messages without waiting.
+  **Note**: This function now delegates to SQSPollingManager.
 
   ## Examples
 
       iex> PhoenixKit.Emails.SQSWorker.process_now()
       :ok
   """
-  def process_now(worker \\ __MODULE__) do
-    GenServer.cast(worker, :process_now)
+  def process_now(_worker \\ __MODULE__) do
+    Logger.info(
+      "SQSWorker.process_now/1 is deprecated - delegating to SQSPollingManager.poll_now/0"
+    )
+
+    case SQSPollingManager.poll_now() do
+      {:ok, _job} -> :ok
+      {:error, _reason} -> :ok
+    end
   end
 
   @doc """
   Pauses polling (temporarily).
 
-  Worker will continue to run but will not poll the SQS queue.
+  **Note**: This function now delegates to SQSPollingManager.
 
   ## Examples
 
       iex> PhoenixKit.Emails.SQSWorker.pause()
       :ok
   """
-  def pause(worker \\ __MODULE__) do
-    GenServer.cast(worker, :pause)
+  def pause(_worker \\ __MODULE__) do
+    Logger.info(
+      "SQSWorker.pause/1 is deprecated - delegating to SQSPollingManager.disable_polling/0"
+    )
+
+    case SQSPollingManager.disable_polling() do
+      :ok -> :ok
+      {:error, _reason} -> :ok
+    end
   end
 
   @doc """
   Resumes polling after pause.
+
+  **Note**: This function now delegates to SQSPollingManager.
 
   ## Examples
 
       iex> PhoenixKit.Emails.SQSWorker.resume()
       :ok
   """
-  def resume(worker \\ __MODULE__) do
-    GenServer.cast(worker, :resume)
+  def resume(_worker \\ __MODULE__) do
+    Logger.info(
+      "SQSWorker.resume/1 is deprecated - delegating to SQSPollingManager.enable_polling/0"
+    )
+
+    case SQSPollingManager.enable_polling() do
+      {:ok, _job} -> :ok
+      {:error, _reason} -> :ok
+    end
   end
 
   @doc """
