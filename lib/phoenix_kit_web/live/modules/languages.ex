@@ -196,7 +196,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
       |> Enum.filter(& &1["is_enabled"])
       |> Enum.map(& &1["code"])
 
-    Settings.update_setting("admin_languages", Jason.encode!(enabled_codes))
+    Settings.update_json_setting("admin_languages", enabled_codes)
   end
 
   # Helper function to generate the language switcher code based on current settings
@@ -234,10 +234,10 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     Enum.count(languages, fn lang -> lang.code in enabled_codes end)
   end
 
-  # Count enabled languages across all countries in a continent
-  defp count_enabled_in_continent(countries, enabled_codes) do
-    Enum.reduce(countries, 0, fn {_country, _flag, languages}, acc ->
-      acc + count_enabled(languages, enabled_codes)
+  # Count countries in a continent that have ALL their languages enabled (covered)
+  defp count_covered_countries_in_continent(countries, enabled_codes) do
+    Enum.count(countries, fn {_country, _flag, languages} ->
+      languages != [] and Enum.all?(languages, fn lang -> lang.code in enabled_codes end)
     end)
   end
 

@@ -380,8 +380,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     {:cont, mount_phoenix_kit_current_user(socket, session)}
   end
 
-  def on_mount(:phoenix_kit_mount_current_scope, _params, session, socket) do
-    socket = mount_phoenix_kit_current_scope(socket, session)
+  def on_mount(:phoenix_kit_mount_current_scope, params, session, socket) do
+    socket = mount_phoenix_kit_current_scope(socket, session, params)
     socket = check_maintenance_mode(socket)
     socket = attach_locale_hook(socket)
     {:cont, socket}
@@ -415,8 +415,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  def on_mount(:phoenix_kit_ensure_authenticated_scope, _params, session, socket) do
-    socket = mount_phoenix_kit_current_scope(socket, session)
+  def on_mount(:phoenix_kit_ensure_authenticated_scope, params, session, socket) do
+    socket = mount_phoenix_kit_current_scope(socket, session, params)
     socket = check_maintenance_mode(socket)
     socket = attach_locale_hook(socket)
     scope = socket.assigns.phoenix_kit_current_scope
@@ -506,8 +506,8 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  def on_mount(:phoenix_kit_ensure_admin, _params, session, socket) do
-    socket = mount_phoenix_kit_current_scope(socket, session)
+  def on_mount(:phoenix_kit_ensure_admin, params, session, socket) do
+    socket = mount_phoenix_kit_current_scope(socket, session, params)
     socket = check_maintenance_mode(socket)
     scope = socket.assigns.phoenix_kit_current_scope
 
@@ -585,12 +585,53 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   defp save_user_locale_preference(_assigns, _locale), do: :ok
 
-  defp set_routing_info(_params, url, socket) do
+  defp set_routing_info(params, url, socket) do
     %{path: path} = URI.parse(url)
 
-    socket = Phoenix.Component.assign(socket, :url_path, path)
+    socket =
+      socket
+      |> Phoenix.Component.assign(:url_path, path)
+      |> maybe_update_locale_from_params(params)
 
     {:cont, socket}
+  end
+
+  # Update locale assigns when navigating to a URL with a locale param
+  defp maybe_update_locale_from_params(socket, %{"locale" => locale}) when is_binary(locale) do
+    # Only update if locale actually changed
+    current_base = socket.assigns[:current_locale_base]
+
+    if current_base != locale and DialectMapper.valid_base_code?(locale) do
+      user = socket.assigns[:phoenix_kit_current_user]
+      full_dialect = DialectMapper.resolve_dialect(locale, user)
+
+      # Update Gettext locale
+      Gettext.put_locale(PhoenixKitWeb.Gettext, full_dialect)
+
+      socket
+      |> Phoenix.Component.assign(:current_locale_base, locale)
+      |> Phoenix.Component.assign(:current_locale, full_dialect)
+    else
+      socket
+    end
+  end
+
+  # No locale in params - check if we need to set default
+  defp maybe_update_locale_from_params(socket, _params) do
+    # If current_locale_base is nil, set to default
+    if socket.assigns[:current_locale_base] == nil do
+      default_base = Routes.get_default_admin_locale()
+      user = socket.assigns[:phoenix_kit_current_user]
+      default_dialect = DialectMapper.resolve_dialect(default_base, user)
+
+      Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+
+      socket
+      |> Phoenix.Component.assign(:current_locale_base, default_base)
+      |> Phoenix.Component.assign(:current_locale, default_dialect)
+    else
+      socket
+    end
   end
 
   defp mount_phoenix_kit_current_user(socket, session) do
@@ -615,7 +656,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     Auth.ensure_active_user(user)
   end
 
-  defp mount_phoenix_kit_current_scope(socket, session) do
+  defp mount_phoenix_kit_current_scope(socket, session, params \\ %{}) do
     socket =
       socket
       |> mount_phoenix_kit_current_user(session)
@@ -624,15 +665,21 @@ defmodule PhoenixKitWeb.Users.Auth do
     user = socket.assigns.phoenix_kit_current_user
     scope = Scope.for_user(user)
 
-    # Get locale values from session (stored by plug) or process dictionary or compute defaults
+    # Get locale from params (URL path) first, then session, then defaults
+    # This ensures locale from URL takes precedence during initial mount
     current_locale_base =
-      session["phoenix_kit_locale_base"] ||
+      case params do
+        %{"locale" => locale} when is_binary(locale) and locale != "" ->
+          if DialectMapper.valid_base_code?(locale), do: locale, else: nil
+
+        _ ->
+          nil
+      end ||
+        session["phoenix_kit_locale_base"] ||
         Process.get(:phoenix_kit_current_locale_base) ||
         Routes.get_default_admin_locale()
 
-    current_locale =
-      Process.get(:phoenix_kit_current_locale) ||
-        DialectMapper.resolve_dialect(current_locale_base, user)
+    current_locale = DialectMapper.resolve_dialect(current_locale_base, user)
 
     # Set Gettext locale for translations
     Gettext.put_locale(PhoenixKitWeb.Gettext, current_locale)

@@ -65,17 +65,17 @@ defmodule PhoenixKit.Utils.Routes do
     if mix_task_context?() do
       "en"
     else
-      case PhoenixKit.Settings.get_setting("admin_languages") do
+      case PhoenixKit.Settings.get_json_setting("admin_languages") do
         nil ->
           # No setting exists, default is "en"
           "en"
 
-        json when is_binary(json) ->
-          case Jason.decode(json) do
-            # Extract base code from full dialect (e.g., "en-US" -> "en")
-            {:ok, [first | _]} -> DialectMapper.extract_base(first)
-            _ -> "en"
-          end
+        [first | _] ->
+          # Extract base code from full dialect (e.g., "en-US" -> "en")
+          DialectMapper.extract_base(first)
+
+        _ ->
+          "en"
       end
     end
   end
