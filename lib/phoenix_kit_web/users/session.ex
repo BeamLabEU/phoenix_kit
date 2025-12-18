@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Users.Session do
 
   def create(conn, %{"_action" => "password_updated"} = params) do
     conn
-    |> put_session(:user_return_to, Routes.path("/users/settings"))
+    |> put_session(:user_return_to, Routes.path("/dashboard/settings"))
     |> create(params, "Password updated successfully!")
   end
 

@@ -1,0 +1,161 @@
+<%!--
+  PhoenixKit User Dashboard Layout
+
+  This layout is specifically designed for authenticated user dashboard pages.
+  It provides a clean interface for regular users to view their profile and activities.
+  Note: This layout does NOT use LayoutWrapper.app_layout as that's for admin pages only.
+--%>
+<% project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit") %> <!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
+    <.live_title default={"#{project_title} Dashboard"}>
+      {assigns[:page_title] || "Dashboard"}
+    </.live_title>
+    <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+  </head>
+  <body class="bg-base-100 antialiased">
+    <div class="min-h-screen bg-base-100">
+      <%!-- User Dashboard Header (matching admin style) --%>
+      <header class="bg-base-100 shadow-sm border-b border-base-300 fixed top-0 left-0 right-0 z-50">
+        <div class="flex items-center justify-between h-16 px-4">
+          <%!-- Left: Logo and Title --%>
+          <div class="flex items-center gap-3">
+            <!-- Logo and Title Link to Main Page -->
+            <.link
+              navigate="/"
+              class="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                <.icon name="hero-home" class="w-5 h-5 text-primary-content" />
+              </div>
+              <!-- Title -->
+              <span class="font-bold text-base-content">
+                {gettext("%{project_title} Dashboard", project_title: project_title)}
+              </span>
+            </.link>
+          </div>
+          
+<!-- Right: User Dropdown -->
+          <div class="flex items-center gap-3">
+            <!-- User Dropdown -->
+            <PhoenixKitWeb.Components.UserDashboardNav.user_dropdown
+              scope={assigns[:phoenix_kit_current_scope]}
+              current_path={assigns[:url_path] || "/dashboard"}
+              current_locale={assigns[:current_locale]}
+            />
+          </div>
+        </div>
+      </header>
+      
+<!-- Main Content Area with top padding for fixed header -->
+      <div class="pt-16">
+        <div class="flex">
+          <!-- Left Sidebar Navigation -->
+          <aside class="w-64 min-h-screen bg-base-100 border-r border-base-300 hidden lg:block">
+            <div class="p-4">
+              <nav class="space-y-2">
+                <!-- Dashboard Link -->
+                <%= if String.ends_with?(assigns[:url_path] || "/dashboard", "/dashboard") do %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
+                  >
+                    <.icon name="hero-home" class="w-5 h-5 mr-3" /> {gettext("Dashboard")}
+                  </.link>
+                <% else %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                  >
+                    <.icon name="hero-home" class="w-5 h-5 mr-3" /> {gettext("Dashboard")}
+                  </.link>
+                <% end %>
+                
+<!-- Settings Link -->
+                <%= if String.contains?(assigns[:url_path] || "", "/dashboard/settings") do %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="w-5 h-5 mr-3" /> {gettext("Settings")}
+                  </.link>
+                <% else %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="w-5 h-5 mr-3" /> {gettext("Settings")}
+                  </.link>
+                <% end %>
+              </nav>
+            </div>
+          </aside>
+          
+<!-- Mobile Menu Button -->
+          <div class="lg:hidden fixed bottom-4 right-4 z-50">
+            <div class="dropdown dropdown-top dropdown-end">
+              <label tabindex="0" class="btn btn-primary btn-circle">
+                <.icon name="hero-bars-3" class="w-5 h-5" />
+              </label>
+              <ul
+                tabindex="0"
+                class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
+              >
+                <li>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center gap-2"
+                  >
+                    <.icon name="hero-home" class="w-4 h-4" /> {gettext("Dashboard")}
+                  </.link>
+                </li>
+                <li>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center gap-2"
+                  >
+                    <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> {gettext("Settings")}
+                  </.link>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+<!-- Main Content -->
+          <main class="flex-1 px-4 py-8">
+            <div class="max-w-6xl mx-auto">
+              {render_slot(@inner_block)}
+            </div>
+          </main>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

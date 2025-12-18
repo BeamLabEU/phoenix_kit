@@ -46,8 +46,12 @@ defmodule PhoenixKitWeb.Integration do
 
   Authentication routes:
   - /users/register, /users/log-in, /users/magic-link
-  - /users/settings, /users/reset-password, /users/confirm
+  - /users/reset-password, /users/confirm
   - /users/log-out (GET/DELETE)
+
+  User dashboard routes (if enabled, default: true):
+  - /dashboard, /dashboard/settings
+  - /dashboard/settings/confirm-email/:token
 
   Admin routes (Owner/Admin only):
   - /admin/dashboard, /admin/users, /admin/users/roles
@@ -60,6 +64,16 @@ defmodule PhoenixKitWeb.Integration do
   - Both routes serve published pages from priv/static/pages/*.md
   - The catch-all can optionally serve a custom 404 markdown file when enabled
   - Example: /test or /phoenix_kit/pages/test renders test.md
+
+  ## Configuration
+
+  You can disable the user dashboard by setting the environment variable in your config:
+
+      # config/dev.exs or config/runtime.exs
+      config :phoenix_kit, user_dashboard_enabled: false
+
+  This will disable all dashboard routes (/dashboard/*). Users trying to access
+  the dashboard will get a 404 error.
 
   ## DaisyUI Setup
 
@@ -280,14 +294,6 @@ defmodule PhoenixKitWeb.Integration do
             as: :user_confirmation_instructions
         end
 
-        live_session :phoenix_kit_require_authenticated_user_locale,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/users/settings", Users.Settings, :edit, as: :user_settings
-
-          live "/users/settings/confirm-email/:token", Users.Settings, :confirm_email,
-            as: :user_settings_confirm_email
-        end
-
         live_session :phoenix_kit_admin_locale,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/dashboard", Live.Dashboard, :index
@@ -432,6 +438,18 @@ defmodule PhoenixKitWeb.Integration do
           # live "/admin/pages/view", Live.Modules.Pages.View, :view
           # live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
         end
+
+        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
+          live_session :phoenix_kit_user_dashboard_locale,
+            on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+            live "/dashboard", Live.Dashboard.Index, :index
+            live "/dashboard/settings", Live.Dashboard.Settings, :edit
+
+            live "/dashboard/settings/confirm-email/:token",
+                 Live.Dashboard.Settings,
+                 :confirm_email
+          end
+        end
       end
     end
   end
@@ -470,13 +488,7 @@ defmodule PhoenixKitWeb.Integration do
             as: :user_confirmation_instructions
         end
 
-        live_session :phoenix_kit_require_authenticated_user,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
-          live "/users/settings", Users.Settings, :edit, as: :user_settings
-
-          live "/users/settings/confirm-email/:token", Users.Settings, :confirm_email,
-            as: :user_settings_confirm_email
-        end
+        # Dashboard routes are now in phoenix_kit_user_dashboard session
 
         live_session :phoenix_kit_admin,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
@@ -629,6 +641,18 @@ defmodule PhoenixKitWeb.Integration do
           # live "/admin/pages", Live.Modules.Pages.Pages, :index
           # live "/admin/pages/view", Live.Modules.Pages.View, :view
           # live "/admin/pages/edit", Live.Modules.Pages.Editor, :edit
+        end
+
+        if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
+          live_session :phoenix_kit_user_dashboard,
+            on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+            live "/dashboard", Live.Dashboard.Index, :index
+            live "/dashboard/settings", Live.Dashboard.Settings, :edit
+
+            live "/dashboard/settings/confirm-email/:token",
+                 Live.Dashboard.Settings,
+                 :confirm_email
+          end
         end
       end
     end

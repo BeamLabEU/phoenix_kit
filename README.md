@@ -350,16 +350,19 @@ See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 
 ## Routes
 
-### Public Routes
+### User Authentication Routes
 
 - `GET {prefix}/users/register` - Registration form
 - `GET {prefix}/users/log-in` - Login form
 - `GET {prefix}/users/reset-password` - Password reset
 - `GET {prefix}/users/confirm/:token` - Email confirmation
+- `DELETE {prefix}/users/log-out` - Logout endpoint
 
-### Authenticated Routes
+### User Dashboard Routes (when enabled)
 
-- `GET {prefix}/users/settings` - User settings
+- `GET {prefix}/dashboard` - User dashboard home
+- `GET {prefix}/dashboard/settings` - User settings
+- `GET {prefix}/dashboard/settings/confirm-email/:token` - Email confirmation
 
 ### Admin Routes (Owner/Admin only)
 

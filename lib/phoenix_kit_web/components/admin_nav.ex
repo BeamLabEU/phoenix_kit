@@ -380,24 +380,26 @@ defmodule PhoenixKitWeb.Components.AdminNav do
             </div>
           </li>
 
-          <div class="divider my-0"></div>
-
           <%!-- Settings Link --%>
-          <li>
-            <.link
-              href={Routes.locale_aware_path(assigns, "/users/settings")}
-              class="flex items-center gap-3"
-            >
-              <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-4 h-4" />
-              <span>Settings</span>
-            </.link>
-          </li>
+          <%= if PhoenixKit.Config.user_dashboard_enabled?() do %>
+            <li>
+              <.link
+                href={Routes.locale_aware_path(assigns, "/dashboard/settings")}
+                class="flex items-center gap-3"
+              >
+                <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-4 h-4" />
+                <span>Settings</span>
+              </.link>
+            </li>
+          <% end %>
 
           <%!-- Language Switcher (Admin Languages) --%>
           <% admin_languages = get_admin_languages() %>
-          <%= if length(admin_languages) > 0 do %>
+          <%= if PhoenixKit.Config.user_dashboard_enabled?() or length(admin_languages) > 0 do %>
             <div class="divider my-0"></div>
+          <% end %>
 
+          <%= if length(admin_languages) > 0 do %>
             <li class="menu-title px-4 py-1">
               <span class="text-xs">Language</span>
             </li>
@@ -502,7 +504,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
         <div class="flex gap-1">
           <.link
-            href={Routes.locale_aware_path(assigns, "/users/settings")}
+            href={Routes.locale_aware_path(assigns, "/dashboard/settings")}
             class="btn btn-ghost btn-xs flex-1"
           >
             <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-3 h-3" />
