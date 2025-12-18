@@ -29,7 +29,9 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Entities.Presence,
       PhoenixKitWeb.Live.Modules.Blogging.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
-      PhoenixKit.Emails.Supervisor
+      PhoenixKit.Emails.Supervisor,
+      # DB Transfer session store for ephemeral connection codes
+      PhoenixKit.DBTransfer.SessionStore
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

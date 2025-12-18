@@ -339,5 +339,50 @@ PhoenixKit includes several modules with their own detailed documentation:
 - **AI Module**: `lib/phoenix_kit_web/live/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
 - **Emails Module**: `lib/phoenix_kit_web/live/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
 - **Blogging Module**: `lib/phoenix_kit_web/live/modules/blogging/README.md` - Filesystem-based CMS with multi-language support
+- **DB Transfer Module**: `lib/phoenix_kit_web/live/modules/db_transfer/README.md` - Peer-to-peer data transfer between PhoenixKit instances with programmatic API
+- **Entities Module**: `lib/phoenix_kit_web/live/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
+- **Billing Module**: `lib/phoenix_kit_web/live/modules/billing/README.md` - Payment providers, subscriptions, invoices
+- **Posts Module**: Available under `/admin/posts` - Content scheduling and groups
+
+### ⚠️ CRITICAL: Modules Must Be Enabled Before Use
+
+**All PhoenixKit modules are disabled by default.** Before using any module programmatically, you MUST enable it first. Attempting to use a disabled module will result in errors or no-ops.
+
+**Enable a module using its `enable_system/0` function:**
+
+```elixir
+# Check if module is enabled
+PhoenixKit.Entities.enabled?()        # => false (default)
+PhoenixKit.AI.enabled?()              # => false (default)
+
+# Enable modules before use
+PhoenixKit.Entities.enable_system()   # Enables entities module
+PhoenixKit.AI.enable_system()         # Enables AI module
+PhoenixKit.Posts.enable_system()      # Enables posts module
+PhoenixKit.Emails.enable_system()     # Enables email tracking
+PhoenixKit.Billing.enable_system()    # Enables billing module
+PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
+PhoenixKit.DBTransfer.enable_system() # Enables DB transfer
+PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
+
+# Disable when no longer needed
+PhoenixKit.Entities.disable_system()
+```
+
+**Alternatively, enable via Admin UI:**
+Navigate to `/{prefix}/admin/modules` or each module's settings page to toggle modules on/off.
+
+**Common pattern when working with modules:**
+
+```elixir
+# WRONG - Will fail if module is disabled
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+
+# CORRECT - Check/enable first
+unless PhoenixKit.Entities.enabled?() do
+  PhoenixKit.Entities.enable_system()
+end
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+```
 
 See `CLAUDE.md` for comprehensive PhoenixKit documentation including architecture, configuration, and development guidelines.

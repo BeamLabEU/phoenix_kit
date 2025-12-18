@@ -343,13 +343,25 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     |> String.replace(":id", to_string(record.id))
   end
 
-  # Add language prefix to path if not default language
-  defp build_path_with_language(path, language, is_default) do
-    if language && !is_default do
+  # Add language prefix to path when in multi-language mode
+  # Single language: no prefix for anyone
+  # Multiple languages: ALL languages get prefix (including default)
+  defp build_path_with_language(path, language, _is_default) do
+    if language && !single_language_mode?() do
       "/#{extract_base(language)}#{path}"
     else
       path
     end
+  end
+
+  # Check if we're in single language mode (no locale prefix needed)
+  # Returns true when languages module is off OR only one language is enabled
+  # Mirrors BlogHTML.single_language_mode?/0 logic
+  defp single_language_mode? do
+    alias PhoenixKit.Modules.Languages
+    not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
+  rescue
+    _ -> true
   end
 
   # Extract base language code (e.g., "en" from "en-US")

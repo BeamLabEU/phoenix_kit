@@ -734,6 +734,54 @@
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- DB Transfer Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="DB Transfer"
+        description="Transfer data between PhoenixKit instances in real-time"
+        icon="🔄"
+        enabled={@db_transfer_enabled}
+        toggle_event="toggle_db_transfer"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@db_transfer_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @db_transfer_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @db_transfer_enabled and @db_transfer_active_sessions > 0 do %>
+            <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
+              {@db_transfer_active_sessions} active
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @db_transfer_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/db-transfer")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Open Transfer
+              </.link>
+            <% else %>
+              <span class="text-xs text-base-content/50 text-center">
+                Enable module to start transferring data
+              </span>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="text-xs text-base-content/70">
+            {if @db_transfer_enabled,
+              do: "Transfer data between dev, staging, and production environments",
+              else: "Enable to transfer data between PhoenixKit sites"}
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
     </div>
 
     <%!-- Future Modules Section --%>

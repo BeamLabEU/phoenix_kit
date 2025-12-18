@@ -372,15 +372,16 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   # Build blog path with PhoenixKit prefix and optional language
   # Format: /{prefix}/{lang?}/{segments...}
-  # When is_default is true, language prefix is NOT added (default language uses clean URLs)
-  defp build_blog_path(segments, language, is_default) do
+  # When in single language mode, no language prefix is added for anyone
+  # When in multi-language mode, ALL languages get prefix (including default)
+  defp build_blog_path(segments, language, _is_default) do
     prefix_parts = url_prefix_segments()
 
-    # Add language prefix only if:
+    # Add language prefix when:
     # 1. Language is specified
-    # 2. This is NOT the default language (is_default = false)
+    # 2. Multiple languages are enabled (not single language mode)
     lang_parts =
-      if language && !is_default do
+      if language && !single_language_mode?() do
         [extract_base(language)]
       else
         []
@@ -406,6 +407,16 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       "/" -> []
       prefix -> prefix |> String.trim("/") |> String.split("/", trim: true)
     end
+  end
+
+  # Check if we're in single language mode (no locale prefix needed)
+  # Returns true when languages module is off OR only one language is enabled
+  # Mirrors BlogHTML.single_language_mode?/0 logic
+  defp single_language_mode? do
+    alias PhoenixKit.Modules.Languages
+    not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
+  rescue
+    _ -> true
   end
 
   # Get default language from admin settings
