@@ -153,42 +153,44 @@ defmodule PhoenixKit.Install.EndpointIntegration do
       # Try to find the /live socket to add after it
       case find_live_socket(zipper) do
         {:ok, live_socket_zipper} ->
-          socket_code = """
-          # PhoenixKit sockets (for DB Transfer, etc.)
-          phoenix_kit_socket()
-          """
-
-          {:ok, Common.add_code(live_socket_zipper, socket_code, placement: :after)}
+          add_socket_code(live_socket_zipper)
 
         :error ->
-          # Fallback: add after the import statement we just added
-          case find_phoenix_kit_import(zipper) do
-            {:ok, import_zipper} ->
-              socket_code = """
-              # PhoenixKit sockets (for DB Transfer, etc.)
-              phoenix_kit_socket()
-              """
-
-              {:ok, Common.add_code(import_zipper, socket_code, placement: :after)}
-
-            :error ->
-              # Last resort: add after use statement
-              case Function.move_to_function_call(zipper, :use, 2) do
-                {:ok, use_zipper} ->
-                  socket_code = """
-                  # PhoenixKit sockets (for DB Transfer, etc.)
-                  phoenix_kit_socket()
-                  """
-
-                  {:ok, Common.add_code(use_zipper, socket_code, placement: :after)}
-
-                :error ->
-                  {:warning,
-                   "Could not add phoenix_kit_socket() to endpoint. Please add manually."}
-              end
-          end
+          # Fallback: try import statement or use statement
+          add_socket_code_fallback(zipper)
       end
     end)
+  end
+
+  defp add_socket_code(target_zipper) do
+    socket_code = """
+    # PhoenixKit sockets (for DB Transfer, etc.)
+    phoenix_kit_socket()
+    """
+
+    {:ok, Common.add_code(target_zipper, socket_code, placement: :after)}
+  end
+
+  defp add_socket_code_fallback(zipper) do
+    # Try: add after the import statement we just added
+    case find_phoenix_kit_import(zipper) do
+      {:ok, import_zipper} ->
+        add_socket_code(import_zipper)
+
+      :error ->
+        # Last resort: add after use statement
+        add_socket_code_after_use(zipper)
+    end
+  end
+
+  defp add_socket_code_after_use(zipper) do
+    case Function.move_to_function_call(zipper, :use, 2) do
+      {:ok, use_zipper} ->
+        add_socket_code(use_zipper)
+
+      :error ->
+        {:warning, "Could not add phoenix_kit_socket() to endpoint. Please add manually."}
+    end
   end
 
   # Find the PhoenixKitWeb.Integration import statement
