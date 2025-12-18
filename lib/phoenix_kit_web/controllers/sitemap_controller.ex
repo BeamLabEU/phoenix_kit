@@ -4,17 +4,26 @@ defmodule PhoenixKitWeb.SitemapController do
 
   Provides public endpoints for sitemap access:
   - GET /{prefix}/sitemap.xml - XML sitemap with XSL stylesheet reference
+  - GET /{prefix}/sitemap.xml?format=html - Server-rendered HTML (for iframe previews)
   - GET /{prefix}/sitemap.html - Redirects to sitemap.xml (deprecated)
   - GET /{prefix}/sitemap-{n}.xml - Sitemap index parts (for large sites)
   - GET /{prefix}/assets/sitemap-{style}.xsl - XSL stylesheets
 
   All endpoints are cached for performance with configurable cache headers.
 
-  ## XSL Stylesheets
+  ## How It Works
 
-  The XML sitemap includes an XSL stylesheet reference that enables beautiful
-  browser display without generating separate HTML files. Available styles:
-  - table - Clean table layout
+  The XML sitemap includes an XSL stylesheet reference. When opened in a browser,
+  the browser applies the XSL transformation client-side, rendering a beautiful
+  HTML page. Search engine bots ignore the XSL and read the raw XML.
+
+  For iframe previews (admin panel), use `?format=html` to get server-rendered HTML,
+  since iframes cannot apply XSL transformations.
+
+  ## XSL Styles
+
+  Available styles (configurable in settings):
+  - table - Clean table layout (default)
   - cards - Cards grouped by category
   - minimal - Simple list of links
   """
@@ -22,6 +31,7 @@ defmodule PhoenixKitWeb.SitemapController do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Sitemap.Cache
   alias PhoenixKit.Sitemap.Generator
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
@@ -29,12 +39,11 @@ defmodule PhoenixKitWeb.SitemapController do
   @valid_xsl_styles ["table", "cards", "minimal"]
 
   @doc """
-  Serves the XML sitemap.
+  Serves the XML sitemap with XSL stylesheet reference.
 
-  - Search engine bots receive clean XML (no XSL reference)
-  - Browsers receive styled HTML page (server-side transformation)
-
-  Detection is based on Accept header and User-Agent.
+  Query parameters:
+  - `style` - Override XSL style (table, cards, minimal)
+  - `format=html` - Force server-side HTML rendering (for iframe previews)
 
   Returns 404 if sitemap module is disabled.
   Returns 500 if sitemap generation fails.
@@ -43,24 +52,18 @@ defmodule PhoenixKitWeb.SitemapController do
     if Sitemap.enabled?() do
       config = Sitemap.get_config()
 
-      # Force HTML format if ?format=html parameter is present (for iframe preview)
-      force_html = Map.get(params, "format") == "html"
-
-      # Override style from query param if provided (for preview)
-      config =
+      # Override style from query param if provided
+      xsl_style =
         case Map.get(params, "style") do
-          style when style in @valid_xsl_styles ->
-            Map.put(config, :html_style, style)
-
-          _ ->
-            config
+          style when style in @valid_xsl_styles -> style
+          _ -> get_xsl_style(config)
         end
 
-      # Check if request is from a browser (wants HTML) vs bot (wants XML)
-      if (force_html or browser_request?(conn)) and Map.get(config, :html_enabled, true) do
-        serve_styled_html(conn, config)
+      # Check if HTML format is requested (for iframe previews)
+      if Map.get(params, "format") == "html" do
+        serve_html(conn, config, xsl_style)
       else
-        serve_raw_xml(conn, config)
+        serve_xml(conn, config, xsl_style)
       end
     else
       conn
@@ -69,15 +72,15 @@ defmodule PhoenixKitWeb.SitemapController do
     end
   end
 
-  # Serve raw XML for bots and programmatic access
-  defp serve_raw_xml(conn, config) do
+  # Serve XML with XSL stylesheet reference (default for browsers and bots)
+  defp serve_xml(conn, config, xsl_style) do
     opts = [
       base_url: config.base_url,
       cache: true,
-      xsl_enabled: false
+      xsl_enabled: true,
+      xsl_style: xsl_style
     ]
 
-    # Generate ETag from last_generated timestamp for proper HTTP caching
     etag = generate_etag(config)
 
     case Generator.generate_xml(opts) do
@@ -107,47 +110,45 @@ defmodule PhoenixKitWeb.SitemapController do
     end
   end
 
-  # Serve styled HTML for browsers
-  defp serve_styled_html(conn, config) do
-    xsl_style = get_xsl_style(config)
-    entries = Generator.collect_all_entries(base_url: config.base_url)
-    html_content = render_sitemap_html(entries, xsl_style, config)
+  # Serve server-rendered HTML (for iframe previews where XSL can't be applied)
+  defp serve_html(conn, config, xsl_style) do
+    cache_key = :"html_#{xsl_style}"
 
-    # Generate ETag from last_generated timestamp for proper HTTP caching
+    # Try to get cached HTML content
+    {html_content, url_count} =
+      case Cache.get(cache_key) do
+        {:ok, %{html: html, url_count: count}} ->
+          {html, count}
+
+        _ ->
+          # Cache miss - generate and cache
+          entries = Generator.collect_all_entries(base_url: config.base_url)
+          html = render_sitemap_html(entries, xsl_style, config)
+          count = length(entries)
+
+          # Store in cache for future requests
+          Cache.put(cache_key, %{html: html, url_count: count})
+
+          {html, count}
+      end
+
     etag = generate_etag(config)
 
     conn
     |> put_resp_content_type("text/html")
     |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
     |> put_resp_header("etag", etag)
-    |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
+    |> put_resp_header("x-sitemap-url-count", to_string(url_count))
     |> send_resp(200, html_content)
-  end
-
-  # Check if request is from a browser (not a bot)
-  defp browser_request?(conn) do
-    accept = get_req_header(conn, "accept") |> List.first() || ""
-    user_agent = get_req_header(conn, "user-agent") |> List.first() || ""
-    user_agent_lower = String.downcase(user_agent)
-
-    # Bot patterns - these should get raw XML
-    bot_patterns = ~w(googlebot bingbot yandex baidu spider crawler bot slurp)
-    is_bot = Enum.any?(bot_patterns, &String.contains?(user_agent_lower, &1))
-
-    # Browser wants HTML if Accept includes text/html and not a bot
-    wants_html = String.contains?(accept, "text/html")
-
-    wants_html and not is_bot
   end
 
   @doc """
   Redirects to XML sitemap (deprecated).
 
-  HTML sitemap is now served by opening sitemap.xml with XSL styling.
+  HTML sitemap is now served by opening sitemap.xml - browsers apply XSL styling.
   This endpoint is kept for backward compatibility.
   """
   def html(conn, _params) do
-    # Redirect to XML sitemap which now has XSL styling
     prefix = PhoenixKit.Config.get_url_prefix()
     redirect(conn, to: "#{prefix}/sitemap.xml")
   end
@@ -219,7 +220,8 @@ defmodule PhoenixKitWeb.SitemapController do
     end
   end
 
-  # Render sitemap as styled HTML (server-side, no XSLT needed)
+  # HTML Rendering Functions (for iframe preview)
+
   defp render_sitemap_html(entries, style, config) do
     url_count = length(entries)
     last_generated = Map.get(config, :last_generated, "Just now")
@@ -302,7 +304,6 @@ defmodule PhoenixKitWeb.SitemapController do
   end
 
   defp render_cards_html(entries, url_count, _last_generated) do
-    # Group entries by category or source
     grouped =
       entries
       |> Enum.group_by(fn entry -> entry.category || to_string(entry.source) || "Other" end)
@@ -430,6 +431,8 @@ defmodule PhoenixKitWeb.SitemapController do
     """
   end
 
+  # Helper Functions
+
   defp escape(nil), do: ""
 
   defp escape(text) when is_binary(text) do
@@ -442,8 +445,6 @@ defmodule PhoenixKitWeb.SitemapController do
 
   defp escape(other), do: escape(to_string(other))
 
-  # Generate ETag based on last_generated timestamp and url_count
-  # Used for proper HTTP caching - browsers can check if content changed
   defp generate_etag(config) do
     last_generated = Map.get(config, :last_generated) || "none"
     url_count = Map.get(config, :url_count) || 0
@@ -456,13 +457,10 @@ defmodule PhoenixKitWeb.SitemapController do
     "\"#{hash}\""
   end
 
-  # Maps old HTML style names to new XSL style names
-  # hierarchical -> cards, grouped -> table, flat -> minimal
   defp get_xsl_style(config) do
     html_style = Map.get(config, :html_style, "table")
     xsl_style = Map.get(config, :xsl_style)
 
-    # Prefer xsl_style if set, otherwise map from html_style
     cond do
       xsl_style && xsl_style in @valid_xsl_styles ->
         xsl_style
