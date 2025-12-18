@@ -616,11 +616,17 @@ defmodule PhoenixKitWeb.Users.Auth do
     end
   end
 
-  # No locale in params - check if we need to set default
+  # No locale in params - this means we're on the default language URL (clean URL without prefix)
+  # Always update to default locale when navigating to a URL without locale prefix
   defp maybe_update_locale_from_params(socket, _params) do
-    # If current_locale_base is nil, set to default
-    if socket.assigns[:current_locale_base] == nil do
-      default_base = Routes.get_default_admin_locale()
+    default_base = Routes.get_default_admin_locale()
+    current_base = socket.assigns[:current_locale_base]
+
+    # If we're already on the default locale, no need to update
+    if current_base == default_base do
+      socket
+    else
+      # URL has no locale prefix, so we're navigating to default language
       user = socket.assigns[:phoenix_kit_current_user]
       default_dialect = DialectMapper.resolve_dialect(default_base, user)
 
@@ -629,8 +635,6 @@ defmodule PhoenixKitWeb.Users.Auth do
       socket
       |> Phoenix.Component.assign(:current_locale_base, default_base)
       |> Phoenix.Component.assign(:current_locale, default_dialect)
-    else
-      socket
     end
   end
 
