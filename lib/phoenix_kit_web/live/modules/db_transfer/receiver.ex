@@ -641,37 +641,6 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
     end
   end
 
-  # Handle schema received during bulk transfer
-  defp handle_bulk_transfer_schema(socket, table, schema) do
-    # Store the schema
-    table_schemas = Map.put(socket.assigns.table_schemas, table, schema)
-    pending_schemas = List.delete(socket.assigns.pending_schemas, table)
-
-    socket =
-      socket
-      |> assign(:table_schemas, table_schemas)
-      |> assign(:pending_schemas, pending_schemas)
-
-    # Check if all schemas have been received
-    if Enum.empty?(pending_schemas) do
-      Logger.info("DBTransfer.Receiver: All schemas received, starting record fetch")
-
-      # All schemas received - start fetching records
-      socket =
-        socket
-        |> assign(:transfer_progress, %{
-          socket.assigns.transfer_progress
-          | status: :fetching
-        })
-
-      # Start fetching records
-      socket = fetch_next_table(socket)
-      {:noreply, socket}
-    else
-      {:noreply, socket}
-    end
-  end
-
   # Handle schema request errors
   @impl true
   def handle_info({:db_transfer_client, {:request_error, {:schema, table}, error}}, socket) do
@@ -885,6 +854,37 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   @impl true
   def handle_info(_msg, socket) do
     {:noreply, socket}
+  end
+
+  # Handle schema received during bulk transfer
+  defp handle_bulk_transfer_schema(socket, table, schema) do
+    # Store the schema
+    table_schemas = Map.put(socket.assigns.table_schemas, table, schema)
+    pending_schemas = List.delete(socket.assigns.pending_schemas, table)
+
+    socket =
+      socket
+      |> assign(:table_schemas, table_schemas)
+      |> assign(:pending_schemas, pending_schemas)
+
+    # Check if all schemas have been received
+    if Enum.empty?(pending_schemas) do
+      Logger.info("DBTransfer.Receiver: All schemas received, starting record fetch")
+
+      # All schemas received - start fetching records
+      socket =
+        socket
+        |> assign(:transfer_progress, %{
+          socket.assigns.transfer_progress
+          | status: :fetching
+        })
+
+      # Start fetching records
+      socket = fetch_next_table(socket)
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
   end
 
   # ===========================================
