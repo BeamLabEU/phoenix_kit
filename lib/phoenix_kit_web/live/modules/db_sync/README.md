@@ -1,31 +1,31 @@
-# DB Transfer Module
+# DB Sync Module
 
-The PhoenixKit DB Transfer module provides peer-to-peer data transfer between PhoenixKit instances. Transfer data between development and production environments, between different websites, or create database backups - all through a secure WebSocket connection with visual UI and programmatic API.
+The PhoenixKit DB Sync module provides peer-to-peer data synchronization between PhoenixKit instances. Sync data between development and production environments, between different websites, or create database backups - all through a secure WebSocket connection with visual UI and programmatic API.
 
 ## Quick Links
 
-- **Admin Interface**: `/{prefix}/admin/db-transfer`
-- **Send Data**: `/{prefix}/admin/db-transfer/send`
-- **Receive Data**: `/{prefix}/admin/db-transfer/receive`
+- **Admin Interface**: `/{prefix}/admin/db-sync`
+- **Send Data**: `/{prefix}/admin/db-sync/send`
+- **Receive Data**: `/{prefix}/admin/db-sync/receive`
 
 ## Architecture Overview
 
 ### Core Modules
 
-- **PhoenixKit.DBTransfer** – Main API for local operations and session management
-- **PhoenixKit.DBTransfer.Client** – Synchronous client for remote operations
-- **PhoenixKit.DBTransfer.SchemaInspector** – Database introspection
-- **PhoenixKit.DBTransfer.DataExporter** – Record export with pagination
-- **PhoenixKit.DBTransfer.DataImporter** – Record import with conflict resolution
-- **PhoenixKit.DBTransfer.WebSocketClient** – Async WebSocket communication
-- **PhoenixKit.DBTransfer.SessionStore** – ETS-based session management
+- **PhoenixKit.DBSync** – Main API for local operations and session management
+- **PhoenixKit.DBSync.Client** – Synchronous client for remote operations
+- **PhoenixKit.DBSync.SchemaInspector** – Database introspection
+- **PhoenixKit.DBSync.DataExporter** – Record export with pagination
+- **PhoenixKit.DBSync.DataImporter** – Record import with conflict resolution
+- **PhoenixKit.DBSync.WebSocketClient** – Async WebSocket communication
+- **PhoenixKit.DBSync.SessionStore** – ETS-based session management
 
 ### Web Components
 
-- **PhoenixKitWeb.DBTransferChannel** – Phoenix Channel for data serving
-- **PhoenixKitWeb.Live.Modules.DBTransfer.Sender** – Sender LiveView UI
-- **PhoenixKitWeb.Live.Modules.DBTransfer.Receiver** – Receiver LiveView UI
-- **PhoenixKit.DBTransfer.Workers.ImportWorker** – Oban worker for background imports
+- **PhoenixKitWeb.DBSyncChannel** – Phoenix Channel for data serving
+- **PhoenixKitWeb.Live.Modules.DBSync.Sender** – Sender LiveView UI
+- **PhoenixKitWeb.Live.Modules.DBSync.Receiver** – Receiver LiveView UI
+- **PhoenixKit.DBSync.Workers.ImportWorker** – Oban worker for background imports
 
 ## Core Features
 
@@ -70,65 +70,65 @@ The PhoenixKit DB Transfer module provides peer-to-peer data transfer between Ph
 
 ```elixir
 # System control
-PhoenixKit.DBTransfer.enabled?()
-PhoenixKit.DBTransfer.enable_system()
-PhoenixKit.DBTransfer.disable_system()
+PhoenixKit.DBSync.enabled?()
+PhoenixKit.DBSync.enable_system()
+PhoenixKit.DBSync.disable_system()
 
 # List available tables
-{:ok, tables} = PhoenixKit.DBTransfer.list_tables()
+{:ok, tables} = PhoenixKit.DBSync.list_tables()
 # => [%{name: "users", estimated_count: 150}, ...]
 
 # Get table schema
-{:ok, schema} = PhoenixKit.DBTransfer.get_schema("users")
+{:ok, schema} = PhoenixKit.DBSync.get_schema("users")
 # => %{table: "users", columns: [...], primary_key: ["id"]}
 
 # Get row count
-{:ok, count} = PhoenixKit.DBTransfer.get_count("users")
+{:ok, count} = PhoenixKit.DBSync.get_count("users")
 
 # Check if table exists
-PhoenixKit.DBTransfer.table_exists?("users")
+PhoenixKit.DBSync.table_exists?("users")
 
 # Export records with pagination
-{:ok, records} = PhoenixKit.DBTransfer.export_records("users", limit: 100, offset: 0)
+{:ok, records} = PhoenixKit.DBSync.export_records("users", limit: 100, offset: 0)
 
 # Import records
-{:ok, result} = PhoenixKit.DBTransfer.import_records("users", records, :skip)
+{:ok, result} = PhoenixKit.DBSync.import_records("users", records, :skip)
 # => %{created: 50, updated: 0, skipped: 5, errors: []}
 
 # Create table from schema
-:ok = PhoenixKit.DBTransfer.create_table("users", schema)
+:ok = PhoenixKit.DBSync.create_table("users", schema)
 ```
 
 ### Remote Operations (Client)
 
 ```elixir
 # Connect to remote sender
-{:ok, client} = PhoenixKit.DBTransfer.Client.connect("https://sender.com", "ABC12345")
+{:ok, client} = PhoenixKit.DBSync.Client.connect("https://sender.com", "ABC12345")
 
 # With options
-{:ok, client} = PhoenixKit.DBTransfer.Client.connect(url, code,
+{:ok, client} = PhoenixKit.DBSync.Client.connect(url, code,
   timeout: 60_000,
   receiver_info: %{project: "MyApp", user: "admin@example.com"}
 )
 
 # List remote tables
-{:ok, tables} = PhoenixKit.DBTransfer.Client.list_tables(client)
+{:ok, tables} = PhoenixKit.DBSync.Client.list_tables(client)
 
 # Get remote table schema
-{:ok, schema} = PhoenixKit.DBTransfer.Client.get_schema(client, "users")
+{:ok, schema} = PhoenixKit.DBSync.Client.get_schema(client, "users")
 
 # Get remote record count
-{:ok, count} = PhoenixKit.DBTransfer.Client.get_count(client, "users")
+{:ok, count} = PhoenixKit.DBSync.Client.get_count(client, "users")
 
 # Fetch records (manual pagination)
-{:ok, result} = PhoenixKit.DBTransfer.Client.fetch_records(client, "users",
+{:ok, result} = PhoenixKit.DBSync.Client.fetch_records(client, "users",
   limit: 100,
   offset: 0
 )
 # => %{records: [...], has_more: true, offset: 0}
 
 # Transfer single table (auto-pagination, auto-create table)
-{:ok, result} = PhoenixKit.DBTransfer.Client.transfer(client, "users",
+{:ok, result} = PhoenixKit.DBSync.Client.transfer(client, "users",
   strategy: :skip,
   batch_size: 500,
   create_missing_tables: true
@@ -136,27 +136,27 @@ PhoenixKit.DBTransfer.table_exists?("users")
 # => %{created: 150, updated: 0, skipped: 0, errors: []}
 
 # Transfer multiple tables
-{:ok, results} = PhoenixKit.DBTransfer.Client.transfer_all(client,
+{:ok, results} = PhoenixKit.DBSync.Client.transfer_all(client,
   tables: ["users", "posts"],
   strategy: :skip
 )
 # => %{"users" => %{created: 150, ...}, "posts" => %{created: 500, ...}}
 
 # Transfer all tables with per-table strategies
-{:ok, results} = PhoenixKit.DBTransfer.Client.transfer_all(client,
+{:ok, results} = PhoenixKit.DBSync.Client.transfer_all(client,
   strategies: %{"users" => :skip, "posts" => :overwrite}
 )
 
 # Disconnect when done
-:ok = PhoenixKit.DBTransfer.Client.disconnect(client)
+:ok = PhoenixKit.DBSync.Client.disconnect(client)
 ```
 
 ### Full Transfer Example
 
 ```elixir
 # Complete transfer workflow
-alias PhoenixKit.DBTransfer
-alias PhoenixKit.DBTransfer.Client
+alias PhoenixKit.DBSync
+alias PhoenixKit.DBSync.Client
 
 # Connect to sender
 {:ok, client} = Client.connect("https://production.example.com", "ABC12345")
@@ -187,17 +187,17 @@ Sessions are stored in ETS and tied to the sender's LiveView process:
 
 ```elixir
 # Create a session (typically done by LiveView)
-{:ok, session} = PhoenixKit.DBTransfer.create_session(:send)
+{:ok, session} = PhoenixKit.DBSync.create_session(:send)
 # => %{code: "A7X9K2M4", direction: :send, status: :pending, ...}
 
 # Get session by code
-{:ok, session} = PhoenixKit.DBTransfer.get_session("A7X9K2M4")
+{:ok, session} = PhoenixKit.DBSync.get_session("A7X9K2M4")
 
 # Validate and use a code (receiver connecting)
-{:ok, session} = PhoenixKit.DBTransfer.validate_code("A7X9K2M4")
+{:ok, session} = PhoenixKit.DBSync.validate_code("A7X9K2M4")
 
 # Delete session
-:ok = PhoenixKit.DBTransfer.delete_session("A7X9K2M4")
+:ok = PhoenixKit.DBSync.delete_session("A7X9K2M4")
 ```
 
 ## Background Import (Oban)
@@ -207,7 +207,7 @@ Large transfers are processed in the background using Oban:
 ```elixir
 # Queue configuration - add to your Oban config
 config :my_app, Oban,
-  queues: [default: 10, db_transfer: 5]
+  queues: [default: 10, db_sync: 5]
 
 # The ImportWorker handles:
 # - Auto-creating missing tables from schema
@@ -255,7 +255,7 @@ config :my_app, Oban,
 ## Error Handling
 
 ```elixir
-case PhoenixKit.DBTransfer.Client.connect(url, code) do
+case PhoenixKit.DBSync.Client.connect(url, code) do
   {:ok, client} ->
     # Connected successfully
 
@@ -269,7 +269,7 @@ case PhoenixKit.DBTransfer.Client.connect(url, code) do
     # Other error
 end
 
-case PhoenixKit.DBTransfer.Client.transfer(client, "users") do
+case PhoenixKit.DBSync.Client.transfer(client, "users") do
   {:ok, result} ->
     IO.puts("Created: #{result.created}, Errors: #{length(result.errors)}")
 
@@ -283,9 +283,9 @@ end
 
 ## LiveView Interfaces
 
-- **Index** (`/{prefix}/admin/db-transfer`) – Module overview with send/receive options
-- **Sender** (`/{prefix}/admin/db-transfer/send`) – Generate code, manage connections
-- **Receiver** (`/{prefix}/admin/db-transfer/receive`) – Connect, browse, transfer
+- **Index** (`/{prefix}/admin/db-sync`) – Module overview with send/receive options
+- **Sender** (`/{prefix}/admin/db-sync/send`) – Generate code, manage connections
+- **Receiver** (`/{prefix}/admin/db-sync/receive`) – Connect, browse, transfer
 
 ## Extending the Module
 
@@ -311,7 +311,7 @@ For custom import behavior, use the lower-level API:
 transformed = Enum.map(result.records, &transform_record/1)
 
 # Import with custom logic
-{:ok, import_result} = DBTransfer.import_records("users", transformed, :merge)
+{:ok, import_result} = DBSync.import_records("users", transformed, :merge)
 ```
 
 ### Adding Progress Callbacks
@@ -328,7 +328,7 @@ end
 defp loop(client, table, offset, callback) do
   case Client.fetch_records(client, table, offset: offset, limit: 500) do
     {:ok, %{records: records, has_more: has_more}} ->
-      DBTransfer.import_records(table, records, :skip)
+      DBSync.import_records(table, records, :skip)
       callback.({:progress, offset + length(records)})
 
       if has_more do

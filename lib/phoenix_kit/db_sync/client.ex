@@ -1,32 +1,32 @@
-defmodule PhoenixKit.DBTransfer.Client do
+defmodule PhoenixKit.DBSync.Client do
   @moduledoc """
-  Synchronous client for connecting to a remote DB Transfer sender.
+  Synchronous client for connecting to a remote DB Sync sender.
 
-  This module provides a clean, synchronous API for programmatic data transfer.
+  This module provides a clean, synchronous API for programmatic data sync.
   It wraps the asynchronous WebSocketClient to provide blocking operations
   suitable for scripts, migrations, or AI agent use.
 
   ## Usage
 
       # Connect to a remote sender
-      {:ok, client} = PhoenixKit.DBTransfer.Client.connect("https://sender.com", "ABC12345")
+      {:ok, client} = PhoenixKit.DBSync.Client.connect("https://sender.com", "ABC12345")
 
       # List available tables
-      {:ok, tables} = PhoenixKit.DBTransfer.Client.list_tables(client)
+      {:ok, tables} = PhoenixKit.DBSync.Client.list_tables(client)
 
       # Get table schema
-      {:ok, schema} = PhoenixKit.DBTransfer.Client.get_schema(client, "users")
+      {:ok, schema} = PhoenixKit.DBSync.Client.get_schema(client, "users")
 
       # Fetch records with pagination
-      {:ok, result} = PhoenixKit.DBTransfer.Client.fetch_records(client, "users", limit: 100)
+      {:ok, result} = PhoenixKit.DBSync.Client.fetch_records(client, "users", limit: 100)
       # => %{records: [...], has_more: true, offset: 0}
 
       # Transfer all records from a table (with auto-pagination)
-      {:ok, result} = PhoenixKit.DBTransfer.Client.transfer(client, "users", strategy: :skip)
+      {:ok, result} = PhoenixKit.DBSync.Client.transfer(client, "users", strategy: :skip)
       # => %{created: 50, updated: 0, skipped: 5, errors: []}
 
       # Disconnect when done
-      :ok = PhoenixKit.DBTransfer.Client.disconnect(client)
+      :ok = PhoenixKit.DBSync.Client.disconnect(client)
 
   ## Connection Options
 
@@ -40,8 +40,8 @@ defmodule PhoenixKit.DBTransfer.Client do
   - `:create_missing_tables` - Auto-create tables that don't exist (default: true)
   """
 
-  alias PhoenixKit.DBTransfer
-  alias PhoenixKit.DBTransfer.WebSocketClient
+  alias PhoenixKit.DBSync
+  alias PhoenixKit.DBSync.WebSocketClient
 
   require Logger
 
@@ -64,7 +64,7 @@ defmodule PhoenixKit.DBTransfer.Client do
   # ===========================================
 
   @doc """
-  Connects to a remote DB Transfer sender.
+  Connects to a remote DB Sync sender.
 
   ## Parameters
 
@@ -242,7 +242,7 @@ defmodule PhoenixKit.DBTransfer.Client do
       )
   """
   @spec transfer(client(), String.t(), transfer_opts()) ::
-          {:ok, DBTransfer.DataImporter.import_result()} | {:error, any()}
+          {:ok, DBSync.DataImporter.import_result()} | {:error, any()}
   def transfer(client, table, opts \\ []) do
     strategy = Keyword.get(opts, :strategy, :skip)
     batch_size = Keyword.get(opts, :batch_size, @default_batch_size)
@@ -297,7 +297,7 @@ defmodule PhoenixKit.DBTransfer.Client do
           table = table_info["name"]
           strategy = Map.get(strategies, table, default_strategy)
 
-          Logger.info("DBTransfer.Client: Transferring table #{table} with strategy #{strategy}")
+          Logger.info("DBSync.Client: Transferring table #{table} with strategy #{strategy}")
 
           case transfer(client, table, Keyword.put(opts, :strategy, strategy)) do
             {:ok, result} ->
@@ -318,13 +318,13 @@ defmodule PhoenixKit.DBTransfer.Client do
 
   defp wait_for_connection(pid, timeout) do
     receive do
-      {:db_transfer_client, :connected} ->
+      {:db_sync_client, :connected} ->
         {:ok, pid}
 
-      {:db_transfer_client, {:error, reason}} ->
+      {:db_sync_client, {:error, reason}} ->
         {:error, reason}
 
-      {:db_transfer_client, {:disconnected, reason}} ->
+      {:db_sync_client, {:disconnected, reason}} ->
         {:error, {:disconnected, reason}}
     after
       timeout ->
@@ -335,28 +335,28 @@ defmodule PhoenixKit.DBTransfer.Client do
 
   defp wait_for_response(expected_type, timeout) do
     receive do
-      {:db_transfer_client, {:tables, tables}} when expected_type == :tables ->
+      {:db_sync_client, {:tables, tables}} when expected_type == :tables ->
         {:ok, tables}
 
-      {:db_transfer_client, {:schema, table, schema}} when expected_type == {:schema, table} ->
+      {:db_sync_client, {:schema, table, schema}} when expected_type == {:schema, table} ->
         {:ok, schema}
 
-      {:db_transfer_client, {:count, table, count}} when expected_type == {:count, table} ->
+      {:db_sync_client, {:count, table, count}} when expected_type == {:count, table} ->
         {:ok, count}
 
-      {:db_transfer_client, {:records, table, result}} when expected_type == {:records, table} ->
+      {:db_sync_client, {:records, table, result}} when expected_type == {:records, table} ->
         {:ok, result}
 
-      {:db_transfer_client, {:request_error, ^expected_type, error}} ->
+      {:db_sync_client, {:request_error, ^expected_type, error}} ->
         {:error, error}
 
-      {:db_transfer_client, {:error, error}} ->
+      {:db_sync_client, {:error, error}} ->
         {:error, error}
 
-      {:db_transfer_client, :disconnected} ->
+      {:db_sync_client, :disconnected} ->
         {:error, :disconnected}
 
-      {:db_transfer_client, {:disconnected, reason}} ->
+      {:db_sync_client, {:disconnected, reason}} ->
         {:error, {:disconnected, reason}}
     after
       timeout ->
@@ -365,16 +365,16 @@ defmodule PhoenixKit.DBTransfer.Client do
   end
 
   defp maybe_create_table(table, schema, true = _create_missing) do
-    if DBTransfer.table_exists?(table) do
+    if DBSync.table_exists?(table) do
       :ok
     else
-      Logger.info("DBTransfer.Client: Creating missing table #{table}")
-      DBTransfer.create_table(table, schema)
+      Logger.info("DBSync.Client: Creating missing table #{table}")
+      DBSync.create_table(table, schema)
     end
   end
 
   defp maybe_create_table(table, _schema, false = _create_missing) do
-    if DBTransfer.table_exists?(table) do
+    if DBSync.table_exists?(table) do
       :ok
     else
       {:error, {:table_not_found, table}}
@@ -393,7 +393,7 @@ defmodule PhoenixKit.DBTransfer.Client do
   defp fetch_and_import_loop(client, table, strategy, batch_size, timeout, offset, acc) do
     case fetch_records(client, table, offset: offset, limit: batch_size, timeout: timeout) do
       {:ok, %{records: records, has_more: has_more}} when records != [] ->
-        case DBTransfer.import_records(table, records, strategy) do
+        case DBSync.import_records(table, records, strategy) do
           {:ok, result} ->
             new_acc = merge_results(acc, result)
 

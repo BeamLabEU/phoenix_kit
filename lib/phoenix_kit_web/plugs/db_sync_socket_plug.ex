@@ -1,15 +1,15 @@
-defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
+defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
   @moduledoc """
-  Plug for handling DB Transfer WebSocket connections.
+  Plug for handling DB Sync WebSocket connections.
 
   This plug handles the HTTP upgrade to WebSocket and validates
-  the connection code before handing off to DBTransferWebsock.
+  the connection code before handing off to DBSyncWebsock.
 
   ## Usage
 
   In your endpoint:
 
-      plug PhoenixKitWeb.Plugs.DBTransferSocketPlug
+      plug PhoenixKitWeb.Plugs.DBSyncSocketPlug
 
   Or mount at a specific path in router (done automatically by phoenix_kit_socket macro).
   """
@@ -17,13 +17,13 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
   @behaviour Plug
   require Logger
 
-  alias PhoenixKit.DBTransfer
+  alias PhoenixKit.DBSync
 
   @impl Plug
   def init(opts), do: opts
 
   @impl Plug
-  def call(%{request_path: "/db-transfer/websocket"} = conn, _opts) do
+  def call(%{request_path: "/db-sync/websocket"} = conn, _opts) do
     handle_websocket_request(conn)
   end
 
@@ -36,13 +36,13 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
     if websocket_request?(conn) do
       code = get_code_from_params(conn)
 
-      if DBTransfer.enabled?() do
+      if DBSync.enabled?() do
         case validate_and_upgrade(conn, code) do
           {:ok, conn} -> conn
           {:error, conn} -> conn
         end
       else
-        Logger.warning("DBTransfer: Connection attempt but module is disabled")
+        Logger.warning("DBSync: Connection attempt but module is disabled")
         send_forbidden(conn, "Module disabled")
       end
     else
@@ -66,14 +66,14 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
   end
 
   defp validate_and_upgrade(conn, nil) do
-    Logger.warning("DBTransfer: Connection attempt without code")
+    Logger.warning("DBSync: Connection attempt without code")
     {:error, send_forbidden(conn, "Missing code")}
   end
 
   defp validate_and_upgrade(conn, code) do
-    case DBTransfer.validate_code(code) do
+    case DBSync.validate_code(code) do
       {:ok, session} ->
-        Logger.info("DBTransfer: Sender connecting with code #{code}")
+        Logger.info("DBSync: Sender connecting with code #{code}")
 
         # Capture connection metadata
         connection_info = extract_connection_info(conn)
@@ -81,7 +81,7 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
         conn =
           WebSockAdapter.upgrade(
             conn,
-            PhoenixKitWeb.DBTransferWebsock,
+            PhoenixKitWeb.DBSyncWebsock,
             [code: code, session: session, connection_info: connection_info],
             timeout: 60_000
           )
@@ -89,11 +89,11 @@ defmodule PhoenixKitWeb.Plugs.DBTransferSocketPlug do
         {:ok, Plug.Conn.halt(conn)}
 
       {:error, :invalid_code} ->
-        Logger.warning("DBTransfer: Invalid code attempt: #{code}")
+        Logger.warning("DBSync: Invalid code attempt: #{code}")
         {:error, send_forbidden(conn, "Invalid code")}
 
       {:error, :already_used} ->
-        Logger.warning("DBTransfer: Code already used: #{code}")
+        Logger.warning("DBSync: Code already used: #{code}")
         {:error, send_forbidden(conn, "Code already used")}
     end
   end

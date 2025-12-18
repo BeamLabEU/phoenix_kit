@@ -2,7 +2,7 @@ defmodule PhoenixKit.Install.EndpointIntegration do
   @moduledoc """
   Handles endpoint integration for PhoenixKit installation.
 
-  This module adds PhoenixKit sockets (like DB Transfer) to the parent app's endpoint.
+  This module adds PhoenixKit sockets (like DB Sync) to the parent app's endpoint.
   """
   use PhoenixKit.Install.IgniterCompat
 
@@ -64,12 +64,12 @@ defmodule PhoenixKit.Install.EndpointIntegration do
         )
 
       :error ->
-        # Check if the DBTransferSocket is already defined directly
-        case check_db_transfer_socket_exists(zipper) do
+        # Check if the DBSyncSocket is already defined directly
+        case check_db_sync_socket_exists(zipper) do
           true ->
             Igniter.add_notice(
               igniter,
-              "DB Transfer socket already exists in endpoint #{inspect(endpoint_module)}, skipping."
+              "DB Sync socket already exists in endpoint #{inspect(endpoint_module)}, skipping."
             )
 
           false ->
@@ -81,17 +81,17 @@ defmodule PhoenixKit.Install.EndpointIntegration do
     end
   end
 
-  # Check if DBTransferSocket is already defined in endpoint
-  defp check_db_transfer_socket_exists(zipper) do
+  # Check if DBSyncSocket is already defined in endpoint
+  defp check_db_sync_socket_exists(zipper) do
     case Function.move_to_function_call(zipper, :socket, 2) do
       {:ok, socket_zipper} ->
         case Function.move_to_nth_argument(socket_zipper, 0) do
           {:ok, arg_zipper} ->
             node = Sourceror.Zipper.node(arg_zipper)
-            node == "/db-transfer" or check_db_transfer_socket_exists_next(socket_zipper)
+            node == "/db-sync" or check_db_sync_socket_exists_next(socket_zipper)
 
           :error ->
-            check_db_transfer_socket_exists_next(socket_zipper)
+            check_db_sync_socket_exists_next(socket_zipper)
         end
 
       :error ->
@@ -99,11 +99,11 @@ defmodule PhoenixKit.Install.EndpointIntegration do
     end
   end
 
-  # Continue searching for DBTransferSocket in remaining socket calls
-  defp check_db_transfer_socket_exists_next(zipper) do
+  # Continue searching for DBSyncSocket in remaining socket calls
+  defp check_db_sync_socket_exists_next(zipper) do
     case Sourceror.Zipper.next(zipper) do
       nil -> false
-      next_zipper -> check_db_transfer_socket_exists(next_zipper)
+      next_zipper -> check_db_sync_socket_exists(next_zipper)
     end
   end
 
@@ -164,7 +164,7 @@ defmodule PhoenixKit.Install.EndpointIntegration do
 
   defp add_socket_code(target_zipper) do
     socket_code = """
-    # PhoenixKit sockets (for DB Transfer, etc.)
+    # PhoenixKit sockets (for DB Sync, etc.)
     phoenix_kit_socket()
     """
 
@@ -255,7 +255,7 @@ defmodule PhoenixKit.Install.EndpointIntegration do
        end
 
     💡 The phoenix_kit_socket() macro adds:
-       - /db-transfer socket for cross-site data transfer
+       - /db-sync socket for cross-site data sync
 
     📖 Common endpoint locations:
        • lib/my_app_web/endpoint.ex

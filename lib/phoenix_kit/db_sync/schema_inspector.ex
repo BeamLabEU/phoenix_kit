@@ -1,6 +1,6 @@
-defmodule PhoenixKit.DBTransfer.SchemaInspector do
+defmodule PhoenixKit.DBSync.SchemaInspector do
   @moduledoc """
-  Inspects database schema for DB Transfer module.
+  Inspects database schema for DB Sync module.
 
   Discovers available tables, their columns, and metadata.
   Uses PostgreSQL information_schema for introspection.
@@ -34,7 +34,7 @@ defmodule PhoenixKit.DBTransfer.SchemaInspector do
 
   alias PhoenixKit.RepoHelper
 
-  # Tables to always exclude from transfer
+  # Tables to always exclude from sync
   @excluded_tables [
     # Ecto/Phoenix internal tables
     "schema_migrations",
@@ -212,7 +212,7 @@ defmodule PhoenixKit.DBTransfer.SchemaInspector do
   @doc """
   Creates a table based on a schema definition from another database.
 
-  Used by DB Transfer to create tables that exist on sender but not on receiver.
+  Used by DB Sync to create tables that exist on sender but not on receiver.
 
   ## Parameters
 

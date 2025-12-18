@@ -1,6 +1,6 @@
-defmodule PhoenixKit.DBTransfer.DataExporter do
+defmodule PhoenixKit.DBSync.DataExporter do
   @moduledoc """
-  Exports data from database tables for DB Transfer module.
+  Exports data from database tables for DB Sync module.
 
   Provides functions to fetch records from tables with pagination,
   handle data serialization, and stream large datasets.
@@ -23,7 +23,7 @@ defmodule PhoenixKit.DBTransfer.DataExporter do
       ]}
   """
 
-  alias PhoenixKit.DBTransfer.SchemaInspector
+  alias PhoenixKit.DBSync.SchemaInspector
   alias PhoenixKit.RepoHelper
 
   @default_limit 100

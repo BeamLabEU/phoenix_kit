@@ -409,10 +409,10 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
           live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
-          # DB Transfer Module
-          live "/admin/db-transfer", Live.Modules.DBTransfer.Index, :index
-          live "/admin/db-transfer/receive", Live.Modules.DBTransfer.Receiver, :receive
-          live "/admin/db-transfer/send", Live.Modules.DBTransfer.Sender, :send
+          # DB Sync Module
+          live "/admin/db-sync", Live.Modules.DBSync.Index, :index
+          live "/admin/db-sync/receive", Live.Modules.DBSync.Receiver, :receive
+          live "/admin/db-sync/send", Live.Modules.DBSync.Sender, :send
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -618,10 +618,10 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
           live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
 
-          # DB Transfer Module
-          live "/admin/db-transfer", Live.Modules.DBTransfer.Index, :index
-          live "/admin/db-transfer/receive", Live.Modules.DBTransfer.Receiver, :receive
-          live "/admin/db-transfer/send", Live.Modules.DBTransfer.Sender, :send
+          # DB Sync Module
+          live "/admin/db-sync", Live.Modules.DBSync.Index, :index
+          live "/admin/db-sync/receive", Live.Modules.DBSync.Receiver, :receive
+          live "/admin/db-sync/send", Live.Modules.DBSync.Sender, :send
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -752,7 +752,7 @@ defmodule PhoenixKitWeb.Integration do
   Adds PhoenixKit sockets to your endpoint.
 
   Call this macro in your endpoint.ex to enable PhoenixKit WebSocket features
-  like DB Transfer.
+  like DB Sync.
 
   ## Usage
 
@@ -762,14 +762,14 @@ defmodule PhoenixKitWeb.Integration do
         use Phoenix.Endpoint, otp_app: :my_app
         import PhoenixKitWeb.Integration
 
-        # Add PhoenixKit sockets (for DB Transfer, etc.)
+        # Add PhoenixKit sockets (for DB Sync, etc.)
         phoenix_kit_socket()
 
         # ... rest of your endpoint config
       end
 
   This adds:
-  - `/db-transfer/websocket` endpoint for cross-site data transfer
+  - `/db-sync/websocket` endpoint for cross-site data sync
 
   ## Implementation Note
 
@@ -779,7 +779,7 @@ defmodule PhoenixKitWeb.Integration do
   """
   defmacro phoenix_kit_socket do
     quote do
-      plug PhoenixKitWeb.Plugs.DBTransferSocketPlug
+      plug PhoenixKitWeb.Plugs.DBSyncSocketPlug
     end
   end
 

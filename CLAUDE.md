@@ -642,7 +642,7 @@ config :phoenix_kit,
 
 **Blogging module:** See `lib/phoenix_kit_web/live/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
 
-**DB Transfer module:** See `lib/phoenix_kit_web/live/modules/db_transfer/README.md` for peer-to-peer data transfer, programmatic API, conflict strategies, and remote operations.
+**DB Sync module:** See `lib/phoenix_kit_web/live/modules/db_sync/README.md` for peer-to-peer data sync, programmatic API, conflict strategies, and remote operations.
 
 **Entities module:** See `lib/phoenix_kit_web/live/modules/entities/README.md` for dynamic content types (WordPress ACF-like).
 
@@ -666,7 +666,7 @@ PhoenixKit.Posts.enable_system()      # Enables posts module
 PhoenixKit.Emails.enable_system()     # Enables email tracking
 PhoenixKit.Billing.enable_system()    # Enables billing module
 PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
-PhoenixKit.DBTransfer.enable_system() # Enables DB transfer
+PhoenixKit.DBSync.enable_system()     # Enables DB sync
 PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
 PhoenixKit.Pages.enable_system()      # Enables pages module
 PhoenixKit.ReferralCodes.enable_system() # Enables referral codes

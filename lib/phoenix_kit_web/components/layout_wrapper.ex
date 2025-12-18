@@ -580,12 +580,12 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       />
                     <% end %>
 
-                    <%= if PhoenixKit.DBTransfer.enabled?() do %>
-                      <%!-- DB Transfer section --%>
+                    <%= if PhoenixKit.DBSync.enabled?() do %>
+                      <%!-- DB Sync section --%>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/db-transfer")}
-                        icon="db_transfer"
-                        label={gettext("DB Transfer")}
+                        href={Routes.locale_aware_path(assigns, "/admin/db-sync")}
+                        icon="db_sync"
+                        label={gettext("DB Sync")}
                         current_path={@current_path || ""}
                       />
                     <% end %>
