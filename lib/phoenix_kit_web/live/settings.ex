@@ -146,6 +146,7 @@ defmodule PhoenixKitWeb.Live.Settings do
           |> assign(:saved_settings, updated_settings)
           |> assign(:changeset, changeset)
           |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
+          |> assign(:admin_languages, ["en-US"])
           |> put_flash(:info, "Settings reset to defaults successfully")
 
         {:noreply, socket}
