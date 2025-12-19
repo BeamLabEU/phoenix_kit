@@ -1,4 +1,4 @@
-## 1.7.5 - 2025-12-18
+## 1.7.5 - 2025-12-20
 
 ### Email System Improvements
 - **Oban-based SQS polling** - Replace GenServer with Oban Worker for AWS SES event processing
@@ -14,6 +14,12 @@
 ### Install/Update Improvements
 - **Oban config fix** - Regex patterns now correctly ignore commented-out config blocks
 - **SQS polling queue** - Automatically added to Oban configuration during install/update
+
+### Other changes
+- Add DB Transfer module, fix sitemap language prefix, and add module documentation
+- Language admin navbar issues fixes
+- Fix admin layout languages
+- Refactor AI module to unified endpoints & rename DB Transfer to DB Sync
 
 ## 1.7.4 - 2025-12-17
 
