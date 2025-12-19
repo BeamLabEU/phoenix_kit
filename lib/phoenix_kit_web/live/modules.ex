@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
 
@@ -44,6 +45,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     posts_config = Posts.get_config()
     ai_config = AI.get_config()
     db_sync_config = DBSync.get_config()
+    tickets_config = Tickets.get_config()
 
     socket =
       socket
@@ -92,6 +94,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:posts_draft, posts_config.draft_posts)
       |> assign(:db_sync_enabled, db_sync_config.enabled)
       |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
+      |> assign(:tickets_enabled, tickets_config.enabled)
+      |> assign(:tickets_total, tickets_config.total_tickets)
+      |> assign(:tickets_open, tickets_config.open_tickets)
+      |> assign(:tickets_in_progress, tickets_config.in_progress_tickets)
 
     {:ok, socket}
   end
@@ -542,6 +548,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update DB Sync module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_tickets", _params, socket) do
+    new_enabled = !socket.assigns.tickets_enabled
+
+    result =
+      if new_enabled do
+        Tickets.enable_system()
+      else
+        Tickets.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        tickets_config = Tickets.get_config()
+
+        socket =
+          socket
+          |> assign(:tickets_enabled, new_enabled)
+          |> assign(:tickets_total, tickets_config.total_tickets)
+          |> assign(:tickets_open, tickets_config.open_tickets)
+          |> assign(:tickets_in_progress, tickets_config.in_progress_tickets)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Tickets module enabled",
+              else: "Tickets module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update tickets module")
         {:noreply, socket}
     end
   end

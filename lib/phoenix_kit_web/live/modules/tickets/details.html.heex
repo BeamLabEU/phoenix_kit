@@ -1,0 +1,431 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"Ticket: #{@ticket.title}"}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header with Back Button --%>
+    <div class="mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")}
+        class="btn btn-ghost btn-sm gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        Back to Tickets
+      </.link>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Main Content --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Ticket Info Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <div class="flex items-start justify-between">
+              <div>
+                <h1 class="card-title text-2xl">{@ticket.title}</h1>
+                <div class="flex items-center gap-3 mt-2 text-sm text-base-content/70">
+                  <span>#{String.slice(@ticket.id, 0, 8)}</span>
+                  <span>•</span>
+                  <span>Created {Calendar.strftime(@ticket.inserted_at, "%Y-%m-%d %H:%M")}</span>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/tickets/#{@ticket.id}/edit")}
+                  class="btn btn-outline btn-sm"
+                >
+                  Edit
+                </.link>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <%!-- Description --%>
+            <div class="prose max-w-none">
+              <p class="whitespace-pre-wrap">{@ticket.description}</p>
+            </div>
+
+            <%!-- Attachments --%>
+            <%= if Enum.any?(@attachments) do %>
+              <div class="divider"></div>
+              <h3 class="font-semibold mb-3">Attachments</h3>
+              <div class="flex flex-wrap gap-3">
+                <%= for attachment <- @attachments do %>
+                  <div class="border rounded-lg p-2">
+                    <%= if attachment.file do %>
+                      <div class="text-sm">{attachment.file.original_file_name}</div>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Public Comments Section --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title">Comments ({length(@public_comments)})</h2>
+
+            <%!-- Comments List --%>
+            <div class="space-y-4 mt-4">
+              <%= if Enum.empty?(@public_comments) do %>
+                <div class="text-center py-8 text-base-content/50">
+                  No comments yet. Be the first to respond.
+                </div>
+              <% else %>
+                <%= for comment <- @public_comments do %>
+                  <div class="bg-base-200 rounded-lg p-4">
+                    <div class="flex items-start justify-between">
+                      <div class="flex items-center gap-2">
+                        <.user_avatar user={comment.user} size="sm" />
+                        <div>
+                          <span class="font-medium">{comment.user.email}</span>
+                          <span class="text-sm text-base-content/50 ml-2">
+                            {Calendar.strftime(comment.inserted_at, "%Y-%m-%d %H:%M")}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        phx-click="delete_comment"
+                        phx-value-id={comment.id}
+                        class="btn btn-ghost btn-xs"
+                        data-confirm="Are you sure you want to delete this comment?"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div class="mt-2 whitespace-pre-wrap">{comment.content}</div>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+
+            <%!-- Add Comment Form --%>
+            <div class="divider"></div>
+            <form phx-submit="add_comment" class="space-y-4">
+              <input type="hidden" name="comment[is_internal]" value="false" />
+              <textarea
+                name="comment[content]"
+                class="textarea textarea-bordered w-full"
+                rows="3"
+                placeholder="Write a public reply..."
+              ></textarea>
+              <div class="flex justify-end">
+                <button type="submit" class="btn btn-primary">
+                  Add Comment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <%!-- Internal Notes Section (Staff Only) --%>
+        <%= if @can_view_internal and @internal_notes_enabled do %>
+          <div class="card bg-warning/10 border-2 border-warning/30 shadow">
+            <div class="card-body">
+              <div class="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5 text-warning"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+                <h2 class="card-title text-warning">
+                  Internal Notes ({length(@internal_notes)})
+                </h2>
+                <span class="badge badge-warning badge-sm">Staff Only</span>
+              </div>
+
+              <%!-- Internal Notes List --%>
+              <div class="space-y-4 mt-4">
+                <%= if Enum.empty?(@internal_notes) do %>
+                  <div class="text-center py-4 text-base-content/50">
+                    No internal notes yet.
+                  </div>
+                <% else %>
+                  <%= for note <- @internal_notes do %>
+                    <div class="bg-warning/20 rounded-lg p-4">
+                      <div class="flex items-start justify-between">
+                        <div class="flex items-center gap-2">
+                          <.user_avatar user={note.user} size="sm" />
+                          <div>
+                            <span class="font-medium">{note.user.email}</span>
+                            <span class="text-sm text-base-content/50 ml-2">
+                              {Calendar.strftime(note.inserted_at, "%Y-%m-%d %H:%M")}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          phx-click="delete_comment"
+                          phx-value-id={note.id}
+                          class="btn btn-ghost btn-xs"
+                          data-confirm="Are you sure you want to delete this note?"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-4 w-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                      <div class="mt-2 whitespace-pre-wrap">{note.content}</div>
+                    </div>
+                  <% end %>
+                <% end %>
+              </div>
+
+              <%!-- Add Internal Note Form --%>
+              <div class="divider"></div>
+              <form phx-submit="add_comment" class="space-y-4">
+                <input type="hidden" name="comment[is_internal]" value="true" />
+                <textarea
+                  name="comment[content]"
+                  class="textarea textarea-bordered textarea-warning w-full"
+                  rows="3"
+                  placeholder="Write an internal note (not visible to customer)..."
+                ></textarea>
+                <div class="flex justify-end">
+                  <button type="submit" class="btn btn-warning">
+                    Add Internal Note
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Sidebar --%>
+      <div class="space-y-6">
+        <%!-- Status & Actions Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h3 class="font-semibold mb-4">Status & Actions</h3>
+
+            <%!-- Current Status --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">Current Status</span>
+              <div class="mt-1">
+                <%= case @ticket.status do %>
+                  <% "open" -> %>
+                    <span class="badge badge-info badge-lg">Open</span>
+                  <% "in_progress" -> %>
+                    <span class="badge badge-warning badge-lg">In Progress</span>
+                  <% "resolved" -> %>
+                    <span class="badge badge-success badge-lg">Resolved</span>
+                  <% "closed" -> %>
+                    <span class="badge badge-lg">Closed</span>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Status Actions --%>
+            <div class="space-y-2">
+              <%= if @ticket.status == "open" do %>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="in_progress"
+                  class="btn btn-warning btn-sm w-full"
+                >
+                  Start Progress
+                </button>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="resolved"
+                  class="btn btn-success btn-sm w-full"
+                >
+                  Mark Resolved
+                </button>
+              <% end %>
+
+              <%= if @ticket.status == "in_progress" do %>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="resolved"
+                  class="btn btn-success btn-sm w-full"
+                >
+                  Mark Resolved
+                </button>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="open"
+                  class="btn btn-ghost btn-sm w-full"
+                >
+                  Return to Open
+                </button>
+              <% end %>
+
+              <%= if @ticket.status == "resolved" do %>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="closed"
+                  class="btn btn-sm w-full"
+                >
+                  Close Ticket
+                </button>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="open"
+                  class="btn btn-ghost btn-sm w-full"
+                >
+                  Reopen
+                </button>
+              <% end %>
+
+              <%= if @ticket.status == "closed" do %>
+                <button
+                  phx-click="change_status"
+                  phx-value-status="open"
+                  class="btn btn-info btn-sm w-full"
+                >
+                  Reopen Ticket
+                </button>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Details Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h3 class="font-semibold mb-4">Details</h3>
+
+            <%!-- Customer --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">Customer</span>
+              <div class="mt-1 flex items-center gap-2">
+                <%= if @ticket.user do %>
+                  <.user_avatar user={@ticket.user} size="xs" />
+                  <span class="text-sm">{@ticket.user.email}</span>
+                <% else %>
+                  <span class="text-sm text-base-content/50">Unknown</span>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Assigned To --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">Assigned To</span>
+              <div class="mt-1">
+                <%= if @ticket.assigned_to do %>
+                  <span class="badge badge-outline">{@ticket.assigned_to.email}</span>
+                <% else %>
+                  <div class="flex items-center gap-2">
+                    <span class="badge badge-ghost">Unassigned</span>
+                    <button phx-click="assign_to_me" class="btn btn-xs btn-primary">
+                      Assign to me
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Comments Count --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">Comments</span>
+              <div class="mt-1 font-medium">{@ticket.comment_count}</div>
+            </div>
+
+            <%!-- Timestamps --%>
+            <%= if @ticket.resolved_at do %>
+              <div class="mb-4">
+                <span class="text-sm text-base-content/70">Resolved At</span>
+                <div class="mt-1 text-sm">
+                  {Calendar.strftime(@ticket.resolved_at, "%Y-%m-%d %H:%M")}
+                </div>
+              </div>
+            <% end %>
+
+            <%= if @ticket.closed_at do %>
+              <div class="mb-4">
+                <span class="text-sm text-base-content/70">Closed At</span>
+                <div class="mt-1 text-sm">
+                  {Calendar.strftime(@ticket.closed_at, "%Y-%m-%d %H:%M")}
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Status History Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h3 class="font-semibold mb-4">Status History</h3>
+
+            <div class="space-y-3">
+              <%= for entry <- @status_history do %>
+                <div class="flex items-start gap-3 text-sm">
+                  <div class="w-2 h-2 rounded-full bg-base-content/30 mt-1.5"></div>
+                  <div>
+                    <div>
+                      <%= if entry.from_status do %>
+                        <span class="badge badge-xs">{entry.from_status}</span> →
+                      <% end %>
+                      <span class="badge badge-xs badge-primary">{entry.to_status}</span>
+                    </div>
+                    <div class="text-base-content/50 mt-1">
+                      by {(entry.changed_by && entry.changed_by.email) || "System"}
+                      <br />
+                      {Calendar.strftime(entry.inserted_at, "%Y-%m-%d %H:%M")}
+                    </div>
+                    <%= if entry.reason do %>
+                      <div class="text-base-content/70 mt-1 italic">"{entry.reason}"</div>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

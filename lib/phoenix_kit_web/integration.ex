@@ -328,6 +328,13 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
+          # Support Tickets module routes
+          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
+          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
+          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
+          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
+          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
+
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -529,6 +536,13 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id", Live.Modules.Posts.Details, :show
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
+
+          # Support Tickets module routes
+          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
+          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
+          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
+          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
+          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index

@@ -1,0 +1,180 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Tickets Settings"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Tickets Settings</h1>
+        <p class="text-lg text-base-content">
+          Configure support tickets module behavior and features
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-4xl mx-auto space-y-8">
+      <%!-- Stats Overview --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-chart-bar" class="w-6 h-6" /> Statistics
+          </h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="stat bg-base-200 rounded-lg p-4">
+              <div class="stat-title text-xs">Total</div>
+              <div class="stat-value text-2xl">{@stats.total}</div>
+            </div>
+            <div class="stat bg-info/20 rounded-lg p-4">
+              <div class="stat-title text-xs">Open</div>
+              <div class="stat-value text-2xl text-info">{@stats.open}</div>
+            </div>
+            <div class="stat bg-warning/20 rounded-lg p-4">
+              <div class="stat-title text-xs">In Progress</div>
+              <div class="stat-value text-2xl text-warning">{@stats.in_progress}</div>
+            </div>
+            <div class="stat bg-success/20 rounded-lg p-4">
+              <div class="stat-title text-xs">Resolved</div>
+              <div class="stat-value text-2xl text-success">{@stats.resolved}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Module Settings --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Module Configuration
+          </h2>
+
+          <%!-- Enable/Disable --%>
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@enabled}
+                phx-click="toggle_enabled"
+              />
+              <div>
+                <span class="label-text font-medium">Enable Tickets Module</span>
+                <p class="text-sm text-base-content/50">
+                  When disabled, the tickets interface will not be accessible
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div class="divider"></div>
+
+          <%!-- Per Page --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Tickets Per Page</span>
+            </label>
+            <select
+              class="select select-bordered w-full max-w-xs"
+              phx-change="update_per_page"
+              name="per_page"
+            >
+              <option value="10" selected={@per_page == 10}>10</option>
+              <option value="20" selected={@per_page == 20}>20</option>
+              <option value="50" selected={@per_page == 50}>50</option>
+              <option value="100" selected={@per_page == 100}>100</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Feature Toggles --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-sparkles" class="w-6 h-6" /> Features
+          </h2>
+
+          <%!-- Internal Notes --%>
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                class="toggle toggle-warning"
+                checked={@internal_notes_enabled}
+                phx-click="toggle_internal_notes"
+              />
+              <div>
+                <span class="label-text font-medium">Internal Notes</span>
+                <p class="text-sm text-base-content/50">
+                  Allow staff-only notes that are hidden from customers
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <div class="divider my-2"></div>
+
+          <%!-- Attachments --%>
+          <div class="form-control opacity-60">
+            <label class="label cursor-not-allowed justify-start gap-4">
+              <input
+                type="checkbox"
+                class="toggle toggle-info"
+                checked={false}
+                disabled
+              />
+              <div>
+                <span class="label-text font-medium">
+                  Attachments <span class="badge badge-sm badge-warning ml-2">Coming Soon</span>
+                </span>
+                <p class="text-sm text-base-content/50">
+                  Allow uploading files to tickets and comments
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Workflow Settings --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-arrow-path" class="w-6 h-6" /> Workflow
+          </h2>
+
+          <%!-- Allow Reopen --%>
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                class="toggle"
+                checked={@allow_reopen}
+                phx-click="toggle_allow_reopen"
+              />
+              <div>
+                <span class="label-text font-medium">Allow Reopening Tickets</span>
+                <p class="text-sm text-base-content/50">
+                  Allow resolved or closed tickets to be reopened
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

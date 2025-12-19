@@ -236,12 +236,22 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Invoices: subscription reference
   - Settings: provider enable/disable, grace period, dunning configuration
 
-  ### V34 - AI Endpoints System ⚡ LATEST
+  ### V34 - AI Endpoints System
   - Phoenix_kit_ai_endpoints for unified AI configuration
   - Combines provider credentials, model selection, and generation parameters
   - Replaces the Accounts + Slots architecture with single Endpoint entities
   - Updates phoenix_kit_ai_requests with endpoint_id reference
   - Removes slot settings from Settings table
+
+  ### V35 - Support Tickets System ⚡ LATEST
+  - Phoenix_kit_tickets for customer support request management
+  - Phoenix_kit_ticket_comments for threaded comments with internal notes
+  - Phoenix_kit_ticket_attachments for file attachments on tickets/comments
+  - Phoenix_kit_ticket_status_history for complete audit trail
+  - Status workflow: open → in_progress → resolved → closed
+  - SupportAgent role for ticket access control
+  - Internal notes feature (staff-only visibility)
+  - Settings: enabled, per_page, comments, internal notes, attachments, allow_reopen
 
   ## Migration Paths
 
@@ -301,7 +311,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 34
+  @current_version 35
   @default_prefix "public"
 
   @doc false
