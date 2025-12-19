@@ -27,7 +27,7 @@ Add `phoenix_kit` to your project dependencies. `igniter` installed in `phoenix_
 # mix.exs
 def deps do
   [
-    {:phoenix_kit, "~> 1.6"}
+    {:phoenix_kit, "~> 1.7"}
   ]
 end
 ```
