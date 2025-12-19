@@ -1,32 +1,32 @@
-defmodule PhoenixKit.DBTransfer do
+defmodule PhoenixKit.DBSync do
   @moduledoc """
-  Main context for DB Transfer module.
+  Main context for DB Sync module.
 
-  Provides peer-to-peer data transfer between PhoenixKit instances.
-  Supports transfer between dev↔prod, dev↔dev, or even different websites.
+  Provides peer-to-peer data sync between PhoenixKit instances.
+  Supports sync between dev↔prod, dev↔dev, or even different websites.
 
   ## Programmatic API
 
-  This module provides a complete API for programmatic data transfer, suitable
+  This module provides a complete API for programmatic data sync, suitable
   for use from code, scripts, or AI agents.
 
   ### System Control
 
-  - `enabled?/0` - Check if DB Transfer module is enabled
-  - `enable_system/0` - Enable DB Transfer module
-  - `disable_system/0` - Disable DB Transfer module
+  - `enabled?/0` - Check if DB Sync module is enabled
+  - `enable_system/0` - Enable DB Sync module
+  - `disable_system/0` - Disable DB Sync module
   - `get_config/0` - Get current configuration and stats
 
   ### Session Management (for LiveView UI)
 
-  - `create_session/1` - Create a new transfer session with connection code
+  - `create_session/1` - Create a new sync session with connection code
   - `get_session/1` - Get session by code
   - `validate_code/1` - Validate and mark code as used
   - `delete_session/1` - Delete a session
 
   ### Local Database Inspection
 
-  - `list_tables/0` - List all transferable tables with row counts
+  - `list_tables/0` - List all syncable tables with row counts
   - `get_schema/1` - Get schema (columns, types) for a table
   - `get_count/1` - Get exact row count for a table
   - `table_exists?/1` - Check if a table exists locally
@@ -39,51 +39,51 @@ defmodule PhoenixKit.DBTransfer do
 
   ### Remote Operations (via Client)
 
-  For connecting to a remote sender and fetching data, use `PhoenixKit.DBTransfer.Client`:
+  For connecting to a remote sender and fetching data, use `PhoenixKit.DBSync.Client`:
 
-      {:ok, client} = PhoenixKit.DBTransfer.Client.connect("https://example.com", "ABC12345")
-      {:ok, tables} = PhoenixKit.DBTransfer.Client.list_tables(client)
-      {:ok, records} = PhoenixKit.DBTransfer.Client.fetch_records(client, "users")
-      PhoenixKit.DBTransfer.Client.disconnect(client)
+      {:ok, client} = PhoenixKit.DBSync.Client.connect("https://example.com", "ABC12345")
+      {:ok, tables} = PhoenixKit.DBSync.Client.list_tables(client)
+      {:ok, records} = PhoenixKit.DBSync.Client.fetch_records(client, "users")
+      PhoenixKit.DBSync.Client.disconnect(client)
 
   ## Usage Examples
 
       # List local tables
-      {:ok, tables} = PhoenixKit.DBTransfer.list_tables()
+      {:ok, tables} = PhoenixKit.DBSync.list_tables()
       # => [{name: "users", estimated_count: 150}, ...]
 
       # Get table schema
-      {:ok, schema} = PhoenixKit.DBTransfer.get_schema("users")
+      {:ok, schema} = PhoenixKit.DBSync.get_schema("users")
       # => %{table: "users", columns: [...], primary_key: ["id"]}
 
       # Export records with pagination
-      {:ok, records} = PhoenixKit.DBTransfer.export_records("users", limit: 100, offset: 0)
+      {:ok, records} = PhoenixKit.DBSync.export_records("users", limit: 100, offset: 0)
 
       # Import records with conflict strategy
-      {:ok, result} = PhoenixKit.DBTransfer.import_records("users", records, :skip)
+      {:ok, result} = PhoenixKit.DBSync.import_records("users", records, :skip)
       # => %{created: 5, updated: 0, skipped: 3, errors: []}
 
-      # Full transfer workflow
-      {:ok, client} = PhoenixKit.DBTransfer.Client.connect(url, code)
-      {:ok, tables} = PhoenixKit.DBTransfer.Client.list_tables(client)
-      {:ok, result} = PhoenixKit.DBTransfer.Client.transfer(client, "users", strategy: :skip)
+      # Full sync workflow
+      {:ok, client} = PhoenixKit.DBSync.Client.connect(url, code)
+      {:ok, tables} = PhoenixKit.DBSync.Client.list_tables(client)
+      {:ok, result} = PhoenixKit.DBSync.Client.transfer(client, "users", strategy: :skip)
   """
 
-  alias PhoenixKit.DBTransfer.DataExporter
-  alias PhoenixKit.DBTransfer.DataImporter
-  alias PhoenixKit.DBTransfer.SchemaInspector
-  alias PhoenixKit.DBTransfer.SessionStore
+  alias PhoenixKit.DBSync.DataExporter
+  alias PhoenixKit.DBSync.DataImporter
+  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.DBSync.SessionStore
   alias PhoenixKit.Settings
 
-  @module_name "db_transfer"
-  @enabled_key "db_transfer_enabled"
+  @module_name "db_sync"
+  @enabled_key "db_sync_enabled"
 
   # ===========================================
   # SYSTEM CONTROL
   # ===========================================
 
   @doc """
-  Checks if the DB Transfer module is enabled.
+  Checks if the DB Sync module is enabled.
   """
   @spec enabled?() :: boolean()
   def enabled? do
@@ -91,7 +91,7 @@ defmodule PhoenixKit.DBTransfer do
   end
 
   @doc """
-  Enables the DB Transfer module.
+  Enables the DB Sync module.
   """
   @spec enable_system() :: {:ok, any()} | {:error, any()}
   def enable_system do
@@ -99,7 +99,7 @@ defmodule PhoenixKit.DBTransfer do
   end
 
   @doc """
-  Disables the DB Transfer module.
+  Disables the DB Sync module.
   """
   @spec disable_system() :: {:ok, any()} | {:error, any()}
   def disable_system do
@@ -107,7 +107,7 @@ defmodule PhoenixKit.DBTransfer do
   end
 
   @doc """
-  Gets the DB Transfer module configuration with statistics.
+  Gets the DB Sync module configuration with statistics.
 
   Returns a map with:
   - `enabled` - Whether the module is enabled
@@ -143,7 +143,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      {:ok, session} = PhoenixKit.DBTransfer.create_session(:receive)
+      {:ok, session} = PhoenixKit.DBSync.create_session(:receive)
       # => %{
       #   code: "A7X9K2M4",
       #   direction: :receive,
@@ -256,7 +256,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      {:ok, tables} = PhoenixKit.DBTransfer.list_tables()
+      {:ok, tables} = PhoenixKit.DBSync.list_tables()
       # => [%{name: "users", estimated_count: 150}, %{name: "posts", estimated_count: 1200}]
   """
   @spec list_tables(keyword()) :: {:ok, [map()]} | {:error, any()}
@@ -269,7 +269,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      {:ok, schema} = PhoenixKit.DBTransfer.get_schema("users")
+      {:ok, schema} = PhoenixKit.DBSync.get_schema("users")
       # => %{
       #   table: "users",
       #   columns: [
@@ -290,7 +290,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      {:ok, count} = PhoenixKit.DBTransfer.get_count("users")
+      {:ok, count} = PhoenixKit.DBSync.get_count("users")
       # => 150
   """
   @spec get_count(String.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, any()}
@@ -303,7 +303,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      PhoenixKit.DBTransfer.table_exists?("users")
+      PhoenixKit.DBSync.table_exists?("users")
       # => true
   """
   @spec table_exists?(String.t(), keyword()) :: boolean()
@@ -321,7 +321,7 @@ defmodule PhoenixKit.DBTransfer do
 
   ## Examples
 
-      {:ok, records} = PhoenixKit.DBTransfer.export_records("users", limit: 50, offset: 0)
+      {:ok, records} = PhoenixKit.DBSync.export_records("users", limit: 50, offset: 0)
       # => [%{"id" => 1, "email" => "user@example.com", ...}, ...]
   """
   @spec export_records(String.t(), keyword()) :: {:ok, [map()]} | {:error, any()}
@@ -346,11 +346,11 @@ defmodule PhoenixKit.DBTransfer do
   ## Examples
 
       records = [%{"email" => "user@example.com", "name" => "John"}, ...]
-      {:ok, result} = PhoenixKit.DBTransfer.import_records("users", records, :skip)
+      {:ok, result} = PhoenixKit.DBSync.import_records("users", records, :skip)
       # => %{created: 5, updated: 0, skipped: 3, errors: []}
 
       # Append mode (ignores primary keys, creates new records)
-      {:ok, result} = PhoenixKit.DBTransfer.import_records("users", records, :append)
+      {:ok, result} = PhoenixKit.DBSync.import_records("users", records, :append)
   """
   @spec import_records(String.t(), [map()], atom()) ::
           {:ok, DataImporter.import_result()} | {:error, any()}
@@ -373,7 +373,7 @@ defmodule PhoenixKit.DBTransfer do
         ],
         "primary_key" => ["id"]
       }
-      :ok = PhoenixKit.DBTransfer.create_table("users", schema)
+      :ok = PhoenixKit.DBSync.create_table("users", schema)
   """
   @spec create_table(String.t(), map(), keyword()) :: :ok | {:error, any()}
   def create_table(table_name, schema_def, opts \\ []) do

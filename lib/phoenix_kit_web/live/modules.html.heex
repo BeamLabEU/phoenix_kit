@@ -635,9 +635,9 @@
           ]}>
             {if @ai_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @ai_enabled and @ai_accounts_count > 0 do %>
+          <%= if @ai_enabled and @ai_endpoints_count > 0 do %>
             <span class="badge badge-outline ml-2 whitespace-nowrap">
-              {@ai_accounts_count} account{if @ai_accounts_count != 1, do: "s"}
+              {@ai_endpoints_count} endpoint{if @ai_endpoints_count != 1, do: "s"}
             </span>
           <% end %>
         </:status_badges>
@@ -645,23 +645,19 @@
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
             <.link
-              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/ai")}
+              navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
               class={"btn btn-sm #{if @ai_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
-              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Manage
             </.link>
           </div>
         </:action_buttons>
 
         <:stats>
-          <div class="grid grid-cols-3 gap-2 text-xs">
+          <div class="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <span class="text-base-content/70">Accounts:</span>
-              <span class="font-medium">{@ai_accounts_count}</span>
-            </div>
-            <div>
-              <span class="text-base-content/70">Slots:</span>
-              <span class="font-medium">{@ai_configured_slots_count}/3</span>
+              <span class="text-base-content/70">Endpoints:</span>
+              <span class="font-medium">{@ai_endpoints_count}</span>
             </div>
             <div>
               <span class="text-base-content/70">Requests:</span>
@@ -735,40 +731,40 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- DB Transfer Module --%>
+      <%!-- DB Sync Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="DB Transfer"
-        description="Transfer data between PhoenixKit instances in real-time"
+        title="DB Sync"
+        description="Sync data between PhoenixKit instances in real-time"
         icon="🔄"
-        enabled={@db_transfer_enabled}
-        toggle_event="toggle_db_transfer"
+        enabled={@db_sync_enabled}
+        toggle_event="toggle_db_sync"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@db_transfer_enabled, do: "badge-success", else: "badge-neutral")
+            if(@db_sync_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @db_transfer_enabled, do: "Enabled", else: "Disabled"}
+            {if @db_sync_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @db_transfer_enabled and @db_transfer_active_sessions > 0 do %>
+          <%= if @db_sync_enabled and @db_sync_active_sessions > 0 do %>
             <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
-              {@db_transfer_active_sessions} active
+              {@db_sync_active_sessions} active
             </span>
           <% end %>
         </:status_badges>
 
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
-            <%= if @db_transfer_enabled do %>
+            <%= if @db_sync_enabled do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/db-transfer")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/db-sync")}
                 class="btn btn-primary btn-sm"
               >
-                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Open Transfer
+                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Open Sync
               </.link>
             <% else %>
               <span class="text-xs text-base-content/50 text-center">
-                Enable module to start transferring data
+                Enable module to start syncing data
               </span>
             <% end %>
           </div>
@@ -776,9 +772,9 @@
 
         <:stats>
           <div class="text-xs text-base-content/70">
-            {if @db_transfer_enabled,
-              do: "Transfer data between dev, staging, and production environments",
-              else: "Enable to transfer data between PhoenixKit sites"}
+            {if @db_sync_enabled,
+              do: "Sync data between dev, staging, and production environments",
+              else: "Enable to sync data between PhoenixKit sites"}
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>

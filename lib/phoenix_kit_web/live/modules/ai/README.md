@@ -1,53 +1,51 @@
 # AI Module
 
-The PhoenixKit AI module provides a complete AI integration system with provider account management, model configuration slots, usage tracking, and a simple API for making AI calls. Currently supports OpenRouter as the AI provider gateway, giving access to hundreds of models from various providers.
+The PhoenixKit AI module provides a complete AI integration system with unified endpoint management, usage tracking, and a simple API for making AI calls. Currently supports OpenRouter as the AI provider gateway, giving access to hundreds of models from various providers.
 
 ## Quick Links
 
-- **Admin Interface**: `/{prefix}/admin/ai`
-- **Account Management**: `/{prefix}/admin/ai/accounts`
-- **Settings**: Configure slots at `/{prefix}/admin/ai` under "Model Configuration"
+- **Admin Interface**: `/{prefix}/admin/ai/endpoints`
+- **Usage Statistics**: `/{prefix}/admin/ai/usage`
+- **Create Endpoint**: `/{prefix}/admin/ai/endpoints/new`
 
 ## Architecture Overview
 
-- **PhoenixKit.AI** – Main API module with completion functions and slot management
-- **PhoenixKit.AI.Account** – Account schema for storing provider credentials
+The AI module uses a unified **Endpoint** architecture where each endpoint contains everything needed to make AI calls:
+
+- **Provider credentials** (API key, base URL)
+- **Model selection** (e.g., `anthropic/claude-3-haiku`)
+- **Generation parameters** (temperature, max_tokens, etc.)
+
+### Core Modules
+
+- **PhoenixKit.AI** – Main API module with completion functions and endpoint management
+- **PhoenixKit.AI.Endpoint** – Endpoint schema combining credentials + model + parameters
 - **PhoenixKit.AI.Request** – Request logging schema for usage tracking
-- **PhoenixKit.AI.Completion** – HTTP client for making API calls to OpenRouter
+- **PhoenixKit.AI.Completion** – HTTP client for making API calls
 - **PhoenixKit.AI.OpenRouterClient** – Model discovery and API key validation
 
 ## Core Features
 
-- **Multi-Account Support** – Store multiple AI provider accounts
-- **Slot-Based Configuration** – 3 configurable presets per model type (text, vision, image gen, embeddings)
-- **Fallback Chain** – Automatic failover to next slot on errors
+- **Unified Endpoints** – Each endpoint is a complete AI configuration
+- **Unlimited Endpoints** – Create as many endpoints as needed
 - **Usage Tracking** – All requests logged with tokens, latency, and cost
-- **Parameter Overrides** – Override slot parameters per-request
+- **Parameter Overrides** – Override endpoint parameters per-request
 - **Model Discovery** – Dynamic model fetching from OpenRouter API
+- **Sortable Lists** – Sort endpoints by ID, name, usage, cost, last used, etc.
+- **Filterable History** – Filter request history by endpoint, model, status, source
 
 ## Database Tables
 
-- **phoenix_kit_ai_accounts** – Provider account storage (API keys, settings)
+- **phoenix_kit_ai_endpoints** – Endpoint storage (credentials, model, parameters)
 - **phoenix_kit_ai_requests** – Request logging with usage statistics
-
-## Model Type Slots
-
-Each model type has 3 configurable slots:
-
-| Type | Use Case | Parameters |
-|------|----------|------------|
-| **Text** | Chat/completion models | temperature, max_tokens, top_p, top_k, penalties, stop, seed |
-| **Vision** | Multimodal models | Same as text |
-| **Image Gen** | Image generation | size, quality |
-| **Embeddings** | Vector embeddings | dimensions |
 
 ## API Usage
 
 ### Simple Chat Completion
 
 ```elixir
-# Using slot 0 for text completion
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "What is 2+2?")
+# Using endpoint ID
+{:ok, response} = PhoenixKit.AI.ask(1, "What is 2+2?")
 {:ok, text} = PhoenixKit.AI.extract_content(response)
 # => "4"
 ```
@@ -55,7 +53,7 @@ Each model type has 3 configurable slots:
 ### With System Message
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello",
+{:ok, response} = PhoenixKit.AI.ask(1, "Hello",
   system: "You are a pirate. Always respond like a pirate."
 )
 ```
@@ -63,7 +61,7 @@ Each model type has 3 configurable slots:
 ### Multi-Turn Conversation
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.complete(:text, 0, [
+{:ok, response} = PhoenixKit.AI.complete(1, [
   %{role: "system", content: "You are a helpful assistant."},
   %{role: "user", content: "What's the weather like?"},
   %{role: "assistant", content: "I don't have real-time weather data..."},
@@ -75,102 +73,238 @@ Each model type has 3 configurable slots:
 
 ```elixir
 # Override temperature and max_tokens for this request only
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "Write a creative poem",
+{:ok, response} = PhoenixKit.AI.ask(1, "Write a creative poem",
   temperature: 1.5,
   max_tokens: 500
 )
-```
-
-### Automatic Fallback
-
-```elixir
-# Tries slot 0, then 1, then 2 if earlier slots fail
-{:ok, response, slot_used} = PhoenixKit.AI.ask_with_fallback(:text, "Hello!")
-
-# Works with full message format too
-{:ok, response, slot_used} = PhoenixKit.AI.complete_with_fallback(:text, [
-  %{role: "user", content: "Hello!"}
-])
 ```
 
 ### Embeddings
 
 ```elixir
 # Single text
-{:ok, response} = PhoenixKit.AI.embed(0, "Hello, world!")
+{:ok, response} = PhoenixKit.AI.embed(1, "Hello, world!")
 
 # Multiple texts (batch)
-{:ok, response} = PhoenixKit.AI.embed(0, ["Text 1", "Text 2", "Text 3"])
+{:ok, response} = PhoenixKit.AI.embed(1, ["Text 1", "Text 2", "Text 3"])
 
 # With dimension override
-{:ok, response} = PhoenixKit.AI.embed(0, "Hello", dimensions: 512)
+{:ok, response} = PhoenixKit.AI.embed(1, "Hello", dimensions: 512)
 ```
 
 ### Extracting Response Data
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello!")
+{:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
 
 # Get just the text content
 {:ok, text} = PhoenixKit.AI.extract_content(response)
 
-# Get usage statistics
+# Get usage statistics (includes cost in nanodollars)
 usage = PhoenixKit.AI.extract_usage(response)
-# => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25}
+# => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25, cost_cents: 30}
 
 # Full response includes latency
 response["latency_ms"]  # => 850
 ```
 
-## Configuration
+## Source Tracking & Debugging
 
-### Account Setup
+All AI requests automatically capture caller information for analytics and debugging.
 
-1. Navigate to `/{prefix}/admin/ai/accounts`
-2. Click "Add Account"
-3. Enter your OpenRouter API key (must start with `sk-or-v1-`)
-4. Optionally configure HTTP-Referer and X-Title headers (for OpenRouter rankings)
+### Automatic Tracking
 
-> **Note**: Get your API key from https://openrouter.ai/keys. The key must include the full prefix `sk-or-v1-...`
+Every request automatically stores:
 
-### Slot Configuration
-
-1. Navigate to `/{prefix}/admin/ai`
-2. Select model type tab (Text, Vision, Image Gen, Embeddings)
-3. Configure each slot:
-   - Select account
-   - Choose model from dropdown
-   - Adjust parameters (temperature, max_tokens, etc.)
-   - Enable/disable slot
-4. Click "Save Configuration"
-
-### Max Tokens Behavior
-
-By default, `max_tokens` is set to `nil`, which lets the API decide the appropriate output length based on the model's context window and your input size. This avoids context length errors that occur when `max_tokens + input_tokens > context_length`.
-
-**Recommendations:**
-- Leave `max_tokens` as `nil` for dynamic behavior
-- Set a specific value (e.g., 1000-4000) if you need consistent output lengths
-- Override per-request with the `max_tokens` option when needed
+- **Source** - Clean identifier like `PhoenixKitWeb.Live.Modules.Languages.translate`
+- **Stacktrace** - Full call stack (up to 20 frames) for debugging
+- **Caller Context** - Additional debug info:
+  - `request_id` - Phoenix request ID (if in HTTP/LiveView context)
+  - `node` - Node name (useful for distributed systems)
+  - `pid` - Process ID
+  - `memory_bytes` - Process memory at call time
 
 ```elixir
-# Let API decide (nil max_tokens in slot)
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello!")
-
-# Override for specific request
-{:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello!", max_tokens: 500)
+# Automatic detection - no code changes needed
+{:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
+# Source automatically detected from caller: "MyApp.ContentGenerator.summarize"
 ```
 
-### Fallback Chain
+### Manual Source Override
 
-Enable multiple slots to create a fallback chain. When making requests with `complete_with_fallback/3` or `ask_with_fallback/3`:
+Override the auto-detected source when needed:
 
-1. Tries Slot 0 first
-2. On failure, tries Slot 1
-3. On failure, tries Slot 2
-4. Returns error if all slots fail
+```elixir
+{:ok, response} = PhoenixKit.AI.ask(1, "Hello!",
+  source: "CustomLabel"
+)
+# Manual source used, but stacktrace and caller context still captured
+```
 
-Each attempt is logged for debugging and usage tracking.
+### Viewing Debug Info
+
+In the Usage tab request details modal:
+- **Source** is displayed prominently for quick identification
+- **Caller Context** shows request ID, node, PID, and memory usage
+- **Stacktrace** is in a collapsible section for debugging
+
+This information is stored in the request's `metadata` field (JSONB) and requires no database migration.
+
+## Endpoint Management
+
+### Creating Endpoints
+
+```elixir
+{:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+  name: "Claude Fast",
+  provider: "openrouter",
+  api_key: "sk-or-v1-...",
+  model: "anthropic/claude-3-haiku",
+  temperature: 0.7,
+  max_tokens: 1000
+})
+```
+
+### Listing Endpoints
+
+```elixir
+# List all endpoints
+endpoints = PhoenixKit.AI.list_endpoints()
+
+# With sorting
+endpoints = PhoenixKit.AI.list_endpoints(sort_by: :usage, sort_dir: :desc)
+
+# Filter by provider or status
+endpoints = PhoenixKit.AI.list_endpoints(provider: "openrouter", enabled: true)
+```
+
+### Updating Endpoints
+
+```elixir
+endpoint = PhoenixKit.AI.get_endpoint!(1)
+{:ok, updated} = PhoenixKit.AI.update_endpoint(endpoint, %{temperature: 0.5})
+```
+
+### Enabling/Disabling Endpoints
+
+```elixir
+# Disabled endpoints return an error when called
+endpoint = PhoenixKit.AI.get_endpoint!(1)
+{:ok, _} = PhoenixKit.AI.update_endpoint(endpoint, %{enabled: false})
+
+# Calling a disabled endpoint
+{:error, "Endpoint is disabled"} = PhoenixKit.AI.ask(1, "Hello")
+```
+
+## Endpoint Schema
+
+Each endpoint contains:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Display name (required) |
+| `description` | string | Optional description |
+| `provider` | string | Provider type ("openrouter") |
+| `api_key` | string | Provider API key (required) |
+| `base_url` | string | Custom API base URL |
+| `provider_settings` | map | Provider-specific settings |
+| `model` | string | Model identifier (required) |
+| `temperature` | float | Sampling temperature (0-2) |
+| `max_tokens` | integer | Maximum tokens to generate |
+| `top_p` | float | Nucleus sampling (0-1) |
+| `top_k` | integer | Top-k sampling |
+| `frequency_penalty` | float | Frequency penalty (-2 to 2) |
+| `presence_penalty` | float | Presence penalty (-2 to 2) |
+| `repetition_penalty` | float | Repetition penalty (0-2) |
+| `stop` | array | Stop sequences |
+| `seed` | integer | Random seed for reproducibility |
+| `image_size` | string | Image generation size |
+| `image_quality` | string | Image generation quality |
+| `dimensions` | integer | Embeddings dimensions |
+| `enabled` | boolean | Whether endpoint is active |
+| `sort_order` | integer | Display order |
+| `last_validated_at` | datetime | Last API key validation time |
+
+## Configuration via Admin UI
+
+### Creating an Endpoint
+
+1. Navigate to `/{prefix}/admin/ai/endpoints`
+2. Click "New Endpoint"
+3. Enter endpoint details:
+   - Name and optional description
+   - OpenRouter API key (must start with `sk-or-v1-`)
+   - Select a model from the dropdown
+   - Adjust parameters as needed
+4. Click "Create Endpoint"
+
+> **Note**: Get your API key from https://openrouter.ai/keys
+
+### Sorting Endpoints
+
+The endpoints list supports sorting by:
+- **ID** – Endpoint ID (default)
+- **Name** – Alphabetical
+- **Status** – Enabled/Disabled
+- **Model** – Model name
+- **Requests** – Total request count
+- **Tokens** – Total tokens used
+- **Cost** – Total cost
+- **Last Used** – Most recent request time
+
+Sort parameters are preserved in the URL for bookmarking.
+
+## Usage Tracking
+
+All requests are automatically logged to `phoenix_kit_ai_requests`.
+
+### Dashboard Statistics
+
+```elixir
+# Get dashboard stats (today, last 30 days, all time)
+stats = PhoenixKit.AI.get_dashboard_stats()
+# => %{
+#   today: %{total_requests: 50, total_tokens: 25000, ...},
+#   last_30_days: %{...},
+#   all_time: %{total_requests: 1234, success_rate: 98.5, ...}
+# }
+```
+
+### Endpoint Usage Statistics
+
+```elixir
+# Get usage stats per endpoint
+stats = PhoenixKit.AI.get_endpoint_usage_stats()
+# => %{
+#   1 => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
+#   2 => %{...}
+# }
+```
+
+### Request History
+
+```elixir
+# List requests with pagination
+{requests, total} = PhoenixKit.AI.list_requests(page: 1, page_size: 20)
+
+# With filters
+{requests, total} = PhoenixKit.AI.list_requests(
+  endpoint_id: 1,
+  model: "anthropic/claude-3-haiku",
+  status: "success",
+  source: "MyApp.ContentGenerator"
+)
+
+# With sorting
+{requests, total} = PhoenixKit.AI.list_requests(
+  sort_by: :cost_cents,
+  sort_dir: :desc
+)
+
+# Get filter options (for UI dropdowns)
+options = PhoenixKit.AI.get_request_filter_options()
+# => %{endpoints: [{1, "Claude Fast"}, ...], models: [...], statuses: [...], sources: [...]}
+```
 
 ## Response Structure
 
@@ -192,7 +326,8 @@ Each attempt is logged for debugging and usage tracking.
   "usage" => %{
     "prompt_tokens" => 10,
     "completion_tokens" => 15,
-    "total_tokens" => 25
+    "total_tokens" => 25,
+    "cost" => 0.00003  # Cost in dollars from OpenRouter
   },
   "latency_ms" => 850
 }
@@ -221,13 +356,16 @@ Each attempt is logged for debugging and usage tracking.
 All functions return `{:ok, result}` or `{:error, reason}`:
 
 ```elixir
-case PhoenixKit.AI.ask(:text, 0, "Hello") do
+case PhoenixKit.AI.ask(1, "Hello") do
   {:ok, response} ->
     {:ok, text} = PhoenixKit.AI.extract_content(response)
     IO.puts(text)
 
-  {:error, "Slot 0 has no account configured"} ->
-    IO.puts("Please configure an account for this slot")
+  {:error, "Endpoint not found"} ->
+    IO.puts("Endpoint doesn't exist")
+
+  {:error, "Endpoint is disabled"} ->
+    IO.puts("Enable the endpoint first")
 
   {:error, "Invalid API key"} ->
     IO.puts("Check your OpenRouter API key")
@@ -245,59 +383,53 @@ end
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `"Slot X has no account configured"` | Slot missing account | Configure account in slot settings |
-| `"Slot X has no model configured"` | Slot missing model | Select a model in slot settings |
-| `"Account not found"` | Account was deleted | Reconfigure slot with valid account |
-| `"Invalid API key"` | API key rejected | Update API key in account settings |
-| `"Insufficient credits"` | OpenRouter balance empty | Add credits to OpenRouter account |
-| `"Rate limited"` | Too many requests | Implement backoff/retry logic |
-| `"Request timeout"` | Slow response | Increase timeout or use faster model |
-| `"No enabled slots configured"` | No slots enabled for fallback | Enable at least one slot |
-
-## Usage Tracking
-
-All requests are automatically logged to `phoenix_kit_ai_requests`:
-
-```elixir
-# Get usage statistics
-stats = PhoenixKit.AI.get_usage_stats()
-# => %{
-#   total_requests: 1234,
-#   total_tokens: 2_500_000,
-#   total_cost_cents: 4567,
-#   success_rate: 98.5,
-#   avg_latency_ms: 850
-# }
-
-# Get dashboard stats (includes today, last 30 days, all time)
-dashboard = PhoenixKit.AI.get_dashboard_stats()
-
-# List recent requests
-{requests, total} = PhoenixKit.AI.list_requests(
-  page: 1,
-  page_size: 20,
-  status: "success"
-)
-```
+| `"Endpoint not found"` | Invalid endpoint ID | Check endpoint exists |
+| `"Endpoint is disabled"` | Endpoint not active | Enable endpoint in settings |
+| `"Invalid API key"` | API key rejected | Update API key |
+| `"Insufficient credits"` | OpenRouter balance empty | Add credits to OpenRouter |
+| `"Rate limited"` | Too many requests | Implement backoff/retry |
+| `"Request timeout"` | Slow response | Use faster model |
 
 ## LiveView Interfaces
 
-- **Settings** – Main AI configuration at `/{prefix}/admin/ai`
-  - Model type tabs (Text, Vision, Image Gen, Embeddings)
-  - Slot configuration with account/model selection
-  - Parameter tuning (temperature, max_tokens, etc.)
-  - Model info display (context length, pricing, supported params)
+### Endpoints Page (`/{prefix}/admin/ai/endpoints`)
 
-- **Accounts** – Account management at `/{prefix}/admin/ai/accounts`
-  - Add/edit/delete provider accounts
-  - API key validation
-  - Optional HTTP headers for rankings
+- List all endpoints with usage statistics
+- Sort by ID, name, status, usage, cost, last used
+- Quick actions: edit, enable/disable, delete
+- Each card shows: model, temperature, request count, tokens, cost
 
-- **Usage** – Usage statistics at `/{prefix}/admin/ai` under "Usage" tab
-  - Today/Last 30 days/All time statistics
-  - Success rate and average latency
-  - Recent requests table with status, tokens, and latency
-  - Error message tooltips for failed requests
+### Usage Page (`/{prefix}/admin/ai/usage`)
+
+- Dashboard statistics (today, 30 days, all time)
+- Recent requests table with filtering and sorting
+- Filter by endpoint, model, status, source (filters only appear when there are 2+ options)
+- Sort by time, endpoint, model, tokens, latency, cost, status
+- Request details modal with full request/response JSON, source, and debug info
+- Responsive table design (columns adapt to screen size)
+
+### Endpoint Form (`/{prefix}/admin/ai/endpoints/new` or `.../edit`)
+
+- Name and description
+- API key configuration
+- Model selection from dropdown
+- Parameter configuration (temperature, max_tokens, etc.)
+
+## Cost Tracking
+
+Costs are tracked in **nanodollars** (1/1,000,000 of a dollar) for precision with cheap API calls.
+
+```elixir
+# In database: cost_cents stores nanodollars
+# Example: $0.00003 = 30 nanodollars
+
+# Format for display
+PhoenixKit.AI.Request.format_cost(30)
+# => "$0.000030"
+
+PhoenixKit.AI.Request.format_cost(1_500_000)
+# => "$1.50"
+```
 
 ## Supported Models
 
@@ -310,45 +442,13 @@ OpenRouter provides access to models from:
 - **Mistral** – Mistral Large, Mixtral
 - **And many more** – DeepSeek, Qwen, Cohere, etc.
 
-Models are dynamically fetched from OpenRouter and filtered by type:
-- **Text**: `text->text` modality
-- **Vision**: `text+image->text` modality
-- **Image Gen**: `text->text+image` or `text+image->text+image` modality
-- **Embeddings**: Hardcoded list of known embedding models
-
-## Extending the Module
-
-### Adding a New Provider
-
-Currently only OpenRouter is supported. To add a new provider:
-
-1. Create a new client module (e.g., `PhoenixKit.AI.AnthropicClient`)
-2. Implement `chat_completion/4` and `embeddings/4` functions
-3. Update `PhoenixKit.AI.Completion` to route by provider
-4. Add provider option to account form
-
-### Custom Request Logging
-
-Override the logging behavior:
-
-```elixir
-# After making a request, access the raw response
-{:ok, response} = PhoenixKit.AI.complete(:text, 0, messages)
-
-# Log additional metadata
-PhoenixKit.AI.create_request(%{
-  account_id: account_id,
-  model: "custom/model",
-  request_type: "custom",
-  metadata: %{custom_field: "value"}
-})
-```
+Models are dynamically fetched from OpenRouter's API.
 
 ## Troubleshooting
 
 ### Models Not Loading
 
-1. Check API key is valid: Test in account settings
+1. Check API key is valid in endpoint settings
 2. Verify account has credits on OpenRouter
 3. Check browser console for network errors
 4. Try refreshing the page

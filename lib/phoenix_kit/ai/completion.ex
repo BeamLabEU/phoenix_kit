@@ -8,7 +8,7 @@ defmodule PhoenixKit.AI.Completion do
   ## Supported Endpoints
 
   - `/chat/completions` - Text and vision completions
-  - `/embeddings` - Text embeddings (planned)
+  - `/embeddings` - Text embeddings
   - `/images/generations` - Image generation (planned)
   """
 
@@ -24,8 +24,7 @@ defmodule PhoenixKit.AI.Completion do
 
   ## Parameters
 
-  - `account` - The AI account struct with API key
-  - `model` - Model ID (e.g., "anthropic/claude-3-haiku")
+  - `endpoint` - The AI endpoint struct with API key and model
   - `messages` - List of message maps with `:role` and `:content`
   - `opts` - Additional options (temperature, max_tokens, etc.)
 
@@ -70,11 +69,11 @@ defmodule PhoenixKit.AI.Completion do
   }
   ```
   """
-  def chat_completion(account, model, messages, opts \\ []) do
-    url = "#{@base_url}/chat/completions"
-    headers = OpenRouterClient.build_headers_from_account(account)
+  def chat_completion(endpoint, messages, opts \\ []) do
+    url = build_url(endpoint, "/chat/completions")
+    headers = OpenRouterClient.build_headers_from_endpoint(endpoint)
 
-    body = build_chat_body(model, messages, opts)
+    body = build_chat_body(endpoint.model, messages, opts)
 
     start_time = System.monotonic_time(:millisecond)
 
@@ -119,8 +118,7 @@ defmodule PhoenixKit.AI.Completion do
 
   ## Parameters
 
-  - `account` - The AI account struct with API key
-  - `model` - Embedding model ID
+  - `endpoint` - The AI endpoint struct with API key and model
   - `input` - Text or list of texts to embed
   - `opts` - Additional options
 
@@ -133,13 +131,13 @@ defmodule PhoenixKit.AI.Completion do
   - `{:ok, response}` - Response with embeddings
   - `{:error, reason}` - Error with reason
   """
-  def embeddings(account, model, input, opts \\ []) do
-    url = "#{@base_url}/embeddings"
-    headers = OpenRouterClient.build_headers_from_account(account)
+  def embeddings(endpoint, input, opts \\ []) do
+    url = build_url(endpoint, "/embeddings")
+    headers = OpenRouterClient.build_headers_from_endpoint(endpoint)
 
     body =
       %{
-        "model" => model,
+        "model" => endpoint.model,
         "input" => input
       }
       |> maybe_add("dimensions", Keyword.get(opts, :dimensions))
@@ -186,18 +184,33 @@ defmodule PhoenixKit.AI.Completion do
 
   @doc """
   Extracts usage information from a response.
+
+  Returns a map with token counts and cost (if available from OpenRouter).
+  Cost is stored in microdollars (1/10000 of a dollar) to preserve precision
+  for cheap API calls. Stored in the cost_cents field for backward compatibility.
   """
   def extract_usage(response) do
     case response do
       %{"usage" => usage} when is_map(usage) ->
+        # OpenRouter returns cost in dollars (as "cost" field)
+        # Store in nanodollars (1/1000000 of a dollar) for precision
+        # e.g., $0.00003 becomes 30 nanodollars
+        cost_cents =
+          case usage["cost"] || usage["total_cost"] do
+            nil -> nil
+            cost when is_number(cost) -> round(cost * 1_000_000)
+            _ -> nil
+          end
+
         %{
           prompt_tokens: usage["prompt_tokens"] || 0,
           completion_tokens: usage["completion_tokens"] || 0,
-          total_tokens: usage["total_tokens"] || 0
+          total_tokens: usage["total_tokens"] || 0,
+          cost_cents: cost_cents
         }
 
       _ ->
-        %{prompt_tokens: 0, completion_tokens: 0, total_tokens: 0}
+        %{prompt_tokens: 0, completion_tokens: 0, total_tokens: 0, cost_cents: nil}
     end
   end
 
@@ -272,5 +285,12 @@ defmodule PhoenixKit.AI.Completion do
       {:ok, %{"error" => error}} when is_binary(error) -> error
       _ -> nil
     end
+  end
+
+  defp build_url(endpoint, path) do
+    base = endpoint.base_url || @base_url
+    # Remove trailing slash from base if present
+    base = String.trim_trailing(base, "/")
+    "#{base}#{path}"
   end
 end

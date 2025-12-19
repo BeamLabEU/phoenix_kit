@@ -182,11 +182,20 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               <%= HTML.raw(ThemeConfig.custom_theme_css()) %>
             </style>
             <style>
-              /* Custom sidebar control for desktop - override lg:drawer-open when closed */
+              /* Custom sidebar control for desktop - override lg:drawer-open grid layout when closed */
               @media (min-width: 1024px) {
+                /* Override the grid to collapse sidebar column when closed */
+                #admin-drawer.sidebar-closed {
+                  grid-template-columns: 0 1fr !important;
+                  transition: grid-template-columns 300ms ease-in-out;
+                }
                 #admin-drawer.sidebar-closed .drawer-side {
                   transform: translateX(-16rem); /* -256px (w-64) */
                   transition: transform 300ms ease-in-out;
+                  overflow: hidden;
+                }
+                #admin-drawer:not(.sidebar-closed) {
+                  transition: grid-template-columns 300ms ease-in-out;
                 }
                 #admin-drawer:not(.sidebar-closed).drawer.lg\:drawer-open .drawer-side {
                   transform: translateX(0);
@@ -577,15 +586,35 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="ai"
                         label={gettext("AI")}
                         current_path={@current_path || ""}
+                        disable_active={true}
                       />
+
+                      <%= if submenu_open?(@current_path, ["/admin/ai"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/ai/endpoints")}
+                            icon="hero-server-stack"
+                            label={gettext("Endpoints")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/ai/usage")}
+                            icon="hero-chart-bar"
+                            label={gettext("Usage")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.DBTransfer.enabled?() do %>
-                      <%!-- DB Transfer section --%>
+                    <%= if PhoenixKit.DBSync.enabled?() do %>
+                      <%!-- DB Sync section --%>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/db-transfer")}
-                        icon="db_transfer"
-                        label={gettext("DB Transfer")}
+                        href={Routes.locale_aware_path(assigns, "/admin/db-sync")}
+                        icon="db_sync"
+                        label={gettext("DB Sync")}
                         current_path={@current_path || ""}
                       />
                     <% end %>

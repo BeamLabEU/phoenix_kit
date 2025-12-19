@@ -1,6 +1,6 @@
-defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
+defmodule PhoenixKit.DBSync.Workers.ImportWorker do
   @moduledoc """
-  Oban worker for background data import from DB Transfer.
+  Oban worker for background data import from DB Sync.
 
   This worker handles the actual import of records received from a sender,
   processing them in the background so the user doesn't have to wait.
@@ -10,7 +10,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
   - `table` - The table name to import into
   - `records` - List of records to import (JSON-serialized)
   - `strategy` - Conflict resolution strategy ("skip", "overwrite", "merge")
-  - `session_code` - The transfer session code (for tracking)
+  - `session_code` - The sync session code (for tracking)
   - `batch_index` - Optional batch index for large transfers
 
   ## Usage
@@ -27,15 +27,15 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
 
   ## Queue Configuration
 
-  Add the db_transfer queue to your Oban config:
+  Add the db_sync queue to your Oban config:
 
       config :my_app, Oban,
-        queues: [default: 10, db_transfer: 5]
+        queues: [default: 10, db_sync: 5]
   """
 
-  use Oban.Worker, queue: :db_transfer, max_attempts: 3
+  use Oban.Worker, queue: :db_sync, max_attempts: 3
 
-  alias PhoenixKit.DBTransfer.DataImporter
+  alias PhoenixKit.DBSync.DataImporter
 
   require Logger
 
@@ -49,7 +49,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
     schema = Map.get(args, "schema")
 
     Logger.info(
-      "DBTransfer.ImportWorker: Starting import for #{table} " <>
+      "DBSync.ImportWorker: Starting import for #{table} " <>
         "(batch #{batch_index}, #{length(records)} records, strategy: #{strategy})"
     )
 
@@ -58,7 +58,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
       case DataImporter.import_records(table, records, strategy) do
         {:ok, result} ->
           Logger.info(
-            "DBTransfer.ImportWorker: Completed import for #{table} (session: #{session_code}) - " <>
+            "DBSync.ImportWorker: Completed import for #{table} (session: #{session_code}) - " <>
               "created: #{result.created}, updated: #{result.updated}, " <>
               "skipped: #{result.skipped}, errors: #{length(result.errors)}"
           )
@@ -66,7 +66,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
           # Log any errors for debugging
           for {record, error} <- result.errors do
             Logger.warning(
-              "DBTransfer.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
+              "DBSync.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
             )
 
             # Log the record primary key if available
@@ -76,7 +76,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
                 id -> " (id: #{id})"
               end
 
-            Logger.debug("DBTransfer.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
+            Logger.debug("DBSync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
           end
 
           # Return success even if some records had errors
@@ -85,7 +85,7 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
 
         {:error, reason} ->
           Logger.error(
-            "DBTransfer.ImportWorker: Failed import for #{table} (session: #{session_code}) - " <>
+            "DBSync.ImportWorker: Failed import for #{table} (session: #{session_code}) - " <>
               "#{inspect(reason)}"
           )
 
@@ -96,22 +96,20 @@ defmodule PhoenixKit.DBTransfer.Workers.ImportWorker do
   end
 
   defp ensure_table_exists(table, schema) when is_map(schema) do
-    alias PhoenixKit.DBTransfer.SchemaInspector
+    alias PhoenixKit.DBSync.SchemaInspector
 
     if SchemaInspector.table_exists?(table) do
       :ok
     else
-      Logger.info("DBTransfer.ImportWorker: Creating missing table #{table}")
+      Logger.info("DBSync.ImportWorker: Creating missing table #{table}")
 
       case SchemaInspector.create_table(table, schema) do
         :ok ->
-          Logger.info("DBTransfer.ImportWorker: Created table #{table}")
+          Logger.info("DBSync.ImportWorker: Created table #{table}")
           :ok
 
         {:error, reason} ->
-          Logger.error(
-            "DBTransfer.ImportWorker: Failed to create table #{table}: #{inspect(reason)}"
-          )
+          Logger.error("DBSync.ImportWorker: Failed to create table #{table}: #{inspect(reason)}")
 
           {:error, {:table_creation_failed, reason}}
       end

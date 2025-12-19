@@ -136,6 +136,13 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   @doc """
+  Returns the path to the AI endpoints page.
+  """
+  def ai_path do
+    path("/admin/ai")
+  end
+
+  @doc """
   Returns a full url with preconfigured prefix.
 
   This function first checks for a configured site URL in Settings,

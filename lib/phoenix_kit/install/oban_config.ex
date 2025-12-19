@@ -16,7 +16,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
   @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
-  @dialyzer {:nowarn_function, ensure_db_transfer_queue: 2}
+  @dialyzer {:nowarn_function, ensure_db_sync_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
 
@@ -95,7 +95,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     oban_config = """
 
     # Configure Oban for PhoenixKit background jobs
-    # Required for file processing (storage system), email handling, posts, sitemap, and DB transfer
+    # Required for file processing (storage system), email handling, posts, sitemap, and DB sync
     config :#{app_name}, Oban,
       repo: #{repo_module},
       queues: [
@@ -105,7 +105,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         posts: 10,             # Posts scheduled publishing
         sitemap: 5,            # Sitemap generation
         sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
-        db_transfer: 5         # DB Transfer data import
+        db_sync: 5             # DB Sync data import
       ],
       plugins: [
         Oban.Plugins.Pruner,   # Automatic cleanup of completed jobs
@@ -149,7 +149,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Update existing Oban configuration to add posts/sitemap/sqs_polling/db_transfer queues and cron plugin
+  # Update existing Oban configuration to add posts/sitemap/sqs_polling/db_sync queues and cron plugin
   defp update_existing_oban_config(source, content, app_name) do
     Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
 
@@ -158,16 +158,16 @@ defmodule PhoenixKit.Install.ObanConfig do
       |> ensure_posts_queue(app_name)
       |> ensure_sitemap_queue(app_name)
       |> ensure_sqs_polling_queue(app_name)
-      |> ensure_db_transfer_queue(app_name)
+      |> ensure_db_sync_queue(app_name)
       |> ensure_cron_plugin(app_name)
 
     if updated_content == content do
       Mix.shell().info(
-        "✅ Oban configuration already up-to-date (posts/sitemap/sqs_polling/db_transfer queues and cron plugin present)"
+        "✅ Oban configuration already up-to-date (posts/sitemap/sqs_polling/db_sync queues and cron plugin present)"
       )
     else
       Mix.shell().info(
-        "✅ Updated Oban configuration with posts, sitemap, sqs_polling, and db_transfer support"
+        "✅ Updated Oban configuration with posts, sitemap, sqs_polling, and db_sync support"
       )
     end
 
@@ -310,14 +310,14 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Ensure db_transfer queue exists in the queues list
-  defp ensure_db_transfer_queue(content, app_name) do
-    # Check if db_transfer queue already exists
-    if Regex.match?(~r/db_transfer:\s*\d+/, content) do
-      Mix.shell().info("  ℹ️  db_transfer queue already configured")
+  # Ensure db_sync queue exists in the queues list
+  defp ensure_db_sync_queue(content, app_name) do
+    # Check if db_sync queue already exists
+    if Regex.match?(~r/db_sync:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  db_sync queue already configured")
       content
     else
-      Mix.shell().info("  ➕ Adding db_transfer queue to Oban configuration...")
+      Mix.shell().info("  ➕ Adding db_sync queue to Oban configuration...")
 
       # Find the queues configuration for this app's Oban config
       case Regex.run(
@@ -326,18 +326,18 @@ defmodule PhoenixKit.Install.ObanConfig do
              capture: :all
            ) do
         [full_match, before_queues, queues_content, after_queues] ->
-          Mix.shell().info("  ✓ Found queues block, adding db_transfer queue")
+          Mix.shell().info("  ✓ Found queues block, adding db_sync queue")
 
           # Remove trailing whitespace and check for comma
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add db_transfer queue with proper formatting
+          # Add db_sync queue with proper formatting
           new_queue_entry =
             if has_trailing_comma do
-              "\n    db_transfer: 5         # DB Transfer data import"
+              "\n    db_sync: 5             # DB Sync data import"
             else
-              ",\n    db_transfer: 5         # DB Transfer data import"
+              ",\n    db_sync: 5             # DB Sync data import"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -346,10 +346,10 @@ defmodule PhoenixKit.Install.ObanConfig do
 
         nil ->
           Mix.shell().error(
-            "  ⚠️  Could not parse queues block for :#{app_name} - skipping db_transfer queue update"
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping db_sync queue update"
           )
 
-          Mix.shell().error("     Please manually add: db_transfer: 5")
+          Mix.shell().error("     Please manually add: db_sync: 5")
           content
       end
     end
@@ -658,7 +658,7 @@ defmodule PhoenixKit.Install.ObanConfig do
           posts: 10,
           sitemap: 5,
           sqs_polling: 1,
-          db_transfer: 5
+          db_sync: 5
         ],
         plugins: [
           Oban.Plugins.Pruner,
@@ -677,7 +677,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     Without this configuration, the storage system cannot process uploaded files,
     scheduled posts will not be published automatically, sitemap generation
     will not work asynchronously, SQS polling for email events will not function,
-    and DB Transfer imports will not work.
+    and DB Sync imports will not work.
     """
 
     Igniter.add_notice(igniter, notice)

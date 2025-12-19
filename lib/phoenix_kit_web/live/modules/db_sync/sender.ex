@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
+defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   @moduledoc """
-  Sender-side LiveView for DB Transfer.
+  Sender-side LiveView for DB Sync.
 
   This is the site that has data to share with another site.
 
@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBTransfer
+  alias PhoenixKit.DBSync
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -32,11 +32,10 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
       |> assign(:page_title, "Send Data")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-transfer/send", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/db-sync/send", locale: locale))
       |> assign(:site_url, site_url)
       |> assign(:step, :generate_code)
       |> assign(:session, nil)
-      |> assign(:code_copied, false)
       # Multiple receivers support - map of pid => receiver_data
       |> assign(:receivers, %{})
       |> assign(:connection_status, nil)
@@ -53,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   def terminate(_reason, socket) do
     # Clean up session on unmount
     if socket.assigns.session do
-      DBTransfer.delete_session(socket.assigns.session.code)
+      DBSync.delete_session(socket.assigns.session.code)
     end
 
     :ok
@@ -65,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
 
   @impl true
   def handle_event("generate_code", _params, socket) do
-    case DBTransfer.create_session(:send) do
+    case DBSync.create_session(:send) do
       {:ok, session} ->
         socket =
           socket
@@ -80,27 +79,16 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   end
 
   @impl true
-  def handle_event("copy_code", _params, socket) do
-    {:noreply, assign(socket, :code_copied, true)}
-  end
-
-  @impl true
-  def handle_event("copied", _params, socket) do
-    {:noreply, assign(socket, :code_copied, true)}
-  end
-
-  @impl true
   def handle_event("regenerate_code", _params, socket) do
     if socket.assigns.session do
-      DBTransfer.delete_session(socket.assigns.session.code)
+      DBSync.delete_session(socket.assigns.session.code)
     end
 
-    case DBTransfer.create_session(:send) do
+    case DBSync.create_session(:send) do
       {:ok, session} ->
         socket =
           socket
           |> assign(:session, session)
-          |> assign(:code_copied, false)
           |> assign(:receivers, %{})
 
         {:noreply, socket}
@@ -113,14 +101,13 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   @impl true
   def handle_event("cancel", _params, socket) do
     if socket.assigns.session do
-      DBTransfer.delete_session(socket.assigns.session.code)
+      DBSync.delete_session(socket.assigns.session.code)
     end
 
     socket =
       socket
       |> assign(:session, nil)
       |> assign(:step, :generate_code)
-      |> assign(:code_copied, false)
       |> assign(:receivers, %{})
 
     {:noreply, socket}
@@ -129,14 +116,13 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   @impl true
   def handle_event("disconnect", _params, socket) do
     if socket.assigns.session do
-      DBTransfer.delete_session(socket.assigns.session.code)
+      DBSync.delete_session(socket.assigns.session.code)
     end
 
     socket =
       socket
       |> assign(:session, nil)
       |> assign(:step, :generate_code)
-      |> assign(:code_copied, false)
       |> assign(:receivers, %{})
       |> assign(:connection_status, nil)
 
@@ -169,8 +155,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   # ===========================================
 
   @impl true
-  def handle_info({:db_transfer, {:receiver_joined, channel_pid, full_info}}, socket) do
-    Logger.info("DBTransfer.Sender: Receiver connected - #{inspect(full_info)}")
+  def handle_info({:db_sync, {:receiver_joined, channel_pid, full_info}}, socket) do
+    Logger.info("DBSync.Sender: Receiver connected - #{inspect(full_info)}")
 
     # Extract receiver_info and connection_info from the full_info map
     # Handle both new format (with :receiver_info/:connection_info keys) and old format
@@ -200,8 +186,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
 
   # Handle old message format (backwards compatibility)
   @impl true
-  def handle_info({:db_transfer, {:receiver_joined, channel_pid}}, socket) do
-    Logger.info("DBTransfer.Sender: Receiver connected (no info)")
+  def handle_info({:db_sync, {:receiver_joined, channel_pid}}, socket) do
+    Logger.info("DBSync.Sender: Receiver connected (no info)")
 
     receiver_data = %{
       receiver_info: %{},
@@ -221,8 +207,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   end
 
   @impl true
-  def handle_info({:db_transfer, {:receiver_disconnected, channel_pid}}, socket) do
-    Logger.info("DBTransfer.Sender: Receiver disconnected - #{inspect(channel_pid)}")
+  def handle_info({:db_sync, {:receiver_disconnected, channel_pid}}, socket) do
+    Logger.info("DBSync.Sender: Receiver disconnected - #{inspect(channel_pid)}")
 
     receivers = Map.delete(socket.assigns.receivers, channel_pid)
 
@@ -237,8 +223,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
 
   # Handle old message format (backwards compatibility) - removes all receivers
   @impl true
-  def handle_info({:db_transfer, :receiver_disconnected}, socket) do
-    Logger.info("DBTransfer.Sender: Receiver disconnected (old format)")
+  def handle_info({:db_sync, :receiver_disconnected}, socket) do
+    Logger.info("DBSync.Sender: Receiver disconnected (old format)")
 
     # For old format, we don't know which receiver, so just flash a message
     # The channel terminate will send the new format with PID
@@ -248,8 +234,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
   end
 
   @impl true
-  def handle_info({:db_transfer, msg}, socket) do
-    Logger.debug("DBTransfer.Sender: Received message - #{inspect(msg)}")
+  def handle_info({:db_sync, msg}, socket) do
+    Logger.debug("DBSync.Sender: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end
 
@@ -277,7 +263,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
         <%!-- Header Section --%>
         <header class="w-full relative mb-8">
           <.link
-            navigate={Routes.path("/admin/db-transfer", locale: @current_locale)}
+            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back
@@ -341,18 +327,13 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Sender do
               {@session.code}
             </code>
             <button
-              phx-click="copy_code"
               id="copy-code-btn"
-              phx-hook="CopyToClipboard"
-              data-copy-value={@session.code}
+              onclick={"navigator.clipboard.writeText('#{@session.code}').then(() => { this.querySelector('.copy-icon').classList.add('hidden'); this.querySelector('.check-icon').classList.remove('hidden'); setTimeout(() => { this.querySelector('.copy-icon').classList.remove('hidden'); this.querySelector('.check-icon').classList.add('hidden'); }, 2000); })"}
               class="btn btn-ghost btn-sm"
               title="Copy to clipboard"
             >
-              <%= if @code_copied do %>
-                <.icon name="hero-check" class="w-5 h-5 text-success" />
-              <% else %>
-                <.icon name="hero-clipboard" class="w-5 h-5" />
-              <% end %>
+              <.icon name="hero-clipboard" class="w-5 h-5 copy-icon" />
+              <.icon name="hero-check" class="w-5 h-5 text-success check-icon hidden" />
             </button>
           </div>
         </div>

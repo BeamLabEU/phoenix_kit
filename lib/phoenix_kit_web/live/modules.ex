@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.DBTransfer
+  alias PhoenixKit.DBSync
   alias PhoenixKit.Entities
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     billing_config = Billing.get_config()
     posts_config = Posts.get_config()
     ai_config = AI.get_config()
-    db_transfer_config = DBTransfer.get_config()
+    db_sync_config = DBSync.get_config()
 
     socket =
       socket
@@ -84,15 +84,14 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:billing_invoices_count, billing_config.invoices_count)
       |> assign(:billing_currencies_count, billing_config.currencies_count)
       |> assign(:ai_enabled, ai_config.enabled)
-      |> assign(:ai_accounts_count, ai_config.accounts_count)
-      |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+      |> assign(:ai_endpoints_count, ai_config.endpoints_count)
       |> assign(:ai_total_requests, ai_config.total_requests)
       |> assign(:posts_enabled, posts_config.enabled)
       |> assign(:posts_total, posts_config.total_posts)
       |> assign(:posts_published, posts_config.published_posts)
       |> assign(:posts_draft, posts_config.draft_posts)
-      |> assign(:db_transfer_enabled, db_transfer_config.enabled)
-      |> assign(:db_transfer_active_sessions, db_transfer_config.active_sessions)
+      |> assign(:db_sync_enabled, db_sync_config.enabled)
+      |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
 
     {:ok, socket}
   end
@@ -459,8 +458,7 @@ defmodule PhoenixKitWeb.Live.Modules do
         socket =
           socket
           |> assign(:ai_enabled, new_enabled)
-          |> assign(:ai_accounts_count, ai_config.accounts_count)
-          |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+          |> assign(:ai_endpoints_count, ai_config.endpoints_count)
           |> assign(:ai_total_requests, ai_config.total_requests)
           |> put_flash(
             :info,
@@ -514,36 +512,36 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  def handle_event("toggle_db_transfer", _params, socket) do
-    new_enabled = !socket.assigns.db_transfer_enabled
+  def handle_event("toggle_db_sync", _params, socket) do
+    new_enabled = !socket.assigns.db_sync_enabled
 
     result =
       if new_enabled do
-        DBTransfer.enable_system()
+        DBSync.enable_system()
       else
-        DBTransfer.disable_system()
+        DBSync.disable_system()
       end
 
     case result do
       {:ok, _} ->
-        db_transfer_config = DBTransfer.get_config()
+        db_sync_config = DBSync.get_config()
 
         socket =
           socket
-          |> assign(:db_transfer_enabled, new_enabled)
-          |> assign(:db_transfer_active_sessions, db_transfer_config.active_sessions)
+          |> assign(:db_sync_enabled, new_enabled)
+          |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "DB Transfer module enabled",
-              else: "DB Transfer module disabled"
+              do: "DB Sync module enabled",
+              else: "DB Sync module disabled"
             )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update DB Transfer module")
+        socket = put_flash(socket, :error, "Failed to update DB Sync module")
         {:noreply, socket}
     end
   end

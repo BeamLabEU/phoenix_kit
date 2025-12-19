@@ -8,9 +8,11 @@ defmodule PhoenixKit.AI.Request do
   ## Schema Fields
 
   ### Request Identity
-  - `account_id`: Foreign key to the AI account used (nullable if account deleted)
+  - `endpoint_id`: Foreign key to the AI endpoint used (new system)
+  - `endpoint_name`: Denormalized endpoint name for historical display
+  - `account_id`: Foreign key to AI account (deprecated, for backward compatibility)
   - `user_id`: Foreign key to the user who made the request (nullable if user deleted)
-  - `slot_index`: Which text processing slot was used (0, 1, or 2)
+  - `slot_index`: Which slot was used (deprecated, for backward compatibility)
 
   ### Request Details
   - `model`: Model identifier (e.g., "anthropic/claude-3-haiku")
@@ -38,13 +40,13 @@ defmodule PhoenixKit.AI.Request do
 
   ## Usage Examples
 
-      # Log a successful request
+      # Log a successful request (new endpoint system)
       {:ok, request} = PhoenixKit.AI.create_request(%{
-        account_id: 1,
+        endpoint_id: 1,
+        endpoint_name: "Claude Fast",
         user_id: 123,
-        slot_index: 0,
         model: "anthropic/claude-3-haiku",
-        request_type: "text_completion",
+        request_type: "chat",
         input_tokens: 150,
         output_tokens: 320,
         total_tokens: 470,
@@ -55,9 +57,9 @@ defmodule PhoenixKit.AI.Request do
 
       # Log a failed request
       {:ok, request} = PhoenixKit.AI.create_request(%{
-        account_id: 1,
-        user_id: 123,
-        model: "anthropic/claude-3-opus",
+        endpoint_id: 1,
+        endpoint_name: "Claude Fast",
+        model: "anthropic/claude-3-haiku",
         status: "error",
         error_message: "Rate limit exceeded"
       })
@@ -66,7 +68,7 @@ defmodule PhoenixKit.AI.Request do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias PhoenixKit.AI.Account
+  alias PhoenixKit.AI.Endpoint
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -76,6 +78,8 @@ defmodule PhoenixKit.AI.Request do
   @derive {Jason.Encoder,
            only: [
              :id,
+             :endpoint_id,
+             :endpoint_name,
              :account_id,
              :user_id,
              :slot_index,
@@ -93,9 +97,15 @@ defmodule PhoenixKit.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
+    # New endpoint system fields
+    field :endpoint_name, :string
+
+    # Legacy fields (for backward compatibility)
     field :slot_index, :integer
+
+    # Request details
     field :model, :string
-    field :request_type, :string, default: "text_completion"
+    field :request_type, :string, default: "chat"
     field :input_tokens, :integer, default: 0
     field :output_tokens, :integer, default: 0
     field :total_tokens, :integer, default: 0
@@ -105,7 +115,10 @@ defmodule PhoenixKit.AI.Request do
     field :error_message, :string
     field :metadata, :map, default: %{}
 
-    belongs_to :account, Account
+    # Associations
+    belongs_to :endpoint, Endpoint
+    # Legacy account_id field (backward compatibility, no association since Account was removed)
+    field :account_id, :integer
     belongs_to :user, User
 
     timestamps(type: :utc_datetime_usec)
@@ -117,6 +130,8 @@ defmodule PhoenixKit.AI.Request do
   def changeset(request, attrs) do
     request
     |> cast(attrs, [
+      :endpoint_id,
+      :endpoint_name,
       :account_id,
       :user_id,
       :slot_index,
@@ -134,13 +149,12 @@ defmodule PhoenixKit.AI.Request do
     |> validate_required([:status])
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_inclusion(:request_type, @valid_request_types)
-    |> validate_number(:slot_index, greater_than_or_equal_to: 0, less_than_or_equal_to: 2)
     |> validate_number(:input_tokens, greater_than_or_equal_to: 0)
     |> validate_number(:output_tokens, greater_than_or_equal_to: 0)
     |> validate_number(:total_tokens, greater_than_or_equal_to: 0)
     |> validate_number(:latency_ms, greater_than_or_equal_to: 0)
     |> calculate_total_tokens()
-    |> foreign_key_constraint(:account_id)
+    |> foreign_key_constraint(:endpoint_id)
     |> foreign_key_constraint(:user_id)
   end
 
@@ -188,10 +202,28 @@ defmodule PhoenixKit.AI.Request do
 
   @doc """
   Formats the cost for display.
+
+  Cost is stored in nanodollars (1/1000000 of a dollar) for precision.
+  Shows appropriate precision based on the amount:
+  - >= $1.00: 2 decimal places ($1.23)
+  - >= $0.01: 2 decimal places ($0.05)
+  - >= $0.0001: 4 decimal places ($0.0012)
+  - > $0: 6 decimal places ($0.000030)
   """
   def format_cost(nil), do: "-"
   def format_cost(0), do: "$0.00"
-  def format_cost(cents), do: "$#{Float.round(cents / 100, 2)}"
+
+  def format_cost(nanodollars) when is_integer(nanodollars) do
+    # Convert from nanodollars (1/1000000 of a dollar) to dollars
+    dollars = nanodollars / 1_000_000
+
+    cond do
+      dollars >= 0.01 -> "$#{:erlang.float_to_binary(dollars, decimals: 2)}"
+      dollars >= 0.0001 -> "$#{:erlang.float_to_binary(dollars, decimals: 4)}"
+      dollars > 0 -> "$#{:erlang.float_to_binary(dollars, decimals: 6)}"
+      true -> "$0.00"
+    end
+  end
 
   @doc """
   Extracts the model name without provider prefix.

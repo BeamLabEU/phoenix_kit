@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.DBTransferSocket do
+defmodule PhoenixKitWeb.DBSyncSocket do
   @moduledoc """
-  Socket for DB Transfer module.
+  Socket for DB Sync module.
 
   This socket accepts external WebSocket connections from sender sites
   that want to connect using a connection code.
@@ -16,24 +16,24 @@ defmodule PhoenixKitWeb.DBTransferSocket do
   ## Example Connection
 
       // On sender site (using websockex or JS WebSocket)
-      const socket = new WebSocket("wss://receiver-site.com/db-transfer/websocket?code=ABC12345")
+      const socket = new WebSocket("wss://receiver-site.com/db-sync/websocket?code=ABC12345")
   """
 
   use Phoenix.Socket
   require Logger
 
-  alias PhoenixKit.DBTransfer
+  alias PhoenixKit.DBSync
 
-  channel "transfer:*", PhoenixKitWeb.DBTransferChannel
+  channel "transfer:*", PhoenixKitWeb.DBSyncChannel
 
   @impl true
   def connect(%{"code" => code}, socket, _connect_info) do
-    # Check if DB Transfer is enabled
-    if DBTransfer.enabled?() do
+    # Check if DB Sync is enabled
+    if DBSync.enabled?() do
       # Validate the connection code
-      case DBTransfer.validate_code(code) do
+      case DBSync.validate_code(code) do
         {:ok, session} ->
-          Logger.info("DBTransfer: Sender connected with code #{code}")
+          Logger.info("DBSync: Sender connected with code #{code}")
 
           socket =
             socket
@@ -44,24 +44,24 @@ defmodule PhoenixKitWeb.DBTransferSocket do
           {:ok, socket}
 
         {:error, :invalid_code} ->
-          Logger.warning("DBTransfer: Invalid code attempt: #{code}")
+          Logger.warning("DBSync: Invalid code attempt: #{code}")
           {:error, :invalid_code}
 
         {:error, :already_used} ->
-          Logger.warning("DBTransfer: Code already used: #{code}")
+          Logger.warning("DBSync: Code already used: #{code}")
           {:error, :already_used}
       end
     else
-      Logger.warning("DBTransfer: Connection attempt but module is disabled")
+      Logger.warning("DBSync: Connection attempt but module is disabled")
       {:error, :module_disabled}
     end
   end
 
   def connect(_params, _socket, _connect_info) do
-    Logger.warning("DBTransfer: Connection attempt without code")
+    Logger.warning("DBSync: Connection attempt without code")
     {:error, :missing_code}
   end
 
   @impl true
-  def id(socket), do: "db_transfer:#{socket.assigns.session_code}"
+  def id(socket), do: "db_sync:#{socket.assigns.session_code}"
 end

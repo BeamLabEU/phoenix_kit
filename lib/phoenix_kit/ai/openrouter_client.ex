@@ -291,6 +291,7 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   ## Options
   - `:http_referer` - Site URL for rankings
   - `:x_title` - Site title for rankings
+  - `:include_usage` - Include detailed usage/cost info (default: true for completions)
   """
   def build_headers(api_key, opts \\ []) do
     base_headers = [
@@ -298,10 +299,15 @@ defmodule PhoenixKit.AI.OpenRouterClient do
       {"Content-Type", "application/json"}
     ]
 
+    # Request extra data from OpenRouter including cost information
+    # X-Include-Usage: true returns detailed usage including cost
+    include_usage = Keyword.get(opts, :include_usage, true)
+
     optional_headers =
       []
       |> maybe_add_header("HTTP-Referer", Keyword.get(opts, :http_referer))
       |> maybe_add_header("X-Title", Keyword.get(opts, :x_title))
+      |> maybe_add_header("X-Include-Usage", if(include_usage, do: "true", else: nil))
 
     base_headers ++ optional_headers
   end
@@ -310,6 +316,20 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   Builds headers from an Account struct's settings.
   """
   def build_headers_from_account(%{api_key: api_key, settings: settings}) do
+    opts =
+      []
+      |> maybe_add_opt(:http_referer, settings["http_referer"])
+      |> maybe_add_opt(:x_title, settings["x_title"])
+
+    build_headers(api_key, opts)
+  end
+
+  @doc """
+  Builds headers from an Endpoint struct's provider_settings.
+  """
+  def build_headers_from_endpoint(%{api_key: api_key, provider_settings: settings}) do
+    settings = settings || %{}
+
     opts =
       []
       |> maybe_add_opt(:http_referer, settings["http_referer"])

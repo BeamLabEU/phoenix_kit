@@ -1,8 +1,8 @@
-defmodule PhoenixKit.DBTransfer.SessionStore do
+defmodule PhoenixKit.DBSync.SessionStore do
   @moduledoc """
-  ETS-based session storage for DB Transfer module.
+  ETS-based session storage for DB Sync module.
 
-  Stores transfer sessions in ETS for fast, ephemeral access.
+  Stores sync sessions in ETS for fast, ephemeral access.
   Sessions remain valid as long as the owning LiveView process is alive.
   When the LiveView terminates (page closed), the session is automatically deleted.
 
@@ -15,7 +15,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
   ## Future Migration Path
 
   This module is designed to be easily replaced with database persistence
-  if audit logging or transfer history is needed. The public API would remain
+  if audit logging or sync history is needed. The public API would remain
   the same, only the storage backend would change.
 
   ## Session Structure
@@ -35,8 +35,8 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
   use GenServer
   require Logger
 
-  @table_name :phoenix_kit_db_transfer_sessions
-  @monitors_table :phoenix_kit_db_transfer_monitors
+  @table_name :phoenix_kit_db_sync_sessions
+  @monitors_table :phoenix_kit_db_sync_monitors
   @cleanup_interval :timer.hours(1)
 
   # ===========================================
@@ -176,7 +176,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
     # Schedule periodic cleanup of orphaned sessions (fallback safety)
     schedule_cleanup()
 
-    Logger.debug("DBTransfer.SessionStore started")
+    Logger.debug("DBSync.SessionStore started")
     {:ok, %{}}
   end
 
@@ -185,7 +185,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
     ref = Process.monitor(pid)
     # Store mapping from monitor ref to session code
     :ets.insert(@monitors_table, {ref, code})
-    Logger.debug("DBTransfer.SessionStore: Monitoring #{inspect(pid)} for session #{code}")
+    Logger.debug("DBSync.SessionStore: Monitoring #{inspect(pid)} for session #{code}")
     {:noreply, state}
   end
 
@@ -197,9 +197,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
         :ets.delete(@monitors_table, ref)
         :ets.delete(@table_name, code)
 
-        Logger.debug(
-          "DBTransfer.SessionStore: Session #{code} deleted (owner process terminated)"
-        )
+        Logger.debug("DBSync.SessionStore: Session #{code} deleted (owner process terminated)")
 
       [] ->
         :ok
@@ -262,7 +260,7 @@ defmodule PhoenixKit.DBTransfer.SessionStore do
     Enum.each(orphaned, &:ets.delete(@table_name, &1))
 
     if orphaned != [] do
-      Logger.debug("DBTransfer.SessionStore: Cleaned up #{length(orphaned)} orphaned sessions")
+      Logger.debug("DBSync.SessionStore: Cleaned up #{length(orphaned)} orphaned sessions")
     end
   end
 

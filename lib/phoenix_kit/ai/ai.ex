@@ -2,15 +2,17 @@ defmodule PhoenixKit.AI do
   @moduledoc """
   Main context for PhoenixKit AI system.
 
-  Provides AI provider account management, text processing configuration,
-  and usage tracking for AI API requests.
+  Provides AI endpoint management and usage tracking for AI API requests.
 
-  ## Features
+  ## Architecture
 
-  - **Account Management**: Store multiple AI provider accounts (OpenRouter, etc.)
-  - **Text Processing Slots**: Configure 3 preset slots for different use cases
-  - **Fallback Chain**: Slots can be used as a fallback chain (1 → 2 → 3)
-  - **Usage Tracking**: Track every request for history and statistics
+  Each **Endpoint** is a unified configuration that combines:
+  - Provider credentials (api_key, base_url, provider_settings)
+  - Model selection (single model per endpoint)
+  - Generation parameters (temperature, max_tokens, etc.)
+
+  Users create as many endpoints as needed, each representing one complete
+  AI configuration ready for making API requests.
 
   ## Core Functions
 
@@ -20,21 +22,18 @@ defmodule PhoenixKit.AI do
   - `disable_system/0` - Disable the AI module
   - `get_config/0` - Get module configuration with statistics
 
-  ### Account CRUD
-  - `list_accounts/1` - List all accounts with filters
-  - `get_account!/1` - Get account by ID (raises)
-  - `get_account/1` - Get account by ID
-  - `create_account/1` - Create new account
-  - `update_account/2` - Update existing account
-  - `delete_account/1` - Delete account
-  - `validate_account/1` - Test API key validity
+  ### Endpoint CRUD
+  - `list_endpoints/1` - List all endpoints with filters
+  - `get_endpoint!/1` - Get endpoint by ID (raises)
+  - `get_endpoint/1` - Get endpoint by ID
+  - `create_endpoint/1` - Create new endpoint
+  - `update_endpoint/2` - Update existing endpoint
+  - `delete_endpoint/1` - Delete endpoint
 
-  ### Text Processing Slots
-  - `get_text_slots/0` - Get all 3 slot configurations
-  - `update_text_slots/1` - Update slot configurations
-  - `get_slot/1` - Get specific slot by index
-  - `get_enabled_slots/0` - Get only enabled slots
-  - `get_fallback_chain/0` - Get slots ordered for fallback
+  ### Completion API
+  - `ask/3` - Simple single-turn completion
+  - `complete/3` - Multi-turn chat completion
+  - `embed/3` - Generate embeddings
 
   ### Usage Tracking
   - `list_requests/1` - List requests with pagination/filters
@@ -44,33 +43,29 @@ defmodule PhoenixKit.AI do
 
   ## Usage Examples
 
-      # Check if module is enabled
-      if PhoenixKit.AI.enabled?() do
-        # Module is active
-      end
+      # Enable the module
+      PhoenixKit.AI.enable_system()
 
-      # Create an OpenRouter account
-      {:ok, account} = PhoenixKit.AI.create_account(%{
-        name: "Main OpenRouter",
+      # Create an endpoint
+      {:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+        name: "Claude Fast",
         provider: "openrouter",
-        api_key: "sk-or-v1-..."
+        api_key: "sk-or-v1-...",
+        model: "anthropic/claude-3-haiku",
+        temperature: 0.7
       })
 
-      # Configure text processing slots
-      {:ok, slots} = PhoenixKit.AI.update_text_slots([
-        %{name: "Fast", account_id: 1, model: "anthropic/claude-3-haiku", enabled: true},
-        %{name: "Quality", account_id: 1, model: "anthropic/claude-3-opus", enabled: true},
-        %{name: "Cheap", account_id: 1, model: "mistralai/mixtral-8x7b-instruct", enabled: false}
-      ])
+      # Use the endpoint
+      {:ok, response} = PhoenixKit.AI.ask(endpoint.id, "Hello!")
 
-      # Get usage statistics
-      stats = PhoenixKit.AI.get_dashboard_stats()
+      # Extract the response text
+      {:ok, text} = PhoenixKit.AI.extract_content(response)
   """
 
   import Ecto.Query, warn: false
   require Logger
 
-  alias PhoenixKit.AI.Account
+  alias PhoenixKit.AI.Endpoint
   alias PhoenixKit.AI.Request
   alias PhoenixKit.Settings
 
@@ -113,19 +108,18 @@ defmodule PhoenixKit.AI do
   def get_config do
     %{
       enabled: enabled?(),
-      accounts_count: count_accounts(),
-      configured_slots_count: count_configured_slots(),
+      endpoints_count: count_endpoints(),
       total_requests: count_requests(),
       total_tokens: sum_tokens()
     }
   end
 
   # ===========================================
-  # ACCOUNT CRUD
+  # ENDPOINT CRUD
   # ===========================================
 
   @doc """
-  Lists all AI accounts.
+  Lists all AI endpoints.
 
   ## Options
   - `:provider` - Filter by provider type
@@ -134,22 +128,28 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      PhoenixKit.AI.list_accounts()
-      PhoenixKit.AI.list_accounts(provider: "openrouter", enabled: true)
+      PhoenixKit.AI.list_endpoints()
+      PhoenixKit.AI.list_endpoints(provider: "openrouter", enabled: true)
   """
-  def list_accounts(opts \\ []) do
-    query = from(a in Account, order_by: [desc: a.inserted_at])
+  def list_endpoints(opts \\ []) do
+    sort_by = Keyword.get(opts, :sort_by, :sort_order)
+    sort_dir = Keyword.get(opts, :sort_dir, :asc)
+
+    query = from(e in Endpoint)
+
+    # Apply sorting
+    query = apply_endpoint_sorting(query, sort_by, sort_dir)
 
     query =
       case Keyword.get(opts, :provider) do
         nil -> query
-        provider -> where(query, [a], a.provider == ^provider)
+        provider -> where(query, [e], e.provider == ^provider)
       end
 
     query =
       case Keyword.get(opts, :enabled) do
         nil -> query
-        enabled -> where(query, [a], a.enabled == ^enabled)
+        enabled -> where(query, [e], e.enabled == ^enabled)
       end
 
     query =
@@ -161,413 +161,173 @@ defmodule PhoenixKit.AI do
     repo().all(query)
   end
 
-  @doc """
-  Gets a single account by ID.
+  defp apply_endpoint_sorting(query, :usage, dir) do
+    # Sort by total request count using a subquery
+    from(e in query,
+      left_join: r in assoc(e, :requests),
+      group_by: e.id,
+      order_by: [{^dir, count(r.id)}]
+    )
+  end
 
-  Raises `Ecto.NoResultsError` if the account does not exist.
+  defp apply_endpoint_sorting(query, :tokens, dir) do
+    # Sort by total tokens used
+    from(e in query,
+      left_join: r in assoc(e, :requests),
+      group_by: e.id,
+      order_by: [{^dir, coalesce(sum(r.total_tokens), 0)}]
+    )
+  end
+
+  defp apply_endpoint_sorting(query, :cost, dir) do
+    # Sort by total cost
+    from(e in query,
+      left_join: r in assoc(e, :requests),
+      group_by: e.id,
+      order_by: [{^dir, coalesce(sum(r.cost_cents), 0)}]
+    )
+  end
+
+  defp apply_endpoint_sorting(query, :last_used, dir) do
+    # Sort by most recent request time
+    from(e in query,
+      left_join: r in assoc(e, :requests),
+      group_by: e.id,
+      order_by: [{^dir, max(r.inserted_at)}]
+    )
+  end
+
+  defp apply_endpoint_sorting(query, field, dir)
+       when field in [:id, :name, :enabled, :model, :sort_order] do
+    order_by(query, [e], [{^dir, field(e, ^field)}])
+  end
+
+  defp apply_endpoint_sorting(query, _field, _dir) do
+    # Default sorting
+    order_by(query, [e], asc: e.sort_order, desc: e.inserted_at)
+  end
+
+  @doc """
+  Returns usage statistics for each endpoint.
+
+  Returns a map of endpoint_id => %{request_count, total_tokens, total_cost, last_used_at}
   """
-  def get_account!(id), do: repo().get!(Account, id)
+  def get_endpoint_usage_stats do
+    query =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id),
+        group_by: r.endpoint_id,
+        select: {
+          r.endpoint_id,
+          %{
+            request_count: count(r.id),
+            total_tokens: coalesce(sum(r.total_tokens), 0),
+            total_cost: coalesce(sum(r.cost_cents), 0),
+            last_used_at: max(r.inserted_at)
+          }
+        }
+      )
+
+    query
+    |> repo().all()
+    |> Map.new()
+  end
 
   @doc """
-  Gets a single account by ID.
+  Gets a single endpoint by ID.
 
-  Returns `nil` if the account does not exist.
+  Raises `Ecto.NoResultsError` if the endpoint does not exist.
   """
-  def get_account(id), do: repo().get(Account, id)
+  def get_endpoint!(id), do: repo().get!(Endpoint, id)
 
   @doc """
-  Creates a new AI account.
+  Gets a single endpoint by ID.
+
+  Returns `nil` if the endpoint does not exist.
+  """
+  def get_endpoint(id), do: repo().get(Endpoint, id)
+
+  @doc """
+  Resolves an endpoint from an ID or Endpoint struct.
 
   ## Examples
 
-      {:ok, account} = PhoenixKit.AI.create_account(%{
-        name: "Main OpenRouter",
+      {:ok, endpoint} = PhoenixKit.AI.resolve_endpoint(1)
+      {:ok, endpoint} = PhoenixKit.AI.resolve_endpoint(endpoint)
+  """
+  def resolve_endpoint(id) when is_integer(id) do
+    case get_endpoint(id) do
+      nil -> {:error, "Endpoint not found"}
+      endpoint -> {:ok, endpoint}
+    end
+  end
+
+  def resolve_endpoint(%Endpoint{} = endpoint), do: {:ok, endpoint}
+
+  @doc """
+  Creates a new AI endpoint.
+
+  ## Examples
+
+      {:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+        name: "Claude Fast",
         provider: "openrouter",
-        api_key: "sk-or-v1-..."
+        api_key: "sk-or-v1-...",
+        model: "anthropic/claude-3-haiku",
+        temperature: 0.7
       })
   """
-  def create_account(attrs) do
-    %Account{}
-    |> Account.changeset(attrs)
+  def create_endpoint(attrs) do
+    %Endpoint{}
+    |> Endpoint.changeset(attrs)
     |> repo().insert()
   end
 
   @doc """
-  Updates an existing AI account.
+  Updates an existing AI endpoint.
   """
-  def update_account(%Account{} = account, attrs) do
-    account
-    |> Account.changeset(attrs)
+  def update_endpoint(%Endpoint{} = endpoint, attrs) do
+    endpoint
+    |> Endpoint.changeset(attrs)
     |> repo().update()
   end
 
   @doc """
-  Deletes an AI account.
+  Deletes an AI endpoint.
   """
-  def delete_account(%Account{} = account) do
-    repo().delete(account)
+  def delete_endpoint(%Endpoint{} = endpoint) do
+    repo().delete(endpoint)
   end
 
   @doc """
-  Returns an account changeset for use in forms.
+  Returns an endpoint changeset for use in forms.
   """
-  def change_account(%Account{} = account, attrs \\ %{}) do
-    Account.changeset(account, attrs)
+  def change_endpoint(%Endpoint{} = endpoint, attrs \\ %{}) do
+    Endpoint.changeset(endpoint, attrs)
   end
 
   @doc """
-  Marks an account as validated by updating its last_validated_at timestamp.
+  Marks an endpoint as validated by updating its last_validated_at timestamp.
   """
-  def mark_account_validated(%Account{} = account) do
-    account
-    |> Account.validation_changeset()
+  def mark_endpoint_validated(%Endpoint{} = endpoint) do
+    endpoint
+    |> Endpoint.validation_changeset()
     |> repo().update()
   end
 
   @doc """
-  Counts the total number of accounts.
+  Counts the total number of endpoints.
   """
-  def count_accounts do
-    repo().aggregate(Account, :count, :id)
+  def count_endpoints do
+    repo().aggregate(Endpoint, :count, :id)
   end
 
   @doc """
-  Counts the number of enabled accounts.
+  Counts the number of enabled endpoints.
   """
-  def count_enabled_accounts do
-    query = from(a in Account, where: a.enabled == true)
+  def count_enabled_endpoints do
+    query = from(e in Endpoint, where: e.enabled == true)
     repo().aggregate(query, :count, :id)
-  end
-
-  # ===========================================
-  # SLOT TYPES AND DEFAULTS
-  # ===========================================
-
-  @slot_types ~w(text vision image_gen embeddings)
-
-  @default_text_slots [
-    %{
-      "name" => "Slot 1",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 2",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 3",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    }
-  ]
-
-  @default_vision_slots [
-    %{
-      "name" => "Slot 1",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 2",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 3",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "temperature" => 0.7,
-      "max_tokens" => nil,
-      "top_p" => nil,
-      "top_k" => nil,
-      "frequency_penalty" => nil,
-      "presence_penalty" => nil,
-      "repetition_penalty" => nil,
-      "stop" => nil,
-      "seed" => nil,
-      "enabled" => false
-    }
-  ]
-
-  @default_image_gen_slots [
-    %{
-      "name" => "Slot 1",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "size" => "1024x1024",
-      "quality" => "standard",
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 2",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "size" => "1024x1024",
-      "quality" => "hd",
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 3",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "size" => "1792x1024",
-      "quality" => "standard",
-      "enabled" => false
-    }
-  ]
-
-  @default_embeddings_slots [
-    %{
-      "name" => "Slot 1",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "dimensions" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 2",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "dimensions" => nil,
-      "enabled" => false
-    },
-    %{
-      "name" => "Slot 3",
-      "description" => "",
-      "account_id" => nil,
-      "model" => "",
-      "dimensions" => nil,
-      "enabled" => false
-    }
-  ]
-
-  @doc """
-  Returns the list of supported slot types.
-  """
-  def slot_types, do: @slot_types
-
-  # ===========================================
-  # GENERIC SLOT FUNCTIONS
-  # ===========================================
-
-  @doc """
-  Gets all slot configurations for a given type.
-
-  ## Supported Types
-  - `:text` - Text/chat completion models
-  - `:vision` - Vision/multimodal models
-  - `:image_gen` - Image generation models
-  - `:embeddings` - Embedding models
-
-  Returns a list of 3 slot configurations.
-  """
-  def get_slots(type) when type in [:text, :vision, :image_gen, :embeddings] do
-    setting_key = slot_setting_key(type)
-    default_slots = default_slots_for_type(type)
-
-    case Settings.get_json_setting(setting_key, %{"slots" => default_slots}) do
-      %{"slots" => slots} when is_list(slots) -> slots
-      _ -> default_slots
-    end
-  end
-
-  @doc """
-  Updates the slot configurations for a given type.
-
-  Accepts a list of up to 3 slot configurations.
-  """
-  def update_slots(type, slots)
-      when type in [:text, :vision, :image_gen, :embeddings] and is_list(slots) do
-    setting_key = slot_setting_key(type)
-    default_slots = default_slots_for_type(type)
-
-    # Ensure we have exactly 3 slots
-    normalized_slots =
-      slots
-      |> Enum.take(3)
-      |> pad_slots(default_slots)
-
-    config = %{"slots" => normalized_slots}
-
-    case Settings.update_json_setting_with_module(setting_key, config, "ai") do
-      {:ok, _setting} -> {:ok, normalized_slots}
-      {:error, changeset} -> {:error, changeset}
-    end
-  end
-
-  @doc """
-  Gets a specific slot by type and index (0, 1, or 2).
-  """
-  def get_slot(type, index)
-      when type in [:text, :vision, :image_gen, :embeddings] and index in [0, 1, 2] do
-    slots = get_slots(type)
-    Enum.at(slots, index)
-  end
-
-  def get_slot(_, _), do: nil
-
-  @doc """
-  Gets only enabled slots for a given type.
-  """
-  def get_enabled_slots(type) when type in [:text, :vision, :image_gen, :embeddings] do
-    get_slots(type)
-    |> Enum.with_index()
-    |> Enum.filter(fn {slot, _idx} -> slot["enabled"] == true end)
-  end
-
-  @doc """
-  Gets the fallback chain for a given type - enabled slots in order.
-
-  Returns a list of {slot, index} tuples for fallback processing.
-  """
-  def get_fallback_chain(type) when type in [:text, :vision, :image_gen, :embeddings] do
-    get_enabled_slots(type)
-    |> Enum.sort_by(fn {_slot, idx} -> idx end)
-  end
-
-  @doc """
-  Counts the number of configured (enabled) slots for a given type.
-  """
-  def count_configured_slots(type) when type in [:text, :vision, :image_gen, :embeddings] do
-    get_enabled_slots(type) |> length()
-  end
-
-  @doc """
-  Counts total configured slots across all types.
-  """
-  def count_configured_slots do
-    Enum.reduce(@slot_types, 0, fn type, acc ->
-      acc + count_configured_slots(String.to_atom(type))
-    end)
-  end
-
-  # ===========================================
-  # LEGACY TEXT SLOT FUNCTIONS (backward compatible)
-  # ===========================================
-
-  @doc """
-  Gets all text processing slot configurations.
-
-  Returns a list of 3 slot configurations.
-
-  This is a convenience function that calls `get_slots(:text)`.
-  """
-  def get_text_slots, do: get_slots(:text)
-
-  @doc """
-  Updates the text processing slot configurations.
-
-  This is a convenience function that calls `update_slots(:text, slots)`.
-  """
-  def update_text_slots(slots) when is_list(slots), do: update_slots(:text, slots)
-
-  @doc """
-  Gets a specific text slot by index (0, 1, or 2).
-
-  This is a convenience function that calls `get_slot(:text, index)`.
-  """
-  def get_slot(index) when index in [0, 1, 2], do: get_slot(:text, index)
-  def get_slot(_), do: nil
-
-  @doc """
-  Gets only enabled text slots.
-
-  This is a convenience function that calls `get_enabled_slots(:text)`.
-  """
-  def get_enabled_slots, do: get_enabled_slots(:text)
-
-  @doc """
-  Gets the text fallback chain - enabled slots in order.
-
-  This is a convenience function that calls `get_fallback_chain(:text)`.
-  """
-  def get_fallback_chain, do: get_fallback_chain(:text)
-
-  # ===========================================
-  # SLOT HELPER FUNCTIONS
-  # ===========================================
-
-  defp slot_setting_key(:text), do: "ai_text_processing_slots"
-  defp slot_setting_key(:vision), do: "ai_vision_processing_slots"
-  defp slot_setting_key(:image_gen), do: "ai_image_gen_slots"
-  defp slot_setting_key(:embeddings), do: "ai_embeddings_slots"
-
-  defp default_slots_for_type(:text), do: @default_text_slots
-  defp default_slots_for_type(:vision), do: @default_vision_slots
-  defp default_slots_for_type(:image_gen), do: @default_image_gen_slots
-  defp default_slots_for_type(:embeddings), do: @default_embeddings_slots
-
-  defp pad_slots(slots, default_slots) do
-    count = length(slots)
-
-    if count >= 3 do
-      Enum.take(slots, 3)
-    else
-      slots ++ Enum.slice(default_slots, count, 3 - count)
-    end
   end
 
   # ===========================================
@@ -580,10 +340,11 @@ defmodule PhoenixKit.AI do
   ## Options
   - `:page` - Page number (default: 1)
   - `:page_size` - Results per page (default: 20)
-  - `:account_id` - Filter by account
+  - `:endpoint_id` - Filter by endpoint
   - `:user_id` - Filter by user
   - `:status` - Filter by status
   - `:model` - Filter by model
+  - `:source` - Filter by source (from metadata)
   - `:since` - Filter by date (requests after this date)
   - `:preload` - Associations to preload
 
@@ -594,10 +355,12 @@ defmodule PhoenixKit.AI do
     page = Keyword.get(opts, :page, 1)
     page_size = Keyword.get(opts, :page_size, 20)
     offset = (page - 1) * page_size
+    sort_by = Keyword.get(opts, :sort_by, :inserted_at)
+    sort_dir = Keyword.get(opts, :sort_dir, :desc)
 
-    base_query = from(r in Request, order_by: [desc: r.inserted_at])
-
+    base_query = from(r in Request)
     base_query = apply_request_filters(base_query, opts)
+    base_query = apply_request_sorting(base_query, sort_by, sort_dir)
 
     total = repo().aggregate(base_query, :count, :id)
 
@@ -615,6 +378,23 @@ defmodule PhoenixKit.AI do
     requests = repo().all(query)
 
     {requests, total}
+  end
+
+  defp apply_request_sorting(query, field, dir)
+       when field in [
+              :inserted_at,
+              :model,
+              :total_tokens,
+              :latency_ms,
+              :cost_cents,
+              :status,
+              :endpoint_name
+            ] do
+    order_by(query, [r], [{^dir, field(r, ^field)}])
+  end
+
+  defp apply_request_sorting(query, _field, _dir) do
+    order_by(query, [r], desc: r.inserted_at)
   end
 
   @doc """
@@ -654,21 +434,62 @@ defmodule PhoenixKit.AI do
 
   defp apply_request_filters(query, opts) do
     query
-    |> maybe_filter_by(:account_id, Keyword.get(opts, :account_id))
+    |> maybe_filter_by(:endpoint_id, Keyword.get(opts, :endpoint_id))
     |> maybe_filter_by(:user_id, Keyword.get(opts, :user_id))
     |> maybe_filter_by(:status, Keyword.get(opts, :status))
     |> maybe_filter_by(:model, Keyword.get(opts, :model))
+    |> maybe_filter_by(:source, Keyword.get(opts, :source))
     |> maybe_filter_since(Keyword.get(opts, :since))
   end
 
   defp maybe_filter_by(query, _field, nil), do: query
-  defp maybe_filter_by(query, :account_id, id), do: where(query, [r], r.account_id == ^id)
+  defp maybe_filter_by(query, :endpoint_id, id), do: where(query, [r], r.endpoint_id == ^id)
   defp maybe_filter_by(query, :user_id, id), do: where(query, [r], r.user_id == ^id)
   defp maybe_filter_by(query, :status, status), do: where(query, [r], r.status == ^status)
   defp maybe_filter_by(query, :model, model), do: where(query, [r], r.model == ^model)
 
+  defp maybe_filter_by(query, :source, source),
+    do: where(query, [r], fragment("?->>'source' = ?", r.metadata, ^source))
+
   defp maybe_filter_since(query, nil), do: query
   defp maybe_filter_since(query, date), do: where(query, [r], r.inserted_at >= ^date)
+
+  @doc """
+  Returns filter options for requests (distinct endpoints, models, and sources).
+  """
+  def get_request_filter_options do
+    endpoints_query =
+      from(r in Request,
+        where: not is_nil(r.endpoint_id) and not is_nil(r.endpoint_name),
+        distinct: true,
+        select: {r.endpoint_id, r.endpoint_name},
+        order_by: r.endpoint_name
+      )
+
+    models_query =
+      from(r in Request,
+        where: not is_nil(r.model),
+        distinct: r.model,
+        select: r.model,
+        order_by: r.model
+      )
+
+    # Query unique sources from metadata JSONB field
+    sources_query =
+      from(r in Request,
+        where: not is_nil(fragment("?->>'source'", r.metadata)),
+        distinct: fragment("?->>'source'", r.metadata),
+        select: fragment("?->>'source'", r.metadata),
+        order_by: fragment("?->>'source'", r.metadata)
+      )
+
+    %{
+      endpoints: repo().all(endpoints_query),
+      models: repo().all(models_query),
+      statuses: ["success", "error", "pending"],
+      sources: repo().all(sources_query)
+    }
+  end
 
   # ===========================================
   # STATISTICS
@@ -680,7 +501,7 @@ defmodule PhoenixKit.AI do
   ## Options
   - `:since` - Start date for statistics
   - `:until` - End date for statistics
-  - `:account_id` - Filter by account
+  - `:endpoint_id` - Filter by endpoint
 
   ## Returns
   Map with statistics including total_requests, total_tokens, success_rate, etc.
@@ -794,32 +615,40 @@ defmodule PhoenixKit.AI do
   alias PhoenixKit.AI.Completion
 
   @doc """
-  Makes a chat completion request using a configured slot.
+  Makes a chat completion request using a configured endpoint.
 
   ## Parameters
 
-  - `type` - Slot type (`:text`, `:vision`)
-  - `slot_index` - Slot index (0, 1, or 2)
+  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
   - `messages` - List of message maps with `:role` and `:content`
   - `opts` - Optional parameter overrides
 
+  ## Options
+
+  All standard completion parameters plus:
+  - `:source` - Override auto-detected source for request tracking
+
   ## Examples
 
-      # Simple completion
-      {:ok, response} = PhoenixKit.AI.complete(:text, 0, [
+      {:ok, response} = PhoenixKit.AI.complete(1, [
         %{role: "user", content: "Hello!"}
       ])
 
       # With system message
-      {:ok, response} = PhoenixKit.AI.complete(:text, 0, [
+      {:ok, response} = PhoenixKit.AI.complete(1, [
         %{role: "system", content: "You are a helpful assistant."},
         %{role: "user", content: "What is 2+2?"}
       ])
 
       # With parameter overrides
-      {:ok, response} = PhoenixKit.AI.complete(:text, 0, messages,
+      {:ok, response} = PhoenixKit.AI.complete(1, messages,
         temperature: 0.5,
         max_tokens: 500
+      )
+
+      # With custom source for tracking
+      {:ok, response} = PhoenixKit.AI.complete(1, messages,
+        source: "MyModule"
       )
 
   ## Returns
@@ -827,21 +656,23 @@ defmodule PhoenixKit.AI do
   - `{:ok, response}` - Full API response including usage stats
   - `{:error, reason}` - Error with reason string
   """
-  def complete(type, slot_index, messages, opts \\ [])
-      when type in [:text, :vision] and slot_index in [0, 1, 2] do
-    with {:ok, slot} <- get_configured_slot(type, slot_index),
-         {:ok, account} <- get_slot_account(slot) do
-      merged_opts = merge_slot_opts(slot, opts)
+  def complete(endpoint_id, messages, opts \\ []) do
+    with {:ok, endpoint} <- resolve_endpoint(endpoint_id),
+         {:ok, _} <- validate_endpoint(endpoint) do
+      # Capture caller info (source + stacktrace + context)
+      {auto_source, stacktrace, caller_context} = capture_caller_info()
+      # Allow manual override of source, but all debug info is always captured
+      source = Keyword.get(opts, :source) || auto_source
 
-      case Completion.chat_completion(account, slot["model"], messages, merged_opts) do
+      merged_opts = merge_endpoint_opts(endpoint, opts)
+
+      case Completion.chat_completion(endpoint, messages, merged_opts) do
         {:ok, response} ->
-          # Log successful request for usage tracking
-          log_request(account, slot, slot_index, response)
+          log_request(endpoint, messages, response, source, stacktrace, caller_context)
           {:ok, response}
 
         {:error, reason} ->
-          # Log failed request too (for usage history visibility)
-          log_failed_request(account, slot, slot_index, reason)
+          log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context)
           {:error, reason}
       end
     end
@@ -852,35 +683,40 @@ defmodule PhoenixKit.AI do
 
   ## Parameters
 
-  - `type` - Slot type (`:text`, `:vision`)
-  - `slot_index` - Slot index (0, 1, or 2)
+  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
   - `prompt` - User prompt string
   - `opts` - Optional parameter overrides and system message
 
   ## Options
 
-  All options from `complete/4` plus:
+  All options from `complete/3` plus:
   - `:system` - System message string
+  - `:source` - Override auto-detected source for request tracking
 
   ## Examples
 
       # Simple question
-      {:ok, response} = PhoenixKit.AI.ask(:text, 0, "What is the capital of France?")
+      {:ok, response} = PhoenixKit.AI.ask(1, "What is the capital of France?")
 
       # With system message
-      {:ok, response} = PhoenixKit.AI.ask(:text, 0, "Translate: Hello",
+      {:ok, response} = PhoenixKit.AI.ask(1, "Translate: Hello",
         system: "You are a translator. Translate to French."
       )
 
+      # With custom source for tracking
+      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!",
+        source: "Languages"
+      )
+
       # Extract just the text content
-      {:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello!")
+      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
       {:ok, text} = PhoenixKit.AI.extract_content(response)
 
   ## Returns
 
-  Same as `complete/4`
+  Same as `complete/3`
   """
-  def ask(type, slot_index, prompt, opts \\ []) when is_binary(prompt) do
+  def ask(endpoint_id, prompt, opts \\ []) when is_binary(prompt) do
     {system, opts} = Keyword.pop(opts, :system)
 
     messages =
@@ -889,92 +725,61 @@ defmodule PhoenixKit.AI do
         sys -> [%{role: "system", content: sys}, %{role: "user", content: prompt}]
       end
 
-    complete(type, slot_index, messages, opts)
+    complete(endpoint_id, messages, opts)
   end
 
   @doc """
-  Makes a completion request with automatic fallback to next slot on failure.
-
-  Tries each enabled slot in order (0 → 1 → 2) until one succeeds.
-
-  ## Examples
-
-      # Will try slot 0, then 1, then 2 if earlier slots fail
-      {:ok, response} = PhoenixKit.AI.complete_with_fallback(:text, [
-        %{role: "user", content: "Hello!"}
-      ])
-
-  ## Returns
-
-  - `{:ok, response, slot_index}` - Response with the slot index that succeeded
-  - `{:error, reason}` - Error if all slots failed
-  """
-  def complete_with_fallback(type, messages, opts \\ []) when type in [:text, :vision] do
-    fallback_chain = get_fallback_chain(type)
-
-    if Enum.empty?(fallback_chain) do
-      {:error, "No enabled slots configured for #{type}"}
-    else
-      try_fallback_chain(fallback_chain, type, messages, opts)
-    end
-  end
-
-  @doc """
-  Simple helper with automatic fallback.
-
-  ## Examples
-
-      {:ok, response, slot_index} = PhoenixKit.AI.ask_with_fallback(:text, "Hello!")
-  """
-  def ask_with_fallback(type, prompt, opts \\ []) when is_binary(prompt) do
-    {system, opts} = Keyword.pop(opts, :system)
-
-    messages =
-      case system do
-        nil -> [%{role: "user", content: prompt}]
-        sys -> [%{role: "system", content: sys}, %{role: "user", content: prompt}]
-      end
-
-    complete_with_fallback(type, messages, opts)
-  end
-
-  @doc """
-  Makes an embeddings request using a configured slot.
+  Makes an embeddings request using a configured endpoint.
 
   ## Parameters
 
-  - `slot_index` - Slot index (0, 1, or 2)
+  - `endpoint_id` - Endpoint ID (integer) or Endpoint struct
   - `input` - Text or list of texts to embed
   - `opts` - Optional parameter overrides
+
+  ## Options
+
+  - `:dimensions` - Override embedding dimensions
+  - `:source` - Override auto-detected source for request tracking
 
   ## Examples
 
       # Single text
-      {:ok, response} = PhoenixKit.AI.embed(0, "Hello, world!")
+      {:ok, response} = PhoenixKit.AI.embed(1, "Hello, world!")
 
       # Multiple texts
-      {:ok, response} = PhoenixKit.AI.embed(0, ["Hello", "World"])
+      {:ok, response} = PhoenixKit.AI.embed(1, ["Hello", "World"])
 
       # With dimension override
-      {:ok, response} = PhoenixKit.AI.embed(0, "Hello", dimensions: 512)
+      {:ok, response} = PhoenixKit.AI.embed(1, "Hello", dimensions: 512)
+
+      # With custom source for tracking
+      {:ok, response} = PhoenixKit.AI.embed(1, "Hello",
+        source: "SemanticSearch"
+      )
 
   ## Returns
 
   - `{:ok, response}` - Response with embeddings
   - `{:error, reason}` - Error with reason
   """
-  def embed(slot_index, input, opts \\ []) when slot_index in [0, 1, 2] do
-    with {:ok, slot} <- get_configured_slot(:embeddings, slot_index),
-         {:ok, account} <- get_slot_account(slot) do
-      merged_opts = merge_embedding_opts(slot, opts)
+  def embed(endpoint_id, input, opts \\ []) do
+    with {:ok, endpoint} <- resolve_endpoint(endpoint_id),
+         {:ok, _} <- validate_endpoint(endpoint) do
+      # Capture caller info (source + stacktrace + context)
+      {auto_source, stacktrace, caller_context} = capture_caller_info()
+      # Allow manual override of source, but all debug info is always captured
+      source = Keyword.get(opts, :source) || auto_source
 
-      case Completion.embeddings(account, slot["model"], input, merged_opts) do
+      merged_opts = merge_embedding_opts(endpoint, opts)
+
+      case Completion.embeddings(endpoint, input, merged_opts) do
         {:ok, response} ->
-          log_embedding_request(account, slot, slot_index, input, response)
+          log_embedding_request(endpoint, input, response, source, stacktrace, caller_context)
           {:ok, response}
 
         {:error, reason} ->
-          log_failed_embedding_request(account, slot, slot_index, reason)
+          log_failed_embedding_request(endpoint, reason, source, stacktrace, caller_context)
           {:error, reason}
       end
     end
@@ -985,7 +790,7 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.AI.ask(:text, 0, "Hello!")
+      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
       {:ok, text} = PhoenixKit.AI.extract_content(response)
       # => "Hello! How can I help you today?"
   """
@@ -996,7 +801,7 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.AI.complete(:text, 0, messages)
+      {:ok, response} = PhoenixKit.AI.complete(1, messages)
       usage = PhoenixKit.AI.extract_usage(response)
       # => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25}
   """
@@ -1004,43 +809,34 @@ defmodule PhoenixKit.AI do
 
   # Private helpers for completion API
 
-  defp get_configured_slot(type, slot_index) do
-    slot = get_slot(type, slot_index)
-
+  defp validate_endpoint(endpoint) do
     cond do
-      slot == nil ->
-        {:error, "Slot #{slot_index} not found for #{type}"}
+      endpoint.model == nil or endpoint.model == "" ->
+        {:error, "Endpoint has no model configured"}
 
-      slot["account_id"] == nil ->
-        {:error, "Slot #{slot_index} has no account configured"}
+      endpoint.api_key == nil or endpoint.api_key == "" ->
+        {:error, "Endpoint has no API key configured"}
 
-      slot["model"] == nil or slot["model"] == "" ->
-        {:error, "Slot #{slot_index} has no model configured"}
+      endpoint.enabled == false ->
+        {:error, "Endpoint is disabled"}
 
       true ->
-        {:ok, slot}
+        {:ok, endpoint}
     end
   end
 
-  defp get_slot_account(slot) do
-    case get_account(slot["account_id"]) do
-      nil -> {:error, "Account not found"}
-      account -> {:ok, account}
-    end
-  end
-
-  defp merge_slot_opts(slot, opts) do
-    # Slot defaults, then user overrides
+  defp merge_endpoint_opts(endpoint, opts) do
+    # Endpoint defaults, then user overrides
     base_opts = [
-      temperature: slot["temperature"],
-      max_tokens: slot["max_tokens"],
-      top_p: slot["top_p"],
-      top_k: slot["top_k"],
-      frequency_penalty: slot["frequency_penalty"],
-      presence_penalty: slot["presence_penalty"],
-      repetition_penalty: slot["repetition_penalty"],
-      stop: slot["stop"],
-      seed: slot["seed"]
+      temperature: endpoint.temperature,
+      max_tokens: endpoint.max_tokens,
+      top_p: endpoint.top_p,
+      top_k: endpoint.top_k,
+      frequency_penalty: endpoint.frequency_penalty,
+      presence_penalty: endpoint.presence_penalty,
+      repetition_penalty: endpoint.repetition_penalty,
+      stop: endpoint.stop,
+      seed: endpoint.seed
     ]
 
     # Filter out nil values and merge with user opts
@@ -1049,98 +845,199 @@ defmodule PhoenixKit.AI do
     |> Keyword.merge(opts)
   end
 
-  defp merge_embedding_opts(slot, opts) do
-    base_opts = [dimensions: slot["dimensions"]]
+  defp merge_embedding_opts(endpoint, opts) do
+    base_opts = [dimensions: endpoint.dimensions]
 
     base_opts
     |> Enum.reject(fn {_k, v} -> is_nil(v) end)
     |> Keyword.merge(opts)
   end
 
-  defp try_fallback_chain([], _type, _messages, _opts) do
-    {:error, "All slots failed"}
+  # ===========================================
+  # CALLER INFO CAPTURE (for source tracking & debugging)
+  # ===========================================
+
+  @doc false
+  # Captures full debug context: source, stacktrace, and caller context
+  defp capture_caller_info do
+    # Get process info (stacktrace + memory in one call)
+    [{:current_stacktrace, stack}, {:memory, memory}] =
+      Process.info(self(), [:current_stacktrace, :memory])
+
+    # Format stacktrace for storage
+    formatted_stack = format_stacktrace(stack)
+
+    # Extract clean source from first non-internal caller
+    source = extract_source(stack)
+
+    # Build caller context with additional debug info
+    caller_context = build_caller_context(memory)
+
+    {source, formatted_stack, caller_context}
   end
 
-  defp try_fallback_chain([{slot, index} | rest], type, messages, opts) do
-    case get_slot_account(slot) do
-      {:ok, account} ->
-        merged_opts = merge_slot_opts(slot, opts)
+  defp format_stacktrace(stack) do
+    stack
+    # Limit depth for storage
+    |> Enum.take(20)
+    |> Enum.map(fn {mod, fun, arity, location} ->
+      mod_str = Atom.to_string(mod) |> String.replace_prefix("Elixir.", "")
+      file = Keyword.get(location, :file, ~c"unknown") |> to_string()
+      line = Keyword.get(location, :line, 0)
+      "#{mod_str}.#{fun}/#{arity} (#{file}:#{line})"
+    end)
+  end
 
-        case Completion.chat_completion(account, slot["model"], messages, merged_opts) do
-          {:ok, response} ->
-            log_request(account, slot, index, response)
-            {:ok, response, index}
+  defp extract_source(stack) do
+    # Modules to skip (PhoenixKit.AI internals, Elixir/Erlang core)
+    skip_prefixes = ["PhoenixKit.AI", "Elixir.PhoenixKit.AI"]
+    skip_modules = [Process, :proc_lib, :gen_server, :gen, :elixir, :erl_eval]
 
-          {:error, reason} ->
-            Logger.warning("Slot #{index} failed: #{reason}, trying next slot")
-            log_failed_request(account, slot, index, reason)
-            try_fallback_chain(rest, type, messages, opts)
-        end
+    caller =
+      Enum.find(stack, fn {mod, _fun, _arity, _loc} ->
+        mod_str = Atom.to_string(mod)
 
-      {:error, _reason} ->
-        try_fallback_chain(rest, type, messages, opts)
+        not Enum.any?(skip_prefixes, &String.starts_with?(mod_str, &1)) and
+          mod not in skip_modules
+      end)
+
+    case caller do
+      {mod, fun, _arity, _loc} ->
+        mod_str = Atom.to_string(mod) |> String.replace_prefix("Elixir.", "")
+        "#{mod_str}.#{fun}"
+
+      nil ->
+        nil
     end
   end
 
-  defp log_request(account, slot, slot_index, response) do
+  defp build_caller_context(memory) do
+    # Get Phoenix request_id from Logger metadata (if in request context)
+    logger_meta = Logger.metadata()
+
+    %{
+      request_id: Keyword.get(logger_meta, :request_id),
+      node: node() |> Atom.to_string(),
+      pid: self() |> inspect(),
+      memory_bytes: memory
+    }
+  end
+
+  # ===========================================
+  # REQUEST LOGGING
+  # ===========================================
+
+  defp log_request(endpoint, messages, response, source, stacktrace, caller_context) do
     usage = Completion.extract_usage(response)
 
+    # Extract response content
+    response_content =
+      case Completion.extract_content(response) do
+        {:ok, content} -> content
+        _ -> nil
+      end
+
+    # Build the request payload we sent (for debugging)
+    request_payload = %{
+      model: endpoint.model,
+      messages: normalize_messages(messages),
+      temperature: endpoint.temperature,
+      max_tokens: endpoint.max_tokens
+    }
+
     create_request(%{
-      account_id: account.id,
-      slot_index: slot_index,
-      model: slot["model"],
+      endpoint_id: endpoint.id,
+      endpoint_name: endpoint.name,
+      model: endpoint.model,
       request_type: "chat",
       input_tokens: usage.prompt_tokens,
       output_tokens: usage.completion_tokens,
       total_tokens: usage.total_tokens,
+      cost_cents: usage.cost_cents,
       latency_ms: response["latency_ms"],
       status: "success",
       metadata: %{
-        temperature: slot["temperature"],
-        max_tokens: slot["max_tokens"]
+        temperature: endpoint.temperature,
+        max_tokens: endpoint.max_tokens,
+        messages: normalize_messages(messages),
+        response: response_content,
+        request_payload: request_payload,
+        raw_response: response,
+        # Debug context (source tracking)
+        source: source,
+        stacktrace: stacktrace,
+        caller_context: caller_context
       }
     })
   end
 
-  defp log_failed_request(account, slot, slot_index, reason) do
+  defp log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context) do
     create_request(%{
-      account_id: account.id,
-      slot_index: slot_index,
-      model: slot["model"],
+      endpoint_id: endpoint.id,
+      endpoint_name: endpoint.name,
+      model: endpoint.model,
       request_type: "chat",
       status: "error",
-      error_message: reason
+      error_message: reason,
+      metadata: %{
+        messages: normalize_messages(messages),
+        # Debug context (source tracking)
+        source: source,
+        stacktrace: stacktrace,
+        caller_context: caller_context
+      }
     })
   end
 
-  defp log_embedding_request(account, slot, slot_index, input, response) do
+  # Normalize messages to ensure consistent format for storage
+  defp normalize_messages(messages) do
+    Enum.map(messages, fn msg ->
+      %{
+        "role" => to_string(msg[:role] || msg["role"]),
+        "content" => msg[:content] || msg["content"]
+      }
+    end)
+  end
+
+  defp log_embedding_request(endpoint, input, response, source, stacktrace, caller_context) do
     usage = Completion.extract_usage(response)
     input_count = if is_list(input), do: length(input), else: 1
 
     create_request(%{
-      account_id: account.id,
-      slot_index: slot_index,
-      model: slot["model"],
-      request_type: "embeddings",
+      endpoint_id: endpoint.id,
+      endpoint_name: endpoint.name,
+      model: endpoint.model,
+      request_type: "embedding",
       input_tokens: usage.prompt_tokens,
       total_tokens: usage.total_tokens,
+      cost_cents: usage.cost_cents,
       latency_ms: response["latency_ms"],
       status: "success",
       metadata: %{
         input_count: input_count,
-        dimensions: slot["dimensions"]
+        dimensions: endpoint.dimensions,
+        # Debug context (source tracking)
+        source: source,
+        stacktrace: stacktrace,
+        caller_context: caller_context
       }
     })
   end
 
-  defp log_failed_embedding_request(account, slot, slot_index, reason) do
+  defp log_failed_embedding_request(endpoint, reason, source, stacktrace, caller_context) do
     create_request(%{
-      account_id: account.id,
-      slot_index: slot_index,
-      model: slot["model"],
-      request_type: "embeddings",
+      endpoint_id: endpoint.id,
+      endpoint_name: endpoint.name,
+      model: endpoint.model,
+      request_type: "embedding",
       status: "error",
-      error_message: reason
+      error_message: reason,
+      metadata: %{
+        # Debug context (source tracking)
+        source: source,
+        stacktrace: stacktrace,
+        caller_context: caller_context
+      }
     })
   end
 end

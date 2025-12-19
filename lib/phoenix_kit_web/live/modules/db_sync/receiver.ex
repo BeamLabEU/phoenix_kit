@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
+defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   @moduledoc """
-  Receiver-side LiveView for DB Transfer.
+  Receiver-side LiveView for DB Sync.
 
   This is the site that wants to receive data from another site.
 
@@ -16,9 +16,9 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBTransfer.SchemaInspector
-  alias PhoenixKit.DBTransfer.WebSocketClient
-  alias PhoenixKit.DBTransfer.Workers.ImportWorker
+  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.DBSync.WebSocketClient
+  alias PhoenixKit.DBSync.Workers.ImportWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
       |> assign(:site_url, site_url)
       |> assign(:current_user, current_user)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-transfer/receive", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/db-sync/receive", locale: locale))
       |> assign(:step, :enter_credentials)
       |> assign(:sender_url, "")
       |> assign(:connection_code, "")
@@ -300,15 +300,15 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   @impl true
   def handle_event("select_detail_table", %{"table" => table_name}, socket) do
     Logger.info(
-      "DBTransfer.Receiver: Selecting table: #{table_name}, ws_client: #{inspect(socket.assigns.ws_client)}"
+      "DBSync.Receiver: Selecting table: #{table_name}, ws_client: #{inspect(socket.assigns.ws_client)}"
     )
 
     # Request schema for the selected table
     if socket.assigns.ws_client do
-      Logger.info("DBTransfer.Receiver: Requesting schema for #{table_name}")
+      Logger.info("DBSync.Receiver: Requesting schema for #{table_name}")
       WebSocketClient.request_schema(socket.assigns.ws_client, table_name)
     else
-      Logger.warning("DBTransfer.Receiver: No ws_client available!")
+      Logger.warning("DBSync.Receiver: No ws_client available!")
     end
 
     socket =
@@ -385,7 +385,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
       case SchemaInspector.create_table(table, schema) do
         :ok ->
-          Logger.info("DBTransfer.Receiver: Created table #{table}")
+          Logger.info("DBSync.Receiver: Created table #{table}")
 
           # Update local_counts to reflect the new table
           local_counts = Map.put(socket.assigns.local_counts, table, 0)
@@ -400,7 +400,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
           {:noreply, socket}
 
         {:error, reason} ->
-          Logger.error("DBTransfer.Receiver: Failed to create table #{table}: #{inspect(reason)}")
+          Logger.error("DBSync.Receiver: Failed to create table #{table}: #{inspect(reason)}")
 
           socket =
             socket
@@ -486,7 +486,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
         {:noreply, socket}
 
       {:error, reason} ->
-        Logger.error("DBTransfer.Receiver: Failed to start WebSocket client: #{inspect(reason)}")
+        Logger.error("DBSync.Receiver: Failed to start WebSocket client: #{inspect(reason)}")
 
         socket =
           socket
@@ -499,8 +499,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, :connected}, socket) do
-    Logger.info("DBTransfer.Receiver: Connected to sender")
+  def handle_info({:db_sync_client, :connected}, socket) do
+    Logger.info("DBSync.Receiver: Connected to sender")
 
     # Request tables immediately
     WebSocketClient.request_tables(socket.assigns.ws_client)
@@ -517,8 +517,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, :disconnected}, socket) do
-    Logger.info("DBTransfer.Receiver: Disconnected from sender")
+  def handle_info({:db_sync_client, :disconnected}, socket) do
+    Logger.info("DBSync.Receiver: Disconnected from sender")
 
     socket =
       socket
@@ -532,8 +532,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, {:disconnected, reason}}, socket) do
-    Logger.info("DBTransfer.Receiver: Disconnected - #{inspect(reason)}")
+  def handle_info({:db_sync_client, {:disconnected, reason}}, socket) do
+    Logger.info("DBSync.Receiver: Disconnected - #{inspect(reason)}")
 
     socket =
       socket
@@ -553,8 +553,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, {:error, reason}}, socket) do
-    Logger.warning("DBTransfer.Receiver: Connection error - #{inspect(reason)}")
+  def handle_info({:db_sync_client, {:error, reason}}, socket) do
+    Logger.warning("DBSync.Receiver: Connection error - #{inspect(reason)}")
 
     socket =
       socket
@@ -566,7 +566,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, {:terminated, _reason}}, socket) do
+  def handle_info({:db_sync_client, {:terminated, _reason}}, socket) do
     socket =
       socket
       |> assign(:connecting, false)
@@ -577,7 +577,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, :channel_closed}, socket) do
+  def handle_info({:db_sync_client, :channel_closed}, socket) do
     socket =
       socket
       |> assign(:connecting, false)
@@ -591,7 +591,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle tables response from WebSocketClient
   @impl true
-  def handle_info({:db_transfer_client, {:tables, tables}}, socket) do
+  def handle_info({:db_sync_client, {:tables, tables}}, socket) do
     # Fetch local counts for comparison
     local_counts = fetch_local_counts(tables)
 
@@ -607,12 +607,12 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle schema response from WebSocketClient
   @impl true
-  def handle_info({:db_transfer_client, {:schema, table, schema}}, socket) do
+  def handle_info({:db_sync_client, {:schema, table, schema}}, socket) do
     Logger.info(
-      "DBTransfer.Receiver: Received schema for #{table}, selected: #{socket.assigns.selected_detail_table}"
+      "DBSync.Receiver: Received schema for #{table}, selected: #{socket.assigns.selected_detail_table}"
     )
 
-    Logger.debug("DBTransfer.Receiver: Schema data: #{inspect(schema, limit: 500)}")
+    Logger.debug("DBSync.Receiver: Schema data: #{inspect(schema, limit: 500)}")
 
     # Check if this is during bulk transfer schema fetching
     if socket.assigns.transferring and
@@ -633,7 +633,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
         {:noreply, socket}
       else
         Logger.warning(
-          "DBTransfer.Receiver: Schema table mismatch - received #{table}, expected #{socket.assigns.selected_detail_table}"
+          "DBSync.Receiver: Schema table mismatch - received #{table}, expected #{socket.assigns.selected_detail_table}"
         )
 
         {:noreply, socket}
@@ -643,8 +643,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle schema request errors
   @impl true
-  def handle_info({:db_transfer_client, {:request_error, {:schema, table}, error}}, socket) do
-    Logger.error("DBTransfer.Receiver: Error fetching schema for #{table}: #{error}")
+  def handle_info({:db_sync_client, {:request_error, {:schema, table}, error}}, socket) do
+    Logger.error("DBSync.Receiver: Error fetching schema for #{table}: #{error}")
 
     # Check if this is during bulk transfer schema fetching
     if socket.assigns.transferring and
@@ -659,7 +659,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
       # Check if all schemas have been received/failed
       if Enum.empty?(pending_schemas) do
-        Logger.info("DBTransfer.Receiver: All schemas processed, starting record fetch")
+        Logger.info("DBSync.Receiver: All schemas processed, starting record fetch")
 
         socket =
           socket
@@ -687,7 +687,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle records response for preview (not transferring)
   @impl true
-  def handle_info({:db_transfer_client, {:records, table, result}}, socket)
+  def handle_info({:db_sync_client, {:records, table, result}}, socket)
       when not socket.assigns.transferring and socket.assigns.loading_preview do
     if socket.assigns.selected_detail_table == table do
       records = Map.get(result, :records, [])
@@ -712,7 +712,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle records response from WebSocketClient during transfer
   @impl true
-  def handle_info({:db_transfer_client, {:records, table, result}}, socket)
+  def handle_info({:db_sync_client, {:records, table, result}}, socket)
       when socket.assigns.transferring do
     progress = socket.assigns.transfer_progress
 
@@ -789,9 +789,9 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle error response during transfer
   @impl true
-  def handle_info({:db_transfer_client, {:request_error, {:records, table}, error}}, socket)
+  def handle_info({:db_sync_client, {:request_error, {:records, table}, error}}, socket)
       when socket.assigns.transferring do
-    Logger.error("DBTransfer.Receiver: Error fetching records for #{table}: #{error}")
+    Logger.error("DBSync.Receiver: Error fetching records for #{table}: #{error}")
 
     progress = socket.assigns.transfer_progress
     tables_pending = List.delete(progress.tables_pending, table)
@@ -819,8 +819,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
   # Handle error response for tables
   @impl true
-  def handle_info({:db_transfer_client, {:request_error, :tables, error}}, socket) do
-    Logger.error("DBTransfer.Receiver: Error fetching tables: #{error}")
+  def handle_info({:db_sync_client, {:request_error, :tables, error}}, socket) do
+    Logger.error("DBSync.Receiver: Error fetching tables: #{error}")
 
     socket =
       socket
@@ -846,8 +846,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
   end
 
   @impl true
-  def handle_info({:db_transfer_client, msg}, socket) do
-    Logger.debug("DBTransfer.Receiver: Received message - #{inspect(msg)}")
+  def handle_info({:db_sync_client, msg}, socket) do
+    Logger.debug("DBSync.Receiver: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end
 
@@ -869,7 +869,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
 
     # Check if all schemas have been received
     if Enum.empty?(pending_schemas) do
-      Logger.info("DBTransfer.Receiver: All schemas received, starting record fetch")
+      Logger.info("DBSync.Receiver: All schemas received, starting record fetch")
 
       # All schemas received - start fetching records
       socket =
@@ -906,7 +906,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBTransfer.Receiver do
         <%!-- Header Section --%>
         <header class="w-full relative mb-8">
           <.link
-            navigate={Routes.path("/admin/db-transfer", locale: @current_locale)}
+            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back

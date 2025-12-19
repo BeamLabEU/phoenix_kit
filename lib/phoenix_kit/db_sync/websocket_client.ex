@@ -1,6 +1,6 @@
-defmodule PhoenixKit.DBTransfer.WebSocketClient do
+defmodule PhoenixKit.DBSync.WebSocketClient do
   @moduledoc """
-  WebSocket client for DB Transfer receiver connections.
+  WebSocket client for DB Sync receiver connections.
 
   Uses WebSockex to connect from the receiver site to the sender's
   WebSocket endpoint. Sends requests and receives responses.
@@ -22,11 +22,11 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
 
       # Request available tables
       WebSocketClient.request_tables(pid)
-      # Receive: {:db_transfer_client, {:tables, tables}}
+      # Receive: {:db_sync_client, {:tables, tables}}
 
       # Request records
       WebSocketClient.request_records(pid, "users", offset: 0, limit: 100)
-      # Receive: {:db_transfer_client, {:records, "users", result}}
+      # Receive: {:db_sync_client, {:records, "users", result}}
   """
 
   use WebSockex
@@ -130,7 +130,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
 
   @impl true
   def handle_connect(_conn, state) do
-    Logger.info("DBTransfer.WebSocketClient: Connected to #{state.url}")
+    Logger.info("DBSync.WebSocketClient: Connected to #{state.url}")
 
     # Join the transfer channel with receiver info
     join_payload = %{receiver_info: state.receiver_info}
@@ -150,7 +150,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
         handle_phoenix_message(topic, event, payload, ref, state)
 
       {:error, reason} ->
-        Logger.warning("DBTransfer.WebSocketClient: Failed to decode message: #{inspect(reason)}")
+        Logger.warning("DBSync.WebSocketClient: Failed to decode message: #{inspect(reason)}")
         {:ok, state}
     end
   end
@@ -176,7 +176,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
       state = track_request(state, ref, :capabilities)
       {:reply, {:text, msg}, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Cannot send request - not joined")
+      Logger.warning("DBSync.WebSocketClient: Cannot send request - not joined")
       {:ok, state}
     end
   end
@@ -188,7 +188,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
       state = track_request(state, ref, :tables)
       {:reply, {:text, msg}, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Cannot send request - not joined")
+      Logger.warning("DBSync.WebSocketClient: Cannot send request - not joined")
       {:ok, state}
     end
   end
@@ -203,7 +203,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
       state = track_request(state, ref, {:schema, table})
       {:reply, {:text, msg}, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Cannot send request - not joined")
+      Logger.warning("DBSync.WebSocketClient: Cannot send request - not joined")
       {:ok, state}
     end
   end
@@ -218,7 +218,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
       state = track_request(state, ref, {:count, table})
       {:reply, {:text, msg}, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Cannot send request - not joined")
+      Logger.warning("DBSync.WebSocketClient: Cannot send request - not joined")
       {:ok, state}
     end
   end
@@ -245,7 +245,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
       state = track_request(state, ref, {:records, table})
       {:reply, {:text, msg}, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Cannot send request - not joined")
+      Logger.warning("DBSync.WebSocketClient: Cannot send request - not joined")
       {:ok, state}
     end
   end
@@ -267,7 +267,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
     if state.joined do
       {:ok, state}
     else
-      Logger.warning("DBTransfer.WebSocketClient: Join timeout")
+      Logger.warning("DBSync.WebSocketClient: Join timeout")
       notify_caller(state, {:error, :join_timeout})
       {:close, state}
     end
@@ -279,14 +279,14 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
 
   @impl true
   def handle_disconnect(%{reason: reason}, state) do
-    Logger.info("DBTransfer.WebSocketClient: Disconnected - #{inspect(reason)}")
+    Logger.info("DBSync.WebSocketClient: Disconnected - #{inspect(reason)}")
     notify_caller(state, {:disconnected, reason})
     {:ok, state}
   end
 
   @impl true
   def terminate(reason, state) do
-    Logger.info("DBTransfer.WebSocketClient: Terminating - #{inspect(reason)}")
+    Logger.info("DBSync.WebSocketClient: Terminating - #{inspect(reason)}")
     notify_caller(state, {:terminated, reason})
     :ok
   end
@@ -299,7 +299,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
     cond do
       # Join reply
       not state.joined and Map.get(payload, "response") == %{} ->
-        Logger.info("DBTransfer.WebSocketClient: Joined channel")
+        Logger.info("DBSync.WebSocketClient: Joined channel")
         state = %{state | joined: true}
         notify_caller(state, :connected)
         schedule_heartbeat()
@@ -315,19 +315,19 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
   end
 
   defp handle_phoenix_message(_topic, "phx_reply", %{"status" => "error"} = payload, _ref, state) do
-    Logger.warning("DBTransfer.WebSocketClient: Error response - #{inspect(payload)}")
+    Logger.warning("DBSync.WebSocketClient: Error response - #{inspect(payload)}")
     notify_caller(state, {:error, payload})
     {:ok, state}
   end
 
   defp handle_phoenix_message(_topic, "phx_error", payload, _ref, state) do
-    Logger.error("DBTransfer.WebSocketClient: Channel error - #{inspect(payload)}")
+    Logger.error("DBSync.WebSocketClient: Channel error - #{inspect(payload)}")
     notify_caller(state, {:error, payload})
     {:ok, state}
   end
 
   defp handle_phoenix_message(_topic, "phx_close", _payload, _ref, state) do
-    Logger.info("DBTransfer.WebSocketClient: Channel closed by server")
+    Logger.info("DBSync.WebSocketClient: Channel closed by server")
     notify_caller(state, :channel_closed)
     {:close, state}
   end
@@ -340,7 +340,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
          _msg_ref,
          state
        ) do
-    Logger.debug("DBTransfer.WebSocketClient: Received capabilities")
+    Logger.debug("DBSync.WebSocketClient: Received capabilities")
     {request_type, state} = pop_request(state, ref)
 
     if request_type == :capabilities do
@@ -357,7 +357,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
          _msg_ref,
          state
        ) do
-    Logger.debug("DBTransfer.WebSocketClient: Received #{length(tables)} tables")
+    Logger.debug("DBSync.WebSocketClient: Received #{length(tables)} tables")
     {request_type, state} = pop_request(state, ref)
 
     if request_type == :tables do
@@ -374,20 +374,18 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
          _msg_ref,
          state
        ) do
-    Logger.info("DBTransfer.WebSocketClient: Received schema response, ref: #{ref}")
+    Logger.info("DBSync.WebSocketClient: Received schema response, ref: #{ref}")
     {request_type, state} = pop_request(state, ref)
 
-    Logger.info(
-      "DBTransfer.WebSocketClient: Request type for ref #{ref}: #{inspect(request_type)}"
-    )
+    Logger.info("DBSync.WebSocketClient: Request type for ref #{ref}: #{inspect(request_type)}")
 
     case request_type do
       {:schema, table} ->
-        Logger.info("DBTransfer.WebSocketClient: Notifying caller with schema for #{table}")
+        Logger.info("DBSync.WebSocketClient: Notifying caller with schema for #{table}")
         notify_caller(state, {:schema, table, schema})
 
       other ->
-        Logger.warning("DBTransfer.WebSocketClient: Unexpected request type: #{inspect(other)}")
+        Logger.warning("DBSync.WebSocketClient: Unexpected request type: #{inspect(other)}")
     end
 
     {:ok, state}
@@ -400,7 +398,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
          _msg_ref,
          state
        ) do
-    Logger.debug("DBTransfer.WebSocketClient: Received count: #{count}")
+    Logger.debug("DBSync.WebSocketClient: Received count: #{count}")
     {request_type, state} = pop_request(state, ref)
 
     case request_type do
@@ -417,7 +415,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
     offset = Map.get(payload, "offset", 0)
     has_more = Map.get(payload, "has_more", false)
 
-    Logger.debug("DBTransfer.WebSocketClient: Received #{length(records)} records")
+    Logger.debug("DBSync.WebSocketClient: Received #{length(records)} records")
     {request_type, state} = pop_request(state, ref)
 
     case request_type do
@@ -439,14 +437,14 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
          _msg_ref,
          state
        ) do
-    Logger.warning("DBTransfer.WebSocketClient: Error response - #{error}")
+    Logger.warning("DBSync.WebSocketClient: Error response - #{error}")
     {request_type, state} = pop_request(state, ref)
     notify_caller(state, {:request_error, request_type, error})
     {:ok, state}
   end
 
   defp handle_phoenix_message(topic, event, payload, _ref, state) do
-    Logger.debug("DBTransfer.WebSocketClient: Received #{event} on #{topic}: #{inspect(payload)}")
+    Logger.debug("DBSync.WebSocketClient: Received #{event} on #{topic}: #{inspect(payload)}")
     notify_caller(state, {:message, event, payload})
     {:ok, state}
   end
@@ -469,8 +467,8 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
 
     path =
       case uri.path do
-        nil -> "/db-transfer/websocket"
-        "" -> "/db-transfer/websocket"
+        nil -> "/db-sync/websocket"
+        "" -> "/db-sync/websocket"
         p -> if String.ends_with?(p, "/websocket"), do: p, else: "#{p}/websocket"
       end
 
@@ -512,7 +510,7 @@ defmodule PhoenixKit.DBTransfer.WebSocketClient do
 
   defp notify_caller(%{caller: caller}, message) when is_pid(caller) do
     if Process.alive?(caller) do
-      send(caller, {:db_transfer_client, message})
+      send(caller, {:db_sync_client, message})
     end
   end
 

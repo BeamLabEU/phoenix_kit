@@ -1,6 +1,6 @@
-defmodule PhoenixKit.DBTransfer.ChannelClient do
+defmodule PhoenixKit.DBSync.ChannelClient do
   @moduledoc """
-  Client for communicating with the DB Transfer channel from the Receiver's LiveView.
+  Client for communicating with the DB Sync channel from the Receiver's LiveView.
 
   This module provides a simple interface for the Receiver to request data
   from the connected Sender through the channel.
@@ -8,11 +8,11 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
   ## Usage
 
       # In Receiver LiveView, after sender connects:
-      # You receive {:db_transfer, {:sender_joined, channel_pid}}
+      # You receive {:db_sync, {:sender_joined, channel_pid}}
 
       # Then request tables:
       ref = ChannelClient.request_tables(channel_pid, self())
-      # Wait for {:db_transfer_response, ref, {:ok, tables}} message
+      # Wait for {:db_sync_response, ref, {:ok, tables}} message
 
       # Or use synchronous API:
       {:ok, tables} = ChannelClient.fetch_tables(channel_pid)
@@ -24,7 +24,7 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
   Requests the list of available tables from the sender.
 
   Returns the request ref. Response will be sent as:
-  `{:db_transfer_response, ref, {:ok, tables} | {:error, reason}}`
+  `{:db_sync_response, ref, {:ok, tables} | {:error, reason}}`
   """
   @spec request_tables(pid(), pid()) :: String.t()
   def request_tables(channel_pid, reply_to) do
@@ -76,7 +76,7 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
     ref = request_tables(channel_pid, self())
 
     receive do
-      {:db_transfer_response, ^ref, result} -> result
+      {:db_sync_response, ^ref, result} -> result
     after
       @request_timeout -> {:error, :timeout}
     end
@@ -90,7 +90,7 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
     ref = request_schema(channel_pid, table, self())
 
     receive do
-      {:db_transfer_response, ^ref, result} -> result
+      {:db_sync_response, ^ref, result} -> result
     after
       @request_timeout -> {:error, :timeout}
     end
@@ -104,7 +104,7 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
     ref = request_count(channel_pid, table, self())
 
     receive do
-      {:db_transfer_response, ^ref, result} -> result
+      {:db_sync_response, ^ref, result} -> result
     after
       @request_timeout -> {:error, :timeout}
     end
@@ -118,7 +118,7 @@ defmodule PhoenixKit.DBTransfer.ChannelClient do
     ref = request_records(channel_pid, table, opts, self())
 
     receive do
-      {:db_transfer_response, ^ref, result} -> result
+      {:db_sync_response, ^ref, result} -> result
     after
       @request_timeout -> {:error, :timeout}
     end

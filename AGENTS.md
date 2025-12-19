@@ -339,7 +339,7 @@ PhoenixKit includes several modules with their own detailed documentation:
 - **AI Module**: `lib/phoenix_kit_web/live/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
 - **Emails Module**: `lib/phoenix_kit_web/live/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
 - **Blogging Module**: `lib/phoenix_kit_web/live/modules/blogging/README.md` - Filesystem-based CMS with multi-language support
-- **DB Transfer Module**: `lib/phoenix_kit_web/live/modules/db_transfer/README.md` - Peer-to-peer data transfer between PhoenixKit instances with programmatic API
+- **DB Sync Module**: `lib/phoenix_kit_web/live/modules/db_sync/README.md` - Peer-to-peer data sync between PhoenixKit instances with programmatic API
 - **Entities Module**: `lib/phoenix_kit_web/live/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
 - **Billing Module**: `lib/phoenix_kit_web/live/modules/billing/README.md` - Payment providers, subscriptions, invoices
 - **Posts Module**: Available under `/admin/posts` - Content scheduling and groups
@@ -362,7 +362,7 @@ PhoenixKit.Posts.enable_system()      # Enables posts module
 PhoenixKit.Emails.enable_system()     # Enables email tracking
 PhoenixKit.Billing.enable_system()    # Enables billing module
 PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
-PhoenixKit.DBTransfer.enable_system() # Enables DB transfer
+PhoenixKit.DBSync.enable_system()     # Enables DB sync
 PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
 
 # Disable when no longer needed

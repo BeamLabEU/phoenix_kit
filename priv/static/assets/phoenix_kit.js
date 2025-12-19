@@ -36,9 +36,6 @@ import "./phoenix_kit_sortable.js";
     window.PhoenixKitHooks.SortableGrid = window.SortableGridHook;
   }
 
-  // Future hooks will be registered here automatically
-  // Example: if (window.SomeOtherHook) { window.PhoenixKitHooks.SomeOther = window.SomeOtherHook; }
-
   // Log successful initialization in development
   if (typeof console !== "undefined" && console.debug) {
     var hookCount = Object.keys(window.PhoenixKitHooks).length;
