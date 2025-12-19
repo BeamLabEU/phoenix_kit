@@ -117,7 +117,7 @@ defmodule PhoenixKit.MixProject do
       {:hammer, "~> 7.1"},
 
       # DB Sync - WebSocket client for cross-site data sync
-      {:websockex, "~> 0.4.3"},
+      {:websockex, "~> 0.5.1"},
 
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},
