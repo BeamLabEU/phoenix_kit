@@ -134,6 +134,9 @@ defmodule PhoenixKitWeb.Live.Settings do
     # Update all settings to defaults in database
     case Settings.update_settings(defaults) do
       {:ok, updated_settings} ->
+        # Also reset admin_languages to just English
+        Settings.update_json_setting("admin_languages", ["en-US"])
+
         # Update socket with default settings
         changeset = Settings.change_settings(updated_settings)
 
@@ -143,6 +146,7 @@ defmodule PhoenixKitWeb.Live.Settings do
           |> assign(:saved_settings, updated_settings)
           |> assign(:changeset, changeset)
           |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
+          |> assign(:admin_languages, ["en-US"])
           |> put_flash(:info, "Settings reset to defaults successfully")
 
         {:noreply, socket}

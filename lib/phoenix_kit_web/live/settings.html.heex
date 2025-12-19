@@ -1197,28 +1197,18 @@
                   <div
                     tabindex="0"
                     role="button"
-                    class="btn btn-outline w-full justify-between"
+                    class="btn btn-outline w-full justify-between h-auto min-h-12 py-2"
                   >
-                    <div class="flex gap-2 items-center overflow-hidden">
+                    <div class="flex flex-wrap gap-1 items-center flex-1">
                       <%= if Enum.empty?(@admin_languages) do %>
                         <span class="text-base-content/60">Select languages...</span>
                       <% else %>
-                        <% {shown_languages, remaining_count} =
-                          case @admin_languages do
-                            [a, b, c | rest] -> {[a, b, c], length(rest)}
-                            other -> {other, 0}
-                          end %>
-                        <%= for language_code <- shown_languages do %>
+                        <%= for language_code <- @admin_languages do %>
                           <% language =
                             PhoenixKit.Modules.Languages.get_predefined_language(language_code) %>
                           <% language_flag = if language, do: language.flag, else: "🌐" %>
                           <div class="badge badge-primary gap-1 px-2">
                             <span class="text-lg">{language_flag}</span>
-                          </div>
-                        <% end %>
-                        <%= if remaining_count > 0 do %>
-                          <div class="badge badge-neutral gap-1 px-2">
-                            +{remaining_count}
                           </div>
                         <% end %>
                       <% end %>
