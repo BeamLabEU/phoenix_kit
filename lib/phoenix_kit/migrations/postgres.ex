@@ -226,7 +226,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - AI system enable/disable toggle
   - Usage statistics and request history
 
-  ### V33 - Payment Providers and Subscriptions ⚡ LATEST
+  ### V33 - Payment Providers and Subscriptions
   - Phoenix_kit_payment_methods for saved payment methods (cards, wallets)
   - Phoenix_kit_subscription_plans for subscription pricing plans
   - Phoenix_kit_subscriptions for user subscription management
@@ -235,6 +235,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Orders: checkout session fields
   - Invoices: subscription reference
   - Settings: provider enable/disable, grace period, dunning configuration
+
+  ### V34 - AI Endpoints System ⚡ LATEST
+  - Phoenix_kit_ai_endpoints for unified AI configuration
+  - Combines provider credentials, model selection, and generation parameters
+  - Replaces the Accounts + Slots architecture with single Endpoint entities
+  - Updates phoenix_kit_ai_requests with endpoint_id reference
+  - Removes slot settings from Settings table
 
   ## Migration Paths
 
@@ -294,7 +301,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 33
+  @current_version 34
   @default_prefix "public"
 
   @doc false

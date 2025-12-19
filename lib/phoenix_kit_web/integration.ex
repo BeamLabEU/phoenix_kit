@@ -404,10 +404,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
 
           # AI Module
-          live "/admin/ai", Live.Modules.AI.Settings, :index
-          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
-          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
-          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
+          live "/admin/ai", Live.Modules.AI.Endpoints, :index
+          live "/admin/ai/endpoints", Live.Modules.AI.Endpoints, :endpoints
+          live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
+          live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
+          live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
 
           # DB Sync Module
           live "/admin/db-sync", Live.Modules.DBSync.Index, :index
@@ -613,10 +614,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
 
           # AI Module
-          live "/admin/ai", Live.Modules.AI.Settings, :index
-          live "/admin/ai/accounts", Live.Modules.AI.Accounts, :index
-          live "/admin/ai/accounts/new", Live.Modules.AI.AccountForm, :new
-          live "/admin/ai/accounts/:id/edit", Live.Modules.AI.AccountForm, :edit
+          live "/admin/ai", Live.Modules.AI.Endpoints, :index
+          live "/admin/ai/endpoints", Live.Modules.AI.Endpoints, :endpoints
+          live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
+          live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
+          live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
 
           # DB Sync Module
           live "/admin/db-sync", Live.Modules.DBSync.Index, :index

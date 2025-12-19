@@ -636,7 +636,7 @@ config :phoenix_kit,
 {UtilsDate.format_time(Time.utc_now(), "h:i A")}
 ```
 
-**AI module:** See `lib/phoenix_kit_web/live/modules/ai/README.md` for API usage, slot configuration, provider accounts, and usage tracking.
+**AI module:** See `lib/phoenix_kit_web/live/modules/ai/README.md` for API usage, endpoint management, and usage tracking.
 
 **Emails module:** See `lib/phoenix_kit_web/live/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
 

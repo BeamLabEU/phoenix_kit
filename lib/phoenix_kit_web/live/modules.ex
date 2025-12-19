@@ -84,8 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:billing_invoices_count, billing_config.invoices_count)
       |> assign(:billing_currencies_count, billing_config.currencies_count)
       |> assign(:ai_enabled, ai_config.enabled)
-      |> assign(:ai_accounts_count, ai_config.accounts_count)
-      |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+      |> assign(:ai_endpoints_count, ai_config.endpoints_count)
       |> assign(:ai_total_requests, ai_config.total_requests)
       |> assign(:posts_enabled, posts_config.enabled)
       |> assign(:posts_total, posts_config.total_posts)
@@ -459,8 +458,7 @@ defmodule PhoenixKitWeb.Live.Modules do
         socket =
           socket
           |> assign(:ai_enabled, new_enabled)
-          |> assign(:ai_accounts_count, ai_config.accounts_count)
-          |> assign(:ai_configured_slots_count, ai_config.configured_slots_count)
+          |> assign(:ai_endpoints_count, ai_config.endpoints_count)
           |> assign(:ai_total_requests, ai_config.total_requests)
           |> put_flash(
             :info,

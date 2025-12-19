@@ -1,0 +1,397 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  phoenix_kit_current_scope={@phoenix_kit_current_scope}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="max-w-3xl mx-auto p-6">
+    <%!-- Header --%>
+    <div class="mb-6">
+      <.link navigate={Routes.ai_path()} class="btn btn-ghost btn-sm gap-2 mb-4">
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Endpoints
+      </.link>
+
+      <h1 class="text-2xl font-bold">{@page_title}</h1>
+      <p class="text-base-content/70 mt-1">
+        <%= if @endpoint do %>
+          Update your AI endpoint configuration.
+        <% else %>
+          Create a new AI endpoint with provider credentials, model selection, and parameters.
+        <% end %>
+      </p>
+    </div>
+
+    <%!-- Form --%>
+    <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+      <%!-- Basic Info Card --%>
+      <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Basic Information</h2>
+
+          <div class="space-y-4 mt-4">
+            <div>
+              <label class="label">
+                <span class="label-text font-medium">Name *</span>
+              </label>
+              <input
+                type="text"
+                name="endpoint[name]"
+                value={@form.params["name"] || (@endpoint && @endpoint.name) || ""}
+                class={["input input-bordered w-full", @form.errors[:name] && "input-error"]}
+                placeholder="e.g., Claude Fast"
+                required
+              />
+              <%= if @form.errors[:name] do %>
+                <p class="text-error text-sm mt-1">{translate_error(@form.errors[:name])}</p>
+              <% end %>
+            </div>
+
+            <div>
+              <label class="label">
+                <span class="label-text font-medium">Description</span>
+              </label>
+              <textarea
+                name="endpoint[description]"
+                class="textarea textarea-bordered w-full"
+                placeholder="Optional description of this endpoint's purpose"
+                rows="2"
+              >{@form.params["description"] || (@endpoint && @endpoint.description) || ""}</textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Provider & API Key Card --%>
+      <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Provider Configuration</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Provider</span>
+              </label>
+              <select name="endpoint[provider]" class="select select-bordered">
+                <%= for {label, value} <- Endpoint.provider_options() do %>
+                  <option
+                    value={value}
+                    selected={
+                      (@form.params["provider"] || (@endpoint && @endpoint.provider) ||
+                         "openrouter") == value
+                    }
+                  >
+                    {label}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text font-medium">API Key *</span>
+            </label>
+            <div class="join w-full">
+              <input
+                type="password"
+                name="endpoint[api_key]"
+                value={@form.params["api_key"] || (@endpoint && @endpoint.api_key) || ""}
+                class={[
+                  "input input-bordered join-item flex-1",
+                  @form.errors[:api_key] && "input-error"
+                ]}
+                placeholder="sk-or-v1-..."
+                required
+              />
+              <button
+                type="button"
+                class={["btn join-item", @validating_api_key && "loading"]}
+                phx-click="validate_api_key"
+                disabled={@validating_api_key}
+              >
+                {if @validating_api_key, do: "Validating...", else: "Validate & Load Models"}
+              </button>
+            </div>
+
+            <%= if @api_key_valid == true do %>
+              <label class="label">
+                <span class="label-text-alt text-success flex items-center gap-1">
+                  <.icon name="hero-check-circle" class="w-4 h-4" /> API key is valid
+                </span>
+              </label>
+            <% end %>
+
+            <%= if @api_key_error do %>
+              <label class="label">
+                <span class="label-text-alt text-error flex items-center gap-1">
+                  <.icon name="hero-x-circle" class="w-4 h-4" /> {@api_key_error}
+                </span>
+              </label>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Model Selection Card --%>
+      <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Model Selection</h2>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text font-medium">Model *</span>
+            </label>
+
+            <%= if @models_loading do %>
+              <div class="flex items-center gap-2 py-2">
+                <span class="loading loading-spinner loading-sm"></span>
+                <span class="text-base-content/70">Loading models...</span>
+              </div>
+            <% else %>
+              <%= if Enum.empty?(@models_grouped) do %>
+                <%!-- Fallback to text input --%>
+                <input
+                  type="text"
+                  name="endpoint[model]"
+                  value={@form.params["model"] || (@endpoint && @endpoint.model) || ""}
+                  class={["input input-bordered", @form.errors[:model] && "input-error"]}
+                  placeholder="anthropic/claude-3-haiku"
+                  required
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/50">
+                    Validate API key to load available models
+                  </span>
+                </label>
+              <% else %>
+                <select
+                  name="endpoint[model]"
+                  class={["select select-bordered w-full", @form.errors[:model] && "select-error"]}
+                  required
+                >
+                  <option value="">Select a model...</option>
+                  <%= for {provider, models} <- @models_grouped do %>
+                    <optgroup label={provider}>
+                      <%= for model <- models do %>
+                        <option
+                          value={model["id"]}
+                          selected={
+                            (@form.params["model"] || (@endpoint && @endpoint.model)) ==
+                              model["id"]
+                          }
+                        >
+                          {model["name"] || model["id"]}
+                        </option>
+                      <% end %>
+                    </optgroup>
+                  <% end %>
+                </select>
+              <% end %>
+            <% end %>
+
+            <%= if @form.errors[:model] do %>
+              <label class="label">
+                <span class="label-text-alt text-error">
+                  {translate_error(@form.errors[:model])}
+                </span>
+              </label>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Parameters Card - Only shown when model is selected --%>
+      <% supported_params =
+        PhoenixKitWeb.Live.Modules.AI.EndpointForm.get_supported_params(@selected_model) %>
+      <% basic_params = supported_params[:basic] || [] %>
+      <% advanced_params = supported_params[:advanced] || [] %>
+
+      <%= if @selected_model || (@form.params["model"] && @form.params["model"] != "") || (@endpoint && @endpoint.model) do %>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Generation Parameters</h2>
+
+            <%!-- Model Info Banner --%>
+            <%= if @selected_model do %>
+              <div class="alert alert-info py-2 mt-2">
+                <.icon name="hero-information-circle" class="w-4 h-4" />
+                <span class="text-sm">
+                  Context: {PhoenixKitWeb.Live.Modules.AI.EndpointForm.format_number(
+                    @selected_model["context_length"]
+                  )} tokens
+                  <%= if @selected_model["max_completion_tokens"] do %>
+                    • Max output: {PhoenixKitWeb.Live.Modules.AI.EndpointForm.format_number(
+                      @selected_model["max_completion_tokens"]
+                    )} tokens
+                  <% end %>
+                </span>
+              </div>
+            <% end %>
+
+            <%!-- Basic Parameters --%>
+            <%= if basic_params != [] do %>
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                <%= for {param_key, param_def} <- basic_params do %>
+                  <.param_input
+                    key={param_key}
+                    definition={param_def}
+                    form={@form}
+                    endpoint={@endpoint}
+                    selected_model={@selected_model}
+                  />
+                <% end %>
+              </div>
+            <% end %>
+
+            <%!-- Advanced Parameters --%>
+            <%= if advanced_params != [] do %>
+              <div class="collapse collapse-arrow bg-base-200 mt-4">
+                <input
+                  type="checkbox"
+                  name="_advanced_open"
+                  phx-update="ignore"
+                  id="advanced-params-toggle"
+                />
+                <div class="collapse-title font-medium">Advanced Parameters</div>
+                <div class="collapse-content">
+                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                    <%= for {param_key, param_def} <- advanced_params do %>
+                      <.param_input
+                        key={param_key}
+                        definition={param_def}
+                        form={@form}
+                        endpoint={@endpoint}
+                        selected_model={@selected_model}
+                        size="sm"
+                      />
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <%!-- Placeholder when no model selected --%>
+        <div class="card bg-base-100 shadow-lg opacity-60">
+          <div class="card-body">
+            <h2 class="card-title text-lg text-base-content/50">Generation Parameters</h2>
+            <p class="text-base-content/50 text-sm">
+              Select a model above to configure generation parameters.
+              Available parameters depend on the selected model.
+            </p>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Optional Settings Card --%>
+      <div class="card bg-base-100 shadow-lg">
+        <div class="card-body">
+          <h2 class="card-title text-lg">Optional Provider Settings</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">HTTP Referer</span>
+              </label>
+              <input
+                type="url"
+                name="endpoint[provider_settings][http_referer]"
+                value={
+                  get_in(@form.params, ["provider_settings", "http_referer"]) ||
+                    (@endpoint && get_in(@endpoint.provider_settings || %{}, ["http_referer"])) ||
+                    ""
+                }
+                class="input input-bordered"
+                placeholder="https://yourapp.com"
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">For OpenRouter rankings</span>
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">X-Title</span>
+              </label>
+              <input
+                type="text"
+                name="endpoint[provider_settings][x_title]"
+                value={
+                  get_in(@form.params, ["provider_settings", "x_title"]) ||
+                    (@endpoint && get_in(@endpoint.provider_settings || %{}, ["x_title"])) || ""
+                }
+                class="input input-bordered"
+                placeholder="My Application"
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">App name for OpenRouter</span>
+              </label>
+            </div>
+          </div>
+
+          <%!-- Enabled Toggle --%>
+          <div class="form-control mt-4">
+            <label class="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                name="endpoint[enabled]"
+                value="true"
+                checked={
+                  @form.params["enabled"] == "true" || (@endpoint && @endpoint.enabled) ||
+                    !@endpoint
+                }
+                class="checkbox checkbox-primary"
+              />
+              <span class="label-text font-medium">Endpoint Enabled</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Actions --%>
+      <div class="flex justify-end gap-3">
+        <.link navigate={Routes.ai_path()} class="btn btn-ghost">
+          Cancel
+        </.link>
+        <button type="submit" class="btn btn-primary">
+          {if @endpoint, do: "Update Endpoint", else: "Create Endpoint"}
+        </button>
+      </div>
+    </.form>
+
+    <%!-- Help Section (only for new endpoints) --%>
+    <%= unless @endpoint do %>
+      <div class="card bg-base-100 shadow-lg mt-6">
+        <div class="card-body">
+          <h3 class="card-title text-lg">
+            <.icon name="hero-question-mark-circle" class="w-5 h-5" /> How to get an API key
+          </h3>
+          <ol class="list-decimal list-inside space-y-2 text-base-content/70 mt-2">
+            <li>
+              Visit
+              <a href="https://openrouter.ai" target="_blank" class="link link-primary">
+                openrouter.ai
+              </a>
+            </li>
+            <li>Create an account or sign in</li>
+            <li>
+              Go to
+              <a
+                href="https://openrouter.ai/settings/keys"
+                target="_blank"
+                class="link link-primary"
+              >
+                Keys
+              </a>
+              section
+            </li>
+            <li>Click "Create Key" and copy your new API key</li>
+          </ol>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
