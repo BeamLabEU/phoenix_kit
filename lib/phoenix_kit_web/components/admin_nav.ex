@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Settings
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -239,8 +239,6 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   attr(:current_locale, :string, default: "en")
 
   def admin_language_dropdown(assigns) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Get admin languages from settings (separate from the language module)
     admin_languages = get_admin_languages()
 
@@ -327,10 +325,18 @@ defmodule PhoenixKitWeb.Components.AdminNav do
     user = Scope.user(assigns.scope)
     avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
 
+    # Get admin languages info for the dropdown
+    admin_languages = get_admin_languages()
+    show_language_section = not Enum.empty?(admin_languages)
+    show_language_divider = PhoenixKit.Config.user_dashboard_enabled?() and show_language_section
+
     assigns =
       assigns
       |> assign(:avatar_file_id, avatar_file_id)
       |> assign(:user, user)
+      |> assign(:admin_languages, admin_languages)
+      |> assign(:show_language_section, show_language_section)
+      |> assign(:show_language_divider, show_language_divider)
 
     ~H"""
     <%= if @scope && PhoenixKit.Users.Auth.Scope.authenticated?(@scope) do %>
@@ -396,17 +402,16 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <% end %>
 
           <%!-- Language Switcher (Admin Languages) --%>
-          <% admin_languages = get_admin_languages() %>
-          <%= if PhoenixKit.Config.user_dashboard_enabled?() or length(admin_languages) > 0 do %>
+          <%= if @show_language_divider do %>
             <div class="divider my-0"></div>
           <% end %>
 
-          <%= if length(admin_languages) > 0 do %>
+          <%= if @show_language_section do %>
             <li class="menu-title px-4 py-1">
               <span class="text-xs">Language</span>
             </li>
 
-            <%= for language <- admin_languages do %>
+            <%= for language <- @admin_languages do %>
               <li>
                 <a
                   href={generate_language_switch_url(@current_path, language["code"])}
@@ -598,9 +603,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       |> String.replace_prefix(admin_prefix, "")
       |> String.replace_prefix("/admin", "")
       |> case do
-        # Default to dashboard for root
-        "" -> "dashboard"
-        "/" -> "dashboard"
+        # Only treat exact empty paths as dashboard (for /admin)
+        "" -> ""
+        "/" -> ""
         path -> String.trim_leading(path, "/")
       end
 
@@ -642,28 +647,24 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to get admin languages from settings
-  # Default is ["en-US"] - a fresh install only has English enabled
+  # Returns empty list if Languages module is disabled
   defp get_admin_languages do
-    admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
-
-    languages =
-      case Jason.decode(admin_languages_json) do
-        {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en-US"]
-      end
-
-    # Map language codes to language details
-    languages
-    |> Enum.map(fn code ->
-      case Languages.get_predefined_language(code) do
-        %{name: name, flag: flag, native: native} ->
-          %{"code" => code, "name" => name, "flag" => flag, "native" => native}
-
-        nil ->
-          %{"code" => code, "name" => String.upcase(code), "flag" => "🌐", "native" => ""}
-      end
-    end)
+    # If Languages module is not enabled, return empty list to hide dropdown
+    if Languages.enabled?() do
+      # Languages module is enabled, use only enabled languages from the module
+      Languages.get_enabled_languages()
+      |> Enum.map(fn lang ->
+        %{
+          "code" => lang["code"],
+          "name" => lang["name"],
+          "flag" => Map.get(lang, "flag", "🌐"),
+          "native" => Map.get(lang, "native", "")
+        }
+      end)
+    else
+      # Module disabled, return empty list
+      []
+    end
   end
 
   # Helper function to get language flag emoji
@@ -678,8 +679,6 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   # Used by admin language dropdown where language["code"] is already the base code
   # Uses Routes.path/2 which automatically skips locale prefix for default language
   defp build_locale_url(current_path, base_code) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Get valid language codes from both admin and frontend systems
     admin_languages = get_admin_languages()
     admin_language_codes = Enum.map(admin_languages, & &1["code"])
@@ -725,7 +724,6 @@ defmodule PhoenixKitWeb.Components.AdminNav do
 
   # Legacy helper - kept for backward compatibility
   defp generate_language_switch_url(current_path, new_locale) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_code = DialectMapper.extract_base(new_locale)
     build_locale_url(current_path, base_code)
   end

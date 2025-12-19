@@ -251,10 +251,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                   <%!-- Navigation (fills available space) --%>
                   <nav class="px-4 py-6 space-y-2 flex-1">
                     <.admin_nav_item
-                      href={Routes.locale_aware_path(assigns, "/admin/dashboard")}
+                      href={Routes.locale_aware_path(assigns, "/admin")}
                       icon="dashboard"
                       label={gettext("Dashboard")}
                       current_path={@current_path || ""}
+                      exact_match_only={true}
                     />
 
                     <%!-- Users section with direct link and conditional submenu --%>
