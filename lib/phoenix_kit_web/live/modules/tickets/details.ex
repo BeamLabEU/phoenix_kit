@@ -49,6 +49,11 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Details do
               )
               |> assign(:comment_form, %{"content" => "", "is_internal" => false})
               |> assign(:show_internal_form, false)
+              |> assign(:show_media_selector, false)
+              |> assign(
+                :attachments_enabled,
+                Settings.get_boolean_setting("tickets_attachments_enabled", true)
+              )
               |> load_comments()
               |> load_attachments()
               |> load_status_history()
@@ -187,6 +192,45 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Details do
             {:noreply, put_flash(socket, :error, "Failed to delete comment")}
         end
     end
+  end
+
+  @impl true
+  def handle_event("open_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, true)}
+  end
+
+  @impl true
+  def handle_event("close_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, false)}
+  end
+
+  @impl true
+  def handle_event("remove_attachment", %{"id" => attachment_id}, socket) do
+    case Tickets.remove_attachment(attachment_id) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Attachment removed")
+         |> load_attachments()}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to remove attachment")}
+    end
+  end
+
+  @impl true
+  def handle_info({:media_selected, file_ids}, socket) do
+    ticket = socket.assigns.ticket
+
+    Enum.each(file_ids, fn file_id ->
+      Tickets.add_attachment_to_ticket(ticket.id, file_id)
+    end)
+
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, false)
+     |> put_flash(:info, "#{length(file_ids)} file(s) attached")
+     |> load_attachments()}
   end
 
   # Private functions

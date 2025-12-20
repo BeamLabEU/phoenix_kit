@@ -128,18 +128,16 @@
           <div class="divider my-2"></div>
 
           <%!-- Attachments --%>
-          <div class="form-control opacity-60">
-            <label class="label cursor-not-allowed justify-start gap-4">
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4">
               <input
                 type="checkbox"
                 class="toggle toggle-info"
-                checked={false}
-                disabled
+                checked={@attachments_enabled}
+                phx-click="toggle_attachments"
               />
               <div>
-                <span class="label-text font-medium">
-                  Attachments <span class="badge badge-sm badge-warning ml-2">Coming Soon</span>
-                </span>
+                <span class="label-text font-medium">Attachments</span>
                 <p class="text-sm text-base-content/50">
                   Allow uploading files to tickets and comments
                 </p>
