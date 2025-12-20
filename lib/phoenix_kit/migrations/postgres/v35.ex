@@ -59,11 +59,11 @@ defmodule PhoenixKit.Migrations.Postgres.V35 do
     seed_settings(prefix)
 
     # Update version tracking
-    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '34'")
+    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '35'")
   end
 
   @doc """
-  Rollback the V34 migration.
+  Rollback the V35 migration.
   """
   def down(%{prefix: prefix} = _opts) do
     # Drop tables in reverse order (respecting foreign keys)
@@ -82,8 +82,8 @@ defmodule PhoenixKit.Migrations.Postgres.V35 do
 
     # Note: We don't remove SupportAgent role as it may have assignments
 
-    # Update version tracking
-    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '33'")
+    # Update version tracking (rollback to V34)
+    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '34'")
   end
 
   # Private helper functions
