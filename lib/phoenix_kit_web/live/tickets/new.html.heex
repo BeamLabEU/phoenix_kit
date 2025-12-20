@@ -1,0 +1,169 @@
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+  <div class="max-w-2xl mx-auto">
+    <%!-- Back Button --%>
+    <div class="mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets")}
+        class="btn btn-ghost btn-sm gap-2"
+      >
+        <.icon name="hero-arrow-left" class="h-4 w-4" />
+        {gettext("Back to Tickets")}
+      </.link>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h1 class="card-title text-2xl mb-6">{gettext("Create New Ticket")}</h1>
+
+        <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Title Field --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">{gettext("Subject")} *</span>
+            </label>
+            <input
+              type="text"
+              name="ticket[title]"
+              value={@form[:title].value}
+              class={"input input-bordered w-full #{if @form[:title].errors != [], do: "input-error"}"}
+              placeholder={gettext("Brief description of your issue")}
+              required
+            />
+            <.error :for={msg <- @form[:title].errors |> Enum.map(&elem(&1, 0))}>{msg}</.error>
+          </div>
+
+          <%!-- Description Field --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">{gettext("Description")} *</span>
+            </label>
+            <textarea
+              name="ticket[description]"
+              class={"textarea textarea-bordered w-full h-40 #{if @form[:description].errors != [], do: "textarea-error"}"}
+              placeholder={gettext("Please describe your issue in detail...")}
+              required
+            >{@form[:description].value}</textarea>
+            <.error :for={msg <- @form[:description].errors |> Enum.map(&elem(&1, 0))}>
+              {msg}
+            </.error>
+          </div>
+
+          <%!-- Attachments Section --%>
+          <%= if @attachments_enabled do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">{gettext("Attachments")}</span>
+                <span class="label-text-alt text-base-content/50">{gettext("Optional")}</span>
+              </label>
+
+              <%!-- Already Uploaded Files Preview --%>
+              <%= if Enum.any?(@pending_files) do %>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                  <%= for file <- @pending_files do %>
+                    <div class="relative group border border-base-300 rounded-lg overflow-hidden p-3 bg-base-200">
+                      <div class="flex items-center gap-2">
+                        <.icon
+                          name="hero-document"
+                          class="w-6 h-6 text-base-content/50 flex-shrink-0"
+                        />
+                        <div class="text-xs truncate flex-1">{file.original_file_name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="remove_pending_file"
+                        phx-value-id={file.id}
+                        class="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <.icon name="hero-x-mark" class="w-3 h-3" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <%!-- Upload Progress --%>
+              <%= if Map.has_key?(assigns, :uploads) do %>
+                <%= for entry <- @uploads.attachments.entries do %>
+                  <div class="flex items-center gap-3 mb-2 p-2 bg-base-200 rounded-lg">
+                    <.icon name="hero-document" class="w-5 h-5 text-base-content/50" />
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm truncate">{entry.client_name}</div>
+                      <progress
+                        class="progress progress-primary w-full h-1"
+                        value={entry.progress}
+                        max="100"
+                      >
+                      </progress>
+                    </div>
+                    <button
+                      type="button"
+                      phx-click="cancel_upload"
+                      phx-value-ref={entry.ref}
+                      class="btn btn-ghost btn-xs"
+                    >
+                      <.icon name="hero-x-mark" class="w-4 h-4" />
+                    </button>
+                  </div>
+                <% end %>
+
+                <%!-- Upload Errors --%>
+                <%= for {_ref, msg} <- @uploads.attachments.errors do %>
+                  <div class="alert alert-error mb-2">
+                    <.icon name="hero-exclamation-circle" class="w-5 h-5" />
+                    <span>
+                      <%= case msg do %>
+                        <% :too_large -> %>
+                          {gettext("File is too large")}
+                        <% :too_many_files -> %>
+                          {gettext("Too many files")}
+                        <% :not_accepted -> %>
+                          {gettext("File type not accepted")}
+                        <% _ -> %>
+                          {inspect(msg)}
+                      <% end %>
+                    </span>
+                  </div>
+                <% end %>
+              <% end %>
+
+              <%!-- Drag and Drop Zone --%>
+              <%= if Map.has_key?(assigns, :uploads) do %>
+                <div
+                  class="border-2 border-dashed border-base-300 rounded-lg p-6 text-center transition-colors cursor-pointer hover:border-primary hover:bg-primary/5"
+                  phx-drop-target={@uploads.attachments.ref}
+                >
+                  <label for={@uploads.attachments.ref} class="cursor-pointer block">
+                    <div class="flex flex-col items-center gap-2">
+                      <.icon name="hero-cloud-arrow-up" class="w-8 h-8 text-primary" />
+                      <span class="text-sm font-medium">
+                        {gettext("Drop files here or click to upload")}
+                      </span>
+                      <span class="text-xs text-base-content/50">
+                        {gettext("Images, PDFs, documents (max 10MB each, up to 5 files)")}
+                      </span>
+                    </div>
+                    <.live_file_input upload={@uploads.attachments} class="hidden" />
+                  </label>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+
+          <%!-- Form Actions --%>
+          <div class="flex justify-end gap-3 pt-4 border-t border-base-300">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets")}
+              class="btn btn-ghost"
+            >
+              {gettext("Cancel")}
+            </.link>
+            <button type="submit" class="btn btn-primary">
+              <.icon name="hero-paper-airplane" class="w-5 h-5" />
+              {gettext("Submit Ticket")}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Layouts.dashboard>

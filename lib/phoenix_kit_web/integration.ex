@@ -141,6 +141,7 @@ defmodule PhoenixKitWeb.Integration do
       # Accepts both base codes (en, es) and full dialect codes (en-US, es-MX)
       # Full dialect codes are automatically redirected to base codes by the validation plug
       # This ensures backward compatibility with old URLs while enforcing base code standard
+      # Note: Reserved path segments (admin, api, etc.) are handled by process_locale/1
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
             Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
@@ -328,6 +329,13 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
+          # Support Tickets module routes
+          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
+          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
+          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
+          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
+          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
+
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -454,6 +462,11 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/settings/confirm-email/:token",
                  Live.Dashboard.Settings,
                  :confirm_email
+
+            # User Ticket Portal (under /dashboard to avoid conflict with /admin/tickets)
+            live "/dashboard/tickets", Live.Tickets.Tickets, :index
+            live "/dashboard/tickets/new", Live.Tickets.New, :new
+            live "/dashboard/tickets/:id", Live.Tickets.Details, :show
           end
         end
       end
@@ -529,6 +542,13 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id", Live.Modules.Posts.Details, :show
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
+
+          # Support Tickets module routes
+          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
+          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
+          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
+          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
+          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
@@ -664,6 +684,11 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/settings/confirm-email/:token",
                  Live.Dashboard.Settings,
                  :confirm_email
+
+            # User Ticket Portal (under /dashboard to avoid conflict with /admin/tickets)
+            live "/dashboard/tickets", Live.Tickets.Tickets, :index
+            live "/dashboard/tickets/new", Live.Tickets.New, :new
+            live "/dashboard/tickets/:id", Live.Tickets.Details, :show
           end
         end
       end
