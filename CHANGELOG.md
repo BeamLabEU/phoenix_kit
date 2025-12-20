@@ -1,3 +1,15 @@
+## 1.7.6 - 2025-12-20
+
+### New Module: Support Tickets (V35)
+- **Complete ticket system** - Customer support request management with status workflow
+- **Ticket comments** - Threaded comments with internal notes (staff-only visibility)
+- **File attachments** - Attachments on tickets and comments with position ordering
+- **Status history** - Complete audit trail for all status changes
+- **Status workflow** - open → in_progress → resolved → closed
+- **SupportAgent role** - New role for ticket access control
+- **Admin interface** - Full CRUD at /phoenix_kit/admin/tickets
+- **Settings** - Module enable/disable, per_page, comments, internal notes, attachments, allow_reopen
+
 ## 1.7.5 - 2025-12-20
 
 ### Email System Improvements
