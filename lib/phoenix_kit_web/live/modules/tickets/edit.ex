@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Tickets
   alias PhoenixKit.Tickets.Ticket
@@ -71,6 +72,13 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
     |> assign(:current_user, current_user)
     |> assign(:all_users, list_all_users())
     |> assign(:action, :new)
+    |> assign(:show_media_selector, false)
+    |> assign(:pending_file_ids, [])
+    |> assign(:pending_files, [])
+    |> assign(
+      :attachments_enabled,
+      Settings.get_boolean_setting("tickets_attachments_enabled", true)
+    )
   end
 
   @impl true
@@ -93,8 +101,46 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
     save_ticket(socket, socket.assigns.action, params)
   end
 
+  @impl true
+  def handle_event("open_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, true)}
+  end
+
+  @impl true
+  def handle_event("close_media_selector", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, false)}
+  end
+
+  @impl true
+  def handle_event("remove_pending_file", %{"id" => file_id}, socket) do
+    pending_file_ids = Enum.reject(socket.assigns.pending_file_ids, &(&1 == file_id))
+    pending_files = Enum.reject(socket.assigns.pending_files, &(&1.id == file_id))
+
+    {:noreply,
+     socket
+     |> assign(:pending_file_ids, pending_file_ids)
+     |> assign(:pending_files, pending_files)}
+  end
+
+  @impl true
+  def handle_info({:media_selected, file_ids}, socket) do
+    # Load file details for display
+    pending_files =
+      Enum.map(file_ids, fn file_id ->
+        Storage.get_file(file_id)
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    {:noreply,
+     socket
+     |> assign(:show_media_selector, false)
+     |> assign(:pending_file_ids, file_ids)
+     |> assign(:pending_files, pending_files)}
+  end
+
   defp save_ticket(socket, :new, params) do
     current_user = socket.assigns.current_user
+    pending_file_ids = socket.assigns.pending_file_ids
 
     # Use the selected user or default to current user
     user_id =
@@ -106,6 +152,11 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
 
     case Tickets.create_ticket(user_id, params) do
       {:ok, ticket} ->
+        # Add pending attachments to the newly created ticket
+        Enum.each(pending_file_ids, fn file_id ->
+          Tickets.add_attachment_to_ticket(ticket.id, file_id)
+        end)
+
         {:noreply,
          socket
          |> put_flash(:info, "Ticket created successfully")

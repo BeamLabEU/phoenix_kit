@@ -135,6 +135,61 @@
             </div>
           <% end %>
 
+          <%!-- Attachments (for new tickets) --%>
+          <%= if @action == :new and @attachments_enabled do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Attachments</span>
+                <span class="label-text-alt text-base-content/50">Optional</span>
+              </label>
+
+              <%= if Enum.any?(@pending_files) do %>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <%= for file <- @pending_files do %>
+                    <div class="relative group border rounded-lg overflow-hidden">
+                      <%= if file.file_type == "image" do %>
+                        <img
+                          src={
+                            PhoenixKit.Modules.Storage.get_public_url_by_variant(
+                              file,
+                              "thumbnail"
+                            )
+                          }
+                          alt={file.original_file_name}
+                          class="w-full h-20 object-cover"
+                        />
+                      <% else %>
+                        <div class="w-full h-20 flex items-center justify-center bg-base-200">
+                          <.icon name="hero-document" class="w-6 h-6 text-base-content/50" />
+                        </div>
+                      <% end %>
+                      <div class="p-1">
+                        <div class="text-xs truncate">{file.original_file_name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="remove_pending_file"
+                        phx-value-id={file.id}
+                        class="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <.icon name="hero-x-mark" class="w-3 h-3" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <button
+                type="button"
+                phx-click="open_media_selector"
+                class="btn btn-outline btn-sm w-fit"
+              >
+                <.icon name="hero-paper-clip" class="w-4 h-4" />
+                {if Enum.any?(@pending_files), do: "Add More Files", else: "Attach Files"}
+              </button>
+            </div>
+          <% end %>
+
           <%!-- Actions --%>
           <div class="flex justify-end gap-3 pt-4">
             <.link navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")} class="btn btn-ghost">
@@ -147,5 +202,17 @@
         </.form>
       </div>
     </div>
+
+    <%!-- Media Selector Modal (for new tickets) --%>
+    <%= if @action == :new and @attachments_enabled do %>
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+        id="new-ticket-media-selector"
+        show={@show_media_selector}
+        mode={:multiple}
+        selected_ids={@pending_file_ids}
+        phoenix_kit_current_user={@current_user}
+      />
+    <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
