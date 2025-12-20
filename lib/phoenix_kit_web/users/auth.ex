@@ -1082,6 +1082,10 @@ defmodule PhoenixKitWeb.Users.Auth do
     process_locale(conn)
   end
 
+  # Reserved path segments that should never be treated as locale codes
+  # These are valid URL path components that happen to match the locale pattern position
+  @reserved_path_segments ~w(admin api webhooks assets static files images)
+
   # Locale processing logic
   defp process_locale(conn) do
     alias PhoenixKit.Modules.Languages.DialectMapper
@@ -1089,6 +1093,11 @@ defmodule PhoenixKitWeb.Users.Auth do
     case conn.path_params do
       %{"locale" => locale} when is_binary(locale) ->
         cond do
+          # Check if this is a reserved path segment (admin, api, etc.)
+          # These should be treated as regular paths, not locale codes
+          locale in @reserved_path_segments ->
+            process_as_default_locale(conn)
+
           # Check if this is a full dialect code (contains hyphen) → redirect to base
           String.contains?(locale, "-") ->
             redirect_to_base_locale(conn, locale)
@@ -1133,6 +1142,23 @@ defmodule PhoenixKitWeb.Users.Auth do
         |> assign(:current_locale, default_dialect)
         |> put_session(:phoenix_kit_locale_base, default_base)
     end
+  end
+
+  # Process request as default locale (for reserved path segments like "admin", "api")
+  # This ensures these paths work without being treated as locale codes
+  defp process_as_default_locale(conn) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    default_base = get_default_admin_language()
+    current_user = get_user_for_locale_resolution(conn)
+    default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
+
+    Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
+
+    conn
+    |> assign(:current_locale_base, default_base)
+    |> assign(:current_locale, default_dialect)
+    |> put_session(:phoenix_kit_locale_base, default_base)
   end
 
   # Helper to get user for locale resolution

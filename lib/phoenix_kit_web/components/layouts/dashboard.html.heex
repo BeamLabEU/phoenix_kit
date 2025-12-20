@@ -81,8 +81,8 @@
                     <.icon name="hero-home" class="w-5 h-5 mr-3" /> {gettext("Dashboard")}
                   </.link>
                 <% end %>
-                
-<!-- Settings Link -->
+
+                <%!-- Settings Link --%>
                 <%= if String.contains?(assigns[:url_path] || "", "/dashboard/settings") do %>
                   <.link
                     navigate={
@@ -104,6 +104,31 @@
                     class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-5 h-5 mr-3" /> {gettext("Settings")}
+                  </.link>
+                <% end %>
+
+                <%!-- My Tickets Link --%>
+                <%= if String.contains?(assigns[:url_path] || "", "/dashboard/tickets") do %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/tickets",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
+                  >
+                    <.icon name="hero-ticket" class="w-5 h-5 mr-3" /> {gettext("My Tickets")}
+                  </.link>
+                <% else %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/tickets",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                  >
+                    <.icon name="hero-ticket" class="w-5 h-5 mr-3" /> {gettext("My Tickets")}
                   </.link>
                 <% end %>
               </nav>
@@ -142,6 +167,18 @@
                     class="flex items-center gap-2"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> {gettext("Settings")}
+                  </.link>
+                </li>
+                <li>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/dashboard/tickets",
+                        locale: assigns[:current_locale_base]
+                      )
+                    }
+                    class="flex items-center gap-2"
+                  >
+                    <.icon name="hero-ticket" class="w-4 h-4" /> {gettext("My Tickets")}
                   </.link>
                 </li>
               </ul>

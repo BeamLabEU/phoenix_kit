@@ -1,0 +1,152 @@
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+  <div class="container mx-auto">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">{gettext("My Tickets")}</h1>
+        <p class="text-base-content/70 mt-1">{gettext("Track your support requests")}</p>
+      </div>
+      <div class="mt-4 md:mt-0">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/new")}
+          class="btn btn-primary"
+        >
+          <.icon name="hero-plus" class="h-5 w-5" /> {gettext("New Ticket")}
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Status Filter --%>
+    <div class="bg-base-200 rounded-lg p-4 mb-6">
+      <form phx-change="filter" class="flex flex-col md:flex-row gap-4 items-center">
+        <div class="w-full md:w-48">
+          <select name="filters[status]" class="select select-bordered w-full">
+            <option value="">{gettext("All Statuses")}</option>
+            <option value="open" selected={@status_filter == "open"}>{gettext("Open")}</option>
+            <option value="in_progress" selected={@status_filter == "in_progress"}>
+              {gettext("In Progress")}
+            </option>
+            <option value="resolved" selected={@status_filter == "resolved"}>
+              {gettext("Resolved")}
+            </option>
+            <option value="closed" selected={@status_filter == "closed"}>
+              {gettext("Closed")}
+            </option>
+          </select>
+        </div>
+
+        <%= if @status_filter do %>
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            {gettext("Clear")}
+          </button>
+        <% end %>
+
+        <div class="flex-1 text-right text-sm text-base-content/70">
+          {ngettext("%{count} ticket", "%{count} tickets", @total_count, count: @total_count)}
+        </div>
+      </form>
+    </div>
+
+    <%!-- Tickets List --%>
+    <div class="space-y-4">
+      <%= if @loading do %>
+        <div class="flex justify-center items-center py-12">
+          <span class="loading loading-spinner loading-lg"></span>
+        </div>
+      <% else %>
+        <%= if Enum.empty?(@tickets) do %>
+          <div class="text-center py-12 bg-base-100 rounded-lg shadow">
+            <.icon name="hero-ticket" class="h-16 w-16 mx-auto text-base-content/30 mb-4" />
+            <h3 class="text-lg font-medium mb-2">{gettext("No tickets yet")}</h3>
+            <p class="text-base-content/70 mb-4">
+              <%= if @status_filter do %>
+                {gettext("No tickets with this status. Try a different filter.")}
+              <% else %>
+                {gettext("Create your first ticket to get help from our support team.")}
+              <% end %>
+            </p>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/new")}
+              class="btn btn-primary"
+            >
+              <.icon name="hero-plus" class="h-5 w-5" /> {gettext("New Ticket")}
+            </.link>
+          </div>
+        <% else %>
+          <%= for ticket <- @tickets do %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/tickets/#{ticket.id}")}
+              class="block bg-base-100 rounded-lg shadow hover:shadow-md transition p-4"
+            >
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-lg truncate">{ticket.title}</h3>
+                  <p class="text-base-content/70 text-sm mt-1 line-clamp-2">
+                    {String.slice(ticket.description || "", 0, 150)}{if String.length(
+                                                                          ticket.description || ""
+                                                                        ) > 150,
+                                                                        do: "..."}
+                  </p>
+                </div>
+                <div class="ml-4 flex-shrink-0">
+                  <%= case ticket.status do %>
+                    <% "open" -> %>
+                      <span class="badge badge-info">{gettext("Open")}</span>
+                    <% "in_progress" -> %>
+                      <span class="badge badge-warning">{gettext("In Progress")}</span>
+                    <% "resolved" -> %>
+                      <span class="badge badge-success">{gettext("Resolved")}</span>
+                    <% "closed" -> %>
+                      <span class="badge">{gettext("Closed")}</span>
+                  <% end %>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 mt-3 text-sm text-base-content/60">
+                <span class="flex items-center gap-1">
+                  <.icon name="hero-calendar" class="w-4 h-4" />
+                  {Calendar.strftime(ticket.inserted_at, "%b %d, %Y")}
+                </span>
+                <span class="flex items-center gap-1">
+                  <.icon name="hero-chat-bubble-left" class="w-4 h-4" />
+                  {ticket.comment_count || 0}
+                  {ngettext("comment", "comments", ticket.comment_count || 0)}
+                </span>
+                <%= if ticket.assigned_to do %>
+                  <span class="flex items-center gap-1">
+                    <.icon name="hero-user" class="w-4 h-4" />
+                    {gettext("Assigned")}
+                  </span>
+                <% end %>
+              </div>
+            </.link>
+          <% end %>
+
+          <%!-- Pagination --%>
+          <%= if @total_pages > 1 do %>
+            <div class="flex justify-center items-center gap-2 py-4">
+              <button
+                phx-click="change_page"
+                phx-value-page={max(1, @page - 1)}
+                class={"btn btn-sm #{if @page == 1, do: "btn-disabled"}"}
+                disabled={@page == 1}
+              >
+                {gettext("Previous")}
+              </button>
+              <span class="text-sm">
+                {gettext("Page %{page} of %{total}", page: @page, total: @total_pages)}
+              </span>
+              <button
+                phx-click="change_page"
+                phx-value-page={min(@total_pages, @page + 1)}
+                class={"btn btn-sm #{if @page == @total_pages, do: "btn-disabled"}"}
+                disabled={@page == @total_pages}
+              >
+                {gettext("Next")}
+              </button>
+            </div>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Layouts.dashboard>
