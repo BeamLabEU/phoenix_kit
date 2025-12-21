@@ -42,7 +42,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   alias PhoenixKit.Config
   alias PhoenixKit.Sitemap.UrlEntry
   alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def source_name, do: :blogging
@@ -63,10 +62,13 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
       blogs = Blogging.list_blogs()
 
-      blog_listings = collect_blog_listings(blogs, language, is_default, base_url)
+      # Filter out blogs with sitemap_exclude setting
+      included_blogs = Enum.reject(blogs, &blog_excluded?/1)
+
+      blog_listings = collect_blog_listings(included_blogs, language, is_default, base_url)
 
       blog_posts =
-        Enum.flat_map(blogs, fn blog ->
+        Enum.flat_map(included_blogs, fn blog ->
           collect_blog_posts(blog, language, is_default, base_url)
         end)
 
@@ -81,6 +83,17 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       Logger.warning("Blogging sitemap source failed to collect: #{inspect(error)}")
 
       []
+  end
+
+  # Check if blog is excluded from sitemap via settings
+  defp blog_excluded?(blog) do
+    case blog do
+      %{"sitemap_exclude" => true} -> true
+      %{"sitemap_exclude" => "true"} -> true
+      %{"settings" => %{"sitemap_exclude" => true}} -> true
+      %{"settings" => %{"sitemap_exclude" => "true"}} -> true
+      _ -> false
+    end
   end
 
   defp collect_blog_listings(blogs, language, is_default, base_url) do
@@ -117,12 +130,18 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     name = blog["name"]
     post_language = language || get_default_language()
 
-    Blogging.list_posts(slug, post_language)
-    |> Enum.filter(&published?/1)
-    |> Enum.reject(&excluded?/1)
-    |> Enum.filter(fn post -> has_translation?(post, language) end)
-    |> Enum.map(fn post ->
-      build_post_entry(post, slug, name, language, is_default, base_url)
+    posts =
+      Blogging.list_posts(slug, post_language)
+      |> Enum.filter(&published?/1)
+      |> Enum.reject(&excluded?/1)
+      |> Enum.filter(fn post -> has_translation?(post, language) end)
+
+    # Optimization: Pre-compute date counts for timestamp mode posts
+    # This avoids N filesystem reads (one per post) by doing one pass
+    date_counts = build_date_counts_cache(posts)
+
+    Enum.map(posts, fn post ->
+      build_post_entry(post, slug, name, language, is_default, base_url, date_counts)
     end)
   rescue
     error ->
@@ -133,6 +152,15 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       )
 
       []
+  end
+
+  # Build a map of date -> post count for timestamp mode posts
+  # This replaces N calls to Storage.count_posts_on_date with O(n) in-memory operation
+  defp build_date_counts_cache(posts) do
+    posts
+    |> Enum.filter(fn post -> post.mode == :timestamp end)
+    |> Enum.map(&extract_date_for_url/1)
+    |> Enum.frequencies()
   end
 
   defp published?(post) do
@@ -168,10 +196,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     end)
   end
 
-  defp build_post_entry(post, blog_slug, blog_name, language, is_default, base_url) do
+  defp build_post_entry(post, blog_slug, blog_name, language, is_default, base_url, date_counts) do
     # Canonical path without language prefix (for hreflang grouping)
-    canonical_path = build_post_path(post, blog_slug, nil, true)
-    path = build_post_path(post, blog_slug, language, is_default)
+    canonical_path = build_post_path(post, blog_slug, nil, true, date_counts)
+    path = build_post_path(post, blog_slug, language, is_default, date_counts)
     url = build_url(path, base_url)
 
     title = get_post_title(post)
@@ -190,13 +218,14 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   # Build post path based on mode (slug vs timestamp)
-  # Mirrors the URL logic from BlogHTML.build_post_url/3
-  defp build_post_path(post, blog_slug, language, is_default) do
+  # Uses pre-computed date_counts cache instead of Storage.count_posts_on_date
+  defp build_post_path(post, blog_slug, language, is_default, date_counts) do
     case post.mode do
       :timestamp ->
         # For timestamp mode, use date (and time if multiple posts on same date)
         date = extract_date_for_url(post)
-        post_count = Storage.count_posts_on_date(blog_slug, date)
+        # Use cached count instead of filesystem read
+        post_count = Map.get(date_counts, date, 1)
 
         if post_count > 1 do
           # Multiple posts on this date - include time

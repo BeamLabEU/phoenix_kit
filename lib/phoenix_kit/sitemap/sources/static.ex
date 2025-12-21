@@ -63,7 +63,9 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
       "changefreq" => "daily",
       "title" => "Home",
       "category" => "Main",
-      "prefixed" => false
+      "prefixed" => false,
+      # Don't add language prefix to homepage - it usually doesn't have localized route
+      "skip_language_prefix" => true
     },
     %{
       "plug" => "PhoenixKitWeb.Users.Registration",
@@ -167,9 +169,19 @@ defmodule PhoenixKit.Sitemap.Sources.Static do
 
     if path do
       prefixed = Map.get(config, "prefixed", false)
+      skip_language = Map.get(config, "skip_language_prefix", false)
+
       # Canonical path without language prefix (for hreflang grouping)
       canonical_path = if prefixed, do: Routes.path(path), else: path
-      localized_path = build_path_with_language(canonical_path, language, is_default)
+
+      # Build localized path (skip language prefix if configured)
+      localized_path =
+        if skip_language do
+          canonical_path
+        else
+          build_path_with_language(canonical_path, language, is_default)
+        end
+
       url = build_url_from_localized_path(localized_path, base_url, prefixed)
 
       UrlEntry.new(%{
