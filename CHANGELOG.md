@@ -1,3 +1,9 @@
+## 1.7.7 - 2025-12-22
+- Optimize sitemap generation and fix routing issues
+  - Optimize sitemap source modules to reduce RouteResolver calls
+  - Fix entities not appearing when using catchall routes
+  - Fix homepage appearing as /en/ instead of /
+
 ## 1.7.6 - 2025-12-20
 
 ### New Module: Support Tickets (V35)
