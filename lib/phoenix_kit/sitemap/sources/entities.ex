@@ -125,35 +125,174 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     is_default = Keyword.get(opts, :is_default_language, true)
     include_index = Settings.get_boolean_setting("sitemap_entities_include_index", true)
 
-    Entities.list_active_entities()
-    |> Enum.flat_map(&collect_entity_entries(&1, base_url, include_index, language, is_default))
+    # Optimization: Get all routes ONCE and build lookup map
+    routes_cache = build_routes_cache()
+
+    # Early exit if no public entity routes exist
+    if map_size(routes_cache.entity_patterns) == 0 and
+         not Settings.get_boolean_setting("sitemap_entities_auto_pattern", false) do
+      Logger.debug("Sitemap: No public entity routes found, skipping entities source")
+      []
+    else
+      Entities.list_active_entities()
+      |> Enum.filter(&entity_has_public_route?(&1, routes_cache))
+      |> Enum.flat_map(
+        &collect_entity_entries(&1, base_url, include_index, language, is_default, routes_cache)
+      )
+    end
   end
 
-  defp collect_entity_entries(entity, base_url, include_index, language, is_default) do
-    records = collect_entity_records(entity, base_url, language, is_default)
+  # Build a cache of all routes for efficient lookups
+  defp build_routes_cache do
+    routes = RouteResolver.get_routes()
+
+    # Pre-filter GET routes with :slug or :id params (content routes)
+    content_routes =
+      Enum.filter(routes, fn route ->
+        route.verb == :get and
+          (String.contains?(route.path, ":slug") or String.contains?(route.path, ":id"))
+      end)
+
+    # Pre-filter GET routes without params (index routes)
+    index_routes =
+      Enum.filter(routes, fn route ->
+        route.verb == :get and
+          not String.contains?(route.path, ":") and
+          not String.contains?(route.path, "*")
+      end)
+
+    # Build entity name -> pattern map for quick lookups
+    entity_patterns = build_entity_pattern_map(content_routes)
+    entity_index_paths = build_entity_index_map(index_routes)
+
+    %{
+      all_routes: routes,
+      content_routes: content_routes,
+      index_routes: index_routes,
+      entity_patterns: entity_patterns,
+      entity_index_paths: entity_index_paths
+    }
+  end
+
+  # Build map of entity_name -> url_pattern from routes
+  # Also detects catchall routes like /:entity_name/:slug
+  defp build_entity_pattern_map(content_routes) do
+    # Check for catchall route first
+    catchall_route = find_catchall_content_route(content_routes)
+
+    content_routes
+    |> Enum.reduce(%{catchall: catchall_route}, fn route, acc ->
+      path_lower = String.downcase(route.path)
+
+      # Extract entity name from path like /products/:slug or /product/:id
+      case extract_entity_from_path(path_lower) do
+        nil -> acc
+        entity_name -> Map.put_new(acc, entity_name, route.path)
+      end
+    end)
+  end
+
+  # Build map of entity_name -> index_path from routes
+  # Also detects catchall routes like /:entity_name
+  defp build_entity_index_map(index_routes) do
+    # Check for catchall index route first
+    catchall_route = find_catchall_index_route(index_routes)
+
+    index_routes
+    |> Enum.reduce(%{catchall: catchall_route}, fn route, acc ->
+      path_lower = String.downcase(route.path)
+
+      # Extract entity name from path like /products or /product
+      case extract_entity_from_index_path(path_lower) do
+        nil -> acc
+        entity_name -> Map.put_new(acc, entity_name, route.path)
+      end
+    end)
+  end
+
+  # Find catchall content route like /:entity_name/:slug
+  defp find_catchall_content_route(routes) do
+    Enum.find(routes, fn route ->
+      # Match patterns like /:entity_name/:slug, /:name/:slug, /:type/:id
+      Regex.match?(~r{^/:[a-z_]+/:[a-z_]+$}, route.path)
+    end)
+  end
+
+  # Find catchall index route like /:entity_name
+  defp find_catchall_index_route(routes) do
+    Enum.find(routes, fn route ->
+      # Match patterns like /:entity_name, /:name (single param at root)
+      Regex.match?(~r{^/:[a-z_]+$}, route.path)
+    end)
+  end
+
+  # Extract entity name from content path like /products/:slug -> "product"
+  defp extract_entity_from_path(path) do
+    case Regex.run(~r{^/([a-z_]+)s?/:[a-z_]+$}, path) do
+      [_, name] -> String.trim_trailing(name, "s")
+      _ -> nil
+    end
+  end
+
+  # Extract entity name from index path like /products -> "product"
+  defp extract_entity_from_index_path(path) do
+    case Regex.run(~r{^/([a-z_]+)s?$}, path) do
+      [_, name] -> String.trim_trailing(name, "s")
+      _ -> nil
+    end
+  end
+
+  # Check if entity has a public route (either in router or auto-pattern enabled)
+  defp entity_has_public_route?(entity, routes_cache) do
+    entity_lower = String.downcase(entity.name)
+
+    # Check if entity has explicit route in router
+    has_explicit_route =
+      Map.has_key?(routes_cache.entity_patterns, entity_lower) or
+        Map.has_key?(routes_cache.entity_patterns, entity.name)
+
+    # Check if catchall route exists (like /:entity_name/:slug)
+    has_catchall_route = routes_cache.entity_patterns[:catchall] != nil
+
+    # Check if entity has settings override
+    has_settings_pattern =
+      case entity.settings do
+        %{"sitemap_url_pattern" => pattern} when is_binary(pattern) and pattern != "" -> true
+        _ -> Settings.get_setting("sitemap_entity_#{entity.name}_pattern") != nil
+      end
+
+    # Check if auto-pattern is enabled (fallback for all entities)
+    auto_pattern_enabled = Settings.get_boolean_setting("sitemap_entities_auto_pattern", false)
+
+    has_explicit_route or has_catchall_route or has_settings_pattern or auto_pattern_enabled
+  end
+
+  defp collect_entity_entries(entity, base_url, include_index, language, is_default, routes_cache) do
+    records = collect_entity_records(entity, base_url, language, is_default, routes_cache)
 
     if include_index do
-      prepend_index_entry(records, entity, base_url, language, is_default)
+      prepend_index_entry(records, entity, base_url, language, is_default, routes_cache)
     else
       records
     end
   end
 
-  defp prepend_index_entry(records, entity, base_url, language, is_default) do
-    case collect_entity_index(entity, base_url, language, is_default) do
+  defp prepend_index_entry(records, entity, base_url, language, is_default, routes_cache) do
+    case collect_entity_index(entity, base_url, language, is_default, routes_cache) do
       nil -> records
       index_entry -> [index_entry | records]
     end
   end
 
-  defp collect_entity_records(entity, base_url, language, is_default) do
-    # Skip entities whose routes require authentication
-    if entity_requires_auth?(entity) do
+  defp collect_entity_records(entity, base_url, language, is_default, routes_cache) do
+    # Skip entities whose routes require authentication (using cached routes)
+    if entity_requires_auth_cached?(entity, routes_cache) do
       Logger.debug("Sitemap: Entity '#{entity.name}' skipped - routes require authentication")
 
       []
     else
-      url_pattern = get_url_pattern(entity)
+      # Use cached pattern lookup instead of RouteResolver calls
+      url_pattern = get_url_pattern_cached(entity, routes_cache)
 
       # If no URL pattern found (no route, no settings) - use entity name as fallback
       effective_pattern = url_pattern || get_fallback_pattern(entity)
@@ -202,9 +341,9 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   end
 
-  # Collect index page entry for entity (e.g., /page, /products)
-  defp collect_entity_index(entity, base_url, language, is_default) do
-    index_path = get_index_path(entity)
+  # Collect index page entry for entity (e.g., /page, /products) - cached version
+  defp collect_entity_index(entity, base_url, language, is_default, routes_cache) do
+    index_path = get_index_path_cached(entity, routes_cache)
 
     if index_path do
       # Canonical path without language prefix (for hreflang grouping)
@@ -231,34 +370,39 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
       nil
   end
 
-  # Get index path for entity with fallback chain
-  # Uses auto-pattern if sitemap_entities_auto_pattern is true (default)
-  defp get_index_path(entity) do
-    # 1. Check entity settings for explicit index path
+  # Get index path using cached routes (no RouteResolver calls)
+  # Priority: entity settings -> cached lookup -> catchall -> per-entity settings -> fallback
+  defp get_index_path_cached(entity, routes_cache) do
+    get_index_from_entity_settings(entity) ||
+      get_index_from_cache(entity, routes_cache) ||
+      get_index_from_catchall(entity, routes_cache) ||
+      get_index_from_settings(entity) ||
+      get_fallback_index_path(entity)
+  end
+
+  defp get_index_from_entity_settings(entity) do
     case entity.settings do
-      %{"sitemap_index_path" => path} when is_binary(path) and path != "" ->
-        path
-
-      _ ->
-        # 2. Try Router Introspection for index route
-        case RouteResolver.find_index_route(:entity, entity.name) do
-          nil ->
-            # 3. Check per-entity Settings
-            per_entity_key = "sitemap_entity_#{entity.name}_index_path"
-
-            case Settings.get_setting(per_entity_key) do
-              nil ->
-                # 4. Auto-generate fallback if enabled
-                get_fallback_index_path(entity)
-
-              path ->
-                path
-            end
-
-          path ->
-            path
-        end
+      %{"sitemap_index_path" => path} when is_binary(path) and path != "" -> path
+      _ -> nil
     end
+  end
+
+  defp get_index_from_cache(entity, routes_cache) do
+    entity_lower = String.downcase(entity.name)
+
+    Map.get(routes_cache.entity_index_paths, entity_lower) ||
+      Map.get(routes_cache.entity_index_paths, entity.name)
+  end
+
+  defp get_index_from_catchall(entity, routes_cache) do
+    case routes_cache.entity_index_paths[:catchall] do
+      %{path: _} -> "/#{entity.name}"
+      _ -> nil
+    end
+  end
+
+  defp get_index_from_settings(entity) do
+    Settings.get_setting("sitemap_entity_#{entity.name}_index_path")
   end
 
   # Fallback index path using entity name - disabled by default
@@ -270,44 +414,83 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     end
   end
 
-  # Resolve URL pattern with fallback chain (NO hardcoded defaults):
-  # 1. entity.settings -> 2. Router Introspection -> 3. Settings -> 4. nil (skip)
-  defp get_url_pattern(entity) do
-    case entity.settings do
-      %{"sitemap_url_pattern" => pattern} when is_binary(pattern) ->
-        pattern
+  # Get URL pattern using cached routes (no RouteResolver calls)
+  # Fallback chain: entity.settings -> cached routes -> per-entity settings -> global pattern
+  defp get_url_pattern_cached(entity, routes_cache) do
+    get_pattern_from_entity_settings(entity) ||
+      get_pattern_from_cache(entity, routes_cache) ||
+      get_pattern_from_settings(entity)
+  end
 
-      _ ->
-        resolve_pattern_from_router_or_settings(entity)
+  defp get_pattern_from_entity_settings(entity) do
+    case entity.settings do
+      %{"sitemap_url_pattern" => pattern} when is_binary(pattern) and pattern != "" -> pattern
+      _ -> nil
     end
   end
 
-  defp resolve_pattern_from_router_or_settings(entity) do
-    # Try Router Introspection first
-    case RouteResolver.find_content_route(:entity, entity.name) do
-      nil ->
-        # Try per-entity Settings
-        per_entity_key = "sitemap_entity_#{entity.name}_pattern"
+  defp get_pattern_from_cache(entity, routes_cache) do
+    entity_lower = String.downcase(entity.name)
 
-        case Settings.get_setting(per_entity_key) do
-          nil ->
-            # Try global entities pattern
-            case Settings.get_setting("sitemap_entities_pattern") do
-              nil ->
-                # NO hardcoded fallback - return nil if not configured
-                nil
+    # First try explicit route for this entity
+    explicit_pattern =
+      Map.get(routes_cache.entity_patterns, entity_lower) ||
+        Map.get(routes_cache.entity_patterns, entity.name)
 
-              global_pattern ->
-                # Replace :entity_name placeholder
-                String.replace(global_pattern, ":entity_name", entity.name)
-            end
+    if explicit_pattern do
+      explicit_pattern
+    else
+      # Fall back to catchall route, replacing param with entity name
+      case routes_cache.entity_patterns[:catchall] do
+        nil -> nil
+        %{path: path} -> String.replace(path, ~r{^/:[a-z_]+/}, "/#{entity.name}/")
+      end
+    end
+  end
 
-          pattern ->
-            pattern
-        end
+  defp get_pattern_from_settings(entity) do
+    per_entity_key = "sitemap_entity_#{entity.name}_pattern"
 
-      pattern ->
-        pattern
+    case Settings.get_setting(per_entity_key) do
+      nil -> get_global_pattern(entity)
+      pattern -> pattern
+    end
+  end
+
+  defp get_global_pattern(entity) do
+    case Settings.get_setting("sitemap_entities_pattern") do
+      nil -> nil
+      global_pattern -> String.replace(global_pattern, ":entity_name", entity.name)
+    end
+  end
+
+  # Check if entity requires auth using cached routes
+  defp entity_requires_auth_cached?(entity, routes_cache) do
+    entity_lower = String.downcase(entity.name)
+
+    # Find the route for this entity in cached routes
+    route =
+      Enum.find(routes_cache.content_routes, fn route ->
+        path_lower = String.downcase(route.path)
+
+        String.contains?(path_lower, "/#{entity_lower}/") or
+          String.contains?(path_lower, "/#{entity_lower}s/") or
+          String.starts_with?(path_lower, "/#{entity_lower}/") or
+          String.starts_with?(path_lower, "/#{entity_lower}s/")
+      end)
+
+    cond do
+      # Found explicit route for this entity
+      route != nil ->
+        RouteResolver.route_requires_auth?(route)
+
+      # Check catchall route
+      routes_cache.entity_patterns[:catchall] != nil ->
+        RouteResolver.route_requires_auth?(routes_cache.entity_patterns[:catchall])
+
+      # No route found
+      true ->
+        false
     end
   end
 
@@ -383,12 +566,5 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
     # Entity pages are public - no PhoenixKit prefix needed
     normalized_base = String.trim_trailing(base_url, "/")
     "#{normalized_base}#{path}"
-  end
-
-  # Check if entity routes require authentication
-  defp entity_requires_auth?(entity) do
-    RouteResolver.content_route_requires_auth?(:entity, entity.name)
-  rescue
-    _ -> false
   end
 end

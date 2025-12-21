@@ -54,7 +54,9 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
 
   @impl true
   def enabled? do
-    posts_module_enabled?() and has_public_routes?() and not requires_authentication?()
+    # Only check if posts module is enabled
+    # Route checks moved to do_collect() for caching optimization
+    posts_module_enabled?()
   rescue
     _ -> false
   end
@@ -82,24 +84,28 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
     _ -> false
   end
 
-  defp has_public_routes? do
-    # Check if parent router has posts routes
-    case RouteResolver.find_content_route(:posts, nil) do
-      nil -> false
-      _ -> true
-    end
-  rescue
-    _ -> false
-  end
-
-  defp requires_authentication? do
-    # Check if posts routes require authentication (admin-only or authenticated users)
-    RouteResolver.content_route_requires_auth?(:posts)
-  rescue
-    _ -> false
-  end
-
   defp do_collect(opts) do
+    # Optimization: Get routes ONCE for all checks
+    routes = RouteResolver.get_routes()
+
+    cond do
+      # Early exit if no public posts routes exist
+      not has_public_posts_route?(routes) ->
+        Logger.debug("Sitemap: No public posts routes found, skipping posts source")
+        []
+
+      # Early exit if routes require authentication
+      posts_route_requires_auth?(routes) ->
+        Logger.debug("Sitemap: Posts routes require authentication, skipping")
+        []
+
+      # Proceed with collection
+      true ->
+        do_collect_posts(opts)
+    end
+  end
+
+  defp do_collect_posts(opts) do
     base_url = Keyword.get(opts, :base_url)
     language = Keyword.get(opts, :language)
     is_default = Keyword.get(opts, :is_default_language, true)
@@ -109,6 +115,37 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
 
     [index_entry | post_entries]
     |> Enum.reject(&is_nil/1)
+  end
+
+  # Check if posts route exists in cached routes
+  defp has_public_posts_route?(routes) do
+    find_posts_content_route(routes) != nil
+  end
+
+  # Check if posts route requires auth using cached routes
+  defp posts_route_requires_auth?(routes) do
+    case find_posts_content_route(routes) do
+      nil -> false
+      route -> RouteResolver.route_requires_auth?(route)
+    end
+  end
+
+  # Find posts content route in cached routes (reusable)
+  defp find_posts_content_route(routes) do
+    Enum.find(routes, fn route ->
+      route.verb == :get and
+        (String.contains?(route.path, ":slug") or String.contains?(route.path, ":id")) and
+        posts_route_match?(route)
+    end)
+  end
+
+  defp posts_route_match?(route) do
+    path_lower = String.downcase(route.path)
+    plug_name = route.plug |> to_string() |> String.downcase()
+
+    String.contains?(path_lower, "/posts/") or
+      String.starts_with?(path_lower, "/posts/") or
+      (String.contains?(plug_name, "post") and not String.contains?(plug_name, "page"))
   end
 
   defp build_index_entry(base_url, language, is_default) do
