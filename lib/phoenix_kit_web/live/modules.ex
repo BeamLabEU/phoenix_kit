@@ -629,7 +629,7 @@ defmodule PhoenixKitWeb.Live.Modules do
         {:noreply, socket}
     end
   end
-  
+
   # Format ISO8601 timestamp string to user-friendly format with system timezone
   def format_timestamp(nil), do: "Never"
 
