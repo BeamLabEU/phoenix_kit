@@ -243,7 +243,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Updates phoenix_kit_ai_requests with endpoint_id reference
   - Removes slot settings from Settings table
 
-  ### V35 - Support Tickets System ⚡ LATEST
+  ### V35 - Support Tickets System
   - Phoenix_kit_tickets for customer support request management
   - Phoenix_kit_ticket_comments for threaded comments with internal notes
   - Phoenix_kit_ticket_attachments for file attachments on tickets/comments
@@ -252,6 +252,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - SupportAgent role for ticket access control
   - Internal notes feature (staff-only visibility)
   - Settings: enabled, per_page, comments, internal notes, attachments, allow_reopen
+
+  ### V36 - Connections Module (Social Relationships) ⚡ LATEST
+  - Phoenix_kit_user_follows for one-way follow relationships
+  - Phoenix_kit_user_connections for two-way mutual connections
+  - Phoenix_kit_user_blocks for user blocking
+  - Public API for parent applications to use
+  - Follow: no consent required, instant
+  - Connection: requires acceptance from both parties
+  - Block: prevents all interaction, removes existing relationships
+  - Settings: connections_enabled
 
   ## Migration Paths
 
@@ -311,7 +321,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 35
+  @current_version 36
   @default_prefix "public"
 
   @doc false

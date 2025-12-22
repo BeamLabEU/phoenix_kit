@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Billing
   alias PhoenixKit.DBSync
   alias PhoenixKit.Entities
+  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
@@ -46,6 +47,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     ai_config = AI.get_config()
     db_sync_config = DBSync.get_config()
     tickets_config = Tickets.get_config()
+    connections_config = Connections.get_config()
 
     socket =
       socket
@@ -98,6 +100,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:tickets_total, tickets_config.total_tickets)
       |> assign(:tickets_open, tickets_config.open_tickets)
       |> assign(:tickets_in_progress, tickets_config.in_progress_tickets)
+      |> assign(:connections_enabled, connections_config.enabled)
+      |> assign(:connections_follows_count, connections_config.follows_count)
+      |> assign(:connections_connections_count, connections_config.connections_count)
+      |> assign(:connections_blocks_count, connections_config.blocks_count)
 
     {:ok, socket}
   end
@@ -584,6 +590,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update tickets module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_connections", _params, socket) do
+    new_enabled = !socket.assigns.connections_enabled
+
+    result =
+      if new_enabled do
+        Connections.enable_system()
+      else
+        Connections.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        connections_config = Connections.get_config()
+
+        socket =
+          socket
+          |> assign(:connections_enabled, new_enabled)
+          |> assign(:connections_follows_count, connections_config.follows_count)
+          |> assign(:connections_connections_count, connections_config.connections_count)
+          |> assign(:connections_blocks_count, connections_config.blocks_count)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Connections module enabled",
+              else: "Connections module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update connections module")
         {:noreply, socket}
     end
   end

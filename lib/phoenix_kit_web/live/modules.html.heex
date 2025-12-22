@@ -517,6 +517,58 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- Connections Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Connections"
+        description="Social relationships with one-way follows and mutual connections"
+        icon="🤝"
+        enabled={@connections_enabled}
+        toggle_event="toggle_connections"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@connections_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @connections_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @connections_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/connections")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-users" class="w-4 h-4 mr-1" /> Overview
+              </.link>
+            <% else %>
+              <span class="text-xs text-base-content/50 text-center">
+                Enable module to manage connections
+              </span>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Follows:</span>
+              <span class="font-medium">{@connections_follows_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Connections:</span>
+              <span class="font-medium">{@connections_connections_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Blocks:</span>
+              <span class="font-medium">{@connections_blocks_count}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- SEO Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="SEO"

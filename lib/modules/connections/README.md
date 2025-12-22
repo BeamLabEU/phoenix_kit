@@ -1,67 +1,5 @@
 # Connections Module - Social Relationships System
 
-## Implementation Checklist
-
-### Phase 1: Database & Schemas
-- [ ] Create migration `v34.ex` with all 3 tables
-- [ ] Create `follow.ex` schema
-- [ ] Create `connection.ex` schema
-- [ ] Create `block.ex` schema
-
-### Phase 2: Context Module (`PhoenixKit.Modules.Connections` - Public API)
-- [ ] Create `connections.ex` with module management:
-  - `PhoenixKit.Modules.Connections.enabled?/0`
-  - `PhoenixKit.Modules.Connections.enable_system/0`
-  - `PhoenixKit.Modules.Connections.disable_system/0`
-- [ ] Implement public follow functions:
-  - `PhoenixKit.Modules.Connections.follow/2`
-  - `PhoenixKit.Modules.Connections.unfollow/2`
-  - `PhoenixKit.Modules.Connections.following?/2`
-  - `PhoenixKit.Modules.Connections.list_followers/1`
-  - `PhoenixKit.Modules.Connections.list_following/1`
-  - `PhoenixKit.Modules.Connections.followers_count/1`
-  - `PhoenixKit.Modules.Connections.following_count/1`
-- [ ] Implement public connection functions:
-  - `PhoenixKit.Modules.Connections.request_connection/2`
-  - `PhoenixKit.Modules.Connections.accept_connection/1`
-  - `PhoenixKit.Modules.Connections.reject_connection/1`
-  - `PhoenixKit.Modules.Connections.remove_connection/2`
-  - `PhoenixKit.Modules.Connections.connected?/2`
-  - `PhoenixKit.Modules.Connections.list_connections/1`
-  - `PhoenixKit.Modules.Connections.list_pending_requests/1`
-  - `PhoenixKit.Modules.Connections.list_sent_requests/1`
-  - `PhoenixKit.Modules.Connections.connections_count/1`
-  - `PhoenixKit.Modules.Connections.pending_requests_count/1`
-- [ ] Implement public block functions:
-  - `PhoenixKit.Modules.Connections.block/2`
-  - `PhoenixKit.Modules.Connections.unblock/2`
-  - `PhoenixKit.Modules.Connections.blocked?/2`
-  - `PhoenixKit.Modules.Connections.blocked_by?/2`
-  - `PhoenixKit.Modules.Connections.list_blocked/1`
-  - `PhoenixKit.Modules.Connections.can_interact?/2`
-- [ ] Implement public convenience function:
-  - `PhoenixKit.Modules.Connections.get_relationship/2`
-- [ ] Add block checking to follow/connection operations
-
-### Phase 3: Admin LiveView
-- [ ] Create `connections.ex` admin LiveView
-- [ ] Create `connections.html.heex` template
-- [ ] Add statistics dashboard
-- [ ] Add moderation actions
-
-### Phase 4: User-Facing LiveView
-- [ ] Create `user_connections.ex` LiveView
-- [ ] Create `user_connections.html.heex` template
-- [ ] Implement Followers/Following/Connections/Requests/Blocked tabs
-- [ ] Add action buttons (follow, connect, block)
-
-### Phase 5: Integration
-- [ ] Add routes to `integration.ex`
-- [ ] Add to modules list in `modules.ex`
-- [ ] Add Settings integration
-
----
-
 ## Overview
 
 The Connections module provides a complete social relationships system for PhoenixKit applications with two types of relationships:
@@ -70,6 +8,15 @@ The Connections module provides a complete social relationships system for Phoen
 2. **Connections** - Two-way mutual relationships (both users must accept)
 
 Plus **blocking** functionality to prevent unwanted interactions.
+
+## Architecture
+
+Each relationship type uses a **dual-table pattern**:
+
+- **Main table**: Stores only the **current state** (one row per user pair)
+- **History table**: Logs all **activity over time** for auditing and activity feeds
+
+This design keeps the main tables lean and fast while preserving a complete audit trail.
 
 ## Terminology
 
@@ -81,7 +28,11 @@ Plus **blocking** functionality to prevent unwanted interactions.
 
 ## Database Schema
 
-### Table: `phoenix_kit_user_follows`
+### Main Tables (Current State)
+
+#### Table: `phoenix_kit_user_follows`
+
+Stores only ACTIVE follows. Row is deleted when user unfollows.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -92,22 +43,27 @@ Plus **blocking** functionality to prevent unwanted interactions.
 
 **Indexes:** Unique on `(follower_id, followed_id)`, index on `followed_id`, index on `follower_id`
 
-### Table: `phoenix_kit_user_connections`
+#### Table: `phoenix_kit_user_connections`
+
+Stores only CURRENT connection state per user pair. Status is "pending" or "accepted" only.
+Rejected connections are deleted (not stored as "rejected").
 
 | Column | Type | Description |
 |--------|------|-------------|
 | id | UUIDv7 | Primary key |
 | requester_id | bigint | User who initiated request |
 | recipient_id | bigint | User who received request |
-| status | string | "pending", "accepted", "rejected" |
+| status | string | "pending" or "accepted" |
 | requested_at | naive_datetime | When request was sent |
 | responded_at | naive_datetime | When recipient responded |
 | inserted_at | naive_datetime | Created timestamp |
 | updated_at | naive_datetime | Updated timestamp |
 
-**Indexes:** Unique on sorted user pair, index on `(recipient_id, status)`
+**Indexes:** Index on `(recipient_id, status)`, index on `(requester_id, status)`
 
-### Table: `phoenix_kit_user_blocks`
+#### Table: `phoenix_kit_user_blocks`
+
+Stores only ACTIVE blocks. Row is deleted when user unblocks.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -121,6 +77,48 @@ Plus **blocking** functionality to prevent unwanted interactions.
 
 ---
 
+### History Tables (Activity Log)
+
+#### Table: `phoenix_kit_user_follows_history`
+
+Logs all follow/unfollow events.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUIDv7 | Primary key |
+| follower_id | bigint | User who performed action |
+| followed_id | bigint | Target user |
+| action | string | "follow" or "unfollow" |
+| inserted_at | naive_datetime | When action occurred |
+
+#### Table: `phoenix_kit_user_connections_history`
+
+Logs all connection events.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUIDv7 | Primary key |
+| user_a_id | bigint | First user (normalized: lower ID) |
+| user_b_id | bigint | Second user (normalized: higher ID) |
+| actor_id | bigint | User who performed this action |
+| action | string | "requested", "accepted", "rejected", "removed" |
+| inserted_at | naive_datetime | When action occurred |
+
+#### Table: `phoenix_kit_user_blocks_history`
+
+Logs all block/unblock events.
+
+| Column | Type | Description |
+|--------|------|-------------|
+| id | UUIDv7 | Primary key |
+| blocker_id | bigint | User who performed action |
+| blocked_id | bigint | Target user |
+| action | string | "block" or "unblock" |
+| reason | string | Reason (for block action) |
+| inserted_at | naive_datetime | When action occurred |
+
+---
+
 ## Public API: `PhoenixKit.Modules.Connections`
 
 **This is a PUBLIC API** - all functions are available to parent applications for use in their own views, components, and logic.
@@ -131,12 +129,14 @@ Plus **blocking** functionality to prevent unwanted interactions.
 PhoenixKit.Modules.Connections.enabled?()
 PhoenixKit.Modules.Connections.enable_system()
 PhoenixKit.Modules.Connections.disable_system()
+PhoenixKit.Modules.Connections.get_config()
+PhoenixKit.Modules.Connections.get_stats()
 ```
 
 ### Follows
 
 ```elixir
-# Create/remove follows
+# Create/remove follows (automatically logs to history)
 follow(follower, followed)           # Create a follow relationship
 unfollow(follower, followed)         # Remove a follow relationship
 
@@ -151,7 +151,7 @@ following_count(user)                # Count following
 ### Connections
 
 ```elixir
-# Connection requests
+# Connection requests (automatically logs to history)
 request_connection(requester, recipient)  # Send connection request
 accept_connection(connection_id)          # Accept a pending request
 reject_connection(connection_id)          # Reject a pending request
@@ -169,7 +169,7 @@ pending_requests_count(user)              # Count pending incoming requests
 ### Blocks
 
 ```elixir
-# Create/remove blocks
+# Create/remove blocks (automatically logs to history)
 block(blocker, blocked)              # Block a user
 unblock(blocker, blocked)            # Remove a block
 
@@ -265,39 +265,42 @@ end
 
 ```
 lib/modules/connections/
-  README.md              # This documentation
-  connections.ex         # Main context API
-  follow.ex              # Follow schema
-  connection.ex          # Connection schema
-  block.ex               # Block schema
+  README.md                  # This documentation
+  connections.ex             # Main context API
+  follow.ex                  # Follow schema
+  follow_history.ex          # Follow history schema
+  connection.ex              # Connection schema
+  connection_history.ex      # Connection history schema
+  block.ex                   # Block schema
+  block_history.ex           # Block history schema
 
 lib/phoenix_kit_web/live/modules/connections/
-  connections.ex         # Admin: overview/moderation
+  connections.ex             # Admin: overview/moderation
   connections.html.heex
-  user_connections.ex    # User: manage own connections
+  user_connections.ex        # User: manage own connections
   user_connections.html.heex
 
 lib/phoenix_kit/migrations/postgres/
-  v34.ex                 # Migration for all connection tables
+  v36.ex                     # Migration for all connection tables
 ```
 
 ---
 
 ## Admin Interface
 
-Available at `{prefix}/admin/modules/connections`:
+Available at `{prefix}/admin/connections`:
 
-- Overview statistics (total follows, connections, blocks)
-- Searchable list of all relationships
-- Moderation actions (remove connections/follows)
+- Overview statistics (total follows, connections, pending, blocks)
 - Module enable/disable toggle
+- Relationship type explanations
+- Public API documentation
 
 ## User Interface
 
-Available at `{prefix}/profile/connections` (or integrated into parent app):
+Available at `{prefix}/profile/connections`:
 
 - **Followers** tab - Users who follow you
-- **Following** tab - Users you follow
-- **Connections** tab - Mutual connections
-- **Requests** tab - Pending incoming/outgoing requests
-- **Blocked** tab - Users you've blocked
+- **Following** tab - Users you follow (with unfollow button)
+- **Connections** tab - Mutual connections (with remove button)
+- **Requests** tab - Pending incoming/outgoing requests (with accept/reject buttons)
+- **Blocked** tab - Users you've blocked (with unblock button)

@@ -336,6 +336,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
           live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
 
+          # Connections module routes
+          live "/admin/connections", Live.Modules.Connections.Connections, :index
+
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -467,6 +470,9 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/tickets", Live.Tickets.Tickets, :index
             live "/dashboard/tickets/new", Live.Tickets.New, :new
             live "/dashboard/tickets/:id", Live.Tickets.Details, :show
+
+            # User Connections Portal
+            live "/profile/connections", Live.Modules.Connections.UserConnections, :index
           end
         end
       end
@@ -549,6 +555,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
           live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
           live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
+
+          # Connections module routes
+          live "/admin/connections", Live.Modules.Connections.Connections, :index
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
@@ -689,6 +698,9 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/tickets", Live.Tickets.Tickets, :index
             live "/dashboard/tickets/new", Live.Tickets.New, :new
             live "/dashboard/tickets/:id", Live.Tickets.Details, :show
+
+            # User Connections Portal
+            live "/profile/connections", Live.Modules.Connections.UserConnections, :index
           end
         end
       end
