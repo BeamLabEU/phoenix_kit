@@ -115,25 +115,59 @@ defmodule PhoenixKit.Sitemap.Generator do
   def generate_xml(opts \\ []) do
     base_url = Keyword.get(opts, :base_url)
     cache_enabled = Keyword.get(opts, :cache, true)
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
 
     if base_url do
-      # Check cache first
-      if cache_enabled do
-        case Cache.get(:xml) do
-          {:ok, cached} ->
-            Logger.debug("Sitemap: Using cached XML sitemap")
-            {:ok, cached}
+      # Get or generate cached entries (style-independent for better cache hit rate)
+      entries =
+        if cache_enabled do
+          case Cache.get(:entries) do
+            {:ok, cached_entries} ->
+              Logger.debug("Sitemap: Using cached entries (#{length(cached_entries)} URLs)")
+              cached_entries
 
-          :error ->
-            generate_and_cache_xml(opts)
+            :error ->
+              Logger.debug("Sitemap: Cache miss, collecting entries...")
+              new_entries = collect_all_entries(opts)
+              Cache.put(:entries, new_entries)
+              new_entries
+          end
+        else
+          collect_all_entries(opts)
         end
-      else
-        generate_and_cache_xml(opts, cache: false)
-      end
+
+      # Build XML with XSL reference for this specific style
+      build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts)
     else
       {:error, :base_url_required}
     end
   end
+
+  # Build XML from entries with specific XSL style
+  defp build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts) do
+    if length(entries) > @max_urls_per_file do
+      generate_sitemap_index(entries, base_url, opts)
+    else
+      xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
+      xsl_line = build_xsl_line(xsl_style, xsl_enabled)
+
+      xml =
+        [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.join("\n")
+
+      {:ok, xml}
+    end
+  end
+
+  # Build XSL stylesheet reference line
+  defp build_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
+    prefix = PhoenixKit.Config.get_url_prefix()
+    ~s(<?xml-stylesheet type="text/xsl" href="#{prefix}/assets/sitemap/#{xsl_style}"?>)
+  end
+
+  defp build_xsl_line(_, _), do: ""
 
   @doc """
   Generates HTML sitemap from all enabled sources.
@@ -403,35 +437,6 @@ defmodule PhoenixKit.Sitemap.Generator do
 
   # Private functions
 
-  defp generate_and_cache_xml(opts, cache_opts \\ []) do
-    entries = collect_all_entries(opts)
-    base_url = Keyword.fetch!(opts, :base_url)
-    cache_enabled = Keyword.get(cache_opts, :cache, true)
-
-    result =
-      if length(entries) > @max_urls_per_file do
-        generate_sitemap_index(entries, base_url, opts)
-      else
-        generate_single_sitemap(entries, opts)
-      end
-
-    # Cache result
-    if cache_enabled do
-      case result do
-        {:ok, xml} ->
-          Cache.put(:xml, xml)
-          {:ok, xml}
-
-        {:ok, index_xml, parts} ->
-          Cache.put(:xml, index_xml)
-          Cache.put(:parts, parts)
-          {:ok, index_xml, parts}
-      end
-    else
-      result
-    end
-  end
-
   defp generate_and_cache_html(opts, cache_key, cache_opts \\ []) do
     entries = collect_all_entries(opts)
     style = Keyword.get(opts, :style, "hierarchical")
@@ -455,39 +460,12 @@ defmodule PhoenixKit.Sitemap.Generator do
     result
   end
 
-  defp generate_single_sitemap(entries, opts) do
-    xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
-    xsl_line = build_xsl_reference(opts)
-
-    # XML declaration MUST be first, then XSL stylesheet PI, then content
-    xml =
-      [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.join("\n")
-
-    {:ok, xml}
-  end
-
-  # Build XSL stylesheet reference for browser display
-  # Uses relative URL to avoid CORS issues when accessing from different origins
-  defp build_xsl_reference(opts) do
-    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
-    xsl_style = Keyword.get(opts, :xsl_style, "table")
-
-    if xsl_enabled and xsl_style in @valid_xsl_styles do
-      prefix = PhoenixKit.Config.get_url_prefix()
-      # Relative URL - works regardless of domain/port the user accesses from
-      xsl_url = "#{prefix}/assets/sitemap/#{xsl_style}"
-      ~s(<?xml-stylesheet type="text/xsl" href="#{xsl_url}"?>)
-    else
-      ""
-    end
-  end
-
   defp generate_sitemap_index(entries, base_url, opts) do
     # Split entries into chunks
     chunks = Enum.chunk_every(entries, @max_urls_per_file)
-    xsl_line = build_xsl_reference(opts)
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
+    xsl_line = build_xsl_line(xsl_style, xsl_enabled)
 
     # Generate part files metadata
     parts =
