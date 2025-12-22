@@ -105,6 +105,7 @@ defmodule PhoenixKit.Sitemap.Cache do
   Clears all cached data.
 
   Should be called when sitemap content changes (new pages, updated content, etc).
+  Clears entries cache and any legacy xml cache.
 
   ## Examples
 
@@ -114,7 +115,15 @@ defmodule PhoenixKit.Sitemap.Cache do
   @spec invalidate() :: :ok
   def invalidate do
     if table_exists?() do
-      :ets.delete_all_objects(@table_name)
+      # Clear entries (primary cache key)
+      :ets.delete(@table_name, :entries)
+      # Clear legacy keys for backward compatibility
+      :ets.delete(@table_name, :xml)
+      :ets.delete(@table_name, :parts)
+      # Clear HTML caches
+      :ets.delete(@table_name, :html_table)
+      :ets.delete(@table_name, :html_cards)
+      :ets.delete(@table_name, :html_minimal)
     end
 
     :ok
