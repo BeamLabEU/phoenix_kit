@@ -238,15 +238,20 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
 
   @impl true
   def handle_event("invalidate_cache", _params, socket) do
-    Generator.invalidate_cache()
+    # Clear cache AND trigger async regeneration via Oban
+    case Generator.invalidate_and_regenerate() do
+      {:ok, _job} ->
+        # Update version to force iframe reload after cache clear
+        new_version = DateTime.utc_now() |> DateTime.to_unix()
 
-    # Update version to force iframe reload after cache clear
-    new_version = DateTime.utc_now() |> DateTime.to_unix()
+        {:noreply,
+         socket
+         |> assign(:sitemap_version, new_version)
+         |> put_flash(:info, "Cache cleared. Sitemap regeneration started...")}
 
-    {:noreply,
-     socket
-     |> assign(:sitemap_version, new_version)
-     |> put_flash(:info, "Sitemap cache cleared")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
+    end
   end
 
   # Handle PubSub message when sitemap generation completes

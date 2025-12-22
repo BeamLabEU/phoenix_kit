@@ -1,3 +1,21 @@
+## 1.7.9 - 2025-12-22
+
+### Sitemap File-Only Architecture
+- **300x faster responses** - Sitemap.xml now loads in ~20ms instead of 6000ms
+- **File-based storage** - XML stored in `priv/static/sitemap.xml` for direct nginx/CDN serving
+- **ETag from file mtime** - Cache validation uses file modification time instead of database config
+- **On-demand generation** - First request generates sitemap if file doesn't exist (no 503 errors)
+- **Simplified architecture** - Removed ETS caching layer for XML, single file instead of per-style files
+
+### FileStorage Module
+- New unified API: `save/1`, `load/0`, `exists?/0`, `delete/0`, `get_file_stat/0`
+- Path changed to `priv/static/sitemap.xml` (was `priv/phoenix_kit/sitemaps/`)
+- Legacy API compatibility maintained for existing code
+
+### Admin UI Changes
+- "Clear Cache" button renamed to "Clear Sitemap" for clarity
+- Clear Sitemap now also resets "Last Generated" timestamp
+
 ## 1.7.8 - 2025-12-22
 
 ### Route Priority Fix
