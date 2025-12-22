@@ -137,21 +137,22 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # Localized scope with flexible locale pattern
-      # Accepts both base codes (en, es) and full dialect codes (en-US, es-MX)
-      # Full dialect codes are automatically redirected to base codes by the validation plug
-      # This ensures backward compatibility with old URLs while enforcing base code standard
-      # Note: Reserved path segments (admin, api, etc.) are handled by process_locale/1
-      scope "#{unquote(url_prefix)}/:locale",
-            PhoenixKitWeb,
-            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
+      # CRITICAL: Non-localized scope MUST come FIRST
+      # This ensures paths without explicit locale prefix get matched first
+      # and prevents paths like /admin from being interpreted as locale="admin"
+      scope unquote(url_prefix), PhoenixKitWeb, unquote(opts) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
       end
 
-      # Non-localized scope for backward compatibility (defaults to "en")
-      scope unquote(url_prefix), PhoenixKitWeb, unquote(opts) do
+      # Localized scope comes SECOND (lower priority)
+      # Accepts both base codes (en, es) and full dialect codes (en-US, es-MX)
+      # Full dialect codes are automatically redirected to base codes by the validation plug
+      # This ensures backward compatibility with old URLs while enforcing base code standard
+      scope "#{unquote(url_prefix)}/:locale",
+            PhoenixKitWeb,
+            Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
@@ -773,11 +774,13 @@ defmodule PhoenixKitWeb.Integration do
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
 
-      # Generate localized routes
-      unquote(generate_localized_routes(url_prefix, pattern))
-
-      # Generate non-localized routes
+      # CRITICAL: Non-localized routes MUST come FIRST
+      # Otherwise paths like /admin/dashboard would match /:locale/dashboard
+      # with locale="admin" instead of the correct admin dashboard route
       unquote(generate_non_localized_routes(url_prefix))
+
+      # Localized routes come SECOND (lower priority)
+      unquote(generate_localized_routes(url_prefix, pattern))
 
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(generate_blog_routes(url_prefix))

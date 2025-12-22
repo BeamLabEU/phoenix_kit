@@ -238,15 +238,20 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
 
   @impl true
   def handle_event("invalidate_cache", _params, socket) do
-    Generator.invalidate_cache()
+    # Clear cache AND trigger async regeneration via Oban
+    case Generator.invalidate_and_regenerate() do
+      {:ok, _job} ->
+        # Update version to force iframe reload after cache clear
+        new_version = DateTime.utc_now() |> DateTime.to_unix()
 
-    # Update version to force iframe reload after cache clear
-    new_version = DateTime.utc_now() |> DateTime.to_unix()
+        {:noreply,
+         socket
+         |> assign(:sitemap_version, new_version)
+         |> put_flash(:info, "Cache cleared. Sitemap regeneration started...")}
 
-    {:noreply,
-     socket
-     |> assign(:sitemap_version, new_version)
-     |> put_flash(:info, "Sitemap cache cleared")}
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")}
+    end
   end
 
   # Handle PubSub message when sitemap generation completes
@@ -278,15 +283,17 @@ defmodule PhoenixKitWeb.Live.Modules.Sitemaps.Settings do
     end
   end
 
-  # Format ISO8601 timestamp string to human-readable format
+  # Format ISO8601 timestamp string to human-readable format with system timezone
   def format_timestamp(nil), do: "Never"
 
   def format_timestamp(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _} ->
-        # Convert to NaiveDateTime for UtilsDate
-        ndt = DateTime.to_naive(dt)
-        UtilsDate.format_datetime_full_with_user_format(ndt)
+        # Use fake user with nil timezone to get system timezone from Settings
+        fake_user = %{user_timezone: nil}
+        date_str = UtilsDate.format_date_with_user_timezone(dt, fake_user)
+        time_str = UtilsDate.format_time_with_user_timezone(dt, fake_user)
+        "#{date_str} #{time_str}"
 
       _ ->
         iso_string

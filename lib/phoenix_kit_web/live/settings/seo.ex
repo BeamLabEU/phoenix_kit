@@ -78,6 +78,6 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
   end
 
   defp get_current_path(locale) do
-    Routes.path("/admin/settings/seo", locale)
+    Routes.path("/admin/settings/seo", locale: locale)
   end
 end

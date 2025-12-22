@@ -155,6 +155,43 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   end
 
   @doc """
+  Ensures sitemap file exists on application startup.
+
+  With file-only architecture, this is optional - sitemap will be generated
+  on first request if file doesn't exist. Use this for explicit pre-warming.
+
+  ## Returns
+
+  - `{:ok, job}` - Regeneration job scheduled (file doesn't exist)
+  - `:file_exists` - Sitemap file already exists
+  - `:disabled` - Sitemap module is disabled
+
+  ## Examples
+
+      # In Application.start/2 or supervisor child
+      PhoenixKit.Sitemap.SchedulerWorker.ensure_cache_warm()
+  """
+  @spec ensure_cache_warm() ::
+          {:ok, Oban.Job.t()} | :file_exists | :disabled | {:error, term()}
+  def ensure_cache_warm do
+    alias PhoenixKit.Sitemap.FileStorage
+
+    cond do
+      not Sitemap.enabled?() ->
+        Logger.debug("SitemapSchedulerWorker: Sitemap disabled, skipping warm-up")
+        :disabled
+
+      FileStorage.exists?() ->
+        Logger.debug("SitemapSchedulerWorker: Sitemap file already exists")
+        :file_exists
+
+      true ->
+        Logger.info("SitemapSchedulerWorker: No sitemap file, triggering generation")
+        regenerate_now()
+    end
+  end
+
+  @doc """
   Cancels all scheduled sitemap jobs.
 
   This is called when scheduling is disabled.
@@ -200,24 +237,14 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   # Private functions
 
   defp regenerate_sitemap(base_url) do
-    config = Sitemap.get_config()
-
     # Collect entries first to get URL count
     entries = Generator.collect_all_entries(base_url: base_url)
     url_count = length(entries)
 
-    # Generate XML sitemap
-    case Generator.generate_xml(base_url: base_url, cache: true) do
+    # Generate XML sitemap and save to file
+    # File-only architecture: single file at priv/static/sitemap.xml
+    case Generator.generate_xml(base_url: base_url, cache: true, xsl_style: "table") do
       {:ok, _xml} ->
-        # Also generate HTML if enabled
-        if config.html_enabled do
-          Generator.generate_html(
-            base_url: base_url,
-            cache: true,
-            style: config.html_style
-          )
-        end
-
         # Update generation stats with actual URL count
         Sitemap.update_generation_stats(%{url_count: url_count})
 
@@ -227,14 +254,6 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
 
       {:ok, _xml, _parts} ->
         # Sitemap index was generated
-        if config.html_enabled do
-          Generator.generate_html(
-            base_url: base_url,
-            cache: true,
-            style: config.html_style
-          )
-        end
-
         Sitemap.update_generation_stats(%{url_count: url_count})
         broadcast_sitemap_generated(url_count)
         :ok

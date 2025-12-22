@@ -478,6 +478,24 @@ defmodule PhoenixKit.Sitemap do
     end
   end
 
+  @doc """
+  Clears generation statistics.
+
+  Called when cache is invalidated to indicate the sitemap file no longer exists.
+  Next request will regenerate the sitemap.
+
+  ## Examples
+
+      iex> PhoenixKit.Sitemap.clear_generation_stats()
+      :ok
+  """
+  @spec clear_generation_stats() :: :ok
+  def clear_generation_stats do
+    settings_call(:update_setting, [@last_generated_key, nil])
+    settings_call(:update_setting, [@url_count_key, "0"])
+    :ok
+  end
+
   ## Regeneration Functions
 
   @doc """

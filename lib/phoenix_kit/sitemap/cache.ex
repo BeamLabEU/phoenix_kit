@@ -1,35 +1,32 @@
 defmodule PhoenixKit.Sitemap.Cache do
   @moduledoc """
-  ETS-based caching layer for sitemap generation.
+  Caching layer for sitemap generation.
 
-  Provides fast in-memory caching for generated XML and HTML sitemaps
-  to avoid regenerating them on every request. Cache can be invalidated
-  when content changes.
+  Manages both ETS cache (for entries/HTML) and file storage (for XML).
+  When invalidated, clears both ETS cache and deletes the sitemap file,
+  forcing regeneration on next request.
+
+  ## Architecture
+
+  - **XML Storage**: File-based (`priv/static/sitemap.xml`)
+  - **Entries Cache**: ETS (in-memory, cleared on invalidate)
+  - **HTML Cache**: Generated on-demand, not persisted
 
   ## Usage
 
-      # Initialize cache table (usually in application startup)
-      Cache.init()
-
-      # Store generated sitemap
-      Cache.put(:xml, xml_content)
-      Cache.put(:html, html_content)
-
-      # Retrieve cached sitemap
-      case Cache.get(:xml) do
-        {:ok, content} -> content
-        :error -> generate_new_sitemap()
-      end
-
-      # Clear cache when content changes
+      # Clear cache when content changes (deletes file + clears ETS)
       Cache.invalidate()
+
+      # Check if ETS cache has entries
+      Cache.has?(:entries)
 
   ## Cache Keys
 
-  - `:xml` - Full XML sitemap
-  - `:html` - HTML sitemap
-  - `:parts` - List of sitemap part files for sitemap index
+  - `:entries` - Collected sitemap entries
+  - `:parts` - Sitemap index parts for large sitemaps
   """
+
+  alias PhoenixKit.Sitemap.FileStorage
 
   @table_name :sitemap_cache
 
@@ -102,9 +99,10 @@ defmodule PhoenixKit.Sitemap.Cache do
   end
 
   @doc """
-  Clears all cached data.
+  Clears all cached data and deletes the sitemap file.
 
   Should be called when sitemap content changes (new pages, updated content, etc).
+  Next request to sitemap.xml will trigger fresh generation.
 
   ## Examples
 
@@ -113,8 +111,27 @@ defmodule PhoenixKit.Sitemap.Cache do
   """
   @spec invalidate() :: :ok
   def invalidate do
+    # Delete sitemap file (primary XML storage)
+    FileStorage.delete()
+
+    # Clear generation stats (last_generated, url_count)
+    # This indicates sitemap doesn't exist until regenerated
+    PhoenixKit.Sitemap.clear_generation_stats()
+
+    # Clear ETS caches
     if table_exists?() do
-      :ets.delete_all_objects(@table_name)
+      # Clear entries (primary cache key)
+      :ets.delete(@table_name, :entries)
+      # Clear parts for sitemap index
+      :ets.delete(@table_name, :parts)
+      # Clear legacy keys for backward compatibility
+      :ets.delete(@table_name, :xml)
+      :ets.delete(@table_name, :html_table)
+      :ets.delete(@table_name, :html_cards)
+      :ets.delete(@table_name, :html_minimal)
+      :ets.delete(@table_name, :xml_table)
+      :ets.delete(@table_name, :xml_cards)
+      :ets.delete(@table_name, :xml_minimal)
     end
 
     :ok

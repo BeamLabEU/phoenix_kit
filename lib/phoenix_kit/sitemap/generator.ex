@@ -53,6 +53,8 @@ defmodule PhoenixKit.Sitemap.Generator do
   require Logger
 
   alias PhoenixKit.Sitemap.Cache
+  alias PhoenixKit.Sitemap.FileStorage
+  alias PhoenixKit.Sitemap.SchedulerWorker
   alias PhoenixKit.Sitemap.Sources.Source
   alias PhoenixKit.Sitemap.UrlEntry
 
@@ -115,25 +117,105 @@ defmodule PhoenixKit.Sitemap.Generator do
   def generate_xml(opts \\ []) do
     base_url = Keyword.get(opts, :base_url)
     cache_enabled = Keyword.get(opts, :cache, true)
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
 
-    if base_url do
-      # Check cache first
-      if cache_enabled do
-        case Cache.get(:xml) do
-          {:ok, cached} ->
-            Logger.debug("Sitemap: Using cached XML sitemap")
-            {:ok, cached}
+    cond do
+      is_nil(base_url) ->
+        {:error, :base_url_required}
 
-          :error ->
-            generate_and_cache_xml(opts)
-        end
-      else
-        generate_and_cache_xml(opts, cache: false)
-      end
-    else
-      {:error, :base_url_required}
+      cache_enabled ->
+        generate_xml_cached(base_url, xsl_style, xsl_enabled, opts)
+
+      true ->
+        generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
     end
   end
+
+  # Generate XML with caching support
+  defp generate_xml_cached(base_url, xsl_style, xsl_enabled, opts) do
+    xml_cache_key = :"xml_#{xsl_style}"
+
+    case Cache.get(xml_cache_key) do
+      {:ok, cached_xml} ->
+        Logger.debug("Sitemap: Using cached XML (#{xsl_style})")
+        {:ok, cached_xml}
+
+      :error ->
+        generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, xml_cache_key)
+    end
+  end
+
+  # Generate fresh XML and cache if successful
+  defp generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, cache_key) do
+    Logger.debug("Sitemap: XML cache miss (#{xsl_style}), generating...")
+    result = generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
+
+    # Cache only single sitemap results (not sitemap index with parts)
+    case result do
+      {:ok, xml} ->
+        # Save to ETS cache for background regeneration
+        Cache.put(cache_key, xml)
+        # Save to file (primary storage, used by controller)
+        FileStorage.save(xml)
+        result
+
+      _ ->
+        result
+    end
+  end
+
+  # Generate XML without caching (fresh generation)
+  defp generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts) do
+    entries = get_or_collect_entries(opts)
+    build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts)
+  end
+
+  # Get entries from cache or collect fresh
+  defp get_or_collect_entries(opts) do
+    cache_enabled = Keyword.get(opts, :cache, true)
+
+    if cache_enabled do
+      case Cache.get(:entries) do
+        {:ok, cached_entries} ->
+          Logger.debug("Sitemap: Using cached entries (#{length(cached_entries)} URLs)")
+          cached_entries
+
+        :error ->
+          Logger.debug("Sitemap: Entries cache miss, collecting...")
+          new_entries = collect_all_entries(opts)
+          Cache.put(:entries, new_entries)
+          new_entries
+      end
+    else
+      collect_all_entries(opts)
+    end
+  end
+
+  # Build XML from entries with specific XSL style
+  defp build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts) do
+    if length(entries) > @max_urls_per_file do
+      generate_sitemap_index(entries, base_url, opts)
+    else
+      xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
+      xsl_line = build_xsl_line(xsl_style, xsl_enabled)
+
+      xml =
+        [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
+        |> Enum.reject(&(&1 == ""))
+        |> Enum.join("\n")
+
+      {:ok, xml}
+    end
+  end
+
+  # Build XSL stylesheet reference line
+  defp build_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
+    prefix = PhoenixKit.Config.get_url_prefix()
+    ~s(<?xml-stylesheet type="text/xsl" href="#{prefix}/assets/sitemap/#{xsl_style}"?>)
+  end
+
+  defp build_xsl_line(_, _), do: ""
 
   @doc """
   Generates HTML sitemap from all enabled sources.
@@ -245,27 +327,39 @@ defmodule PhoenixKit.Sitemap.Generator do
     base_url = Keyword.get(opts, :base_url)
     all_language_codes = Enum.map(languages, & &1.code)
 
-    # Collect entries for each language
+    # Collect entries for each language IN PARALLEL
     entries_by_language =
       languages
-      |> Enum.map(fn lang ->
-        language_opts =
-          opts ++
-            [
-              language: lang.code,
-              is_default_language: lang.is_default,
-              all_languages: all_language_codes
-            ]
+      |> Task.async_stream(
+        fn lang ->
+          language_opts =
+            opts ++
+              [
+                language: lang.code,
+                is_default_language: lang.is_default,
+                all_languages: all_language_codes
+              ]
 
-        entries =
-          sources
-          |> Enum.flat_map(fn source_module ->
-            Source.safe_collect(source_module, language_opts)
-          end)
+          entries =
+            sources
+            |> Enum.flat_map(fn source_module ->
+              Source.safe_collect(source_module, language_opts)
+            end)
 
-        {lang.code, entries}
+          {lang.code, entries}
+        end,
+        ordered: false,
+        max_concurrency: System.schedulers_online() * 2,
+        timeout: 60_000
+      )
+      |> Enum.reduce(%{}, fn
+        {:ok, {lang_code, entries}}, acc ->
+          Map.put(acc, lang_code, entries)
+
+        {:exit, reason}, acc ->
+          Logger.warning("Sitemap: Language collection failed: #{inspect(reason)}")
+          acc
       end)
-      |> Map.new()
 
     # Group entries by canonical_path and add hreflang alternates
     all_entries =
@@ -361,6 +455,32 @@ defmodule PhoenixKit.Sitemap.Generator do
   end
 
   @doc """
+  Invalidates cache AND triggers async regeneration.
+
+  This is the preferred method for clearing cache from Admin UI,
+  as it immediately starts background regeneration via Oban.
+  File-based fallback ensures users still get content during regeneration.
+
+  ## Returns
+
+  - `{:ok, job}` - Regeneration job scheduled
+  - `{:error, reason}` - Failed to schedule job
+
+  ## Examples
+
+      case Generator.invalidate_and_regenerate() do
+        {:ok, _job} -> flash(:info, "Regenerating...")
+        {:error, reason} -> flash(:error, reason)
+      end
+  """
+  @spec invalidate_and_regenerate() :: {:ok, Oban.Job.t()} | {:error, term()}
+  def invalidate_and_regenerate do
+    Logger.info("Sitemap: Invalidating cache and triggering regeneration")
+    Cache.invalidate()
+    SchedulerWorker.regenerate_now()
+  end
+
+  @doc """
   Gets a specific sitemap part by index (1-based).
 
   Used when sitemap is split into multiple files due to size limits.
@@ -391,35 +511,6 @@ defmodule PhoenixKit.Sitemap.Generator do
 
   # Private functions
 
-  defp generate_and_cache_xml(opts, cache_opts \\ []) do
-    entries = collect_all_entries(opts)
-    base_url = Keyword.fetch!(opts, :base_url)
-    cache_enabled = Keyword.get(cache_opts, :cache, true)
-
-    result =
-      if length(entries) > @max_urls_per_file do
-        generate_sitemap_index(entries, base_url, opts)
-      else
-        generate_single_sitemap(entries, opts)
-      end
-
-    # Cache result
-    if cache_enabled do
-      case result do
-        {:ok, xml} ->
-          Cache.put(:xml, xml)
-          {:ok, xml}
-
-        {:ok, index_xml, parts} ->
-          Cache.put(:xml, index_xml)
-          Cache.put(:parts, parts)
-          {:ok, index_xml, parts}
-      end
-    else
-      result
-    end
-  end
-
   defp generate_and_cache_html(opts, cache_key, cache_opts \\ []) do
     entries = collect_all_entries(opts)
     style = Keyword.get(opts, :style, "hierarchical")
@@ -435,47 +526,22 @@ defmodule PhoenixKit.Sitemap.Generator do
 
     result = {:ok, html}
 
-    # Cache result
+    # Cache result (ETS + file)
     if cache_enabled do
       Cache.put(cache_key, html)
+      # Also save to file for fallback after restart
+      FileStorage.save("html_#{style}", html)
     end
 
     result
   end
 
-  defp generate_single_sitemap(entries, opts) do
-    xml_urls = Enum.map(entries, &UrlEntry.to_xml/1)
-    xsl_line = build_xsl_reference(opts)
-
-    # XML declaration MUST be first, then XSL stylesheet PI, then content
-    xml =
-      [@xml_declaration, xsl_line, @urlset_open, Enum.join(xml_urls, "\n"), @urlset_close]
-      |> Enum.reject(&(&1 == ""))
-      |> Enum.join("\n")
-
-    {:ok, xml}
-  end
-
-  # Build XSL stylesheet reference for browser display
-  # Uses relative URL to avoid CORS issues when accessing from different origins
-  defp build_xsl_reference(opts) do
-    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
-    xsl_style = Keyword.get(opts, :xsl_style, "table")
-
-    if xsl_enabled and xsl_style in @valid_xsl_styles do
-      prefix = PhoenixKit.Config.get_url_prefix()
-      # Relative URL - works regardless of domain/port the user accesses from
-      xsl_url = "#{prefix}/assets/sitemap/#{xsl_style}"
-      ~s(<?xml-stylesheet type="text/xsl" href="#{xsl_url}"?>)
-    else
-      ""
-    end
-  end
-
   defp generate_sitemap_index(entries, base_url, opts) do
     # Split entries into chunks
     chunks = Enum.chunk_every(entries, @max_urls_per_file)
-    xsl_line = build_xsl_reference(opts)
+    xsl_style = Keyword.get(opts, :xsl_style, "table")
+    xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
+    xsl_line = build_xsl_line(xsl_style, xsl_enabled)
 
     # Generate part files metadata
     parts =
