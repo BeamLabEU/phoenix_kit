@@ -9,9 +9,9 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Settings
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
-  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon

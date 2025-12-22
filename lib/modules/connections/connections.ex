@@ -409,27 +409,7 @@ defmodule PhoenixKit.Modules.Connections do
 
               nil ->
                 # Create new pending request
-                repo().transaction(fn ->
-                  case %Connection{}
-                       |> Connection.changeset(%{
-                         requester_id: requester_id,
-                         recipient_id: recipient_id
-                       })
-                       |> repo().insert() do
-                    {:ok, connection} ->
-                      log_connection_history(
-                        requester_id,
-                        recipient_id,
-                        requester_id,
-                        "requested"
-                      )
-
-                      connection
-
-                    {:error, changeset} ->
-                      repo().rollback(changeset)
-                  end
-                end)
+                create_pending_connection(requester_id, recipient_id)
             end
         end
     end
@@ -1018,6 +998,25 @@ defmodule PhoenixKit.Modules.Connections do
       action: action
     })
     |> repo().insert!()
+  end
+
+  # Create a new pending connection request with history logging
+  defp create_pending_connection(requester_id, recipient_id) do
+    repo().transaction(fn ->
+      case %Connection{}
+           |> Connection.changeset(%{
+             requester_id: requester_id,
+             recipient_id: recipient_id
+           })
+           |> repo().insert() do
+        {:ok, connection} ->
+          log_connection_history(requester_id, recipient_id, requester_id, "requested")
+          connection
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
   end
 
   defp log_block_history(blocker_id, blocked_id, action, reason) do

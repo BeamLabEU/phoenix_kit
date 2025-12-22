@@ -35,10 +35,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
-  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
