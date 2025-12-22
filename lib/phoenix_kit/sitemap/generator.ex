@@ -53,6 +53,8 @@ defmodule PhoenixKit.Sitemap.Generator do
   require Logger
 
   alias PhoenixKit.Sitemap.Cache
+  alias PhoenixKit.Sitemap.FileStorage
+  alias PhoenixKit.Sitemap.SchedulerWorker
   alias PhoenixKit.Sitemap.Sources.Source
   alias PhoenixKit.Sitemap.UrlEntry
 
@@ -118,29 +120,75 @@ defmodule PhoenixKit.Sitemap.Generator do
     xsl_style = Keyword.get(opts, :xsl_style, "table")
     xsl_enabled = Keyword.get(opts, :xsl_enabled, true)
 
-    if base_url do
-      # Get or generate cached entries (style-independent for better cache hit rate)
-      entries =
-        if cache_enabled do
-          case Cache.get(:entries) do
-            {:ok, cached_entries} ->
-              Logger.debug("Sitemap: Using cached entries (#{length(cached_entries)} URLs)")
-              cached_entries
+    cond do
+      is_nil(base_url) ->
+        {:error, :base_url_required}
 
-            :error ->
-              Logger.debug("Sitemap: Cache miss, collecting entries...")
-              new_entries = collect_all_entries(opts)
-              Cache.put(:entries, new_entries)
-              new_entries
-          end
-        else
-          collect_all_entries(opts)
-        end
+      cache_enabled ->
+        generate_xml_cached(base_url, xsl_style, xsl_enabled, opts)
 
-      # Build XML with XSL reference for this specific style
-      build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts)
+      true ->
+        generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
+    end
+  end
+
+  # Generate XML with caching support
+  defp generate_xml_cached(base_url, xsl_style, xsl_enabled, opts) do
+    xml_cache_key = :"xml_#{xsl_style}"
+
+    case Cache.get(xml_cache_key) do
+      {:ok, cached_xml} ->
+        Logger.debug("Sitemap: Using cached XML (#{xsl_style})")
+        {:ok, cached_xml}
+
+      :error ->
+        generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, xml_cache_key)
+    end
+  end
+
+  # Generate fresh XML and cache if successful
+  defp generate_and_cache_xml(base_url, xsl_style, xsl_enabled, opts, cache_key) do
+    Logger.debug("Sitemap: XML cache miss (#{xsl_style}), generating...")
+    result = generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts)
+
+    # Cache only single sitemap results (not sitemap index with parts)
+    case result do
+      {:ok, xml} ->
+        # Save to ETS cache for background regeneration
+        Cache.put(cache_key, xml)
+        # Save to file (primary storage, used by controller)
+        FileStorage.save(xml)
+        result
+
+      _ ->
+        result
+    end
+  end
+
+  # Generate XML without caching (fresh generation)
+  defp generate_xml_fresh(base_url, xsl_style, xsl_enabled, opts) do
+    entries = get_or_collect_entries(opts)
+    build_xml_with_style(entries, base_url, xsl_style, xsl_enabled, opts)
+  end
+
+  # Get entries from cache or collect fresh
+  defp get_or_collect_entries(opts) do
+    cache_enabled = Keyword.get(opts, :cache, true)
+
+    if cache_enabled do
+      case Cache.get(:entries) do
+        {:ok, cached_entries} ->
+          Logger.debug("Sitemap: Using cached entries (#{length(cached_entries)} URLs)")
+          cached_entries
+
+        :error ->
+          Logger.debug("Sitemap: Entries cache miss, collecting...")
+          new_entries = collect_all_entries(opts)
+          Cache.put(:entries, new_entries)
+          new_entries
+      end
     else
-      {:error, :base_url_required}
+      collect_all_entries(opts)
     end
   end
 
@@ -407,6 +455,32 @@ defmodule PhoenixKit.Sitemap.Generator do
   end
 
   @doc """
+  Invalidates cache AND triggers async regeneration.
+
+  This is the preferred method for clearing cache from Admin UI,
+  as it immediately starts background regeneration via Oban.
+  File-based fallback ensures users still get content during regeneration.
+
+  ## Returns
+
+  - `{:ok, job}` - Regeneration job scheduled
+  - `{:error, reason}` - Failed to schedule job
+
+  ## Examples
+
+      case Generator.invalidate_and_regenerate() do
+        {:ok, _job} -> flash(:info, "Regenerating...")
+        {:error, reason} -> flash(:error, reason)
+      end
+  """
+  @spec invalidate_and_regenerate() :: {:ok, Oban.Job.t()} | {:error, term()}
+  def invalidate_and_regenerate do
+    Logger.info("Sitemap: Invalidating cache and triggering regeneration")
+    Cache.invalidate()
+    SchedulerWorker.regenerate_now()
+  end
+
+  @doc """
   Gets a specific sitemap part by index (1-based).
 
   Used when sitemap is split into multiple files due to size limits.
@@ -452,9 +526,11 @@ defmodule PhoenixKit.Sitemap.Generator do
 
     result = {:ok, html}
 
-    # Cache result
+    # Cache result (ETS + file)
     if cache_enabled do
       Cache.put(cache_key, html)
+      # Also save to file for fallback after restart
+      FileStorage.save("html_#{style}", html)
     end
 
     result

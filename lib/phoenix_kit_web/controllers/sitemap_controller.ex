@@ -9,7 +9,12 @@ defmodule PhoenixKitWeb.SitemapController do
   - GET /{prefix}/sitemap-{n}.xml - Sitemap index parts (for large sites)
   - GET /{prefix}/assets/sitemap-{style}.xsl - XSL stylesheets
 
-  All endpoints are cached for performance with configurable cache headers.
+  ## Architecture: File-Only Storage
+
+  Sitemaps are stored in `priv/static/sitemap.xml` for:
+  - Direct nginx/CDN serving (bypasses Phoenix entirely)
+  - ETag from file mtime (always reflects actual content)
+  - On-demand generation (first request generates if missing)
 
   ## How It Works
 
@@ -30,10 +35,11 @@ defmodule PhoenixKitWeb.SitemapController do
 
   use PhoenixKitWeb, :controller
 
+  require Logger
+
   alias PhoenixKit.Sitemap
-  alias PhoenixKit.Sitemap.Cache
+  alias PhoenixKit.Sitemap.FileStorage
   alias PhoenixKit.Sitemap.Generator
-  alias PhoenixKit.Utils.Date, as: UtilsDate
 
   @cache_max_age 3600
   @valid_xsl_styles ["table", "cards", "minimal"]
@@ -46,7 +52,7 @@ defmodule PhoenixKitWeb.SitemapController do
   - `format=html` - Force server-side HTML rendering (for iframe previews)
 
   Returns 404 if sitemap module is disabled.
-  Returns 500 if sitemap generation fails.
+  Generates on first request if file doesn't exist.
   """
   def xml(conn, params) do
     if Sitemap.enabled?() do
@@ -63,7 +69,7 @@ defmodule PhoenixKitWeb.SitemapController do
       if Map.get(params, "format") == "html" do
         serve_html(conn, config, xsl_style)
       else
-        serve_xml(conn, config, xsl_style)
+        serve_xml(conn, xsl_style)
       end
     else
       conn
@@ -72,74 +78,184 @@ defmodule PhoenixKitWeb.SitemapController do
     end
   end
 
-  # Serve XML with XSL stylesheet reference (default for browsers and bots)
-  defp serve_xml(conn, config, xsl_style) do
-    opts = [
-      base_url: config.base_url,
-      cache: true,
-      xsl_enabled: true,
-      xsl_style: xsl_style
-    ]
+  # Serve XML from file or generate on first request
+  defp serve_xml(conn, xsl_style) do
+    if FileStorage.exists?() do
+      serve_existing_file(conn)
+    else
+      generate_and_serve(conn, xsl_style)
+    end
+  end
 
-    etag = generate_etag(config)
+  # Serve existing file with ETag from mtime
+  defp serve_existing_file(conn) do
+    etag = generate_file_etag()
 
-    case Generator.generate_xml(opts) do
-      {:ok, xml_content} ->
-        conn
-        |> put_resp_content_type("application/xml")
-        |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-        |> put_resp_header("etag", etag)
-        |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
-        |> send_resp(200, xml_content)
+    if client_has_fresh_cache?(conn, etag) do
+      send_not_modified(conn, etag)
+    else
+      case FileStorage.load() do
+        {:ok, xml_content} ->
+          conn
+          |> put_resp_content_type("application/xml")
+          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+          |> put_resp_header("etag", etag)
+          |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
+          |> send_resp(200, xml_content)
 
-      {:ok, xml_content, _parts} ->
-        conn
-        |> put_resp_content_type("application/xml")
-        |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-        |> put_resp_header("etag", etag)
-        |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
-        |> send_resp(200, xml_content)
+        :error ->
+          # File disappeared between exists? and load - regenerate
+          generate_and_serve(conn, "table")
+      end
+    end
+  end
 
-      {:error, reason} ->
-        require Logger
-        Logger.error("Sitemap XML generation failed: #{inspect(reason)}")
+  # Generate sitemap on first request, save to file, serve
+  defp generate_and_serve(conn, xsl_style) do
+    base_url = Sitemap.get_base_url()
 
-        conn
-        |> put_resp_content_type("text/plain")
-        |> send_resp(500, "Failed to generate sitemap")
+    if base_url == "" do
+      Logger.warning("SitemapController: Base URL not configured")
+
+      conn
+      |> put_resp_content_type("text/plain")
+      |> send_resp(503, "Sitemap not configured. Please set base URL in settings.")
+    else
+      opts = [
+        base_url: base_url,
+        cache: false,
+        xsl_style: xsl_style,
+        xsl_enabled: true
+      ]
+
+      case Generator.generate_xml(opts) do
+        {:ok, xml_content} ->
+          # Save to file for subsequent requests
+          FileStorage.save(xml_content)
+
+          # Update URL count in stats
+          entries = Generator.collect_all_entries(base_url: base_url)
+          Sitemap.update_generation_stats(%{url_count: length(entries)})
+
+          etag = generate_content_etag(xml_content)
+
+          conn
+          |> put_resp_content_type("application/xml")
+          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+          |> put_resp_header("etag", etag)
+          |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
+          |> send_resp(200, xml_content)
+
+        {:ok, xml_content, _parts} ->
+          # Sitemap index generated
+          FileStorage.save(xml_content)
+
+          entries = Generator.collect_all_entries(base_url: base_url)
+          Sitemap.update_generation_stats(%{url_count: length(entries)})
+
+          etag = generate_content_etag(xml_content)
+
+          conn
+          |> put_resp_content_type("application/xml")
+          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+          |> put_resp_header("etag", etag)
+          |> put_resp_header("x-sitemap-url-count", to_string(length(entries)))
+          |> send_resp(200, xml_content)
+
+        {:error, reason} ->
+          Logger.error("SitemapController: Generation failed: #{inspect(reason)}")
+
+          conn
+          |> put_resp_content_type("text/plain")
+          |> send_resp(500, "Failed to generate sitemap")
+      end
     end
   end
 
   # Serve server-rendered HTML (for iframe previews where XSL can't be applied)
-  defp serve_html(conn, config, xsl_style) do
-    cache_key = :"html_#{xsl_style}"
+  defp serve_html(conn, _config, xsl_style) do
+    base_url = Sitemap.get_base_url()
 
-    # Try to get cached HTML content
-    {html_content, url_count} =
-      case Cache.get(cache_key) do
-        {:ok, %{html: html, url_count: count}} ->
-          {html, count}
+    if base_url == "" do
+      conn
+      |> put_resp_content_type("text/plain")
+      |> send_resp(503, "Sitemap not configured. Please set base URL in settings.")
+    else
+      html_style = xsl_to_html_style(xsl_style)
 
-        _ ->
-          # Cache miss - generate and cache
-          entries = Generator.collect_all_entries(base_url: config.base_url)
-          html = render_sitemap_html(entries, xsl_style, config)
-          count = length(entries)
+      opts = [
+        base_url: base_url,
+        cache: false,
+        style: html_style
+      ]
 
-          # Store in cache for future requests
-          Cache.put(cache_key, %{html: html, url_count: count})
+      case Generator.generate_html(opts) do
+        {:ok, html_content} ->
+          etag = generate_content_etag(html_content)
 
-          {html, count}
+          conn
+          |> put_resp_content_type("text/html")
+          |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+          |> put_resp_header("etag", etag)
+          |> put_resp_header("x-sitemap-url-count", to_string(Sitemap.get_url_count()))
+          |> send_resp(200, html_content)
+
+        {:error, reason} ->
+          Logger.error("SitemapController: HTML generation failed: #{inspect(reason)}")
+
+          conn
+          |> put_resp_content_type("text/plain")
+          |> send_resp(500, "Failed to generate HTML sitemap")
       end
+    end
+  end
 
-    etag = generate_etag(config)
+  # Map XSL styles to HTML styles used by Generator
+  defp xsl_to_html_style("cards"), do: "hierarchical"
+  defp xsl_to_html_style("table"), do: "grouped"
+  defp xsl_to_html_style("minimal"), do: "flat"
+  defp xsl_to_html_style(_), do: "hierarchical"
 
+  # Check if client has a fresh cached version via If-None-Match header
+  defp client_has_fresh_cache?(conn, etag) do
+    case get_req_header(conn, "if-none-match") do
+      [client_etag] -> client_etag == etag
+      _ -> false
+    end
+  end
+
+  # Send 304 Not Modified response
+  defp send_not_modified(conn, etag) do
     conn
-    |> put_resp_content_type("text/html")
-    |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
     |> put_resp_header("etag", etag)
-    |> put_resp_header("x-sitemap-url-count", to_string(url_count))
-    |> send_resp(200, html_content)
+    |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+    |> send_resp(304, "")
+  end
+
+  # Generate ETag from file mtime and size (most reliable)
+  defp generate_file_etag do
+    case FileStorage.get_file_stat() do
+      {:ok, mtime, size} ->
+        hash =
+          :crypto.hash(:md5, "#{inspect(mtime)}-#{size}")
+          |> Base.encode16(case: :lower)
+          |> binary_part(0, 16)
+
+        "\"#{hash}\""
+
+      :error ->
+        "\"default\""
+    end
+  end
+
+  # Generate ETag from content (for freshly generated content)
+  defp generate_content_etag(content) do
+    hash =
+      :crypto.hash(:md5, content)
+      |> Base.encode16(case: :lower)
+      |> binary_part(0, 16)
+
+    "\"#{hash}\""
   end
 
   @doc """
@@ -189,273 +305,50 @@ defmodule PhoenixKitWeb.SitemapController do
   """
   def index_part(conn, %{"index" => index_str}) do
     if Sitemap.enabled?() do
-      config = Sitemap.get_config()
-      etag = generate_etag(config)
-
-      case Integer.parse(index_str) do
-        {index, ""} when index > 0 ->
-          case Generator.get_sitemap_part(index) do
-            {:ok, xml_content} ->
-              conn
-              |> put_resp_content_type("application/xml")
-              |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
-              |> put_resp_header("etag", etag)
-              |> send_resp(200, xml_content)
-
-            {:error, :not_found} ->
-              conn
-              |> put_resp_content_type("text/plain")
-              |> send_resp(404, "Sitemap part not found")
-          end
-
-        _ ->
-          conn
-          |> put_resp_content_type("text/plain")
-          |> send_resp(400, "Invalid sitemap index")
-      end
+      serve_index_part(conn, index_str)
     else
-      conn
-      |> put_resp_content_type("text/plain")
-      |> send_resp(404, "Sitemap not available")
+      send_plain_error(conn, 404, "Sitemap not available")
     end
   end
 
-  # HTML Rendering Functions (for iframe preview)
+  defp serve_index_part(conn, index_str) do
+    etag = generate_file_etag()
 
-  defp render_sitemap_html(entries, style, config) do
-    url_count = length(entries)
-    last_generated = Map.get(config, :last_generated, "Just now")
-
-    case style do
-      "cards" -> render_cards_html(entries, url_count, last_generated)
-      "minimal" -> render_minimal_html(entries, url_count)
-      _ -> render_table_html(entries, url_count, last_generated)
+    # Check if client already has this version cached
+    if client_has_fresh_cache?(conn, etag) do
+      send_not_modified(conn, etag)
+    else
+      do_serve_index_part(conn, index_str, etag)
     end
   end
 
-  defp render_table_html(entries, url_count, _last_generated) do
-    rows =
-      entries
-      |> Enum.sort_by(& &1.loc)
-      |> Enum.map_join("\n", fn entry ->
-        priority_class =
-          cond do
-            (entry.priority || 0.5) >= 0.8 -> "high"
-            (entry.priority || 0.5) >= 0.5 -> "med"
-            true -> "low"
-          end
+  defp do_serve_index_part(conn, index_str, etag) do
+    case Integer.parse(index_str) do
+      {index, ""} when index > 0 ->
+        case Generator.get_sitemap_part(index) do
+          {:ok, xml_content} ->
+            conn
+            |> put_resp_content_type("application/xml")
+            |> put_resp_header("cache-control", "public, max-age=#{@cache_max_age}")
+            |> put_resp_header("etag", etag)
+            |> send_resp(200, xml_content)
 
-        """
-        <tr>
-          <td><a href="#{escape(entry.loc)}">#{escape(entry.loc)}</a></td>
-          <td>#{escape(UtilsDate.format_datetime_full_with_user_format(entry.lastmod))}</td>
-          <td>#{escape(to_string(entry.changefreq || ""))}</td>
-          <td class="#{priority_class}">#{entry.priority || ""}</td>
-        </tr>
-        """
-      end)
+          {:error, :not_found} ->
+            send_plain_error(conn, 404, "Sitemap part not found")
+        end
 
-    """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>XML Sitemap</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; background: #f8fafc; color: #1e293b; }
-        h1 { font-size: 1.5rem; margin-bottom: 1rem; }
-        .info { color: #64748b; margin-bottom: 1.5rem; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        th { background: #f1f5f9; padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; color: #64748b; }
-        td { padding: 12px; border-bottom: 1px solid #e2e8f0; }
-        tr:last-child td { border-bottom: none; }
-        tr:hover td { background: #f8fafc; }
-        a { color: #3b82f6; text-decoration: none; word-break: break-all; }
-        a:hover { text-decoration: underline; }
-        .high { color: #22c55e; font-weight: 600; }
-        .med { color: #f59e0b; }
-        .low { color: #94a3b8; }
-        footer { margin-top: 2rem; text-align: center; color: #94a3b8; font-size: 12px; }
-        @media (prefers-color-scheme: dark) {
-          body { background: #0f172a; color: #f1f5f9; }
-          table { background: #1e293b; }
-          th { background: #334155; color: #94a3b8; }
-          td { border-color: #334155; }
-          tr:hover td { background: #334155; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>XML Sitemap</h1>
-      <p class="info">This sitemap contains <strong>#{url_count}</strong> URLs</p>
-      <table>
-        <thead>
-          <tr><th>URL</th><th>Last Modified</th><th>Frequency</th><th>Priority</th></tr>
-        </thead>
-        <tbody>
-          #{rows}
-        </tbody>
-      </table>
-      <footer>Generated by PhoenixKit</footer>
-    </body>
-    </html>
-    """
+      _ ->
+        send_plain_error(conn, 400, "Invalid sitemap index")
+    end
   end
 
-  defp render_cards_html(entries, url_count, _last_generated) do
-    grouped =
-      entries
-      |> Enum.group_by(fn entry -> entry.category || to_string(entry.source) || "Other" end)
-      |> Enum.sort_by(fn {name, _} -> name end)
-
-    cards =
-      Enum.map_join(grouped, "\n", fn {name, group_entries} ->
-        items =
-          group_entries
-          |> Enum.sort_by(& &1.loc)
-          |> Enum.map_join("\n", fn entry ->
-            meta =
-              if entry.lastmod,
-                do:
-                  "<div class=\"meta\">#{escape(UtilsDate.format_datetime_full_with_user_format(entry.lastmod))}</div>",
-                else: ""
-
-            "<li class=\"url-item\"><a href=\"#{escape(entry.loc)}\">#{escape(entry.loc)}</a>#{meta}</li>"
-          end)
-
-        """
-        <div class="card">
-          <div class="card-header">
-            <span class="card-title">#{escape(name)}</span>
-            <span class="card-count">#{length(group_entries)}</span>
-          </div>
-          <ul class="url-list">#{items}</ul>
-        </div>
-        """
-      end)
-
-    """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Site Map</title>
-      <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 2rem; background: #f8fafc; color: #1e293b; }
-        h1 { font-size: 2rem; text-align: center; margin-bottom: 0.5rem; }
-        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
-        .stats { display: flex; justify-content: center; gap: 2rem; margin-bottom: 2rem; }
-        .stat { background: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); text-align: center; }
-        .stat-value { font-size: 1.5rem; font-weight: 700; color: #3b82f6; }
-        .stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; }
-        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; }
-        .card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
-        .card-header { padding: 1rem 1.25rem; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
-        .card-title { font-weight: 600; }
-        .card-count { background: #f1f5f9; padding: 4px 12px; border-radius: 999px; font-size: 12px; color: #64748b; }
-        .url-list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
-        .url-item { padding: 12px 1.25rem; border-bottom: 1px solid #e2e8f0; }
-        .url-item:last-child { border-bottom: none; }
-        .url-item:hover { background: #f8fafc; }
-        a { color: #3b82f6; text-decoration: none; font-size: 14px; word-break: break-all; }
-        a:hover { text-decoration: underline; }
-        .meta { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-        footer { margin-top: 2rem; text-align: center; color: #94a3b8; font-size: 12px; }
-        @media (prefers-color-scheme: dark) {
-          body { background: #0f172a; color: #f1f5f9; }
-          .stat, .card { background: #1e293b; }
-          .card-header, .url-item { border-color: #334155; }
-          .url-item:hover { background: #334155; }
-          .card-count { background: #334155; color: #94a3b8; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Site Map</h1>
-      <p class="subtitle">Browse all pages on this website</p>
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value">#{url_count}</div>
-          <div class="stat-label">Total URLs</div>
-        </div>
-      </div>
-      <div class="cards">#{cards}</div>
-      <footer>Generated by PhoenixKit</footer>
-    </body>
-    </html>
-    """
-  end
-
-  defp render_minimal_html(entries, url_count) do
-    items =
-      entries
-      |> Enum.sort_by(& &1.loc)
-      |> Enum.map_join("\n", fn entry ->
-        "<li><a href=\"#{escape(entry.loc)}\">#{escape(entry.loc)}</a></li>"
-      end)
-
-    """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Sitemap</title>
-      <style>
-        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem 1rem; background: #fff; color: #111; line-height: 1.5; }
-        h1 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
-        .count { color: #666; font-size: 14px; margin-bottom: 1.5rem; }
-        ul { list-style: none; padding: 0; margin: 0; }
-        li { padding: 8px 0; border-bottom: 1px solid #eee; }
-        li:last-child { border-bottom: none; }
-        a { color: #0066cc; text-decoration: none; word-break: break-all; }
-        a:hover { text-decoration: underline; }
-        footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 12px; color: #888; }
-        @media (prefers-color-scheme: dark) {
-          body { background: #111; color: #eee; }
-          li { border-color: #333; }
-          a { color: #66b3ff; }
-          footer { border-color: #333; }
-        }
-      </style>
-    </head>
-    <body>
-      <h1>Sitemap</h1>
-      <p class="count">#{url_count} URLs</p>
-      <ul>#{items}</ul>
-      <footer>PhoenixKit Sitemap</footer>
-    </body>
-    </html>
-    """
+  defp send_plain_error(conn, status, message) do
+    conn
+    |> put_resp_content_type("text/plain")
+    |> send_resp(status, message)
   end
 
   # Helper Functions
-
-  defp escape(nil), do: ""
-
-  defp escape(text) when is_binary(text) do
-    text
-    |> String.replace("&", "&amp;")
-    |> String.replace("<", "&lt;")
-    |> String.replace(">", "&gt;")
-    |> String.replace("\"", "&quot;")
-  end
-
-  defp escape(other), do: escape(to_string(other))
-
-  defp generate_etag(config) do
-    last_generated = Map.get(config, :last_generated) || "none"
-    url_count = Map.get(config, :url_count) || 0
-
-    hash =
-      :crypto.hash(:md5, "#{last_generated}-#{url_count}")
-      |> Base.encode16(case: :lower)
-      |> binary_part(0, 16)
-
-    "\"#{hash}\""
-  end
 
   defp get_xsl_style(config) do
     html_style = Map.get(config, :html_style, "table")
