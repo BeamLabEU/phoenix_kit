@@ -245,27 +245,39 @@ defmodule PhoenixKit.Sitemap.Generator do
     base_url = Keyword.get(opts, :base_url)
     all_language_codes = Enum.map(languages, & &1.code)
 
-    # Collect entries for each language
+    # Collect entries for each language IN PARALLEL
     entries_by_language =
       languages
-      |> Enum.map(fn lang ->
-        language_opts =
-          opts ++
-            [
-              language: lang.code,
-              is_default_language: lang.is_default,
-              all_languages: all_language_codes
-            ]
+      |> Task.async_stream(
+        fn lang ->
+          language_opts =
+            opts ++
+              [
+                language: lang.code,
+                is_default_language: lang.is_default,
+                all_languages: all_language_codes
+              ]
 
-        entries =
-          sources
-          |> Enum.flat_map(fn source_module ->
-            Source.safe_collect(source_module, language_opts)
-          end)
+          entries =
+            sources
+            |> Enum.flat_map(fn source_module ->
+              Source.safe_collect(source_module, language_opts)
+            end)
 
-        {lang.code, entries}
+          {lang.code, entries}
+        end,
+        ordered: false,
+        max_concurrency: System.schedulers_online() * 2,
+        timeout: 60_000
+      )
+      |> Enum.reduce(%{}, fn
+        {:ok, {lang_code, entries}}, acc ->
+          Map.put(acc, lang_code, entries)
+
+        {:exit, reason}, acc ->
+          Logger.warning("Sitemap: Language collection failed: #{inspect(reason)}")
+          acc
       end)
-      |> Map.new()
 
     # Group entries by canonical_path and add hreflang alternates
     all_entries =

@@ -588,14 +588,17 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  # Format ISO8601 timestamp string to user-friendly format
+  # Format ISO8601 timestamp string to user-friendly format with system timezone
   def format_timestamp(nil), do: "Never"
 
   def format_timestamp(iso_string) when is_binary(iso_string) do
     case DateTime.from_iso8601(iso_string) do
       {:ok, dt, _} ->
-        ndt = DateTime.to_naive(dt)
-        UtilsDate.format_datetime_full_with_user_format(ndt)
+        # Use fake user with nil timezone to get system timezone from Settings
+        fake_user = %{user_timezone: nil}
+        date_str = UtilsDate.format_date_with_user_timezone(dt, fake_user)
+        time_str = UtilsDate.format_time_with_user_timezone(dt, fake_user)
+        "#{date_str} #{time_str}"
 
       _ ->
         iso_string
