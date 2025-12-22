@@ -38,6 +38,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
+  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
@@ -682,6 +683,15 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         href={Routes.locale_aware_path(assigns, "/admin/tickets")}
                         icon="ticket"
                         label={gettext("Tickets")}
+                        current_path={@current_path || ""}
+                      />
+                    <% end %>
+
+                    <%= if Connections.enabled?() do %>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/connections")}
+                        icon="hero-users"
+                        label={gettext("Connections")}
                         current_path={@current_path || ""}
                       />
                     <% end %>
