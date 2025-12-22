@@ -1,3 +1,21 @@
+## 1.7.8 - 2025-12-22
+
+### Route Priority Fix
+- **Non-localized routes first** - Fixed 105 route conflicts where paths like `/admin/dashboard` were incorrectly matched as `/:locale/dashboard` with `locale="admin"`
+- **Locale scope ordering** - Non-localized scope now comes before localized scope in router macros
+
+### Sitemap Performance Improvements
+- **Parallel language collection** - Multilingual sitemap generation now runs in parallel using `Task.async_stream`, reducing generation time from N×T to ~T for N languages
+- **Style-independent caching** - Cache URL entries instead of full XML, allowing different XSL styles (table/cards/minimal) to share the same cache
+- **Fast HTTP responses** - Sitemap.xml now responds in ~10ms with cached entries vs seconds for full regeneration
+
+### Sitemap Fixes
+- **Timezone display** - "Last Generated" timestamp now displays in system timezone from Settings
+- **Date/time format** - Apply user's date_format and time_format preferences to timestamps
+
+### Other Fixes
+- Fix Routes.path call in SEO settings to use keyword list
+
 ## 1.7.7 - 2025-12-22
 - Optimize sitemap generation and fix routing issues
   - Optimize sitemap source modules to reduce RouteResolver calls
