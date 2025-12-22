@@ -1,0 +1,166 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Connections"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Modules
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Connections</h1>
+        <p class="text-lg text-base-content">
+          Social relationships overview and management
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-4xl mx-auto space-y-8">
+      <%!-- Stats Overview --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-chart-bar" class="w-6 h-6" /> Statistics
+          </h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="stat bg-primary/10 rounded-lg p-4">
+              <div class="stat-title text-xs">Follows</div>
+              <div class="stat-value text-2xl text-primary">{@stats.follows}</div>
+              <div class="stat-desc">One-way follows</div>
+            </div>
+            <div class="stat bg-success/20 rounded-lg p-4">
+              <div class="stat-title text-xs">Connections</div>
+              <div class="stat-value text-2xl text-success">{@stats.connections}</div>
+              <div class="stat-desc">Mutual connections</div>
+            </div>
+            <div class="stat bg-warning/20 rounded-lg p-4">
+              <div class="stat-title text-xs">Pending</div>
+              <div class="stat-value text-2xl text-warning">{@stats.pending}</div>
+              <div class="stat-desc">Awaiting response</div>
+            </div>
+            <div class="stat bg-error/20 rounded-lg p-4">
+              <div class="stat-title text-xs">Blocks</div>
+              <div class="stat-value text-2xl text-error">{@stats.blocks}</div>
+              <div class="stat-desc">Active blocks</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Module Settings --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Module Configuration
+          </h2>
+
+          <%!-- Enable/Disable --%>
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-4">
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@enabled}
+                phx-click="toggle_enabled"
+              />
+              <div>
+                <span class="label-text font-medium">Enable Connections Module</span>
+                <p class="text-sm text-base-content/50">
+                  When disabled, the connections interface will not be accessible
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Relationship Types Info --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-information-circle" class="w-6 h-6" /> Relationship Types
+          </h2>
+
+          <div class="space-y-4">
+            <%!-- Follows --%>
+            <div class="p-4 bg-primary/5 rounded-lg">
+              <div class="flex items-center gap-2 mb-2">
+                <.icon name="hero-user-plus" class="w-5 h-5 text-primary" />
+                <span class="font-semibold text-primary">Follows</span>
+              </div>
+              <p class="text-sm text-base-content/70">
+                One-way relationships where User A follows User B without requiring consent.
+                Similar to Twitter/Instagram follows.
+              </p>
+            </div>
+
+            <%!-- Connections --%>
+            <div class="p-4 bg-success/5 rounded-lg">
+              <div class="flex items-center gap-2 mb-2">
+                <.icon name="hero-users" class="w-5 h-5 text-success" />
+                <span class="font-semibold text-success">Connections</span>
+              </div>
+              <p class="text-sm text-base-content/70">
+                Two-way mutual relationships that require acceptance from both parties.
+                Similar to LinkedIn connections or Facebook friends.
+              </p>
+            </div>
+
+            <%!-- Blocks --%>
+            <div class="p-4 bg-error/5 rounded-lg">
+              <div class="flex items-center gap-2 mb-2">
+                <.icon name="hero-no-symbol" class="w-5 h-5 text-error" />
+                <span class="font-semibold text-error">Blocks</span>
+              </div>
+              <p class="text-sm text-base-content/70">
+                Prevents all interaction between users. Blocking removes any existing
+                follows and connections between the users.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- API Usage --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-code-bracket" class="w-6 h-6" /> Public API
+          </h2>
+
+          <p class="text-sm text-base-content/70 mb-4">
+            The Connections module provides a public API that parent applications can use
+            to integrate social features into their own views and components.
+          </p>
+
+          <div class="mockup-code text-sm">
+            <pre data-prefix="$"><code>alias PhoenixKit.Modules.Connections</code></pre>
+            <pre data-prefix=""><code></code></pre>
+            <pre data-prefix="#" class="text-warning"><code> Follows</code></pre>
+            <pre data-prefix=">"><code>Connections.follow(current_user, target_user)</code></pre>
+            <pre data-prefix=">"><code>Connections.following?(current_user, target_user)</code></pre>
+            <pre data-prefix=">"><code>Connections.list_followers(user)</code></pre>
+            <pre data-prefix=""><code></code></pre>
+            <pre data-prefix="#" class="text-success"><code> Connections</code></pre>
+            <pre data-prefix=">"><code>Connections.request_connection(user_a, user_b)</code></pre>
+            <pre data-prefix=">"><code>Connections.connected?(user_a, user_b)</code></pre>
+            <pre data-prefix=""><code></code></pre>
+            <pre data-prefix="#" class="text-info"><code> Full relationship status</code></pre>
+            <pre data-prefix=">"><code>Connections.get_relationship(user_a, user_b)</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
