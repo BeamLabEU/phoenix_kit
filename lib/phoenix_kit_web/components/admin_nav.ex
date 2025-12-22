@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon
@@ -653,15 +654,36 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   defp get_admin_languages do
     # If Languages module is not enabled, return empty list to hide dropdown
     if Languages.enabled?() do
-      # Languages module is enabled, use only enabled languages from the module
-      Languages.get_enabled_languages()
-      |> Enum.map(fn lang ->
-        %{
-          "code" => lang["code"],
-          "name" => lang["name"],
-          "flag" => Map.get(lang, "flag", "🌐"),
-          "native" => Map.get(lang, "native", "")
-        }
+      # Read admin languages from settings (not all enabled languages)
+      admin_languages_json = Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
+
+      admin_language_codes =
+        case Jason.decode(admin_languages_json) do
+          {:ok, codes} when is_list(codes) -> codes
+          _ -> ["en-US"]
+        end
+
+      # Map codes to full language objects
+      admin_language_codes
+      |> Enum.map(fn code ->
+        case Languages.get_predefined_language(code) do
+          %{name: name, flag: flag, native: native} ->
+            %{
+              "code" => code,
+              "name" => name,
+              "flag" => flag,
+              "native" => native
+            }
+
+          nil ->
+            # Fallback for unknown codes
+            %{
+              "code" => code,
+              "name" => code,
+              "flag" => "🌐",
+              "native" => ""
+            }
+        end
       end)
     else
       # Module disabled, return empty list
