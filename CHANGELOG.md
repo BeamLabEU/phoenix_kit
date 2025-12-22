@@ -1,3 +1,6 @@
+## 1.7.10 - 2025-12-23
+- New Connections Module initial commit
+
 ## 1.7.9 - 2025-12-22
 
 ### Sitemap File-Only Architecture
