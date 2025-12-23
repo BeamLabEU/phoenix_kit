@@ -57,6 +57,8 @@ defmodule PhoenixKit.DBSync.Connection do
 
   alias PhoenixKit.Users.Auth.User
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :id, autogenerate: true}
 
   @valid_directions ~w(sender receiver)
@@ -73,7 +75,7 @@ defmodule PhoenixKit.DBSync.Connection do
     field :status, :string, default: "pending"
 
     # Sender-side settings
-    field :approval_mode, :string, default: "require_approval"
+    field :approval_mode, :string, default: "auto_approve"
     field :allowed_tables, {:array, :string}, default: []
     field :excluded_tables, {:array, :string}, default: []
     field :auto_approve_tables, {:array, :string}, default: []
@@ -172,7 +174,9 @@ defmodule PhoenixKit.DBSync.Connection do
     )
     |> validate_number(:allowed_hours_end, greater_than_or_equal_to: 0, less_than_or_equal_to: 23)
     |> validate_number(:auto_sync_interval_minutes, greater_than: 0)
-    |> unique_constraint([:site_url, :direction])
+    |> unique_constraint([:site_url, :direction],
+      name: :phoenix_kit_db_sync_connections_site_direction_uidx
+    )
     |> hash_auth_token()
     |> hash_download_password()
   end
@@ -251,13 +255,16 @@ defmodule PhoenixKit.DBSync.Connection do
     connection
     |> cast(attrs, [
       :name,
+      :status,
       :approval_mode,
       :allowed_tables,
       :excluded_tables,
       :auto_approve_tables,
       :expires_at,
       :max_downloads,
+      :downloads_used,
       :max_records_total,
+      :records_downloaded,
       :max_records_per_request,
       :rate_limit_requests_per_minute,
       :download_password,
@@ -268,8 +275,19 @@ defmodule PhoenixKit.DBSync.Connection do
       :auto_sync_enabled,
       :auto_sync_tables,
       :auto_sync_interval_minutes,
+      :approved_at,
+      :suspended_at,
+      :suspended_reason,
+      :revoked_at,
+      :revoked_reason,
+      :last_connected_at,
+      :last_transfer_at,
+      :total_transfers,
+      :total_records_transferred,
+      :total_bytes_transferred,
       :metadata
     ])
+    |> validate_inclusion(:status, @valid_statuses)
     |> validate_inclusion(:approval_mode, @valid_approval_modes)
     |> validate_inclusion(:default_conflict_strategy, @valid_conflict_strategies)
     |> validate_number(:max_records_per_request, greater_than: 0)

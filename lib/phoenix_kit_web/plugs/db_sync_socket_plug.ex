@@ -191,10 +191,6 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
       {:error, :outside_allowed_hours} ->
         Logger.warning("DBSync: Connection outside allowed hours")
         send_forbidden(conn, "Outside allowed hours")
-
-      {:error, reason} ->
-        Logger.warning("DBSync: Token validation failed: #{inspect(reason)}")
-        send_forbidden(conn, "Authentication failed")
     end
   end
 

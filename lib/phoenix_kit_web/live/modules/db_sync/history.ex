@@ -83,11 +83,23 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
 
   @impl true
   def handle_event("filter", %{"direction" => direction, "status" => status}, socket) do
-    params = %{}
-    params = if direction != "", do: Map.put(params, "direction", direction), else: params
-    params = if status != "", do: Map.put(params, "status", status), else: params
+    query_params = %{}
 
-    path = Routes.path("/admin/db-sync/history", params)
+    query_params =
+      if direction != "", do: Map.put(query_params, "direction", direction), else: query_params
+
+    query_params =
+      if status != "", do: Map.put(query_params, "status", status), else: query_params
+
+    base_path = Routes.path("/admin/db-sync/history")
+
+    path =
+      if map_size(query_params) > 0 do
+        base_path <> "?" <> URI.encode_query(query_params)
+      else
+        base_path
+      end
+
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -158,19 +170,20 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
   end
 
   def handle_event("page", %{"page" => page}, socket) do
-    params = %{"page" => page}
+    query_params = %{"page" => page}
 
-    params =
+    query_params =
       if socket.assigns.direction_filter,
-        do: Map.put(params, "direction", socket.assigns.direction_filter),
-        else: params
+        do: Map.put(query_params, "direction", socket.assigns.direction_filter),
+        else: query_params
 
-    params =
+    query_params =
       if socket.assigns.status_filter,
-        do: Map.put(params, "status", socket.assigns.status_filter),
-        else: params
+        do: Map.put(query_params, "status", socket.assigns.status_filter),
+        else: query_params
 
-    path = Routes.path("/admin/db-sync/history", params)
+    base_path = Routes.path("/admin/db-sync/history")
+    path = base_path <> "?" <> URI.encode_query(query_params)
     {:noreply, push_patch(socket, to: path)}
   end
 

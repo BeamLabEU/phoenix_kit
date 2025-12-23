@@ -85,9 +85,12 @@ defmodule PhoenixKit.DBSync.Connections do
           {:ok, Connection.t(), String.t()} | {:error, Ecto.Changeset.t()}
   def create_connection(attrs) do
     repo = RepoHelper.repo()
-    token = Connection.generate_auth_token()
 
-    attrs_with_token = Map.put(attrs, :auth_token, token)
+    # Use provided token or generate a new one
+    token = attrs["auth_token"] || attrs[:auth_token] || Connection.generate_auth_token()
+
+    # Use string key to match form params (avoid mixed atom/string keys)
+    attrs_with_token = Map.put(attrs, "auth_token", token)
 
     %Connection{}
     |> Connection.changeset(attrs_with_token)
@@ -389,6 +392,47 @@ defmodule PhoenixKit.DBSync.Connections do
   def find_by_site_url(site_url, direction) when is_binary(site_url) and is_binary(direction) do
     repo = RepoHelper.repo()
     repo.get_by(Connection, site_url: site_url, direction: direction)
+  end
+
+  @doc """
+  Finds a connection by site URL and auth token hash.
+
+  Used to identify a specific connection when the remote site requests deletion.
+
+  ## Examples
+
+      conn = Connections.find_by_site_url_and_hash("https://example.com", "abc123hash")
+  """
+  @spec find_by_site_url_and_hash(String.t(), String.t()) :: Connection.t() | nil
+  def find_by_site_url_and_hash(site_url, auth_token_hash)
+      when is_binary(site_url) and is_binary(auth_token_hash) do
+    repo = RepoHelper.repo()
+
+    import Ecto.Query
+
+    from(c in Connection,
+      where: c.site_url == ^site_url and c.auth_token_hash == ^auth_token_hash
+    )
+    |> repo.one()
+  end
+
+  @doc """
+  Finds a connection by auth token hash and direction.
+
+  The auth_token_hash is unique per connection pair, so this can be used
+  to find a specific connection without needing the site URL.
+  """
+  @spec find_by_hash_and_direction(String.t(), String.t()) :: Connection.t() | nil
+  def find_by_hash_and_direction(auth_token_hash, direction)
+      when is_binary(auth_token_hash) and is_binary(direction) do
+    repo = RepoHelper.repo()
+
+    import Ecto.Query
+
+    from(c in Connection,
+      where: c.auth_token_hash == ^auth_token_hash and c.direction == ^direction
+    )
+    |> repo.one()
   end
 
   # ===========================================

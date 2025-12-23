@@ -64,6 +64,8 @@ defmodule PhoenixKit.DBSync.Transfer do
   alias PhoenixKit.DBSync.Connection
   alias PhoenixKit.Users.Auth.User
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :id, autogenerate: true}
 
   @valid_directions ~w(send receive)
