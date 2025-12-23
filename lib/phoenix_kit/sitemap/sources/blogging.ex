@@ -97,7 +97,9 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   defp collect_blog_listings(blogs, language, is_default, base_url) do
-    Enum.map(blogs, fn blog ->
+    blogs
+    |> Enum.filter(fn blog -> blog_has_posts_for_language?(blog, language) end)
+    |> Enum.map(fn blog ->
       slug = blog["slug"]
       name = blog["name"]
       # Canonical path without language prefix (for hreflang grouping)
@@ -123,6 +125,19 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       Logger.warning("Failed to collect blog listings: #{inspect(error)}")
 
       []
+  end
+
+  # Check if a blog has at least one published post for the given language
+  defp blog_has_posts_for_language?(blog, language) do
+    slug = blog["slug"]
+    post_language = language || get_default_language()
+
+    Blogging.list_posts(slug, post_language)
+    |> Enum.filter(&published?/1)
+    |> Enum.reject(&excluded?/1)
+    |> Enum.any?(fn post -> has_translation?(post, language) end)
+  rescue
+    _ -> false
   end
 
   defp collect_blog_posts(blog, language, is_default, base_url) do
