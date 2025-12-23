@@ -365,7 +365,9 @@
                 </div>
                 <label class="label">
                   <span class="label-text-alt text-base-content/50">
-                    {length(@models_grouped)} providers, {length(Enum.flat_map(@models_grouped, fn {_, m} -> m end))} models available
+                    {length(@models_grouped)} providers, {length(
+                      Enum.flat_map(@models_grouped, fn {_, m} -> m end)
+                    )} models available
                   </span>
                 </label>
               <% end %>
