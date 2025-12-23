@@ -192,14 +192,13 @@ PhoenixKit provides multiple installation methods to suit different project need
 
 **Recommended for most projects**
 
-Add both `phoenix_kit` and `igniter` to your project dependencies:
+Add `phoenix_kit` to your project dependencies (Igniter is included automatically):
 
 ```elixir
 # mix.exs
 def deps do
   [
-    {:phoenix_kit, "~> 1.6"},
-    {:igniter, "~> 0.7"}
+    {:phoenix_kit, "~> 1.7"}
   ]
 end
 ```
@@ -238,7 +237,7 @@ mix phoenix_kit.install --router-path lib/my_app_web/router.ex
 
 ## Manual Installation
 
-1. Add `{:phoenix_kit, "~> 1.4"}` to `mix.exs`
+1. Add `{:phoenix_kit, "~> 1.7"}` to `mix.exs`
 2. Run `mix deps.get && mix phoenix_kit.gen.migration`
 3. Configure repository: `config :phoenix_kit, repo: MyApp.Repo`
 4. Add `phoenix_kit_routes()` to your router
@@ -436,16 +435,78 @@ PhoenixKit.Users.Roles.demote_to_user(user)
 PhoenixKit.Users.Roles.create_role(%{name: "Manager", description: "Team lead"})
 ```
 
+### Module System
+
+PhoenixKit uses a modular architecture where features can be enabled/disabled at runtime. **All modules are disabled by default** and must be enabled before use.
+
+**Enable via Admin UI:**
+Visit `{prefix}/admin/modules` to toggle modules on/off.
+
+**Enable via Code:**
+```elixir
+# Check if a module is enabled
+PhoenixKit.AI.enabled?()        # => false (default)
+PhoenixKit.Entities.enabled?()  # => false (default)
+
+# Enable modules before use
+PhoenixKit.AI.enable_system()
+PhoenixKit.Entities.enable_system()
+PhoenixKit.Posts.enable_system()
+PhoenixKit.Emails.enable_system()
+PhoenixKit.Billing.enable_system()
+PhoenixKit.DBSync.enable_system()
+
+# Disable when no longer needed
+PhoenixKit.AI.disable_system()
+```
+
+**Important**: Attempting to use a disabled module's API functions or admin pages will result in errors or redirects. Always enable modules before:
+- Calling their API functions (e.g., `PhoenixKit.AI.ask/3`)
+- Visiting their admin pages (e.g., `/{prefix}/admin/ai/endpoints`)
+
 ### Built-in Admin Interface
 
-- `{prefix}/admin/dashboard` - System statistics
+**Core Administration:**
+- `{prefix}/admin/dashboard` - System statistics and overview
 - `{prefix}/admin/users` - User management with role controls
+- `{prefix}/admin/sessions` - Active session management
+- `{prefix}/admin/modules` - Enable/disable PhoenixKit modules
+- `{prefix}/admin/settings` - System settings (timezone, date/time formats)
+
+**Content & Data:**
+- `{prefix}/admin/blogging` - Blog posts and articles management
+- `{prefix}/admin/posts` - User-generated content (social posts)
+- `{prefix}/admin/entities` - Dynamic content types (WordPress ACF-like)
+
+**Communication:**
+- `{prefix}/admin/emails` - Email logs and delivery tracking
+- `{prefix}/admin/emails/dashboard` - Email metrics and analytics
+
+**AI Module:**
+- `{prefix}/admin/ai/endpoints` - AI provider endpoints
+- `{prefix}/admin/ai/prompts` - Reusable prompt templates
+- `{prefix}/admin/ai/usage` - AI usage statistics
+
+**Billing & Payments:**
+- `{prefix}/admin/billing` - Billing dashboard
+- `{prefix}/admin/billing/orders` - Order management
+- `{prefix}/admin/billing/invoices` - Invoice management
+- `{prefix}/admin/billing/subscriptions` - Subscription management
+
+**Settings & Configuration:**
+- `{prefix}/admin/settings/languages` - Multi-language configuration
+- `{prefix}/admin/settings/media` - Storage buckets and image dimensions
+- `{prefix}/admin/settings/sitemap` - Sitemap generation settings
+- `{prefix}/admin/settings/seo` - SEO configuration
+
+**Data Sync:**
+- `{prefix}/admin/db-sync` - Peer-to-peer database synchronization
 
 ## Architecture
 
 PhoenixKit follows professional library patterns:
 
-- **Library-First**: No OTP application, minimal dependencies
+- **OTP Application**: Ships with its own supervision tree (`PhoenixKit.Application`) for background workers, caching, and scheduled jobs
 - **Dynamic Repository**: Uses your existing Ecto repo
 - **Versioned Migrations**: Oban-style schema management
 - **PostgreSQL Only**: Optimized for production databases

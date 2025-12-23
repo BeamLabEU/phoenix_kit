@@ -129,7 +129,14 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
 
   @impl true
   def handle_event("sort", %{"by" => field}, socket) do
-    field = String.to_existing_atom(field)
+    # Validate field before converting to atom to prevent crashes from malicious input
+    field =
+      if field in @valid_sort_fields do
+        String.to_existing_atom(field)
+      else
+        :sort_order
+      end
+
     current_sort_by = socket.assigns.sort_by
     current_sort_dir = socket.assigns.sort_dir
 

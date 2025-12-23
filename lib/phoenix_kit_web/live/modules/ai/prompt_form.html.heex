@@ -25,67 +25,66 @@
 
     <%!-- Form --%>
     <div class="card bg-base-200">
-        <div class="card-body">
-          <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-5">
-            <%!-- Name --%>
-            <div>
-              <label class="block text-sm font-medium mb-2">
-                Name <span class="text-error">*</span>
-              </label>
-              <input
-                type="text"
-                name="prompt[name]"
-                value={@form[:name].value || ""}
-                class={"input input-bordered w-full #{if @form.errors[:name], do: "input-error"}"}
-                placeholder="e.g., Translator, Code Reviewer"
-                phx-debounce="1000"
-                required
-              />
-              <%= if @form.errors[:name] do %>
-                <p class="text-error text-sm mt-1">{elem(@form.errors[:name], 0)}</p>
-              <% end %>
-            </div>
+      <div class="card-body">
+        <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-5">
+          <%!-- Name --%>
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Name <span class="text-error">*</span>
+            </label>
+            <input
+              type="text"
+              name="prompt[name]"
+              value={@form[:name].value || ""}
+              class={"input input-bordered w-full #{if @form.errors[:name], do: "input-error"}"}
+              placeholder="e.g., Translator, Code Reviewer"
+              phx-debounce="1000"
+              required
+            />
+            <%= if @form.errors[:name] do %>
+              <p class="text-error text-sm mt-1">{elem(@form.errors[:name], 0)}</p>
+            <% end %>
+          </div>
 
-            <%!-- Slug --%>
-            <div>
-              <label class="block text-sm font-medium mb-2">
-                Slug
-                <span class="text-base-content/60 font-normal ml-2">Auto-generated from name</span>
-              </label>
-              <input
-                type="text"
-                name="prompt[slug]"
-                value={@form[:slug].value || ""}
-                class="input input-bordered w-full font-mono text-sm bg-base-300"
-                placeholder="auto-generated-slug"
-                readonly
-              />
-            </div>
+          <%!-- Slug --%>
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Slug
+              <span class="text-base-content/60 font-normal ml-2">Auto-generated from name</span>
+            </label>
+            <input
+              type="text"
+              name="prompt[slug]"
+              value={@form[:slug].value || ""}
+              class="input input-bordered w-full font-mono text-sm bg-base-300"
+              placeholder="auto-generated-slug"
+              readonly
+            />
+          </div>
 
-            <%!-- Description --%>
-            <div>
-              <label class="block text-sm font-medium mb-2">
-                Description
-                <span class="text-base-content/60 font-normal ml-2">Optional</span>
-              </label>
-              <textarea
-                name="prompt[description]"
-                class="textarea textarea-bordered w-full"
-                rows="2"
-                placeholder="Brief description of what this prompt does..."
-              >{@form[:description].value || ""}</textarea>
-            </div>
+          <%!-- Description --%>
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Description <span class="text-base-content/60 font-normal ml-2">Optional</span>
+            </label>
+            <textarea
+              name="prompt[description]"
+              class="textarea textarea-bordered w-full"
+              rows="2"
+              placeholder="Brief description of what this prompt does..."
+            >{@form[:description].value || ""}</textarea>
+          </div>
 
-            <%!-- Content --%>
-            <div>
-              <label class="block text-sm font-medium mb-2">
-                Content <span class="text-error">*</span>
-              </label>
-              <textarea
-                name="prompt[content]"
-                class={"textarea textarea-bordered w-full font-mono text-sm #{if @form.errors[:content], do: "textarea-error"}"}
-                rows="8"
-                placeholder="Enter your prompt template...
+          <%!-- Content --%>
+          <div>
+            <label class="block text-sm font-medium mb-2">
+              Content <span class="text-error">*</span>
+            </label>
+            <textarea
+              name="prompt[content]"
+              class={"textarea textarea-bordered w-full font-mono text-sm #{if @form.errors[:content], do: "textarea-error"}"}
+              rows="8"
+              placeholder="Enter your prompt template...
 
 Use {{VariableName}} for dynamic content.
 
@@ -93,62 +92,62 @@ Example:
 Translate the following text to {{Language}}:
 
 {{Text}}"
-                required
-              >{@form[:content].value || ""}</textarea>
-              <%= if @form.errors[:content] do %>
-                <p class="text-error text-sm mt-1">{elem(@form.errors[:content], 0)}</p>
-              <% end %>
-            </div>
+              required
+            >{@form[:content].value || ""}</textarea>
+            <%= if @form.errors[:content] do %>
+              <p class="text-error text-sm mt-1">{elem(@form.errors[:content], 0)}</p>
+            <% end %>
+          </div>
 
-            <%!-- Extracted Variables Preview --%>
-            <%= if length(@extracted_variables) > 0 do %>
-              <div class="alert">
-                <.icon name="hero-variable" class="w-5 h-5" />
-                <div>
-                  <div class="font-medium">Detected Variables</div>
-                  <div class="flex flex-wrap gap-2 mt-1">
-                    <%= for var <- @extracted_variables do %>
-                      <span class="badge badge-primary badge-outline font-mono">
-                        {"{{#{var}}}"}
-                      </span>
-                    <% end %>
-                  </div>
+          <%!-- Extracted Variables Preview --%>
+          <%= if length(@extracted_variables) > 0 do %>
+            <div class="alert">
+              <.icon name="hero-variable" class="w-5 h-5" />
+              <div>
+                <div class="font-medium">Detected Variables</div>
+                <div class="flex flex-wrap gap-2 mt-1">
+                  <%= for var <- @extracted_variables do %>
+                    <span class="badge badge-primary badge-outline font-mono">
+                      {"{{#{var}}}"}
+                    </span>
+                  <% end %>
                 </div>
               </div>
-            <% end %>
-
-            <%!-- Enabled Toggle --%>
-            <div>
-              <label class="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="prompt[enabled]"
-                  value="true"
-                  checked={@form[:enabled].value != false}
-                  class="checkbox checkbox-primary"
-                />
-                <span class="font-medium">Enabled</span>
-              </label>
-              <p class="text-sm text-base-content/60 mt-1 ml-8">
-                Disabled prompts cannot be used via the API
-              </p>
             </div>
+          <% end %>
 
-            <%!-- Actions --%>
-            <div class="flex justify-end gap-2 pt-4">
-              <.link
-                navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
-                class="btn btn-ghost"
-              >
-                Cancel
-              </.link>
-              <button type="submit" class="btn btn-primary">
-                <.icon name="hero-check" class="w-4 h-4 mr-2" />
-                {if @prompt, do: "Update Prompt", else: "Create Prompt"}
-              </button>
-            </div>
-          </.form>
-        </div>
+          <%!-- Enabled Toggle --%>
+          <div>
+            <label class="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                name="prompt[enabled]"
+                value="true"
+                checked={@form[:enabled].value != false}
+                class="checkbox checkbox-primary"
+              />
+              <span class="font-medium">Enabled</span>
+            </label>
+            <p class="text-sm text-base-content/60 mt-1 ml-8">
+              Disabled prompts cannot be used via the API
+            </p>
+          </div>
+
+          <%!-- Actions --%>
+          <div class="flex justify-end gap-2 pt-4">
+            <.link
+              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
+              class="btn btn-ghost"
+            >
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary">
+              <.icon name="hero-check" class="w-4 h-4 mr-2" />
+              {if @prompt, do: "Update Prompt", else: "Create Prompt"}
+            </button>
+          </div>
+        </.form>
+      </div>
     </div>
 
     <%!-- Help Section --%>
@@ -170,14 +169,17 @@ Translate the following text to {{Language}}:
             <p class="font-medium mb-1">Naming rules:</p>
             <ul class="list-disc list-inside text-base-content/70 space-y-1">
               <li>
-                Use letters, numbers, and underscores only — <span class="text-error">no spaces</span>
+                Use letters, numbers, and underscores only —
+                <span class="text-error">no spaces</span>
               </li>
               <li>
-                <code class="bg-base-300 px-1 rounded">{"{{UserLanguage}}"}</code> or
-                <code class="bg-base-300 px-1 rounded">{"{{user_language}}"}</code> — both work
+                <code class="bg-base-300 px-1 rounded">{"{{UserLanguage}}"}</code>
+                or <code class="bg-base-300 px-1 rounded">{"{{user_language}}"}</code>
+                — both work
               </li>
               <li>
-                <code class="bg-base-300 px-1 rounded">{"{{User Language}}"}</code> — won't be detected as a variable
+                <code class="bg-base-300 px-1 rounded">{"{{User Language}}"}</code>
+                — won't be detected as a variable
               </li>
             </ul>
           </div>
@@ -186,7 +188,8 @@ Translate the following text to {{Language}}:
             <p class="font-medium mb-1">Missing variables:</p>
             <p class="text-base-content/70">
               If a variable isn't provided when the prompt is used, it stays as-is in the output
-              (e.g., <code class="bg-base-300 px-1 rounded">{"{{Language}}"}</code> remains unchanged).
+              (e.g., <code class="bg-base-300 px-1 rounded">{"{{Language}}"}</code>
+              remains unchanged).
             </p>
           </div>
         </div>

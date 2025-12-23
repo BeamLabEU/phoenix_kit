@@ -317,7 +317,7 @@ defmodule PhoenixKit.AI.Prompt do
       false
   """
   def has_variables?(%__MODULE__{variables: variables}) do
-    is_list(variables) and length(variables) > 0
+    is_list(variables) and not Enum.empty?(variables)
   end
 
   def has_variables?(_), do: false
@@ -353,9 +353,7 @@ defmodule PhoenixKit.AI.Prompt do
       ""
   """
   def format_variables_for_display(%__MODULE__{variables: variables}) when is_list(variables) do
-    variables
-    |> Enum.map(fn var -> "{{#{var}}}" end)
-    |> Enum.join(", ")
+    Enum.map_join(variables, ", ", fn var -> "{{#{var}}}" end)
   end
 
   def format_variables_for_display(_), do: ""
