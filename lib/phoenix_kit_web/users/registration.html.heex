@@ -41,25 +41,27 @@
               />
             </div>
 
-            <%!-- Username Field (optional) --%>
-            <div phx-feedback-for="user[username]">
-              <label class="label" for="user_username">
-                <span class="label-text flex items-center">
-                  <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
-                  Username
-                </span>
-              </label>
-              <.input
-                field={@form[:username]}
-                type="text"
-                placeholder="Choose a unique username (optional)"
-                autocomplete="username"
-                class="transition-colors focus:input-primary"
-              />
-              <div class="text-xs text-base-content/60 mt-1">
-                If not provided, we'll generate one from your email
+            <%!-- Username Field (optional, controlled by admin setting) --%>
+            <%= if @show_username do %>
+              <div phx-feedback-for="user[username]">
+                <label class="label" for="user_username">
+                  <span class="label-text flex items-center">
+                    <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                    Username
+                  </span>
+                </label>
+                <.input
+                  field={@form[:username]}
+                  type="text"
+                  placeholder="Choose a unique username (optional)"
+                  autocomplete="username"
+                  class="transition-colors focus:input-primary"
+                />
+                <div class="text-xs text-base-content/60 mt-1">
+                  If not provided, we'll generate one from your email
+                </div>
               </div>
-            </div>
+            <% end %>
 
             <%!-- Referral Code Field (shown when referral codes are enabled) --%>
             <%= if @referral_codes_enabled do %>

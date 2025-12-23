@@ -187,7 +187,7 @@
                 />
                 <span class="label-text">Anyone can register</span>
               </div>
-              <div class="flex items-center gap-3">
+              <div class="flex items-center gap-3 mb-3">
                 <input
                   name="settings[track_registration_geolocation]"
                   type="hidden"
@@ -201,6 +201,21 @@
                   class="checkbox checkbox-primary"
                 />
                 <span class="label-text">Track user registration location</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <input
+                  name="settings[registration_show_username]"
+                  type="hidden"
+                  value="false"
+                />
+                <input
+                  name="settings[registration_show_username]"
+                  type="checkbox"
+                  value="true"
+                  checked={@settings["registration_show_username"] == "true"}
+                  class="checkbox checkbox-primary"
+                />
+                <span class="label-text">Show username field on registration</span>
               </div>
               <div class="label">
                 <span class="label-text-alt text-xs text-base-content/50">

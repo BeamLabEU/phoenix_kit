@@ -133,6 +133,60 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets a user by email or username and password.
+
+  Allows users to log in using either their email address or username.
+  If the input contains "@", it's treated as an email; otherwise, as a username.
+  Username lookup is case-insensitive for better UX.
+
+  This function includes rate limiting protection to prevent brute-force attacks.
+
+  ## Examples
+
+      iex> get_user_by_email_or_username_and_password("foo@example.com", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("johndoe", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("JohnDoe", "correct_password")
+      {:ok, %User{}}  # Case-insensitive username lookup
+
+      iex> get_user_by_email_or_username_and_password("unknown", "password")
+      {:error, :invalid_credentials}
+
+  """
+  def get_user_by_email_or_username_and_password(email_or_username, password, ip_address \\ nil)
+      when is_binary(email_or_username) and is_binary(password) do
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email_or_username, ip_address) do
+      :ok ->
+        user =
+          if String.contains?(email_or_username, "@") do
+            # Treat as email
+            Repo.get_by(User, email: email_or_username)
+          else
+            # Treat as username - case-insensitive lookup
+            from(u in User,
+              where: fragment("LOWER(?)", u.username) == ^String.downcase(email_or_username)
+            )
+            |> Repo.one()
+          end
+
+        # Return user if password is valid, regardless of is_active status
+        # The session controller will handle inactive status check separately
+        if User.valid_password?(user, password) do
+          {:ok, user}
+        else
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
+  end
+
+  @doc """
   Gets a single user.
 
   Returns `nil` if the user does not exist.
@@ -1763,5 +1817,134 @@ defmodule PhoenixKit.Users.Auth do
     {:ok, String.to_existing_atom(string)}
   rescue
     ArgumentError -> :error
+  end
+
+  ## Admin Notes
+
+  alias PhoenixKit.Users.AdminNote
+
+  @doc """
+  Lists all admin notes for a user, ordered by most recent first.
+
+  Preloads the author information for display.
+
+  ## Examples
+
+      iex> list_admin_notes(user)
+      [%AdminNote{}, ...]
+
+  """
+  def list_admin_notes(%User{} = user) do
+    from(n in AdminNote,
+      where: n.user_id == ^user.id,
+      order_by: [desc: n.inserted_at],
+      preload: [:author]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single admin note by ID.
+
+  Preloads the author information.
+
+  ## Examples
+
+      iex> get_admin_note(123)
+      %AdminNote{}
+
+      iex> get_admin_note(456)
+      nil
+
+  """
+  def get_admin_note(id) when is_integer(id) do
+    from(n in AdminNote,
+      where: n.id == ^id,
+      preload: [:author]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Creates an admin note about a user.
+
+  ## Parameters
+
+  - `user` - The user being noted about
+  - `author` - The admin creating the note
+  - `attrs` - Map containing `:content`
+
+  ## Examples
+
+      iex> create_admin_note(user, author, %{content: "Important note"})
+      {:ok, %AdminNote{}}
+
+      iex> create_admin_note(user, author, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_admin_note(%User{} = user, %User{} = author, attrs) do
+    attrs =
+      attrs
+      |> Map.put("user_id", user.id)
+      |> Map.put("author_id", author.id)
+
+    %AdminNote{}
+    |> AdminNote.changeset(attrs)
+    |> Repo.insert()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Updates an admin note.
+
+  Only the content can be updated.
+
+  ## Examples
+
+      iex> update_admin_note(note, %{content: "Updated note"})
+      {:ok, %AdminNote{}}
+
+      iex> update_admin_note(note, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_admin_note(%AdminNote{} = note, attrs) do
+    note
+    |> AdminNote.update_changeset(attrs)
+    |> Repo.update()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Deletes an admin note.
+
+  ## Examples
+
+      iex> delete_admin_note(note)
+      {:ok, %AdminNote{}}
+
+  """
+  def delete_admin_note(%AdminNote{} = note) do
+    Repo.delete(note)
+  end
+
+  @doc """
+  Returns a changeset for tracking admin note changes.
+
+  ## Examples
+
+      iex> change_admin_note(note)
+      %Ecto.Changeset{}
+
+  """
+  def change_admin_note(%AdminNote{} = note, attrs \\ %{}) do
+    AdminNote.changeset(note, attrs)
   end
 end

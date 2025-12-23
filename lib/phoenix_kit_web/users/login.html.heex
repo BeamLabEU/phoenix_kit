@@ -18,18 +18,19 @@
           <fieldset class="fieldset">
             <legend class="fieldset-legend sr-only">Login with Password</legend>
 
-            <label class="label" for="user_email">
+            <label class="label" for="user_email_or_username">
               <span class="label-text flex items-center">
-                <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-4 h-4 mr-2" /> Email
+                <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
+                Email or Username
               </span>
             </label>
             <input
-              id="user_email"
-              name="user[email]"
-              type="email"
+              id="user_email_or_username"
+              name="user[email_or_username]"
+              type="text"
               class="input input-bordered w-full transition-colors focus:input-primary"
-              placeholder="Enter your email address"
-              value={@form.params["email"] || ""}
+              placeholder="Enter your email or username"
+              value={@form.params["email_or_username"] || ""}
               autocomplete="username"
               required
             />

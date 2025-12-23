@@ -272,12 +272,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Receiver-side settings: conflict strategy, auto-sync
   - Full audit trail for connections and transfers
 
-  ### V38 - AI Prompts System ⚡ LATEST
+  ### V38 - AI Prompts System
   - Phoenix_kit_ai_prompts for reusable prompt templates
   - Variable substitution with {{VariableName}} syntax
   - Auto-extracted variables stored for validation
   - Usage tracking (count and last used timestamp)
   - Sorting and organization support
+
+  ### V39 - Admin Notes System ⚡ LATEST
+  - Phoenix_kit_admin_notes for internal admin notes about users
+  - Admin-to-admin communication about user accounts
+  - Author tracking for accountability
+  - Any admin can view/edit/delete any note
 
   ## Migration Paths
 
@@ -337,7 +343,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 38
+  @current_version 39
   @default_prefix "public"
 
   @doc false
