@@ -116,6 +116,7 @@ defmodule PhoenixKit.Settings do
       "date_format" => "Y-m-d",
       "time_format" => "H:i",
       "track_registration_geolocation" => "false",
+      "registration_show_username" => "true",
       # Email Settings
       "email_enabled" => "false",
       "email_save_body" => "false",
