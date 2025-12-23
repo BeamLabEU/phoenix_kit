@@ -263,7 +263,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
 
-  ### V37 - DB Sync Connections & Transfer Tracking ⚡ LATEST
+  ### V37 - DB Sync Connections & Transfer Tracking
   - Phoenix_kit_db_sync_connections for permanent site-to-site connections
   - Phoenix_kit_db_sync_transfers for tracking all data transfers
   - Approval modes: auto_approve, require_approval, per_table
@@ -271,6 +271,13 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Additional security: password protection, IP whitelist, time restrictions
   - Receiver-side settings: conflict strategy, auto-sync
   - Full audit trail for connections and transfers
+
+  ### V38 - AI Prompts System ⚡ LATEST
+  - Phoenix_kit_ai_prompts for reusable prompt templates
+  - Variable substitution with {{VariableName}} syntax
+  - Auto-extracted variables stored for validation
+  - Usage tracking (count and last used timestamp)
+  - Sorting and organization support
 
   ## Migration Paths
 
@@ -330,7 +337,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 37
+  @current_version 38
   @default_prefix "public"
 
   @doc false
