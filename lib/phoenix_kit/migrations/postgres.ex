@@ -253,7 +253,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Internal notes feature (staff-only visibility)
   - Settings: enabled, per_page, comments, internal notes, attachments, allow_reopen
 
-  ### V36 - Connections Module (Social Relationships) ⚡ LATEST
+  ### V36 - Connections Module (Social Relationships)
   - Phoenix_kit_user_follows for one-way follow relationships
   - Phoenix_kit_user_connections for two-way mutual connections
   - Phoenix_kit_user_blocks for user blocking
@@ -262,6 +262,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Connection: requires acceptance from both parties
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
+
+  ### V37 - Admin Notes System ⚡ LATEST
+  - Phoenix_kit_admin_notes for internal admin notes about users
+  - Admin-to-admin communication about user accounts
+  - Author tracking for accountability
+  - Any admin can view/edit/delete any note
 
   ## Migration Paths
 
@@ -321,7 +327,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 36
+  @current_version 37
   @default_prefix "public"
 
   @doc false

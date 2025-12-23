@@ -1764,4 +1764,133 @@ defmodule PhoenixKit.Users.Auth do
   rescue
     ArgumentError -> :error
   end
+
+  ## Admin Notes
+
+  alias PhoenixKit.Users.AdminNote
+
+  @doc """
+  Lists all admin notes for a user, ordered by most recent first.
+
+  Preloads the author information for display.
+
+  ## Examples
+
+      iex> list_admin_notes(user)
+      [%AdminNote{}, ...]
+
+  """
+  def list_admin_notes(%User{} = user) do
+    from(n in AdminNote,
+      where: n.user_id == ^user.id,
+      order_by: [desc: n.inserted_at],
+      preload: [:author]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single admin note by ID.
+
+  Preloads the author information.
+
+  ## Examples
+
+      iex> get_admin_note(123)
+      %AdminNote{}
+
+      iex> get_admin_note(456)
+      nil
+
+  """
+  def get_admin_note(id) when is_integer(id) do
+    from(n in AdminNote,
+      where: n.id == ^id,
+      preload: [:author]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Creates an admin note about a user.
+
+  ## Parameters
+
+  - `user` - The user being noted about
+  - `author` - The admin creating the note
+  - `attrs` - Map containing `:content`
+
+  ## Examples
+
+      iex> create_admin_note(user, author, %{content: "Important note"})
+      {:ok, %AdminNote{}}
+
+      iex> create_admin_note(user, author, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_admin_note(%User{} = user, %User{} = author, attrs) do
+    attrs =
+      attrs
+      |> Map.put("user_id", user.id)
+      |> Map.put("author_id", author.id)
+
+    %AdminNote{}
+    |> AdminNote.changeset(attrs)
+    |> Repo.insert()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Updates an admin note.
+
+  Only the content can be updated.
+
+  ## Examples
+
+      iex> update_admin_note(note, %{content: "Updated note"})
+      {:ok, %AdminNote{}}
+
+      iex> update_admin_note(note, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_admin_note(%AdminNote{} = note, attrs) do
+    note
+    |> AdminNote.update_changeset(attrs)
+    |> Repo.update()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Deletes an admin note.
+
+  ## Examples
+
+      iex> delete_admin_note(note)
+      {:ok, %AdminNote{}}
+
+  """
+  def delete_admin_note(%AdminNote{} = note) do
+    Repo.delete(note)
+  end
+
+  @doc """
+  Returns a changeset for tracking admin note changes.
+
+  ## Examples
+
+      iex> change_admin_note(note)
+      %Ecto.Changeset{}
+
+  """
+  def change_admin_note(%AdminNote{} = note, attrs \\ %{}) do
+    AdminNote.changeset(note, attrs)
+  end
 end

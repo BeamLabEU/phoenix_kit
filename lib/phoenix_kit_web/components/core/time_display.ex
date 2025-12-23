@@ -27,7 +27,7 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
 
   def time_ago(assigns) do
     ~H"""
-    <span class={@class}>
+    <span class={@class} title={format_datetime_title(@datetime)}>
       {format_time_ago(@datetime)}
     </span>
     """
@@ -133,7 +133,18 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   defp format_time_ago(datetime) when is_struct(datetime, DateTime) do
     now = DateTime.utc_now()
     diff_seconds = DateTime.diff(now, datetime, :second)
+    format_seconds_ago(diff_seconds)
+  end
 
+  defp format_time_ago(datetime) when is_struct(datetime, NaiveDateTime) do
+    now = NaiveDateTime.utc_now()
+    diff_seconds = NaiveDateTime.diff(now, datetime, :second)
+    format_seconds_ago(diff_seconds)
+  end
+
+  defp format_time_ago(_), do: "Unknown"
+
+  defp format_seconds_ago(diff_seconds) do
     cond do
       diff_seconds < 60 -> "#{diff_seconds}s ago"
       diff_seconds < 3_600 -> "#{div(diff_seconds, 60)}m ago"
@@ -142,7 +153,17 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
     end
   end
 
-  defp format_time_ago(_), do: "Unknown"
+  defp format_datetime_title(nil), do: nil
+
+  defp format_datetime_title(datetime) when is_struct(datetime, DateTime) do
+    Calendar.strftime(datetime, "%B %d, %Y at %H:%M:%S UTC")
+  end
+
+  defp format_datetime_title(datetime) when is_struct(datetime, NaiveDateTime) do
+    Calendar.strftime(datetime, "%B %d, %Y at %H:%M:%S")
+  end
+
+  defp format_datetime_title(_), do: nil
 
   defp format_expiration(nil), do: "No expiration"
 

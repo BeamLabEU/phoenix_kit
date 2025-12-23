@@ -4,14 +4,15 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
   Displays user profile information in a tabbed interface with:
   - Profile tab: Basic info, status, roles, registration details
-
-  Future tabs can be added for sessions, activity, connections, etc.
+  - Connections tab: Follower/following/connection stats (if enabled)
+  - Notes tab: Admin notes about the user
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.AdminNote
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
   alias PhoenixKit.Utils.Date, as: UtilsDate
@@ -55,6 +56,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
             nil
           end
 
+        # Load admin notes
+        admin_notes = Auth.list_admin_notes(user)
+
         socket =
           socket
           |> assign(:user, user)
@@ -65,6 +69,9 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:show_delete_modal, false)
           |> assign(:connections_enabled, connections_enabled)
           |> assign(:connections_stats, connections_stats)
+          |> assign(:admin_notes, admin_notes)
+          |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
+          |> assign(:editing_note_id, nil)
 
         {:ok, socket}
     end
@@ -92,6 +99,101 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
      socket
      |> assign(:show_delete_modal, false)
      |> put_flash(:error, gettext("User deletion is not yet implemented"))}
+  end
+
+  # Admin Notes Events
+
+  @impl true
+  def handle_event("add_note", %{"admin_note" => note_params}, socket) do
+    current_user = socket.assigns.phoenix_kit_current_scope.user
+    user = socket.assigns.user
+
+    case Auth.create_admin_note(user, current_user, note_params) do
+      {:ok, _note} ->
+        admin_notes = Auth.list_admin_notes(user)
+
+        {:noreply,
+         socket
+         |> assign(:admin_notes, admin_notes)
+         |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
+         |> put_flash(:info, gettext("Note added successfully"))}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, :note_form, to_form(changeset))}
+    end
+  end
+
+  @impl true
+  def handle_event("edit_note", %{"id" => note_id}, socket) do
+    note_id = String.to_integer(note_id)
+    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+
+    if note do
+      changeset = Auth.change_admin_note(note)
+
+      {:noreply,
+       socket
+       |> assign(:editing_note_id, note_id)
+       |> assign(:note_form, to_form(changeset))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("cancel_edit", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:editing_note_id, nil)
+     |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))}
+  end
+
+  @impl true
+  def handle_event("update_note", %{"admin_note" => note_params}, socket) do
+    note_id = socket.assigns.editing_note_id
+    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+
+    if note do
+      case Auth.update_admin_note(note, note_params) do
+        {:ok, _note} ->
+          admin_notes = Auth.list_admin_notes(socket.assigns.user)
+
+          {:noreply,
+           socket
+           |> assign(:admin_notes, admin_notes)
+           |> assign(:editing_note_id, nil)
+           |> assign(:note_form, to_form(Auth.change_admin_note(%AdminNote{})))
+           |> put_flash(:info, gettext("Note updated successfully"))}
+
+        {:error, changeset} ->
+          {:noreply, assign(socket, :note_form, to_form(changeset))}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("delete_note", %{"id" => note_id}, socket) do
+    note_id = String.to_integer(note_id)
+    note = Enum.find(socket.assigns.admin_notes, &(&1.id == note_id))
+
+    if note do
+      case Auth.delete_admin_note(note) do
+        {:ok, _} ->
+          admin_notes = Auth.list_admin_notes(socket.assigns.user)
+
+          {:noreply,
+           socket
+           |> assign(:admin_notes, admin_notes)
+           |> put_flash(:info, gettext("Note deleted successfully"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to delete note"))}
+      end
+    else
+      {:noreply, socket}
+    end
   end
 
   defp user_display_name(user) do

@@ -168,7 +168,9 @@
                       <%= cond do %>
                         <% column_id == "email" -> %>
                           <.link
-                            navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")}
+                            navigate={
+                              PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                            }
                             class="flex items-center gap-3 hover:opacity-80 transition-opacity"
                           >
                             <.user_avatar user={user} size="sm" />
@@ -296,7 +298,9 @@
                           <div class="flex flex-wrap gap-1">
                             <%!-- View User Details --%>
                             <.link
-                              navigate={PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")}
+                              navigate={
+                                PhoenixKit.Utils.Routes.path("/admin/users/view/#{user.id}")
+                              }
                               class="btn btn-xs btn-outline btn-info"
                               title="View user details"
                             >
