@@ -54,7 +54,18 @@
           <.icon name="hero-user" class="w-4 h-4" />
           {gettext("Profile")}
         </button>
-        <%!-- Future tabs can be added here --%>
+        <%= if @connections_enabled do %>
+          <button
+            type="button"
+            role="tab"
+            class={"tab gap-2 #{if @active_tab == "connections", do: "tab-active"}"}
+            phx-click="change_tab"
+            phx-value-tab="connections"
+          >
+            <.icon name="hero-user-group" class="w-4 h-4" />
+            {gettext("Connections")}
+          </button>
+        <% end %>
       </div>
     </div>
 
@@ -253,6 +264,56 @@
                 </div>
               </div>
             <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Connections Tab Content --%>
+      <%= if @active_tab == "connections" and @connections_enabled do %>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <%!-- Followers --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body items-center text-center p-4">
+              <.icon name="hero-users" class="w-8 h-8 text-primary" />
+              <div class="text-2xl font-bold">{@connections_stats.followers}</div>
+              <div class="text-sm text-base-content/70">{gettext("Followers")}</div>
+            </div>
+          </div>
+
+          <%!-- Following --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body items-center text-center p-4">
+              <.icon name="hero-user-plus" class="w-8 h-8 text-secondary" />
+              <div class="text-2xl font-bold">{@connections_stats.following}</div>
+              <div class="text-sm text-base-content/70">{gettext("Following")}</div>
+            </div>
+          </div>
+
+          <%!-- Connections --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body items-center text-center p-4">
+              <.icon name="hero-link" class="w-8 h-8 text-accent" />
+              <div class="text-2xl font-bold">{@connections_stats.connections}</div>
+              <div class="text-sm text-base-content/70">{gettext("Connections")}</div>
+            </div>
+          </div>
+
+          <%!-- Pending --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body items-center text-center p-4">
+              <.icon name="hero-clock" class="w-8 h-8 text-warning" />
+              <div class="text-2xl font-bold">{@connections_stats.pending}</div>
+              <div class="text-sm text-base-content/70">{gettext("Pending")}</div>
+            </div>
+          </div>
+
+          <%!-- Blocked --%>
+          <div class="card bg-base-200 shadow-sm">
+            <div class="card-body items-center text-center p-4">
+              <.icon name="hero-no-symbol" class="w-8 h-8 text-error" />
+              <div class="text-2xl font-bold">{@connections_stats.blocked}</div>
+              <div class="text-sm text-base-content/70">{gettext("Blocked")}</div>
+            </div>
           </div>
         </div>
       <% end %>

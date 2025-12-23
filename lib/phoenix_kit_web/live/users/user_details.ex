@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.CustomFields
@@ -38,6 +39,22 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
       user ->
         custom_field_definitions = CustomFields.list_field_definitions()
 
+        # Load connections stats if module is enabled
+        connections_enabled = Connections.enabled?()
+
+        connections_stats =
+          if connections_enabled do
+            %{
+              followers: Connections.followers_count(user),
+              following: Connections.following_count(user),
+              connections: Connections.connections_count(user),
+              pending: Connections.pending_requests_count(user),
+              blocked: length(Connections.list_blocked(user))
+            }
+          else
+            nil
+          end
+
         socket =
           socket
           |> assign(:user, user)
@@ -46,6 +63,8 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
           |> assign(:active_tab, "profile")
           |> assign(:custom_field_definitions, custom_field_definitions)
           |> assign(:show_delete_modal, false)
+          |> assign(:connections_enabled, connections_enabled)
+          |> assign(:connections_stats, connections_stats)
 
         {:ok, socket}
     end
