@@ -654,8 +654,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   defp get_admin_languages do
     # If Languages module is not enabled, return empty list to hide dropdown
     if Languages.enabled?() do
-      # Read admin languages from settings (not all enabled languages)
-      admin_languages_json = Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
+      # Read admin languages from settings cache (not all enabled languages)
+      # Note: admin_languages is stored as JSON string in value column
+      admin_languages_json =
+        Settings.get_setting_cached("admin_languages", Jason.encode!(["en-US"]))
 
       admin_language_codes =
         case Jason.decode(admin_languages_json) do

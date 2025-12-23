@@ -79,7 +79,7 @@ defmodule PhoenixKit.Users.CustomFields do
 
       # Fallback: try reading from string field for backward compatibility
       _ ->
-        case Settings.get_setting(@setting_key) do
+        case Settings.get_setting_cached(@setting_key) do
           nil -> []
           json_string when is_binary(json_string) -> parse_definitions(json_string)
           definitions when is_list(definitions) -> definitions

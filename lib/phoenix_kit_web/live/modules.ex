@@ -28,8 +28,8 @@ defmodule PhoenixKitWeb.Live.Modules do
   def mount(_params, _session, socket) do
     # Set locale for LiveView process
 
-    # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Get project title from settings cache
+    project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
 
     # Load module states
     referral_codes_config = ReferralCodes.get_config()

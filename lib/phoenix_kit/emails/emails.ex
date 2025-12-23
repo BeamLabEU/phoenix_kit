@@ -969,7 +969,7 @@ defmodule PhoenixKit.Emails do
       "my-app-system"
   """
   def get_ses_configuration_set do
-    Settings.get_setting("aws_ses_configuration_set", nil)
+    Settings.get_setting_cached("aws_ses_configuration_set", nil)
   end
 
   @doc """
@@ -1060,7 +1060,7 @@ defmodule PhoenixKit.Emails do
       "arn:aws:sns:eu-north-1:123456789012:phoenixkit-email-events"
   """
   def get_sns_topic_arn do
-    Settings.get_setting("aws_sns_topic_arn", nil)
+    Settings.get_setting_cached("aws_sns_topic_arn", nil)
   end
 
   @doc """
@@ -1088,7 +1088,7 @@ defmodule PhoenixKit.Emails do
       "https://sqs.eu-north-1.amazonaws.com/123456789012/phoenixkit-email-queue"
   """
   def get_sqs_queue_url do
-    Settings.get_setting("aws_sqs_queue_url", nil)
+    Settings.get_setting_cached("aws_sqs_queue_url", nil)
   end
 
   @doc """
@@ -1116,7 +1116,7 @@ defmodule PhoenixKit.Emails do
       "arn:aws:sqs:eu-north-1:123456789012:phoenixkit-email-queue"
   """
   def get_sqs_queue_arn do
-    Settings.get_setting("aws_sqs_queue_arn", nil)
+    Settings.get_setting_cached("aws_sqs_queue_arn", nil)
   end
 
   @doc """
@@ -1144,7 +1144,7 @@ defmodule PhoenixKit.Emails do
       "https://sqs.eu-north-1.amazonaws.com/123456789012/phoenixkit-email-dlq"
   """
   def get_sqs_dlq_url do
-    Settings.get_setting("aws_sqs_dlq_url", nil)
+    Settings.get_setting_cached("aws_sqs_dlq_url", nil)
   end
 
   @doc """
@@ -1172,7 +1172,7 @@ defmodule PhoenixKit.Emails do
       "eu-north-1"
   """
   def get_aws_region do
-    Settings.get_setting("aws_region", System.get_env("AWS_REGION", "eu-north-1"))
+    Settings.get_setting_cached("aws_region", System.get_env("AWS_REGION", "eu-north-1"))
   end
 
   @doc """

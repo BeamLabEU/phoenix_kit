@@ -450,7 +450,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   # Get default language from admin settings
   defp get_default_language do
-    case PhoenixKit.Settings.get_json_setting("admin_languages") do
+    case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
       [first | _] -> extract_base(first)
       _ -> "en"
     end

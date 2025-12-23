@@ -822,7 +822,7 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp get_per_page_setting do
-    case Settings.get_setting("blogging_posts_per_page") do
+    case Settings.get_setting_cached("blogging_posts_per_page") do
       nil ->
         20
 

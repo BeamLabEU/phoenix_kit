@@ -742,7 +742,7 @@ defmodule PhoenixKit.Modules.Storage do
   Returns the configured relative path or the default "priv/uploads" if not set.
   """
   def get_default_path do
-    Settings.get_setting("storage_default_path", @default_path)
+    Settings.get_setting_cached("storage_default_path", @default_path)
   end
 
   @doc """
@@ -1424,18 +1424,18 @@ defmodule PhoenixKit.Modules.Storage do
   end
 
   defp get_redundancy_copies do
-    Settings.get_setting("storage_redundancy_copies", "1")
+    Settings.get_setting_cached("storage_redundancy_copies", "1")
     |> String.to_integer()
     |> max(1)
     |> min(5)
   end
 
   def get_auto_generate_variants do
-    Settings.get_setting("storage_auto_generate_variants", "true") == "true"
+    Settings.get_setting_cached("storage_auto_generate_variants", "true") == "true"
   end
 
   defp get_default_bucket_id do
-    Settings.get_setting("storage_default_bucket_id", nil)
+    Settings.get_setting_cached("storage_default_bucket_id", nil)
   end
 
   defp calculate_local_free_space(bucket) do

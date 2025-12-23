@@ -85,7 +85,7 @@ defmodule PhoenixKit.AI do
   Checks if the AI module is enabled.
   """
   def enabled? do
-    Settings.get_setting("ai_enabled", "false") == "true"
+    Settings.get_setting_cached("ai_enabled", "false") == "true"
   end
 
   @doc """
