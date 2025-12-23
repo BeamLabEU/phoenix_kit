@@ -494,7 +494,7 @@ defmodule PhoenixKit.Migrations.Postgres.V29 do
       %{key: "posts_max_tags", value: "20"},
 
       # Module Configuration
-      %{key: "posts_enabled", value: "true"},
+      %{key: "posts_enabled", value: "false"},
       %{key: "posts_per_page", value: "20"},
       %{key: "posts_default_status", value: "draft"},
 
