@@ -41,17 +41,21 @@
       </div>
     </header>
 
-    <%!-- Tabs --%>
-    <div class="tabs tabs-boxed mb-6 justify-center">
-      <button
-        type="button"
-        class={"tab #{if @active_tab == "profile", do: "tab-active"}"}
-        phx-click="change_tab"
-        phx-value-tab="profile"
-      >
-        {gettext("Profile")}
-      </button>
-      <%!-- Future tabs can be added here --%>
+    <%!-- Tabs Navigation --%>
+    <div class="flex justify-center mb-6">
+      <div role="tablist" class="tabs tabs-boxed bg-base-200 p-1">
+        <button
+          type="button"
+          role="tab"
+          class={"tab gap-2 #{if @active_tab == "profile", do: "tab-active"}"}
+          phx-click="change_tab"
+          phx-value-tab="profile"
+        >
+          <.icon name="hero-user" class="w-4 h-4" />
+          {gettext("Profile")}
+        </button>
+        <%!-- Future tabs can be added here --%>
+      </div>
     </div>
 
     <%!-- Tab Content --%>
