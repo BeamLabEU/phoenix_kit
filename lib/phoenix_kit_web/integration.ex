@@ -303,6 +303,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users", Live.Users.Users, :index
           live "/admin/users/new", Users.UserForm, :new, as: :user_form
           live "/admin/users/edit/:id", Users.UserForm, :edit, as: :user_form_edit
+          live "/admin/users/view/:id", Live.Users.UserDetails, :show
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
@@ -523,6 +524,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users", Live.Users.Users, :index
           live "/admin/users/new", Users.UserForm, :new, as: :user_form
           live "/admin/users/edit/:id", Users.UserForm, :edit, as: :user_form_edit
+          live "/admin/users/view/:id", Live.Users.UserDetails, :show
           live "/admin/users/roles", Live.Users.Roles, :index
           live "/admin/users/live_sessions", Live.Users.LiveSessions, :index
           live "/admin/users/sessions", Live.Users.Sessions, :index
