@@ -1,5 +1,15 @@
-## 1.7.10 - 2025-12-23
+## 1.7.10 - 2025-12-24
 - New Connections Module initial commit
+- Show tickets navigation only when tickets module is enabled
+- Add AI Prompts feature and sitemap fixes
+  - AI Prompts Feature (V38): New prompt template system with variable substitution ({{VariableName}} syntax), usage tracking, and full CRUD API
+  - Waterfall Model Selection: Two-step Provider → Model selection in AI endpoint form for better UX
+  - Sitemap Fixes: URL generation and blog fallback redirect fixes
+  - Tickets Navigation: Show tickets nav only when module is enabled
+  - DB Sync Updates (V37): Connection management improvements
+  - Code Quality: Fixed Credo/Dialyzer warnings
+- Fix settings cache to prevent repeated queries for non-existent settings
+- Added user view page, added username visibility and registration location fix
 
 ## 1.7.9 - 2025-12-22
 
