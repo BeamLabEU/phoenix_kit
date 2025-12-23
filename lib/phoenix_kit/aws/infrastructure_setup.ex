@@ -58,6 +58,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   alias ExAws.SNS
   alias ExAws.SQS
   alias ExAws.STS
+  alias PhoenixKit.AWS.SESv2
   alias PhoenixKit.Settings
 
   @dialyzer {:nowarn_function,
@@ -402,8 +403,6 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
 
     config_set_name = "#{config.project_name}-emailing"
 
-    alias PhoenixKit.AWS.SESv2
-
     case SESv2.create_configuration_set(config_set_name, aws_config(config)) do
       {:ok, ^config_set_name} ->
         Logger.info("[AWS Setup]   ✓ SES Configuration Set created")
@@ -418,8 +417,6 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   # Step 9: Configure SES Event Tracking
   defp step_9_configure_ses_events(config, config_set_name, sns_topic_arn) do
     Logger.info("[AWS Setup] [9/9] Configuring SES event tracking to SNS...")
-
-    alias PhoenixKit.AWS.SESv2
 
     case SESv2.create_configuration_set_event_destination(
            config_set_name,

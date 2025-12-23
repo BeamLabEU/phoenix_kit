@@ -29,6 +29,8 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   alias Phoenix.LiveView.JS
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Icon
 
   @doc """
@@ -75,8 +77,6 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   )
 
   def language_switcher_dropdown(assigns) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Auto-detect current_locale if not explicitly provided
     # This might be a base code (en) or full dialect (en-US)
     locale =
@@ -219,8 +219,6 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   )
 
   def language_switcher_buttons(assigns) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Auto-detect current_locale if not explicitly provided
     # This might be a base code (en) or full dialect (en-US)
     locale =
@@ -327,8 +325,6 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   )
 
   def language_switcher_inline(assigns) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Auto-detect current_locale if not explicitly provided
     # This might be a base code (en) or full dialect (en-US)
     locale =
@@ -429,8 +425,6 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/admin/dashboard" (if en is default)
   # Example: generate_base_code_url("es", "/admin/dashboard") => "/es/admin/dashboard"
   defp generate_base_code_url(base_code, current_path) do
-    alias PhoenixKit.Utils.Routes
-
     # Extract base code from current path for proper path processing
     current_base = extract_locale_from_path(current_path)
 

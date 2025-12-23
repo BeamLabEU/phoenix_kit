@@ -7,6 +7,8 @@ defmodule PhoenixKit.Pages.FileOperations do
 
   alias PhoenixKit.Pages.Paths
 
+  require Logger
+
   @doc """
   Lists all files and folders in a directory.
 
@@ -24,7 +26,6 @@ defmodule PhoenixKit.Pages.FileOperations do
     full_path = Paths.build_full_path(relative_path)
 
     # Debug logging
-    require Logger
     Logger.debug("Pages list_directory: full_path=#{inspect(full_path)}")
 
     case File.ls(full_path) do

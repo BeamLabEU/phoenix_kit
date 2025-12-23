@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
   use PhoenixKitWeb, :html
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 
@@ -244,7 +245,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   # Legacy helper - kept for backward compatibility
   defp generate_language_switch_url(current_path, new_locale) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_code = DialectMapper.extract_base(new_locale)
 
     # Extract the path without locale and regenerate with new locale

@@ -893,8 +893,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     # Store in settings with user_id-specific key
     Settings.update_json_setting("user_rate_limits_#{user_id}", user_limits)
 
-    require Logger
-
     Logger.warning(
       "Rate limits reduced for user #{user_id}: reason=#{reason}, " <>
         "recipient_limit=#{reduced_recipient_limit}, sender_limit=#{reduced_sender_limit}, " <>
@@ -904,7 +902,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     :ok
   rescue
     error ->
-      require Logger
       Logger.error("Failed to reduce user limits for user #{user_id}: #{inspect(error)}")
       :ok
   end
@@ -917,7 +914,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     # Get user from database
     case Auth.get_user(user_id) do
       nil ->
-        require Logger
         Logger.error("Cannot block emails for user #{user_id}: user not found")
         :ok
 
@@ -931,8 +927,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
         # Also monitor the user for future activity
         monitor_user(user_id, :email_blocked, %{reason: reason, email: user.email})
 
-        require Logger
-
         Logger.warning(
           "Email blocked for user #{user_id}: email=#{user.email}, reason=#{reason}, expires_at=#{expires_at}"
         )
@@ -941,7 +935,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     end
   rescue
     error ->
-      require Logger
       Logger.error("Failed to block user emails for user #{user_id}: #{inspect(error)}")
       :ok
   end
@@ -1000,8 +993,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     # Store updated monitoring data
     Settings.update_json_setting(monitoring_key, updated_monitoring)
 
-    require Logger
-
     Logger.info(
       "User monitoring event recorded for user #{user_id}: type=#{event_type_str}, " <>
         "metadata=#{inspect(metadata)}, total_events=#{length(updated_events)}"
@@ -1010,7 +1001,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     :ok
   rescue
     error ->
-      require Logger
       Logger.error("Failed to monitor user #{user_id}: #{inspect(error)}")
       :ok
   end
@@ -1051,7 +1041,6 @@ defmodule PhoenixKit.Emails.RateLimiter do
     # Delete the setting by setting it to nil
     case Settings.update_json_setting(monitoring_key, nil) do
       {:ok, _} ->
-        require Logger
         Logger.info("Cleared expired rate limits for user #{user_id}")
         :ok
 

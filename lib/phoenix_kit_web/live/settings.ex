@@ -13,6 +13,8 @@ defmodule PhoenixKitWeb.Live.Settings do
   alias PhoenixKit.Users.OAuthConfig
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
+  require Logger
+
   def mount(_params, _session, socket) do
     # Subscribe to settings changes for live updates (like entities does)
     if connected?(socket) do
@@ -313,7 +315,6 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   # Handle settings save error
   defp handle_settings_error(socket, errors) do
-    require Logger
     Logger.error("Settings save error: #{inspect(errors)}")
 
     error_msg = format_error_message(errors)

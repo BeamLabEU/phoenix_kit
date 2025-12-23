@@ -36,6 +36,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
   use Oban.Worker, queue: :db_sync, max_attempts: 3
 
   alias PhoenixKit.DBSync.DataImporter
+  alias PhoenixKit.DBSync.SchemaInspector
 
   require Logger
 
@@ -96,8 +97,6 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
   end
 
   defp ensure_table_exists(table, schema) when is_map(schema) do
-    alias PhoenixKit.DBSync.SchemaInspector
-
     if SchemaInspector.table_exists?(table) do
       :ok
     else

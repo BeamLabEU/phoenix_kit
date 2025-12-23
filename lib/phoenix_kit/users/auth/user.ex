@@ -23,6 +23,7 @@ defmodule PhoenixKit.Users.Auth.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Roles
 
   # Fields excluded from get_user_field for security/internal reasons
@@ -342,8 +343,6 @@ defmodule PhoenixKit.Users.Auth.User do
   def validate_locale_value(""), do: :ok
 
   def validate_locale_value(locale) when is_binary(locale) do
-    alias PhoenixKit.Modules.Languages
-
     cond do
       !Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/, locale) ->
         {:error, "must be a valid locale format (e.g., en-US, es-MX)"}

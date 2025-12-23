@@ -872,8 +872,6 @@ defmodule PhoenixKit.Emails do
       }
   """
   def get_placeholder_stats(period \\ :last_30_days) do
-    require Logger
-
     cutoff_date =
       case period do
         :last_24_hours -> DateTime.add(DateTime.utc_now(), -1, :day)

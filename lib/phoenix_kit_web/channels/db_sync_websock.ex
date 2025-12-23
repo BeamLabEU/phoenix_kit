@@ -39,6 +39,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   alias PhoenixKit.DBSync.Connections
   alias PhoenixKit.DBSync.DataExporter
   alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.DBSync.Transfers
 
   defstruct [
     :auth_type,
@@ -454,8 +455,6 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
 
   # Track transfer for permanent connections
   defp track_transfer(db_connection, table_name, records_count, connection_info) do
-    alias PhoenixKit.DBSync.Transfers
-
     # Create a transfer record
     attrs = %{
       direction: "send",

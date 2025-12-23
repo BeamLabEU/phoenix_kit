@@ -15,6 +15,7 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Entities
+  alias PhoenixKit.Entities.EntityData
   alias PhoenixKit.Entities.FormBuilder
 
   attr :content, :string, default: nil
@@ -146,8 +147,6 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
 
   defp build_empty_changeset(entity) do
     # Create an empty EntityData changeset for the form
-    alias PhoenixKit.Entities.EntityData
-
     %EntityData{entity_id: entity.id, data: %{}}
     |> EntityData.change()
   end

@@ -52,6 +52,7 @@ defmodule PhoenixKit.Sitemap.Generator do
 
   require Logger
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Sitemap.Cache
   alias PhoenixKit.Sitemap.FileStorage
   alias PhoenixKit.Sitemap.SchedulerWorker
@@ -792,31 +793,27 @@ defmodule PhoenixKit.Sitemap.Generator do
   # Get list of enabled languages from Languages module
   # Returns list of maps with :code and :is_default keys
   defp get_languages do
-    alias PhoenixKit.Modules.Languages
+    if Languages.enabled?() do
+      case Languages.get_enabled_languages() do
+        languages when is_list(languages) and languages != [] ->
+          languages
+          |> Enum.map(fn lang ->
+            %{
+              code: extract_base_language(lang["code"] || lang[:code] || "en"),
+              is_default: lang["is_default"] || lang[:is_default] || false
+            }
+          end)
 
-    try do
-      if Languages.enabled?() do
-        case Languages.get_enabled_languages() do
-          languages when is_list(languages) and languages != [] ->
-            languages
-            |> Enum.map(fn lang ->
-              %{
-                code: extract_base_language(lang["code"] || lang[:code] || "en"),
-                is_default: lang["is_default"] || lang[:is_default] || false
-              }
-            end)
-
-          _ ->
-            [%{code: "en", is_default: true}]
-        end
-      else
-        [%{code: "en", is_default: true}]
+        _ ->
+          [%{code: "en", is_default: true}]
       end
-    rescue
-      _ ->
-        # Languages module not available or error
-        [%{code: "en", is_default: true}]
+    else
+      [%{code: "en", is_default: true}]
     end
+  rescue
+    _ ->
+      # Languages module not available or error
+      [%{code: "en", is_default: true}]
   end
 
   # Extract base language code from full dialect (e.g., "en-US" -> "en")

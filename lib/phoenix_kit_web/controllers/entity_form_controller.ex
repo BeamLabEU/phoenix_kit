@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.EntityFormController do
   alias PhoenixKit.Entities.EntityData
   alias PhoenixKit.Users.RateLimiter
 
+  require Logger
+
   @browser_patterns [
     {"Edg/", "Edge"},
     {"OPR/", "Opera"},
@@ -300,8 +302,6 @@ defmodule PhoenixKitWeb.EntityFormController do
   end
 
   defp handle_submission(conn, entity, params, security_flags) do
-    require Logger
-
     # Extract form data from params
     form_data = get_in(params, ["phoenix_kit_entity_data", "data"]) || %{}
 

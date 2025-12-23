@@ -59,6 +59,7 @@ defmodule PhoenixKit.Admin.Events do
 
   alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Users.Roles
+  alias PhoenixKit.Users.Sessions
 
   # Topic names
   @topic_users "phoenix_kit:admin:users"
@@ -180,7 +181,6 @@ defmodule PhoenixKit.Admin.Events do
   Broadcasts session statistics update event to admin panels.
   """
   def broadcast_sessions_stats_updated do
-    alias PhoenixKit.Users.Sessions
     stats = Sessions.get_session_stats()
     broadcast(@topic_sessions, {:sessions_stats_updated, stats})
   end

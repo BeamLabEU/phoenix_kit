@@ -39,7 +39,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   @behaviour PhoenixKit.Sitemap.Sources.Source
 
+  require Logger
+
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Sitemap.UrlEntry
   alias PhoenixKitWeb.Live.Modules.Blogging
 
@@ -78,8 +81,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     end
   rescue
     error ->
-      require Logger
-
       Logger.warning("Blogging sitemap source failed to collect: #{inspect(error)}")
 
       []
@@ -120,8 +121,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     end)
   rescue
     error ->
-      require Logger
-
       Logger.warning("Failed to collect blog listings: #{inspect(error)}")
 
       []
@@ -160,8 +159,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     end)
   rescue
     error ->
-      require Logger
-
       Logger.warning(
         "Failed to collect posts for blog #{inspect(blog["slug"])}: #{inspect(error)}"
       )
@@ -460,7 +457,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   # Returns true when languages module is off OR only one language is enabled
   # Mirrors BlogHTML.single_language_mode?/0 logic
   defp single_language_mode? do
-    alias PhoenixKit.Modules.Languages
     not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   rescue
     _ -> true
@@ -486,8 +482,6 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   # or full code ("en-US") when multiple dialects of same language are enabled.
   # This mirrors Storage.get_display_code/2 to ensure sitemap URLs match canonical URLs.
   defp get_display_code(language_code) do
-    alias PhoenixKit.Modules.Languages
-
     base_code = extract_base(language_code)
     enabled_languages = Languages.get_enabled_languages()
 

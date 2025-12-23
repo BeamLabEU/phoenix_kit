@@ -74,6 +74,7 @@ defmodule PhoenixKit.Entities.EntityData do
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.Events
   alias PhoenixKit.Entities.HtmlSanitizer
+  alias PhoenixKit.Entities.Mirror.Exporter
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
@@ -337,8 +338,6 @@ defmodule PhoenixKit.Entities.EntityData do
 
   # Mirror export helpers for auto-sync (per-entity settings)
   defp maybe_mirror_data(entity_data) do
-    alias PhoenixKit.Entities.Mirror.Exporter
-
     # Check if the parent entity has data mirroring enabled
     case Entities.get_entity(entity_data.entity_id) do
       nil ->
@@ -352,8 +351,6 @@ defmodule PhoenixKit.Entities.EntityData do
   end
 
   defp maybe_delete_mirrored_data(entity_data) do
-    alias PhoenixKit.Entities.Mirror.Exporter
-
     # Re-export the entity file to update the data array
     # Only if the entity has data mirroring enabled
     case Entities.get_entity(entity_data.entity_id) do
