@@ -400,6 +400,25 @@ defmodule PhoenixKit.Config do
   end
 
   @doc """
+  Gets the configured PubSub server for broadcasting messages.
+
+  Returns the internal PhoenixKit PubSub server or configured custom server.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.pubsub_server()
+      :phoenix_kit_internal_pubsub
+
+  """
+  @spec pubsub_server() :: atom() | nil
+  def pubsub_server do
+    case get(:pubsub_server) do
+      {:ok, server} when is_atom(server) -> server
+      _ -> :phoenix_kit_internal_pubsub
+    end
+  end
+
+  @doc """
   Gets the user dashboard enabled flag.
 
   Returns true if the user dashboard is enabled, false otherwise.

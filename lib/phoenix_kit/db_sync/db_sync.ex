@@ -77,6 +77,8 @@ defmodule PhoenixKit.DBSync do
 
   @module_name "db_sync"
   @enabled_key "db_sync_enabled"
+  @incoming_mode_key "db_sync_incoming_mode"
+  @incoming_password_key "db_sync_incoming_password"
 
   # ===========================================
   # SYSTEM CONTROL
@@ -112,13 +114,91 @@ defmodule PhoenixKit.DBSync do
   Returns a map with:
   - `enabled` - Whether the module is enabled
   - `active_sessions` - Number of active sessions (sessions tied to LiveView processes)
+  - `incoming_mode` - How incoming connections are handled
+  - `incoming_password_set` - Whether a password is set for incoming connections
   """
   @spec get_config() :: map()
   def get_config do
     %{
       enabled: enabled?(),
-      active_sessions: SessionStore.count_active()
+      active_sessions: SessionStore.count_active(),
+      incoming_mode: get_incoming_mode(),
+      incoming_password_set: incoming_password_set?()
     }
+  end
+
+  # ===========================================
+  # INCOMING CONNECTION SETTINGS
+  # ===========================================
+
+  @doc """
+  Gets the current incoming connection mode.
+
+  Modes:
+  - `"auto_accept"` - Automatically accept and activate incoming connections
+  - `"require_approval"` - Accept but set as pending, requires manual approval
+  - `"require_password"` - Require password before accepting
+  - `"deny_all"` - Reject all incoming connection requests
+
+  Default is `"require_approval"`.
+  """
+  @spec get_incoming_mode() :: String.t()
+  def get_incoming_mode do
+    Settings.get_setting(@incoming_mode_key, "require_approval")
+  end
+
+  @doc """
+  Sets the incoming connection mode.
+  """
+  @spec set_incoming_mode(String.t()) :: {:ok, any()} | {:error, any()}
+  def set_incoming_mode(mode)
+      when mode in ["auto_accept", "require_approval", "require_password", "deny_all"] do
+    Settings.update_setting_with_module(@incoming_mode_key, mode, @module_name)
+  end
+
+  @doc """
+  Gets the incoming connection password (if set).
+  Returns nil if not set.
+  """
+  @spec get_incoming_password() :: String.t() | nil
+  def get_incoming_password do
+    case Settings.get_setting(@incoming_password_key, nil) do
+      nil -> nil
+      "" -> nil
+      password -> password
+    end
+  end
+
+  @doc """
+  Sets the incoming connection password.
+  Pass nil or empty string to clear the password.
+  """
+  @spec set_incoming_password(String.t() | nil) :: {:ok, any()} | {:error, any()}
+  def set_incoming_password(nil) do
+    Settings.update_setting_with_module(@incoming_password_key, "", @module_name)
+  end
+
+  def set_incoming_password(password) when is_binary(password) do
+    Settings.update_setting_with_module(@incoming_password_key, password, @module_name)
+  end
+
+  @doc """
+  Checks if an incoming connection password is set.
+  """
+  @spec incoming_password_set?() :: boolean()
+  def incoming_password_set? do
+    get_incoming_password() != nil
+  end
+
+  @doc """
+  Validates an incoming connection password.
+  """
+  @spec validate_incoming_password(String.t() | nil) :: boolean()
+  def validate_incoming_password(provided_password) do
+    case get_incoming_password() do
+      nil -> true
+      stored_password -> stored_password == provided_password
+    end
   end
 
   # ===========================================

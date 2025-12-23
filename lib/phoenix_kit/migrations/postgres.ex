@@ -253,7 +253,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Internal notes feature (staff-only visibility)
   - Settings: enabled, per_page, comments, internal notes, attachments, allow_reopen
 
-  ### V36 - Connections Module (Social Relationships) ⚡ LATEST
+  ### V36 - Connections Module (Social Relationships)
   - Phoenix_kit_user_follows for one-way follow relationships
   - Phoenix_kit_user_connections for two-way mutual connections
   - Phoenix_kit_user_blocks for user blocking
@@ -262,6 +262,22 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Connection: requires acceptance from both parties
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
+
+  ### V37 - DB Sync Connections & Transfer Tracking
+  - Phoenix_kit_db_sync_connections for permanent site-to-site connections
+  - Phoenix_kit_db_sync_transfers for tracking all data transfers
+  - Approval modes: auto_approve, require_approval, per_table
+  - Expiration and download limits (max_downloads, max_records_total)
+  - Additional security: password protection, IP whitelist, time restrictions
+  - Receiver-side settings: conflict strategy, auto-sync
+  - Full audit trail for connections and transfers
+
+  ### V38 - AI Prompts System ⚡ LATEST
+  - Phoenix_kit_ai_prompts for reusable prompt templates
+  - Variable substitution with {{VariableName}} syntax
+  - Auto-extracted variables stored for validation
+  - Usage tracking (count and last used timestamp)
+  - Sorting and organization support
 
   ## Migration Paths
 
@@ -321,7 +337,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 36
+  @current_version 38
   @default_prefix "public"
 
   @doc false

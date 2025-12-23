@@ -35,11 +35,9 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
-  alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.PhoenixVersion
   alias PhoenixKit.Utils.Routes
@@ -607,6 +605,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             current_path={@current_path || ""}
                             nested={true}
                           />
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/ai/prompts")}
+                            icon="hero-document-text"
+                            label={gettext("Prompts")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
                         </div>
                       <% end %>
                     <% end %>
@@ -618,7 +623,42 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="db_sync"
                         label={gettext("DB Sync")}
                         current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/db-sync",
+                            "/admin/db-sync/connections",
+                            "/admin/db-sync/history"
+                          ])
+                        }
                       />
+
+                      <%= if submenu_open?(@current_path, ["/admin/db-sync", "/admin/db-sync/connections", "/admin/db-sync/history"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/db-sync")}
+                            icon="hero-home"
+                            label={gettext("Overview")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                            exact_match_only={true}
+                          />
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/db-sync/connections")}
+                            icon="hero-link"
+                            label={gettext("Connections")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/db-sync/history")}
+                            icon="hero-clock"
+                            label={gettext("History")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
                     <% end %>
 
                     <%= if PhoenixKit.Posts.enabled?() do %>
@@ -678,24 +718,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if Tickets.enabled?() do %>
-                      <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/tickets")}
-                        icon="ticket"
-                        label={gettext("Tickets")}
-                        current_path={@current_path || ""}
-                      />
-                    <% end %>
-
-                    <%= if Connections.enabled?() do %>
-                      <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/connections")}
-                        icon="hero-users"
-                        label={gettext("Connections")}
-                        current_path={@current_path || ""}
-                      />
-                    <% end %>
-
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
                       icon="modules"
@@ -718,7 +740,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/emails",
                           "/admin/settings/languages",
                           "/admin/settings/entities",
-                          "/admin/settings/tickets",
                           "/admin/settings/media",
                           "/admin/settings/storage/dimensions",
                           "/admin/settings/maintenance",
@@ -731,7 +752,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/tickets", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -869,16 +890,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.path("/admin/settings/entities")}
                             icon="entities"
                             label={gettext("Entities")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
-                        <% end %>
-
-                        <%= if Tickets.enabled?() do %>
-                          <.admin_nav_item
-                            href={Routes.path("/admin/settings/tickets")}
-                            icon="ticket"
-                            label={gettext("Tickets")}
                             current_path={@current_path || ""}
                             nested={true}
                           />

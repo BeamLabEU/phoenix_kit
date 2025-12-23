@@ -3,7 +3,19 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
   Plug for handling DB Sync WebSocket connections.
 
   This plug handles the HTTP upgrade to WebSocket and validates
-  the connection code before handing off to DBSyncWebsock.
+  the connection code or auth token before handing off to DBSyncWebsock.
+
+  ## Authentication Methods
+
+  Supports two authentication methods:
+
+  1. **Session Code** (ephemeral) - For manual one-time transfers
+     - Query param: `?code=ABC12345`
+     - Session is tied to LiveView process
+
+  2. **Connection Token** (permanent) - For persistent connections
+     - Query param: `?token=xyz123...`
+     - Validated against database, subject to access controls
 
   ## Usage
 
@@ -18,6 +30,7 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
   require Logger
 
   alias PhoenixKit.DBSync
+  alias PhoenixKit.DBSync.Connections
 
   @impl Plug
   def init(opts), do: opts
@@ -34,12 +47,24 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
   defp handle_websocket_request(conn) do
     # Check if this is a WebSocket upgrade request
     if websocket_request?(conn) do
-      code = get_code_from_params(conn)
-
       if DBSync.enabled?() do
-        case validate_and_upgrade(conn, code) do
-          {:ok, conn} -> conn
-          {:error, conn} -> conn
+        conn = Plug.Conn.fetch_query_params(conn)
+        code = conn.query_params["code"]
+        token = conn.query_params["token"]
+
+        cond do
+          # Permanent connection token authentication
+          token != nil ->
+            validate_token_and_upgrade(conn, token)
+
+          # Ephemeral session code authentication
+          code != nil ->
+            validate_code_and_upgrade(conn, code)
+
+          # No authentication provided
+          true ->
+            Logger.warning("DBSync: Connection attempt without code or token")
+            send_forbidden(conn, "Missing authentication")
         end
       else
         Logger.warning("DBSync: Connection attempt but module is disabled")
@@ -60,20 +85,14 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
     upgrade_header == "websocket"
   end
 
-  defp get_code_from_params(conn) do
-    conn = Plug.Conn.fetch_query_params(conn)
-    conn.query_params["code"]
-  end
+  # ===========================================
+  # SESSION CODE AUTHENTICATION (EPHEMERAL)
+  # ===========================================
 
-  defp validate_and_upgrade(conn, nil) do
-    Logger.warning("DBSync: Connection attempt without code")
-    {:error, send_forbidden(conn, "Missing code")}
-  end
-
-  defp validate_and_upgrade(conn, code) do
+  defp validate_code_and_upgrade(conn, code) do
     case DBSync.validate_code(code) do
       {:ok, session} ->
-        Logger.info("DBSync: Sender connecting with code #{code}")
+        Logger.info("DBSync: Receiver connecting with code #{code}")
 
         # Capture connection metadata
         connection_info = extract_connection_info(conn)
@@ -82,19 +101,96 @@ defmodule PhoenixKitWeb.Plugs.DBSyncSocketPlug do
           WebSockAdapter.upgrade(
             conn,
             PhoenixKitWeb.DBSyncWebsock,
-            [code: code, session: session, connection_info: connection_info],
+            [
+              auth_type: :session,
+              code: code,
+              session: session,
+              connection_info: connection_info
+            ],
             timeout: 60_000
           )
 
-        {:ok, Plug.Conn.halt(conn)}
+        Plug.Conn.halt(conn)
 
       {:error, :invalid_code} ->
         Logger.warning("DBSync: Invalid code attempt: #{code}")
-        {:error, send_forbidden(conn, "Invalid code")}
+        send_forbidden(conn, "Invalid code")
 
       {:error, :already_used} ->
         Logger.warning("DBSync: Code already used: #{code}")
-        {:error, send_forbidden(conn, "Code already used")}
+        send_forbidden(conn, "Code already used")
+    end
+  end
+
+  # ===========================================
+  # CONNECTION TOKEN AUTHENTICATION (PERMANENT)
+  # ===========================================
+
+  defp validate_token_and_upgrade(conn, token) do
+    # Extract client IP for validation
+    client_ip = get_remote_ip(conn)
+
+    case Connections.validate_connection(token, client_ip) do
+      {:ok, db_connection} ->
+        # Check for download password if required
+        password = conn.query_params["password"]
+
+        case Connections.validate_download_password(db_connection, password) do
+          :ok ->
+            Logger.info("DBSync: Token connection validated for #{db_connection.name}")
+
+            # Update last connected timestamp
+            Connections.touch_connected(db_connection)
+
+            # Capture connection metadata
+            connection_info = extract_connection_info(conn)
+
+            conn =
+              WebSockAdapter.upgrade(
+                conn,
+                PhoenixKitWeb.DBSyncWebsock,
+                [
+                  auth_type: :connection,
+                  connection: db_connection,
+                  connection_info: connection_info
+                ],
+                timeout: 60_000
+              )
+
+            Plug.Conn.halt(conn)
+
+          {:error, :invalid_password} ->
+            Logger.warning("DBSync: Invalid download password for connection #{db_connection.id}")
+            send_forbidden(conn, "Invalid password")
+        end
+
+      {:error, :invalid_token} ->
+        Logger.warning("DBSync: Invalid token attempt")
+        send_forbidden(conn, "Invalid token")
+
+      {:error, :connection_not_active} ->
+        Logger.warning("DBSync: Token for inactive connection")
+        send_forbidden(conn, "Connection not active")
+
+      {:error, :connection_expired} ->
+        Logger.warning("DBSync: Token for expired connection")
+        send_forbidden(conn, "Connection expired")
+
+      {:error, :download_limit_reached} ->
+        Logger.warning("DBSync: Download limit reached")
+        send_forbidden(conn, "Download limit reached")
+
+      {:error, :record_limit_reached} ->
+        Logger.warning("DBSync: Record limit reached")
+        send_forbidden(conn, "Record limit reached")
+
+      {:error, :ip_not_allowed} ->
+        Logger.warning("DBSync: IP not in whitelist: #{client_ip}")
+        send_forbidden(conn, "IP not allowed")
+
+      {:error, :outside_allowed_hours} ->
+        Logger.warning("DBSync: Connection outside allowed hours")
+        send_forbidden(conn, "Outside allowed hours")
     end
   end
 

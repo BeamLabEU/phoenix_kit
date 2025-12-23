@@ -5,7 +5,29 @@ This is a web application written using the Phoenix web framework.
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
-### Phoenix v1.8 guidelines
+### PhoenixKit Layout Guidelines
+
+PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
+
+- **Always** begin PhoenixKit LiveView templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout ...>` which wraps all inner content
+- Required attributes: `flash`, `page_title`, `current_path`, `project_title`, `phoenix_kit_current_scope`
+- Optional: `current_locale`
+
+Example:
+```heex
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  phoenix_kit_current_scope={@phoenix_kit_current_scope}
+  current_locale={assigns[:current_locale]}
+>
+  <!-- Your content here -->
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+```
+
+### Phoenix v1.8 guidelines (for parent applications)
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
 - The `MyAppWeb.Layouts` module is aliased in the `my_app_web.ex` file, so you can use it without needing to alias it again
@@ -20,15 +42,18 @@ custom classes must fully style the input
 
 ### JS and CSS guidelines
 
+**Note**: PhoenixKit ships pre-compiled CSS/JS under `priv/static/assets/`. The following guidelines are for **parent applications** that integrate PhoenixKit.
+
 - **Use Tailwind CSS classes and custom CSS rules** to create polished, responsive, and visually stunning interfaces.
-- Tailwindcss v4 **no longer needs a tailwind.config.js** and uses a new import syntax in `app.css`:
+- PhoenixKit uses **daisyUI 5** for component styling - ensure your parent app includes daisyUI
+- For Tailwindcss v4 projects, use the new import syntax in `app.css`:
 
       @import "tailwindcss" source(none);
       @source "../css";
       @source "../js";
       @source "../../lib/my_app_web";
+      @source "../../deps/phoenix_kit/lib/phoenix_kit_web";  /* Include PhoenixKit templates */
 
-- **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
 - **Never** use `@apply` when writing raw css
 - Out of the box **only the app.js and app.css bundles are supported**
   - You cannot reference an external vendor'd script `src` or link `href` in the layouts
