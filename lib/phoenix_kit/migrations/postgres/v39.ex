@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V37 do
+defmodule PhoenixKit.Migrations.Postgres.V39 do
   @moduledoc """
-  PhoenixKit V37 Migration: Admin Notes System
+  PhoenixKit V39 Migration: Admin Notes System
 
   Adds a notes system for administrators to record internal notes about users.
   These notes are only visible to admins and serve as admin-to-admin communication.
@@ -23,21 +23,21 @@ defmodule PhoenixKit.Migrations.Postgres.V37 do
   use Ecto.Migration
 
   @doc """
-  Run the V37 migration to add admin notes system.
+  Run the V39 migration to add admin notes system.
   """
   def up(%{prefix: prefix} = _opts) do
     create_admin_notes_table(prefix)
 
-    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '37'")
+    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '39'")
   end
 
   @doc """
-  Rollback the V37 migration.
+  Rollback the V39 migration.
   """
   def down(%{prefix: prefix} = _opts) do
     drop_if_exists(table(:phoenix_kit_admin_notes, prefix: prefix))
 
-    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '36'")
+    execute("COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '38'")
   end
 
   defp create_admin_notes_table(prefix) do

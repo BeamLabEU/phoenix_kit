@@ -263,7 +263,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
 
-  ### V37 - Admin Notes System ⚡ LATEST
+  ### V39 - Admin Notes System ⚡ LATEST
   - Phoenix_kit_admin_notes for internal admin notes about users
   - Admin-to-admin communication about user accounts
   - Author tracking for accountability
@@ -327,7 +327,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 37
+  @current_version 39
   @default_prefix "public"
 
   @doc false
