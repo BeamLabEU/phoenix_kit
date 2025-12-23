@@ -262,7 +262,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Connection: requires acceptance from both parties
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
-  
+
   ### V37 - DB Sync Connections & Transfer Tracking
   - Phoenix_kit_db_sync_connections for permanent site-to-site connections
   - Phoenix_kit_db_sync_transfers for tracking all data transfers
@@ -278,7 +278,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Auto-extracted variables stored for validation
   - Usage tracking (count and last used timestamp)
   - Sorting and organization support
-  
+
   ### V39 - Admin Notes System ⚡ LATEST
   - Phoenix_kit_admin_notes for internal admin notes about users
   - Admin-to-admin communication about user accounts
