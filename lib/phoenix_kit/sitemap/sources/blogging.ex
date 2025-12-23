@@ -426,7 +426,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     # 2. Multiple languages are enabled (not single language mode)
     lang_parts =
       if language && !single_language_mode?() do
-        [extract_base(language)]
+        # Use display code to match controller's canonical URL logic
+        # This returns base code ("en") when single dialect enabled,
+        # or full code ("en-US") when multiple dialects enabled
+        [get_display_code(language)]
       else
         []
       end
@@ -477,6 +480,32 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   defp extract_base(_), do: "en"
+
+  # Get the display code for a language, matching the controller's canonical URL logic.
+  # Returns base code ("en") when only one dialect is enabled,
+  # or full code ("en-US") when multiple dialects of same language are enabled.
+  # This mirrors Storage.get_display_code/2 to ensure sitemap URLs match canonical URLs.
+  defp get_display_code(language_code) do
+    alias PhoenixKit.Modules.Languages
+
+    base_code = extract_base(language_code)
+    enabled_languages = Languages.get_enabled_languages()
+
+    # Count how many enabled languages share this base code
+    dialects_count =
+      Enum.count(enabled_languages, fn lang ->
+        extract_base(lang) == base_code
+      end)
+
+    # If more than one dialect of this base language is enabled, show full code
+    if dialects_count > 1 do
+      language_code
+    else
+      base_code
+    end
+  rescue
+    _ -> extract_base(language_code)
+  end
 
   # Build full URL from path and base_url
   defp build_url(path, nil) do

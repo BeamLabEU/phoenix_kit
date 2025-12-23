@@ -894,9 +894,15 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp attempt_breadcrumb_fallback(conn, reason) do
     language = conn.assigns[:current_language] || "en"
+    blog_slug = conn.params["blog"]
     path = conn.params["path"] || []
 
-    handle_fallback_case(reason, path, language)
+    # Build full path including blog slug for proper fallback handling
+    # Route params are: %{"blog" => "date", "path" => ["2025-12-09", "15:02"]}
+    # We need: ["date", "2025-12-09", "15:02"] for pattern matching
+    full_path = if blog_slug, do: [blog_slug | path], else: path
+
+    handle_fallback_case(reason, full_path, language)
   end
 
   defp handle_fallback_case(reason, [blog_slug, _post_identifier], language)
