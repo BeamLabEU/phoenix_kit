@@ -658,7 +658,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       # Note: admin_languages is stored as JSON string in value column
       admin_languages_json =
         Settings.get_setting_cached("admin_languages", nil) ||
-        Jason.encode!(["en-US"])
+          Jason.encode!(["en-US"])
 
       admin_language_codes =
         case Jason.decode(admin_languages_json) do
