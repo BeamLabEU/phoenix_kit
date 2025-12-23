@@ -720,8 +720,10 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       (admin_language_codes ++ frontend_language_codes ++ admin_base_codes ++ frontend_base_codes)
       |> Enum.uniq()
 
-    # Remove PhoenixKit prefix if present
-    normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
+    # Remove PhoenixKit prefix if present (use dynamic config, not hardcoded)
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    prefix_to_remove = if url_prefix == "/", do: "", else: url_prefix
+    normalized_path = String.replace_prefix(current_path || "", prefix_to_remove, "")
 
     # Remove existing locale prefix only if it matches actual language codes
     clean_path =
