@@ -167,6 +167,30 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
           </div>
         </div>
 
+        <%!-- Quick Links --%>
+        <div class="mt-8 max-w-4xl mx-auto">
+          <div class="flex flex-wrap justify-center gap-4">
+            <.link
+              navigate={Routes.path("/admin/db-sync/connections", locale: @current_locale)}
+              class={[
+                "btn btn-outline",
+                if(not @config.enabled, do: "btn-disabled")
+              ]}
+            >
+              <.icon name="hero-link" class="w-5 h-5" /> Manage Connections
+            </.link>
+            <.link
+              navigate={Routes.path("/admin/db-sync/history", locale: @current_locale)}
+              class={[
+                "btn btn-outline",
+                if(not @config.enabled, do: "btn-disabled")
+              ]}
+            >
+              <.icon name="hero-clock" class="w-5 h-5" /> Transfer History
+            </.link>
+          </div>
+        </div>
+
         <%!-- Active Sessions --%>
         <%= if @config.active_sessions > 0 do %>
           <div class="mt-6 max-w-4xl mx-auto">

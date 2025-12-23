@@ -5,10 +5,17 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   Uses WebSock directly (not Phoenix.Socket/Channel) to avoid
   cross-OTP-app channel supervision issues.
 
-  ## How it works
+  ## Authentication Types
 
-  This is a simple WebSocket handler that processes JSON messages directly.
-  The Receiver connects with a code, and can then request data from the Sender.
+  Supports two authentication methods:
+
+  1. **Session-based** (`:session`) - Ephemeral sessions for manual transfers
+     - Uses 8-character session codes
+     - Tied to sender's LiveView process
+
+  2. **Connection-based** (`:connection`) - Permanent connections
+     - Uses auth tokens stored in database
+     - Subject to access controls (allowed tables, limits, etc.)
 
   ## Message Protocol
 
@@ -28,10 +35,20 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   require Logger
 
   alias PhoenixKit.DBSync
+  alias PhoenixKit.DBSync.Connection
+  alias PhoenixKit.DBSync.Connections
   alias PhoenixKit.DBSync.DataExporter
   alias PhoenixKit.DBSync.SchemaInspector
 
-  defstruct [:code, :session, :joined, :receiver_info, :connection_info]
+  defstruct [
+    :auth_type,
+    :code,
+    :session,
+    :db_connection,
+    :joined,
+    :receiver_info,
+    :connection_info
+  ]
 
   # ===========================================
   # WEBSOCK CALLBACKS
@@ -39,18 +56,41 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
 
   @impl WebSock
   def init(opts) do
-    code = Keyword.get(opts, :code)
-    session = Keyword.get(opts, :session)
+    auth_type = Keyword.get(opts, :auth_type, :session)
     connection_info = Keyword.get(opts, :connection_info, %{})
 
-    state = %__MODULE__{
-      code: code,
-      session: session,
-      joined: false,
-      connection_info: connection_info
-    }
+    state =
+      case auth_type do
+        :session ->
+          code = Keyword.get(opts, :code)
+          session = Keyword.get(opts, :session)
 
-    Logger.info("DBSync.Websock: Connection initialized for code #{code}")
+          Logger.info("DBSync.Websock: Session connection initialized for code #{code}")
+
+          %__MODULE__{
+            auth_type: :session,
+            code: code,
+            session: session,
+            db_connection: nil,
+            joined: false,
+            connection_info: connection_info
+          }
+
+        :connection ->
+          db_connection = Keyword.get(opts, :connection)
+
+          Logger.info("DBSync.Websock: Token connection initialized for #{db_connection.name}")
+
+          %__MODULE__{
+            auth_type: :connection,
+            code: "conn:#{db_connection.id}",
+            session: nil,
+            db_connection: db_connection,
+            joined: false,
+            connection_info: connection_info
+          }
+      end
+
     {:ok, state}
   end
 
@@ -191,8 +231,11 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       response =
         case SchemaInspector.list_tables() do
           {:ok, tables} ->
+            # Filter tables based on connection settings for permanent connections
+            filtered_tables = filter_allowed_tables(tables, state)
+
             encode_push("transfer:#{state.code}", "response:tables", %{
-              "tables" => tables,
+              "tables" => filtered_tables,
               "ref" => client_ref
             })
 
@@ -221,25 +264,33 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
     if state.joined do
       Logger.debug("DBSync.Websock: Schema requested for #{table}")
 
+      # Check table access for permanent connections
       response =
-        case SchemaInspector.get_schema(table) do
-          {:ok, schema} ->
-            encode_push("transfer:#{state.code}", "response:schema", %{
-              "schema" => schema,
-              "ref" => client_ref
-            })
+        if table_allowed?(table, state) do
+          case SchemaInspector.get_schema(table) do
+            {:ok, schema} ->
+              encode_push("transfer:#{state.code}", "response:schema", %{
+                "schema" => schema,
+                "ref" => client_ref
+              })
 
-          {:error, :not_found} ->
-            encode_push("transfer:#{state.code}", "response:error", %{
-              "error" => "Table not found: #{table}",
-              "ref" => client_ref
-            })
+            {:error, :not_found} ->
+              encode_push("transfer:#{state.code}", "response:error", %{
+                "error" => "Table not found: #{table}",
+                "ref" => client_ref
+              })
 
-          {:error, reason} ->
-            encode_push("transfer:#{state.code}", "response:error", %{
-              "error" => "Failed to get schema: #{inspect(reason)}",
-              "ref" => client_ref
-            })
+            {:error, reason} ->
+              encode_push("transfer:#{state.code}", "response:error", %{
+                "error" => "Failed to get schema: #{inspect(reason)}",
+                "ref" => client_ref
+              })
+          end
+        else
+          encode_push("transfer:#{state.code}", "response:error", %{
+            "error" => "Access denied to table: #{table}",
+            "ref" => client_ref
+          })
         end
 
       {:push, {:text, response}, state}
@@ -261,18 +312,25 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       Logger.debug("DBSync.Websock: Count requested for #{table}")
 
       response =
-        case DataExporter.get_count(table) do
-          {:ok, count} ->
-            encode_push("transfer:#{state.code}", "response:count", %{
-              "count" => count,
-              "ref" => client_ref
-            })
+        if table_allowed?(table, state) do
+          case DataExporter.get_count(table) do
+            {:ok, count} ->
+              encode_push("transfer:#{state.code}", "response:count", %{
+                "count" => count,
+                "ref" => client_ref
+              })
 
-          {:error, reason} ->
-            encode_push("transfer:#{state.code}", "response:error", %{
-              "error" => "Failed to get count: #{inspect(reason)}",
-              "ref" => client_ref
-            })
+            {:error, reason} ->
+              encode_push("transfer:#{state.code}", "response:error", %{
+                "error" => "Failed to get count: #{inspect(reason)}",
+                "ref" => client_ref
+              })
+          end
+        else
+          encode_push("transfer:#{state.code}", "response:error", %{
+            "error" => "Access denied to table: #{table}",
+            "ref" => client_ref
+          })
         end
 
       {:push, {:text, response}, state}
@@ -289,26 +347,14 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       offset = Map.get(payload, "offset", 0)
       limit = Map.get(payload, "limit", 100)
 
+      # Apply connection's max_records_per_request limit
+      effective_limit = get_effective_limit(limit, state)
+
       Logger.debug(
-        "DBSync.Websock: Records requested for #{table} (offset: #{offset}, limit: #{limit})"
+        "DBSync.Websock: Records requested for #{table} (offset: #{offset}, limit: #{effective_limit})"
       )
 
-      response =
-        case DataExporter.fetch_records(table, offset: offset, limit: limit) do
-          {:ok, records} ->
-            encode_push("transfer:#{state.code}", "response:records", %{
-              "records" => records,
-              "offset" => offset,
-              "has_more" => length(records) == limit,
-              "ref" => client_ref
-            })
-
-          {:error, reason} ->
-            encode_push("transfer:#{state.code}", "response:error", %{
-              "error" => "Failed to fetch records: #{inspect(reason)}",
-              "ref" => client_ref
-            })
-        end
+      response = fetch_and_respond_records(table, offset, effective_limit, client_ref, state)
 
       {:push, {:text, response}, state}
     else
@@ -326,6 +372,46 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   end
 
   # ===========================================
+  # RECORDS FETCHING HELPER
+  # ===========================================
+
+  defp fetch_and_respond_records(table, offset, limit, client_ref, state) do
+    if table_allowed?(table, state) do
+      fetch_records_for_table(table, offset, limit, client_ref, state)
+    else
+      encode_push("transfer:#{state.code}", "response:error", %{
+        "error" => "Access denied to table: #{table}",
+        "ref" => client_ref
+      })
+    end
+  end
+
+  defp fetch_records_for_table(table, offset, limit, client_ref, state) do
+    case DataExporter.fetch_records(table, offset: offset, limit: limit) do
+      {:ok, records} ->
+        records_count = Enum.count(records)
+
+        # Track transfer for permanent connections
+        if state.auth_type == :connection && records_count > 0 do
+          track_transfer(state.db_connection, table, records_count, state.connection_info)
+        end
+
+        encode_push("transfer:#{state.code}", "response:records", %{
+          "records" => records,
+          "offset" => offset,
+          "has_more" => records_count == limit,
+          "ref" => client_ref
+        })
+
+      {:error, reason} ->
+        encode_push("transfer:#{state.code}", "response:error", %{
+          "error" => "Failed to fetch records: #{inspect(reason)}",
+          "ref" => client_ref
+        })
+    end
+  end
+
+  # ===========================================
   # ENCODING HELPERS
   # ===========================================
 
@@ -335,5 +421,70 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
 
   defp encode_push(topic, event, payload) do
     Jason.encode!([nil, nil, topic, event, payload])
+  end
+
+  # ===========================================
+  # ACCESS CONTROL HELPERS
+  # ===========================================
+
+  # Filter tables based on connection settings for permanent connections
+  defp filter_allowed_tables(tables, %{auth_type: :session}), do: tables
+
+  defp filter_allowed_tables(tables, %{auth_type: :connection, db_connection: conn}) do
+    Enum.filter(tables, fn table ->
+      table_name = if is_map(table), do: table["name"] || table[:name], else: table
+      Connection.table_allowed?(conn, table_name)
+    end)
+  end
+
+  # Check if a specific table is allowed for this connection
+  defp table_allowed?(_table, %{auth_type: :session}), do: true
+
+  defp table_allowed?(table, %{auth_type: :connection, db_connection: conn}) do
+    Connection.table_allowed?(conn, table)
+  end
+
+  # Get the effective limit considering connection's max_records_per_request
+  defp get_effective_limit(requested_limit, %{auth_type: :session}), do: requested_limit
+
+  defp get_effective_limit(requested_limit, %{auth_type: :connection, db_connection: conn}) do
+    max_per_request = conn.max_records_per_request || 10_000
+    min(requested_limit, max_per_request)
+  end
+
+  # Track transfer for permanent connections
+  defp track_transfer(db_connection, table_name, records_count, connection_info) do
+    alias PhoenixKit.DBSync.Transfers
+
+    # Create a transfer record
+    attrs = %{
+      direction: "send",
+      connection_id: db_connection.id,
+      table_name: table_name,
+      records_requested: records_count,
+      records_transferred: records_count,
+      records_created: records_count,
+      status: "completed",
+      requester_ip: Map.get(connection_info, :remote_ip),
+      requester_user_agent: Map.get(connection_info, :user_agent)
+    }
+
+    case Transfers.create_transfer(attrs) do
+      {:ok, transfer} ->
+        # Update the transfer to completed immediately (single batch transfer)
+        Transfers.complete_transfer(transfer, %{
+          records_transferred: records_count,
+          records_created: records_count
+        })
+
+        # Update connection statistics
+        Connections.record_transfer(db_connection, %{
+          records_count: records_count,
+          bytes_count: 0
+        })
+
+      {:error, _changeset} ->
+        Logger.warning("DBSync.Websock: Failed to track transfer for #{table_name}")
+    end
   end
 end
