@@ -167,7 +167,9 @@ defmodule PhoenixKit.Users.Auth do
             Repo.get_by(User, email: email_or_username)
           else
             # Treat as username - case-insensitive lookup
-            from(u in User, where: fragment("LOWER(?)", u.username) == ^String.downcase(email_or_username))
+            from(u in User,
+              where: fragment("LOWER(?)", u.username) == ^String.downcase(email_or_username)
+            )
             |> Repo.one()
           end
 

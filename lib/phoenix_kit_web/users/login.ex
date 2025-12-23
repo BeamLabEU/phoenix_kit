@@ -33,8 +33,10 @@ defmodule PhoenixKitWeb.Users.Login do
     magic_link_enabled = Settings.get_boolean_setting("magic_link_login_enabled", true)
 
     # Support both old :email flash and new :email_or_username flash for backwards compatibility
-    email_or_username = Phoenix.Flash.get(socket.assigns.flash, :email_or_username) ||
-                        Phoenix.Flash.get(socket.assigns.flash, :email)
+    email_or_username =
+      Phoenix.Flash.get(socket.assigns.flash, :email_or_username) ||
+        Phoenix.Flash.get(socket.assigns.flash, :email)
+
     form = to_form(%{"email_or_username" => email_or_username}, as: "user")
 
     socket =
