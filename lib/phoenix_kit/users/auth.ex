@@ -133,6 +133,58 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets a user by email or username and password.
+
+  Allows users to log in using either their email address or username.
+  If the input contains "@", it's treated as an email; otherwise, as a username.
+  Username lookup is case-insensitive for better UX.
+
+  This function includes rate limiting protection to prevent brute-force attacks.
+
+  ## Examples
+
+      iex> get_user_by_email_or_username_and_password("foo@example.com", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("johndoe", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("JohnDoe", "correct_password")
+      {:ok, %User{}}  # Case-insensitive username lookup
+
+      iex> get_user_by_email_or_username_and_password("unknown", "password")
+      {:error, :invalid_credentials}
+
+  """
+  def get_user_by_email_or_username_and_password(email_or_username, password, ip_address \\ nil)
+      when is_binary(email_or_username) and is_binary(password) do
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email_or_username, ip_address) do
+      :ok ->
+        user =
+          if String.contains?(email_or_username, "@") do
+            # Treat as email
+            Repo.get_by(User, email: email_or_username)
+          else
+            # Treat as username - case-insensitive lookup
+            from(u in User, where: fragment("LOWER(?)", u.username) == ^String.downcase(email_or_username))
+            |> Repo.one()
+          end
+
+        # Return user if password is valid, regardless of is_active status
+        # The session controller will handle inactive status check separately
+        if User.valid_password?(user, password) do
+          {:ok, user}
+        else
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
+  end
+
+  @doc """
   Gets a single user.
 
   Returns `nil` if the user does not exist.
