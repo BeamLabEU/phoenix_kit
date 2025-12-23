@@ -97,7 +97,9 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   defp collect_blog_listings(blogs, language, is_default, base_url) do
-    Enum.map(blogs, fn blog ->
+    blogs
+    |> Enum.filter(fn blog -> blog_has_posts_for_language?(blog, language) end)
+    |> Enum.map(fn blog ->
       slug = blog["slug"]
       name = blog["name"]
       # Canonical path without language prefix (for hreflang grouping)
@@ -123,6 +125,19 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       Logger.warning("Failed to collect blog listings: #{inspect(error)}")
 
       []
+  end
+
+  # Check if a blog has at least one published post for the given language
+  defp blog_has_posts_for_language?(blog, language) do
+    slug = blog["slug"]
+    post_language = language || get_default_language()
+
+    Blogging.list_posts(slug, post_language)
+    |> Enum.filter(&published?/1)
+    |> Enum.reject(&excluded?/1)
+    |> Enum.any?(fn post -> has_translation?(post, language) end)
+  rescue
+    _ -> false
   end
 
   defp collect_blog_posts(blog, language, is_default, base_url) do
@@ -411,7 +426,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
     # 2. Multiple languages are enabled (not single language mode)
     lang_parts =
       if language && !single_language_mode?() do
-        [extract_base(language)]
+        # Use display code to match controller's canonical URL logic
+        # This returns base code ("en") when single dialect enabled,
+        # or full code ("en-US") when multiple dialects enabled
+        [get_display_code(language)]
       else
         []
       end
@@ -450,7 +468,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   # Get default language from admin settings
   defp get_default_language do
-    case PhoenixKit.Settings.get_json_setting("admin_languages") do
+    case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
       [first | _] -> extract_base(first)
       _ -> "en"
     end
@@ -462,6 +480,32 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   end
 
   defp extract_base(_), do: "en"
+
+  # Get the display code for a language, matching the controller's canonical URL logic.
+  # Returns base code ("en") when only one dialect is enabled,
+  # or full code ("en-US") when multiple dialects of same language are enabled.
+  # This mirrors Storage.get_display_code/2 to ensure sitemap URLs match canonical URLs.
+  defp get_display_code(language_code) do
+    alias PhoenixKit.Modules.Languages
+
+    base_code = extract_base(language_code)
+    enabled_languages = Languages.get_enabled_languages()
+
+    # Count how many enabled languages share this base code
+    dialects_count =
+      Enum.count(enabled_languages, fn lang ->
+        extract_base(lang) == base_code
+      end)
+
+    # If more than one dialect of this base language is enabled, show full code
+    if dialects_count > 1 do
+      language_code
+    else
+      base_code
+    end
+  rescue
+    _ -> extract_base(language_code)
+  end
 
   # Build full URL from path and base_url
   defp build_url(path, nil) do

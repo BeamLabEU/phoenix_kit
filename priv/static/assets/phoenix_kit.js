@@ -36,6 +36,17 @@ import "./phoenix_kit_sortable.js";
     window.PhoenixKitHooks.SortableGrid = window.SortableGridHook;
   }
 
+  // ResetSelect hook - resets select element to first option on push event
+  window.PhoenixKitHooks.ResetSelect = {
+    mounted() {
+      this.handleEvent("reset_select", ({id}) => {
+        if (this.el.id === id) {
+          this.el.selectedIndex = 0;
+        }
+      });
+    }
+  };
+
   // Log successful initialization in development
   if (typeof console !== "undefined" && console.debug) {
     var hookCount = Object.keys(window.PhoenixKitHooks).length;

@@ -247,31 +247,32 @@ defmodule PhoenixKit.AI.Completion do
   defp maybe_add(map, key, value), do: Map.put(map, key, value)
 
   defp http_post(url, headers, body) do
-    :inets.start()
-    :ssl.start()
+    # Convert headers list to map format for Req
+    headers_map = Map.new(headers)
 
-    json_body = Jason.encode!(body)
-
-    case :httpc.request(
-           :post,
-           {String.to_charlist(url),
-            Enum.map(headers, fn {k, v} -> {to_charlist(k), to_charlist(v)} end),
-            ~c"application/json", json_body},
-           [
-             {:timeout, @timeout},
-             {:connect_timeout, @timeout},
-             {:ssl, [verify: :verify_none]}
-           ],
-           [{:body_format, :binary}]
+    case Req.post(url,
+           json: body,
+           headers: headers_map,
+           receive_timeout: @timeout,
+           connect_options: [timeout: @timeout]
          ) do
-      {:ok, {{_, status_code, _}, _resp_headers, response_body}} ->
-        {:ok, %{status_code: status_code, body: to_string(response_body)}}
+      {:ok, %Req.Response{status: status, body: response_body}} ->
+        # Req automatically decodes JSON, so encode it back to string for consistency
+        body_string =
+          if is_map(response_body) or is_list(response_body) do
+            Jason.encode!(response_body)
+          else
+            to_string(response_body)
+          end
 
-      {:error, {:failed_connect, _}} ->
-        {:error, :connection_failed}
+        {:ok, %{status_code: status, body: body_string}}
 
-      {:error, :timeout} ->
+      {:error, %Req.TransportError{reason: :timeout}} ->
         {:error, :timeout}
+
+      {:error, %Req.TransportError{reason: reason}} ->
+        Logger.error("HTTP POST failed: #{inspect(reason)}")
+        {:error, reason}
 
       {:error, reason} ->
         Logger.error("HTTP POST failed: #{inspect(reason)}")

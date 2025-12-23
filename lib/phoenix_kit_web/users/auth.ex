@@ -1182,7 +1182,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   defp get_default_admin_language do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    case PhoenixKit.Settings.get_setting("admin_languages") do
+    case PhoenixKit.Settings.get_setting_cached("admin_languages") do
       nil ->
         # No setting exists, default is "en"
         "en"

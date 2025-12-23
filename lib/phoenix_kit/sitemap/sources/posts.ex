@@ -79,7 +79,7 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
   end
 
   defp posts_module_enabled? do
-    Settings.get_setting("posts_enabled", "true") == "true"
+    Settings.get_setting_cached("posts_enabled", "true") == "true"
   rescue
     _ -> false
   end

@@ -298,7 +298,52 @@ defmodule PhoenixKit.DBSync.DataImporter do
     Decimal.new(value)
   end
 
+  # Parse ISO8601 datetime strings (from exporter)
+  defp prepare_value(value) when is_binary(value) do
+    parse_iso_datetime(value) || parse_iso_date(value) || parse_iso_time(value) || value
+  end
+
   defp prepare_value(value), do: value
+
+  # DateTime with timezone (e.g., "2025-12-15T18:56:59.387453Z")
+  @datetime_pattern ~r/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/
+  defp parse_iso_datetime(value) do
+    if Regex.match?(@datetime_pattern, value) do
+      case DateTime.from_iso8601(value) do
+        {:ok, dt, _offset} -> dt
+        _ -> try_naive_datetime(value)
+      end
+    end
+  end
+
+  defp try_naive_datetime(value) do
+    case NaiveDateTime.from_iso8601(value) do
+      {:ok, ndt} -> ndt
+      _ -> nil
+    end
+  end
+
+  # Date only (e.g., "2025-12-15")
+  @date_pattern ~r/^\d{4}-\d{2}-\d{2}$/
+  defp parse_iso_date(value) do
+    if Regex.match?(@date_pattern, value) do
+      case Date.from_iso8601(value) do
+        {:ok, d} -> d
+        _ -> nil
+      end
+    end
+  end
+
+  # Time only (e.g., "18:56:59" or "18:56:59.387453")
+  @time_pattern ~r/^\d{2}:\d{2}:\d{2}(\.\d+)?$/
+  defp parse_iso_time(value) do
+    if Regex.match?(@time_pattern, value) do
+      case Time.from_iso8601(value) do
+        {:ok, t} -> t
+        _ -> nil
+      end
+    end
+  end
 
   defp escape_value(nil), do: "NULL"
 

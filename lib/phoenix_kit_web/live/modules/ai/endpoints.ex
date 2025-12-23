@@ -10,7 +10,6 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
 
   - **Endpoint Management**: Add, edit, delete, enable/disable AI endpoints
   - **Usage Statistics**: View request history and token usage
-  - **Quick Actions**: Test endpoint, view details
 
   ## Route
 

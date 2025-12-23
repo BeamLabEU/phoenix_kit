@@ -137,22 +137,20 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
 
-      # CRITICAL: Non-localized scope MUST come FIRST
-      # This ensures paths without explicit locale prefix get matched first
-      # and prevents paths like /admin from being interpreted as locale="admin"
-      scope unquote(url_prefix), PhoenixKitWeb, unquote(opts) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
-
-        unquote(block)
-      end
-
-      # Localized scope comes SECOND (lower priority)
+      # Localized scope with flexible locale pattern
       # Accepts both base codes (en, es) and full dialect codes (en-US, es-MX)
       # Full dialect codes are automatically redirected to base codes by the validation plug
       # This ensures backward compatibility with old URLs while enforcing base code standard
       scope "#{unquote(url_prefix)}/:locale",
             PhoenixKitWeb,
             Keyword.put(unquote(opts), :locale, ~r/^[a-z]{2}(?:-[A-Za-z0-9]{2,})?$/) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        unquote(block)
+      end
+
+      # Non-localized scope for backward compatibility (defaults to "en")
+      scope unquote(url_prefix), PhoenixKitWeb, unquote(opts) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         unquote(block)
@@ -183,6 +181,11 @@ defmodule PhoenixKitWeb.Integration do
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_user
         plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_scope
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_require_admin
+      end
+
+      # Define API pipeline for JSON endpoints
+      pipeline :phoenix_kit_api do
+        plug :accepts, ["json"]
       end
 
       # Define locale validation pipeline
@@ -232,6 +235,49 @@ defmodule PhoenixKitWeb.Integration do
 
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
+      end
+
+      # DB Sync API routes (JSON API - accepts JSON from remote PhoenixKit sites)
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:phoenix_kit_api]
+
+        post "/db-sync/api/register-connection",
+             Controllers.DBSyncApiController,
+             :register_connection
+
+        post "/db-sync/api/delete-connection",
+             Controllers.DBSyncApiController,
+             :delete_connection
+
+        post "/db-sync/api/verify-connection",
+             Controllers.DBSyncApiController,
+             :verify_connection
+
+        post "/db-sync/api/update-status",
+             Controllers.DBSyncApiController,
+             :update_status
+
+        post "/db-sync/api/get-connection-status",
+             Controllers.DBSyncApiController,
+             :get_connection_status
+
+        post "/db-sync/api/list-tables",
+             Controllers.DBSyncApiController,
+             :list_tables
+
+        post "/db-sync/api/pull-data",
+             Controllers.DBSyncApiController,
+             :pull_data
+
+        post "/db-sync/api/table-schema",
+             Controllers.DBSyncApiController,
+             :table_schema
+
+        post "/db-sync/api/table-records",
+             Controllers.DBSyncApiController,
+             :table_records
+
+        get "/db-sync/api/status", Controllers.DBSyncApiController, :status
       end
 
       # Email export routes (require admin or owner role)
@@ -331,16 +377,6 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
-          # Support Tickets module routes
-          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
-          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
-          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
-          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
-          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
-
-          # Connections module routes
-          live "/admin/connections", Live.Modules.Connections.Connections, :index
-
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
@@ -422,11 +458,14 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
           live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
           live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
+          live "/admin/ai/prompts", Live.Modules.AI.Prompts, :index
+          live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
+          live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
 
-          # DB Sync Module
+          # DB Sync Module (permanent connections only)
           live "/admin/db-sync", Live.Modules.DBSync.Index, :index
-          live "/admin/db-sync/receive", Live.Modules.DBSync.Receiver, :receive
-          live "/admin/db-sync/send", Live.Modules.DBSync.Sender, :send
+          live "/admin/db-sync/connections", Live.Modules.DBSync.ConnectionsLive, :index
+          live "/admin/db-sync/history", Live.Modules.DBSync.History, :index
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -467,14 +506,6 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/settings/confirm-email/:token",
                  Live.Dashboard.Settings,
                  :confirm_email
-
-            # User Ticket Portal (under /dashboard to avoid conflict with /admin/tickets)
-            live "/dashboard/tickets", Live.Tickets.Tickets, :index
-            live "/dashboard/tickets/new", Live.Tickets.New, :new
-            live "/dashboard/tickets/:id", Live.Tickets.Details, :show
-
-            # User Connections Portal
-            live "/profile/connections", Live.Modules.Connections.UserConnections, :index
           end
         end
       end
@@ -551,16 +582,6 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/posts/:id", Live.Modules.Posts.Details, :show
           live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
           live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
-
-          # Support Tickets module routes
-          live "/admin/tickets", Live.Modules.Tickets.Tickets, :index
-          live "/admin/tickets/new", Live.Modules.Tickets.Edit, :new
-          live "/admin/tickets/:id", Live.Modules.Tickets.Details, :show
-          live "/admin/tickets/:id/edit", Live.Modules.Tickets.Edit, :edit
-          live "/admin/settings/tickets", Live.Modules.Tickets.Settings, :index
-
-          # Connections module routes
-          live "/admin/connections", Live.Modules.Connections.Connections, :index
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
@@ -651,11 +672,14 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
           live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
           live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
+          live "/admin/ai/prompts", Live.Modules.AI.Prompts, :index
+          live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
+          live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
 
-          # DB Sync Module
+          # DB Sync Module (permanent connections only)
           live "/admin/db-sync", Live.Modules.DBSync.Index, :index
-          live "/admin/db-sync/receive", Live.Modules.DBSync.Receiver, :receive
-          live "/admin/db-sync/send", Live.Modules.DBSync.Sender, :send
+          live "/admin/db-sync/connections", Live.Modules.DBSync.ConnectionsLive, :index
+          live "/admin/db-sync/history", Live.Modules.DBSync.History, :index
 
           # Entities Management
           live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -696,14 +720,6 @@ defmodule PhoenixKitWeb.Integration do
             live "/dashboard/settings/confirm-email/:token",
                  Live.Dashboard.Settings,
                  :confirm_email
-
-            # User Ticket Portal (under /dashboard to avoid conflict with /admin/tickets)
-            live "/dashboard/tickets", Live.Tickets.Tickets, :index
-            live "/dashboard/tickets/new", Live.Tickets.New, :new
-            live "/dashboard/tickets/:id", Live.Tickets.Details, :show
-
-            # User Connections Portal
-            live "/profile/connections", Live.Modules.Connections.UserConnections, :index
           end
         end
       end
@@ -776,13 +792,11 @@ defmodule PhoenixKitWeb.Integration do
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
 
-      # CRITICAL: Non-localized routes MUST come FIRST
-      # Otherwise paths like /admin/dashboard would match /:locale/dashboard
-      # with locale="admin" instead of the correct admin dashboard route
-      unquote(generate_non_localized_routes(url_prefix))
-
-      # Localized routes come SECOND (lower priority)
+      # Generate localized routes
       unquote(generate_localized_routes(url_prefix, pattern))
+
+      # Generate non-localized routes
+      unquote(generate_non_localized_routes(url_prefix))
 
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(generate_blog_routes(url_prefix))

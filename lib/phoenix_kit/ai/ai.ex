@@ -66,6 +66,7 @@ defmodule PhoenixKit.AI do
   require Logger
 
   alias PhoenixKit.AI.Endpoint
+  alias PhoenixKit.AI.Prompt
   alias PhoenixKit.AI.Request
   alias PhoenixKit.Settings
 
@@ -85,7 +86,7 @@ defmodule PhoenixKit.AI do
   Checks if the AI module is enabled.
   """
   def enabled? do
-    Settings.get_setting("ai_enabled", "false") == "true"
+    Settings.get_setting_cached("ai_enabled", "false") == "true"
   end
 
   @doc """
@@ -331,6 +332,429 @@ defmodule PhoenixKit.AI do
   end
 
   # ===========================================
+  # PROMPT CRUD
+  # ===========================================
+
+  @doc """
+  Lists all AI prompts.
+
+  ## Options
+  - `:sort_by` - Field to sort by (default: :sort_order)
+  - `:sort_dir` - Sort direction, :asc or :desc (default: :asc)
+  - `:enabled` - Filter by enabled status
+
+  ## Examples
+
+      PhoenixKit.AI.list_prompts()
+      PhoenixKit.AI.list_prompts(sort_by: :name, sort_dir: :asc)
+      PhoenixKit.AI.list_prompts(enabled: true)
+  """
+  def list_prompts(opts \\ []) do
+    sort_by = Keyword.get(opts, :sort_by, :sort_order)
+    sort_dir = Keyword.get(opts, :sort_dir, :asc)
+
+    query = from(p in Prompt)
+
+    query =
+      case Keyword.get(opts, :enabled) do
+        nil -> query
+        enabled -> where(query, [p], p.enabled == ^enabled)
+      end
+
+    query = order_by(query, [p], [{^sort_dir, field(p, ^sort_by)}])
+
+    repo().all(query)
+  end
+
+  @doc """
+  Lists only enabled prompts.
+
+  Convenience wrapper for `list_prompts(enabled: true)`.
+
+  ## Examples
+
+      PhoenixKit.AI.list_enabled_prompts()
+  """
+  def list_enabled_prompts do
+    list_prompts(enabled: true)
+  end
+
+  @doc """
+  Gets a single prompt by ID.
+
+  Raises `Ecto.NoResultsError` if the prompt does not exist.
+  """
+  def get_prompt!(id), do: repo().get!(Prompt, id)
+
+  @doc """
+  Gets a single prompt by ID.
+
+  Returns `nil` if the prompt does not exist.
+  """
+  def get_prompt(id), do: repo().get(Prompt, id)
+
+  @doc """
+  Gets a prompt by slug.
+
+  Returns `nil` if the prompt does not exist.
+  """
+  def get_prompt_by_slug(slug) when is_binary(slug) do
+    repo().get_by(Prompt, slug: slug)
+  end
+
+  @doc """
+  Creates a new AI prompt.
+
+  ## Examples
+
+      {:ok, prompt} = PhoenixKit.AI.create_prompt(%{
+        name: "Translator",
+        content: "Translate the following text to {{Language}}:\\n\\n{{Text}}"
+      })
+  """
+  def create_prompt(attrs) do
+    %Prompt{}
+    |> Prompt.changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Updates an existing AI prompt.
+  """
+  def update_prompt(%Prompt{} = prompt, attrs) do
+    prompt
+    |> Prompt.changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes an AI prompt.
+  """
+  def delete_prompt(%Prompt{} = prompt) do
+    repo().delete(prompt)
+  end
+
+  @doc """
+  Returns a prompt changeset for use in forms.
+  """
+  def change_prompt(%Prompt{} = prompt, attrs \\ %{}) do
+    Prompt.changeset(prompt, attrs)
+  end
+
+  @doc """
+  Increments the usage count for a prompt and updates last_used_at.
+  """
+  def record_prompt_usage(%Prompt{} = prompt) do
+    prompt
+    |> Prompt.usage_changeset()
+    |> repo().update()
+  end
+
+  @doc """
+  Counts the total number of prompts.
+  """
+  def count_prompts do
+    repo().aggregate(Prompt, :count, :id)
+  end
+
+  @doc """
+  Counts the number of enabled prompts.
+  """
+  def count_enabled_prompts do
+    query = from(p in Prompt, where: p.enabled == true)
+    repo().aggregate(query, :count, :id)
+  end
+
+  @doc """
+  Resolves a prompt from various input types.
+
+  Accepts:
+  - Integer ID
+  - String slug
+  - Prompt struct (returned as-is)
+
+  Returns `{:ok, prompt}` or `{:error, reason}`.
+  """
+  def resolve_prompt(%Prompt{} = prompt), do: {:ok, prompt}
+
+  def resolve_prompt(id) when is_integer(id) do
+    case get_prompt(id) do
+      nil -> {:error, "Prompt not found"}
+      prompt -> {:ok, prompt}
+    end
+  end
+
+  def resolve_prompt(slug) when is_binary(slug) do
+    case Integer.parse(slug) do
+      {id, ""} ->
+        resolve_prompt(id)
+
+      _ ->
+        case get_prompt_by_slug(slug) do
+          nil -> {:error, "Prompt not found"}
+          prompt -> {:ok, prompt}
+        end
+    end
+  end
+
+  def resolve_prompt(_), do: {:error, "Invalid prompt identifier"}
+
+  @doc """
+  Renders a prompt by replacing variables with provided values.
+
+  Returns `{:ok, rendered_text}` or `{:error, reason}`.
+  """
+  def render_prompt(prompt_id, variables \\ %{}) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      Prompt.render(prompt, variables)
+    end
+  end
+
+  @doc """
+  Increments the usage count for a prompt and updates last_used_at.
+  """
+  def increment_prompt_usage(prompt_id) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      record_prompt_usage(prompt)
+    end
+  end
+
+  @doc """
+  Makes an AI completion using a prompt template.
+
+  The prompt content is rendered with the provided variables and sent as
+  the user message.
+  """
+  def ask_with_prompt(endpoint_id, prompt_id, variables \\ %{}, opts \\ []) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id),
+         {:ok, _} <- validate_prompt(prompt),
+         {:ok, rendered} <- Prompt.render(prompt, variables),
+         {:ok, response} <- ask(endpoint_id, rendered, opts) do
+      # Only increment usage on successful completion
+      increment_prompt_usage(prompt_id)
+      {:ok, response}
+    end
+  end
+
+  @doc """
+  Makes an AI completion with a prompt template as the system message.
+
+  The prompt is rendered and used as the system message, with the user_message
+  as the user message.
+  """
+  def complete_with_system_prompt(endpoint_id, prompt_id, variables, user_message, opts \\ []) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id),
+         {:ok, _} <- validate_prompt(prompt),
+         {:ok, system_prompt} <- Prompt.render(prompt, variables) do
+      # Build messages with system prompt
+      messages = [
+        %{role: "system", content: system_prompt},
+        %{role: "user", content: user_message}
+      ]
+
+      case complete(endpoint_id, messages, opts) do
+        {:ok, response} ->
+          # Only increment usage on successful completion
+          increment_prompt_usage(prompt_id)
+          {:ok, response}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
+  Validates that a prompt is ready for use.
+
+  Returns `{:ok, prompt}` if valid, or `{:error, reason}` if not.
+  """
+  def validate_prompt(prompt) do
+    cond do
+      prompt.content == nil or prompt.content == "" ->
+        {:error, "Prompt has no content"}
+
+      prompt.enabled == false ->
+        {:error, "Prompt is disabled"}
+
+      true ->
+        {:ok, prompt}
+    end
+  end
+
+  @doc """
+  Duplicates a prompt with a new name.
+  """
+  def duplicate_prompt(prompt_id, new_name) when is_binary(new_name) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      create_prompt(%{
+        name: new_name,
+        description: prompt.description,
+        content: prompt.content,
+        enabled: prompt.enabled,
+        sort_order: prompt.sort_order,
+        metadata: prompt.metadata
+      })
+    end
+  end
+
+  @doc """
+  Enables a prompt.
+  """
+  def enable_prompt(prompt_id) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      update_prompt(prompt, %{enabled: true})
+    end
+  end
+
+  @doc """
+  Disables a prompt.
+  """
+  def disable_prompt(prompt_id) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      update_prompt(prompt, %{enabled: false})
+    end
+  end
+
+  @doc """
+  Gets the variables defined in a prompt.
+  """
+  def get_prompt_variables(prompt_id) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      {:ok, prompt.variables || []}
+    end
+  end
+
+  @doc """
+  Previews a rendered prompt without making an AI call.
+  """
+  def preview_prompt(prompt_id, variables \\ %{}) do
+    render_prompt(prompt_id, variables)
+  end
+
+  @doc """
+  Validates that all required variables are provided for a prompt.
+  """
+  def validate_prompt_variables(prompt_id, variables) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      Prompt.validate_variables(prompt, variables)
+    end
+  end
+
+  @doc """
+  Searches prompts by name, description, or content.
+  """
+  def search_prompts(query, opts \\ []) when is_binary(query) do
+    pattern = "%#{query}%"
+    limit = Keyword.get(opts, :limit, 50)
+
+    base_query =
+      from(p in Prompt,
+        where:
+          ilike(p.name, ^pattern) or
+            ilike(p.description, ^pattern) or
+            ilike(p.content, ^pattern),
+        order_by: [asc: p.sort_order, desc: p.inserted_at],
+        limit: ^limit
+      )
+
+    base_query =
+      case Keyword.get(opts, :enabled) do
+        nil -> base_query
+        enabled -> where(base_query, [p], p.enabled == ^enabled)
+      end
+
+    repo().all(base_query)
+  end
+
+  @doc """
+  Finds all prompts that use a specific variable.
+  """
+  def get_prompts_with_variable(variable_name) when is_binary(variable_name) do
+    query =
+      from(p in Prompt,
+        where: ^variable_name in p.variables,
+        order_by: [asc: p.sort_order, desc: p.inserted_at]
+      )
+
+    repo().all(query)
+  end
+
+  @doc """
+  Validates that the content has valid variable syntax.
+  """
+  def validate_prompt_content(content) when is_binary(content) do
+    all_patterns = Regex.scan(~r/\{\{([^}]+)\}\}/, content)
+
+    invalid =
+      all_patterns
+      |> Enum.map(fn [_full, inner] -> inner end)
+      |> Enum.reject(fn inner -> Regex.match?(~r/^\w+$/, inner) end)
+
+    if Enum.empty?(invalid) do
+      :ok
+    else
+      {:error, invalid}
+    end
+  end
+
+  def validate_prompt_content(_), do: {:error, "Content must be a string"}
+
+  @doc """
+  Gets usage statistics for all prompts.
+  """
+  def get_prompt_usage_stats(opts \\ []) do
+    query =
+      from(p in Prompt,
+        select: %{
+          prompt: p,
+          usage_count: p.usage_count,
+          last_used_at: p.last_used_at
+        },
+        order_by: [desc: p.usage_count, desc: p.last_used_at]
+      )
+
+    query =
+      case Keyword.get(opts, :enabled) do
+        nil -> query
+        enabled -> where(query, [p], p.enabled == ^enabled)
+      end
+
+    query =
+      case Keyword.get(opts, :limit) do
+        nil -> query
+        limit -> limit(query, ^limit)
+      end
+
+    repo().all(query)
+  end
+
+  @doc """
+  Resets the usage statistics for a prompt.
+  """
+  def reset_prompt_usage(prompt_id) do
+    with {:ok, prompt} <- resolve_prompt(prompt_id) do
+      prompt
+      |> Ecto.Changeset.change(%{usage_count: 0, last_used_at: nil})
+      |> repo().update()
+    end
+  end
+
+  @doc """
+  Updates the sort order for multiple prompts.
+  """
+  def reorder_prompts(order_list) when is_list(order_list) do
+    repo().transaction(fn ->
+      Enum.each(order_list, fn {id, sort_order} ->
+        from(p in Prompt, where: p.id == ^id)
+        |> repo().update_all(set: [sort_order: sort_order])
+      end)
+    end)
+
+    :ok
+  end
+
+  # ===========================================
   # USAGE TRACKING (REQUESTS)
   # ===========================================
 
@@ -486,7 +910,7 @@ defmodule PhoenixKit.AI do
     %{
       endpoints: repo().all(endpoints_query),
       models: repo().all(models_query),
-      statuses: ["success", "error", "pending"],
+      statuses: Request.valid_statuses(),
       sources: repo().all(sources_query)
     }
   end

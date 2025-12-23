@@ -153,6 +153,8 @@ defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
         |> assign(:models_loading, false)
         |> assign(:models_error, nil)
         |> assign(:selected_model, nil)
+        |> assign(:selected_provider, nil)
+        |> assign(:provider_models, [])
         |> load_endpoint(params["id"])
 
       {:ok, socket}
@@ -224,6 +226,114 @@ defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
       |> assign(:form, to_form(changeset))
       |> assign(:selected_model, selected_model)
 
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_provider", %{"provider" => ""}, socket) do
+    # Reset provider selection
+    socket =
+      socket
+      |> assign(:selected_provider, nil)
+      |> assign(:provider_models, [])
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_provider", %{"provider" => provider}, socket) do
+    # Find models for this provider
+    provider_models =
+      case Enum.find(socket.assigns.models_grouped, fn {p, _} -> p == provider end) do
+        {_, models} -> models
+        nil -> []
+      end
+
+    socket =
+      socket
+      |> assign(:selected_provider, provider)
+      |> assign(:provider_models, provider_models)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_model", %{"_target" => ["model"], "model" => ""}, socket) do
+    # Ignore when reset to placeholder
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_model", %{"model" => model_id}, socket) when model_id != "" do
+    # Find the model details
+    selected_model = find_model(socket.assigns.models, model_id)
+
+    # Update the form with new model
+    current_params = socket.assigns.form.params || %{}
+    new_params = Map.put(current_params, "model", model_id)
+
+    changeset =
+      (socket.assigns.endpoint || %Endpoint{})
+      |> AI.change_endpoint(new_params)
+      |> Map.put(:action, :validate)
+
+    socket =
+      socket
+      |> assign(:form, to_form(changeset))
+      |> assign(:selected_model, selected_model)
+      |> assign(:selected_provider, nil)
+      |> assign(:provider_models, [])
+      |> push_event("reset_select", %{id: "model_picker"})
+      |> push_event("reset_select", %{id: "provider_picker"})
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("select_model", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("clear_model", _params, socket) do
+    # Clear the model selection
+    current_params = socket.assigns.form.params || %{}
+    new_params = Map.put(current_params, "model", "")
+
+    changeset =
+      (socket.assigns.endpoint || %Endpoint{})
+      |> AI.change_endpoint(new_params)
+      |> Map.put(:action, :validate)
+
+    socket =
+      socket
+      |> assign(:form, to_form(changeset))
+      |> assign(:selected_model, nil)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("set_manual_model", %{"model" => model_id}, socket) when model_id != "" do
+    # Set model from manual input (when models list not loaded)
+    current_params = socket.assigns.form.params || %{}
+    new_params = Map.put(current_params, "model", model_id)
+
+    changeset =
+      (socket.assigns.endpoint || %Endpoint{})
+      |> AI.change_endpoint(new_params)
+      |> Map.put(:action, :validate)
+
+    socket =
+      socket
+      |> assign(:form, to_form(changeset))
+      |> assign(:selected_model, nil)
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("set_manual_model", _params, socket) do
     {:noreply, socket}
   end
 

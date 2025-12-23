@@ -2,15 +2,16 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
   @moduledoc """
   Landing page for DB Sync module.
 
-  Presents two options:
-  - Send Data: Generate a code and host an endpoint to share your data
-  - Receive Data: Connect to another site to browse and pull their data
+  Provides access to:
+  - Manage Connections: Create and manage permanent connections with other sites
+  - Transfer History: View all data transfers with approval workflow
   """
 
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.DBSync
+  alias PhoenixKit.DBSync.Connections
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -20,6 +21,9 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
     config = DBSync.get_config()
 
+    # Get connection stats
+    stats = get_connection_stats()
+
     socket =
       socket
       |> assign(:page_title, "DB Sync")
@@ -27,6 +31,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
       |> assign(:current_locale, locale)
       |> assign(:current_path, Routes.path("/admin/db-sync", locale: locale))
       |> assign(:config, config)
+      |> assign(:stats, stats)
 
     {:ok, socket}
   end
@@ -34,6 +39,36 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
   @impl true
   def handle_params(_params, _url, socket) do
     {:noreply, socket}
+  end
+
+  defp get_connection_stats do
+    default_stats = %{
+      total_senders: 0,
+      total_receivers: 0,
+      active_senders: 0,
+      active_receivers: 0
+    }
+
+    with {:ok, sender_connections} <- safe_list_connections("sender"),
+         {:ok, receiver_connections} <- safe_list_connections("receiver") do
+      active_senders = Enum.count(sender_connections, &(&1.status == "active"))
+      active_receivers = Enum.count(receiver_connections, &(&1.status == "active"))
+
+      %{
+        total_senders: length(sender_connections),
+        total_receivers: length(receiver_connections),
+        active_senders: active_senders,
+        active_receivers: active_receivers
+      }
+    else
+      _ -> default_stats
+    end
+  end
+
+  defp safe_list_connections(direction) do
+    {:ok, Connections.list_connections(direction: direction)}
+  rescue
+    _ -> {:error, :unavailable}
   end
 
   @impl true
@@ -60,7 +95,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
           <div class="text-center">
             <h1 class="text-4xl font-bold text-base-content mb-3">DB Sync</h1>
             <p class="text-lg text-base-content/70">
-              Transfer data between PhoenixKit instances
+              Sync data between PhoenixKit instances with permanent connections
             </p>
           </div>
         </header>
@@ -78,106 +113,133 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
           </div>
         <% end %>
 
-        <%!-- Main Options --%>
+        <%!-- Stats Overview (commented out for now - will add back later)
+        <%= if @config.enabled do %>
+          <div class="grid gap-4 md:grid-cols-3 max-w-3xl mx-auto mb-8">
+            <div class="stat bg-base-100 rounded-box shadow">
+              <div class="stat-figure text-primary">
+                <.icon name="hero-arrow-up-tray" class="w-8 h-8" />
+              </div>
+              <div class="stat-title">Sender Connections</div>
+              <div class="stat-value text-primary">{@stats.total_senders}</div>
+              <div class="stat-desc">{@stats.active_senders} active</div>
+            </div>
+
+            <div class="stat bg-base-100 rounded-box shadow">
+              <div class="stat-figure text-secondary">
+                <.icon name="hero-arrow-down-tray" class="w-8 h-8" />
+              </div>
+              <div class="stat-title">Receiver Connections</div>
+              <div class="stat-value text-secondary">{@stats.total_receivers}</div>
+              <div class="stat-desc">{@stats.active_receivers} active</div>
+            </div>
+
+            <div class="stat bg-base-100 rounded-box shadow">
+              <div class="stat-figure text-success">
+                <.icon name="hero-check-circle" class="w-8 h-8" />
+              </div>
+              <div class="stat-title">Total Active</div>
+              <div class="stat-value text-success">
+                {@stats.active_senders + @stats.active_receivers}
+              </div>
+              <div class="stat-desc">connections ready</div>
+            </div>
+          </div>
+        <% end %>
+        --%>
+
+        <%!-- Main Actions --%>
         <div class="grid gap-6 md:grid-cols-2 max-w-4xl mx-auto">
-          <%!-- Send Data Card --%>
+          <%!-- Manage Connections Card --%>
           <div class={[
             "card bg-base-100 shadow-xl",
             if(not @config.enabled, do: "opacity-50 pointer-events-none")
           ]}>
             <div class="card-body items-center text-center">
-              <div class="text-6xl mb-4">📤</div>
-              <h2 class="card-title text-2xl">Send Data</h2>
+              <div class="text-6xl mb-4">
+                <.icon name="hero-link" class="w-16 h-16 text-primary" />
+              </div>
+              <h2 class="card-title text-2xl">Manage Connections</h2>
               <p class="text-base-content/70 mb-4">
-                Generate a connection code and share your data with another site.
-                They will connect to you and pull the data they need.
+                Create sender connections to share your data with other sites.
+                Receiver connections are created automatically when remote sites connect.
               </p>
               <div class="card-actions">
                 <.link
-                  navigate={Routes.path("/admin/db-sync/send", locale: @current_locale)}
+                  navigate={Routes.path("/admin/db-sync/connections", locale: @current_locale)}
                   class="btn btn-primary btn-lg"
                 >
-                  <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> Share My Data
+                  <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Manage Connections
                 </.link>
               </div>
             </div>
           </div>
 
-          <%!-- Receive Data Card --%>
+          <%!-- Transfer History Card --%>
           <div class={[
             "card bg-base-100 shadow-xl",
             if(not @config.enabled, do: "opacity-50 pointer-events-none")
           ]}>
             <div class="card-body items-center text-center">
-              <div class="text-6xl mb-4">📥</div>
-              <h2 class="card-title text-2xl">Receive Data</h2>
+              <div class="text-6xl mb-4">
+                <.icon name="hero-clock" class="w-16 h-16 text-secondary" />
+              </div>
+              <h2 class="card-title text-2xl">Transfer History</h2>
               <p class="text-base-content/70 mb-4">
-                Connect to another site using their URL and connection code
-                to browse and pull their data into this site.
+                View all data transfers and monitor sync activity.
+                Track records transferred and connection statistics.
               </p>
               <div class="card-actions">
                 <.link
-                  navigate={Routes.path("/admin/db-sync/receive", locale: @current_locale)}
+                  navigate={Routes.path("/admin/db-sync/history", locale: @current_locale)}
                   class="btn btn-secondary btn-lg"
                 >
-                  <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> Pull Data
+                  <.icon name="hero-queue-list" class="w-5 h-5" /> View History
                 </.link>
               </div>
             </div>
           </div>
         </div>
 
-        <%!-- Info Section --%>
+        <%!-- How It Works Section --%>
         <div class="mt-12 max-w-4xl mx-auto">
           <div class="card bg-base-200">
             <div class="card-body">
               <h3 class="card-title text-lg">
-                <.icon name="hero-information-circle" class="w-5 h-5" /> How it works
+                <.icon name="hero-information-circle" class="w-5 h-5" />
+                How Cross-Site Connections Work
               </h3>
-              <div class="grid gap-4 md:grid-cols-3 mt-4">
-                <div class="flex items-start gap-3">
-                  <div class="badge badge-primary badge-lg">1</div>
-                  <div>
-                    <p class="font-semibold">Sender Opens API</p>
-                    <p class="text-sm text-base-content/70">
-                      The site with data generates a connection code and shares it
-                    </p>
-                  </div>
+              <div class="grid gap-6 md:grid-cols-2 mt-4">
+                <div>
+                  <h4 class="font-bold text-primary mb-2 flex items-center gap-2">
+                    <.icon name="hero-arrow-up-tray" class="w-5 h-5" /> As a Sender
+                  </h4>
+                  <ol class="list-decimal list-inside space-y-2 text-sm text-base-content/80">
+                    <li>Create a <strong>sender connection</strong> with a name</li>
+                    <li>Enter the remote site's URL</li>
+                    <li>The remote site is <strong>notified automatically</strong></li>
+                    <li>They can now pull data from your tables</li>
+                  </ol>
                 </div>
-                <div class="flex items-start gap-3">
-                  <div class="badge badge-primary badge-lg">2</div>
-                  <div>
-                    <p class="font-semibold">Receiver Connects</p>
-                    <p class="text-sm text-base-content/70">
-                      The site wanting data enters the URL and code to connect
-                    </p>
-                  </div>
+                <div>
+                  <h4 class="font-bold text-secondary mb-2 flex items-center gap-2">
+                    <.icon name="hero-arrow-down-tray" class="w-5 h-5" /> As a Receiver
+                  </h4>
+                  <ol class="list-decimal list-inside space-y-2 text-sm text-base-content/80">
+                    <li>When another site creates a connection to you</li>
+                    <li>A <strong>receiver connection</strong> appears automatically</li>
+                    <li>Use it to sync data from their site</li>
+                    <li>Choose conflict strategy when importing</li>
+                  </ol>
                 </div>
-                <div class="flex items-start gap-3">
-                  <div class="badge badge-primary badge-lg">3</div>
-                  <div>
-                    <p class="font-semibold">Browse & Transfer</p>
-                    <p class="text-sm text-base-content/70">
-                      Browse tables, select what to import, and configure conflict handling
-                    </p>
-                  </div>
-                </div>
+              </div>
+              <div class="divider"></div>
+              <div class="text-sm text-base-content/70">
+                <strong>Security:</strong> All connections use token-based authentication.
               </div>
             </div>
           </div>
         </div>
-
-        <%!-- Active Sessions --%>
-        <%= if @config.active_sessions > 0 do %>
-          <div class="mt-6 max-w-4xl mx-auto">
-            <div class="alert alert-info">
-              <.icon name="hero-signal" class="w-5 h-5" />
-              <span>
-                <strong>{@config.active_sessions}</strong> active transfer session(s)
-              </span>
-            </div>
-          </div>
-        <% end %>
       </div>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """

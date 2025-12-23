@@ -45,10 +45,10 @@ defmodule PhoenixKitWeb.Live.Settings do
         []
       end
 
-    # Load admin languages from settings
+    # Load admin languages from settings cache
     # Default is ["en-US"] - a fresh install only has English enabled
     admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en-US"]))
+      Settings.get_setting_cached("admin_languages", Jason.encode!(["en-US"]))
 
     admin_languages =
       case Jason.decode(admin_languages_json) do

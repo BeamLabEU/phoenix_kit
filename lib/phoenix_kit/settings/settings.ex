@@ -212,13 +212,22 @@ defmodule PhoenixKit.Settings do
       "default"
   """
   def get_setting_cached(key, default \\ nil) when is_binary(key) do
-    case PhoenixKit.Cache.get(@cache_name, key) do
-      nil ->
+    # Use a special sentinel to distinguish "not in cache" from "cached nil" or "cached non-existent"
+    cache_miss_sentinel = :__cache_not_found__
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    case PhoenixKit.Cache.get(@cache_name, key, cache_miss_sentinel) do
+      ^cache_miss_sentinel ->
         # Cache miss - query database and cache result
         value = query_and_cache_setting(key)
         value || default
 
+      ^setting_not_exists_sentinel ->
+        # Setting doesn't exist in database (cached result)
+        default
+
       value ->
+        # Cache hit with actual value (including nil if setting exists with nil value)
         value
     end
   rescue
@@ -366,13 +375,22 @@ defmodule PhoenixKit.Settings do
       %{"default" => true}
   """
   def get_json_setting_cached(key, default \\ nil) when is_binary(key) do
-    case PhoenixKit.Cache.get(@cache_name, key) do
-      nil ->
+    # Use a special sentinel to distinguish "not in cache" from "cached nil" or "cached non-existent"
+    cache_miss_sentinel = :__cache_not_found__
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    case PhoenixKit.Cache.get(@cache_name, key, cache_miss_sentinel) do
+      ^cache_miss_sentinel ->
         # Cache miss - query database and cache result
         value = query_and_cache_json_setting(key)
         value || default
 
+      ^setting_not_exists_sentinel ->
+        # Setting doesn't exist in database (cached result)
+        default
+
       value ->
+        # Cache hit with actual value (including nil if setting exists with nil value)
         value
     end
   rescue
@@ -1554,8 +1572,9 @@ defmodule PhoenixKit.Settings do
           value
 
         nil ->
-          # Cache the fact that this setting doesn't exist to avoid repeated queries
-          PhoenixKit.Cache.put(@cache_name, key, nil)
+          # Cache a sentinel value to indicate this setting doesn't exist
+          # This prevents repeated database queries for non-existent settings
+          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
           nil
       end
     else
@@ -1587,8 +1606,9 @@ defmodule PhoenixKit.Settings do
           nil
 
         nil ->
-          # Cache the fact that this setting doesn't exist to avoid repeated queries
-          PhoenixKit.Cache.put(@cache_name, key, nil)
+          # Cache a sentinel value to indicate this setting doesn't exist
+          # This prevents repeated database queries for non-existent settings
+          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
           nil
       end
     else

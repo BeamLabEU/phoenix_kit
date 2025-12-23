@@ -113,7 +113,7 @@ defmodule PhoenixKit.Modules.Maintenance do
       "Maintenance Mode"
   """
   def get_header do
-    Settings.get_setting("maintenance_header", @default_header)
+    Settings.get_setting_cached("maintenance_header", @default_header)
   end
 
   @doc """
@@ -132,7 +132,7 @@ defmodule PhoenixKit.Modules.Maintenance do
       "We'll be back soon..."
   """
   def get_subtext do
-    Settings.get_setting("maintenance_subtext", @default_subtext)
+    Settings.get_setting_cached("maintenance_subtext", @default_subtext)
   end
 
   @doc """

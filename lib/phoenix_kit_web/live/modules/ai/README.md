@@ -5,6 +5,7 @@ The PhoenixKit AI module provides a complete AI integration system with unified 
 ## Quick Links
 
 - **Admin Interface**: `/{prefix}/admin/ai/endpoints`
+- **Prompt Templates**: `/{prefix}/admin/ai/prompts`
 - **Usage Statistics**: `/{prefix}/admin/ai/usage`
 - **Create Endpoint**: `/{prefix}/admin/ai/endpoints/new`
 
@@ -20,6 +21,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 - **PhoenixKit.AI** – Main API module with completion functions and endpoint management
 - **PhoenixKit.AI.Endpoint** – Endpoint schema combining credentials + model + parameters
+- **PhoenixKit.AI.Prompt** – Reusable prompt templates with variable substitution
 - **PhoenixKit.AI.Request** – Request logging schema for usage tracking
 - **PhoenixKit.AI.Completion** – HTTP client for making API calls
 - **PhoenixKit.AI.OpenRouterClient** – Model discovery and API key validation
@@ -28,6 +30,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 - **Unified Endpoints** – Each endpoint is a complete AI configuration
 - **Unlimited Endpoints** – Create as many endpoints as needed
+- **Prompt Templates** – Reusable prompts with `{{Variable}}` substitution
 - **Usage Tracking** – All requests logged with tokens, latency, and cost
 - **Parameter Overrides** – Override endpoint parameters per-request
 - **Model Discovery** – Dynamic model fetching from OpenRouter API
@@ -37,6 +40,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 ## Database Tables
 
 - **phoenix_kit_ai_endpoints** – Endpoint storage (credentials, model, parameters)
+- **phoenix_kit_ai_prompts** – Reusable prompt templates with variables
 - **phoenix_kit_ai_requests** – Request logging with usage statistics
 
 ## API Usage
@@ -195,6 +199,124 @@ endpoint = PhoenixKit.AI.get_endpoint!(1)
 # Calling a disabled endpoint
 {:error, "Endpoint is disabled"} = PhoenixKit.AI.ask(1, "Hello")
 ```
+
+## Prompt Templates
+
+Prompts are reusable templates with variable substitution using `{{VariableName}}` syntax.
+
+### Creating Prompts
+
+```elixir
+{:ok, prompt} = PhoenixKit.AI.create_prompt(%{
+  name: "Email Writer",
+  slug: "email-writer",
+  content: "Write a professional email about {{Topic}} to {{Recipient}}.",
+  description: "Generates professional emails",
+  enabled: true
+})
+```
+
+### Using Prompts with AI Calls
+
+```elixir
+# Simple: render prompt and make AI call
+{:ok, response} = PhoenixKit.AI.ask_with_prompt(
+  endpoint_id,
+  "email-writer",  # Can use ID, slug, or Prompt struct
+  %{"Topic" => "project update", "Recipient" => "the team"}
+)
+
+# Advanced: use prompt as system message with user input
+{:ok, response} = PhoenixKit.AI.complete_with_system_prompt(
+  endpoint_id,
+  "email-writer",
+  %{"Topic" => "Q4 results", "Recipient" => "stakeholders"},
+  "Make it concise and include key metrics.",
+  temperature: 0.7
+)
+```
+
+### Variable Management
+
+```elixir
+# Get variables from a prompt
+{:ok, variables} = PhoenixKit.AI.get_prompt_variables("email-writer")
+# => ["Topic", "Recipient"]
+
+# Preview rendered prompt
+{:ok, rendered} = PhoenixKit.AI.preview_prompt("email-writer", %{
+  "Topic" => "meeting notes",
+  "Recipient" => "the manager"
+})
+# => "Write a professional email about meeting notes to the manager."
+
+# Validate variables before use
+case PhoenixKit.AI.validate_prompt_variables("email-writer", %{"Topic" => "test"}) do
+  {:ok, _} -> # All required variables provided
+  {:error, {:missing_variables, missing}} -> # Handle missing: ["Recipient"]
+end
+```
+
+### Prompt Discovery
+
+```elixir
+# Search prompts by name or content
+prompts = PhoenixKit.AI.search_prompts("email", enabled_only: true)
+
+# Find prompts using a specific variable
+prompts = PhoenixKit.AI.get_prompts_with_variable("Recipient")
+
+# Validate prompt content syntax
+{:ok, variables} = PhoenixKit.AI.validate_prompt_content("Hello {{Name}}")
+# => ["Name"]
+```
+
+### Prompt Management
+
+```elixir
+# List all prompts
+prompts = PhoenixKit.AI.list_prompts()
+
+# List enabled prompts only
+prompts = PhoenixKit.AI.list_enabled_prompts()
+
+# Get by ID or slug
+prompt = PhoenixKit.AI.get_prompt!(1)
+prompt = PhoenixKit.AI.get_prompt_by_slug("email-writer")
+
+# Enable/disable
+{:ok, prompt} = PhoenixKit.AI.enable_prompt(prompt_id)
+{:ok, prompt} = PhoenixKit.AI.disable_prompt(prompt_id)
+
+# Duplicate a prompt
+{:ok, new_prompt} = PhoenixKit.AI.duplicate_prompt(prompt_id, "Email Writer v2")
+
+# Delete
+{:ok, _} = PhoenixKit.AI.delete_prompt(prompt)
+```
+
+### Usage Statistics
+
+```elixir
+# Get usage stats for all prompts
+stats = PhoenixKit.AI.get_prompt_usage_stats()
+# => [%{id: 1, name: "Email Writer", usage_count: 150, ...}, ...]
+
+# Reset usage counter
+{:ok, prompt} = PhoenixKit.AI.reset_prompt_usage(prompt_id)
+```
+
+### Prompt Schema
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Display name (required) |
+| `slug` | string | URL-friendly identifier (auto-generated) |
+| `content` | text | Prompt template with `{{Variables}}` |
+| `description` | string | Optional description |
+| `enabled` | boolean | Whether prompt is active |
+| `usage_count` | integer | Number of times used |
+| `sort_order` | integer | Display order |
 
 ## Endpoint Schema
 
@@ -392,12 +514,22 @@ end
 
 ## LiveView Interfaces
 
+> **Note**: The AI module must be enabled before accessing admin pages. Enable via Admin UI at `/{prefix}/admin/modules` or programmatically with `PhoenixKit.AI.enable_system()`.
+
 ### Endpoints Page (`/{prefix}/admin/ai/endpoints`)
 
 - List all endpoints with usage statistics
 - Sort by ID, name, status, usage, cost, last used
 - Quick actions: edit, enable/disable, delete
 - Each card shows: model, temperature, request count, tokens, cost
+
+### Prompts Page (`/{prefix}/admin/ai/prompts`)
+
+- List all prompt templates with usage counts
+- Create, edit, duplicate, and delete prompts
+- Variable preview with live substitution
+- Enable/disable prompts
+- Drag-and-drop reordering
 
 ### Usage Page (`/{prefix}/admin/ai/usage`)
 

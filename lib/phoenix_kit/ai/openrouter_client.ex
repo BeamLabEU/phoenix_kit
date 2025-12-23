@@ -403,23 +403,31 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   # Private functions
 
   defp http_get(url, headers) do
-    # Ensure required applications are started
-    :inets.start()
-    :ssl.start()
+    # Convert headers list to map format for Req
+    headers_map = Map.new(headers)
 
-    case :httpc.request(
-           :get,
-           {String.to_charlist(url),
-            Enum.map(headers, fn {k, v} -> {to_charlist(k), to_charlist(v)} end)},
-           [
-             {:timeout, @timeout},
-             {:connect_timeout, @timeout},
-             {:ssl, [verify: :verify_none]}
-           ],
-           [{:body_format, :binary}]
+    case Req.get(url,
+           headers: headers_map,
+           receive_timeout: @timeout,
+           connect_options: [timeout: @timeout]
          ) do
-      {:ok, {{_, status_code, _}, _resp_headers, body}} ->
-        {:ok, %{status_code: status_code, body: to_string(body)}}
+      {:ok, %Req.Response{status: status, body: body}} ->
+        # Req automatically decodes JSON, so encode it back to string for consistency
+        body_string =
+          if is_map(body) or is_list(body) do
+            Jason.encode!(body)
+          else
+            to_string(body)
+          end
+
+        {:ok, %{status_code: status, body: body_string}}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        {:error, :timeout}
+
+      {:error, %Req.TransportError{reason: reason}} ->
+        Logger.error("HTTP request failed: #{inspect(reason)}")
+        {:error, reason}
 
       {:error, reason} ->
         Logger.error("HTTP request failed: #{inspect(reason)}")

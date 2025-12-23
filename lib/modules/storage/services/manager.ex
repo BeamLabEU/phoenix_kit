@@ -247,13 +247,13 @@ defmodule PhoenixKit.Modules.Storage.Manager do
   end
 
   defp get_redundancy_copies do
-    Settings.get_setting("storage_redundancy_copies", "1")
+    Settings.get_setting_cached("storage_redundancy_copies", "1")
     |> String.to_integer()
     |> max(1)
     |> min(5)
   end
 
   defp get_auto_generate_variants do
-    Settings.get_setting("storage_auto_generate_variants", "true") == "true"
+    Settings.get_setting_cached("storage_auto_generate_variants", "true") == "true"
   end
 end

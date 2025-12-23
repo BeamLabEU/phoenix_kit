@@ -240,28 +240,34 @@ defmodule PhoenixKitWeb.BlogController do
             |> filter_published()
             |> filter_by_exact_language(blog_slug, language)
 
-          total_count = length(all_posts)
-          posts = paginate(all_posts, page, per_page)
+          # If no posts exist for this language, return 404
+          # This prevents empty blog listing pages for languages without content
+          if all_posts == [] do
+            handle_not_found(conn, :no_content_for_language)
+          else
+            total_count = length(all_posts)
+            posts = paginate(all_posts, page, per_page)
 
-          breadcrumbs = [
-            %{label: blog["name"], url: nil}
-          ]
+            breadcrumbs = [
+              %{label: blog["name"], url: nil}
+            ]
 
-          # Build translation links for blog listing
-          translations = build_listing_translations(blog_slug, language)
+            # Build translation links for blog listing
+            translations = build_listing_translations(blog_slug, language)
 
-          conn
-          |> assign(:page_title, blog["name"])
-          |> assign(:blog, blog)
-          |> assign(:posts, posts)
-          |> assign(:current_language, canonical_language)
-          |> assign(:translations, translations)
-          |> assign(:page, page)
-          |> assign(:per_page, per_page)
-          |> assign(:total_count, total_count)
-          |> assign(:total_pages, ceil(total_count / per_page))
-          |> assign(:breadcrumbs, breadcrumbs)
-          |> render(:index)
+            conn
+            |> assign(:page_title, blog["name"])
+            |> assign(:blog, blog)
+            |> assign(:posts, posts)
+            |> assign(:current_language, canonical_language)
+            |> assign(:translations, translations)
+            |> assign(:page, page)
+            |> assign(:per_page, per_page)
+            |> assign(:total_count, total_count)
+            |> assign(:total_pages, ceil(total_count / per_page))
+            |> assign(:breadcrumbs, breadcrumbs)
+            |> render(:index)
+          end
         end
 
       {:error, reason} ->
@@ -576,15 +582,23 @@ defmodule PhoenixKitWeb.BlogController do
           :slug ->
             "#{blog_slug}/#{post.slug}/#{language}.phk"
 
-          :timestamp ->
+          :timestamp when not is_nil(post.date) and not is_nil(post.time) ->
             date_str = Date.to_iso8601(post.date)
             time_str = post.time |> Time.to_string() |> String.slice(0..4)
             "#{blog_slug}/#{date_str}/#{time_str}/#{language}.phk"
+
+          _ ->
+            # Can't build path for timestamp mode without date/time
+            nil
         end
 
-      case Blogging.read_post(blog_slug, lang_path) do
-        {:ok, lang_post} -> lang_post.metadata.status == "published"
-        _ -> false
+      if lang_path do
+        case Blogging.read_post(blog_slug, lang_path) do
+          {:ok, lang_post} -> lang_post.metadata.status == "published"
+          _ -> false
+        end
+      else
+        false
       end
     end
   end
@@ -725,10 +739,14 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_breadcrumbs(blog_slug, post, language) do
-    {:ok, blog} = fetch_blog(blog_slug)
+    blog_name =
+      case fetch_blog(blog_slug) do
+        {:ok, blog} -> blog["name"]
+        {:error, _} -> blog_slug
+      end
 
     [
-      %{label: blog["name"], url: BlogHTML.blog_listing_path(language, blog_slug)},
+      %{label: blog_name, url: BlogHTML.blog_listing_path(language, blog_slug)},
       %{label: post.metadata.title, url: nil}
     ]
   end
@@ -822,7 +840,7 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp get_per_page_setting do
-    case Settings.get_setting("blogging_posts_per_page") do
+    case Settings.get_setting_cached("blogging_posts_per_page") do
       nil ->
         20
 
@@ -876,9 +894,15 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp attempt_breadcrumb_fallback(conn, reason) do
     language = conn.assigns[:current_language] || "en"
+    blog_slug = conn.params["blog"]
     path = conn.params["path"] || []
 
-    handle_fallback_case(reason, path, language)
+    # Build full path including blog slug for proper fallback handling
+    # Route params are: %{"blog" => "date", "path" => ["2025-12-09", "15:02"]}
+    # We need: ["date", "2025-12-09", "15:02"] for pattern matching
+    full_path = if blog_slug, do: [blog_slug | path], else: path
+
+    handle_fallback_case(reason, full_path, language)
   end
 
   defp handle_fallback_case(reason, [blog_slug, _post_identifier], language)
