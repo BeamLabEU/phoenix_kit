@@ -367,6 +367,19 @@ defmodule PhoenixKit.AI do
   end
 
   @doc """
+  Lists only enabled prompts.
+
+  Convenience wrapper for `list_prompts(enabled: true)`.
+
+  ## Examples
+
+      PhoenixKit.AI.list_enabled_prompts()
+  """
+  def list_enabled_prompts do
+    list_prompts(enabled: true)
+  end
+
+  @doc """
   Gets a single prompt by ID.
 
   Raises `Ecto.NoResultsError` if the prompt does not exist.

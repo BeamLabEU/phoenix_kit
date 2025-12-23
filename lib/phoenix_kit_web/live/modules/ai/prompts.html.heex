@@ -95,7 +95,12 @@
                 <div class="flex-1">
                   <div class="flex items-center gap-3 flex-wrap">
                     <span class="badge badge-ghost font-mono">#{prompt.id}</span>
-                    <h3 class="font-semibold text-lg">{prompt.name}</h3>
+                    <.link
+                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}
+                      class="font-semibold text-lg hover:text-primary hover:underline"
+                    >
+                      {prompt.name}
+                    </.link>
                     <span class={"badge #{if prompt.enabled, do: "badge-success", else: "badge-neutral"}"}>
                       {if prompt.enabled, do: "Active", else: "Disabled"}
                     </span>
