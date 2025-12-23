@@ -65,7 +65,7 @@ defmodule PhoenixKit.Utils.Routes do
     if mix_task_context?() do
       "en"
     else
-      case PhoenixKit.Settings.get_json_setting("admin_languages") do
+      case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
         nil ->
           # No setting exists, default is "en"
           "en"

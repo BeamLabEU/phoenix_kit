@@ -48,8 +48,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   def mount(_params, _session, socket) do
     # Check if posts module is enabled
     if posts_enabled?() do
-      # Get project title from settings
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      # Get project title from settings cache
+      project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
 
       # Get current user
       current_user = socket.assigns[:phoenix_kit_current_user]
@@ -280,7 +280,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
   ## --- Private Helper Functions ---
 
   defp posts_enabled? do
-    Settings.get_setting("posts_enabled", "true") == "true"
+    Settings.get_setting_cached("posts_enabled", "true") == "true"
   end
 
   defp assign_filter_defaults(socket) do
@@ -294,7 +294,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
 
   defp assign_pagination_defaults(socket) do
     per_page =
-      Settings.get_setting("posts_per_page", "20")
+      Settings.get_setting_cached("posts_per_page", "20")
       |> String.to_integer()
       |> min(@max_per_page)
 

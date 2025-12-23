@@ -770,7 +770,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%= if PhoenixKit.Settings.get_setting("posts_enabled", "true") == "true" do %>
+                        <%= if PhoenixKit.Settings.get_setting_cached("posts_enabled", "true") == "true" do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/posts")}
                             icon="document"

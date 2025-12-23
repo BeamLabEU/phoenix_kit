@@ -59,7 +59,7 @@ defmodule PhoenixKit.Billing do
   Checks if the billing system is enabled.
   """
   def enabled? do
-    Settings.get_setting("billing_enabled", "false") == "true"
+    Settings.get_setting_cached("billing_enabled", "false") == "true"
   end
 
   @doc """
@@ -82,13 +82,14 @@ defmodule PhoenixKit.Billing do
   def get_config do
     %{
       enabled: enabled?(),
-      default_currency: Settings.get_setting("billing_default_currency", "EUR"),
-      tax_enabled: Settings.get_setting("billing_tax_enabled", "false") == "true",
-      default_tax_rate: Settings.get_setting("billing_default_tax_rate", "0"),
-      invoice_prefix: Settings.get_setting("billing_invoice_prefix", "INV"),
-      order_prefix: Settings.get_setting("billing_order_prefix", "ORD"),
-      receipt_prefix: Settings.get_setting("billing_receipt_prefix", "RCP"),
-      invoice_due_days: String.to_integer(Settings.get_setting("billing_invoice_due_days", "14")),
+      default_currency: Settings.get_setting_cached("billing_default_currency", "EUR"),
+      tax_enabled: Settings.get_setting_cached("billing_tax_enabled", "false") == "true",
+      default_tax_rate: Settings.get_setting_cached("billing_default_tax_rate", "0"),
+      invoice_prefix: Settings.get_setting_cached("billing_invoice_prefix", "INV"),
+      order_prefix: Settings.get_setting_cached("billing_order_prefix", "ORD"),
+      receipt_prefix: Settings.get_setting_cached("billing_receipt_prefix", "RCP"),
+      invoice_due_days:
+        String.to_integer(Settings.get_setting_cached("billing_invoice_due_days", "14")),
       orders_count: count_orders(),
       invoices_count: count_invoices(),
       currencies_count: count_currencies()
