@@ -32,10 +32,38 @@ The blogging module includes public-facing routes for displaying published posts
 - **Status-Based Access Control** - Only `status: published` posts are visible
 - **Markdown Rendering** - GitHub-style markdown CSS with syntax highlighting
 - **Language Support** - Multi-language posts with language switcher
+- **Content-Based Language Detection** - Custom language files (e.g., `af.phk`) work without predefinition
+- **Flexible Fallbacks** - Missing language versions redirect to available alternatives
 - **Pagination** - Configurable posts per page (default: 20)
 - **SEO Ready** - Clean URLs, breadcrumbs, responsive design
 - **Performance** - Content-hash-based caching with versioned keys (`v1:blog_post:...`)
 - **Beta Badge** - Blog listings include Beta badge during v1.5.0 launch
+
+### Language Detection
+
+The blogging module supports two types of language detection:
+
+1. **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
+2. **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
+
+This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. The language switcher will show these with a strikethrough to indicate they're not officially enabled, but they remain accessible.
+
+### Fallback Behavior
+
+When a requested post or language version is not found, the system follows a fallback chain:
+
+**For slug-mode posts (`/en/blog/docs/getting-started`):**
+1. Try other languages for the same post (default language first)
+2. If no published language versions exist, redirect to blog listing
+
+**For timestamp-mode posts (`/en/blog/news/2025-12-24/15:30`):**
+1. Try other languages for the same date/time
+2. Try other times on the same date
+3. If no posts on that date, redirect to blog listing
+
+**User Experience:**
+- Redirects include a flash message: "The page you requested was not found. Showing closest match."
+- Bookmarked URLs continue to work even if specific translations are removed
 
 ### Configuration
 
@@ -359,9 +387,12 @@ docs/
   content: "# Markdown content...",
   language: "en",
   available_languages: ["en", "es", "fr"],
+  language_statuses: %{"en" => "published", "es" => "draft", "fr" => "published"},
   mode: :slug  # or :timestamp
 }
 ```
+
+**Note on `language_statuses`:** This field is preloaded when posts are fetched via `list_posts` or `read_post` to avoid redundant file reads. It maps each available language code to its publication status.
 
 ## Migration Path
 
