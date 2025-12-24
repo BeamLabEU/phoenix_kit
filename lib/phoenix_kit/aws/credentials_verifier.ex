@@ -37,7 +37,7 @@ defmodule PhoenixKit.AWS.CredentialsVerifier do
 
   alias ExAws.{EC2, SNS, SQS, STS}
 
-  # Note: SES не имеет ExAws библиотеки, будем использовать прямые HTTP вызовы через ExAws.Operation.Query
+  # Note: SES doesn't have ExAws library, will use direct HTTP calls via ExAws.Operation.Query
 
   @doc """
   Verifies AWS credentials using STS GetCallerIdentity.
