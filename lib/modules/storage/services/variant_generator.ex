@@ -360,14 +360,18 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
     case System.cmd("ffmpeg", args, stderr_to_stdout: true) do
       {_output, 0} ->
-        # Get video dimensions
-        case get_video_dimensions(output_path) do
-          {:ok, {_width, _height}} ->
-            # Dimensions will be calculated later when creating instance
-            {:ok, output_path}
+        # For video_thumbnail, output is a JPG image - skip video dimension check
+        # For actual video variants, verify the video dimensions
+        if dimension.name == "video_thumbnail" do
+          {:ok, output_path}
+        else
+          case get_video_dimensions(output_path) do
+            {:ok, {_width, _height}} ->
+              {:ok, output_path}
 
-          {:error, reason} ->
-            {:error, reason}
+            {:error, reason} ->
+              {:error, reason}
+          end
         end
 
       {output, exit_code} ->
@@ -404,7 +408,7 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
     # Handle quality (override for specific variants)
     args =
-      if dimension.quality and dimension.name not in ["360p", "720p", "1080p"] do
+      if dimension.quality && dimension.name not in ["360p", "720p", "1080p"] do
         quality = convert_video_quality(dimension.quality)
         args ++ ["-crf", quality]
       else

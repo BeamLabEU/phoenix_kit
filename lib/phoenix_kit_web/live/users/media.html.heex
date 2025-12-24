@@ -87,7 +87,12 @@
                 navigate={PhoenixKit.Utils.Routes.path("/admin/media/#{file.file_id}")}
                 class="group relative aspect-square bg-base-300 rounded-lg overflow-hidden cursor-pointer hover:shadow-lg transition-shadow"
               >
-                <% image_url = file.urls["medium"] || file.urls["original"] %>
+                <% image_url =
+                  if file.file_type == "video" do
+                    file.urls["video_thumbnail"]
+                  else
+                    file.urls["medium"] || file.urls["thumbnail"] || file.urls["original"]
+                  end %>
                 <%= if image_url do %>
                   <img
                     src={image_url}
