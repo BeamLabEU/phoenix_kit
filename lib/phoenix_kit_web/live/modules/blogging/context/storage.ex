@@ -50,12 +50,108 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   @doc """
   Gets language details (name, flag) for a given language code.
+
+  Searches in order:
+  1. Predefined languages (BeamLabCountries) - for full locale details
+  2. User-configured languages - for custom/less common languages
   """
   @spec get_language_info(String.t()) ::
           %{code: String.t(), name: String.t(), flag: String.t()} | nil
   def get_language_info(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # First try predefined languages (BeamLabCountries has the most complete info)
+    predefined = find_in_predefined_languages(language_code)
+
+    if predefined do
+      predefined
+    else
+      # Fall back to user-configured languages
+      # This handles custom language codes like "af" that might not be in BeamLabCountries
+      find_in_configured_languages(language_code)
+    end
+  end
+
+  # Search predefined languages (BeamLabCountries) with base code fallback
+  defp find_in_predefined_languages(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     all_languages = Languages.get_available_languages()
-    Enum.find(all_languages, fn lang -> lang.code == language_code end)
+
+    # First try exact match
+    exact_match = Enum.find(all_languages, fn lang -> lang.code == language_code end)
+
+    if exact_match do
+      exact_match
+    else
+      # Try matching by base code (e.g., "en" matches "en-US")
+      base_code = DialectMapper.extract_base(language_code)
+
+      Enum.find(all_languages, fn lang ->
+        DialectMapper.extract_base(lang.code) == base_code
+      end)
+    end
+  end
+
+  # Search user-configured languages with base code fallback
+  defp find_in_configured_languages(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    configured_languages = Languages.get_languages()
+
+    # First try exact match
+    exact_match =
+      Enum.find(configured_languages, fn lang -> lang["code"] == language_code end)
+
+    result =
+      if exact_match do
+        exact_match
+      else
+        # Try matching by base code
+        base_code = DialectMapper.extract_base(language_code)
+
+        Enum.find(configured_languages, fn lang ->
+          DialectMapper.extract_base(lang["code"]) == base_code
+        end)
+      end
+
+    # Convert string-keyed map to atom-keyed map for consistency
+    if result do
+      %{
+        code: result["code"],
+        name: result["name"] || result["code"],
+        flag: result["flag"] || ""
+      }
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Checks if a language code is enabled, considering base code matching.
+
+  This handles cases where:
+  - The file is `en.phk` and enabled languages has `"en-US"` → matches
+  - The file is `en-US.phk` and enabled languages has `"en"` → matches
+  - The file is `af.phk` and enabled languages has `"af"` → matches
+  """
+  @spec language_enabled?(String.t(), [String.t()]) :: boolean()
+  def language_enabled?(language_code, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Direct match
+    if language_code in enabled_languages do
+      true
+    else
+      # Base code matching
+      base_code = DialectMapper.extract_base(language_code)
+
+      Enum.any?(enabled_languages, fn enabled_lang ->
+        # Check if enabled language matches directly or by base code
+        enabled_lang == language_code or
+          DialectMapper.extract_base(enabled_lang) == base_code
+      end)
+    end
   end
 
   @doc """
@@ -255,6 +351,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   # slug helpers now handled by PhoenixKit.Utils.Slug
 
+  @typedoc """
+  A blog post with metadata and content.
+
+  The `language_statuses` field is preloaded when fetching posts via `list_posts/2`
+  or `read_post/2` to avoid redundant file reads. It maps language codes to their
+  publication status (e.g., `%{"en" => "published", "es" => "draft"}`).
+  """
   @type post :: %{
           blog: String.t() | nil,
           slug: String.t() | nil,
@@ -266,6 +369,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
           content: String.t(),
           language: String.t(),
           available_languages: [String.t()],
+          language_statuses: %{String.t() => String.t() | nil},
           mode: :slug | :timestamp | nil
         }
 
@@ -453,6 +557,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                  post_path
                  |> File.read!()
                  |> Metadata.parse_with_content() do
+            # Preload language statuses to avoid re-reading files in the listing
+            language_statuses = load_language_statuses(time_path, available_languages)
+
             [
               %{
                 blog: blog_slug,
@@ -465,6 +572,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                 content: content,
                 language: display_language,
                 available_languages: available_languages,
+                language_statuses: language_statuses,
                 mode: :timestamp
               }
             ]
@@ -476,6 +584,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       {:error, _} ->
         []
     end
+  end
+
+  # Load status for all language files in a post directory
+  # Returns a map of language_code => status
+  defp load_language_statuses(post_dir, available_languages) do
+    Enum.reduce(available_languages, %{}, fn lang, acc ->
+      lang_path = Path.join(post_dir, language_filename(lang))
+
+      status =
+        case File.read(lang_path) do
+          {:ok, content} ->
+            {:ok, metadata, _content} = Metadata.parse_with_content(content)
+            Map.get(metadata, :status)
+
+          {:error, _} ->
+            nil
+        end
+
+      Map.put(acc, lang, status)
+    end)
   end
 
   # Selects the best language to display based on:
@@ -647,6 +775,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
           |> File.read!()
           |> Metadata.parse_with_content()
 
+        # Preload language statuses to avoid re-reading files in the listing
+        language_statuses = load_language_statuses(post_path, available_languages)
+
         [
           %{
             blog: blog_slug,
@@ -659,6 +790,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
             content: content,
             language: display_language,
             available_languages: available_languages,
+            language_statuses: language_statuses,
             mode: :slug
           }
         ]
@@ -696,6 +828,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          {:ok, metadata, content} <-
            File.read!(file_path)
            |> Metadata.parse_with_content() do
+      # Preload language statuses to avoid re-reading files in editor/listing
+      language_statuses = load_language_statuses(post_dir, available_languages)
+
       {:ok,
        %{
          blog: blog_slug,
@@ -708,6 +843,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          content: content,
          language: language_code,
          available_languages: available_languages,
+         language_statuses: language_statuses,
          mode: :slug
        }}
     else
@@ -997,6 +1133,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          {:ok, {date, time}} <- date_time_from_path(relative_path),
          time_dir <- Path.dirname(full_path),
          available_languages <- detect_available_languages(time_dir) do
+      # Preload language statuses to avoid re-reading files in editor/listing
+      language_statuses = load_language_statuses(time_dir, available_languages)
+
       {:ok,
        %{
          blog: blog_slug,
@@ -1009,6 +1148,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          content: content,
          language: language,
          available_languages: available_languages,
+         language_statuses: language_statuses,
          mode: :timestamp
        }}
     else

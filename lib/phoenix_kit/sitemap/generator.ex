@@ -799,7 +799,7 @@ defmodule PhoenixKit.Sitemap.Generator do
           languages
           |> Enum.map(fn lang ->
             %{
-              code: extract_base_language(lang["code"] || lang[:code] || "en"),
+              code: Languages.DialectMapper.extract_base(lang["code"] || lang[:code] || "en"),
               is_default: lang["is_default"] || lang[:is_default] || false
             }
           end)
@@ -815,13 +815,6 @@ defmodule PhoenixKit.Sitemap.Generator do
       # Languages module not available or error
       [%{code: "en", is_default: true}]
   end
-
-  # Extract base language code from full dialect (e.g., "en-US" -> "en")
-  defp extract_base_language(code) when is_binary(code) do
-    code |> String.split("-") |> List.first() |> String.downcase()
-  end
-
-  defp extract_base_language(_), do: "en"
 
   # Helper to normalize dates to DateTime for comparison
   defp normalize_to_datetime(%DateTime{} = dt), do: dt

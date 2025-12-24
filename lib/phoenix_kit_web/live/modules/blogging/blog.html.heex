@@ -30,11 +30,13 @@
             prefix -> prefix
           end %>
         <% files_hint = "priv/blogging/" <> blog_slug <> "/…" %>
+        <%!-- Use first enabled language (default) for public URL, not UI locale --%>
+        <% default_language = List.first(@enabled_languages) %>
         <% public_url =
           if length(@enabled_languages) == 1 do
             @endpoint_url <> url_prefix <> "/" <> blog_slug
           else
-            @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+            @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
           end %>
         <div class="text-sm text-base-content/60 space-y-1">
           <p>
@@ -93,8 +95,9 @@
                   "#{default_lang}.phk"
                 ]) %>
               <% files_path = "priv/blogging/" <> post.path %>
+              <%!-- Use post's actual language, falling back to first available language for this post --%>
               <% public_url =
-                BlogHTML.build_post_url(blog_slug, post, post.language || @current_locale) %>
+                BlogHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
               <% full_public_url = @endpoint_url <> public_url %>
               <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
                 <div class="card-body p-4 md:p-5 min-w-0">

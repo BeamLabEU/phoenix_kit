@@ -206,11 +206,13 @@
                       "/" -> ""
                       prefix -> prefix
                     end %>
+                  <%!-- Use first enabled language (default) for public URL, not UI locale --%>
+                  <% default_language = List.first(@enabled_languages) %>
                   <% public_url =
                     if length(@enabled_languages) == 1 do
                       @endpoint_url <> url_prefix <> "/" <> blog_slug
                     else
-                      @endpoint_url <> url_prefix <> "/#{@current_locale}/" <> blog_slug
+                      @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
                     end %>
                   <a
                     href={public_url}
