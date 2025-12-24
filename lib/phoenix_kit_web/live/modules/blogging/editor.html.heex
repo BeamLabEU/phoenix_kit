@@ -159,7 +159,7 @@
     </div>
 
     <%!-- Language Switcher (separate line) --%>
-    <%= if length(@all_enabled_languages) > 1 do %>
+    <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
       <div class="flex items-center gap-2">
         <.blog_language_switcher
           languages={
@@ -176,6 +176,32 @@
           on_click="switch_language"
           size={:sm}
         />
+      </div>
+    <% end %>
+
+    <%!-- Warning for disabled or unknown language --%>
+    <%= if not @current_language_enabled or not @current_language_known do %>
+      <div class="alert alert-warning shadow-sm">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        <div>
+          <%= if not @current_language_known do %>
+            <span class="font-medium">{gettext("Unknown language file:")}</span>
+            <span>
+              {gettext(
+                "This file (%{code}.phk) doesn't match a recognized language code. The publishing status will still be respected.",
+                code: @current_language
+              )}
+            </span>
+          <% else %>
+            <span class="font-medium">{gettext("Disabled language:")}</span>
+            <span>
+              {gettext(
+                "This language (%{code}) is no longer enabled in the Languages module. The publishing status will still be respected for legacy content.",
+                code: @current_language
+              )}
+            </span>
+          <% end %>
+        </div>
       </div>
     <% end %>
 

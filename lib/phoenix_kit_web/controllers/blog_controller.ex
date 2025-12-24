@@ -67,37 +67,112 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  # Fallback for routes without language parameter (shouldn't happen with new routing)
+  # Fallback for routes without language parameter
+  # This handles the non-localized route where :blog might actually be a language code
   def show(conn, params) do
-    language = get_default_language()
-    conn = assign(conn, :current_language, language)
-
     if Blogging.enabled?() and public_enabled?() do
-      case build_segments(params) do
-        [] ->
-          handle_not_found(conn, :invalid_path)
+      # Check if the first segment (blog) is actually a language with content
+      case detect_language_in_blog_param(params) do
+        {:language_detected, language, adjusted_params} ->
+          # First segment was a language code with content - use localized logic
+          conn = assign(conn, :current_language, language)
+          handle_localized_request(conn, language, adjusted_params)
 
-        segments ->
-          case parse_path(segments) do
-            {:listing, blog_slug} ->
-              render_blog_listing(conn, blog_slug, language, conn.params)
-
-            {:slug_post, blog_slug, post_slug} ->
-              render_post(conn, blog_slug, {:slug, post_slug}, language)
-
-            {:timestamp_post, blog_slug, date, time} ->
-              render_post(conn, blog_slug, {:timestamp, date, time}, language)
-
-            {:date_only_post, blog_slug, date} ->
-              handle_date_only_url(conn, blog_slug, date, language)
-
-            {:error, reason} ->
-              handle_not_found(conn, reason)
-          end
+        :not_a_language ->
+          # First segment is a blog slug - use default language
+          language = get_default_language()
+          conn = assign(conn, :current_language, language)
+          handle_non_localized_request(conn, language, params)
       end
     else
       handle_not_found(conn, :module_disabled)
     end
+  end
+
+  # Handles request after language has been detected
+  defp handle_localized_request(conn, language, params) do
+    case build_segments(params) do
+      [] ->
+        handle_not_found(conn, :invalid_path)
+
+      segments ->
+        case parse_path(segments) do
+          {:listing, blog_slug} ->
+            render_blog_listing(conn, blog_slug, language, conn.params)
+
+          {:slug_post, blog_slug, post_slug} ->
+            render_post(conn, blog_slug, {:slug, post_slug}, language)
+
+          {:timestamp_post, blog_slug, date, time} ->
+            render_post(conn, blog_slug, {:timestamp, date, time}, language)
+
+          {:date_only_post, blog_slug, date} ->
+            handle_date_only_url(conn, blog_slug, date, language)
+
+          {:error, reason} ->
+            handle_not_found(conn, reason)
+        end
+    end
+  end
+
+  # Handles non-localized request with default language
+  defp handle_non_localized_request(conn, language, params) do
+    case build_segments(params) do
+      [] ->
+        handle_not_found(conn, :invalid_path)
+
+      segments ->
+        case parse_path(segments) do
+          {:listing, blog_slug} ->
+            render_blog_listing(conn, blog_slug, language, conn.params)
+
+          {:slug_post, blog_slug, post_slug} ->
+            render_post(conn, blog_slug, {:slug, post_slug}, language)
+
+          {:timestamp_post, blog_slug, date, time} ->
+            render_post(conn, blog_slug, {:timestamp, date, time}, language)
+
+          {:date_only_post, blog_slug, date} ->
+            handle_date_only_url(conn, blog_slug, date, language)
+
+          {:error, reason} ->
+            handle_not_found(conn, reason)
+        end
+    end
+  end
+
+  # Detects if the "blog" param is actually a language code by checking if content exists
+  # Returns {:language_detected, language, adjusted_params} or :not_a_language
+  defp detect_language_in_blog_param(
+         %{"blog" => potential_lang, "path" => [_ | _] = path} = _params
+       )
+       when is_binary(potential_lang) do
+    [actual_blog | rest_path] = path
+
+    blog_exists = blog_exists?(actual_blog)
+    has_content = has_content_for_language?(actual_blog, potential_lang)
+
+    # Check if there's a blog with slug matching actual_blog
+    # AND if there's content for potential_lang in that blog
+    if blog_exists and has_content do
+      adjusted_params = %{"blog" => actual_blog, "path" => rest_path}
+      {:language_detected, potential_lang, adjusted_params}
+    else
+      :not_a_language
+    end
+  end
+
+  defp detect_language_in_blog_param(_params), do: :not_a_language
+
+  # Check if any post in the blog has content for the given language
+  defp has_content_for_language?(blog_slug, language) do
+    posts = Blogging.list_posts(blog_slug, nil)
+
+    Enum.any?(posts, fn post ->
+      language in (post.available_languages || [])
+    end)
+  rescue
+    _ -> false
   end
 
   # ============================================================================
@@ -112,45 +187,73 @@ defmodule PhoenixKitWeb.BlogController do
   #
   # Returns {detected_language, adjusted_params}
   defp detect_language_or_blog(language_param, params) do
-    # Check if this looks like a valid language code
-    if valid_language?(language_param) do
-      # It's a real language code - use as-is
-      {language_param, params}
-    else
-      # It's actually a blog slug - shift parameters
-      # language_param becomes the blog, and what was 'blog' becomes part of path
-      default_language = get_default_language()
+    # First check if it's a known/predefined language
+    # Then check if content exists for this language in the blog (handles unknown languages like "af")
+    blog_slug = params["blog"]
 
-      adjusted_params =
-        case params do
-          # Pattern: %{"language" => blog_slug, "blog" => first_path_segment, "path" => rest}
-          %{"blog" => first_segment, "path" => rest} when is_list(rest) ->
-            %{"blog" => language_param, "path" => [first_segment | rest]}
+    cond do
+      # Known/predefined language - use as-is
+      valid_language?(language_param) ->
+        {language_param, params}
 
-          # Pattern: %{"language" => blog_slug, "blog" => first_path_segment}
-          %{"blog" => first_segment} ->
-            %{"blog" => language_param, "path" => [first_segment]}
+      # Unknown language code but content exists for it in this blog
+      # This handles files like af.phk, test.phk, etc.
+      blog_slug && has_content_for_language?(blog_slug, language_param) ->
+        {language_param, params}
 
-          # Pattern: %{"language" => blog_slug} (just listing)
-          _ ->
-            %{"blog" => language_param}
-        end
+      # Not a language - shift parameters (blog slug in language position)
+      true ->
+        default_language = get_default_language()
 
-      {default_language, adjusted_params}
+        adjusted_params =
+          case params do
+            # Pattern: %{"language" => blog_slug, "blog" => first_path_segment, "path" => rest}
+            %{"blog" => first_segment, "path" => rest} when is_list(rest) ->
+              %{"blog" => language_param, "path" => [first_segment | rest]}
+
+            # Pattern: %{"language" => blog_slug, "blog" => first_path_segment}
+            %{"blog" => first_segment} ->
+              %{"blog" => language_param, "path" => [first_segment]}
+
+            # Pattern: %{"language" => blog_slug} (just listing)
+            _ ->
+              %{"blog" => language_param}
+          end
+
+        {default_language, adjusted_params}
     end
   end
 
   defp valid_language?(code) when is_binary(code) do
-    # Check if it's an enabled language code (full dialect like en-US)
-    # OR if it's a valid base code (like en) that maps to an enabled dialect
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Check if it's a language code pattern (enabled, disabled, or even unknown)
+    # This allows access to legacy content in disabled languages
     cond do
+      # Enabled language - definitely valid
       Languages.language_enabled?(code) ->
         true
 
-      # Check if it's a base code that maps to an enabled dialect
+      # Base code that maps to an enabled dialect
       String.length(code) == 2 and not String.contains?(code, "-") ->
         dialect = DialectMapper.base_to_dialect(code)
-        Languages.language_enabled?(dialect)
+
+        if Languages.language_enabled?(dialect) do
+          true
+        else
+          # Even if disabled, it's still a valid language code pattern
+          # Check if it's a known language
+          Languages.get_predefined_language(dialect) != nil
+        end
+
+      # Known but disabled language (full dialect like "fr-FR")
+      Languages.get_predefined_language(code) != nil ->
+        true
+
+      # Check if it looks like a language code pattern (XX or XX-XX format)
+      # This allows access to unknown files like legacy imports
+      looks_like_language_code?(code) ->
+        true
 
       true ->
         false
@@ -160,6 +263,15 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp valid_language?(_), do: false
+
+  # Check if a string looks like a language code pattern
+  # Matches: 2-letter codes (en, fr), or dialect codes (en-US, pt-BR)
+  defp looks_like_language_code?(code) when is_binary(code) do
+    # 2-letter base code
+    # Dialect code pattern (xx-XX or xx-XXX)
+    (String.length(code) == 2 and String.match?(code, ~r/^[a-z]{2}$/i)) or
+      String.match?(code, ~r/^[a-z]{2,3}-[A-Za-z]{2,4}$/i)
+  end
 
   # ============================================================================
   # Path Parsing
@@ -607,16 +719,14 @@ defmodule PhoenixKitWeb.BlogController do
     # Get the primary/default language
     primary_language = List.first(enabled_languages) || "en"
 
-    # Filter available languages to only show ones that:
-    # 1. Actually exist as files (from post.available_languages)
-    # 2. Are directly enabled OR are a base code with an enabled dialect
-    # 3. Are published (exact file check, no fallback)
+    # Include ALL available languages that are published
+    # This allows legacy/disabled languages to still show in the public switcher
+    # (they'll be styled differently by the component based on enabled/known flags)
     available_and_published =
       post.available_languages
       |> normalize_languages(current_language)
       |> Enum.filter(fn lang ->
-        language_enabled_for_public?(lang, enabled_languages) and
-          translation_published_exact?(blog_slug, post, lang)
+        translation_published_exact?(blog_slug, post, lang)
       end)
 
     # Remove legacy base code files when dialect files exist
@@ -624,22 +734,14 @@ defmodule PhoenixKitWeb.BlogController do
     deduplicated =
       deduplicate_base_and_dialect_files(available_and_published, enabled_languages)
 
-    # Order: primary first, then the rest alphabetically
-    languages =
-      if primary_language in deduplicated do
-        others =
-          deduplicated
-          |> Enum.reject(&(&1 == primary_language))
-          |> Enum.sort()
-
-        [primary_language] ++ others
-      else
-        Enum.sort(deduplicated)
-      end
+    # Order: primary first (if present), then enabled languages, then disabled ones
+    languages = order_languages_for_public(deduplicated, enabled_languages, primary_language)
 
     Enum.map(languages, fn lang ->
       # Use display_code helper to determine if we show base or full code
       display_code = Storage.get_display_code(lang, enabled_languages)
+      is_enabled = language_enabled_for_public?(lang, enabled_languages)
+      is_known = Languages.get_predefined_language(lang) != nil
 
       %{
         code: display_code,
@@ -647,9 +749,24 @@ defmodule PhoenixKitWeb.BlogController do
         name: get_language_name(lang),
         flag: get_language_flag(lang),
         url: BlogHTML.build_post_url(blog_slug, post, display_code),
-        current: DialectMapper.extract_base(lang) == current_base
+        current: DialectMapper.extract_base(lang) == current_base,
+        enabled: is_enabled,
+        known: is_known
       }
     end)
+  end
+
+  # Order languages for public display: primary first, then enabled, then disabled
+  defp order_languages_for_public(languages, enabled_languages, primary_language) do
+    {enabled, disabled} =
+      Enum.split_with(languages, fn lang ->
+        language_enabled_for_public?(lang, enabled_languages)
+      end)
+
+    # Put primary first if present
+    {primary, other_enabled} = Enum.split_with(enabled, &(&1 == primary_language))
+
+    primary ++ Enum.sort(other_enabled) ++ Enum.sort(disabled)
   end
 
   # Remove legacy base code files when dialect files of the same language exist
@@ -883,14 +1000,16 @@ defmodule PhoenixKitWeb.BlogController do
     handle_fallback_case(reason, full_path, language)
   end
 
-  defp handle_fallback_case(reason, [blog_slug, _post_identifier], language)
+  # Slug mode posts (2-element path) - try other languages before blog listing
+  defp handle_fallback_case(reason, [blog_slug, post_slug], language)
        when reason in [:post_not_found, :unpublished] do
-    fallback_to_blog_or_overview(blog_slug, language)
+    fallback_to_default_language(blog_slug, post_slug, language)
   end
 
-  defp handle_fallback_case(reason, [blog_slug, _date, _time], language)
+  # Timestamp mode posts (3-element path) - try other languages before blog listing
+  defp handle_fallback_case(reason, [blog_slug, date, time], language)
        when reason in [:post_not_found, :unpublished] do
-    fallback_to_blog_or_overview(blog_slug, language)
+    fallback_timestamp_to_other_language(blog_slug, date, time, language)
   end
 
   defp handle_fallback_case(:blog_not_found, [_blog_slug], language) do
@@ -899,10 +1018,6 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp handle_fallback_case(:blog_not_found, [], language) do
     fallback_to_default_blog(language)
-  end
-
-  defp handle_fallback_case(:post_not_found, [blog_slug, post_slug], language) do
-    fallback_to_default_language(blog_slug, post_slug, language)
   end
 
   defp handle_fallback_case(_reason, _path, _language), do: :no_fallback
@@ -914,33 +1029,161 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  defp fallback_to_blog_or_overview(blog_slug, language) do
+  defp fallback_to_default_language(blog_slug, post_slug, requested_language) do
     if blog_exists?(blog_slug) do
-      {:ok, BlogHTML.blog_listing_path(language, blog_slug)}
+      find_any_available_language_version(blog_slug, post_slug, requested_language)
     else
-      case default_blog_listing(language) do
-        nil -> :no_fallback
-        path -> {:ok, path}
-      end
+      :no_fallback
     end
   end
 
-  defp fallback_to_default_language(blog_slug, post_slug, language) do
+  # Fallback for timestamp mode posts - comprehensive fallback chain:
+  # 1. Try other languages for the exact date/time
+  # 2. If time doesn't exist, try other times on the same date
+  # 3. If date has no posts, fall back to blog listing
+  defp fallback_timestamp_to_other_language(blog_slug, date, time, requested_language) do
     default_lang = get_default_language()
 
-    if language != default_lang and blog_exists?(blog_slug) do
-      # Try the post in default language
-      case Blogging.read_post(blog_slug, post_slug, default_lang) do
-        {:ok, post} when post.metadata.status == "published" ->
-          {:ok, BlogHTML.build_post_url(blog_slug, post, default_lang)}
+    if blog_exists?(blog_slug) do
+      # Step 1: Try other languages for this exact time
+      post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+      available = detect_available_languages_in_dir(post_dir)
 
-        _ ->
-          # Post doesn't exist in default language either, go to blog listing
-          {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
+      # Time exists with language files - try other languages
+      if available != [] do
+        languages_to_try =
+          ([default_lang | available] -- [requested_language])
+          |> Enum.uniq()
+
+        case find_first_published_timestamp_version(blog_slug, date, time, languages_to_try) do
+          {:ok, url} ->
+            {:ok, url}
+
+          :not_found ->
+            # No published version at this time - try other times on this date
+            fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
+        end
+      else
+        # Time doesn't exist - try other times on this date
+        fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
       end
     else
       :no_fallback
     end
+  end
+
+  # Fallback to another time on the same date
+  defp fallback_to_other_time_on_date(blog_slug, date, exclude_time, default_lang) do
+    case Storage.list_times_on_date(blog_slug, date) do
+      [] ->
+        # No posts on this date at all - try other dates or fall back to blog listing
+        fallback_to_other_date(blog_slug, default_lang)
+
+      times ->
+        # Filter out the time we already tried
+        other_times = times -- [exclude_time]
+
+        case find_first_published_time(blog_slug, date, other_times, default_lang) do
+          {:ok, url} ->
+            {:ok, url}
+
+          :not_found ->
+            # No published posts on this date - try other dates
+            fallback_to_other_date(blog_slug, default_lang)
+        end
+    end
+  end
+
+  # No posts found on this date - fall back to blog listing
+  # The blog listing will show all available posts
+  defp fallback_to_other_date(blog_slug, default_lang) do
+    {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
+  end
+
+  # Find the first published post at any of the given times
+  defp find_first_published_time(blog_slug, date, times, preferred_lang) do
+    Enum.find_value(times, fn time ->
+      post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+      available = detect_available_languages_in_dir(post_dir)
+
+      if available != [] do
+        # Try preferred language first, then others
+        languages = [preferred_lang | available] |> Enum.uniq()
+
+        case find_first_published_timestamp_version(blog_slug, date, time, languages) do
+          {:ok, url} -> {:ok, url}
+          :not_found -> nil
+        end
+      else
+        nil
+      end
+    end) || :not_found
+  end
+
+  # Tries each language for timestamp mode until finding a published version
+  defp find_first_published_timestamp_version(blog_slug, date, time, languages) do
+    Enum.find_value(languages, fn lang ->
+      path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
+
+      case Blogging.read_post(blog_slug, path) do
+        {:ok, post} when post.metadata.status == "published" ->
+          {:ok, build_timestamp_url(blog_slug, date, time, lang)}
+
+        _ ->
+          nil
+      end
+    end) || :not_found
+  end
+
+  # Tries to find any available published language version of the post
+  # Priority: default language first, then any other available language
+  # Falls back to blog listing if no published versions exist
+  defp find_any_available_language_version(blog_slug, post_slug, requested_language) do
+    default_lang = get_default_language()
+
+    # Find the post in the blog to get available languages
+    case find_post_by_slug(blog_slug, post_slug) do
+      {:ok, post} ->
+        available = post.available_languages || []
+
+        # Build priority list: default first, then others (excluding already-tried language)
+        languages_to_try =
+          ([default_lang | available] -- [requested_language])
+          |> Enum.uniq()
+
+        find_first_published_version(blog_slug, post_slug, post, languages_to_try, default_lang)
+
+      :not_found ->
+        # Post doesn't exist at all - fall back to blog listing
+        {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
+    end
+  end
+
+  # Finds a post by its slug from the blog's post list
+  defp find_post_by_slug(blog_slug, post_slug) do
+    posts = Blogging.list_posts(blog_slug, nil)
+
+    case Enum.find(posts, fn p -> p.slug == post_slug end) do
+      nil -> :not_found
+      post -> {:ok, post}
+    end
+  end
+
+  # Tries each language in order until finding a published version
+  defp find_first_published_version(blog_slug, post_slug, _post, languages, fallback_lang) do
+    result =
+      Enum.find_value(languages, fn lang ->
+        case Blogging.read_post(blog_slug, post_slug, lang) do
+          {:ok, lang_post} when lang_post.metadata.status == "published" ->
+            {:ok, BlogHTML.build_post_url(blog_slug, lang_post, lang)}
+
+          _ ->
+            nil
+        end
+      end)
+
+    # If no published version found, fall back to blog listing
+    result || {:ok, BlogHTML.blog_listing_path(fallback_lang, blog_slug)}
   end
 
   defp blog_exists?(blog_slug) do

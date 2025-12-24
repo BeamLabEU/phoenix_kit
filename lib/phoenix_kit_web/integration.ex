@@ -754,6 +754,7 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
+        # Language detection is handled in the controller by checking if content exists
         get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
         get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
       end

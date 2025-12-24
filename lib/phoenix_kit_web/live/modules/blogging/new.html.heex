@@ -94,6 +94,8 @@
                   "/" -> ""
                   prefix -> prefix
                 end %>
+              <%!-- Use first enabled language (default) for preview URLs --%>
+              <% default_language = List.first(@enabled_languages) %>
               <% timestamp_file_pattern =
                 "priv/blogging/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>/<locale>.phk" %>
               <% timestamp_url_pattern =
@@ -101,14 +103,14 @@
                   @endpoint_url <> "#{url_prefix}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
                 else
                   @endpoint_url <>
-                    "#{url_prefix}/#{@current_locale}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
+                    "#{url_prefix}/#{default_language}/#{slug_sample}/<YYYY-MM-DD>/<HH:mm>"
                 end %>
               <% slug_file_pattern = "priv/blogging/#{slug_sample}/<slug>/<locale>.phk" %>
               <% slug_url_pattern =
                 if length(@enabled_languages) == 1 do
                   @endpoint_url <> "#{url_prefix}/#{slug_sample}/:post_slug"
                 else
-                  @endpoint_url <> "#{url_prefix}/#{@current_locale}/#{slug_sample}/:post_slug"
+                  @endpoint_url <> "#{url_prefix}/#{default_language}/#{slug_sample}/:post_slug"
                 end %>
             </div>
 
