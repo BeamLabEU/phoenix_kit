@@ -143,8 +143,10 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Detects if the "blog" param is actually a language code by checking if content exists
   # Returns {:language_detected, language, adjusted_params} or :not_a_language
-  defp detect_language_in_blog_param(%{"blog" => potential_lang, "path" => path} = _params)
-       when is_binary(potential_lang) and is_list(path) and length(path) >= 1 do
+  defp detect_language_in_blog_param(
+         %{"blog" => potential_lang, "path" => [_ | _] = path} = _params
+       )
+       when is_binary(potential_lang) do
     [actual_blog | rest_path] = path
 
     blog_exists = blog_exists?(actual_blog)
@@ -270,8 +272,6 @@ defmodule PhoenixKitWeb.BlogController do
     (String.length(code) == 2 and String.match?(code, ~r/^[a-z]{2}$/i)) or
       String.match?(code, ~r/^[a-z]{2,3}-[A-Za-z]{2,4}$/i)
   end
-
-  defp looks_like_language_code?(_), do: false
 
   # ============================================================================
   # Path Parsing
@@ -1049,25 +1049,23 @@ defmodule PhoenixKitWeb.BlogController do
       post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
       available = detect_available_languages_in_dir(post_dir)
 
-      cond do
-        # Time exists with language files - try other languages
-        available != [] ->
-          languages_to_try =
-            ([default_lang | available] -- [requested_language])
-            |> Enum.uniq()
+      # Time exists with language files - try other languages
+      if available != [] do
+        languages_to_try =
+          ([default_lang | available] -- [requested_language])
+          |> Enum.uniq()
 
-          case find_first_published_timestamp_version(blog_slug, date, time, languages_to_try) do
-            {:ok, url} ->
-              {:ok, url}
+        case find_first_published_timestamp_version(blog_slug, date, time, languages_to_try) do
+          {:ok, url} ->
+            {:ok, url}
 
-            :not_found ->
-              # No published version at this time - try other times on this date
-              fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
-          end
-
+          :not_found ->
+            # No published version at this time - try other times on this date
+            fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
+        end
+      else
         # Time doesn't exist - try other times on this date
-        true ->
-          fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
+        fallback_to_other_time_on_date(blog_slug, date, time, default_lang)
       end
     else
       :no_fallback

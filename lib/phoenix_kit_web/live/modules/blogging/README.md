@@ -60,7 +60,7 @@ The blogging module uses a multi-step detection process to determine if a URL se
 - **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
 - **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
 
-This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. The language switcher will show these with a strikethrough to indicate they're not officially enabled, but they remain accessible.
+This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. In the **admin interface**, the language switcher shows these with a strikethrough to indicate they're not officially enabled. In the **public blog**, only enabled languages appear in the language switcher, but custom language URLs remain accessible via direct link.
 
 **Single-Language Mode:**
 When only one language is enabled, URLs don't require the language segment:
@@ -82,7 +82,7 @@ Fallbacks are triggered only for `:post_not_found` or `:unpublished` errors. Oth
 **Fallback Priority:**
 The system tries languages in this order:
 1. Default language (from Settings)
-2. Other available languages (in order they appear in the post directory)
+2. Other available languages (alphabetically sorted)
 
 **User Experience:**
 - Redirects include a flash message: "The page you requested was not found. Showing closest match."
@@ -91,20 +91,17 @@ The system tries languages in this order:
 
 ### Configuration
 
-Enable/disable public blog display and set pagination:
+Enable/disable public blog display and set pagination programmatically:
 
 ```elixir
-# In your Settings admin interface at /{prefix}/admin/settings
-blogging_public_enabled = true   # Enable public blog routes
-blogging_posts_per_page = 20     # Posts per page in listings
-```
-
-Or programmatically:
-
-```elixir
+# Enable public blog routes (default: true)
 PhoenixKit.Settings.update_setting("blogging_public_enabled", "true")
+
+# Set posts per page in listings (default: 20)
 PhoenixKit.Settings.update_setting("blogging_posts_per_page", "20")
 ```
+
+**Note:** These settings are currently only configurable via code. There is no admin UI for these options yet.
 
 ### Templates
 
@@ -112,7 +109,6 @@ Public blog templates are located in:
 
 - `lib/phoenix_kit_web/controllers/blog_html/show.html.heex` - Single post view
 - `lib/phoenix_kit_web/controllers/blog_html/index.html.heex` - Blog listing
-- `lib/phoenix_kit_web/controllers/blog_html/all_blogs.html.heex` - All blogs overview
 
 ### Admin Integration
 
@@ -135,12 +131,32 @@ Example cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
 
 ## Architecture Overview
 
+**Core Modules:**
+
 - **PhoenixKitWeb.Live.Modules.Blogging** – Main context module with mode-aware routing
 - **PhoenixKitWeb.Live.Modules.Blogging.Storage** – Storage layer with CRUD operations for both modes
 - **PhoenixKitWeb.Live.Modules.Blogging.Metadata** – YAML frontmatter parsing and serialization
+
+**Admin Interfaces:**
+
 - **PhoenixKitWeb.Live.Modules.Blogging.Settings** – Admin interface for blog configuration
-- **PhoenixKitWeb.Live.Modules.Blogging.Editor** – Markdown editor with mode-specific UI
+- **PhoenixKitWeb.Live.Modules.Blogging.Editor** – Markdown editor with autosave and featured images
 - **PhoenixKitWeb.Live.Modules.Blogging.Preview** – Live preview for blog posts
+
+**Public Display:**
+
+- **PhoenixKitWeb.BlogController** – Public-facing routes for blog listings and posts
+- **PhoenixKitWeb.BlogHTML** – HTML helpers and view functions for public blog
+
+**Rendering & Caching:**
+
+- **PhoenixKit.Blogging.Renderer** – Markdown/PHK rendering with content-hash caching
+
+**Collaborative Editing:**
+
+- **PhoenixKitWeb.Live.Modules.Blogging.Presence** – Phoenix.Presence for real-time user tracking
+- **PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers** – Owner/spectator logic helpers
+- **PhoenixKitWeb.Live.Modules.Blogging.PubSub** – Real-time change broadcasting
 
 ## Core Features
 
@@ -206,7 +222,7 @@ PhoenixKit posts use YAML frontmatter followed by Markdown content:
 slug: getting-started
 status: published
 published_at: 2025-01-15T09:30:00Z
-created_at: 2025-01-15T09:30:00Z  # Only in slug mode
+created_at: 2025-01-15T09:30:00Z
 ---
 
 # Getting Started Guide
@@ -230,7 +246,40 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `slug` – Post slug (required, used for file path in slug mode)
 - `status` – Publication status: `draft`, `published`, or `archived`
 - `published_at` – Publication timestamp (ISO8601 format)
-- `created_at` – Creation timestamp (slug mode only, for sorting)
+- `featured_image_id` – Optional reference to a featured image asset
+- `description` – Optional post description/excerpt for SEO
+
+**Audit Fields (optional):**
+
+- `created_at` – Creation timestamp (for audit purposes)
+- `created_by_id` – User ID who created the post
+- `created_by_email` – Email of user who created the post
+- `updated_by_id` – User ID who last updated the post
+- `updated_by_email` – Email of user who last updated the post
+
+**Advanced: PHK Component Format**
+
+In addition to Markdown, `.phk` files can contain PHK components for structured page layouts:
+
+```html
+---
+slug: landing-page
+status: published
+published_at: 2025-01-15T09:30:00Z
+---
+
+<Hero variant="centered" title="Welcome" />
+
+# Introduction
+
+Regular **Markdown** content can be mixed with components.
+
+<Image src="hero.jpg" alt="Hero image" />
+
+<EntityForm entity="contact" />
+```
+
+Supported components: `Image`, `Hero`, `CTA`, `Headline`, `Subheadline`, `Video`, `EntityForm`. The renderer processes these via the PageBuilder system.
 
 ## Context Layer API
 
@@ -243,6 +292,9 @@ The main context module (`blogging.ex`) routes operations based on blog mode:
 {:ok, blog} = Blogging.add_blog("Documentation", "slug")
 {:ok, blog} = Blogging.add_blog("Company News", "timestamp")
 
+# With custom slug (optional third parameter)
+{:ok, blog} = Blogging.add_blog("My API Docs", "slug", "api-docs")
+
 # List all blogs (includes mode field)
 blogs = Blogging.list_blogs()
 # => [%{"name" => "Docs", "slug" => "docs", "mode" => "slug"}, ...]
@@ -250,8 +302,26 @@ blogs = Blogging.list_blogs()
 # Get blog storage mode
 mode = Blogging.get_blog_mode("docs")  # => "slug"
 
-# Remove blog
+# Update blog name/slug
+{:ok, blog} = Blogging.update_blog("docs", name: "New Name", slug: "new-docs")
+
+# Remove blog from list (keeps files)
 {:ok, _} = Blogging.remove_blog("docs")
+
+# Move blog to trash (renames directory with timestamp)
+{:ok, trash_path} = Blogging.trash_blog("docs")
+
+# Get blog name from slug
+name = Blogging.blog_name("docs")  # => "Documentation"
+
+# Slug utilities
+slug = Blogging.slugify("My Blog Post!")  # => "my-blog-post"
+Blogging.valid_slug?("my-slug")  # => true
+Blogging.valid_slug?("en")       # => false (reserved language code)
+
+# Language info (delegated to Storage)
+info = Blogging.get_language_info("en")
+# => %{code: "en", name: "English", flag: "🇺🇸"}
 ```
 
 ### Post Operations
@@ -264,10 +334,11 @@ The context layer automatically routes to the correct storage implementation:
 # Slug mode: auto-generates slug "hello-world"
 # Timestamp mode: uses current date/time
 
-# Create post with explicit slug (slug mode only)
+# Create post with explicit slug and audit trail (slug mode only)
 {:ok, post} = Blogging.create_post("docs", %{
   title: "Getting Started",
-  slug: "get-started"
+  slug: "get-started",
+  scope: current_user_scope  # Optional: records created_by_id/email
 })
 
 # List posts (routes by blog mode)
@@ -283,7 +354,7 @@ posts = Blogging.list_posts("docs", "es")  # With language preference
   "title" => "Updated Title",
   "slug" => "new-slug",  # Slug mode: moves files
   "content" => "Updated content..."
-})
+}, scope: current_user_scope)  # Optional 4th arg: records updated_by_id/email
 
 # Add translation
 {:ok, spanish_post} = Blogging.add_language_to_post("docs", "getting-started", "es")
@@ -296,23 +367,42 @@ The storage layer (`storage.ex`) provides separate implementations for each mode
 ### Slug Mode Functions
 
 ```elixir
-# Validation
+# Validation (returns boolean)
 Storage.valid_slug?("hello-world")  # => true
 Storage.valid_slug?("Hello World")  # => false
 
+# Validation with error reason
+{:ok, "hello-world"} = Storage.validate_slug("hello-world")
+{:error, :invalid_format} = Storage.validate_slug("Hello World")
+{:error, :reserved_language_code} = Storage.validate_slug("en")
+
+# Check if slug exists in blog
+Storage.slug_exists?("docs", "getting-started")  # => true/false
+
 # Collision-free slug generation
-slug = Storage.generate_unique_slug("docs", "Getting Started")
-# => "getting-started"
-# If exists: "getting-started-1", "getting-started-2", etc.
+{:ok, slug} = Storage.generate_unique_slug("docs", "Getting Started")
+# => {:ok, "getting-started"}
+# If exists: {:ok, "getting-started-1"}, etc.
 
 # CRUD operations
 {:ok, post} = Storage.create_post_slug_mode("docs", "Hello", "hello")
+{:ok, post} = Storage.create_post_slug_mode("docs", "Hello", "hello", %{
+  created_by_id: user.id,
+  created_by_email: user.email
+})
 {:ok, post} = Storage.read_post_slug_mode("docs", "hello", "en")
 posts = Storage.list_posts_slug_mode("docs", "en")
 {:ok, post} = Storage.update_post_slug_mode("docs", post, params)
 
 # Move post to new slug (all languages)
 {:ok, post} = Storage.move_post_to_new_slug("docs", post, "new-slug", params)
+{:ok, post} = Storage.move_post_to_new_slug("docs", post, "new-slug", params, %{
+  updated_by_id: user.id,
+  updated_by_email: user.email
+})
+
+# Add translation to existing post
+{:ok, spanish_post} = Storage.add_language_to_post_slug_mode("docs", "getting-started", "es")
 ```
 
 ### Timestamp Mode Functions
@@ -323,23 +413,57 @@ posts = Storage.list_posts_slug_mode("docs", "en")
 {:ok, post} = Storage.read_post("news", "news/2025-01-15/09:30/en.phk")
 posts = Storage.list_posts("news", "en")
 {:ok, post} = Storage.update_post("news", post, params)
+
+# Add translation to existing post
+{:ok, spanish_post} = Storage.add_language_to_post("news", "news/2025-01-15/09:30", "es")
+
+# Date-based queries
+count = Storage.count_posts_on_date("news", ~D[2025-01-15])
+times = Storage.list_times_on_date("news", ~D[2025-01-15])
+# => ["09:30", "14:00", ...]
+```
+
+### Utility Functions
+
+```elixir
+# File system paths
+Storage.root_path()  # => "/path/to/app/priv/blogging"
+Storage.absolute_path("docs/getting-started/en.phk")
+
+# Blog directory management
+Storage.ensure_blog_root("docs")  # Creates directory if needed
+Storage.rename_blog_directory("old-slug", "new-slug")
+Storage.move_blog_to_trash("docs")  # Renames with timestamp
+
+# Language helpers
+Storage.language_filename()        # => "en.phk" (based on content language setting)
+Storage.language_filename("es")    # => "es.phk"
+Storage.enabled_language_codes()   # => ["en", "es", "fr"]
+Storage.get_language_info("en")    # => %{code: "en", name: "English", flag: "🇺🇸"}
+Storage.language_enabled?("en", ["en-US", "es"])  # => true (base code match)
+
+# Language display helpers (for UI)
+Storage.get_display_code("en-US", ["en-US", "es"])  # => "en-US"
+Storage.get_display_code("en", ["en-US", "es"])     # => "en-US" (maps to enabled dialect)
+Storage.order_languages_for_display(["fr", "en", "es"], ["en", "es"])
+# => ["en", "es", "fr"] (enabled first, then others alphabetically)
 ```
 
 ## LiveView Interfaces
 
 ### Settings (`settings.ex`)
 
-Blog configuration interface at `{prefix}/admin/blogging/settings`:
+Blog configuration interface at `{prefix}/admin/settings/blogging`:
 
-- Create new blogs with mode selector (radio buttons: Timestamp / Slug)
+- Create new blogs with mode selector
 - View existing blogs with mode badges
 - Delete blogs
-- Mode is read-only after blog creation
+- Configure public display settings
 
-**UI Elements:**
-- Mode selector: Radio buttons defaulted to "Timestamp"
-- Mode badge: Shows current mode for each blog (color-coded)
+**Blog Creation (New Blog Form):**
+- Mode selector: Radio buttons (Timestamp / Slug)
 - Warning text: "Cannot be changed after blog creation"
+- Mode is locked permanently after creation
 
 ### Editor (`editor.ex`)
 
@@ -349,9 +473,25 @@ Markdown editor at `{prefix}/admin/blogging/{blog}/edit`:
 - **Slug input** (slug mode only, with validation)
 - Status selector (draft/published/archived)
 - Published at timestamp picker
+- Featured image selector (integrates with Media module)
 - Markdown editor with preview
 - Language switcher for translations
-- Auto-save with dirty detection
+
+**Autosave:**
+
+The editor automatically saves changes after 2 seconds of inactivity:
+- Debounced saves prevent excessive writes
+- Status indicator shows: "Saving...", "Saved", or error state
+- Dirty detection tracks unsaved changes
+- Navigation warnings when leaving with unsaved changes
+
+**Featured Images:**
+
+Posts can have an optional featured image:
+- Click "Select Featured Image" to open the media picker
+- Preview displays below the image selector
+- Click "Clear" to remove the featured image
+- Stored as `featured_image_id` in frontmatter
 
 **Mode-Specific Behavior:**
 
@@ -365,6 +505,7 @@ Markdown editor at `{prefix}/admin/blogging/{blog}/edit`:
 - Auto-generates slug from title (debounced)
 - User can override auto-generated slug
 - Validation: lowercase, numbers, hyphens only
+- **Reserved slugs**: Any language code from the Languages module cannot be used as a slug to prevent routing ambiguity
 - Shows validation error for invalid slugs
 - Path preview: `blog/post-slug/en.phk`
 
@@ -375,6 +516,37 @@ Live preview at `{prefix}/admin/blogging/{blog}/preview`:
 - Renders Markdown content with Phoenix.Component
 - Shows metadata preview (title, status, published date)
 - Language switcher for viewing translations
+
+### Collaborative Editing
+
+The editor uses Phoenix.Presence to coordinate multiple users editing the same post.
+
+**Owner/Spectator Model:**
+
+1. First user to open a post becomes the **owner** (full edit access)
+2. Subsequent users become **spectators** (read-only mode)
+3. When the owner leaves, the next spectator auto-promotes to owner
+4. All users see who else is viewing the post in real-time
+
+**How It Works:**
+
+- Users join a Presence topic (e.g., `blog_edit:blog:post-slug`)
+- Users sorted by `joined_at` timestamp (FIFO ordering)
+- First user in sorted list = owner (`readonly?: false`)
+- All other users = spectators (`readonly?: true`)
+- Phoenix.Presence auto-cleans disconnected users
+
+**UI Indicators:**
+
+- Spectator mode shows a banner: "Another user is currently editing this post"
+- Users see avatars/names of other connected editors
+- Read-only mode disables form inputs and save button
+
+**Files:**
+
+- `presence.ex` – Phoenix.Presence configuration
+- `presence_helpers.ex` – Helper functions for owner/spectator logic
+- `editor.ex` – Presence integration in the editor LiveView
 
 ## Multi-Language Support
 
@@ -411,7 +583,7 @@ docs/
     status: "published",
     slug: "getting-started",
     published_at: "2025-01-15T09:30:00Z",
-    created_at: "2025-01-15T09:30:00Z"  # Slug mode only
+    created_at: "2025-01-15T09:30:00Z"
   },
   content: "# Markdown content...",
   language: "en",
@@ -491,6 +663,9 @@ Blogging.enabled?()  # => true/false
 # Blog list stored as JSON setting
 # Key: "blogging_blogs"
 # Value: %{"blogs" => [%{"name" => "...", "slug" => "...", "mode" => "..."}]}
+
+# Legacy key supported for backward compatibility:
+# Key: "blogging_categories" (auto-migrated to "blogging_blogs" on read)
 ```
 
 ### Storage Path
@@ -567,7 +742,7 @@ Slug contains uppercase letters, underscores, or special characters.
 
 **Solution:**
 
-Use only lowercase letters, numbers, and hyphens:
+Use only lowercase letters, numbers, and hyphens. Avoid language codes:
 
 ```elixir
 # ✅ Valid slugs
@@ -580,7 +755,59 @@ Use only lowercase letters, numbers, and hyphens:
 "api_guide"       # Underscore
 "guide!"          # Special char
 "my slug"         # Space
+"en"              # Reserved language code
+"fr"              # Reserved language code
 ```
+
+---
+
+### Problem: Slug is a reserved language code
+
+**Symptoms:**
+```
+Slug cannot be a reserved language code
+```
+
+**Root Cause:**
+
+The slug matches a language code defined in the Languages module (e.g., `en`, `es`, `fr-CA`).
+
+**Solution:**
+
+Choose a different slug. Language codes are reserved to prevent URL routing ambiguity between `/{prefix}/en/blog` (language + blog) and a post with slug `en`.
+
+---
+
+### Problem: Slug already exists
+
+**Symptoms:**
+```
+A post with this slug already exists
+```
+
+**Root Cause:**
+
+Another post in the same blog already uses this slug.
+
+**Solution:**
+
+Choose a unique slug or append a number (e.g., `my-post-2`). The auto-slug generator handles this automatically when creating new posts.
+
+---
+
+### Problem: Editor is in read-only mode
+
+**Symptoms:**
+
+Form inputs are disabled and a banner says "Another user is currently editing this post".
+
+**Root Cause:**
+
+Another user opened the editor first and is the current "owner". The collaborative editing system only allows one person to edit at a time.
+
+**Solution:**
+
+Wait for the other user to leave, or coordinate with them. When they close the editor, you'll automatically become the owner and gain edit access.
 
 ---
 

@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
   Parses .phk content, extracting metadata from frontmatter and returning the content.
   Title is extracted from the markdown content itself (first H1 heading).
   """
-  @spec parse_with_content(String.t()) :: {:ok, metadata(), String.t()} | {:error, atom()}
+  @spec parse_with_content(String.t()) :: {:ok, metadata(), String.t()}
   def parse_with_content(content) do
     case extract_frontmatter(content) do
       {:ok, metadata, body_content} ->

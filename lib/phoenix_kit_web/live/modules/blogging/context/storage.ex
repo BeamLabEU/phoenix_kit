@@ -595,12 +595,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       status =
         case File.read(lang_path) do
           {:ok, content} ->
-            case Metadata.parse_with_content(content) do
-              {:ok, metadata, _content} -> Map.get(metadata, :status)
-              _ -> nil
-            end
+            {:ok, metadata, _content} = Metadata.parse_with_content(content)
+            Map.get(metadata, :status)
 
-          _ ->
+          {:error, _} ->
             nil
         end
 
