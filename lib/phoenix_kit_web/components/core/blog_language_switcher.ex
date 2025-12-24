@@ -70,6 +70,8 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   - `status` - Post status: "published", "draft", "archived", or nil if not exists
   - `url` - URL to navigate to (for public mode or href navigation)
   - `exists` - Boolean, whether translation file exists (default: inferred from status)
+  - `enabled` - Boolean, whether the language is enabled in the Languages module (default: true)
+  - `known` - Boolean, whether the language code is recognized (default: true)
   """
   attr :languages, :list, required: true
   attr :current_language, :string, default: nil
@@ -129,12 +131,16 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
     is_current = assigns.current_language == lang[:code]
     exists = lang_exists?(lang)
     status = lang[:status]
+    enabled = lang_enabled?(lang)
+    known = lang_known?(lang)
 
     assigns =
       assigns
       |> assign(:is_current, is_current)
       |> assign(:exists, exists)
       |> assign(:status, status)
+      |> assign(:enabled, enabled)
+      |> assign(:known, known)
 
     ~H"""
     <%= if @on_click do %>
@@ -146,8 +152,8 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
         phx-value-post_path={@lang[:post_path]}
         phx-value-status={@status}
         phx-target={@phx_target}
-        class={item_classes(@is_current, @exists, @show_add, @size)}
-        title={language_title(@lang, @exists, @status, @show_status)}
+        class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
+        title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}
       >
         <.language_content
           lang={@lang}
@@ -158,14 +164,16 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
           show_flags={@show_flags}
           is_current={@is_current}
           size={@size}
+          enabled={@enabled}
+          known={@known}
         />
       </button>
     <% else %>
       <%= if @lang[:url] do %>
         <a
           href={@lang[:url]}
-          class={item_classes(@is_current, @exists, @show_add, @size)}
-          title={language_title(@lang, @exists, @status, @show_status)}
+          class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
+          title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}
         >
           <.language_content
             lang={@lang}
@@ -176,12 +184,14 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
             show_flags={@show_flags}
             is_current={@is_current}
             size={@size}
+            enabled={@enabled}
+            known={@known}
           />
         </a>
       <% else %>
         <span
-          class={item_classes(@is_current, @exists, @show_add, @size)}
-          title={language_title(@lang, @exists, @status, @show_status)}
+          class={item_classes(@is_current, @exists, @show_add, @size, @enabled, @known)}
+          title={language_title(@lang, @exists, @status, @show_status, @enabled, @known)}
         >
           <.language_content
             lang={@lang}
@@ -192,6 +202,8 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
             show_flags={@show_flags}
             is_current={@is_current}
             size={@size}
+            enabled={@enabled}
+            known={@known}
           />
         </span>
       <% end %>
@@ -207,17 +219,19 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   attr :show_flags, :boolean, default: false
   attr :is_current, :boolean, default: false
   attr :size, :atom, default: :sm
+  attr :enabled, :boolean, default: true
+  attr :known, :boolean, default: true
 
   defp language_content(assigns) do
     ~H"""
     <span class="inline-flex items-center gap-1">
       <%= if @show_status do %>
-        <span class={status_dot_classes(@exists, @status, @size)}></span>
+        <span class={status_dot_classes(@exists, @status, @size, @enabled, @known)}></span>
       <% end %>
       <%= if @show_flags && @lang[:flag] do %>
         <span class={flag_size_class(@size)}>{@lang[:flag]}</span>
       <% end %>
-      <span class={code_classes(@is_current, @size)}>
+      <span class={code_classes(@is_current, @size, @enabled, @known)}>
         {get_display_code(@lang)}
       </span>
     </span>
@@ -230,6 +244,16 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   defp lang_exists?(%{"exists" => exists}) when is_boolean(exists), do: exists
   defp lang_exists?(%{"status" => status}) when is_binary(status), do: true
   defp lang_exists?(_), do: false
+
+  # Check if language is enabled in the Languages module (default: true for backwards compat)
+  defp lang_enabled?(%{enabled: enabled}) when is_boolean(enabled), do: enabled
+  defp lang_enabled?(%{"enabled" => enabled}) when is_boolean(enabled), do: enabled
+  defp lang_enabled?(_), do: true
+
+  # Check if language code is a recognized/known language (default: true for backwards compat)
+  defp lang_known?(%{known: known}) when is_boolean(known), do: known
+  defp lang_known?(%{"known" => known}) when is_boolean(known), do: known
+  defp lang_known?(_), do: true
 
   # Get display code for a language
   # Uses display_code if provided (for dialect-aware display), otherwise formats code
@@ -262,7 +286,9 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   end
 
   # Status dot styling
-  defp status_dot_classes(exists, status, size) do
+  # Dot color follows status regardless of enabled/known state
+  # (strikethrough on text indicates disabled/unknown, not the dot)
+  defp status_dot_classes(exists, status, size, _enabled, _known) do
     base = ["rounded-full", "inline-block", dot_size_class(size)]
 
     color =
@@ -278,7 +304,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   end
 
   # Item container classes
-  defp item_classes(is_current, exists, show_add, size) do
+  defp item_classes(is_current, exists, show_add, size, enabled, known) do
     base = [
       "inline-flex items-center rounded transition-colors",
       size_padding_class(size)
@@ -286,6 +312,13 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
 
     state =
       cond do
+        # Disabled or unknown languages: grey styling but still clickable
+        is_current and (!enabled or !known) ->
+          "bg-base-content/10 text-base-content/50 font-semibold cursor-pointer"
+
+        (!enabled or !known) and exists ->
+          "text-base-content/40 hover:bg-base-200/50 cursor-pointer"
+
         is_current ->
           "bg-primary/10 text-primary font-semibold"
 
@@ -303,12 +336,15 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   end
 
   # Code text classes
-  defp code_classes(is_current, size) do
+  defp code_classes(is_current, size, enabled, known) do
     base = [size_text_class(size)]
 
     weight = if is_current, do: "font-semibold", else: "font-medium"
 
-    base ++ [weight]
+    # Add line-through for disabled or unknown languages
+    decoration = if !enabled or !known, do: "line-through", else: nil
+
+    Enum.filter(base ++ [weight, decoration], & &1)
   end
 
   # Size-based classes
@@ -338,15 +374,40 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
 
   # Generate title/tooltip text
   # Only show status in tooltip when show_status is true (admin mode)
-  defp language_title(lang, exists, status, show_status) do
+  defp language_title(lang, exists, status, show_status, enabled, known) do
     name = lang[:name] || lang["name"] || format_code(lang[:code])
 
-    cond do
-      !exists and show_status -> gettext("Add %{language} translation", language: name)
-      show_status and status == "published" -> gettext("%{language} (Published)", language: name)
-      show_status and status == "draft" -> gettext("%{language} (Draft)", language: name)
-      show_status and status == "archived" -> gettext("%{language} (Archived)", language: name)
-      true -> name
+    if show_status do
+      build_admin_title(name, exists, status, enabled, known)
+    else
+      name
     end
   end
+
+  # Build title for admin mode with status indicators
+  defp build_admin_title(name, exists, status, enabled, known) do
+    cond do
+      !known and exists -> gettext("%{language} (Unknown language file)", language: name)
+      !enabled and exists -> build_disabled_title(name, status)
+      !exists -> gettext("Add %{language} translation", language: name)
+      true -> build_status_title(name, status)
+    end
+  end
+
+  defp build_disabled_title(name, status) do
+    status_text = status_label(status)
+    gettext("%{language} (Disabled - %{status})", language: name, status: status_text)
+  end
+
+  defp build_status_title(name, "published"),
+    do: gettext("%{language} (Published)", language: name)
+
+  defp build_status_title(name, "draft"), do: gettext("%{language} (Draft)", language: name)
+  defp build_status_title(name, "archived"), do: gettext("%{language} (Archived)", language: name)
+  defp build_status_title(name, _), do: name
+
+  defp status_label("published"), do: gettext("Published")
+  defp status_label("draft"), do: gettext("Draft")
+  defp status_label("archived"), do: gettext("Archived")
+  defp status_label(_), do: gettext("Unknown")
 end

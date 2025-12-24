@@ -50,12 +50,108 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   @doc """
   Gets language details (name, flag) for a given language code.
+
+  Searches in order:
+  1. Predefined languages (BeamLabCountries) - for full locale details
+  2. User-configured languages - for custom/less common languages
   """
   @spec get_language_info(String.t()) ::
           %{code: String.t(), name: String.t(), flag: String.t()} | nil
   def get_language_info(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # First try predefined languages (BeamLabCountries has the most complete info)
+    predefined = find_in_predefined_languages(language_code)
+
+    if predefined do
+      predefined
+    else
+      # Fall back to user-configured languages
+      # This handles custom language codes like "af" that might not be in BeamLabCountries
+      find_in_configured_languages(language_code)
+    end
+  end
+
+  # Search predefined languages (BeamLabCountries) with base code fallback
+  defp find_in_predefined_languages(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
     all_languages = Languages.get_available_languages()
-    Enum.find(all_languages, fn lang -> lang.code == language_code end)
+
+    # First try exact match
+    exact_match = Enum.find(all_languages, fn lang -> lang.code == language_code end)
+
+    if exact_match do
+      exact_match
+    else
+      # Try matching by base code (e.g., "en" matches "en-US")
+      base_code = DialectMapper.extract_base(language_code)
+
+      Enum.find(all_languages, fn lang ->
+        DialectMapper.extract_base(lang.code) == base_code
+      end)
+    end
+  end
+
+  # Search user-configured languages with base code fallback
+  defp find_in_configured_languages(language_code) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    configured_languages = Languages.get_languages()
+
+    # First try exact match
+    exact_match =
+      Enum.find(configured_languages, fn lang -> lang["code"] == language_code end)
+
+    result =
+      if exact_match do
+        exact_match
+      else
+        # Try matching by base code
+        base_code = DialectMapper.extract_base(language_code)
+
+        Enum.find(configured_languages, fn lang ->
+          DialectMapper.extract_base(lang["code"]) == base_code
+        end)
+      end
+
+    # Convert string-keyed map to atom-keyed map for consistency
+    if result do
+      %{
+        code: result["code"],
+        name: result["name"] || result["code"],
+        flag: result["flag"] || ""
+      }
+    else
+      nil
+    end
+  end
+
+  @doc """
+  Checks if a language code is enabled, considering base code matching.
+
+  This handles cases where:
+  - The file is `en.phk` and enabled languages has `"en-US"` → matches
+  - The file is `en-US.phk` and enabled languages has `"en"` → matches
+  - The file is `af.phk` and enabled languages has `"af"` → matches
+  """
+  @spec language_enabled?(String.t(), [String.t()]) :: boolean()
+  def language_enabled?(language_code, enabled_languages) do
+    alias PhoenixKit.Modules.Languages.DialectMapper
+
+    # Direct match
+    if language_code in enabled_languages do
+      true
+    else
+      # Base code matching
+      base_code = DialectMapper.extract_base(language_code)
+
+      Enum.any?(enabled_languages, fn enabled_lang ->
+        # Check if enabled language matches directly or by base code
+        enabled_lang == language_code or
+          DialectMapper.extract_base(enabled_lang) == base_code
+      end)
+    end
   end
 
   @doc """

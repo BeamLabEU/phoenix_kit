@@ -56,6 +56,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:content, "")
       |> assign(:blog_mode, nil)
       |> assign(:current_language, nil)
+      |> assign(:current_language_enabled, true)
+      |> assign(:current_language_known, true)
       |> assign(:available_languages, [])
       |> assign(:all_enabled_languages, [])
       |> assign(:has_pending_changes, false)
@@ -113,9 +115,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
       |> assign_form_with_tracking(form, slug_manually_set: false)
       |> assign(:content, "")
-      |> assign(:current_language, primary_language)
       |> assign(:available_languages, virtual_post.available_languages)
       |> assign(:all_enabled_languages, all_enabled_languages)
+      |> assign_current_language(primary_language)
       |> assign(
         :current_path,
         Routes.path("/admin/blogging/#{blog_slug}/edit?new=true",
@@ -171,9 +173,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
               |> assign_form_with_tracking(form, slug_manually_set: false)
               |> assign(:content, "")
-              |> assign(:current_language, switch_to_lang)
               |> assign(:available_languages, post.available_languages)
               |> assign(:all_enabled_languages, all_enabled_languages)
+              |> assign_current_language(switch_to_lang)
               |> assign(
                 :current_path,
                 Routes.path(
@@ -200,9 +202,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> assign(:blog_name, Blogging.blog_name(blog_slug) || blog_slug)
               |> assign_form_with_tracking(form)
               |> assign(:content, post.content)
-              |> assign(:current_language, post.language)
               |> assign(:available_languages, post.available_languages)
               |> assign(:all_enabled_languages, all_enabled_languages)
+              |> assign_current_language(post.language)
               |> assign(
                 :current_path,
                 Routes.path("/admin/blogging/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
@@ -501,7 +503,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
        |> assign(:post, virtual_post)
        |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
        |> assign(:content, "")
-       |> assign(:current_language, new_language)
+       |> assign_current_language(new_language)
        |> assign(:has_pending_changes, false)
        |> assign(:is_new_translation, true)
        |> assign(:original_post_path, post.path || post.slug)
@@ -1074,6 +1076,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
   end
 
+  # Helper function to assign current language with enabled/known status
+  # This tracks whether the current language is enabled in the Languages module
+  # and whether it's a recognized language code (vs unknown files like "test.phk")
+  defp assign_current_language(socket, language_code) do
+    enabled_languages = socket.assigns[:all_enabled_languages] || []
+    lang_info = Blogging.get_language_info(language_code)
+
+    socket
+    |> assign(:current_language, language_code)
+    |> assign(
+      :current_language_enabled,
+      Storage.language_enabled?(language_code, enabled_languages)
+    )
+    |> assign(:current_language_known, lang_info != nil)
+  end
+
   # Helper function to handle post creation errors
   defp handle_post_creation_error(socket, :invalid_slug, _fallback_message) do
     {:noreply,
@@ -1229,7 +1247,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   @doc """
   Builds language data for the blog_language_switcher component in the editor.
-  Returns a list of language maps with status, exists flag, and code.
+  Returns a list of language maps with status, exists flag, enabled flag, and code.
+
+  The `enabled` field indicates if the language is currently active in the Languages module.
+  The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
   """
   def build_editor_languages(post, blog_slug, enabled_languages, current_language) do
     # Use shared ordering function for consistent display across all views
@@ -1240,6 +1261,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       lang_info = Blogging.get_language_info(lang_code)
       file_exists = lang_code in (post.available_languages || [])
       is_current = lang_code == current_language
+      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
+      is_known = lang_info != nil
 
       # Read language-specific metadata for status
       status =
@@ -1268,7 +1291,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         flag: if(lang_info, do: lang_info.flag, else: ""),
         status: status,
         exists: file_exists,
-        is_current: is_current
+        is_current: is_current,
+        enabled: is_enabled,
+        known: is_known
       }
     end)
   end
@@ -1427,9 +1452,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     |> assign(:post, post)
     |> assign_form_with_tracking(form, slug_manually_set: false)
     |> assign(:content, data[:content] || "")
-    |> assign(:current_language, language)
     |> assign(:available_languages, post.available_languages)
     |> assign(:all_enabled_languages, Storage.enabled_language_codes())
+    |> assign_current_language(language)
     |> assign(:has_pending_changes, true)
     |> assign(:is_new_post, data[:is_new_post] || false)
     |> assign(:public_url, build_public_url(post, language))
