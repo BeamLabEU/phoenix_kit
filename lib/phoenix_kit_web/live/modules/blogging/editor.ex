@@ -1251,11 +1251,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   The `enabled` field indicates if the language is currently active in the Languages module.
   The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
+
+  Uses preloaded `language_statuses` from the post when available to avoid re-reading files.
   """
-  def build_editor_languages(post, blog_slug, enabled_languages, current_language) do
+  def build_editor_languages(post, _blog_slug, enabled_languages, current_language) do
     # Use shared ordering function for consistent display across all views
     all_languages =
       Storage.order_languages_for_display(post.available_languages || [], enabled_languages)
+
+    # Get preloaded language statuses (falls back to empty map for backwards compatibility)
+    language_statuses = Map.get(post, :language_statuses) || %{}
 
     Enum.map(all_languages, fn lang_code ->
       lang_info = Blogging.get_language_info(lang_code)
@@ -1264,22 +1269,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
 
-      # Read language-specific metadata for status
-      status =
-        if file_exists do
-          lang_path =
-            Path.join([
-              Path.dirname(post.path || ""),
-              "#{lang_code}.phk"
-            ])
-
-          case Blogging.read_post(blog_slug, lang_path) do
-            {:ok, lang_post} -> lang_post.metadata.status
-            _ -> nil
-          end
-        else
-          nil
-        end
+      # Use preloaded status instead of re-reading file
+      status = Map.get(language_statuses, lang_code)
 
       # Get display code (base or full dialect depending on enabled languages)
       display_code = Storage.get_display_code(lang_code, enabled_languages)

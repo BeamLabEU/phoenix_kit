@@ -549,6 +549,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                  post_path
                  |> File.read!()
                  |> Metadata.parse_with_content() do
+            # Preload language statuses to avoid re-reading files in the listing
+            language_statuses = load_language_statuses(time_path, available_languages)
+
             [
               %{
                 blog: blog_slug,
@@ -561,6 +564,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
                 content: content,
                 language: display_language,
                 available_languages: available_languages,
+                language_statuses: language_statuses,
                 mode: :timestamp
               }
             ]
@@ -572,6 +576,28 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       {:error, _} ->
         []
     end
+  end
+
+  # Load status for all language files in a post directory
+  # Returns a map of language_code => status
+  defp load_language_statuses(post_dir, available_languages) do
+    Enum.reduce(available_languages, %{}, fn lang, acc ->
+      lang_path = Path.join(post_dir, language_filename(lang))
+
+      status =
+        case File.read(lang_path) do
+          {:ok, content} ->
+            case Metadata.parse_with_content(content) do
+              {:ok, metadata, _content} -> Map.get(metadata, :status)
+              _ -> nil
+            end
+
+          _ ->
+            nil
+        end
+
+      Map.put(acc, lang, status)
+    end)
   end
 
   # Selects the best language to display based on:
@@ -743,6 +769,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
           |> File.read!()
           |> Metadata.parse_with_content()
 
+        # Preload language statuses to avoid re-reading files in the listing
+        language_statuses = load_language_statuses(post_path, available_languages)
+
         [
           %{
             blog: blog_slug,
@@ -755,6 +784,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
             content: content,
             language: display_language,
             available_languages: available_languages,
+            language_statuses: language_statuses,
             mode: :slug
           }
         ]
@@ -792,6 +822,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          {:ok, metadata, content} <-
            File.read!(file_path)
            |> Metadata.parse_with_content() do
+      # Preload language statuses to avoid re-reading files in editor/listing
+      language_statuses = load_language_statuses(post_dir, available_languages)
+
       {:ok,
        %{
          blog: blog_slug,
@@ -804,6 +837,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          content: content,
          language: language_code,
          available_languages: available_languages,
+         language_statuses: language_statuses,
          mode: :slug
        }}
     else
@@ -1093,6 +1127,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          {:ok, {date, time}} <- date_time_from_path(relative_path),
          time_dir <- Path.dirname(full_path),
          available_languages <- detect_available_languages(time_dir) do
+      # Preload language statuses to avoid re-reading files in editor/listing
+      language_statuses = load_language_statuses(time_dir, available_languages)
+
       {:ok,
        %{
          blog: blog_slug,
@@ -1105,6 +1142,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
          content: content,
          language: language,
          available_languages: available_languages,
+         language_statuses: language_statuses,
          mode: :timestamp
        }}
     else
