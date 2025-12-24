@@ -204,13 +204,12 @@ PhoenixKit posts use YAML frontmatter followed by Markdown content:
 ```yaml
 ---
 slug: getting-started
-title: Getting Started Guide
 status: published
 published_at: 2025-01-15T09:30:00Z
 created_at: 2025-01-15T09:30:00Z  # Only in slug mode
 ---
 
-# Welcome to the Guide
+# Getting Started Guide
 
 This is the **Markdown content** of your post.
 
@@ -219,11 +218,17 @@ This is the **Markdown content** of your post.
 - Images, links, tables, etc.
 ```
 
+**Title Extraction:**
+
+The post title is **extracted from the first Markdown heading** (`# Title`), not stored in frontmatter. This approach:
+- Keeps the title visible in the content for authors
+- Avoids duplication between frontmatter and content
+- Makes the rendered output match the source file
+
 **Frontmatter Fields:**
 
 - `slug` – Post slug (required, used for file path in slug mode)
-- `title` – Display title (required)
-- `status` – Publication status: `draft` or `published`
+- `status` – Publication status: `draft`, `published`, or `archived`
 - `published_at` – Publication timestamp (ISO8601 format)
 - `created_at` – Creation timestamp (slug mode only, for sorting)
 
@@ -342,7 +347,7 @@ Markdown editor at `{prefix}/admin/blogging/{blog}/edit`:
 
 - Title input (all modes)
 - **Slug input** (slug mode only, with validation)
-- Status selector (draft/published)
+- Status selector (draft/published/archived)
 - Published at timestamp picker
 - Markdown editor with preview
 - Language switcher for translations
@@ -446,80 +451,31 @@ Admin chooses mode at creation time:
 
 ## Test Coverage
 
-### Storage Layer Tests
-
-**File:** `test/phoenix_kit_web/live/modules/blogging/storage_slug_test.exs`
-
-**Coverage:** 62 tests for slug mode storage layer
-
-- Slug validation (format, reserved words, edge cases)
-- Slug generation (from titles, collision handling, uniqueness)
-- Post creation (with/without explicit slug, title inference)
-- Post reading (by slug, by language, error cases)
-- Post listing (sorting by created_at, language filtering)
-- Post updates (content, metadata, slug changes)
-- Slug changes (file movement, directory cleanup)
-- Multi-language (adding translations, reading specific languages)
-
-### Context Layer Tests
-
-**File:** `test/phoenix_kit_web/live/modules/blogging/blogging_mode_test.exs`
-
-**Coverage:** 9 tests for mode routing
-
-- Blog configuration (mode injection, persistence, defaults)
-- Mode-aware routing (create, list, read, update, add language)
-- Both timestamp and slug modes tested
-- FakeSettings implementation for isolated testing
-
-### UI Layer Tests
-
-**File:** `test/phoenix_kit_web/live/modules/blogging/editor_test.exs`
-
-**Coverage:** 5 tests for editor UI
-
-- Slug field visibility (present for slug mode, absent for timestamp mode)
-- Slug validation (invalid formats rejected)
-- Auto-generation from title
-- Custom slug persistence
-- New post creation flow
-
-### Shared Test Helper
-
-**Status:** Future Implementation
-
-**Planned File:** `test/support/blogging_fake_settings.ex`
-
-When blogging tests are implemented, an in-memory settings stub will be used to avoid database dependencies. Configuration should be done via `config/test.exs`, NOT runtime `Application.put_env/2`:
-
-```elixir
-# config/test.exs (CORRECT approach)
-import Config
-
-config :phoenix_kit,
-  blogging_settings_module: PhoenixKit.Test.FakeSettings
-
-# In test files - FakeSettings will be pre-configured
-# No need for Application.put_env calls
-FakeSettings.update_json_setting("blogging_blogs", %{
-  "blogs" => [%{"name" => "Docs", "slug" => "docs", "mode" => "slug"}]
-})
-```
-
-### Running Tests
-
 **Status:** Tests not yet implemented
 
-When implemented, tests will be run as follows:
+The blogging module is tested through integration testing in parent Phoenix applications rather than unit tests within PhoenixKit itself. This is consistent with PhoenixKit's library-first architecture (see CLAUDE.md for testing philosophy).
+
+**Recommended Testing Approach:**
+
+1. **Integration Testing** - Test blogging functionality in your parent Phoenix application
+2. **Manual Testing** - Use the admin interface at `/{prefix}/admin/blogging`
+3. **Static Analysis** - Run `mix credo --strict` and `mix dialyzer` to catch logic errors
+
+**Future Test Implementation:**
+
+When blogging tests are added, they will use an in-memory settings stub to avoid database dependencies:
+
+```elixir
+# config/test.exs
+config :phoenix_kit,
+  blogging_settings_module: PhoenixKit.Test.FakeSettings
+```
+
+**Running Tests:**
 
 ```bash
-# Run all blogging tests
+# Run all blogging tests (when implemented)
 mix test test/phoenix_kit_web/live/modules/blogging/
-
-# Run specific test suites
-mix test test/phoenix_kit_web/live/modules/blogging/storage_slug_test.exs
-mix test test/phoenix_kit_web/live/modules/blogging/blogging_mode_test.exs
-mix test test/phoenix_kit_web/live/modules/blogging/editor_test.exs
 ```
 
 ## Configuration
@@ -592,7 +548,7 @@ Note: The path is determined by the parent application's priv directory, not Pho
 
 1. **Always create English first** – Establish primary content structure
 2. **Use consistent slugs** – All translations share the same slug/path
-3. **Translate titles** – Each language file has its own frontmatter title
+3. **Translate titles** – Each language file has its own `# Title` heading
 4. **Don't mix languages** – One language per `.phk` file
 5. **Test translations** – Use language switcher in editor/preview
 
@@ -677,38 +633,9 @@ To change modes, you must:
 
 **No automatic migration is provided** – this is an infrequent operation best done manually.
 
----
-
-### Problem: FakeSettings module not found in tests
-
-**Status:** Not applicable - FakeSettings not yet implemented
-
-**Future Implementation:**
-
-When blogging tests are added, the FakeSettings module will be:
-
-1. **Defined in:** `test/support/fake_settings.ex` (standard Phoenix test support location)
-2. **Configured in:** `config/test.exs` (NOT runtime in test files)
-3. **Used as:** `PhoenixKit.Test.FakeSettings` (standard namespace)
-
-**Correct pattern:**
-
-```elixir
-# config/test.exs
-config :phoenix_kit,
-  blogging_settings_module: PhoenixKit.Test.FakeSettings
-
-# test/support/fake_settings.ex
-defmodule PhoenixKit.Test.FakeSettings do
-  use Agent
-  # Implementation details...
-end
-```
-
 ## Getting Help
 
-1. Check test suite for usage examples: `test/phoenix_kit_web/live/modules/blogging/`
-2. Review storage layer implementation: `lib/phoenix_kit_web/live/modules/blogging/context/storage.ex`
-3. Inspect post struct in IEx: `{:ok, post} = Blogging.read_post("docs", "slug")` → `IO.inspect(post)`
-4. Enable debug logging: `Logger.configure(level: :debug)`
-5. Search GitHub issues: <https://github.com/phoenixkit/phoenix_kit/issues>
+1. Review storage layer implementation: `lib/phoenix_kit_web/live/modules/blogging/context/storage.ex`
+2. Inspect post struct in IEx: `{:ok, post} = Blogging.read_post("docs", "slug")` → `IO.inspect(post)`
+3. Enable debug logging: `Logger.configure(level: :debug)`
+4. Search GitHub issues: <https://github.com/phoenixkit/phoenix_kit/issues>
