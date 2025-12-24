@@ -1335,12 +1335,17 @@ defmodule PhoenixKit.Settings do
     # Extract all data from the changeset (not just changes)
     # This ensures all form fields are saved, even if unchanged
     changeset_data = Ecto.Changeset.apply_changes(changeset)
+    defaults = get_defaults()
 
     settings_to_update =
       changeset_data
       |> Map.from_struct()
-      # Convert nil to empty string for storage (optional fields are allowed to be empty)
-      |> Enum.map(fn {k, v} -> {Atom.to_string(k), v || ""} end)
+      # Convert nil to default value (or empty string for optional fields)
+      |> Enum.map(fn {k, v} ->
+        key = Atom.to_string(k)
+        value = v || Map.get(defaults, key, "")
+        {key, value}
+      end)
       |> Map.new()
       # Auto-enable OAuth providers when credentials are saved
       |> auto_enable_oauth_providers()
