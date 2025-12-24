@@ -1520,8 +1520,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     enabled_language_codes = Languages.get_enabled_language_codes()
     enabled_base_codes = Enum.map(enabled_language_codes, &DialectMapper.extract_base/1)
 
-    # Remove PhoenixKit prefix if present
-    normalized_path = String.replace_prefix(current_path || "", "/phoenix_kit", "")
+    # Remove PhoenixKit prefix if present (use dynamic config, not hardcoded)
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    prefix_to_remove = if url_prefix == "/", do: "", else: url_prefix
+    normalized_path = String.replace_prefix(current_path || "", prefix_to_remove, "")
 
     # Remove existing locale prefix from path
     clean_path =
