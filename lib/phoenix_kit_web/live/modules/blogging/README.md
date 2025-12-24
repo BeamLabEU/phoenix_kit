@@ -5,7 +5,7 @@ The PhoenixKit Blogging module provides a filesystem-based content management sy
 ## Quick Links
 
 - **Admin Interface**: `/{prefix}/admin/blogging`
-- **Public Blog**: `/{language}/blog` (overview) or `/{language}/blog/{blog-slug}` (listing)
+- **Public Blog**: `/{prefix}/{language}/{blog-slug}` (listing) or `/{prefix}/{blog-slug}` (single-language)
 - **Settings**: Configure via `blogging_public_enabled` and `blogging_posts_per_page` in Settings
 
 ## Public Blog Display
@@ -14,18 +14,25 @@ The blogging module includes public-facing routes for displaying published posts
 
 ### Public URLs
 
+**Multi-language mode:**
 ```
-/{language}/blog                              # All blogs overview
-/{language}/blog/{blog-slug}                  # Blog post listing
-/{language}/blog/{blog-slug}/{post-slug}      # Slug mode post
-/{language}/blog/{blog-slug}/{date}/{time}    # Timestamp mode post
+/{prefix}/{language}/{blog-slug}                  # Blog post listing
+/{prefix}/{language}/{blog-slug}/{post-slug}      # Slug mode post
+/{prefix}/{language}/{blog-slug}/{date}/{time}    # Timestamp mode post
 ```
 
-**Examples:**
-- `/en/blog` - Shows all blogs (Docs, News, etc.)
-- `/en/blog/docs` - Lists all published posts in Docs blog
-- `/en/blog/docs/getting-started` - Shows specific post (slug mode)
-- `/en/blog/news/2025-11-02/14:30` - Shows specific post (timestamp mode)
+**Single-language mode** (when only one language is enabled):
+```
+/{prefix}/{blog-slug}                             # Blog post listing
+/{prefix}/{blog-slug}/{post-slug}                 # Slug mode post
+/{prefix}/{blog-slug}/{date}/{time}               # Timestamp mode post
+```
+
+**Examples** (assuming `{prefix}` is `/phoenix_kit`):
+- `/phoenix_kit/en/docs` - Lists all published posts in Docs blog (English)
+- `/phoenix_kit/en/docs/getting-started` - Shows specific post (slug mode)
+- `/phoenix_kit/en/news/2025-11-02/14:30` - Shows specific post (timestamp mode)
+- `/phoenix_kit/docs` - Single-language mode listing
 
 ### Features
 
@@ -37,33 +44,50 @@ The blogging module includes public-facing routes for displaying published posts
 - **Pagination** - Configurable posts per page (default: 20)
 - **SEO Ready** - Clean URLs, breadcrumbs, responsive design
 - **Performance** - Content-hash-based caching with versioned keys (`v1:blog_post:...`)
-- **Beta Badge** - Blog listings include Beta badge during v1.5.0 launch
 
 ### Language Detection
 
-The blogging module supports two types of language detection:
+The blogging module uses a multi-step detection process to determine if a URL segment is a language code or a blog slug:
 
-1. **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
-2. **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
+**Detection Flow (`detect_language_or_blog`):**
+1. **Enabled language** - If the segment matches an enabled language code (e.g., `en`, `fr-CA`), treat as language
+2. **Base code mapping** - If it's a 2-letter code that maps to an enabled dialect (e.g., `en` → `en-US`), treat as language
+3. **Known language pattern** - If it matches a predefined language code (even if disabled), treat as language
+4. **Content-based check** - If content exists for this language in the requested blog, treat as language
+5. **Default** - Otherwise, treat as a blog slug and use the default language
+
+**Supported Language Types:**
+- **Predefined Languages** - Languages configured in the Languages module (e.g., `en`, `fr`, `es`)
+- **Content-Based Languages** - Any `.phk` file in a post directory is treated as a valid language
 
 This allows custom language files like `af.phk` (Afrikaans) or `test.phk` to work correctly even if not predefined in the Languages module. The language switcher will show these with a strikethrough to indicate they're not officially enabled, but they remain accessible.
 
+**Single-Language Mode:**
+When only one language is enabled, URLs don't require the language segment:
+- `/phoenix_kit/docs/getting-started` works the same as `/phoenix_kit/en/docs/getting-started`
+
 ### Fallback Behavior
 
-When a requested post or language version is not found, the system follows a fallback chain:
+Fallbacks are triggered only for `:post_not_found` or `:unpublished` errors. Other errors (e.g., `:blog_not_found`, server errors) result in a standard 404 page.
 
-**For slug-mode posts (`/en/blog/docs/getting-started`):**
+**For slug-mode posts (`/{prefix}/en/docs/getting-started`):**
 1. Try other languages for the same post (default language first)
 2. If no published language versions exist, redirect to blog listing
 
-**For timestamp-mode posts (`/en/blog/news/2025-12-24/15:30`):**
+**For timestamp-mode posts (`/{prefix}/en/news/2025-12-24/15:30`):**
 1. Try other languages for the same date/time
 2. Try other times on the same date
 3. If no posts on that date, redirect to blog listing
 
+**Fallback Priority:**
+The system tries languages in this order:
+1. Default language (from Settings)
+2. Other available languages (in order they appear in the post directory)
+
 **User Experience:**
 - Redirects include a flash message: "The page you requested was not found. Showing closest match."
 - Bookmarked URLs continue to work even if specific translations are removed
+- Users are never shown a 404 if any published version of the content exists
 
 ### Configuration
 

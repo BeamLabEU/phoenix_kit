@@ -351,6 +351,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   # slug helpers now handled by PhoenixKit.Utils.Slug
 
+  @typedoc """
+  A blog post with metadata and content.
+
+  The `language_statuses` field is preloaded when fetching posts via `list_posts/2`
+  or `read_post/2` to avoid redundant file reads. It maps language codes to their
+  publication status (e.g., `%{"en" => "published", "es" => "draft"}`).
+  """
   @type post :: %{
           blog: String.t() | nil,
           slug: String.t() | nil,
@@ -362,6 +369,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
           content: String.t(),
           language: String.t(),
           available_languages: [String.t()],
+          language_statuses: %{String.t() => String.t() | nil},
           mode: :slug | :timestamp | nil
         }
 
