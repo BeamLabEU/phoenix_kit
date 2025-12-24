@@ -63,6 +63,8 @@ defmodule PhoenixKit.Sitemap.Sources.RouterDiscovery do
 
   @behaviour PhoenixKit.Sitemap.Sources.Source
 
+  require Logger
+
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap.RouteResolver
   alias PhoenixKit.Sitemap.UrlEntry
@@ -111,7 +113,6 @@ defmodule PhoenixKit.Sitemap.Sources.RouterDiscovery do
     end
   rescue
     error ->
-      require Logger
       Logger.warning("RouterDiscovery source failed: #{inspect(error)}")
       []
   end

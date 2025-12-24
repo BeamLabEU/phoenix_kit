@@ -38,6 +38,7 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Sitemap.FileStorage
   alias PhoenixKit.Sitemap.Generator
 
   @doc """
@@ -174,8 +175,6 @@ defmodule PhoenixKit.Sitemap.SchedulerWorker do
   @spec ensure_cache_warm() ::
           {:ok, Oban.Job.t()} | :file_exists | :disabled | {:error, term()}
   def ensure_cache_warm do
-    alias PhoenixKit.Sitemap.FileStorage
-
     cond do
       not Sitemap.enabled?() ->
         Logger.debug("SitemapSchedulerWorker: Sitemap disabled, skipping warm-up")

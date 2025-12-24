@@ -237,8 +237,6 @@ defmodule PhoenixKit.Emails.Interceptor do
       {:ok, %Log{}}
   """
   def update_after_send(%Log{} = log, provider_response \\ %{}) do
-    require Logger
-
     Logger.info("EmailInterceptor: Updating email log after send", %{
       log_id: log.id,
       current_message_id: log.message_id,
@@ -656,8 +654,6 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   # Extract data from provider response
   defp extract_provider_data(%{} = response, log_id) do
-    require Logger
-
     # Extract message ID from various response formats
     extracted_data = extract_message_id_from_response(response)
 
@@ -785,8 +781,6 @@ defmodule PhoenixKit.Emails.Interceptor do
 
   # Log extraction metric for monitoring
   defp log_extraction_metric(success?, log_id, aws_message_id) do
-    require Logger
-
     metric_data = %{
       metric: "aws_message_id_extraction_rate",
       success: success?,

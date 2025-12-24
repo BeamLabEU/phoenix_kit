@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoicePrint do
 
   alias PhoenixKit.Billing
   alias PhoenixKit.Billing.CountryData
+  alias PhoenixKit.Billing.Transaction
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -64,8 +65,6 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.InvoicePrint do
   end
 
   defp calculate_refund_info(transactions) when is_list(transactions) do
-    alias PhoenixKit.Billing.Transaction
-
     refund_txns =
       transactions
       |> Enum.filter(&Transaction.refund?/1)

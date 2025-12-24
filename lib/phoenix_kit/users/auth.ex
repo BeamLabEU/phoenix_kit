@@ -71,6 +71,7 @@ defmodule PhoenixKit.Users.Auth do
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
   alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
+  alias PhoenixKit.Utils.SessionFingerprint
 
   ## Database getters
 
@@ -779,8 +780,6 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def verify_session_fingerprint(conn, token) do
-    alias PhoenixKit.Utils.SessionFingerprint
-
     # Skip verification if fingerprinting is disabled
     if SessionFingerprint.fingerprinting_enabled?() do
       case get_session_token_record(token) do
@@ -821,7 +820,6 @@ defmodule PhoenixKit.Users.Auth do
   def ensure_active_user(user) do
     case user do
       %User{is_active: false} = inactive_user ->
-        require Logger
         Logger.warning("PhoenixKit: Inactive user #{inactive_user.id} attempted access")
         nil
 
@@ -894,7 +892,6 @@ defmodule PhoenixKit.Users.Auth do
          %User{} = user <- Repo.one(query),
          {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
-      alias PhoenixKit.Admin.Events
       Events.broadcast_user_confirmed(updated_user)
       {:ok, updated_user}
     else
@@ -924,7 +921,6 @@ defmodule PhoenixKit.Users.Auth do
 
     case Repo.update(changeset) do
       {:ok, updated_user} = result ->
-        alias PhoenixKit.Admin.Events
         Events.broadcast_user_confirmed(updated_user)
         result
 
@@ -949,7 +945,6 @@ defmodule PhoenixKit.Users.Auth do
 
     case Repo.update(changeset) do
       {:ok, updated_user} = result ->
-        alias PhoenixKit.Admin.Events
         Events.broadcast_user_unconfirmed(updated_user)
         result
 

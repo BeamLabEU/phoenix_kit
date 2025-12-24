@@ -88,7 +88,10 @@ defmodule PhoenixKit.Entities do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Entities.EntityData
   alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Entities.Mirror.Exporter
+  alias PhoenixKit.Entities.Mirror.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -278,16 +281,12 @@ defmodule PhoenixKit.Entities do
 
   # Mirror export helpers for auto-sync (per-entity settings)
   defp maybe_mirror_entity(entity) do
-    alias PhoenixKit.Entities.Mirror.Exporter
-
     if mirror_definitions_enabled?(entity) do
       Task.start(fn -> Exporter.export_entity(entity) end)
     end
   end
 
   defp maybe_delete_mirrored_entity(entity) do
-    alias PhoenixKit.Entities.Mirror.Storage
-
     # Delete the file if it exists (regardless of current setting)
     # This ensures cleanup when entity is deleted
     if Storage.entity_exists?(entity.name) do
@@ -726,9 +725,6 @@ defmodule PhoenixKit.Entities do
       [%{id: 1, name: "test", display_name: "Test", data_count: 8, mirror_definitions: true, mirror_data: false}, ...]
   """
   def list_entities_with_mirror_status do
-    alias PhoenixKit.Entities.EntityData
-    alias PhoenixKit.Entities.Mirror.Storage
-
     entities = list_entities()
 
     Enum.map(entities, fn entity ->

@@ -20,6 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   use PhoenixKitWeb, :live_view
 
   alias Phoenix.Component
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Posts
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Roles
@@ -328,8 +329,6 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
 
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
-    alias PhoenixKit.Modules.Storage.URLSigner
-
     # Use "original" variant for the full-size image
     URLSigner.signed_url(file_id, "original")
   end

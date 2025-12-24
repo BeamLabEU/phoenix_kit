@@ -46,6 +46,8 @@ defmodule PhoenixKit.Sitemap.Sources.Source do
   in `PhoenixKit.Sitemap.Generator.collect_all_entries/2`.
   """
 
+  require Logger
+
   alias PhoenixKit.Sitemap.UrlEntry
 
   @doc """
@@ -107,8 +109,6 @@ defmodule PhoenixKit.Sitemap.Sources.Source do
     end
   rescue
     error ->
-      require Logger
-
       Logger.warning(
         "Sitemap source #{inspect(source_module)} failed to collect: #{inspect(error)}"
       )

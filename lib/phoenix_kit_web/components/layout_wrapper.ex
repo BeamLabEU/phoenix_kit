@@ -36,6 +36,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   alias Phoenix.HTML
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
@@ -85,7 +86,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             PhoenixKit.Settings.get_content_language()
 
           locale when is_binary(locale) ->
-            alias PhoenixKit.Modules.Languages.DialectMapper
             DialectMapper.extract_base(locale)
 
           _ ->
@@ -1424,8 +1424,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   attr :current_locale, :string, default: nil
 
   defp admin_language_switcher(assigns) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Only show if languages are enabled and there are enabled languages
     if Languages.enabled?() do
       enabled_languages = Languages.get_enabled_languages()
@@ -1518,8 +1516,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   # Build URL with base code - expects base code directly (e.g., "en" not "en-US")
   # Used by admin language switcher where language["code"] is already the base code
   def build_locale_url(current_path, base_code) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Get enabled codes for locale detection in path
     enabled_language_codes = Languages.get_enabled_language_codes()
     enabled_base_codes = Enum.map(enabled_language_codes, &DialectMapper.extract_base/1)
@@ -1559,7 +1555,6 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   # Legacy function - kept for backward compatibility
   def generate_language_switch_url(current_path, new_locale) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_code = DialectMapper.extract_base(new_locale)
     build_locale_url(current_path, base_code)
   end

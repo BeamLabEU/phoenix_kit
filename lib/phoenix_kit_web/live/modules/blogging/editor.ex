@@ -6,6 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
@@ -14,6 +15,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   alias PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers
   alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+
+  require Logger
 
   @impl true
   def mount(params, _session, socket) do
@@ -621,8 +624,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   # Handle save broadcasts from other users/tabs (last-save-wins sync)
   def handle_info({:editor_saved, form_key, source}, socket) do
-    require Logger
-
     Logger.debug(
       "EDITOR_SAVED received: form_key=#{inspect(form_key)}, source=#{inspect(source)}, " <>
         "my_form_key=#{inspect(socket.assigns[:form_key])}, my_socket_id=#{inspect(socket.id)}"
@@ -771,7 +772,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
-    alias PhoenixKit.Modules.Storage.URLSigner
     URLSigner.signed_url(file_id, "original")
   end
 
@@ -920,8 +920,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
         # Broadcast save to other tabs/users so they can reload (for editor sync)
         if socket.assigns[:form_key] do
-          require Logger
-
           Logger.debug(
             "BROADCASTING editor_saved from update_existing_post: " <>
               "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
@@ -995,8 +993,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
         # Broadcast save to other tabs/users so they can reload
         if socket.assigns[:form_key] do
-          require Logger
-
           Logger.debug(
             "BROADCASTING editor_saved: " <>
               "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
@@ -1819,8 +1815,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       rescue
         ArgumentError ->
           # Presence module not started - fall back to single-user mode
-          require Logger
-
           Logger.warning(
             "Blogging Presence not available - collaborative editing disabled. " <>
               "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"

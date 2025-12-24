@@ -11,6 +11,8 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
+  require Logger
+
   def mount(params, _session, socket) do
     # Set locale for LiveView process
     locale =
@@ -34,7 +36,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("delete_dimension", %{"id" => id}, socket) do
-    require Logger
     Logger.info("Dimensions: delete_dimension event triggered for id=#{id}")
 
     dimension = Storage.get_dimension(id)
@@ -58,7 +59,6 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Dimensions do
   end
 
   def handle_event("toggle_dimension", %{"id" => id}, socket) do
-    require Logger
     Logger.info("Dimensions: toggle_dimension event triggered for id=#{id}")
 
     dimension = Storage.get_dimension(id)
