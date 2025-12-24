@@ -1,31 +1,31 @@
 defmodule PhoenixKit.Billing.CountryData do
   @moduledoc """
-  Wrapper для BeamLabCountries с функциями для биллинга.
+  Wrapper for BeamLabCountries with billing-specific functions.
 
-  Предоставляет удобный API для работы с данными о странах в контексте
-  биллинга: выбор страны, налоговые ставки, EU membership.
+  Provides a convenient API for working with country data in a billing context:
+  country selection, tax rates, EU membership.
 
-  Включает workaround для бага charlist в VAT rates до исправления в upstream.
+  Includes workaround for charlist bug in VAT rates until fixed upstream.
 
   ## Examples
 
-      # Получить список стран для dropdown
+      # Get list of countries for dropdown
       countries = CountryData.countries_for_select()
       # [{"🇦🇩 Andorra", "AD"}, {"🇦🇪 United Arab Emirates", "AE"}, ...]
 
-      # Получить стандартную VAT ставку
+      # Get standard VAT rate
       rate = CountryData.get_standard_vat_rate("EE")
       # #Decimal<0.20>
 
-      # Проверить EU membership
+      # Check EU membership
       CountryData.eu_member?("EE")
       # true
 
-      # Получить информацию о стране
+      # Get country information
       country = CountryData.get_country("DE")
       # %BeamLabCountries.Country{name: "Germany", ...}
 
-      # Форматировать адрес компании из Settings
+      # Format company address from Settings
       address = CountryData.format_company_address()
       # "123 Business Street\\nTallinn 10115\\nEstonia"
   """
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Billing.CountryData do
   alias PhoenixKit.Settings
 
   @doc """
-  Получить все страны отсортированные по имени.
+  Get all countries sorted by name.
 
   ## Examples
 
@@ -49,7 +49,7 @@ defmodule PhoenixKit.Billing.CountryData do
   end
 
   @doc """
-  Получить страну по alpha2 коду.
+  Get country by alpha-2 code.
 
   ## Examples
 
@@ -67,10 +67,10 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_country(_), do: nil
 
   @doc """
-  Получить стандартную VAT ставку для страны как Decimal.
+  Get standard VAT rate for a country as Decimal.
 
-  Возвращает ставку в десятичном формате (0.20 = 20%).
-  Если страна не найдена или не имеет VAT rates, возвращает 0.
+  Returns rate in decimal format (0.20 = 20%).
+  If country not found or has no VAT rates, returns 0.
 
   ## Examples
 
@@ -98,9 +98,9 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_standard_vat_rate(_), do: Decimal.new("0")
 
   @doc """
-  Получить стандартную VAT ставку как процент (integer).
+  Get standard VAT rate as percentage (integer).
 
-  Возвращает ставку в процентах (20 = 20%).
+  Returns rate as percentage (20 = 20%).
 
   ## Examples
 
@@ -123,13 +123,13 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_standard_vat_percent(_), do: 0
 
   @doc """
-  Получить все VAT ставки с workaround для charlist бага.
+  Get all VAT rates with workaround for charlist bug.
 
-  Возвращает map с нормализованными ставками:
-  - :standard - стандартная ставка (integer)
-  - :reduced - пониженные ставки (list of integers)
-  - :super_reduced - сверхпониженная ставка (integer or nil)
-  - :parking - парковочная ставка (integer or nil)
+  Returns map with normalized rates:
+  - :standard - standard rate (integer)
+  - :reduced - reduced rates (list of integers)
+  - :super_reduced - super reduced rate (integer or nil)
+  - :parking - parking rate (integer or nil)
 
   ## Examples
 
@@ -152,7 +152,7 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_vat_rates(_), do: nil
 
   @doc """
-  Проверить является ли страна членом EU.
+  Check if country is an EU member.
 
   ## Examples
 
@@ -175,9 +175,9 @@ defmodule PhoenixKit.Billing.CountryData do
   def eu_member?(_), do: false
 
   @doc """
-  Проверить является ли страна членом EEA (European Economic Area).
+  Check if country is an EEA (European Economic Area) member.
 
-  EEA включает EU + Норвегия, Исландия, Лихтенштейн.
+  EEA includes EU + Norway, Iceland, Liechtenstein.
 
   ## Examples
 
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Billing.CountryData do
   def eea_member?(_), do: false
 
   @doc """
-  Получить список EU стран.
+  Get list of EU countries.
 
   ## Examples
 
@@ -215,17 +215,17 @@ defmodule PhoenixKit.Billing.CountryData do
   end
 
   @doc """
-  Получить список EEA стран (EU + Норвегия, Исландия, Лихтенштейн).
+  Get list of EEA countries (EU + Norway, Iceland, Liechtenstein).
   """
   def eea_countries do
     BeamLabCountries.filter_by(:eea_member, true)
   end
 
   @doc """
-  Получить список стран для select dropdown.
+  Get list of countries for select dropdown.
 
-  Возвращает список кортежей {display_name, alpha2_code} для использования
-  в Phoenix form selects.
+  Returns list of tuples {display_name, alpha2_code} for use
+  in Phoenix form selects.
 
   ## Examples
 
@@ -248,7 +248,7 @@ defmodule PhoenixKit.Billing.CountryData do
   end
 
   @doc """
-  Получить список EU стран для select dropdown.
+  Get list of EU countries for select dropdown.
   """
   def eu_countries_for_select do
     eu_countries()
@@ -266,7 +266,7 @@ defmodule PhoenixKit.Billing.CountryData do
   end
 
   @doc """
-  Получить валюту страны.
+  Get country currency code.
 
   ## Examples
 
@@ -289,7 +289,7 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_currency_code(_), do: nil
 
   @doc """
-  Получить название страны.
+  Get country name.
 
   ## Examples
 
@@ -309,7 +309,7 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_country_name(_), do: nil
 
   @doc """
-  Получить флаг страны (emoji).
+  Get country flag (emoji).
 
   ## Examples
 
@@ -326,7 +326,7 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_flag(_), do: nil
 
   @doc """
-  Проверить существует ли страна с данным кодом.
+  Check if country with given code exists.
 
   ## Examples
 
@@ -343,14 +343,14 @@ defmodule PhoenixKit.Billing.CountryData do
   def exists?(_), do: false
 
   @doc """
-  Форматирует адрес компании из Settings для печати документов.
+  Format company address from Settings for document printing.
 
-  Собирает адрес из отдельных полей (address_line1, address_line2, city, state,
-  postal_code, country) в единую строку с переносами строк.
+  Assembles address from individual fields (address_line1, address_line2, city, state,
+  postal_code, country) into a single string with line breaks.
 
   ## Returns
 
-  Отформатированный адрес в виде строки, например:
+  Formatted address as string, for example:
   ```
   123 Business Street
   Suite 100
@@ -487,12 +487,12 @@ defmodule PhoenixKit.Billing.CountryData do
   # Private Functions - Workaround for charlist bug in BeamLabCountries
   # ==========================================================================
   #
-  # YAML парсер интерпретирует однозначные числа в списках как charlist:
+  # YAML parser interprets single-digit numbers in lists as charlists:
   # - [9] → ~c"\t" (tab)
   # - [7] → ~c"\a" (bell)
   # - [10] → ~c"\n" (newline)
   #
-  # Эти функции нормализуют данные до исправления в upstream.
+  # These functions normalize data until fixed upstream.
 
   defp normalize_rates(rates) when is_map(rates) do
     Map.new(rates, fn {k, v} -> {k, normalize_rate_value(v)} end)
@@ -501,7 +501,7 @@ defmodule PhoenixKit.Billing.CountryData do
   defp normalize_rate_value(nil), do: nil
 
   defp normalize_rate_value(list) when is_list(list) do
-    # Если это charlist из одного элемента (баг), конвертируем обратно
+    # If charlist of single element (bug), convert back
     if charlist_single_digit?(list) do
       [hd(list)]
     else
@@ -511,7 +511,7 @@ defmodule PhoenixKit.Billing.CountryData do
 
   defp normalize_rate_value(value), do: value
 
-  # Проверяем является ли список charlist-ом из одного ASCII кода цифры
+  # Check if list is a charlist of single ASCII digit code
   defp charlist_single_digit?([n]) when is_integer(n) and n >= 0 and n <= 127, do: true
   defp charlist_single_digit?(_), do: false
 
