@@ -9,6 +9,7 @@ defmodule PhoenixKit.Blogging.Renderer do
   require Logger
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKitWeb.Components.Blogging.EntityForm
   alias PhoenixKitWeb.Components.Blogging.Image
   alias PhoenixKitWeb.Components.Blogging.Video
   alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder
@@ -260,8 +261,6 @@ defmodule PhoenixKit.Blogging.Renderer do
   end
 
   defp render_inline_component("EntityForm", attrs) do
-    alias PhoenixKitWeb.Components.Blogging.EntityForm
-
     attr_map = parse_xml_attributes(attrs)
 
     assigns = %{

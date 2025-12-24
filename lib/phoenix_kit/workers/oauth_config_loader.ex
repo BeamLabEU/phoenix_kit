@@ -32,6 +32,8 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
   use GenServer
   require Logger
 
+  alias PhoenixKit.Users.OAuthConfig
+
   ## Client API
 
   @doc """
@@ -185,7 +187,6 @@ defmodule PhoenixKit.Workers.OAuthConfigLoader do
       )
 
       # Configure OAuth providers from settings
-      alias PhoenixKit.Users.OAuthConfig
       OAuthConfig.configure_providers()
 
       :ok

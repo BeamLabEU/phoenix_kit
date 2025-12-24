@@ -55,6 +55,8 @@ defmodule PhoenixKit.Emails.Supervisor do
 
   use Supervisor
 
+  require Logger
+
   alias PhoenixKit.Emails.SQSPollingManager
   alias PhoenixKit.Emails.SQSWorker
 
@@ -248,8 +250,6 @@ defmodule PhoenixKit.Emails.Supervisor do
     if should_start_oban_polling?() do
       # Spawn a process that waits for Oban to be ready before creating the job
       spawn(fn ->
-        require Logger
-
         # Wait for Oban to start (max 10 attempts with 500ms delay)
         wait_for_oban(10, 500)
 

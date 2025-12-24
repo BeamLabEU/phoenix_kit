@@ -31,6 +31,8 @@ defmodule PhoenixKit.Mailer do
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
+  require Logger
+
   @doc """
   Gets the mailer module to use for sending emails.
 
@@ -375,7 +377,6 @@ defmodule PhoenixKit.Mailer do
   rescue
     # Don't fail email delivery if tracking update fails
     error ->
-      require Logger
       Logger.error("Failed to update email tracking after delivery: #{inspect(error)}")
       :ok
   end

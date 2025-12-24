@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.DBSync
   alias PhoenixKit.DBSync.Connection
   alias PhoenixKit.DBSync.ConnectionNotifier
@@ -944,7 +946,6 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
         if connection.direction == "sender" do
           Task.start(fn ->
             result = ConnectionNotifier.notify_remote_site(connection, token)
-            require Logger
             Logger.info("DBSync: Remote notification result: #{inspect(result)}")
           end)
         end

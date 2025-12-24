@@ -7,6 +7,8 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
   use PhoenixKitWeb, :live_view
   on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
 
+  require Logger
+
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.Events
   alias PhoenixKit.Entities.FieldTypes
@@ -944,7 +946,6 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
           {:noreply, socket}
         rescue
           e ->
-            require Logger
             Logger.error("Failed to apply remote entity form change: #{inspect(e)}")
             {:noreply, socket}
         end

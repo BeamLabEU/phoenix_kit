@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   embed_templates("blog_html/*")
 
@@ -283,7 +284,6 @@ defmodule PhoenixKitWeb.BlogHTML do
   # Counts posts on a given date for a blog
   # Used to determine if time should be included in URLs
   defp count_posts_on_date(blog_slug, date) do
-    alias PhoenixKitWeb.Live.Modules.Blogging.Storage
     Storage.count_posts_on_date(blog_slug, date)
   end
 
@@ -300,8 +300,8 @@ defmodule PhoenixKitWeb.BlogHTML do
   defp resolve_featured_image_url("", _variant), do: nil
 
   defp resolve_featured_image_url(file_id, variant) when is_binary(file_id) do
-    Storage.get_public_url_by_id(file_id, variant) ||
-      Storage.get_public_url_by_id(file_id)
+    PhoenixKit.Modules.Storage.get_public_url_by_id(file_id, variant) ||
+      PhoenixKit.Modules.Storage.get_public_url_by_id(file_id)
   rescue
     _ -> nil
   end

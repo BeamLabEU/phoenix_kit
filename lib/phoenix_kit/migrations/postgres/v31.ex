@@ -44,6 +44,8 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
   """
   use Ecto.Migration
 
+  alias PhoenixKit.Emails.Templates
+
   @doc """
   Run the V31 migration to add the billing system.
   """
@@ -766,8 +768,6 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
 
   # Seed billing email templates (billing_invoice and billing_receipt) if they don't exist
   defp seed_billing_invoice_template do
-    alias PhoenixKit.Emails.Templates
-
     case Code.ensure_loaded(Templates) do
       {:module, _} ->
         try do

@@ -6,6 +6,8 @@ defmodule PhoenixKit.Utils.Routes do
   PhoenixKit prefix configured in the application.
   """
 
+  alias PhoenixKit.Modules.Languages.DialectMapper
+
   # NOTE: Locale override logic below exists for the temporary blogging component system integration.
   # Switch to the upcoming media/storage helpers once they land.
   def path(url_path, opts \\ []) do
@@ -40,8 +42,6 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   defp determine_locale do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Fall back to extracting base from Gettext locale
     # This is only used when locale is not explicitly passed to Routes.path
     # Gettext.get_locale/1 always returns a string
@@ -57,8 +57,6 @@ defmodule PhoenixKit.Utils.Routes do
   end
 
   defp get_default_admin_language do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # During mix tasks (like phoenix_kit.install), the database may not have
     # the settings table yet. We detect this by checking if we're in a mix task
     # context and fall back to "en" to avoid database errors.
@@ -101,8 +99,6 @@ defmodule PhoenixKit.Utils.Routes do
   falls back to extracting base from full dialect code (current_locale).
   """
   def locale_aware_path(assigns, url_path) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Prefer base code, fall back to extracting from full dialect
     locale =
       assigns[:current_locale_base] ||

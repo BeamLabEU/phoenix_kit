@@ -73,7 +73,6 @@ defmodule PhoenixKitWeb.Plugs.MaintenanceMode do
 
   # Check if the request is for a LiveView route
   defp live_view_route?(conn) do
-    require Logger
     # Get the configured URL prefix
     url_prefix = PhoenixKit.Config.get_url_prefix()
 

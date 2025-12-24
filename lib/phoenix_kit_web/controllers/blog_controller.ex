@@ -15,9 +15,11 @@ defmodule PhoenixKitWeb.BlogController do
 
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @doc """
@@ -139,8 +141,6 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp valid_language?(code) when is_binary(code) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Check if it's an enabled language code (full dialect like en-US)
     # OR if it's a valid base code (like en) that maps to an enabled dialect
     cond do
@@ -382,8 +382,6 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp fetch_post(blog_slug, {:timestamp, date, time}, language) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # First, detect available languages for this post
     post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
     available_languages = detect_available_languages_in_dir(post_dir)
@@ -416,8 +414,6 @@ defmodule PhoenixKitWeb.BlogController do
   # Resolve a language code to an actual file language
   # Handles base codes by finding a matching dialect in available languages
   defp resolve_language_for_post(language, available_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     cond do
       # Direct match - language exactly matches an available file
       language in available_languages ->
@@ -437,7 +433,6 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Find a dialect in available files that matches the given base code
   defp find_dialect_for_base_in_files(base_code, available_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_lower = String.downcase(base_code)
 
     Enum.find(available_languages, fn lang ->
@@ -453,8 +448,6 @@ defmodule PhoenixKitWeb.BlogController do
   # If multiple dialects of the same base language are enabled, returns the full dialect.
   # Otherwise returns the base code for cleaner URLs.
   defp get_canonical_url_language(language) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     enabled_languages = get_enabled_languages()
 
     # Resolve base code to a specific dialect if needed
@@ -491,7 +484,6 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Find a dialect in enabled languages that matches the given base code
   defp find_dialect_for_base(base_code, enabled_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_lower = String.downcase(base_code)
 
     Enum.find(enabled_languages, fn lang ->
@@ -500,9 +492,6 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_listing_translations(blog_slug, current_language) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-    alias PhoenixKitWeb.Live.Modules.Blogging.Storage
-
     # Get enabled languages - these are the ONLY languages that should show
     enabled_languages =
       try do
@@ -604,9 +593,6 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp build_translation_links(blog_slug, post, current_language) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-    alias PhoenixKitWeb.Live.Modules.Blogging.Storage
-
     # Get enabled languages
     enabled_languages =
       try do
@@ -669,8 +655,6 @@ defmodule PhoenixKitWeb.BlogController do
   # Remove legacy base code files when dialect files of the same language exist
   # This prevents showing both "en" and "en-CA" in the switcher
   defp deduplicate_base_and_dialect_files(languages, _enabled_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     # Separate base codes and dialect codes
     {base_codes, dialect_codes} = Enum.split_with(languages, &base_code?/1)
 
@@ -695,8 +679,6 @@ defmodule PhoenixKitWeb.BlogController do
   # 2. Base code files where any dialect of that base is enabled
   # This prevents showing en-US, en-GB etc when only en-CA is enabled
   defp language_enabled_for_public?(language, enabled_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     cond do
       # Direct match - file code exactly matches an enabled language
       language in enabled_languages ->
@@ -719,8 +701,6 @@ defmodule PhoenixKitWeb.BlogController do
   # Does not consider fallback/alias files - only the exact file path
   # Used for building public translation links to show only actual files
   defp translation_published_exact?(_blog_slug, post, language) do
-    alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
-
     # Build the exact file path from the post's full_path
     # Replace the language portion of the filename
     exact_file_path =
@@ -792,8 +772,6 @@ defmodule PhoenixKitWeb.BlogController do
   # Find a matching language in available languages
   # Handles exact matches and base code matching
   defp find_matching_language(language, available_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     cond do
       # Direct match
       language in available_languages ->

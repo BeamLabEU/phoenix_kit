@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   """
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Slug
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
@@ -82,8 +83,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   """
   @spec get_display_code(String.t(), [String.t()]) :: String.t()
   def get_display_code(language_code, enabled_languages) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     base_code = DialectMapper.extract_base(language_code)
 
     # Count how many enabled languages share this base code
@@ -497,8 +496,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   defp resolve_language(available_languages, preferred_language) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     code =
       cond do
         # Direct match - preferred language exactly in available
@@ -528,7 +525,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   # Find a dialect in available_languages that matches the given base code
   defp find_dialect_for_base(available_languages, base_code) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
     base_lower = String.downcase(base_code)
 
     Enum.find(available_languages, fn lang ->

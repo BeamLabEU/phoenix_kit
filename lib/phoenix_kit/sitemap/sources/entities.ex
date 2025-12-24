@@ -88,6 +88,7 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
 
   alias PhoenixKit.Entities
   alias PhoenixKit.Entities.EntityData
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap.RouteResolver
   alias PhoenixKit.Sitemap.UrlEntry
@@ -541,7 +542,6 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   # Returns true when languages module is off OR only one language is enabled
   # Mirrors BlogHTML.single_language_mode?/0 logic
   defp single_language_mode? do
-    alias PhoenixKit.Modules.Languages
     not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   rescue
     _ -> true
