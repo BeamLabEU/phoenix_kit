@@ -532,7 +532,7 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   # Multiple languages: ALL languages get prefix (including default)
   defp build_path_with_language(path, language, _is_default) do
     if language && !single_language_mode?() do
-      "/#{extract_base(language)}#{path}"
+      "/#{Languages.DialectMapper.extract_base(language)}#{path}"
     else
       path
     end
@@ -546,13 +546,6 @@ defmodule PhoenixKit.Sitemap.Sources.Entities do
   rescue
     _ -> true
   end
-
-  # Extract base language code (e.g., "en" from "en-US")
-  defp extract_base(code) when is_binary(code) do
-    code |> String.split("-") |> List.first() |> String.downcase()
-  end
-
-  defp extract_base(_), do: "en"
 
   # Build URL for public entity pages (no PhoenixKit prefix)
   defp build_url(path, nil) do
