@@ -1,3 +1,8 @@
+## 1.7.11 - 2025-12-24
+- Fixed blog url issue
+- Fix for show username error on save
+- Translated comments to English in billing and AWS modules for consistency
+
 ## 1.7.10 - 2025-12-24
 - New Connections Module initial commit
 - Show tickets navigation only when tickets module is enabled
