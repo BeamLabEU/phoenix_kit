@@ -113,6 +113,13 @@
                   </div>
                 <% end %>
 
+                <%!-- Video indicator icon --%>
+                <%= if file.file_type == "video" do %>
+                  <div class="absolute top-2 left-2 bg-black/60 text-white p-1.5 rounded pointer-events-none flex items-center justify-center">
+                    <.icon name="hero-play-solid" class="w-4 h-4" />
+                  </div>
+                <% end %>
+
                 <%!-- File size in corner --%>
                 <div class="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded pointer-events-none">
                   {format_file_size(file.size)}
