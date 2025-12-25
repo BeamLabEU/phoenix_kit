@@ -1332,18 +1332,17 @@ defmodule PhoenixKit.Settings do
 
   # Private helper to update all settings from a valid changeset
   defp update_all_settings_from_changeset(changeset) do
-    # Extract all data from the changeset (not just changes)
-    # This ensures all form fields are saved, even if unchanged
-    changeset_data = Ecto.Changeset.apply_changes(changeset)
     defaults = get_defaults()
 
+    # Only update settings that were actually submitted in the form
+    # Use changeset.params (original form params) not the full struct
+    # This prevents one settings page from overwriting settings managed by another page
     settings_to_update =
-      changeset_data
-      |> Map.from_struct()
-      # Convert nil to default value (or empty string for optional fields)
+      (changeset.params || %{})
       |> Enum.map(fn {k, v} ->
-        key = Atom.to_string(k)
-        value = v || Map.get(defaults, key, "")
+        key = to_string(k)
+        # Use default value if nil or empty string
+        value = if is_nil(v) or v == "", do: Map.get(defaults, key, ""), else: v
         {key, value}
       end)
       |> Map.new()

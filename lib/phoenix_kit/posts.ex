@@ -412,7 +412,7 @@ defmodule PhoenixKit.Posts do
         where: p.status == "scheduled",
         where: p.scheduled_at <= ^now
       )
-      |> repo().all()
+      |> repo().all(log: false)
 
     results = Enum.map(posts_to_publish, &publish_post/1)
     published_count = Enum.count(results, &match?({:ok, _}, &1))

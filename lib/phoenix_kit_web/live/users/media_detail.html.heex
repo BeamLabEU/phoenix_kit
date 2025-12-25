@@ -38,11 +38,22 @@
               </p>
             </div>
           <% else %>
-            <div class="flex flex-col items-center justify-center text-base-content/50">
-              <.icon name={file_icon(@file_data.file_type)} class="w-32 h-32 mb-4" />
-              <p class="text-2xl font-semibold">{String.upcase(@file_data.file_type)}</p>
-              <p class="text-sm text-base-content/70 mt-2">{@file_data.mime_type}</p>
-            </div>
+            <%= if String.starts_with?(@file_data.mime_type, "video/") do %>
+              <video
+                src={@file_data.urls["original"]}
+                controls
+                class="max-w-full max-h-full rounded"
+                preload="metadata"
+              >
+                Your browser does not support the video tag.
+              </video>
+            <% else %>
+              <div class="flex flex-col items-center justify-center text-base-content/50">
+                <.icon name={file_icon(@file_data.file_type)} class="w-32 h-32 mb-4" />
+                <p class="text-2xl font-semibold">{String.upcase(@file_data.file_type)}</p>
+                <p class="text-sm text-base-content/70 mt-2">{@file_data.mime_type}</p>
+              </div>
+            <% end %>
           <% end %>
         </div>
 
@@ -245,7 +256,16 @@
           <%= if map_size(@file_data.urls) > 0 do %>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body p-4">
-                <h3 class="font-semibold text-sm mb-3">Download Variants</h3>
+                <div class="flex justify-between items-center mb-3">
+                  <h3 class="font-semibold text-sm">Download Variants</h3>
+                  <button
+                    type="button"
+                    phx-click="regenerate_variants"
+                    class="btn btn-ghost btn-xs gap-1"
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> Regenerate
+                  </button>
+                </div>
                 <div class="flex flex-col gap-2">
                   <%!-- Sort variants with original first --%>
                   <% variant_order = ["original", "large", "medium", "small", "thumbnail"] %>

@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   alias PhoenixKit.Modules.Storage.FileInstance
   alias PhoenixKit.Modules.Storage.FileLocation
   alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Modules.Storage.VariantGenerator
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
@@ -94,6 +95,27 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   def handle_event("cancel_edit", _params, socket) do
     {:noreply, assign(socket, :edit_mode, false)}
+  end
+
+  def handle_event("regenerate_variants", _params, socket) do
+    file = socket.assigns.file
+
+    case VariantGenerator.generate_variants(file, async: false) do
+      {:ok, instances} ->
+        # instances is a list of successfully created FileInstance structs
+        count = length(instances)
+
+        socket =
+          socket
+          |> load_file_data(file.id)
+          |> put_flash(:info, "Regenerated #{count} variants")
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        socket = put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")
+        {:noreply, socket}
+    end
   end
 
   defp load_file_data(socket, file_id) do
