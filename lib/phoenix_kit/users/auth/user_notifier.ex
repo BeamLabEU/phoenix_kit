@@ -55,18 +55,38 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   end
 
   # Get the from email address from configuration or use a default
+  # Priority: Settings Database > Config file > Default
   defp get_from_email do
-    case PhoenixKit.Config.get(:from_email) do
-      {:ok, email} -> email
-      :not_found -> "noreply@localhost"
+    # Priority 1: Settings Database (runtime)
+    case PhoenixKit.Settings.get_setting("from_email") do
+      nil ->
+        # Priority 2: Config file (compile-time, fallback)
+        case PhoenixKit.Config.get(:from_email) do
+          {:ok, email} -> email
+          # Priority 3: Default
+          _ -> "noreply@localhost"
+        end
+
+      email ->
+        email
     end
   end
 
   # Get the from name from configuration or use a default
+  # Priority: Settings Database > Config file > Default
   defp get_from_name do
-    case PhoenixKit.Config.get(:from_name) do
-      {:ok, name} -> name
-      :not_found -> "PhoenixKit"
+    # Priority 1: Settings Database (runtime)
+    case PhoenixKit.Settings.get_setting("from_name") do
+      nil ->
+        # Priority 2: Config file (compile-time, fallback)
+        case PhoenixKit.Config.get(:from_name) do
+          {:ok, name} -> name
+          # Priority 3: Default
+          _ -> "PhoenixKit"
+        end
+
+      name ->
+        name
     end
   end
 
