@@ -57,13 +57,13 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Tickets do
         {:ok,
          socket
          |> put_flash(:error, "You don't have access to the ticketing system")
-         |> push_navigate(to: Routes.path("/admin/dashboard"))}
+         |> push_navigate(to: Routes.path("/admin"))}
       end
     else
       {:ok,
        socket
        |> put_flash(:error, "Tickets module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

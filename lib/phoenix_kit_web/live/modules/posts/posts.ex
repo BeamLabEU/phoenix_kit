@@ -72,7 +72,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
       {:ok,
        socket
        |> put_flash(:error, "Posts module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

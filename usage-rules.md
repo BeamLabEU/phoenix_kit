@@ -24,7 +24,7 @@ PhoenixKit is a comprehensive SaaS starter kit for Phoenix applications that pro
 - System settings in `phoenix_kit_settings` table with key/value storage
 
 ### Admin Backend
-- Built-in admin dashboard at `/phoenix_kit/admin/dashboard`
+- Built-in admin dashboard at `/phoenix_kit/admin`
 - User management interface at `/phoenix_kit/admin/users`
 - Role management at `/phoenix_kit/admin/users/roles`
 - Session management at `/phoenix_kit/admin/users/sessions` and `/phoenix_kit/admin/users/live_sessions`

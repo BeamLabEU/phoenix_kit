@@ -64,7 +64,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: "/phoenix_kit/admin")
     end
   end
 
@@ -102,7 +102,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: "/phoenix_kit/admin")
     end
   end
 
@@ -131,7 +131,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: "/phoenix_kit/admin")
     end
   end
 
@@ -179,7 +179,7 @@ defmodule PhoenixKitWeb.Controllers.EmailExportController do
     else
       conn
       |> put_flash(:error, "Email management is not enabled")
-      |> redirect(to: "/phoenix_kit/admin/dashboard")
+      |> redirect(to: "/phoenix_kit/admin")
     end
   end
 

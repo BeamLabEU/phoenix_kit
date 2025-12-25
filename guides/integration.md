@@ -39,7 +39,7 @@ phoenix_kit_routes()
 
 # 5. Start your server
 mix phx.server
-# Visit /phoenix_kit/admin/dashboard
+# Visit /phoenix_kit/admin
 ```
 
 ---
@@ -455,7 +455,7 @@ roles = PhoenixKit.Users.Roles.list_user_roles(user.id)
 <%# In your app's layout %>
 <nav>
   <%= if @current_user do %>
-    <.link navigate="/phoenix_kit/admin/dashboard">Admin</.link>
+    <.link navigate="/phoenix_kit/admin">Admin</.link>
     <.link href="/phoenix_kit/users/log_out" method="delete">Log out</.link>
   <% else %>
     <.link navigate="/phoenix_kit/users/log_in">Log in</.link>

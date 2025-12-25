@@ -422,8 +422,8 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # Generate URL with ONLY base code - no dialect, no query params
   # This is the clean URL used in href attributes
   # Default language gets clean URLs (no prefix), other languages get locale prefix
-  # Example: generate_base_code_url("en", "/ru/admin/dashboard") => "/admin/dashboard" (if en is default)
-  # Example: generate_base_code_url("es", "/admin/dashboard") => "/es/admin/dashboard"
+  # Example: generate_base_code_url("en", "/ru/admin") => "/admin" (if en is default)
+  # Example: generate_base_code_url("es", "/admin") => "/es/admin"
   defp generate_base_code_url(base_code, current_path) do
     # Extract base code from current path for proper path processing
     current_base = extract_locale_from_path(current_path)
@@ -438,8 +438,8 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   end
 
   # Extract the locale segment from a path
-  # /en/admin/dashboard => "en"
-  # /en-US/admin/dashboard => "en-US"
+  # /en/admin => "en"
+  # /en-US/admin => "en-US"
   defp extract_locale_from_path(nil), do: nil
 
   defp extract_locale_from_path(path) do
@@ -451,13 +451,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   end
 
   # Helper function to extract path without locale prefix
-  # Handles: /en/admin/dashboard → /admin/dashboard
-  # Handles: /admin/dashboard → /admin/dashboard (no locale)
+  # Handles: /en/admin → /admin
+  # Handles: /admin → /admin (no locale)
   # Handles: nil → / (root)
   defp get_path_without_locale(nil, _current_locale), do: "/"
 
   defp get_path_without_locale(current_path, current_locale) do
-    # Remove locale from path: /en/admin/dashboard → /admin/dashboard
+    # Remove locale from path: /en/admin → /admin
     case String.split(current_path, "/", parts: 3) do
       ["", ^current_locale, rest] when is_binary(rest) ->
         "/#{rest}"
