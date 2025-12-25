@@ -635,7 +635,7 @@ config :phoenix_kit,
 
 - **Three System Roles** - Owner, Admin, User with automatic assignment
 - **Elixir Logic** - First user automatically becomes Owner
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin` for system statistics
 - **User Management** - Complete user management interface at `{prefix}/admin/users`
 - **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
 - **Security Features** - Owner protection, audit trail, self-modification prevention

@@ -1082,8 +1082,6 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   # Locale processing logic
   defp process_locale(conn) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     case conn.path_params do
       %{"locale" => locale} when is_binary(locale) ->
         cond do
@@ -1139,20 +1137,33 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   # Process request as default locale (for reserved path segments like "admin", "api")
-  # This ensures these paths work without being treated as locale codes
+  # When a reserved segment is captured as locale, redirect to remove the locale segment
+  # Example: /:locale/dashboard captures /admin with locale="admin"
+  # We redirect to /dashboard so the correct route can match
   defp process_as_default_locale(conn) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
+    locale = conn.path_params["locale"]
 
+    # Remove the locale segment from the path
+    # /admin (with "admin" as locale) → /
+    clean_path =
+      conn.request_path
+      |> String.replace_prefix("/#{locale}", "")
+      |> then(fn
+        "" -> "/"
+        path -> path
+      end)
+
+    # Set locale before redirecting
     default_base = get_default_admin_language()
     current_user = get_user_for_locale_resolution(conn)
     default_dialect = DialectMapper.resolve_dialect(default_base, current_user)
 
     Gettext.put_locale(PhoenixKitWeb.Gettext, default_dialect)
 
+    # Redirect to clean path so the router matches the correct route
     conn
-    |> assign(:current_locale_base, default_base)
-    |> assign(:current_locale, default_dialect)
-    |> put_session(:phoenix_kit_locale_base, default_base)
+    |> Phoenix.Controller.redirect(to: clean_path, status: 307)
+    |> halt()
   end
 
   # Helper to get user for locale resolution
@@ -1174,8 +1185,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   # Get the default admin language base code (first in admin_languages list, or "en")
   # Extracts base code from full dialect (e.g., "en-US" -> "en")
   defp get_default_admin_language do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     case PhoenixKit.Settings.get_setting_cached("admin_languages") do
       nil ->
         # No setting exists, default is "en"
@@ -1191,10 +1200,10 @@ defmodule PhoenixKitWeb.Users.Auth do
   end
 
   # Redirects default language URLs to clean URLs (no locale prefix)
-  # Example: /phoenix_kit/en/admin/dashboard → /phoenix_kit/admin/dashboard
+  # Example: /phoenix_kit/en/admin → /phoenix_kit/admin
   # Uses 301 permanent redirect for SEO - tells browsers/search engines the clean URL is canonical
   defp redirect_default_locale_to_clean_url(conn, locale) do
-    # Remove /en/ from path: /phoenix_kit/en/admin/dashboard → /phoenix_kit/admin/dashboard
+    # Remove /en/ from path: /phoenix_kit/en/admin → /phoenix_kit/admin
     clean_path =
       conn.request_path
       |> String.replace("/#{locale}/", "/", global: false)
@@ -1227,7 +1236,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   ## Examples
 
       iex> redirect_to_base_locale(conn, "en-US")
-      # /phoenix_kit/en-US/admin/dashboard → /phoenix_kit/en/admin/dashboard
+      # /phoenix_kit/en-US/admin → /phoenix_kit/en/admin
 
       iex> redirect_to_base_locale(conn, "es-MX")
       # /phoenix_kit/es-MX/users?page=2 → /phoenix_kit/es/users?page=2
@@ -1246,8 +1255,6 @@ defmodule PhoenixKitWeb.Users.Auth do
   - Logged for monitoring migration patterns
   """
   def redirect_to_base_locale(conn, full_dialect) do
-    alias PhoenixKit.Modules.Languages.DialectMapper
-
     base_code = DialectMapper.extract_base(full_dialect)
 
     # Replace first occurrence of full dialect with base code
@@ -1290,7 +1297,7 @@ defmodule PhoenixKitWeb.Users.Auth do
   locale base code, then redirects the user to the corrected URL.
 
   For the default language (first admin language), the locale segment is removed
-  entirely to produce clean URLs (e.g., /phoenix_kit/admin/dashboard).
+  entirely to produce clean URLs (e.g., /phoenix_kit/admin).
   """
   def redirect_invalid_locale(conn, invalid_locale) do
     # Get the default admin language (first in admin_languages list, or "en")

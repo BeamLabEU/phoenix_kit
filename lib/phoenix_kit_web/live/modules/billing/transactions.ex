@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Transactions do
       {:ok,
        socket
        |> put_flash(:error, "Billing module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 
