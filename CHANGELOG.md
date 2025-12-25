@@ -1,3 +1,9 @@
+## 1.7.13 - 2025-12-25
+- Fix email sender to use Settings Database
+- Add V40 migration for UUIDv7 columns on all legacy tables
+- Fixed/Updated posts and stopped the logs spamming
+- Fix incorect routes
+
 ## 1.7.12 - 2025-12-24
 ### Blog Language Detection & Fallbacks
 - **Content-based language detection** - Custom language files (e.g., `af.phk`, `test.phk`) now work correctly without needing to be predefined in the Languages module
