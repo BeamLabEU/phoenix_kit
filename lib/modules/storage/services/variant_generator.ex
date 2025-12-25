@@ -248,7 +248,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     results =
       dimensions
       |> Enum.map(&Task.async(fn -> generate_variant(file, &1) end))
-      |> Task.await_many(30_000)
+      # Video transcoding can take several minutes for large files
+      |> Task.await_many(:timer.minutes(10))
 
     # Separate successful and failed results
     {successful, failed} =
@@ -360,19 +361,8 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
 
     case System.cmd("ffmpeg", args, stderr_to_stdout: true) do
       {_output, 0} ->
-        # For video_thumbnail, output is a JPG image - skip video dimension check
-        # For actual video variants, verify the video dimensions
-        if dimension.name == "video_thumbnail" do
-          {:ok, output_path}
-        else
-          case get_video_dimensions(output_path) do
-            {:ok, {_width, _height}} ->
-              {:ok, output_path}
-
-            {:error, reason} ->
-              {:error, reason}
-          end
-        end
+        # FFmpeg succeeded - dimensions are enforced by the scale filter
+        {:ok, output_path}
 
       {output, exit_code} ->
         {:error, "FFmpeg failed with exit code #{exit_code}: #{output}"}
@@ -423,32 +413,6 @@ defmodule PhoenixKit.Modules.Storage.VariantGenerator do
     # Map image quality (1-100) to CRF (51-0)
     crf = 51 - trunc(quality / 100 * 51)
     Integer.to_string(crf)
-  end
-
-  defp get_video_dimensions(video_path) do
-    case System.cmd("ffprobe", [
-           "-v",
-           "quiet",
-           "-print_format",
-           "csv=p=0",
-           "-select_streams",
-           "v:0",
-           "-show_entries",
-           "stream=width,height",
-           video_path
-         ]) do
-      {dimensions, 0} ->
-        case String.split(String.trim(dimensions), ",") do
-          [width, height] ->
-            {:ok, {String.to_integer(width), String.to_integer(height)}}
-
-          _ ->
-            {:error, "Invalid dimension format"}
-        end
-
-      {output, exit_code} ->
-        {:error, "Failed to probe video: #{output} (exit code: #{exit_code})"}
-    end
   end
 
   defp calculate_file_checksum(file_path) do
