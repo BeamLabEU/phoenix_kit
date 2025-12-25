@@ -95,6 +95,7 @@ defmodule PhoenixKit.AI.Endpoint do
            ]}
 
   schema "phoenix_kit_ai_endpoints" do
+    field :uuid, Ecto.UUID
     # Identity
     field :name, :string
     field :description, :string

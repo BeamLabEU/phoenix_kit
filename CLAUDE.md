@@ -2,6 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚧 IN-PROGRESS: UUID Migration (V40)
+
+> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
+
+### Summary
+
+V40 adds UUIDv7 columns to all 33 legacy tables that use bigserial primary keys. This is a **non-breaking, graceful migration** that allows parent apps to gradually adopt UUIDs.
+
+### What's Been Done
+
+- ✅ Created V40 migration (`lib/phoenix_kit/migrations/postgres/v40.ex`)
+- ✅ Added `field :uuid, Ecto.UUID` to all 33 schemas
+- ✅ Created `PhoenixKit.UUID` helper module with prefix support
+- ✅ User schema generates UUIDv7 in Elixir changeset
+- ✅ Other schemas rely on PostgreSQL DEFAULT (both work correctly)
+- ✅ Documentation at `guides/uuid_migration.md`
+
+### Key Design Decisions
+
+1. **UUIDv7 only** - Time-ordered for better index performance
+2. **Keep DEFAULT** - DB generates UUID if Ecto doesn't (backward compatible)
+3. **Dual-accessor pattern** - `PhoenixKit.UUID.get/2` accepts both integer and UUID
+4. **Non-breaking** - Integer IDs continue to work, FKs remain bigserial
+
+### Files Modified
+
+- `lib/phoenix_kit/migrations/postgres/v40.ex` - Main migration
+- `lib/phoenix_kit/uuid.ex` - Helper module
+- `lib/phoenix_kit/users/auth/user.ex` - UUIDv7 in registration changeset
+- 30+ schema files - Added `field :uuid, Ecto.UUID`
+- `guides/uuid_migration.md` - Documentation
+
+### DO NOT
+
+- Remove the UUID DEFAULT from the migration
+- Change UUIDv7 back to UUIDv4
+- Modify foreign keys (they stay as bigserial)
+
+---
+
 ## MCP Memory Knowledge Base
 
 ⚠️ **IMPORTANT**: Always start working with the project by studying data in the MCP memory storage. Use the command:

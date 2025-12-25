@@ -88,6 +88,7 @@ defmodule PhoenixKit.AI.Prompt do
            ]}
 
   schema "phoenix_kit_ai_prompts" do
+    field :uuid, Ecto.UUID
     # Identity
     field :name, :string
     field :slug, :string

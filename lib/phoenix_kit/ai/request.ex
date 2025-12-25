@@ -97,6 +97,7 @@ defmodule PhoenixKit.AI.Request do
            ]}
 
   schema "phoenix_kit_ai_requests" do
+    field :uuid, Ecto.UUID
     # New endpoint system fields
     field :endpoint_name, :string
 

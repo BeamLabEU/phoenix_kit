@@ -68,6 +68,7 @@ defmodule PhoenixKit.Emails.Event do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_email_events" do
+    field :uuid, Ecto.UUID
     field :event_type, :string
     field :event_data, :map, default: %{}
     field :occurred_at, :utc_datetime_usec

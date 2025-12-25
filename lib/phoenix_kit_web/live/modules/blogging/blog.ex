@@ -343,12 +343,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   @doc """
   Builds language data for the blog_language_switcher component.
-  Returns a list of language maps with status, path, and metadata.
+  Returns a list of language maps with status, path, enabled flag, known flag, and metadata.
+
+  The `enabled` field indicates if the language is currently active in the Languages module.
+  The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
+
+  Uses preloaded `language_statuses` from the post to avoid re-reading files on every render.
   """
-  def build_post_languages(post, blog_slug, enabled_languages, _current_locale) do
+  def build_post_languages(post, _blog_slug, enabled_languages, _current_locale) do
     # Use shared ordering function for consistent display across all views
     all_languages =
       Storage.order_languages_for_display(post.available_languages, enabled_languages)
+
+    # Get preloaded language statuses (falls back to empty map for backwards compatibility)
+    language_statuses = Map.get(post, :language_statuses) || %{}
 
     Enum.map(all_languages, fn lang_code ->
       lang_path =
@@ -359,18 +367,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
       lang_info = Blogging.get_language_info(lang_code)
       file_exists = lang_code in post.available_languages
-      is_enabled = lang_code in enabled_languages
+      is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
+      is_known = lang_info != nil
 
-      # Read language-specific metadata for status
-      status =
-        if file_exists do
-          case Blogging.read_post(blog_slug, lang_path) do
-            {:ok, lang_post} -> lang_post.metadata.status
-            _ -> nil
-          end
-        else
-          nil
-        end
+      # Use preloaded status instead of re-reading file
+      status = Map.get(language_statuses, lang_code)
 
       # Get display code (base or full dialect depending on enabled languages)
       display_code = Storage.get_display_code(lang_code, enabled_languages)
@@ -383,6 +384,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         status: status,
         exists: file_exists,
         enabled: is_enabled,
+        known: is_known,
         path: if(file_exists, do: lang_path, else: nil),
         post_path: post.path
       }

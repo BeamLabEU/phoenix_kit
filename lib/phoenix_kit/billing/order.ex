@@ -89,6 +89,7 @@ defmodule PhoenixKit.Billing.Order do
   @valid_payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_orders" do
+    field :uuid, Ecto.UUID
     field :order_number, :string
     field :status, :string, default: "draft"
     field :payment_method, :string

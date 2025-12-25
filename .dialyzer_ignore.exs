@@ -68,5 +68,9 @@
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
   # Ignore test files - ExUnit internals not available to Dialyzer
-  ~r|^test/.*|
+  ~r|^test/.*|,
+
+  # Blogging module type inference false positives
+  # Dialyzer incorrectly infers create_post only returns {:error, ...} in certain contexts
+  ~r/lib\/phoenix_kit_web\/live\/modules\/blogging\/editor\.ex:839:.*pattern_match/
 ]

@@ -12,6 +12,7 @@ defmodule PhoenixKit.Emails.EmailBlocklist do
 
   @primary_key {:id, :id, autogenerate: true}
   schema "phoenix_kit_email_blocklist" do
+    field :uuid, Ecto.UUID
     field :email, :string
     field :reason, :string
     field :expires_at, :utc_datetime_usec

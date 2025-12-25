@@ -46,6 +46,7 @@ defmodule PhoenixKit.Billing.Subscription do
   @statuses ~w(trialing active past_due paused cancelled)
 
   schema "phoenix_kit_subscriptions" do
+    field :uuid, Ecto.UUID
     field :status, :string, default: "active"
 
     # Billing period

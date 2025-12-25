@@ -201,10 +201,10 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   defp has_translation?(post, language) do
     available = Map.get(post, :available_languages, [])
-    base_lang = extract_base(language)
+    base_lang = Languages.DialectMapper.extract_base(language)
 
     Enum.any?(available, fn lang ->
-      lang == language || extract_base(lang) == base_lang
+      lang == language || Languages.DialectMapper.extract_base(lang) == base_lang
     end)
   end
 
@@ -465,30 +465,23 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   # Get default language from admin settings
   defp get_default_language do
     case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
-      [first | _] -> extract_base(first)
+      [first | _] -> Languages.DialectMapper.extract_base(first)
       _ -> "en"
     end
   end
-
-  # Extract base language code (e.g., "en" from "en-US")
-  defp extract_base(code) when is_binary(code) do
-    code |> String.split("-") |> List.first() |> String.downcase()
-  end
-
-  defp extract_base(_), do: "en"
 
   # Get the display code for a language, matching the controller's canonical URL logic.
   # Returns base code ("en") when only one dialect is enabled,
   # or full code ("en-US") when multiple dialects of same language are enabled.
   # This mirrors Storage.get_display_code/2 to ensure sitemap URLs match canonical URLs.
   defp get_display_code(language_code) do
-    base_code = extract_base(language_code)
+    base_code = Languages.DialectMapper.extract_base(language_code)
     enabled_languages = Languages.get_enabled_languages()
 
     # Count how many enabled languages share this base code
     dialects_count =
       Enum.count(enabled_languages, fn lang ->
-        extract_base(lang) == base_code
+        Languages.DialectMapper.extract_base(lang) == base_code
       end)
 
     # If more than one dialect of this base language is enabled, show full code
@@ -498,7 +491,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
       base_code
     end
   rescue
-    _ -> extract_base(language_code)
+    _ -> Languages.DialectMapper.extract_base(language_code)
   end
 
   # Build full URL from path and base_url

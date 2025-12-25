@@ -34,6 +34,7 @@ defmodule PhoenixKit.Billing.PaymentMethod do
   @statuses ~w(active expired removed failed)
 
   schema "phoenix_kit_payment_methods" do
+    field :uuid, Ecto.UUID
     field :provider, :string
     field :provider_payment_method_id, :string
     field :provider_customer_id, :string

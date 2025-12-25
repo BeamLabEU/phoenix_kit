@@ -67,6 +67,7 @@ defmodule PhoenixKit.DBSync.Connection do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_db_sync_connections" do
+    field :uuid, Ecto.UUID
     field :name, :string
     field :direction, :string
     field :site_url, :string

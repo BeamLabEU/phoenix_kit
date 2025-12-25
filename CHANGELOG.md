@@ -1,3 +1,22 @@
+## 1.7.12 - 2025-12-24
+### Blog Language Detection & Fallbacks
+- **Content-based language detection** - Custom language files (e.g., `af.phk`, `test.phk`) now work correctly without needing to be predefined in the Languages module
+- **Flexible fallback chain** for missing blog posts:
+  - If requested language version doesn't exist, tries other available languages (default language prioritized)
+  - For timestamp posts: tries other times on the same date if specific time doesn't exist
+  - Falls back to blog listing with informative flash message when no alternatives found
+- **Language switcher fix** - Status dot colors now correctly show green/yellow/gray for unknown language files (previously all showed gray)
+
+### Blog Performance Improvements
+- **Preload language statuses** - `language_statuses` field added to posts when loading via `list_posts` and `read_post`
+- **Eliminates redundant file reads** - Previously O(posts × languages) file reads per page render, now reads files once during post loading
+- **Faster blog listing pages** - Significant performance improvement for blogs with many posts and language translations
+
+## 1.7.11 - 2025-12-24
+- Fixed blog url issue
+- Fix for show username error on save
+- Translated comments to English in billing and AWS modules for consistency
+
 ## 1.7.10 - 2025-12-24
 - New Connections Module initial commit
 - Show tickets navigation only when tickets module is enabled

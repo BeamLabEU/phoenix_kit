@@ -479,10 +479,21 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.TemplateEditor do
     errors
   end
 
+  # Get the from email address from configuration or use a default
+  # Priority: Settings Database > Config file > Default
   defp get_from_email do
-    case PhoenixKit.Config.get(:from_email) do
-      {:ok, email} -> email
-      :not_found -> "noreply@localhost"
+    # Priority 1: Settings Database (runtime)
+    case PhoenixKit.Settings.get_setting("from_email") do
+      nil ->
+        # Priority 2: Config file (compile-time, fallback)
+        case PhoenixKit.Config.get(:from_email) do
+          {:ok, email} -> email
+          # Priority 3: Default
+          _ -> "noreply@localhost"
+        end
+
+      email ->
+        email
     end
   end
 
