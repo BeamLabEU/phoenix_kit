@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Integration do
   - /dashboard/settings/confirm-email/:token
 
   Admin routes (Owner/Admin only):
-  - /admin/dashboard, /admin/users, /admin/users/roles
+  - /admin, /admin/users, /admin/users/roles
   - /admin/users/live_sessions, /admin/users/sessions
   - /admin/settings, /admin/modules
 
@@ -107,12 +107,12 @@ defmodule PhoenixKitWeb.Integration do
   ## Examples
 
       locale_scope do
-        live "/admin/dashboard", DashboardLive, :index
+        live "/admin", DashboardLive, :index
       end
 
       # Generates routes like:
-      # /phoenix_kit/en/admin/dashboard (with locale)
-      # /phoenix_kit/admin/dashboard (without locale, defaults to "en")
+      # /phoenix_kit/en/admin (with locale)
+      # /phoenix_kit/admin (without locale, defaults to "en")
   """
   defmacro locale_scope(opts \\ [], do: block) do
     # Get URL prefix at compile time
@@ -344,7 +344,6 @@ defmodule PhoenixKitWeb.Integration do
 
         live_session :phoenix_kit_admin_locale,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/dashboard", Live.Dashboard, :index
           live "/admin", Live.Dashboard, :index
           live "/admin/users", Live.Users.Users, :index
           live "/admin/users/new", Users.UserForm, :new, as: :user_form
@@ -550,7 +549,6 @@ defmodule PhoenixKitWeb.Integration do
 
         live_session :phoenix_kit_admin,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/dashboard", Live.Dashboard, :index
           live "/admin", Live.Dashboard, :index
           live "/admin/users", Live.Users.Users, :index
           live "/admin/users/new", Users.UserForm, :new, as: :user_form

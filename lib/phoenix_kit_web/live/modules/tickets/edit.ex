@@ -25,13 +25,13 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
         {:ok,
          socket
          |> put_flash(:error, "Access denied")
-         |> push_navigate(to: Routes.path("/admin/dashboard"))}
+         |> push_navigate(to: Routes.path("/admin"))}
       end
     else
       {:ok,
        socket
        |> put_flash(:error, "Tickets module is not enabled")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

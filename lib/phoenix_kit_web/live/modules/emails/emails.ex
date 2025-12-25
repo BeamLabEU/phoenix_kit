@@ -81,7 +81,7 @@ defmodule PhoenixKitWeb.Live.Modules.Emails.Emails do
       {:ok,
        socket
        |> put_flash(:error, "Email management is not enabled")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

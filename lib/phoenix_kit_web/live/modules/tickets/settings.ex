@@ -29,7 +29,7 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Settings do
       {:ok,
        socket
        |> put_flash(:error, "Access denied")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

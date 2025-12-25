@@ -253,7 +253,18 @@ defmodule PhoenixKit.Settings do
       %{"date_format" => "F j, Y", "time_format" => "h:i A"}
   """
   def get_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
-    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    cached_results = PhoenixKit.Cache.get_multiple(@cache_name, keys, %{})
+
+    # Process cached results, replacing sentinel values with defaults
+    Enum.reduce(cached_results, %{}, fn {key, value}, acc ->
+      if value == setting_not_exists_sentinel do
+        Map.put(acc, key, Map.get(defaults, key))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
   rescue
     error ->
       Logger.warning(
@@ -286,7 +297,18 @@ defmodule PhoenixKit.Settings do
       %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
   """
   def get_json_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
-    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    cached_results = PhoenixKit.Cache.get_multiple(@cache_name, keys, %{})
+
+    # Process cached results, replacing sentinel values with defaults
+    Enum.reduce(cached_results, %{}, fn {key, value}, acc ->
+      if value == setting_not_exists_sentinel do
+        Map.put(acc, key, Map.get(defaults, key))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
   rescue
     error ->
       Logger.warning(

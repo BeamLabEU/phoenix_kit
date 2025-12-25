@@ -395,7 +395,7 @@ See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 
 ### Admin Routes (Owner/Admin only)
 
-- `GET {prefix}/admin/dashboard` - Admin dashboard
+- `GET {prefix}/admin` - Admin dashboard
 - `GET {prefix}/admin/users` - User management
 
 ## API Usage
@@ -497,7 +497,7 @@ PhoenixKit.AI.disable_system()
 ### Built-in Admin Interface
 
 **Core Administration:**
-- `{prefix}/admin/dashboard` - System statistics and overview
+- `{prefix}/admin` - System statistics and overview
 - `{prefix}/admin/users` - User management with role controls
 - `{prefix}/admin/sessions` - Active session management
 - `{prefix}/admin/modules` - Enable/disable PhoenixKit modules

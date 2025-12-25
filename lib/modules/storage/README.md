@@ -708,7 +708,7 @@ get "/file/:file_id/:instance_name/:token", FileController, :show
 **Deliverables:**
 
 #### Storage Analytics Dashboard
-- Location: `/admin/dashboard/storage` or dedicated storage section
+- Location: `/admin/storage` or dedicated storage section
 - **User Statistics**:
   - Files uploaded per user
   - Storage used per user (bytes, formatted)

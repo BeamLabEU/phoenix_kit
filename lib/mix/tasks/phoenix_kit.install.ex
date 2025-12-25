@@ -279,15 +279,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         # Default behavior (prefix: /phoenix_kit)
         phoenix_kit_routes()
-        # Routes: /phoenix_kit/users/register, /phoenix_kit/admin/dashboard
+        # Routes: /phoenix_kit/users/register, /phoenix_kit/admin
 
         # Custom prefix
         config :phoenix_kit, url_prefix: "/auth"
-        # Routes: /auth/users/register, /auth/admin/dashboard
+        # Routes: /auth/users/register, /auth/admin
 
         # No prefix (root-level routes)
         config :phoenix_kit, url_prefix: ""
-        # Routes: /users/register, /admin/dashboard
+        # Routes: /users/register, /admin
 
       AFTER INSTALLATION
         1. Run database migrations:

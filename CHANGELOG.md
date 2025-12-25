@@ -57,7 +57,7 @@
 ## 1.7.8 - 2025-12-22
 
 ### Route Priority Fix
-- **Non-localized routes first** - Fixed 105 route conflicts where paths like `/admin/dashboard` were incorrectly matched as `/:locale/dashboard` with `locale="admin"`
+- **Non-localized routes first** - Fixed 105 route conflicts where paths like `/admin` were incorrectly matched as `/:locale/dashboard` with `locale="admin"`
 - **Locale scope ordering** - Non-localized scope now comes before localized scope in router macros
 
 ### Sitemap Performance Improvements
@@ -641,7 +641,7 @@ phoenix_kit_email_metrics: NEW
   - First registered user automatically becomes Owner
   - Admin dashboard with system statistics
   - User management interface
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard`
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin`
 - **User Management** - Complete interface at `{prefix}/admin/users`
 
 ### Changed
