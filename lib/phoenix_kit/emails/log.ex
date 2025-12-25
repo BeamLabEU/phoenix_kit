@@ -174,6 +174,7 @@ defmodule PhoenixKit.Emails.Log do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_email_logs" do
+    field :uuid, Ecto.UUID
     field :message_id, :string
     field :aws_message_id, :string
     field :to, :string

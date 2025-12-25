@@ -92,6 +92,7 @@ defmodule PhoenixKit.Entities.EntityData do
            ]}
 
   schema "phoenix_kit_entity_data" do
+    field :uuid, Ecto.UUID
     field :title, :string
     field :slug, :string
     field :status, :string, default: "published"

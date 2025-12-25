@@ -30,6 +30,7 @@ defmodule PhoenixKit.Users.Role do
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          uuid: Ecto.UUID.t() | nil,
           name: String.t(),
           description: String.t() | nil,
           is_system_role: boolean(),
@@ -44,6 +45,7 @@ defmodule PhoenixKit.Users.Role do
   }
 
   schema "phoenix_kit_user_roles" do
+    field :uuid, Ecto.UUID
     field :name, :string
     field :description, :string
     field :is_system_role, :boolean, default: false

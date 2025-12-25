@@ -35,6 +35,7 @@ defmodule PhoenixKit.Billing.Currency do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_currencies" do
+    field :uuid, Ecto.UUID
     field :code, :string
     field :name, :string
     field :symbol, :string

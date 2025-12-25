@@ -33,6 +33,7 @@ defmodule PhoenixKit.Users.AdminNote do
         }
 
   schema "phoenix_kit_admin_notes" do
+    field :uuid, Ecto.UUID
     belongs_to :user, PhoenixKit.Users.Auth.User
     belongs_to :author, PhoenixKit.Users.Auth.User
 

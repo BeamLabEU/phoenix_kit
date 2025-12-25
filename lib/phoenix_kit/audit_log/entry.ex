@@ -42,6 +42,7 @@ defmodule PhoenixKit.AuditLog.Entry do
   ]
 
   schema "phoenix_kit_audit_logs" do
+    field :uuid, Ecto.UUID
     field :target_user_id, :integer
     field :admin_user_id, :integer
     field :action, :string

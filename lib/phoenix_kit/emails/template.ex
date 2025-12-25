@@ -114,6 +114,7 @@ defmodule PhoenixKit.Emails.Template do
   ]
 
   schema "phoenix_kit_email_templates" do
+    field :uuid, Ecto.UUID
     field :name, :string
     field :slug, :string
     field :display_name, :string

@@ -114,6 +114,7 @@ defmodule PhoenixKit.Entities do
            ]}
 
   schema "phoenix_kit_entities" do
+    field :uuid, Ecto.UUID
     field :name, :string
     field :display_name, :string
     field :display_name_plural, :string

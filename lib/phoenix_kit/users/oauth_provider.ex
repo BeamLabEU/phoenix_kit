@@ -14,6 +14,7 @@ defmodule PhoenixKit.Users.OAuthProvider do
   @supported_providers ~w(google apple github facebook twitter microsoft)
 
   schema "phoenix_kit_user_oauth_providers" do
+    field :uuid, Ecto.UUID
     belongs_to :user, User, foreign_key: :user_id
 
     field :provider, :string

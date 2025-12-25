@@ -65,6 +65,7 @@ defmodule PhoenixKit.Billing.BillingProfile do
   @valid_types ~w(individual company)
 
   schema "phoenix_kit_billing_profiles" do
+    field :uuid, Ecto.UUID
     field :type, :string, default: "individual"
     field :is_default, :boolean, default: false
     field :name, :string
