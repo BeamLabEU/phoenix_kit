@@ -73,6 +73,7 @@ defmodule PhoenixKit.DBSync.Transfer do
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
   schema "phoenix_kit_db_sync_transfers" do
+    field :uuid, Ecto.UUID
     field :direction, :string
     field :session_code, :string
     field :remote_site_url, :string

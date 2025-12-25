@@ -74,6 +74,7 @@ defmodule PhoenixKit.ReferralCodes do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_referral_codes" do
+    field :uuid, Ecto.UUID
     field :code, :string
     field :description, :string
     field :status, :boolean, default: true

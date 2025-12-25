@@ -1,5 +1,22 @@
 This is a web application written using the Phoenix web framework.
 
+## 🚧 IN-PROGRESS: UUID Migration (V40)
+
+> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
+
+**TL;DR**: V40 adds UUIDv7 columns to all 33 legacy bigserial tables. Non-breaking change.
+
+**Key points:**
+- Migration: `lib/phoenix_kit/migrations/postgres/v40.ex`
+- Helper: `lib/phoenix_kit/uuid.ex` (dual integer/UUID lookups with prefix support)
+- All schemas have `field :uuid, Ecto.UUID`
+- User schema generates UUID in Elixir; others use DB DEFAULT
+- Docs: `guides/uuid_migration.md`
+
+**DO NOT**: Remove UUID DEFAULT, change to UUIDv4, or modify foreign keys.
+
+---
+
 ## Project guidelines
 
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues

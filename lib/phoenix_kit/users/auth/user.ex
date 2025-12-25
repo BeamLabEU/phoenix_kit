@@ -31,6 +31,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          uuid: Ecto.UUID.t() | nil,
           email: String.t(),
           username: String.t() | nil,
           password: String.t() | nil,
@@ -51,6 +52,7 @@ defmodule PhoenixKit.Users.Auth.User do
         }
 
   schema "phoenix_kit_users" do
+    field :uuid, Ecto.UUID
     field :email, :string
     field :username, :string
     field :password, :string, virtual: true, redact: true
@@ -116,6 +118,15 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_registration_fields()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
+    |> maybe_generate_uuid()
+  end
+
+  # Generate UUIDv7 for new records if not already set
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   defp validate_email(changeset, opts) do

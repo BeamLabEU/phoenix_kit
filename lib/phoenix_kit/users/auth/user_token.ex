@@ -38,6 +38,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   @magic_link_validity_in_minutes 15
 
   schema "phoenix_kit_users_tokens" do
+    field :uuid, Ecto.UUID
     field :token, :binary
     field :context, :string
     field :sent_to, :string

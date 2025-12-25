@@ -66,6 +66,7 @@ defmodule PhoenixKit.Billing.Invoice do
   @valid_statuses ~w(draft sent paid void overdue)
 
   schema "phoenix_kit_invoices" do
+    field :uuid, Ecto.UUID
     field :invoice_number, :string
     field :status, :string, default: "draft"
 

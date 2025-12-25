@@ -279,11 +279,21 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Usage tracking (count and last used timestamp)
   - Sorting and organization support
 
-  ### V39 - Admin Notes System ⚡ LATEST
+  ### V39 - Admin Notes System
   - Phoenix_kit_admin_notes for internal admin notes about users
   - Admin-to-admin communication about user accounts
   - Author tracking for accountability
   - Any admin can view/edit/delete any note
+
+  ### V40 - UUID Column Addition ⚡ LATEST
+  - Adds `uuid` column to all 33 legacy tables using bigserial PKs
+  - Non-breaking: keeps existing bigserial primary keys intact
+  - Backfills existing records with generated UUIDs
+  - Creates unique indexes on uuid columns
+  - Enables gradual transition to UUID-based lookups
+  - Phase 1 of graceful UUID migration strategy for library consumers
+  - Optional module aware: skips tables that don't exist
+  - Batched updates for large tables to avoid lock contention
 
   ## Migration Paths
 
@@ -343,7 +353,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 39
+  @current_version 40
   @default_prefix "public"
 
   @doc false

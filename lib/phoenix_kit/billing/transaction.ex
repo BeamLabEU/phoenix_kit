@@ -23,6 +23,7 @@ defmodule PhoenixKit.Billing.Transaction do
   @payment_methods ~w(bank stripe paypal razorpay)
 
   schema "phoenix_kit_transactions" do
+    field :uuid, Ecto.UUID
     field :transaction_number, :string
     field :amount, :decimal
     field :currency, :string, default: "EUR"

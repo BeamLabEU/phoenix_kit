@@ -83,6 +83,7 @@ defmodule PhoenixKit.Settings.Setting do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_settings" do
+    field :uuid, Ecto.UUID
     field :key, :string
     field :value, :string
     field :value_json, :map

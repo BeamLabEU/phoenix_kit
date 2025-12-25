@@ -24,6 +24,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          uuid: Ecto.UUID.t() | nil,
           user_id: integer(),
           role_id: integer(),
           assigned_by: integer() | nil,
@@ -32,6 +33,7 @@ defmodule PhoenixKit.Users.RoleAssignment do
         }
 
   schema "phoenix_kit_user_role_assignments" do
+    field :uuid, Ecto.UUID
     belongs_to :user, PhoenixKit.Users.Auth.User
     belongs_to :role, PhoenixKit.Users.Role
     belongs_to :assigned_by_user, PhoenixKit.Users.Auth.User, foreign_key: :assigned_by
