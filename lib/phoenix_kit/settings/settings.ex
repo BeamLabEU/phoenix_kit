@@ -1686,7 +1686,9 @@ defmodule PhoenixKit.Settings do
   # Check if error is specifically about missing uuid column (happens during V40 migration)
   # Only silences uuid column errors - other missing columns will still be logged
   # This is safe: after V40 migration, uuid exists and this never matches
-  defp migration_column_error?(%Postgrex.Error{postgres: %{code: :undefined_column, message: msg}}) do
+  defp migration_column_error?(%Postgrex.Error{
+         postgres: %{code: :undefined_column, message: msg}
+       }) do
     String.contains?(msg, "uuid")
   end
 
