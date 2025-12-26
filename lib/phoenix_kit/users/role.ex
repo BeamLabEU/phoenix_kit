@@ -80,6 +80,14 @@ defmodule PhoenixKit.Users.Role do
     |> validate_length(:description, max: 500)
     |> unique_constraint(:name)
     |> validate_system_role_protection()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """
