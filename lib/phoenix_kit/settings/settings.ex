@@ -1167,7 +1167,7 @@ defmodule PhoenixKit.Settings do
       settings =
         get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
 
-      settings["site_content_language"]
+      settings["site_content_language"] || "en"
     else
       # Languages module disabled - force "en"
       "en"
