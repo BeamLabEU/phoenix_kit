@@ -174,6 +174,14 @@ defmodule PhoenixKit.AI.Endpoint do
     |> validate_temperature()
     |> validate_penalties()
     |> maybe_set_default_base_url()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """
