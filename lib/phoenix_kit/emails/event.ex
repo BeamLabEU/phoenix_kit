@@ -136,6 +136,14 @@ defmodule PhoenixKit.Emails.Event do
     |> foreign_key_constraint(:email_log_id)
     |> maybe_set_occurred_at()
     |> validate_ip_address_format()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   ## --- Business Logic Functions ---

@@ -269,6 +269,14 @@ defmodule PhoenixKit.Emails.Template do
     |> unique_constraint(:name)
     |> unique_constraint(:slug)
     |> validate_template_variables()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """
