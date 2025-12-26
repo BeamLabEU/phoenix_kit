@@ -58,6 +58,14 @@ defmodule PhoenixKit.Billing.WebhookEvent do
     |> unique_constraint([:provider, :event_id],
       name: :phoenix_kit_webhook_events_provider_event_id_index
     )
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """

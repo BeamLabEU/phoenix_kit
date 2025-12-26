@@ -168,6 +168,14 @@ defmodule PhoenixKit.Billing.Order do
     |> unique_constraint(:order_number)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:billing_profile_id)
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """

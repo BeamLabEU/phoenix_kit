@@ -27,6 +27,14 @@ defmodule PhoenixKit.Emails.EmailBlocklist do
     |> validate_required([:email, :reason])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+\.[^\s]+$/)
     |> unique_constraint(:email)
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 end
 

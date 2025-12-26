@@ -52,6 +52,14 @@ defmodule PhoenixKit.Users.AdminNote do
     |> validate_length(:content, min: 1, max: 10_000)
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:author_id)
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """
