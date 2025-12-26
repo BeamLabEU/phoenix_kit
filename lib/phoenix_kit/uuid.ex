@@ -1,71 +1,57 @@
 defmodule PhoenixKit.UUID do
   @moduledoc """
-  UUID utilities for PhoenixKit's graceful UUID migration.
+  TEMPORARY: Dual ID lookup utilities for UUID migration transition.
+
+  > #### Transitional Module {: .warning}
+  >
+  > This module exists ONLY for the transition period while PhoenixKit
+  > migrates from bigserial to UUID primary keys. It will be **removed
+  > in PhoenixKit 2.0** when all tables use UUID as the primary key.
+  >
+  > - For UUID generation, use `UUIDv7.generate()` directly
+  > - For lookups, use standard `Repo.get/2` with UUIDs after 2.0
+  >
+  > **DELETE THIS MODULE** when PhoenixKit switches to UUID-native PKs.
+
+  ## Purpose
 
   This module provides helper functions for working with dual ID systems
-  (bigserial + UUID) during the transition period. It enables parent
-  applications to gradually migrate from integer IDs to UUIDs.
+  (bigserial + UUID column) during the transition period. It enables parent
+  applications to accept either integer IDs or UUIDs in URLs/APIs.
 
-  ## Background
+  ## When to Use
 
-  PhoenixKit V40 adds UUID columns to all legacy tables that previously
-  used bigserial primary keys. This module provides utilities to:
+  Use this module in parent application controllers/LiveViews when you want
+  to accept either ID type in user-facing URLs:
 
-  - Look up records by either integer ID or UUID
-  - Generate UUIDv7 values for new records
-  - Validate UUID formats
-  - Help with the transition from integer to UUID-based lookups
+      # In your controller - accepts /users/5 OR /users/019b57...
+      def show(conn, %{"id" => identifier}) do
+        user = PhoenixKit.UUID.get(User, identifier)
+      end
 
-  ## UUIDv7
+  ## When NOT to Use
 
-  This module generates UUIDv7 (time-ordered UUIDs) which provide:
-  - Time-based ordering (first 48 bits are Unix timestamp in milliseconds)
-  - Better index locality than random UUIDs (UUIDv4)
-  - Sortable by creation time
-  - Compatible with standard UUID format
+  - PhoenixKit internal code still uses integer IDs for all operations
+  - Foreign key relationships remain integer-based
+  - If you know you have an integer ID, use `Repo.get/2` directly
 
-  ## Usage
+  ## Usage Examples
 
-  ### Looking up records by ID or UUID
+      # Dual lookup (auto-detects type)
+      PhoenixKit.UUID.get(User, "123")           # integer lookup
+      PhoenixKit.UUID.get(User, "019b57...")     # UUID lookup
 
-      # Automatically detects ID type
-      PhoenixKit.UUID.get(User, "123")                    # integer lookup
-      PhoenixKit.UUID.get(User, "019b5704-3680-7b95-...")  # UUID lookup
+      # With multi-tenant prefix
+      PhoenixKit.UUID.get(User, id, prefix: "tenant_123")
 
-      # Explicit lookups
-      PhoenixKit.UUID.get_by_id(User, 123)
-      PhoenixKit.UUID.get_by_uuid(User, "019b5704-3680-7b95-...")
+      # UUID generation (prefer UUIDv7.generate() directly)
+      PhoenixKit.UUID.generate()
 
-      # With prefix for multi-tenant schemas
-      PhoenixKit.UUID.get(User, "123", prefix: "tenant_123")
+  ## Migration Timeline
 
-  ### Generating UUIDs
-
-      PhoenixKit.UUID.generate()  # Returns a new UUIDv7 string
-
-  ### Parsing identifiers
-
-      PhoenixKit.UUID.parse_identifier("123")
-      # => {:integer, 123}
-
-      PhoenixKit.UUID.parse_identifier("019b5704-3680-7b95-9d82-ef16127f1fd2")
-      # => {:uuid, "019b5704-3680-7b95-9d82-ef16127f1fd2"}
-
-  ## Migration Strategy
-
-  This module is part of PhoenixKit's graceful UUID migration strategy:
-
-  1. **V40**: UUID columns added to all legacy tables (non-breaking)
-  2. **Transition**: Parent apps can use UUIDs in URLs/APIs while
-     internal FKs continue using bigserial
-  3. **Future**: UUID becomes the primary identifier
-
-  ## Best Practices
-
-  - Use `get/2` for user-facing lookups (URLs, API params)
-  - Use `get_by_id/2` for internal operations where you know the ID type
-  - Always generate UUIDs for new records using schema changesets
-  - Prefer UUIDs in URLs for security (non-enumerable)
+  1. **V40 (current)**: UUID columns added, this helper available
+  2. **Transition**: Parent apps can start using UUIDs in URLs
+  3. **2.0**: UUID becomes PK, this module is deleted
   """
 
   alias PhoenixKit.RepoHelper

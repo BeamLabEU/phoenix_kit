@@ -685,7 +685,11 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      Logger.warning("Failed to get settings directly from DB: #{inspect(error)}")
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      unless migration_column_error?(error) do
+        Logger.warning("Failed to get settings directly from DB: #{inspect(error)}")
+      end
+
       %{}
   end
 
@@ -1501,7 +1505,11 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      Logger.error("Failed to warm settings cache: #{inspect(error)}")
+      # Handle missing uuid column during V40 migration gracefully
+      unless migration_column_error?(error) do
+        Logger.error("Failed to warm settings cache: #{inspect(error)}")
+      end
+
       %{}
   end
 
@@ -1551,7 +1559,11 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      Logger.error("Failed to warm critical cache: #{inspect(error)}")
+      # Handle missing uuid column during V40 migration gracefully
+      unless migration_column_error?(error) do
+        Logger.error("Failed to warm critical cache: #{inspect(error)}")
+      end
+
       %{}
   end
 
@@ -1609,8 +1621,9 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Only log if we're in runtime (not compilation or test setup)
-      unless compilation_mode?() do
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Also skip logging during compilation mode
+      unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query setting #{key}: #{inspect(error)}")
       end
 
@@ -1643,8 +1656,9 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Only log if we're in runtime (not compilation or test setup)
-      unless compilation_mode?() do
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Also skip logging during compilation mode
+      unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query JSON setting #{key}: #{inspect(error)}")
       end
 
@@ -1668,6 +1682,17 @@ defmodule PhoenixKit.Settings do
     # If we can't even check the config, we're definitely in compilation mode
     _ -> true
   end
+
+  # Check if error is specifically about missing uuid column (happens during V40 migration)
+  # Only silences uuid column errors - other missing columns will still be logged
+  # This is safe: after V40 migration, uuid exists and this never matches
+  defp migration_column_error?(%Postgrex.Error{
+         postgres: %{code: :undefined_column, message: msg}
+       }) do
+    String.contains?(msg, "uuid")
+  end
+
+  defp migration_column_error?(_), do: false
 
   @doc """
   Check if the repository is available and ready to accept queries.
