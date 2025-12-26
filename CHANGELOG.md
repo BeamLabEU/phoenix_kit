@@ -1,3 +1,8 @@
+## 1.7.14 - 2025-12-26
+- Improve V40 UUID migration UX and documentation
+- Add UUIDv7 generation to all Ecto schemas
+- Add fallback to default en when site_content_language setting
+
 ## 1.7.13 - 2025-12-25
 - Fix email sender to use Settings Database
 - Add V40 migration for UUIDv7 columns on all legacy tables
