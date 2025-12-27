@@ -718,7 +718,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%!-- Background Jobs (only shown when module is enabled) --%>
+                    <%!-- Jobs (only shown when module is enabled) --%>
                     <%= if PhoenixKit.Jobs.enabled?() do %>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/jobs")}

@@ -1,6 +1,6 @@
 defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   @moduledoc """
-  LiveView for viewing background jobs.
+  LiveView for viewing jobs.
 
   Provides a simple read-only view of all Oban jobs with filtering by queue and state.
   """
@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     unless JobsModule.enabled?() do
       {:ok,
        socket
-       |> put_flash(:error, "Background Jobs module is not enabled. Enable it from the Modules page.")
+       |> put_flash(:error, "Jobs module is not enabled. Enable it from the Modules page.")
        |> redirect(to: Routes.path("/admin/modules"))}
     else
       project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
 
       socket =
         socket
-        |> assign(:page_title, "Background Jobs")
+        |> assign(:page_title, "Jobs")
         |> assign(:project_title, project_title)
         |> assign(:url_path, Routes.path("/admin/jobs"))
         |> assign(:filter_queue, "all")

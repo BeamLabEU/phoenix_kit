@@ -415,7 +415,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
           live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
 
-          # Background Jobs
+          # Jobs
           live "/admin/jobs", Live.Modules.Jobs.Index, :index
 
           # Billing Management
@@ -632,7 +632,7 @@ defmodule PhoenixKitWeb.Integration do
                Live.Modules.Emails.TemplateEditor,
                :edit
 
-          # Background Jobs
+          # Jobs
           live "/admin/jobs", Live.Modules.Jobs.Index, :index
 
           # Billing Management

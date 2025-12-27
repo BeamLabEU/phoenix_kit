@@ -655,15 +655,15 @@ defmodule PhoenixKitWeb.Live.Modules do
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "Background Jobs module enabled",
-              else: "Background Jobs module disabled"
+              do: "Jobs module enabled",
+              else: "Jobs module disabled"
             )
           )
 
         {:noreply, socket}
 
       {:error, _changeset} ->
-        socket = put_flash(socket, :error, "Failed to update Background Jobs module")
+        socket = put_flash(socket, :error, "Failed to update Jobs module")
         {:noreply, socket}
     end
   end

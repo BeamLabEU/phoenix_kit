@@ -1,9 +1,9 @@
 defmodule PhoenixKit.Jobs do
   @moduledoc """
-  Background jobs module for PhoenixKit.
+  Jobs module for PhoenixKit.
 
   This module provides functions for managing the Jobs admin interface.
-  When enabled, it shows a view-only dashboard of background job status and history.
+  When enabled, it shows a view-only dashboard of job status and history.
 
   ## Core Functions
 
