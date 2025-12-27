@@ -416,7 +416,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
 
           # Oban Jobs
-          live "/admin/modules/oban", Live.Modules.Oban.Jobs, :index
+          live "/admin/jobs", Live.Modules.Oban.Jobs, :index
 
           # Billing Management
           live "/admin/billing", Live.Modules.Billing.Index, :index
@@ -633,7 +633,7 @@ defmodule PhoenixKitWeb.Integration do
                :edit
 
           # Oban Jobs
-          live "/admin/modules/oban", Live.Modules.Oban.Jobs, :index
+          live "/admin/jobs", Live.Modules.Oban.Jobs, :index
 
           # Billing Management
           live "/admin/billing", Live.Modules.Billing.Index, :index
