@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.Oban.Jobs do
+defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   @moduledoc """
-  LiveView for viewing Oban background jobs.
+  LiveView for viewing background jobs.
 
   Provides a simple read-only view of all Oban jobs with filtering by queue and state.
   """
@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Oban.Jobs do
 
   import Ecto.Query
 
+  alias PhoenixKit.Jobs, as: JobsModule
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -17,25 +18,33 @@ defmodule PhoenixKitWeb.Live.Modules.Oban.Jobs do
 
   @impl true
   def mount(_params, _session, socket) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Check if module is enabled
+    unless JobsModule.enabled?() do
+      {:ok,
+       socket
+       |> put_flash(:error, "Background Jobs module is not enabled. Enable it from the Modules page.")
+       |> redirect(to: Routes.path("/admin/modules"))}
+    else
+      project_title = Settings.get_setting("project_title", "PhoenixKit")
 
-    if connected?(socket) do
-      Process.send_after(self(), :refresh, @refresh_interval)
+      if connected?(socket) do
+        Process.send_after(self(), :refresh, @refresh_interval)
+      end
+
+      socket =
+        socket
+        |> assign(:page_title, "Background Jobs")
+        |> assign(:project_title, project_title)
+        |> assign(:url_path, Routes.path("/admin/jobs"))
+        |> assign(:filter_queue, "all")
+        |> assign(:filter_state, "all")
+        |> assign(:current_page, 1)
+        |> assign(:per_page, @per_page)
+        |> load_jobs()
+        |> load_stats()
+
+      {:ok, socket}
     end
-
-    socket =
-      socket
-      |> assign(:page_title, "Oban Jobs")
-      |> assign(:project_title, project_title)
-      |> assign(:url_path, Routes.path("/admin/modules/oban"))
-      |> assign(:filter_queue, "all")
-      |> assign(:filter_state, "all")
-      |> assign(:current_page, 1)
-      |> assign(:per_page, @per_page)
-      |> load_jobs()
-      |> load_stats()
-
-    {:ok, socket}
   end
 
   @impl true

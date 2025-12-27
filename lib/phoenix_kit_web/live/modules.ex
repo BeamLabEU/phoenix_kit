@@ -16,6 +16,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Jobs
   alias PhoenixKit.Pages
   alias PhoenixKit.Posts
   alias PhoenixKit.ReferralCodes
@@ -48,6 +49,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     db_sync_config = DBSync.get_config()
     tickets_config = Tickets.get_config()
     connections_config = Connections.get_config()
+    jobs_config = Jobs.get_config()
 
     socket =
       socket
@@ -104,6 +106,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:connections_follows_count, connections_config.follows_count)
       |> assign(:connections_connections_count, connections_config.connections_count)
       |> assign(:connections_blocks_count, connections_config.blocks_count)
+      |> assign(:jobs_enabled, jobs_config.enabled)
+      |> assign(:jobs_stats, jobs_config.stats)
 
     {:ok, socket}
   end
@@ -626,6 +630,40 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update connections module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_jobs", _params, socket) do
+    new_enabled = !socket.assigns.jobs_enabled
+
+    result =
+      if new_enabled do
+        Jobs.enable_system()
+      else
+        Jobs.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        jobs_config = Jobs.get_config()
+
+        socket =
+          socket
+          |> assign(:jobs_enabled, new_enabled)
+          |> assign(:jobs_stats, jobs_config.stats)
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Background Jobs module enabled",
+              else: "Background Jobs module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update Background Jobs module")
         {:noreply, socket}
     end
   end

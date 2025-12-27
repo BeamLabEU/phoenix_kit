@@ -896,6 +896,67 @@
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Background Jobs Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Background Jobs"
+        description="View-only dashboard for background job status and history"
+        icon="⚙️"
+        enabled={@jobs_enabled}
+        toggle_event="toggle_jobs"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@jobs_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @jobs_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @jobs_enabled and @jobs_stats.executing > 0 do %>
+            <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
+              {@jobs_stats.executing} running
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @jobs_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/jobs")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-queue-list" class="w-4 h-4 mr-1" /> View Jobs
+              </.link>
+            <% else %>
+              <span class="text-xs text-base-content/50 text-center">
+                Enable module to view background jobs
+              </span>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-4 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Available:</span>
+              <span class="font-medium">{@jobs_stats.available}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Completed:</span>
+              <span class="font-medium">{@jobs_stats.completed}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Retryable:</span>
+              <span class="font-medium">{@jobs_stats.retryable}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Discarded:</span>
+              <span class="font-medium">{@jobs_stats.discarded}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
     </div>
 
     <%!-- Future Modules Section --%>
