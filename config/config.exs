@@ -32,7 +32,8 @@ config :phoenix_kit, Oban,
   repo: PhoenixKit.Repo,
   queues: [default: 10, emails: 50, file_processing: 20, posts: 10],
   plugins: [
-    Oban.Plugins.Pruner,
+    # Keep completed/cancelled/discarded jobs for 30 days for dashboard visibility
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
     {Oban.Plugins.Cron,
      crontab: [
        {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}

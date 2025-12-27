@@ -1,0 +1,166 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Oban Jobs"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="p-6">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold text-base-content">Oban Jobs</h1>
+      <p class="text-base-content/70 mt-1">View background job status and history</p>
+    </div>
+
+    <%!-- Stats Cards --%>
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Available</div>
+        <div class="stat-value text-lg text-info">{Map.get(@stats, "available", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Scheduled</div>
+        <div class="stat-value text-lg text-warning">{Map.get(@stats, "scheduled", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Executing</div>
+        <div class="stat-value text-lg text-primary">{Map.get(@stats, "executing", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Completed</div>
+        <div class="stat-value text-lg text-success">{Map.get(@stats, "completed", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Retryable</div>
+        <div class="stat-value text-lg text-warning">{Map.get(@stats, "retryable", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Discarded</div>
+        <div class="stat-value text-lg text-error">{Map.get(@stats, "discarded", 0)}</div>
+      </div>
+      <div class="stat bg-base-100 rounded-lg shadow p-3">
+        <div class="stat-title text-xs">Cancelled</div>
+        <div class="stat-value text-lg text-base-content/50">{Map.get(@stats, "cancelled", 0)}</div>
+      </div>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-4">
+        <div class="flex flex-wrap gap-4 mb-4">
+          <div class="form-control">
+            <label class="label py-1">
+              <span class="label-text text-xs">Queue</span>
+            </label>
+            <select
+              class="select select-bordered select-sm"
+              phx-change="filter_queue"
+              name="queue"
+            >
+              <option value="all" selected={@filter_queue == "all"}>All Queues</option>
+              <option value="default" selected={@filter_queue == "default"}>default</option>
+              <option value="emails" selected={@filter_queue == "emails"}>emails</option>
+              <option value="file_processing" selected={@filter_queue == "file_processing"}>file_processing</option>
+              <option value="posts" selected={@filter_queue == "posts"}>posts</option>
+            </select>
+          </div>
+
+          <div class="form-control">
+            <label class="label py-1">
+              <span class="label-text text-xs">State</span>
+            </label>
+            <select
+              class="select select-bordered select-sm"
+              phx-change="filter_state"
+              name="state"
+            >
+              <option value="all" selected={@filter_state == "all"}>All States</option>
+              <option value="available" selected={@filter_state == "available"}>available</option>
+              <option value="scheduled" selected={@filter_state == "scheduled"}>scheduled</option>
+              <option value="executing" selected={@filter_state == "executing"}>executing</option>
+              <option value="completed" selected={@filter_state == "completed"}>completed</option>
+              <option value="retryable" selected={@filter_state == "retryable"}>retryable</option>
+              <option value="discarded" selected={@filter_state == "discarded"}>discarded</option>
+              <option value="cancelled" selected={@filter_state == "cancelled"}>cancelled</option>
+            </select>
+          </div>
+
+          <div class="flex-1"></div>
+
+          <div class="self-end">
+            <span class="text-sm text-base-content/70">
+              {@total_count} jobs | Auto-refresh: 30s
+            </span>
+          </div>
+        </div>
+
+        <%!-- Jobs Table --%>
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Queue</th>
+                <th>Worker</th>
+                <th>State</th>
+                <th>Attempt</th>
+                <th>Inserted</th>
+                <th>Scheduled</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= if Enum.empty?(@jobs) do %>
+                <tr>
+                  <td colspan="7" class="text-center py-8 text-base-content/50">
+                    No jobs found
+                  </td>
+                </tr>
+              <% else %>
+                <%= for job <- @jobs do %>
+                  <tr class="hover">
+                    <td class="font-mono text-xs">{job.id}</td>
+                    <td><span class="badge badge-sm badge-outline">{job.queue}</span></td>
+                    <td class="text-sm" title={job.worker}>{short_worker_name(job.worker)}</td>
+                    <td>
+                      <span class={"badge badge-sm #{state_badge_class(job.state)}"}>
+                        {job.state}
+                      </span>
+                    </td>
+                    <td class="text-center">{job.attempt}/{job.max_attempts}</td>
+                    <td class="text-xs text-base-content/70">{format_datetime(job.inserted_at)}</td>
+                    <td class="text-xs text-base-content/70">{format_datetime(job.scheduled_at)}</td>
+                  </tr>
+                <% end %>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <%!-- Pagination --%>
+        <%= if @total_pages > 1 do %>
+          <div class="flex justify-center gap-2 mt-4">
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="change_page"
+              phx-value-page={max(1, @current_page - 1)}
+              disabled={@current_page == 1}
+            >
+              Previous
+            </button>
+            <span class="btn btn-sm btn-ghost no-animation">
+              Page {@current_page} of {@total_pages}
+            </span>
+            <button
+              class="btn btn-sm btn-outline"
+              phx-click="change_page"
+              phx-value-page={min(@total_pages, @current_page + 1)}
+              disabled={@current_page == @total_pages}
+            >
+              Next
+            </button>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

@@ -18,6 +18,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
   @dialyzer {:nowarn_function, ensure_db_sync_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
+  @dialyzer {:nowarn_function, ensure_pruner_max_age: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
 
   alias Igniter.Libs.Phoenix
@@ -86,8 +87,35 @@ defmodule PhoenixKit.Install.ObanConfig do
     _ -> false
   end
 
+  # Clean up broken Oban config syntax from previous failed updates
+  # This fixes issues like "# comment," where comma ended up after a comment
+  defp cleanup_oban_config_syntax do
+    config_path = "config/config.exs"
+
+    if File.exists?(config_path) do
+      content = File.read!(config_path)
+
+      # Fix pattern: "# some comment,\n" -> ",\n" (comma was placed after comment)
+      # This happens when queue additions with comments are chained
+      fixed =
+        content
+        |> String.replace(~r/#[^\n]*,\s*\n(\s*)(\w)/, ",\n\\1\\2")
+        |> String.replace(~r/#[^\n]*\]\s*\n/, "]\n")
+
+      if fixed != content do
+        File.write!(config_path, fixed)
+        Mix.shell().info("  🔧 Fixed broken Oban config syntax from previous update")
+      end
+    end
+  rescue
+    _ -> :ok
+  end
+
   # Add Oban configuration to config.exs
   defp add_oban_config(igniter) do
+    # First, clean up any broken syntax from previous failed updates
+    cleanup_oban_config_syntax()
+
     # Get parent app name and repo
     app_name = IgniterHelpers.get_parent_app_name(igniter)
     repo_module = get_repo_module(igniter)
@@ -108,7 +136,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         db_sync: 5             # DB Sync data import
       ],
       plugins: [
-        Oban.Plugins.Pruner,   # Automatic cleanup of completed jobs
+        {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
         {Oban.Plugins.Cron,
          crontab: [
            {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
@@ -160,14 +188,15 @@ defmodule PhoenixKit.Install.ObanConfig do
       |> ensure_sqs_polling_queue(app_name)
       |> ensure_db_sync_queue(app_name)
       |> ensure_cron_plugin(app_name)
+      |> ensure_pruner_max_age(app_name)
 
     if updated_content == content do
       Mix.shell().info(
-        "✅ Oban configuration already up-to-date (posts/sitemap/sqs_polling/db_sync queues and cron plugin present)"
+        "✅ Oban configuration already up-to-date (queues, cron plugin, and pruner max_age present)"
       )
     else
       Mix.shell().info(
-        "✅ Updated Oban configuration with posts, sitemap, sqs_polling, and db_sync support"
+        "✅ Updated Oban configuration (queues, cron plugin, pruner retention)"
       )
     end
 
@@ -197,12 +226,12 @@ defmodule PhoenixKit.Install.ObanConfig do
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add posts queue with proper formatting
+          # Add posts queue with proper formatting (no comments to avoid syntax issues)
           new_queue_entry =
             if has_trailing_comma do
-              "\n    posts: 10              # Posts scheduled publishing"
+              "\n    posts: 10"
             else
-              ",\n    posts: 10              # Posts scheduled publishing"
+              ",\n    posts: 10"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -242,12 +271,12 @@ defmodule PhoenixKit.Install.ObanConfig do
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add sitemap queue with proper formatting
+          # Add sitemap queue with proper formatting (no comments to avoid syntax issues)
           new_queue_entry =
             if has_trailing_comma do
-              "\n    sitemap: 5              # Sitemap generation"
+              "\n    sitemap: 5"
             else
-              ",\n    sitemap: 5              # Sitemap generation"
+              ",\n    sitemap: 5"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -287,12 +316,12 @@ defmodule PhoenixKit.Install.ObanConfig do
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add sqs_polling queue with proper formatting
+          # Add sqs_polling queue with proper formatting (no comments to avoid syntax issues)
           new_queue_entry =
             if has_trailing_comma do
-              "\n    sqs_polling: 1         # SQS polling for email events"
+              "\n    sqs_polling: 1"
             else
-              ",\n    sqs_polling: 1         # SQS polling for email events"
+              ",\n    sqs_polling: 1"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -332,12 +361,12 @@ defmodule PhoenixKit.Install.ObanConfig do
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add db_sync queue with proper formatting
+          # Add db_sync queue with proper formatting (no comments to avoid syntax issues)
           new_queue_entry =
             if has_trailing_comma do
-              "\n    db_sync: 5             # DB Sync data import"
+              "\n    db_sync: 5"
             else
-              ",\n    db_sync: 5             # DB Sync data import"
+              ",\n    db_sync: 5"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -351,6 +380,41 @@ defmodule PhoenixKit.Install.ObanConfig do
 
           Mix.shell().error("     Please manually add: db_sync: 5")
           content
+      end
+    end
+  end
+
+  # Ensure Pruner has max_age configured for 30-day retention
+  defp ensure_pruner_max_age(content, _app_name) do
+    # Check if max_age is already configured
+    if Regex.match?(~r/Oban\.Plugins\.Pruner.*max_age:/s, content) do
+      Mix.shell().info("  ℹ️  Pruner max_age already configured")
+      content
+    else
+      # Check for bare Oban.Plugins.Pruner (without tuple)
+      if Regex.match?(~r/Oban\.Plugins\.Pruner\s*[,\]]/, content) do
+        Mix.shell().info("  ➕ Adding max_age to Oban.Plugins.Pruner...")
+
+        # Replace bare Pruner with tuple form including max_age
+        Regex.replace(
+          ~r/Oban\.Plugins\.Pruner(\s*)(,|\])/,
+          content,
+          "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}\\1\\2  # Keep jobs for 30 days"
+        )
+      else
+        # Check for tuple form without max_age: {Oban.Plugins.Pruner}
+        if Regex.match?(~r/\{Oban\.Plugins\.Pruner\}/, content) do
+          Mix.shell().info("  ➕ Adding max_age to {Oban.Plugins.Pruner}...")
+
+          String.replace(
+            content,
+            "{Oban.Plugins.Pruner}",
+            "{Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30}  # Keep jobs for 30 days"
+          )
+        else
+          Mix.shell().info("  ℹ️  Pruner configuration not found or already has options")
+          content
+        end
       end
     end
   end
@@ -661,7 +725,7 @@ defmodule PhoenixKit.Install.ObanConfig do
           db_sync: 5
         ],
         plugins: [
-          Oban.Plugins.Pruner,
+          {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
           {Oban.Plugins.Cron,
            crontab: [
              {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}

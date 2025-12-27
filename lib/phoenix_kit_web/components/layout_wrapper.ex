@@ -718,6 +718,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
+                    <%!-- Oban Jobs --%>
+                    <.admin_nav_item
+                      href={Routes.locale_aware_path(assigns, "/admin/modules/oban")}
+                      icon="jobs"
+                      label={gettext("Jobs")}
+                      current_path={@current_path || ""}
+                    />
+
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
                       icon="modules"
