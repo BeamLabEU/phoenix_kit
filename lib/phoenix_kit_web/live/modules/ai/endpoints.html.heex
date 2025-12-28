@@ -15,12 +15,14 @@
           Manage AI provider endpoints and view usage statistics
         </p>
       </div>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
-        class="btn btn-primary"
-      >
-        <.icon name="hero-plus" class="w-5 h-5 mr-2" /> New Endpoint
-      </.link>
+      <%= if @active_tab == "endpoints" do %>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
+          class="btn btn-primary"
+        >
+          <.icon name="hero-plus" class="w-5 h-5 mr-2" /> New Endpoint
+        </.link>
+      <% end %>
     </div>
 
     <%!-- Tabs --%>

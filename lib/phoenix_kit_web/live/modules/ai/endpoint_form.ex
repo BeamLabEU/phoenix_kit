@@ -281,10 +281,6 @@ defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
       socket
       |> assign(:form, to_form(changeset))
       |> assign(:selected_model, selected_model)
-      |> assign(:selected_provider, nil)
-      |> assign(:provider_models, [])
-      |> push_event("reset_select", %{id: "model_picker"})
-      |> push_event("reset_select", %{id: "provider_picker"})
 
     {:noreply, socket}
   end
@@ -335,6 +331,21 @@ defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
   @impl true
   def handle_event("set_manual_model", _params, socket) do
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_reasoning", _params, socket) do
+    # Toggle the reasoning_enabled value in form params
+    current_value =
+      socket.assigns.form.params["reasoning_enabled"] == "true" ||
+        socket.assigns.form.params["reasoning_enabled"] == true ||
+        (socket.assigns.endpoint && socket.assigns.endpoint.reasoning_enabled == true)
+
+    new_value = if current_value, do: "false", else: "true"
+    updated_params = Map.put(socket.assigns.form.params, "reasoning_enabled", new_value)
+
+    form = %{socket.assigns.form | params: updated_params}
+    {:noreply, assign(socket, :form, form)}
   end
 
   @impl true

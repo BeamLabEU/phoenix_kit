@@ -1332,7 +1332,12 @@ defmodule PhoenixKit.AI do
       presence_penalty: endpoint.presence_penalty,
       repetition_penalty: endpoint.repetition_penalty,
       stop: endpoint.stop,
-      seed: endpoint.seed
+      seed: endpoint.seed,
+      # Reasoning/thinking parameters (for models like DeepSeek R1, Qwen QwQ)
+      reasoning_enabled: endpoint.reasoning_enabled,
+      reasoning_effort: endpoint.reasoning_effort,
+      reasoning_max_tokens: endpoint.reasoning_max_tokens,
+      reasoning_exclude: endpoint.reasoning_exclude
     ]
 
     # Filter out nil values and merge with user opts

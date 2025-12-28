@@ -240,6 +240,30 @@ defmodule PhoenixKit.AI.Completion do
     |> maybe_add("stop", Keyword.get(opts, :stop))
     |> maybe_add("seed", Keyword.get(opts, :seed))
     |> maybe_add("stream", Keyword.get(opts, :stream))
+    |> maybe_add_reasoning(opts)
+  end
+
+  # Build reasoning object for OpenRouter API
+  # See: https://openrouter.ai/docs/guides/best-practices/reasoning-tokens
+  defp maybe_add_reasoning(body, opts) do
+    reasoning_enabled = Keyword.get(opts, :reasoning_enabled)
+    reasoning_effort = Keyword.get(opts, :reasoning_effort)
+    reasoning_max_tokens = Keyword.get(opts, :reasoning_max_tokens)
+    reasoning_exclude = Keyword.get(opts, :reasoning_exclude)
+
+    # Build reasoning object only if any reasoning option is set
+    reasoning =
+      %{}
+      |> maybe_add("enabled", reasoning_enabled)
+      |> maybe_add("effort", reasoning_effort)
+      |> maybe_add("max_tokens", reasoning_max_tokens)
+      |> maybe_add("exclude", reasoning_exclude)
+
+    if map_size(reasoning) > 0 do
+      Map.put(body, "reasoning", reasoning)
+    else
+      body
+    end
   end
 
   defp maybe_add(map, _key, nil), do: map

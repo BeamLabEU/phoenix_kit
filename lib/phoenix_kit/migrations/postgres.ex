@@ -292,11 +292,16 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Creates unique indexes on uuid columns
   - Enables gradual transition to UUID-based lookups
 
-  ### V41 - AI Request Prompt Tracking ⚡ LATEST
+  ### V41 - AI Prompt Tracking & Reasoning Parameters ⚡ LATEST
   - Adds `prompt_id` and `prompt_name` to phoenix_kit_ai_requests
   - Tracks which prompt template was used for AI completions
   - Denormalized prompt_name preserved for historical display
   - Foreign key with ON DELETE SET NULL for prompt deletion
+  - Adds reasoning/thinking parameters to phoenix_kit_ai_endpoints:
+    - `reasoning_enabled` (boolean) - Enable reasoning with default effort
+    - `reasoning_effort` (string) - none/minimal/low/medium/high/xhigh
+    - `reasoning_max_tokens` (integer) - Hard cap on thinking tokens (1024-32000)
+    - `reasoning_exclude` (boolean) - Hide reasoning from response
 
   ## Migration Paths
 
