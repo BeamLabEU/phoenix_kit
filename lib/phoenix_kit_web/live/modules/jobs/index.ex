@@ -100,18 +100,21 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     page = socket.assigns.current_page
     per_page = socket.assigns.per_page
 
-    base_query = from(j in "oban_jobs", select: %{
-      id: j.id,
-      queue: j.queue,
-      worker: j.worker,
-      state: j.state,
-      attempt: j.attempt,
-      max_attempts: j.max_attempts,
-      inserted_at: j.inserted_at,
-      scheduled_at: j.scheduled_at,
-      attempted_at: j.attempted_at,
-      completed_at: j.completed_at
-    })
+    base_query =
+      from(j in "oban_jobs",
+        select: %{
+          id: j.id,
+          queue: j.queue,
+          worker: j.worker,
+          state: j.state,
+          attempt: j.attempt,
+          max_attempts: j.max_attempts,
+          inserted_at: j.inserted_at,
+          scheduled_at: j.scheduled_at,
+          attempted_at: j.attempted_at,
+          completed_at: j.completed_at
+        }
+      )
 
     query =
       base_query
@@ -137,20 +140,22 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   defp load_stats(socket) do
     repo = PhoenixKit.Config.get_repo()
 
-    stats_query = from(j in "oban_jobs",
-      group_by: [j.state],
-      select: {j.state, count(j.id)}
-    )
+    stats_query =
+      from(j in "oban_jobs",
+        group_by: [j.state],
+        select: {j.state, count(j.id)}
+      )
 
     stats =
       stats_query
       |> repo.all()
       |> Enum.into(%{})
 
-    queue_query = from(j in "oban_jobs",
-      group_by: [j.queue],
-      select: {j.queue, count(j.id)}
-    )
+    queue_query =
+      from(j in "oban_jobs",
+        group_by: [j.queue],
+        select: {j.queue, count(j.id)}
+      )
 
     queues =
       queue_query
@@ -182,6 +187,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   end
 
   defp format_datetime(nil), do: "-"
+
   defp format_datetime(dt) do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
   end
@@ -191,5 +197,6 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     |> String.split(".")
     |> List.last()
   end
+
   defp short_worker_name(_), do: "-"
 end

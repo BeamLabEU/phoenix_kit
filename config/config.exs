@@ -36,7 +36,7 @@ config :phoenix_kit, Oban,
     {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
     {Oban.Plugins.Cron,
      crontab: [
-       {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
      ]}
   ]
 

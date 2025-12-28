@@ -55,9 +55,11 @@ defmodule PhoenixKit.Posts do
     PostMedia,
     PostMention,
     PostTag,
-    PostTagAssignment
+    PostTagAssignment,
+    ScheduledPostHandler
   }
 
+  alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
 
   # ============================================================================
@@ -233,6 +235,37 @@ defmodule PhoenixKit.Posts do
   end
 
   @doc """
+  Gets a single post by ID with optional preloads.
+
+  Returns `nil` if post not found.
+
+  ## Parameters
+
+  - `id` - Post ID (UUIDv7)
+  - `opts` - Options
+    - `:preload` - List of associations to preload
+
+  ## Examples
+
+      iex> get_post("018e3c4a-...")
+      %Post{}
+
+      iex> get_post("018e3c4a-...", preload: [:user, :media, :tags])
+      %Post{user: %User{}, media: [...], tags: [...]}
+
+      iex> get_post("nonexistent")
+      nil
+  """
+  def get_post(id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    case repo().get(Post, id) do
+      nil -> nil
+      post -> repo().preload(post, preloads)
+    end
+  end
+
+  @doc """
   Gets a single post by slug.
 
   ## Parameters
@@ -362,21 +395,75 @@ defmodule PhoenixKit.Posts do
   @doc """
   Schedules a post for future publishing.
 
+  Updates the post status to "scheduled" and creates an entry in the
+  scheduled jobs table for execution by the cron worker.
+
   ## Parameters
 
   - `post` - Post to schedule
   - `scheduled_at` - DateTime to publish at (must be in future)
+  - `opts` - Options
+    - `:created_by_id` - UUID of user scheduling the post
 
   ## Examples
 
       iex> schedule_post(post, ~U[2025-12-31 09:00:00Z])
       {:ok, %Post{status: "scheduled"}}
   """
-  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at) do
-    update_post(post, %{
-      status: "scheduled",
-      scheduled_at: scheduled_at
-    })
+  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at, opts \\ []) do
+    repo().transaction(fn ->
+      # Update the post status and scheduled_at
+      case update_post(post, %{status: "scheduled", scheduled_at: scheduled_at}) do
+        {:ok, updated_post} ->
+          # Cancel any existing pending scheduled jobs for this post
+          ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+
+          # Create new scheduled job entry
+          case ScheduledJobs.schedule_job(
+                 ScheduledPostHandler,
+                 post.id,
+                 scheduled_at,
+                 %{},
+                 opts
+               ) do
+            {:ok, _job} ->
+              updated_post
+
+            {:error, reason} ->
+              repo().rollback(reason)
+          end
+
+        {:error, changeset} ->
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  Unschedules a post, reverting it to draft status.
+
+  Cancels any pending scheduled jobs for this post.
+
+  ## Parameters
+
+  - `post` - Post to unschedule
+
+  ## Examples
+
+      iex> unschedule_post(post)
+      {:ok, %Post{status: "draft"}}
+  """
+  def unschedule_post(%Post{} = post) do
+    repo().transaction(fn ->
+      # Cancel any pending scheduled jobs
+      ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+
+      # Revert to draft status
+      case update_post(post, %{status: "draft", scheduled_at: nil}) do
+        {:ok, updated_post} -> updated_post
+        {:error, changeset} -> repo().rollback(changeset)
+      end
+    end)
   end
 
   @doc """

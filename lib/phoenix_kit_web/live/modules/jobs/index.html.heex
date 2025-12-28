@@ -40,7 +40,9 @@
       </div>
       <div class="stat bg-base-100 rounded-lg shadow p-3">
         <div class="stat-title text-xs">Cancelled</div>
-        <div class="stat-value text-lg text-base-content/50">{Map.get(@stats, "cancelled", 0)}</div>
+        <div class="stat-value text-lg text-base-content/50">
+          {Map.get(@stats, "cancelled", 0)}
+        </div>
       </div>
     </div>
 
@@ -60,7 +62,9 @@
               <option value="all" selected={@filter_queue == "all"}>All Queues</option>
               <option value="default" selected={@filter_queue == "default"}>default</option>
               <option value="emails" selected={@filter_queue == "emails"}>emails</option>
-              <option value="file_processing" selected={@filter_queue == "file_processing"}>file_processing</option>
+              <option value="file_processing" selected={@filter_queue == "file_processing"}>
+                file_processing
+              </option>
               <option value="posts" selected={@filter_queue == "posts"}>posts</option>
             </select>
           </div>

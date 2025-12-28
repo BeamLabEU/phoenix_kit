@@ -139,7 +139,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
         {Oban.Plugins.Cron,
          crontab: [
-           {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+           {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
          ]}
       ]
     """
@@ -195,9 +195,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         "✅ Oban configuration already up-to-date (queues, cron plugin, and pruner max_age present)"
       )
     else
-      Mix.shell().info(
-        "✅ Updated Oban configuration (queues, cron plugin, pruner retention)"
-      )
+      Mix.shell().info("✅ Updated Oban configuration (queues, cron plugin, pruner retention)")
     end
 
     Rewrite.Source.update(source, :content, updated_content)
@@ -421,25 +419,41 @@ defmodule PhoenixKit.Install.ObanConfig do
 
   # Ensure cron plugin exists in the plugins list
   defp ensure_cron_plugin(content, app_name) do
-    # Check if Oban.Plugins.Cron already exists
-    if String.contains?(content, "Oban.Plugins.Cron") do
-      # Cron plugin exists, check if PublishScheduledPostsJob is configured
-      if String.contains?(content, "PublishScheduledPostsJob") do
-        Mix.shell().info("  ℹ️  Cron plugin and PublishScheduledPostsJob already configured")
+    cond do
+      # Case 1: Old worker exists - REPLACE it with new worker
+      String.contains?(content, "PublishScheduledPostsJob") ->
+        Mix.shell().info(
+          "  🔄 Replacing PublishScheduledPostsJob with ProcessScheduledJobsWorker..."
+        )
+
+        String.replace(
+          content,
+          "PhoenixKit.Posts.Workers.PublishScheduledPostsJob",
+          "PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker"
+        )
+
+      # Case 2: Cron plugin exists with new worker - already configured
+      String.contains?(content, "Oban.Plugins.Cron") and
+          String.contains?(content, "ProcessScheduledJobsWorker") ->
+        Mix.shell().info("  ℹ️  Cron plugin and ProcessScheduledJobsWorker already configured")
         content
-      else
-        Mix.shell().info("  ➕ Adding PublishScheduledPostsJob to existing cron configuration...")
-        # Add PublishScheduledPostsJob to existing crontab
+
+      # Case 3: Cron plugin exists but no scheduled jobs worker - add new worker
+      String.contains?(content, "Oban.Plugins.Cron") ->
+        Mix.shell().info(
+          "  ➕ Adding ProcessScheduledJobsWorker to existing cron configuration..."
+        )
+
         add_scheduled_posts_job_to_crontab(content)
-      end
-    else
-      Mix.shell().info("  ➕ Adding Oban.Plugins.Cron with PublishScheduledPostsJob...")
-      # Add entire Cron plugin configuration
-      add_cron_plugin_to_plugins(content, app_name)
+
+      # Case 4: No cron plugin at all - add entire plugin with new worker
+      true ->
+        Mix.shell().info("  ➕ Adding Oban.Plugins.Cron with ProcessScheduledJobsWorker...")
+        add_cron_plugin_to_plugins(content, app_name)
     end
   end
 
-  # Add PublishScheduledPostsJob to existing crontab
+  # Add ProcessScheduledJobsWorker to existing crontab
   defp add_scheduled_posts_job_to_crontab(content) do
     # Pattern: crontab: [...] within Cron plugin
     case Regex.run(~r/(crontab:\s*\[)(.*?)(\])/s, content, capture: :all) do
@@ -449,9 +463,9 @@ defmodule PhoenixKit.Install.ObanConfig do
 
         new_job_entry =
           if has_entries do
-            ",\n           {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}"
+            ",\n           {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}"
           else
-            "\n           {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n         "
+            "\n           {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n         "
           end
 
         updated_crontab = before_crontab <> crontab_content <> new_job_entry <> after_crontab
@@ -482,9 +496,9 @@ defmodule PhoenixKit.Install.ObanConfig do
         # Add cron plugin with proper formatting (matching existing indentation)
         cron_plugin =
           if has_trailing_comma do
-            "\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
+            "\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n     ]}"
           else
-            ",\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}\n     ]}"
+            ",\n    {Oban.Plugins.Cron,\n     crontab: [\n       {\"* * * * *\", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}\n     ]}"
           end
 
         updated_plugins = plugins_open <> plugins_content <> cron_plugin <> plugins_close
@@ -728,7 +742,7 @@ defmodule PhoenixKit.Install.ObanConfig do
           {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
           {Oban.Plugins.Cron,
            crontab: [
-             {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+             {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
            ]}
         ]
 
