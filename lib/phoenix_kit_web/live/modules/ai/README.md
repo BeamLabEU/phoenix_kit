@@ -604,3 +604,39 @@ Models are dynamically fetched from OpenRouter's API.
 2. Review OpenRouter docs: https://openrouter.ai/docs
 3. Enable debug logging: `Logger.configure(level: :debug)`
 4. Check request logs in `phoenix_kit_ai_requests` table
+
+## Future Plans
+
+### Usage Charts
+
+We plan to add interactive charts to the Usage page showing:
+
+- **Requests Over Time** – Line/area chart of daily request volume (30 days)
+- **Tokens by Model** – Donut/pie chart showing token distribution across models
+- **Cost Trends** – Cost breakdown over time
+
+**Implementation Notes:**
+
+Since PhoenixKit is a library dependency, charts must be self-contained without requiring parent app changes. Two approaches were evaluated:
+
+1. **Server-side SVG (Contex)** – Pure Elixir charting library that generates SVG. No JavaScript required. Works but adds a dependency and has limited interactivity.
+
+2. **Client-side (ApexCharts)** – Modern JavaScript charting with rich interactivity (tooltips, click events, animations). Challenges:
+   - LiveView strips `<script>` tags from content for security
+   - Hooks require JS files to be copied to parent app
+   - CDN loading within LiveView content doesn't execute
+
+**Recommended Approach:**
+
+For rich interactive charts with click-to-filter and hover details, the best solution would be:
+
+1. Add ApexCharts hook to PhoenixKit's JS bundle (`phoenix_kit.js`)
+2. Document that parent apps need to copy updated JS after PhoenixKit upgrades
+3. Use `phx-hook="PhoenixKitChart"` with data attributes for chart config
+4. Charts load ApexCharts from CDN on first use
+
+The data functions already exist:
+- `PhoenixKit.AI.get_requests_by_day/1` – Returns `[%{date: date, count: integer, tokens: integer}, ...]`
+- `PhoenixKit.AI.get_tokens_by_model/1` – Returns `[%{model: string, total_tokens: integer, request_count: integer}, ...]`
+
+These are already called by `get_dashboard_stats/0` and available in `@usage_stats`.
