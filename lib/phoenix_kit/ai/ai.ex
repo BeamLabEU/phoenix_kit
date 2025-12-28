@@ -559,11 +559,22 @@ defmodule PhoenixKit.AI do
   def ask_with_prompt(endpoint_id, prompt_id, variables \\ %{}, opts \\ []) do
     with {:ok, prompt} <- resolve_prompt(prompt_id),
          {:ok, _} <- validate_prompt(prompt),
-         {:ok, rendered} <- Prompt.render(prompt, variables),
-         {:ok, response} <- ask(endpoint_id, rendered, opts) do
-      # Only increment usage on successful completion
-      increment_prompt_usage(prompt_id)
-      {:ok, response}
+         {:ok, rendered} <- Prompt.render(prompt, variables) do
+      # Pass prompt info to ask for request logging
+      opts_with_prompt =
+        opts
+        |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_name, prompt.name)
+
+      case ask(endpoint_id, rendered, opts_with_prompt) do
+        {:ok, response} ->
+          # Only increment usage on successful completion
+          increment_prompt_usage(prompt_id)
+          {:ok, response}
+
+        error ->
+          error
+      end
     end
   end
 
@@ -583,7 +594,13 @@ defmodule PhoenixKit.AI do
         %{role: "user", content: user_message}
       ]
 
-      case complete(endpoint_id, messages, opts) do
+      # Pass prompt info to complete for request logging
+      opts_with_prompt =
+        opts
+        |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_name, prompt.name)
+
+      case complete(endpoint_id, messages, opts_with_prompt) do
         {:ok, response} ->
           # Only increment usage on successful completion
           increment_prompt_usage(prompt_id)
@@ -1119,15 +1136,39 @@ defmodule PhoenixKit.AI do
       # Allow manual override of source, but all debug info is always captured
       source = Keyword.get(opts, :source) || auto_source
 
+      # Extract prompt info if present (from ask_with_prompt, complete_with_system_prompt)
+      prompt_info = %{
+        prompt_id: Keyword.get(opts, :prompt_id),
+        prompt_name: Keyword.get(opts, :prompt_name)
+      }
+
       merged_opts = merge_endpoint_opts(endpoint, opts)
 
       case Completion.chat_completion(endpoint, messages, merged_opts) do
         {:ok, response} ->
-          log_request(endpoint, messages, response, source, stacktrace, caller_context)
+          log_request(
+            endpoint,
+            messages,
+            response,
+            source,
+            stacktrace,
+            caller_context,
+            prompt_info
+          )
+
           {:ok, response}
 
         {:error, reason} ->
-          log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context)
+          log_failed_request(
+            endpoint,
+            messages,
+            reason,
+            source,
+            stacktrace,
+            caller_context,
+            prompt_info
+          )
+
           {:error, reason}
       end
     end
@@ -1382,7 +1423,7 @@ defmodule PhoenixKit.AI do
   # REQUEST LOGGING
   # ===========================================
 
-  defp log_request(endpoint, messages, response, source, stacktrace, caller_context) do
+  defp log_request(endpoint, messages, response, source, stacktrace, caller_context, prompt_info) do
     usage = Completion.extract_usage(response)
 
     # Extract response content
@@ -1403,6 +1444,8 @@ defmodule PhoenixKit.AI do
     create_request(%{
       endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
+      prompt_id: prompt_info[:prompt_id],
+      prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
       input_tokens: usage.prompt_tokens,
@@ -1426,10 +1469,20 @@ defmodule PhoenixKit.AI do
     })
   end
 
-  defp log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context) do
+  defp log_failed_request(
+         endpoint,
+         messages,
+         reason,
+         source,
+         stacktrace,
+         caller_context,
+         prompt_info
+       ) do
     create_request(%{
       endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
+      prompt_id: prompt_info[:prompt_id],
+      prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
       status: "error",

@@ -498,6 +498,8 @@
                           <% end %>
                         </button>
                       </th>
+                      <%!-- Hidden until lg - Prompt column --%>
+                      <th class="hidden lg:table-cell">Prompt</th>
                       <%!-- Always visible --%>
                       <th>
                         <button
@@ -615,6 +617,19 @@
                         <td class="hidden lg:table-cell text-sm">
                           {request.endpoint_name || "-"}
                         </td>
+                        <%!-- Hidden until lg - Prompt column --%>
+                        <td class="hidden lg:table-cell text-sm">
+                          <%= if request.prompt_name do %>
+                            <.link
+                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt_id}/edit"}
+                              class="link link-hover link-primary"
+                            >
+                              {request.prompt_name}
+                            </.link>
+                          <% else %>
+                            <span class="text-base-content/50">-</span>
+                          <% end %>
+                        </td>
                         <%!-- Always visible --%>
                         <td class="text-sm font-mono">
                           {PhoenixKit.AI.Request.short_model_name(request.model)}
@@ -723,11 +738,26 @@
           </div>
         </div>
 
-        <%!-- Model & Endpoint Info --%>
-        <div class="grid grid-cols-2 gap-4 mb-4">
+        <%!-- Model, Endpoint & Prompt Info --%>
+        <div class="grid grid-cols-3 gap-4 mb-4">
           <div>
             <div class="text-xs text-base-content/70">Endpoint</div>
             <div class="text-sm">{@selected_request.endpoint_name || "-"}</div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Prompt</div>
+            <div class="text-sm">
+              <%= if @selected_request.prompt_name do %>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt_id}/edit"}
+                  class="link link-hover link-primary"
+                >
+                  {@selected_request.prompt_name}
+                </.link>
+              <% else %>
+                <span class="text-base-content/50">-</span>
+              <% end %>
+            </div>
           </div>
           <div>
             <div class="text-xs text-base-content/70">Model</div>
