@@ -40,7 +40,7 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Modules.Emails.Templates
 
   @requirements ["app.start"]
 

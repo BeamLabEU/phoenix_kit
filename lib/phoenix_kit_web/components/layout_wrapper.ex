@@ -371,7 +371,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Emails.enabled?() do %>
+                    <%= if PhoenixKit.Modules.Emails.enabled?() do %>
                       <%!-- Email section with direct link and conditional submenu --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/emails/dashboard")}
@@ -814,7 +814,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                         <%!-- Legacy Pages settings navigation retained for future use --%>
 
-                        <%= if PhoenixKit.Emails.enabled?() do %>
+                        <%= if PhoenixKit.Modules.Emails.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/emails")}
                             icon="email"

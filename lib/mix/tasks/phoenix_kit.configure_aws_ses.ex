@@ -35,7 +35,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails
+  alias PhoenixKit.Modules.Emails
 
   @default_region "eu-north-1"
 

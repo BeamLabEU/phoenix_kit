@@ -29,7 +29,7 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Entities.Presence,
       PhoenixKitWeb.Live.Modules.Blogging.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
-      PhoenixKit.Emails.Supervisor,
+      PhoenixKit.Modules.Emails.Supervisor,
       # DB Sync session store for ephemeral connection codes
       PhoenixKit.DBSync.SessionStore
     ]

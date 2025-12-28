@@ -38,7 +38,8 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
   use Mix.Task
 
   import Ecto.Query
-  alias PhoenixKit.Emails.Log
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.Log
 
   @shortdoc "Fix email logs with missing bounce/complaint/reject events"
 
@@ -194,7 +195,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       }
     }
 
-    case PhoenixKit.Emails.create_event(event_attrs) do
+    case Emails.create_event(event_attrs) do
       {:ok, event} ->
         Mix.shell().info("    ✅ Created bounce event (ID: #{event.id})")
 
@@ -215,7 +216,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       }
     }
 
-    case PhoenixKit.Emails.create_event(event_attrs) do
+    case Emails.create_event(event_attrs) do
       {:ok, event} ->
         Mix.shell().info("    ✅ Created complaint event (ID: #{event.id})")
 
@@ -236,7 +237,7 @@ defmodule Mix.Tasks.PhoenixKit.FixMissingEvents do
       }
     }
 
-    case PhoenixKit.Emails.create_event(event_attrs) do
+    case Emails.create_event(event_attrs) do
       {:ok, event} ->
         Mix.shell().info("    ✅ Created reject event (ID: #{event.id})")
 

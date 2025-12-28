@@ -24,10 +24,11 @@ defmodule PhoenixKit.Mailer do
 
   import Swoosh.Email
 
-  alias PhoenixKit.Emails.Interceptor
-  alias PhoenixKit.Emails.Template
-  alias PhoenixKit.Emails.Templates
-  alias PhoenixKit.Emails.Utils
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.Interceptor
+  alias PhoenixKit.Modules.Emails.Template
+  alias PhoenixKit.Modules.Emails.Templates
+  alias PhoenixKit.Modules.Emails.Utils
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Utils.Routes
 
@@ -217,9 +218,9 @@ defmodule PhoenixKit.Mailer do
     runtime_config =
       if config[:adapter] == Swoosh.Adapters.AmazonSES do
         config
-        |> Keyword.put(:region, PhoenixKit.Emails.get_aws_region())
-        |> Keyword.put(:access_key, PhoenixKit.Emails.get_aws_access_key())
-        |> Keyword.put(:secret, PhoenixKit.Emails.get_aws_secret_key())
+        |> Keyword.put(:region, Emails.get_aws_region())
+        |> Keyword.put(:access_key, Emails.get_aws_access_key())
+        |> Keyword.put(:secret, Emails.get_aws_secret_key())
       else
         config
       end
@@ -361,14 +362,14 @@ defmodule PhoenixKit.Mailer do
   # Handle delivery result for email tracking updates
   defp handle_delivery_result(email, result, opts) do
     # Only process if email tracking is enabled
-    if PhoenixKit.Emails.enabled?() do
+    if Emails.enabled?() do
       case extract_log_id_from_email(email) do
         nil ->
           # No log ID found, skip tracking
           :ok
 
         log_id ->
-          case PhoenixKit.Emails.get_log!(log_id) do
+          case Emails.get_log!(log_id) do
             nil -> :ok
             log -> update_log_after_delivery(log, result, opts)
           end

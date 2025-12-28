@@ -38,8 +38,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.ProcessDlq do
 
   require Logger
 
-  alias PhoenixKit.Emails
-  alias PhoenixKit.Emails.SQSProcessor
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.SQS.Processor, as: SQSProcessor
   alias PhoenixKit.Settings
 
   @shortdoc "Process accumulated DLQ messages"

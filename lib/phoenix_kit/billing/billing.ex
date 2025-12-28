@@ -48,7 +48,7 @@ defmodule PhoenixKit.Billing do
   alias PhoenixKit.Billing.Order
   alias PhoenixKit.Billing.Providers
   alias PhoenixKit.Billing.Transaction
-  alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
 
   # ============================================

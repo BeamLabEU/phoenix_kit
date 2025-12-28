@@ -12,6 +12,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.DBSync
   alias PhoenixKit.Entities
   alias PhoenixKit.Modules.Connections
+  alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
@@ -34,7 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     # Load module states
     referral_codes_config = ReferralCodes.get_config()
-    email_config = PhoenixKit.Emails.get_config()
+    email_config = Emails.get_config()
     languages_config = Languages.get_config()
     entities_config = Entities.get_config()
     pages_enabled = Pages.enabled?()
@@ -152,9 +153,9 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     result =
       if new_enabled do
-        PhoenixKit.Emails.enable_system()
+        Emails.enable_system()
       else
-        PhoenixKit.Emails.disable_system()
+        Emails.disable_system()
       end
 
     case result do

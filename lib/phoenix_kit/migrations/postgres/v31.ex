@@ -44,7 +44,7 @@ defmodule PhoenixKit.Migrations.Postgres.V31 do
   """
   use Ecto.Migration
 
-  alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Modules.Emails.Templates
 
   @doc """
   Run the V31 migration to add the billing system.

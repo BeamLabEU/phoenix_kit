@@ -214,7 +214,7 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
 
         # Email webhook endpoint (no authentication required)
-        post "/webhooks/email", Controllers.EmailWebhookController, :handle
+        post "/webhooks/email", Modules.Emails.WebhookController, :handle
 
         # Billing webhook endpoints (no authentication - verified via signature)
         post "/webhooks/billing/stripe", Controllers.BillingWebhookController, :stripe
@@ -284,10 +284,10 @@ defmodule PhoenixKitWeb.Integration do
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
-        get "/admin/emails/export", Controllers.EmailExportController, :export_logs
-        get "/admin/emails/metrics/export", Controllers.EmailExportController, :export_metrics
-        get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
-        get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
+        get "/admin/emails/export", Modules.Emails.ExportController, :export_logs
+        get "/admin/emails/metrics/export", Modules.Emails.ExportController, :export_metrics
+        get "/admin/emails/blocklist/export", Modules.Emails.ExportController, :export_blocklist
+        get "/admin/emails/:id/export", Modules.Emails.ExportController, :export_email_details
       end
     end
   end
@@ -381,7 +381,7 @@ defmodule PhoenixKitWeb.Integration do
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
-          live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
+          live "/admin/settings/email-tracking", Modules.Emails.Live.Tracking, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
 
           live "/admin/settings/maintenance",
@@ -411,11 +411,11 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
-          live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
-          live "/admin/emails", Live.Modules.Emails.Emails, :index
-          live "/admin/emails/email/:id", Live.Modules.Emails.Details, :show
-          live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
-          live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
+          live "/admin/emails/dashboard", Modules.Emails.Live.Metrics, :index
+          live "/admin/emails", Modules.Emails.Live.Index, :index
+          live "/admin/emails/email/:id", Modules.Emails.Live.Details, :show
+          live "/admin/emails/queue", Modules.Emails.Live.Queue, :index
+          live "/admin/emails/blocklist", Modules.Emails.Live.Blocklist, :index
 
           # Billing Management
           live "/admin/billing", Live.Modules.Billing.Index, :index
@@ -589,7 +589,7 @@ defmodule PhoenixKitWeb.Integration do
 
           # live "/admin/settings/pages", Live.Modules.Pages.Settings, :index
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
-          live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
+          live "/admin/settings/emails", Modules.Emails.Live.Settings, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
 
           live "/admin/settings/maintenance",
@@ -619,18 +619,18 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
           live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
           live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
-          live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
-          live "/admin/emails", Live.Modules.Emails.Emails, :index
-          live "/admin/emails/email/:id", Live.Modules.Emails.Details, :show
-          live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
-          live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
+          live "/admin/emails/dashboard", Modules.Emails.Live.Metrics, :index
+          live "/admin/emails", Modules.Emails.Live.Index, :index
+          live "/admin/emails/email/:id", Modules.Emails.Live.Details, :show
+          live "/admin/emails/queue", Modules.Emails.Live.Queue, :index
+          live "/admin/emails/blocklist", Modules.Emails.Live.Blocklist, :index
 
           # Email Templates Management
-          live "/admin/modules/emails/templates", Live.Modules.Emails.Templates, :index
-          live "/admin/modules/emails/templates/new", Live.Modules.Emails.TemplateEditor, :new
+          live "/admin/modules/emails/templates", Modules.Emails.Live.Templates, :index
+          live "/admin/modules/emails/templates/new", Modules.Emails.Live.TemplateEditor, :new
 
           live "/admin/modules/emails/templates/:id/edit",
-               Live.Modules.Emails.TemplateEditor,
+               Modules.Emails.Live.TemplateEditor,
                :edit
 
           # Billing Management
