@@ -12,6 +12,9 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   @doc """
   Displays relative time (e.g., "5m ago", "2h ago", "3d ago").
 
+  Uses a client-side JavaScript hook for efficient updates without server load.
+  Updates every second for recent times, less frequently for older times.
+
   ## Attributes
   - `datetime` - DateTime struct or nil
   - `class` - CSS classes (default: "text-xs")
@@ -21,15 +24,36 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
       <.time_ago datetime={session.connected_at} />
       <.time_ago datetime={user.last_seen} class="text-sm text-gray-500" />
       <.time_ago datetime={nil} />  <!-- Shows "—" -->
+      <.time_ago datetime={request.inserted_at} id="request-time-123" />
   """
   attr :datetime, :any, required: true
   attr :class, :string, default: "text-xs"
+  attr :id, :string, default: nil, doc: "Optional DOM id (auto-generated if not provided)"
 
   def time_ago(assigns) do
+    assigns =
+      assigns
+      |> assign(:iso_datetime, format_iso8601(assigns.datetime))
+      |> assign_new(:dom_id, fn ->
+        # Use provided id, or generate a unique one to avoid collisions
+        assigns[:id] || "time-ago-#{System.unique_integer([:positive])}"
+      end)
+
     ~H"""
-    <span class={@class} title={format_datetime_title(@datetime)}>
-      {format_time_ago(@datetime)}
-    </span>
+    <%= if @iso_datetime do %>
+      <time
+        phx-hook="TimeAgo"
+        id={@dom_id}
+        class={@class}
+        datetime={@iso_datetime}
+        data-datetime={@iso_datetime}
+        title={format_datetime_title(@datetime)}
+      >
+        {format_time_ago(@datetime)}
+      </time>
+    <% else %>
+      <span class={@class}>—</span>
+    <% end %>
     """
   end
 
@@ -127,6 +151,18 @@ defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
   end
 
   # Private formatters
+
+  defp format_iso8601(nil), do: nil
+
+  defp format_iso8601(datetime) when is_struct(datetime, DateTime) do
+    DateTime.to_iso8601(datetime)
+  end
+
+  defp format_iso8601(datetime) when is_struct(datetime, NaiveDateTime) do
+    NaiveDateTime.to_iso8601(datetime) <> "Z"
+  end
+
+  defp format_iso8601(_), do: nil
 
   defp format_time_ago(nil), do: "—"
 

@@ -558,23 +558,72 @@ defmodule PhoenixKit.AI.OpenRouterClient do
 
   defp parse_price(_), do: 0
 
-  defp humanize_provider("anthropic"), do: "Anthropic"
-  defp humanize_provider("openai"), do: "OpenAI"
-  defp humanize_provider("google"), do: "Google"
-  defp humanize_provider("meta-llama"), do: "Meta"
-  defp humanize_provider("mistralai"), do: "Mistral"
-  defp humanize_provider("cohere"), do: "Cohere"
-  defp humanize_provider("perplexity"), do: "Perplexity"
-  defp humanize_provider("deepseek"), do: "DeepSeek"
-  defp humanize_provider("microsoft"), do: "Microsoft"
-  defp humanize_provider("x-ai"), do: "xAI"
-  defp humanize_provider("qwen"), do: "Qwen"
+  @doc """
+  Converts a provider slug to a human-friendly name.
 
-  defp humanize_provider(provider) do
+  OpenRouter model IDs use slugs like "arcee-ai/model-name". This function
+  converts the slug portion to a human-readable provider name.
+
+  ## Examples
+
+      iex> humanize_provider("openai")
+      "OpenAI"
+
+      iex> humanize_provider("meta-llama")
+      "Meta Llama"
+
+      iex> humanize_provider("arcee-ai")
+      "Arcee AI"
+  """
+  def humanize_provider("openai"), do: "OpenAI"
+  def humanize_provider("anthropic"), do: "Anthropic"
+  def humanize_provider("google"), do: "Google"
+  def humanize_provider("meta-llama"), do: "Meta Llama"
+  def humanize_provider("mistralai"), do: "Mistral AI"
+  def humanize_provider("cohere"), do: "Cohere"
+  def humanize_provider("deepseek"), do: "DeepSeek"
+  def humanize_provider("x-ai"), do: "xAI"
+  def humanize_provider("nvidia"), do: "NVIDIA"
+  def humanize_provider("microsoft"), do: "Microsoft"
+  def humanize_provider("amazon"), do: "Amazon"
+  def humanize_provider("alibaba"), do: "Alibaba"
+  def humanize_provider("baidu"), do: "Baidu"
+  def humanize_provider("tencent"), do: "Tencent"
+  def humanize_provider("ibm-granite"), do: "IBM Granite"
+  def humanize_provider("ai21"), do: "AI21 Labs"
+  def humanize_provider("perplexity"), do: "Perplexity"
+  def humanize_provider("inflection"), do: "Inflection"
+  def humanize_provider("qwen"), do: "Qwen"
+  def humanize_provider("nousresearch"), do: "Nous Research"
+  def humanize_provider("arcee-ai"), do: "Arcee AI"
+  def humanize_provider("aion-labs"), do: "Aion Labs"
+  def humanize_provider("allenai"), do: "Allen AI"
+  def humanize_provider("eleutherai"), do: "EleutherAI"
+  def humanize_provider("cognitivecomputations"), do: "Cognitive Computations"
+  def humanize_provider("thedrummer"), do: "TheDrummer"
+  def humanize_provider("neversleep"), do: "NeverSleep"
+  def humanize_provider("anthracite-org"), do: "Anthracite"
+  def humanize_provider("arliai"), do: "ArliAI"
+  def humanize_provider("mancer"), do: "Mancer"
+  def humanize_provider("openrouter"), do: "OpenRouter"
+  def humanize_provider("minimax"), do: "MiniMax"
+  def humanize_provider("moonshotai"), do: "Moonshot AI"
+  def humanize_provider("deepcogito"), do: "DeepCogito"
+  def humanize_provider("liquid"), do: "Liquid"
+  def humanize_provider("essentialai"), do: "Essential AI"
+  def humanize_provider("tngtech"), do: "TNG Tech"
+  def humanize_provider("kwaipilot"), do: "KwaiPilot"
+  def humanize_provider("z-ai"), do: "Z-AI"
+  def humanize_provider("nex-agi"), do: "Nex AGI"
+  def humanize_provider("prime-intellect"), do: "Prime Intellect"
+
+  def humanize_provider(provider) when is_binary(provider) do
     provider
     |> String.split("-")
     |> Enum.map_join(" ", &String.capitalize/1)
   end
+
+  def humanize_provider(_), do: "Unknown"
 
   defp maybe_add_header(headers, _name, nil), do: headers
   defp maybe_add_header(headers, _name, ""), do: headers

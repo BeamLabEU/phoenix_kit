@@ -285,15 +285,23 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Author tracking for accountability
   - Any admin can view/edit/delete any note
 
-  ### V40 - UUID Column Addition ⚡ LATEST
+  ### V40 - UUID Column Addition
   - Adds `uuid` column to all 33 legacy tables using bigserial PKs
   - Non-breaking: keeps existing bigserial primary keys intact
   - Backfills existing records with generated UUIDs
   - Creates unique indexes on uuid columns
   - Enables gradual transition to UUID-based lookups
-  - Phase 1 of graceful UUID migration strategy for library consumers
-  - Optional module aware: skips tables that don't exist
-  - Batched updates for large tables to avoid lock contention
+
+  ### V41 - AI Prompt Tracking & Reasoning Parameters ⚡ LATEST
+  - Adds `prompt_id` and `prompt_name` to phoenix_kit_ai_requests
+  - Tracks which prompt template was used for AI completions
+  - Denormalized prompt_name preserved for historical display
+  - Foreign key with ON DELETE SET NULL for prompt deletion
+  - Adds reasoning/thinking parameters to phoenix_kit_ai_endpoints:
+    - `reasoning_enabled` (boolean) - Enable reasoning with default effort
+    - `reasoning_effort` (string) - none/minimal/low/medium/high/xhigh
+    - `reasoning_max_tokens` (integer) - Hard cap on thinking tokens (1024-32000)
+    - `reasoning_exclude` (boolean) - Hide reasoning from response
 
   ## Migration Paths
 
@@ -353,7 +361,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 40
+  @current_version 41
   @default_prefix "public"
 
   @doc false

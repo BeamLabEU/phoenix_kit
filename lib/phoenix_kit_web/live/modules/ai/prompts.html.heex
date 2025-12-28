@@ -32,16 +32,16 @@
         <.icon name="hero-server-stack" class="w-4 h-4 mr-2" /> Endpoints
       </.link>
       <.link
-        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
-        class="tab"
-      >
-        <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Usage
-      </.link>
-      <.link
         navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
         class="tab tab-active"
       >
         <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
+        class="tab"
+      >
+        <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Usage
       </.link>
     </div>
 
@@ -94,7 +94,12 @@
               <div class="flex items-start justify-between">
                 <div class="flex-1">
                   <div class="flex items-center gap-3 flex-wrap">
-                    <span class="badge badge-ghost font-mono">#{prompt.id}</span>
+                    <.link
+                      navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}
+                      class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
+                    >
+                      #{prompt.id}
+                    </.link>
                     <.link
                       navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{prompt.id}/edit"}
                       class="font-semibold text-lg hover:text-primary hover:underline"
@@ -194,6 +199,57 @@
           </div>
         <% end %>
       </div>
+
+      <%!-- Pagination --%>
+      <% total_pages = ceil(@total_prompts / @page_size) %>
+      <%= if total_pages > 1 do %>
+        <div class="flex justify-center items-center gap-2 mt-6">
+          <%!-- Previous button --%>
+          <%= if @page > 1 do %>
+            <button
+              phx-click="goto_page"
+              phx-value-page={@page - 1}
+              class="btn btn-sm btn-ghost"
+            >
+              <.icon name="hero-chevron-left" class="w-4 h-4" />
+            </button>
+          <% else %>
+            <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+              <.icon name="hero-chevron-left" class="w-4 h-4" />
+            </button>
+          <% end %>
+
+          <%!-- Page numbers --%>
+          <%= for page_num <- max(1, @page - 2)..min(total_pages, @page + 2) do %>
+            <button
+              phx-click="goto_page"
+              phx-value-page={page_num}
+              class={"btn btn-sm #{if page_num == @page, do: "btn-primary", else: "btn-ghost"}"}
+            >
+              {page_num}
+            </button>
+          <% end %>
+
+          <%!-- Next button --%>
+          <%= if @page < total_pages do %>
+            <button
+              phx-click="goto_page"
+              phx-value-page={@page + 1}
+              class="btn btn-sm btn-ghost"
+            >
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
+          <% else %>
+            <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
+          <% end %>
+
+          <span class="text-sm text-base-content/70 ml-2">
+            {(@page - 1) * @page_size + 1}-{min(@page * @page_size, @total_prompts)} of {@total_prompts}
+          </span>
+        </div>
+      <% end %>
     <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

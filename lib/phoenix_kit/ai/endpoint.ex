@@ -87,6 +87,10 @@ defmodule PhoenixKit.AI.Endpoint do
              :image_size,
              :image_quality,
              :dimensions,
+             :reasoning_enabled,
+             :reasoning_effort,
+             :reasoning_max_tokens,
+             :reasoning_exclude,
              :enabled,
              :sort_order,
              :last_validated_at,
@@ -127,6 +131,12 @@ defmodule PhoenixKit.AI.Endpoint do
     # Embeddings parameters
     field :dimensions, :integer
 
+    # Reasoning/thinking parameters (for models like DeepSeek R1, Qwen QwQ, etc.)
+    field :reasoning_enabled, :boolean
+    field :reasoning_effort, :string
+    field :reasoning_max_tokens, :integer
+    field :reasoning_exclude, :boolean
+
     # Status
     field :enabled, :boolean, default: true
     field :sort_order, :integer, default: 0
@@ -162,6 +172,10 @@ defmodule PhoenixKit.AI.Endpoint do
       :image_size,
       :image_quality,
       :dimensions,
+      :reasoning_enabled,
+      :reasoning_effort,
+      :reasoning_max_tokens,
+      :reasoning_exclude,
       :enabled,
       :sort_order,
       :last_validated_at
@@ -173,6 +187,7 @@ defmodule PhoenixKit.AI.Endpoint do
     |> validate_api_key_format()
     |> validate_temperature()
     |> validate_penalties()
+    |> validate_reasoning()
     |> maybe_set_default_base_url()
     |> maybe_generate_uuid()
   end
@@ -276,6 +291,20 @@ defmodule PhoenixKit.AI.Endpoint do
     ]
   end
 
+  @doc """
+  Returns reasoning effort options for form selects.
+  """
+  def reasoning_effort_options do
+    [
+      {"None (disabled)", "none"},
+      {"Minimal (~10%)", "minimal"},
+      {"Low (~20%)", "low"},
+      {"Medium (~50%)", "medium"},
+      {"High (~80%)", "high"},
+      {"Extra High (~95%)", "xhigh"}
+    ]
+  end
+
   # Private functions
 
   defp validate_api_key_format(changeset) do
@@ -320,6 +349,50 @@ defmodule PhoenixKit.AI.Endpoint do
       nil -> changeset
       val when val >= min and val <= max -> changeset
       _ -> add_error(changeset, field, "must be between #{min} and #{max}")
+    end
+  end
+
+  @valid_reasoning_efforts ~w(none minimal low medium high xhigh)
+
+  defp validate_reasoning(changeset) do
+    changeset
+    |> validate_reasoning_effort()
+    |> validate_reasoning_max_tokens()
+  end
+
+  defp validate_reasoning_effort(changeset) do
+    case get_field(changeset, :reasoning_effort) do
+      nil ->
+        changeset
+
+      "" ->
+        changeset
+
+      effort when effort in @valid_reasoning_efforts ->
+        changeset
+
+      _ ->
+        add_error(
+          changeset,
+          :reasoning_effort,
+          "must be one of: #{Enum.join(@valid_reasoning_efforts, ", ")}"
+        )
+    end
+  end
+
+  defp validate_reasoning_max_tokens(changeset) do
+    case get_field(changeset, :reasoning_max_tokens) do
+      nil ->
+        changeset
+
+      tokens when is_integer(tokens) and tokens >= 1024 and tokens <= 32_000 ->
+        changeset
+
+      tokens when is_integer(tokens) ->
+        add_error(changeset, :reasoning_max_tokens, "must be between 1024 and 32,000")
+
+      _ ->
+        changeset
     end
   end
 

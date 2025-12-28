@@ -32,10 +32,17 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
     {:inserted_at, "Created"}
   ]
 
+  @page_size 20
+
   @impl true
   def mount(_params, session, socket) do
     current_path = get_current_path(socket, session)
     project_title = Settings.get_setting("project_title", "PhoenixKit")
+
+    # Subscribe to real-time updates
+    if connected?(socket) do
+      AI.subscribe_prompts()
+    end
 
     socket =
       socket
@@ -46,19 +53,23 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
       |> assign(:sort_by, :sort_order)
       |> assign(:sort_dir, :asc)
       |> assign(:sort_options, @sort_options)
+      |> assign(:page, 1)
+      |> assign(:page_size, @page_size)
+      |> assign(:total_prompts, 0)
 
     {:ok, socket}
   end
 
   @impl true
   def handle_params(params, uri, socket) do
-    {sort_by, sort_dir} = parse_sort_params(params)
+    {sort_by, sort_dir, page} = parse_sort_params(params)
     current_path = URI.parse(uri).path
 
     socket =
       socket
       |> assign(:sort_by, sort_by)
       |> assign(:sort_dir, sort_dir)
+      |> assign(:page, page)
       |> assign(:current_path, current_path)
       |> reload_prompts()
 
@@ -68,28 +79,34 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
   @valid_sort_fields Enum.map(@sort_options, fn {field, _} -> Atom.to_string(field) end)
 
   defp parse_sort_params(params) do
-    sort_by =
-      case params["sort"] do
-        field when is_binary(field) ->
-          if field in @valid_sort_fields do
-            String.to_existing_atom(field)
-          else
-            :sort_order
-          end
-
-        _ ->
-          :sort_order
-      end
-
-    sort_dir =
-      case params["dir"] do
-        "asc" -> :asc
-        "desc" -> :desc
-        _ -> :asc
-      end
-
-    {sort_by, sort_dir}
+    {
+      parse_sort_field(params["sort"], @valid_sort_fields, :sort_order),
+      parse_sort_dir(params["dir"]),
+      parse_page(params["page"])
+    }
   end
+
+  defp parse_sort_field(field, valid_fields, default) when is_binary(field) do
+    if field in valid_fields, do: String.to_existing_atom(field), else: default
+  end
+
+  defp parse_sort_field(_, _valid_fields, default), do: default
+
+  defp parse_sort_dir("asc"), do: :asc
+  defp parse_sort_dir("desc"), do: :desc
+  defp parse_sort_dir(_), do: :asc
+
+  defp parse_page(nil), do: 1
+  defp parse_page(""), do: 1
+
+  defp parse_page(p) when is_binary(p) do
+    case Integer.parse(p) do
+      {n, ""} when n > 0 -> n
+      _ -> 1
+    end
+  end
+
+  defp parse_page(_), do: 1
 
   # ===========================================
   # PROMPT ACTIONS
@@ -148,9 +165,40 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
         if field in [:usage_count, :last_used_at, :inserted_at], do: :desc, else: :asc
       end
 
+    # Reset to page 1 when sorting changes
     path = Routes.ai_path() <> "/prompts?sort=#{field}&dir=#{sort_dir}"
     {:noreply, push_patch(socket, to: path)}
   end
+
+  @impl true
+  def handle_event("goto_page", %{"page" => page_str}, socket) do
+    case Integer.parse(page_str) do
+      {page, ""} when page > 0 ->
+        sort_by = socket.assigns.sort_by
+        sort_dir = socket.assigns.sort_dir
+
+        path = build_prompts_url(sort_by, sort_dir, page)
+        {:noreply, push_patch(socket, to: path)}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  # ===========================================
+  # PUBSUB HANDLERS - Real-time updates
+  # ===========================================
+
+  @impl true
+  def handle_info({event, _prompt}, socket)
+      when event in [:prompt_created, :prompt_updated, :prompt_deleted] do
+    # Reload prompts list when any prompt changes
+    {:noreply, reload_prompts(socket)}
+  end
+
+  # Catch-all for other PubSub messages
+  @impl true
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ===========================================
   # PRIVATE HELPERS
@@ -159,10 +207,30 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
   defp reload_prompts(socket) do
     sort_by = socket.assigns.sort_by
     sort_dir = socket.assigns.sort_dir
+    page = socket.assigns.page
+    page_size = socket.assigns.page_size
 
-    prompts = AI.list_prompts(sort_by: sort_by, sort_dir: sort_dir)
+    {prompts, total} =
+      AI.list_prompts(
+        sort_by: sort_by,
+        sort_dir: sort_dir,
+        page: page,
+        page_size: page_size
+      )
 
-    assign(socket, :prompts, prompts)
+    socket
+    |> assign(:prompts, prompts)
+    |> assign(:total_prompts, total)
+  end
+
+  defp build_prompts_url(sort_by, sort_dir, page) do
+    base = Routes.ai_path() <> "/prompts?sort=#{sort_by}&dir=#{sort_dir}"
+
+    if page > 1 do
+      base <> "&page=#{page}"
+    else
+      base
+    end
   end
 
   defp get_current_path(socket, session) do

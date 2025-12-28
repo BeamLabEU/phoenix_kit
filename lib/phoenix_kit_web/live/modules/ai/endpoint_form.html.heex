@@ -180,7 +180,7 @@
                         <% provider = current_model_id |> String.split("/") |> List.first() %>
                         <span class="badge badge-outline badge-sm">
                           <.icon name="hero-building-office-2" class="w-3 h-3 mr-1" />
-                          {provider}
+                          {PhoenixKit.AI.OpenRouterClient.humanize_provider(provider)}
                         </span>
 
                         <%!-- Context Length --%>
@@ -315,61 +315,134 @@
                   </span>
                 </label>
               <% else %>
-                <%!-- Step 1: Provider Selection --%>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="label py-1">
-                      <span class="label-text text-sm">1. Provider</span>
-                    </label>
-                    <select
-                      id="provider_picker"
-                      name="provider"
-                      phx-change="select_provider"
-                      phx-hook="ResetSelect"
-                      class="select select-bordered w-full"
-                    >
-                      <option value="" selected>— Select provider —</option>
-                      <%= for {provider, models} <- @models_grouped do %>
-                        <option value={provider}>
-                          {provider} ({length(models)})
-                        </option>
-                      <% end %>
-                    </select>
-                  </div>
-
-                  <%!-- Step 2: Model Selection (only shown after provider selected) --%>
-                  <div>
-                    <label class="label py-1">
-                      <span class="label-text text-sm">2. Model</span>
-                    </label>
-                    <select
-                      id="model_picker"
-                      name="model"
-                      phx-change="select_model"
-                      phx-hook="ResetSelect"
-                      class={"select select-bordered w-full #{if @selected_provider == nil, do: "select-disabled"}"}
-                      disabled={@selected_provider == nil}
-                    >
-                      <%= if @selected_provider == nil do %>
-                        <option value="">— Select provider first —</option>
-                      <% else %>
-                        <option value="" selected>— Select model —</option>
-                        <%= for model <- @provider_models do %>
-                          <option value={model["id"]}>
-                            {model["name"] || model["id"]}
-                          </option>
-                        <% end %>
-                      <% end %>
-                    </select>
-                  </div>
+                <%!-- Provider Selection --%>
+                <div>
+                  <select
+                    id="provider_picker"
+                    name="provider"
+                    phx-change="select_provider"
+                    phx-hook="ResetSelect"
+                    class="select select-bordered w-full"
+                  >
+                    <option value="" selected>
+                      — Select provider ({length(@models_grouped)} available) —
+                    </option>
+                    <%= for {provider, models} <- @models_grouped do %>
+                      <option value={provider} selected={@selected_provider == provider}>
+                        {PhoenixKit.AI.OpenRouterClient.humanize_provider(provider)} ({length(
+                          models
+                        )} models)
+                      </option>
+                    <% end %>
+                  </select>
                 </div>
-                <label class="label">
-                  <span class="label-text-alt text-base-content/50">
-                    {length(@models_grouped)} providers, {length(
-                      Enum.flat_map(@models_grouped, fn {_, m} -> m end)
-                    )} models available
-                  </span>
-                </label>
+
+                <%!-- Model Cards (shown after provider selected) --%>
+                <%= if @selected_provider do %>
+                  <div class="mt-4">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm text-base-content/70">
+                        {length(@provider_models)} models from {PhoenixKit.AI.OpenRouterClient.humanize_provider(
+                          @selected_provider
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        phx-click="select_provider"
+                        phx-value-provider=""
+                        class="btn btn-ghost btn-xs"
+                      >
+                        <.icon name="hero-x-mark" class="w-3 h-3" /> Clear
+                      </button>
+                    </div>
+
+                    <div class="grid gap-2 max-h-80 overflow-y-auto pr-1">
+                      <%= for model <- @provider_models do %>
+                        <% pricing = model["pricing"] || %{} %>
+                        <% is_selected = current_model_id == model["id"] %>
+                        <button
+                          type="button"
+                          phx-click="select_model"
+                          phx-value-model={model["id"]}
+                          class={[
+                            "rounded-lg border p-3 transition-colors cursor-pointer text-left w-full",
+                            is_selected && "border-primary bg-primary/10 ring-2 ring-primary/20",
+                            !is_selected &&
+                              "border-base-300 bg-base-200 hover:border-primary hover:bg-base-100"
+                          ]}
+                        >
+                          <div class="flex items-start justify-between gap-2">
+                            <div class="flex-1 min-w-0">
+                              <%!-- Model Name --%>
+                              <div class="font-semibold truncate">
+                                {model["name"] || model["id"]}
+                              </div>
+
+                              <%!-- Model ID --%>
+                              <div class="text-xs font-mono text-base-content/50 truncate">
+                                {model["id"]}
+                              </div>
+
+                              <%!-- Badges --%>
+                              <div class="flex flex-wrap gap-1 mt-2">
+                                <%!-- Context Length --%>
+                                <%= if model["context_length"] do %>
+                                  <span class="badge badge-outline badge-xs">
+                                    {format_number(model["context_length"])} ctx
+                                  </span>
+                                <% end %>
+
+                                <%!-- Max Output --%>
+                                <%= if model["max_completion_tokens"] do %>
+                                  <span class="badge badge-outline badge-xs">
+                                    {format_number(model["max_completion_tokens"])} out
+                                  </span>
+                                <% end %>
+
+                                <%!-- Pricing --%>
+                                <%= if pricing["prompt"] do %>
+                                  <% prompt_price =
+                                    if is_binary(pricing["prompt"]),
+                                      do: String.to_float(pricing["prompt"]),
+                                      else: pricing["prompt"] %>
+                                  <span class="badge badge-success badge-outline badge-xs">
+                                    ${Float.round(prompt_price * 1_000_000, 2)}/M in
+                                  </span>
+                                <% end %>
+                                <%= if pricing["completion"] do %>
+                                  <% completion_price =
+                                    if is_binary(pricing["completion"]),
+                                      do: String.to_float(pricing["completion"]),
+                                      else: pricing["completion"] %>
+                                  <span class="badge badge-warning badge-outline badge-xs">
+                                    ${Float.round(completion_price * 1_000_000, 2)}/M out
+                                  </span>
+                                <% end %>
+                              </div>
+                            </div>
+
+                            <%!-- Select indicator --%>
+                            <%= if is_selected do %>
+                              <.icon
+                                name="hero-check-circle-solid"
+                                class="w-5 h-5 text-primary flex-shrink-0 mt-1"
+                              />
+                            <% else %>
+                              <.icon
+                                name="hero-chevron-right"
+                                class="w-4 h-4 text-base-content/30 flex-shrink-0 mt-1"
+                              />
+                            <% end %>
+                          </div>
+                        </button>
+                      <% end %>
+                    </div>
+                  </div>
+                <% else %>
+                  <p class="text-sm text-base-content/50 mt-2">
+                    Select a provider to see available models with pricing details
+                  </p>
+                <% end %>
               <% end %>
             <% end %>
           </div>
@@ -418,6 +491,107 @@
                 <% end %>
               </div>
             <% end %>
+
+            <%!-- Enable Thinking Checkbox --%>
+            <% reasoning_enabled =
+              @form.params["reasoning_enabled"] == "true" ||
+                @form.params["reasoning_enabled"] == true ||
+                (@endpoint && @endpoint.reasoning_enabled == true) %>
+
+            <div class="bg-base-200 rounded-lg p-4 mt-4">
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                  <input
+                    type="checkbox"
+                    name="endpoint[reasoning_enabled]"
+                    value="true"
+                    checked={reasoning_enabled}
+                    class="checkbox checkbox-primary"
+                    phx-click="toggle_reasoning"
+                  />
+                  <div>
+                    <span class="label-text font-medium">
+                      <.icon name="hero-light-bulb" class="w-4 h-4 inline mr-1" /> Enable Thinking
+                    </span>
+                    <span class="block text-xs text-base-content/50">
+                      For models like DeepSeek R1, Qwen QwQ that support chain-of-thought reasoning
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <%!-- Reasoning Options (shown when enabled) --%>
+              <%= if reasoning_enabled do %>
+                <div class="border-t border-base-300 mt-3 pt-3">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <%!-- Reasoning Effort --%>
+                    <div class="form-control">
+                      <label class="label py-1">
+                        <span class="label-text text-sm">Effort Level</span>
+                      </label>
+                      <select
+                        name="endpoint[reasoning_effort]"
+                        class="select select-bordered select-sm"
+                      >
+                        <option value="">Default (medium)</option>
+                        <%= for {label, value} <- PhoenixKit.AI.Endpoint.reasoning_effort_options() do %>
+                          <option
+                            value={value}
+                            selected={
+                              @form.params["reasoning_effort"] == value ||
+                                (@endpoint && @endpoint.reasoning_effort == value)
+                            }
+                          >
+                            {label}
+                          </option>
+                        <% end %>
+                      </select>
+                    </div>
+
+                    <%!-- Reasoning Max Tokens --%>
+                    <div class="form-control">
+                      <label class="label py-1">
+                        <span class="label-text text-sm">Token Limit</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="endpoint[reasoning_max_tokens]"
+                        value={
+                          @form.params["reasoning_max_tokens"] ||
+                            (@endpoint && @endpoint.reasoning_max_tokens) || ""
+                        }
+                        min="1024"
+                        max="32000"
+                        step="1024"
+                        class="input input-bordered input-sm"
+                        placeholder="1024-32000"
+                      />
+                    </div>
+
+                    <%!-- Hide Reasoning Toggle --%>
+                    <div class="form-control">
+                      <label class="label py-1">
+                        <span class="label-text text-sm">Visibility</span>
+                      </label>
+                      <label class="label cursor-pointer justify-start gap-2 py-0">
+                        <input
+                          type="checkbox"
+                          name="endpoint[reasoning_exclude]"
+                          value="true"
+                          checked={
+                            @form.params["reasoning_exclude"] == "true" ||
+                              @form.params["reasoning_exclude"] == true ||
+                              (@endpoint && @endpoint.reasoning_exclude == true)
+                          }
+                          class="checkbox checkbox-sm"
+                        />
+                        <span class="label-text text-sm">Hide from response</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
 
             <%!-- Advanced Parameters --%>
             <%= if advanced_params != [] do %>

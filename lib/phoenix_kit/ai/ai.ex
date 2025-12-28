@@ -68,7 +68,53 @@ defmodule PhoenixKit.AI do
   alias PhoenixKit.AI.Endpoint
   alias PhoenixKit.AI.Prompt
   alias PhoenixKit.AI.Request
+  alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+
+  # ===========================================
+  # PUBSUB TOPICS
+  # ===========================================
+
+  @endpoints_topic "phoenix_kit:ai:endpoints"
+  @prompts_topic "phoenix_kit:ai:prompts"
+  @requests_topic "phoenix_kit:ai:requests"
+
+  @doc """
+  Returns the PubSub topic for AI endpoints.
+  Subscribe to this topic to receive real-time updates.
+  """
+  def endpoints_topic, do: @endpoints_topic
+
+  @doc """
+  Returns the PubSub topic for AI prompts.
+  """
+  def prompts_topic, do: @prompts_topic
+
+  @doc """
+  Returns the PubSub topic for AI requests/usage.
+  """
+  def requests_topic, do: @requests_topic
+
+  @doc """
+  Subscribes the current process to AI endpoint changes.
+  """
+  def subscribe_endpoints do
+    PubSub.subscribe(@endpoints_topic)
+  end
+
+  @doc """
+  Subscribes the current process to AI prompt changes.
+  """
+  def subscribe_prompts do
+    PubSub.subscribe(@prompts_topic)
+  end
+
+  @doc """
+  Subscribes the current process to AI request/usage changes.
+  """
+  def subscribe_requests do
+    PubSub.subscribe(@requests_topic)
+  end
 
   # ===========================================
   # HELPERS
@@ -76,6 +122,39 @@ defmodule PhoenixKit.AI do
 
   defp repo do
     PhoenixKit.RepoHelper.repo()
+  end
+
+  defp broadcast_endpoint_change(result, event) do
+    case result do
+      {:ok, endpoint} ->
+        PubSub.broadcast(@endpoints_topic, {event, endpoint})
+        {:ok, endpoint}
+
+      error ->
+        error
+    end
+  end
+
+  defp broadcast_prompt_change(result, event) do
+    case result do
+      {:ok, prompt} ->
+        PubSub.broadcast(@prompts_topic, {event, prompt})
+        {:ok, prompt}
+
+      error ->
+        error
+    end
+  end
+
+  defp broadcast_request_change(result, event) do
+    case result do
+      {:ok, request} ->
+        PubSub.broadcast(@requests_topic, {event, request})
+        {:ok, request}
+
+      error ->
+        error
+    end
   end
 
   # ===========================================
@@ -135,6 +214,9 @@ defmodule PhoenixKit.AI do
   def list_endpoints(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
     sort_dir = Keyword.get(opts, :sort_dir, :asc)
+    # Always paginate, default to page 1 and ensure it's > 0
+    page = Keyword.get(opts, :page, 1) |> max(1)
+    page_size = Keyword.get(opts, :page_size, 20)
 
     query = from(e in Endpoint)
 
@@ -159,7 +241,18 @@ defmodule PhoenixKit.AI do
         preloads -> preload(query, ^preloads)
       end
 
-    repo().all(query)
+    # Perform a single count query for the total
+    total = repo().aggregate(query, :count, :id)
+    offset = (page - 1) * page_size
+
+    endpoints =
+      query
+      |> limit(^page_size)
+      |> offset(^offset)
+      |> repo().all()
+
+    # Always return the same shape
+    {endpoints, total}
   end
 
   defp apply_endpoint_sorting(query, :usage, dir) do
@@ -282,6 +375,7 @@ defmodule PhoenixKit.AI do
     %Endpoint{}
     |> Endpoint.changeset(attrs)
     |> repo().insert()
+    |> broadcast_endpoint_change(:endpoint_created)
   end
 
   @doc """
@@ -291,6 +385,7 @@ defmodule PhoenixKit.AI do
     endpoint
     |> Endpoint.changeset(attrs)
     |> repo().update()
+    |> broadcast_endpoint_change(:endpoint_updated)
   end
 
   @doc """
@@ -298,6 +393,7 @@ defmodule PhoenixKit.AI do
   """
   def delete_endpoint(%Endpoint{} = endpoint) do
     repo().delete(endpoint)
+    |> broadcast_endpoint_change(:endpoint_deleted)
   end
 
   @doc """
@@ -352,6 +448,8 @@ defmodule PhoenixKit.AI do
   def list_prompts(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
     sort_dir = Keyword.get(opts, :sort_dir, :asc)
+    page = Keyword.get(opts, :page)
+    page_size = Keyword.get(opts, :page_size, 20)
 
     query = from(p in Prompt)
 
@@ -363,7 +461,22 @@ defmodule PhoenixKit.AI do
 
     query = order_by(query, [p], [{^sort_dir, field(p, ^sort_by)}])
 
-    repo().all(query)
+    # If page is provided, return paginated results with total count
+    if page do
+      total = repo().aggregate(query, :count, :id)
+      offset = (page - 1) * page_size
+
+      prompts =
+        query
+        |> limit(^page_size)
+        |> offset(^offset)
+        |> repo().all()
+
+      {prompts, total}
+    else
+      # No pagination - return all (backwards compatible)
+      repo().all(query)
+    end
   end
 
   @doc """
@@ -416,6 +529,7 @@ defmodule PhoenixKit.AI do
     %Prompt{}
     |> Prompt.changeset(attrs)
     |> repo().insert()
+    |> broadcast_prompt_change(:prompt_created)
   end
 
   @doc """
@@ -425,6 +539,7 @@ defmodule PhoenixKit.AI do
     prompt
     |> Prompt.changeset(attrs)
     |> repo().update()
+    |> broadcast_prompt_change(:prompt_updated)
   end
 
   @doc """
@@ -432,6 +547,7 @@ defmodule PhoenixKit.AI do
   """
   def delete_prompt(%Prompt{} = prompt) do
     repo().delete(prompt)
+    |> broadcast_prompt_change(:prompt_deleted)
   end
 
   @doc """
@@ -528,11 +644,22 @@ defmodule PhoenixKit.AI do
   def ask_with_prompt(endpoint_id, prompt_id, variables \\ %{}, opts \\ []) do
     with {:ok, prompt} <- resolve_prompt(prompt_id),
          {:ok, _} <- validate_prompt(prompt),
-         {:ok, rendered} <- Prompt.render(prompt, variables),
-         {:ok, response} <- ask(endpoint_id, rendered, opts) do
-      # Only increment usage on successful completion
-      increment_prompt_usage(prompt_id)
-      {:ok, response}
+         {:ok, rendered} <- Prompt.render(prompt, variables) do
+      # Pass prompt info to ask for request logging
+      opts_with_prompt =
+        opts
+        |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_name, prompt.name)
+
+      case ask(endpoint_id, rendered, opts_with_prompt) do
+        {:ok, response} ->
+          # Only increment usage on successful completion
+          increment_prompt_usage(prompt_id)
+          {:ok, response}
+
+        error ->
+          error
+      end
     end
   end
 
@@ -552,7 +679,13 @@ defmodule PhoenixKit.AI do
         %{role: "user", content: user_message}
       ]
 
-      case complete(endpoint_id, messages, opts) do
+      # Pass prompt info to complete for request logging
+      opts_with_prompt =
+        opts
+        |> Keyword.put(:prompt_id, prompt.id)
+        |> Keyword.put(:prompt_name, prompt.name)
+
+      case complete(endpoint_id, messages, opts_with_prompt) do
         {:ok, response} ->
           # Only increment usage on successful completion
           increment_prompt_usage(prompt_id)
@@ -840,6 +973,7 @@ defmodule PhoenixKit.AI do
     %Request{}
     |> Request.changeset(attrs)
     |> repo().insert()
+    |> broadcast_request_change(:request_created)
   end
 
   @doc """
@@ -1088,15 +1222,39 @@ defmodule PhoenixKit.AI do
       # Allow manual override of source, but all debug info is always captured
       source = Keyword.get(opts, :source) || auto_source
 
+      # Extract prompt info if present (from ask_with_prompt, complete_with_system_prompt)
+      prompt_info = %{
+        prompt_id: Keyword.get(opts, :prompt_id),
+        prompt_name: Keyword.get(opts, :prompt_name)
+      }
+
       merged_opts = merge_endpoint_opts(endpoint, opts)
 
       case Completion.chat_completion(endpoint, messages, merged_opts) do
         {:ok, response} ->
-          log_request(endpoint, messages, response, source, stacktrace, caller_context)
+          log_request(
+            endpoint,
+            messages,
+            response,
+            source,
+            stacktrace,
+            caller_context,
+            prompt_info
+          )
+
           {:ok, response}
 
         {:error, reason} ->
-          log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context)
+          log_failed_request(
+            endpoint,
+            messages,
+            reason,
+            source,
+            stacktrace,
+            caller_context,
+            prompt_info
+          )
+
           {:error, reason}
       end
     end
@@ -1260,7 +1418,12 @@ defmodule PhoenixKit.AI do
       presence_penalty: endpoint.presence_penalty,
       repetition_penalty: endpoint.repetition_penalty,
       stop: endpoint.stop,
-      seed: endpoint.seed
+      seed: endpoint.seed,
+      # Reasoning/thinking parameters (for models like DeepSeek R1, Qwen QwQ)
+      reasoning_enabled: endpoint.reasoning_enabled,
+      reasoning_effort: endpoint.reasoning_effort,
+      reasoning_max_tokens: endpoint.reasoning_max_tokens,
+      reasoning_exclude: endpoint.reasoning_exclude
     ]
 
     # Filter out nil values and merge with user opts
@@ -1351,7 +1514,7 @@ defmodule PhoenixKit.AI do
   # REQUEST LOGGING
   # ===========================================
 
-  defp log_request(endpoint, messages, response, source, stacktrace, caller_context) do
+  defp log_request(endpoint, messages, response, source, stacktrace, caller_context, prompt_info) do
     usage = Completion.extract_usage(response)
 
     # Extract response content
@@ -1372,6 +1535,8 @@ defmodule PhoenixKit.AI do
     create_request(%{
       endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
+      prompt_id: prompt_info[:prompt_id],
+      prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
       input_tokens: usage.prompt_tokens,
@@ -1395,10 +1560,20 @@ defmodule PhoenixKit.AI do
     })
   end
 
-  defp log_failed_request(endpoint, messages, reason, source, stacktrace, caller_context) do
+  defp log_failed_request(
+         endpoint,
+         messages,
+         reason,
+         source,
+         stacktrace,
+         caller_context,
+         prompt_info
+       ) do
     create_request(%{
       endpoint_id: endpoint.id,
       endpoint_name: endpoint.name,
+      prompt_id: prompt_info[:prompt_id],
+      prompt_name: prompt_info[:prompt_name],
       model: endpoint.model,
       request_type: "chat",
       status: "error",

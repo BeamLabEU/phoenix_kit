@@ -10,6 +10,8 @@ defmodule PhoenixKit.AI.Request do
   ### Request Identity
   - `endpoint_id`: Foreign key to the AI endpoint used (new system)
   - `endpoint_name`: Denormalized endpoint name for historical display
+  - `prompt_id`: Foreign key to the AI prompt used (if request used a prompt template)
+  - `prompt_name`: Denormalized prompt name for historical display
   - `account_id`: Foreign key to AI account (deprecated, for backward compatibility)
   - `user_id`: Foreign key to the user who made the request (nullable if user deleted)
   - `slot_index`: Which slot was used (deprecated, for backward compatibility)
@@ -69,6 +71,7 @@ defmodule PhoenixKit.AI.Request do
   import Ecto.Changeset
 
   alias PhoenixKit.AI.Endpoint
+  alias PhoenixKit.AI.Prompt
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}
@@ -80,6 +83,8 @@ defmodule PhoenixKit.AI.Request do
              :id,
              :endpoint_id,
              :endpoint_name,
+             :prompt_id,
+             :prompt_name,
              :account_id,
              :user_id,
              :slot_index,
@@ -101,6 +106,9 @@ defmodule PhoenixKit.AI.Request do
     # New endpoint system fields
     field :endpoint_name, :string
 
+    # Prompt tracking (when request uses a prompt template)
+    field :prompt_name, :string
+
     # Legacy fields (for backward compatibility)
     field :slot_index, :integer
 
@@ -118,6 +126,7 @@ defmodule PhoenixKit.AI.Request do
 
     # Associations
     belongs_to :endpoint, Endpoint
+    belongs_to :prompt, Prompt
     # Legacy account_id field (backward compatibility, no association since Account was removed)
     field :account_id, :integer
     belongs_to :user, User
@@ -133,6 +142,8 @@ defmodule PhoenixKit.AI.Request do
     |> cast(attrs, [
       :endpoint_id,
       :endpoint_name,
+      :prompt_id,
+      :prompt_name,
       :account_id,
       :user_id,
       :slot_index,
