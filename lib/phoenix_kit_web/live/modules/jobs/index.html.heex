@@ -158,7 +158,11 @@
               </.table_default_row>
             <% else %>
               <%= for job <- @jobs do %>
-                <.table_default_row>
+                <.table_default_row
+                  class="cursor-pointer hover:bg-base-200"
+                  phx-click="show_job"
+                  phx-value-id={job.id}
+                >
                   <.table_default_cell class="font-mono text-xs">{job.id}</.table_default_cell>
                   <.table_default_cell>
                     <span class="badge badge-sm badge-outline">{job.queue}</span>
@@ -223,5 +227,154 @@
         <% end %>
       </div>
     </div>
+
+    <%!-- Job Detail Modal --%>
+    <%= if @selected_job do %>
+      <div class="modal modal-open" phx-window-keydown="close_job" phx-key="Escape">
+        <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
+          <button
+            type="button"
+            class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+            phx-click="close_job"
+          >
+            ✕
+          </button>
+
+          <h3 class="font-bold text-lg flex items-center gap-2 pr-8">
+            <span>{short_worker_name(@selected_job.worker)}</span>
+            <span class={"badge badge-sm #{state_badge_class(@selected_job.state)}"}>
+              {@selected_job.state}
+            </span>
+          </h3>
+          <p class="text-xs text-base-content/50 mb-4">{@selected_job.worker}</p>
+
+          <%!-- Basic Info Grid --%>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div>
+              <div class="text-xs text-base-content/50">ID</div>
+              <div class="font-mono text-sm">{@selected_job.id}</div>
+            </div>
+            <div>
+              <div class="text-xs text-base-content/50">Queue</div>
+              <div class="text-sm">{@selected_job.queue}</div>
+            </div>
+            <div>
+              <div class="text-xs text-base-content/50">Attempts</div>
+              <div class="text-sm">{@selected_job.attempt}/{@selected_job.max_attempts}</div>
+            </div>
+            <div>
+              <div class="text-xs text-base-content/50">Priority</div>
+              <div class="text-sm">{@selected_job.priority}</div>
+            </div>
+          </div>
+
+          <%!-- Timestamps --%>
+          <div class="mb-6">
+            <h4 class="font-semibold text-sm mb-2">Timestamps</h4>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <div>
+                <span class="text-base-content/50">Inserted:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_job.inserted_at)}
+                </span>
+              </div>
+              <div>
+                <span class="text-base-content/50">Scheduled:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_job.scheduled_at)}
+                </span>
+              </div>
+              <div>
+                <span class="text-base-content/50">Attempted:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_job.attempted_at)}
+                </span>
+              </div>
+              <div>
+                <span class="text-base-content/50">Completed:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_job.completed_at)}
+                </span>
+              </div>
+              <%= if @selected_job.discarded_at do %>
+                <div>
+                  <span class="text-error">Discarded:</span>
+                  <span class="font-mono text-xs ml-1">
+                    {format_datetime(@selected_job.discarded_at)}
+                  </span>
+                </div>
+              <% end %>
+              <%= if @selected_job.cancelled_at do %>
+                <div>
+                  <span class="text-warning">Cancelled:</span>
+                  <span class="font-mono text-xs ml-1">
+                    {format_datetime(@selected_job.cancelled_at)}
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Tags --%>
+          <%= if @selected_job.tags && @selected_job.tags != [] do %>
+            <div class="mb-6">
+              <h4 class="font-semibold text-sm mb-2">Tags</h4>
+              <div class="flex flex-wrap gap-1">
+                <%= for tag <- @selected_job.tags do %>
+                  <span class="badge badge-sm badge-outline">{tag}</span>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Args --%>
+          <div class="collapse collapse-arrow bg-base-200 mb-2">
+            <input type="checkbox" checked />
+            <div class="collapse-title font-semibold text-sm">
+              Arguments
+            </div>
+            <div class="collapse-content">
+              <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_job.args)}</code></pre>
+            </div>
+          </div>
+
+          <%!-- Meta --%>
+          <%= if @selected_job.meta && @selected_job.meta != %{} do %>
+            <div class="collapse collapse-arrow bg-base-200 mb-2">
+              <input type="checkbox" />
+              <div class="collapse-title font-semibold text-sm">
+                Metadata
+              </div>
+              <div class="collapse-content">
+                <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_job.meta)}</code></pre>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Errors --%>
+          <%= if @selected_job.errors && @selected_job.errors != [] do %>
+            <div class="collapse collapse-arrow bg-error/10 mb-2">
+              <input type="checkbox" checked />
+              <div class="collapse-title font-semibold text-sm text-error">
+                Errors ({length(@selected_job.errors)})
+              </div>
+              <div class="collapse-content">
+                <%= for {error, idx} <- Enum.with_index(@selected_job.errors) do %>
+                  <div class="mb-4 last:mb-0">
+                    <div class="text-xs text-base-content/50 mb-1">Attempt {idx + 1}</div>
+                    <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto whitespace-pre-wrap"><code>{format_json(error)}</code></pre>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="modal-action">
+            <button type="button" class="btn" phx-click="close_job">Close</button>
+          </div>
+        </div>
+        <div class="modal-backdrop" phx-click="close_job"></div>
+      </div>
+    <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

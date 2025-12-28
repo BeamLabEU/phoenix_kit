@@ -42,6 +42,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
         |> assign(:hidden_workers, load_hidden_workers())
         |> assign(:current_page, 1)
         |> assign(:per_page, @per_page)
+        |> assign(:selected_job, nil)
         |> load_stats()
         |> load_jobs()
 
@@ -130,6 +131,17 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   end
 
   @impl true
+  def handle_event("show_job", %{"id" => id}, socket) do
+    job = load_job(String.to_integer(id))
+    {:noreply, assign(socket, :selected_job, job)}
+  end
+
+  @impl true
+  def handle_event("close_job", _params, socket) do
+    {:noreply, assign(socket, :selected_job, nil)}
+  end
+
+  @impl true
   def handle_info(:refresh, socket) do
     Process.send_after(self(), :refresh, @refresh_interval)
 
@@ -187,6 +199,34 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     |> assign(:jobs, jobs)
     |> assign(:total_count, total_count)
     |> assign(:total_pages, total_pages)
+  end
+
+  defp load_job(id) do
+    repo = PhoenixKit.Config.get_repo()
+
+    from(j in "oban_jobs",
+      where: j.id == ^id,
+      select: %{
+        id: j.id,
+        queue: j.queue,
+        worker: j.worker,
+        state: j.state,
+        args: j.args,
+        meta: j.meta,
+        tags: j.tags,
+        errors: j.errors,
+        attempt: j.attempt,
+        max_attempts: j.max_attempts,
+        priority: j.priority,
+        inserted_at: j.inserted_at,
+        scheduled_at: j.scheduled_at,
+        attempted_at: j.attempted_at,
+        completed_at: j.completed_at,
+        discarded_at: j.discarded_at,
+        cancelled_at: j.cancelled_at
+      }
+    )
+    |> repo.one()
   end
 
   defp load_stats(socket) do
@@ -277,6 +317,14 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   defp format_datetime(dt) do
     Calendar.strftime(dt, "%Y-%m-%d %H:%M:%S")
   end
+
+  defp format_json(nil), do: "-"
+
+  defp format_json(data) when is_map(data) or is_list(data) do
+    Jason.encode!(data, pretty: true)
+  end
+
+  defp format_json(data), do: inspect(data)
 
   defp short_worker_name(worker) when is_binary(worker) do
     worker
