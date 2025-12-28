@@ -50,34 +50,23 @@
     <div class="card bg-base-100 shadow-xl">
       <div class="card-body p-4">
         <div class="flex flex-wrap gap-4 mb-4">
-          <div class="form-control">
+          <form phx-change="filter_queue" class="form-control">
             <label class="label py-1">
               <span class="label-text text-xs">Queue</span>
             </label>
-            <select
-              class="select select-bordered select-sm"
-              phx-change="filter_queue"
-              name="queue"
-            >
+            <select class="select select-bordered select-sm" name="queue">
               <option value="all" selected={@filter_queue == "all"}>All Queues</option>
-              <option value="default" selected={@filter_queue == "default"}>default</option>
-              <option value="emails" selected={@filter_queue == "emails"}>emails</option>
-              <option value="file_processing" selected={@filter_queue == "file_processing"}>
-                file_processing
-              </option>
-              <option value="posts" selected={@filter_queue == "posts"}>posts</option>
+              <%= for {queue, _count} <- @queue_stats do %>
+                <option value={queue} selected={@filter_queue == queue}>{queue}</option>
+              <% end %>
             </select>
-          </div>
+          </form>
 
-          <div class="form-control">
+          <form phx-change="filter_state" class="form-control">
             <label class="label py-1">
               <span class="label-text text-xs">State</span>
             </label>
-            <select
-              class="select select-bordered select-sm"
-              phx-change="filter_state"
-              name="state"
-            >
+            <select class="select select-bordered select-sm" name="state">
               <option value="all" selected={@filter_state == "all"}>All States</option>
               <option value="available" selected={@filter_state == "available"}>available</option>
               <option value="scheduled" selected={@filter_state == "scheduled"}>scheduled</option>
@@ -87,7 +76,7 @@
               <option value="discarded" selected={@filter_state == "discarded"}>discarded</option>
               <option value="cancelled" selected={@filter_state == "cancelled"}>cancelled</option>
             </select>
-          </div>
+          </form>
 
           <div class="flex-1"></div>
 
