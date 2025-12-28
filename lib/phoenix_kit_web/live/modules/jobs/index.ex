@@ -38,10 +38,12 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
         |> assign(:url_path, Routes.path("/admin/jobs"))
         |> assign(:filter_queue, "all")
         |> assign(:filter_state, "all")
+        |> assign(:filter_worker, "all")
+        |> assign(:hidden_workers, load_hidden_workers())
         |> assign(:current_page, 1)
         |> assign(:per_page, @per_page)
-        |> load_jobs()
         |> load_stats()
+        |> load_jobs()
 
       {:ok, socket}
     end
@@ -63,6 +65,52 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     socket =
       socket
       |> assign(:filter_state, state)
+      |> assign(:current_page, 1)
+      |> load_jobs()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("filter_worker", %{"worker" => worker}, socket) do
+    socket =
+      socket
+      |> assign(:filter_worker, worker)
+      |> assign(:current_page, 1)
+      |> load_jobs()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("toggle_hide_worker", %{"worker" => worker}, socket) do
+    hidden = socket.assigns.hidden_workers
+
+    new_hidden =
+      if worker in hidden do
+        List.delete(hidden, worker)
+      else
+        [worker | hidden]
+      end
+
+    save_hidden_workers(new_hidden)
+
+    socket =
+      socket
+      |> assign(:hidden_workers, new_hidden)
+      |> assign(:current_page, 1)
+      |> load_jobs()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("clear_hidden_workers", _params, socket) do
+    save_hidden_workers([])
+
+    socket =
+      socket
+      |> assign(:hidden_workers, [])
       |> assign(:current_page, 1)
       |> load_jobs()
 
@@ -97,6 +145,8 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     repo = PhoenixKit.Config.get_repo()
     filter_queue = socket.assigns.filter_queue
     filter_state = socket.assigns.filter_state
+    filter_worker = socket.assigns.filter_worker
+    hidden_workers = socket.assigns.hidden_workers
     page = socket.assigns.current_page
     per_page = socket.assigns.per_page
 
@@ -120,6 +170,8 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
       base_query
       |> maybe_filter_queue(filter_queue)
       |> maybe_filter_state(filter_state)
+      |> maybe_filter_worker(filter_worker)
+      |> maybe_exclude_hidden_workers(hidden_workers, filter_worker)
 
     total_count = repo.aggregate(query, :count, :id)
     total_pages = max(1, ceil(total_count / per_page))
@@ -162,9 +214,21 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
       |> repo.all()
       |> Enum.into(%{})
 
+    worker_query =
+      from(j in "oban_jobs",
+        group_by: [j.worker],
+        select: {j.worker, count(j.id)}
+      )
+
+    workers =
+      worker_query
+      |> repo.all()
+      |> Enum.sort_by(fn {name, _} -> name end)
+
     socket
     |> assign(:stats, stats)
     |> assign(:queue_stats, queues)
+    |> assign(:worker_stats, workers)
   end
 
   defp maybe_filter_queue(query, "all"), do: query
@@ -172,6 +236,28 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
 
   defp maybe_filter_state(query, "all"), do: query
   defp maybe_filter_state(query, state), do: where(query, [j], j.state == ^state)
+
+  defp maybe_filter_worker(query, "all"), do: query
+  defp maybe_filter_worker(query, worker), do: where(query, [j], j.worker == ^worker)
+
+  # Only exclude hidden workers when viewing "all" workers
+  defp maybe_exclude_hidden_workers(query, [], _filter_worker), do: query
+
+  defp maybe_exclude_hidden_workers(query, _hidden, filter_worker) when filter_worker != "all",
+    do: query
+
+  defp maybe_exclude_hidden_workers(query, hidden_workers, "all") do
+    where(query, [j], j.worker not in ^hidden_workers)
+  end
+
+  defp load_hidden_workers do
+    Settings.get_setting("jobs_hidden_workers", "")
+    |> String.split(",", trim: true)
+  end
+
+  defp save_hidden_workers(workers) do
+    Settings.update_setting("jobs_hidden_workers", Enum.join(workers, ","))
+  end
 
   defp state_badge_class(state) do
     case state do
