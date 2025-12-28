@@ -204,7 +204,7 @@ defmodule PhoenixKit.ScheduledJobs do
       where: j.scheduled_at <= ^as_of,
       order_by: [desc: j.priority, asc: j.scheduled_at]
     )
-    |> repo().all()
+    |> repo().all(log: false)
   end
 
   @doc """
