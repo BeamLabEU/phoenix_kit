@@ -12,6 +12,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   use PhoenixKit.Install.IgniterCompat
 
   # Mix functions only available at compile-time during installation
+  @dialyzer {:nowarn_function, cleanup_oban_config_syntax: 0}
   @dialyzer {:nowarn_function, update_existing_oban_config: 3}
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
