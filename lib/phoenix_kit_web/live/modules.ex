@@ -11,12 +11,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Billing
   alias PhoenixKit.DBSync
   alias PhoenixKit.Entities
+  alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
-  alias PhoenixKit.Jobs
   alias PhoenixKit.Pages
   alias PhoenixKit.Posts
   alias PhoenixKit.ReferralCodes

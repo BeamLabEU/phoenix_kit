@@ -20,12 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   @impl true
   def mount(_params, _session, socket) do
     # Check if module is enabled
-    unless JobsModule.enabled?() do
-      {:ok,
-       socket
-       |> put_flash(:error, "Jobs module is not enabled. Enable it from the Modules page.")
-       |> redirect(to: Routes.path("/admin/modules"))}
-    else
+    if JobsModule.enabled?() do
       project_title = Settings.get_setting("project_title", "PhoenixKit")
 
       if connected?(socket) do
@@ -51,6 +46,11 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
         |> load_scheduled_jobs()
 
       {:ok, socket}
+    else
+      {:ok,
+       socket
+       |> put_flash(:error, "Jobs module is not enabled. Enable it from the Modules page.")
+       |> redirect(to: Routes.path("/admin/modules"))}
     end
   end
 
