@@ -1,3 +1,7 @@
+## 1.7.15 - 2025-12-29
+- Major AI Module enhancements: real-time PubSub updates across tabs, client-side TimeAgo hook for efficient time displays, reasoning/thinking parameters for AI endpoints, prompt tracking in request logs, and pagination with date filtering on admin pages.
+- Initial Job Module release with basic functionality
+
 ## 1.7.14 - 2025-12-26
 - Improve V40 UUID migration UX and documentation
 - Add UUIDv7 generation to all Ecto schemas
