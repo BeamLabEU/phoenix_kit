@@ -95,46 +95,54 @@
         </div>
 
         <%!-- Jobs Table --%>
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Queue</th>
-                <th>Worker</th>
-                <th>State</th>
-                <th>Attempt</th>
-                <th>Inserted</th>
-                <th>Scheduled</th>
-              </tr>
-            </thead>
-            <tbody>
-              <%= if Enum.empty?(@jobs) do %>
-                <tr>
-                  <td colspan="7" class="text-center py-8 text-base-content/50">
-                    No jobs found
-                  </td>
-                </tr>
-              <% else %>
-                <%= for job <- @jobs do %>
-                  <tr class="hover">
-                    <td class="font-mono text-xs">{job.id}</td>
-                    <td><span class="badge badge-sm badge-outline">{job.queue}</span></td>
-                    <td class="text-sm" title={job.worker}>{short_worker_name(job.worker)}</td>
-                    <td>
-                      <span class={"badge badge-sm #{state_badge_class(job.state)}"}>
-                        {job.state}
-                      </span>
-                    </td>
-                    <td class="text-center">{job.attempt}/{job.max_attempts}</td>
-                    <td class="text-xs text-base-content/70">{format_datetime(job.inserted_at)}</td>
-                    <td class="text-xs text-base-content/70">{format_datetime(job.scheduled_at)}</td>
-                  </tr>
-                <% end %>
+        <.table_default variant="zebra" size="sm">
+          <.table_default_header>
+            <.table_default_row>
+              <.table_default_header_cell>ID</.table_default_header_cell>
+              <.table_default_header_cell>Queue</.table_default_header_cell>
+              <.table_default_header_cell>Worker</.table_default_header_cell>
+              <.table_default_header_cell>State</.table_default_header_cell>
+              <.table_default_header_cell>Attempt</.table_default_header_cell>
+              <.table_default_header_cell>Inserted</.table_default_header_cell>
+              <.table_default_header_cell>Scheduled</.table_default_header_cell>
+            </.table_default_row>
+          </.table_default_header>
+          <.table_default_body>
+            <%= if Enum.empty?(@jobs) do %>
+              <.table_default_row hover={false}>
+                <.table_default_cell colspan={7} class="text-center py-8 text-base-content/50">
+                  No jobs found
+                </.table_default_cell>
+              </.table_default_row>
+            <% else %>
+              <%= for job <- @jobs do %>
+                <.table_default_row>
+                  <.table_default_cell class="font-mono text-xs">{job.id}</.table_default_cell>
+                  <.table_default_cell>
+                    <span class="badge badge-sm badge-outline">{job.queue}</span>
+                  </.table_default_cell>
+                  <.table_default_cell class="text-sm" title={job.worker}>
+                    {short_worker_name(job.worker)}
+                  </.table_default_cell>
+                  <.table_default_cell>
+                    <span class={"badge badge-sm #{state_badge_class(job.state)}"}>
+                      {job.state}
+                    </span>
+                  </.table_default_cell>
+                  <.table_default_cell class="text-center">
+                    {job.attempt}/{job.max_attempts}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs text-base-content/70">
+                    {format_datetime(job.inserted_at)}
+                  </.table_default_cell>
+                  <.table_default_cell class="text-xs text-base-content/70">
+                    {format_datetime(job.scheduled_at)}
+                  </.table_default_cell>
+                </.table_default_row>
               <% end %>
-            </tbody>
-          </table>
-        </div>
+            <% end %>
+          </.table_default_body>
+        </.table_default>
 
         <%!-- Pagination --%>
         <%= if @total_pages > 1 do %>
