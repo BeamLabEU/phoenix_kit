@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Migrations.Postgres.V41 do
+defmodule PhoenixKit.Migrations.Postgres.V42 do
   @moduledoc """
-  PhoenixKit V41 Migration: Universal Scheduled Jobs System
+  PhoenixKit V42 Migration: Universal Scheduled Jobs System
 
   This migration introduces a centralized scheduled jobs system that can handle
   any type of scheduled task (posts, emails, notifications, etc.) using a
@@ -31,7 +31,7 @@ defmodule PhoenixKit.Migrations.Postgres.V41 do
   use Ecto.Migration
 
   @doc """
-  Run the V41 migration to add the scheduled jobs system.
+  Run the V42 migration to add the scheduled jobs system.
   """
   def up(%{prefix: prefix} = _opts) do
     # ===========================================
@@ -158,11 +158,11 @@ defmodule PhoenixKit.Migrations.Postgres.V41 do
     """
 
     # Update version
-    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '41'"
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '42'"
   end
 
   @doc """
-  Rollback the V41 migration.
+  Rollback the V42 migration.
   """
   def down(%{prefix: prefix} = _opts) do
     # Drop foreign key
@@ -208,7 +208,7 @@ defmodule PhoenixKit.Migrations.Postgres.V41 do
     drop_if_exists table(:phoenix_kit_scheduled_jobs, prefix: prefix)
 
     # Update version
-    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '40'"
+    execute "COMMENT ON TABLE #{prefix_table_name("phoenix_kit", prefix)} IS '41'"
   end
 
   defp prefix_table_name(table_name, nil), do: table_name

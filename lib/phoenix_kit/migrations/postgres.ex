@@ -295,7 +295,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Optional module aware: skips tables that don't exist
   - Batched updates for large tables to avoid lock contention
 
-  ### V41 - Universal Scheduled Jobs System ⚡ LATEST
+  ### V42 - Universal Scheduled Jobs System ⚡ LATEST
   - Phoenix_kit_scheduled_jobs for polymorphic scheduled task management
   - Behaviour-based handler pattern for extensibility
   - Priority-based job execution ordering
@@ -362,7 +362,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 41
+  @current_version 42
   @default_prefix "public"
 
   @doc false
