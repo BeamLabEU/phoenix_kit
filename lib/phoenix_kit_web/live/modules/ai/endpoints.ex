@@ -35,14 +35,16 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
     {:last_used, "Last Used"}
   ]
 
+  @page_size 20
+
   @impl true
   def mount(_params, session, socket) do
     current_path = get_current_path(socket, session)
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     # Check if we have any endpoints for initial tab selection
-    endpoints = AI.list_endpoints()
-    has_endpoints = not Enum.empty?(endpoints)
+    {_endpoints, total} = AI.list_endpoints()
+    has_endpoints = total > 0
 
     socket =
       socket
@@ -55,6 +57,9 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       |> assign(:sort_by, :id)
       |> assign(:sort_dir, :asc)
       |> assign(:sort_options, @sort_options)
+      |> assign(:page, 1)
+      |> assign(:page_size, @page_size)
+      |> assign(:total_endpoints, 0)
       |> assign(:active_tab, if(has_endpoints, do: "endpoints", else: "setup"))
       |> assign(:usage_loaded, false)
       |> assign(:usage_stats, nil)
@@ -69,6 +74,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       |> assign(:usage_filter_model, nil)
       |> assign(:usage_filter_status, nil)
       |> assign(:usage_filter_source, nil)
+      |> assign(:usage_filter_date, "7d")
       |> assign(:usage_filter_options, %{endpoints: [], models: [], statuses: [], sources: []})
 
     {:ok, socket}
@@ -101,11 +107,12 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       socket =
         case tab do
           "endpoints" ->
-            {sort_by, sort_dir} = parse_sort_params(params)
+            {sort_by, sort_dir, page} = parse_sort_params(params)
 
             socket
             |> assign(:sort_by, sort_by)
             |> assign(:sort_dir, sort_dir)
+            |> assign(:page, page)
             |> maybe_reload_endpoints(tab)
 
           "usage" ->
@@ -118,6 +125,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
             |> assign(:usage_filter_model, filters.model)
             |> assign(:usage_filter_status, filters.status)
             |> assign(:usage_filter_source, filters.source)
+            |> assign(:usage_filter_date, filters.date)
             |> load_usage_data()
 
           _ ->
@@ -151,7 +159,25 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
         _ -> :asc
       end
 
-    {sort_by, sort_dir}
+    page =
+      case params["page"] do
+        nil ->
+          1
+
+        "" ->
+          1
+
+        p when is_binary(p) ->
+          case Integer.parse(p) do
+            {n, ""} when n > 0 -> n
+            _ -> 1
+          end
+
+        _ ->
+          1
+      end
+
+    {sort_by, sort_dir, page}
   end
 
   @valid_usage_sort_fields ~w(inserted_at endpoint_name model total_tokens latency_ms cost_cents status)
@@ -177,11 +203,19 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       endpoint: parse_integer_param(params["endpoint"]),
       model: parse_string_param(params["model"]),
       status: parse_string_param(params["status"]),
-      source: parse_string_param(params["source"])
+      source: parse_string_param(params["source"]),
+      date: parse_date_filter(params["date"])
     }
 
     {sort_by, sort_dir, filters}
   end
+
+  @valid_date_filters ~w(today 7d 30d all)
+
+  defp parse_date_filter(nil), do: "7d"
+  defp parse_date_filter(""), do: "7d"
+  defp parse_date_filter(value) when value in @valid_date_filters, do: value
+  defp parse_date_filter(_), do: "7d"
 
   defp parse_integer_param(nil), do: nil
   defp parse_integer_param(""), do: nil
@@ -198,6 +232,10 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   defp parse_string_param(value), do: value
 
   defp build_usage_url(sort_by, sort_dir, assigns) do
+    # Only include date in URL if it's not the default
+    date_param =
+      if assigns[:usage_filter_date] != "7d", do: assigns[:usage_filter_date], else: nil
+
     params =
       [
         {"sort", Atom.to_string(sort_by)},
@@ -207,6 +245,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       |> maybe_add_url_param("model", assigns[:usage_filter_model])
       |> maybe_add_url_param("status", assigns[:usage_filter_status])
       |> maybe_add_url_param("source", assigns[:usage_filter_source])
+      |> maybe_add_url_param("date", date_param)
 
     query = URI.encode_query(params)
     Routes.ai_path() <> "/usage?#{query}"
@@ -273,9 +312,24 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
         :desc
       end
 
-    # Update URL with sort params
+    # Reset to page 1 when sorting changes, update URL with sort params
     path = Routes.ai_path() <> "/endpoints?sort=#{field}&dir=#{sort_dir}"
     {:noreply, push_patch(socket, to: path)}
+  end
+
+  @impl true
+  def handle_event("goto_page", %{"page" => page_str}, socket) do
+    case Integer.parse(page_str) do
+      {page, ""} when page > 0 ->
+        sort_by = socket.assigns.sort_by
+        sort_dir = socket.assigns.sort_dir
+
+        path = build_endpoints_url(sort_by, sort_dir, page)
+        {:noreply, push_patch(socket, to: path)}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   # ===========================================
@@ -297,6 +351,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)
       |> maybe_add_filter(:status, socket.assigns.usage_filter_status)
       |> maybe_add_filter(:source, socket.assigns.usage_filter_source)
+      |> maybe_add_filter(:since, date_filter_to_datetime(socket.assigns.usage_filter_date))
 
     {new_requests, _total} = AI.list_requests(opts)
 
@@ -326,11 +381,14 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   end
 
   @impl true
-  def handle_event(
-        "usage_filter",
-        %{"endpoint" => endpoint, "model" => model, "status" => status, "source" => source},
-        socket
-      ) do
+  def handle_event("usage_filter", params, socket) do
+    # Extract values with defaults (some fields may be hidden when < 2 options)
+    endpoint = Map.get(params, "endpoint", "")
+    model = Map.get(params, "model", "")
+    status = Map.get(params, "status", "")
+    source = Map.get(params, "source", "")
+    date = Map.get(params, "date", "7d")
+
     # Build new assigns for URL generation
     new_assigns = %{
       usage_sort_by: socket.assigns.usage_sort_by,
@@ -338,7 +396,8 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       usage_filter_endpoint: if(endpoint == "", do: nil, else: String.to_integer(endpoint)),
       usage_filter_model: if(model == "", do: nil, else: model),
       usage_filter_status: if(status == "", do: nil, else: status),
-      usage_filter_source: if(source == "", do: nil, else: source)
+      usage_filter_source: if(source == "", do: nil, else: source),
+      usage_filter_date: if(date == "", do: "7d", else: date)
     }
 
     path = build_usage_url(new_assigns.usage_sort_by, new_assigns.usage_sort_dir, new_assigns)
@@ -352,7 +411,8 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
         usage_filter_endpoint: nil,
         usage_filter_model: nil,
         usage_filter_status: nil,
-        usage_filter_source: nil
+        usage_filter_source: nil,
+        usage_filter_date: "7d"
       })
 
     {:noreply, push_patch(socket, to: path)}
@@ -378,13 +438,34 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   defp reload_endpoints(socket) do
     sort_by = socket.assigns.sort_by
     sort_dir = socket.assigns.sort_dir
+    page = socket.assigns.page
+    page_size = socket.assigns.page_size
 
-    endpoints = AI.list_endpoints(sort_by: sort_by, sort_dir: sort_dir)
+    {endpoints, total} =
+      AI.list_endpoints(
+        sort_by: sort_by,
+        sort_dir: sort_dir,
+        page: page,
+        page_size: page_size
+      )
+
     endpoint_stats = AI.get_endpoint_usage_stats()
 
     socket
     |> assign(:endpoints, endpoints)
     |> assign(:endpoint_stats, endpoint_stats)
+    |> assign(:total_endpoints, total)
+    |> assign(:has_endpoints, total > 0)
+  end
+
+  defp build_endpoints_url(sort_by, sort_dir, page) do
+    base = Routes.ai_path() <> "/endpoints?sort=#{sort_by}&dir=#{sort_dir}"
+
+    if page > 1 do
+      base <> "&page=#{page}"
+    else
+      base
+    end
   end
 
   defp load_usage_data(socket) do
@@ -418,6 +499,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
       |> maybe_add_filter(:model, socket.assigns.usage_filter_model)
       |> maybe_add_filter(:status, socket.assigns.usage_filter_status)
       |> maybe_add_filter(:source, socket.assigns.usage_filter_source)
+      |> maybe_add_filter(:since, date_filter_to_datetime(socket.assigns.usage_filter_date))
 
     {requests, total} = AI.list_requests(opts)
 
@@ -430,6 +512,25 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   defp maybe_add_filter(opts, _key, nil), do: opts
   defp maybe_add_filter(opts, _key, ""), do: opts
   defp maybe_add_filter(opts, key, value), do: Keyword.put(opts, key, value)
+
+  # Convert date filter string to DateTime for the :since filter
+  defp date_filter_to_datetime("today") do
+    Date.utc_today()
+    |> DateTime.new!(~T[00:00:00], "Etc/UTC")
+  end
+
+  defp date_filter_to_datetime("7d") do
+    DateTime.utc_now()
+    |> DateTime.add(-7, :day)
+  end
+
+  defp date_filter_to_datetime("30d") do
+    DateTime.utc_now()
+    |> DateTime.add(-30, :day)
+  end
+
+  defp date_filter_to_datetime("all"), do: nil
+  defp date_filter_to_datetime(_), do: nil
 
   defp get_current_path(socket, session) do
     case socket.assigns do

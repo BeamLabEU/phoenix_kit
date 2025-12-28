@@ -599,16 +599,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             nested={true}
                           />
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/ai/usage")}
-                            icon="hero-chart-bar"
-                            label={gettext("Usage")}
+                            href={Routes.locale_aware_path(assigns, "/admin/ai/prompts")}
+                            icon="hero-document-text"
+                            label={gettext("Prompts")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/ai/prompts")}
-                            icon="hero-document-text"
-                            label={gettext("Prompts")}
+                            href={Routes.locale_aware_path(assigns, "/admin/ai/usage")}
+                            icon="hero-chart-bar"
+                            label={gettext("Usage")}
                             current_path={@current_path || ""}
                             nested={true}
                           />

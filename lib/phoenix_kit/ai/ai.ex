@@ -135,6 +135,9 @@ defmodule PhoenixKit.AI do
   def list_endpoints(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
     sort_dir = Keyword.get(opts, :sort_dir, :asc)
+    # Always paginate, default to page 1 and ensure it's > 0
+    page = Keyword.get(opts, :page, 1) |> max(1)
+    page_size = Keyword.get(opts, :page_size, 20)
 
     query = from(e in Endpoint)
 
@@ -159,7 +162,18 @@ defmodule PhoenixKit.AI do
         preloads -> preload(query, ^preloads)
       end
 
-    repo().all(query)
+    # Perform a single count query for the total
+    total = repo().aggregate(query, :count, :id)
+    offset = (page - 1) * page_size
+
+    endpoints =
+      query
+      |> limit(^page_size)
+      |> offset(^offset)
+      |> repo().all()
+
+    # Always return the same shape
+    {endpoints, total}
   end
 
   defp apply_endpoint_sorting(query, :usage, dir) do
@@ -352,6 +366,8 @@ defmodule PhoenixKit.AI do
   def list_prompts(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
     sort_dir = Keyword.get(opts, :sort_dir, :asc)
+    page = Keyword.get(opts, :page)
+    page_size = Keyword.get(opts, :page_size, 20)
 
     query = from(p in Prompt)
 
@@ -363,7 +379,22 @@ defmodule PhoenixKit.AI do
 
     query = order_by(query, [p], [{^sort_dir, field(p, ^sort_by)}])
 
-    repo().all(query)
+    # If page is provided, return paginated results with total count
+    if page do
+      total = repo().aggregate(query, :count, :id)
+      offset = (page - 1) * page_size
+
+      prompts =
+        query
+        |> limit(^page_size)
+        |> offset(^offset)
+        |> repo().all()
+
+      {prompts, total}
+    else
+      # No pagination - return all (backwards compatible)
+      repo().all(query)
+    end
   end
 
   @doc """

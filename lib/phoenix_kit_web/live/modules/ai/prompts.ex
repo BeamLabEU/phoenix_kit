@@ -32,6 +32,8 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
     {:inserted_at, "Created"}
   ]
 
+  @page_size 20
+
   @impl true
   def mount(_params, session, socket) do
     current_path = get_current_path(socket, session)
@@ -46,19 +48,23 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
       |> assign(:sort_by, :sort_order)
       |> assign(:sort_dir, :asc)
       |> assign(:sort_options, @sort_options)
+      |> assign(:page, 1)
+      |> assign(:page_size, @page_size)
+      |> assign(:total_prompts, 0)
 
     {:ok, socket}
   end
 
   @impl true
   def handle_params(params, uri, socket) do
-    {sort_by, sort_dir} = parse_sort_params(params)
+    {sort_by, sort_dir, page} = parse_sort_params(params)
     current_path = URI.parse(uri).path
 
     socket =
       socket
       |> assign(:sort_by, sort_by)
       |> assign(:sort_dir, sort_dir)
+      |> assign(:page, page)
       |> assign(:current_path, current_path)
       |> reload_prompts()
 
@@ -88,7 +94,25 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
         _ -> :asc
       end
 
-    {sort_by, sort_dir}
+    page =
+      case params["page"] do
+        nil ->
+          1
+
+        "" ->
+          1
+
+        p when is_binary(p) ->
+          case Integer.parse(p) do
+            {n, ""} when n > 0 -> n
+            _ -> 1
+          end
+
+        _ ->
+          1
+      end
+
+    {sort_by, sort_dir, page}
   end
 
   # ===========================================
@@ -148,8 +172,24 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
         if field in [:usage_count, :last_used_at, :inserted_at], do: :desc, else: :asc
       end
 
+    # Reset to page 1 when sorting changes
     path = Routes.ai_path() <> "/prompts?sort=#{field}&dir=#{sort_dir}"
     {:noreply, push_patch(socket, to: path)}
+  end
+
+  @impl true
+  def handle_event("goto_page", %{"page" => page_str}, socket) do
+    case Integer.parse(page_str) do
+      {page, ""} when page > 0 ->
+        sort_by = socket.assigns.sort_by
+        sort_dir = socket.assigns.sort_dir
+
+        path = build_prompts_url(sort_by, sort_dir, page)
+        {:noreply, push_patch(socket, to: path)}
+
+      _ ->
+        {:noreply, socket}
+    end
   end
 
   # ===========================================
@@ -159,10 +199,30 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
   defp reload_prompts(socket) do
     sort_by = socket.assigns.sort_by
     sort_dir = socket.assigns.sort_dir
+    page = socket.assigns.page
+    page_size = socket.assigns.page_size
 
-    prompts = AI.list_prompts(sort_by: sort_by, sort_dir: sort_dir)
+    {prompts, total} =
+      AI.list_prompts(
+        sort_by: sort_by,
+        sort_dir: sort_dir,
+        page: page,
+        page_size: page_size
+      )
 
-    assign(socket, :prompts, prompts)
+    socket
+    |> assign(:prompts, prompts)
+    |> assign(:total_prompts, total)
+  end
+
+  defp build_prompts_url(sort_by, sort_dir, page) do
+    base = Routes.ai_path() <> "/prompts?sort=#{sort_by}&dir=#{sort_dir}"
+
+    if page > 1 do
+      base <> "&page=#{page}"
+    else
+      base
+    end
   end
 
   defp get_current_path(socket, session) do

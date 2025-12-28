@@ -32,6 +32,12 @@
         <.icon name="hero-server-stack" class="w-4 h-4 mr-2" /> Endpoints
       </.link>
       <.link
+        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
+        class={"tab #{if @active_tab == "prompts", do: "tab-active"}"}
+      >
+        <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
+      </.link>
+      <.link
         navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
         class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
       >
@@ -96,8 +102,18 @@
                 <div class="flex items-start justify-between">
                   <div class="flex-1">
                     <div class="flex items-center gap-3">
-                      <span class="badge badge-ghost font-mono">#{endpoint.id}</span>
-                      <h3 class="font-semibold text-lg">{endpoint.name}</h3>
+                      <.link
+                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
+                        class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
+                      >
+                        #{endpoint.id}
+                      </.link>
+                      <.link
+                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
+                        class="font-semibold text-lg hover:text-primary hover:underline"
+                      >
+                        {endpoint.name}
+                      </.link>
                       <span class={"badge #{if endpoint.enabled, do: "badge-success", else: "badge-neutral"}"}>
                         {if endpoint.enabled, do: "Active", else: "Disabled"}
                       </span>
@@ -203,6 +219,57 @@
             </div>
           <% end %>
         </div>
+
+        <%!-- Pagination --%>
+        <% total_pages = ceil(@total_endpoints / @page_size) %>
+        <%= if total_pages > 1 do %>
+          <div class="flex justify-center items-center gap-2 mt-6">
+            <%!-- Previous button --%>
+            <%= if @page > 1 do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={@page - 1}
+                class="btn btn-sm btn-ghost"
+              >
+                <.icon name="hero-chevron-left" class="w-4 h-4" />
+              </button>
+            <% else %>
+              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+                <.icon name="hero-chevron-left" class="w-4 h-4" />
+              </button>
+            <% end %>
+
+            <%!-- Page numbers --%>
+            <%= for page_num <- max(1, @page - 2)..min(total_pages, @page + 2) do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={page_num}
+                class={"btn btn-sm #{if page_num == @page, do: "btn-primary", else: "btn-ghost"}"}
+              >
+                {page_num}
+              </button>
+            <% end %>
+
+            <%!-- Next button --%>
+            <%= if @page < total_pages do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={@page + 1}
+                class="btn btn-sm btn-ghost"
+              >
+                <.icon name="hero-chevron-right" class="w-4 h-4" />
+              </button>
+            <% else %>
+              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+                <.icon name="hero-chevron-right" class="w-4 h-4" />
+              </button>
+            <% end %>
+
+            <span class="text-sm text-base-content/70 ml-2">
+              {(@page - 1) * @page_size + 1}-{min(@page * @page_size, @total_endpoints)} of {@total_endpoints}
+            </span>
+          </div>
+        <% end %>
       <% else %>
         <div class="card bg-base-200 p-8 text-center">
           <div class="flex flex-col items-center gap-4">
@@ -223,61 +290,87 @@
     <%= if @active_tab == "usage" do %>
       <%!-- Usage Statistics --%>
       <%= if @usage_loaded do %>
-        <%!-- Stats Cards --%>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Today</div>
-            <div class="stat-value text-2xl">{@usage_stats.today.total_requests}</div>
-            <div class="stat-desc">
-              {PhoenixKit.AI.Request.format_tokens(@usage_stats.today.total_tokens)} tokens
-            </div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Last 30 Days</div>
-            <div class="stat-value text-2xl">{@usage_stats.last_30_days.total_requests}</div>
-            <div class="stat-desc">
-              {PhoenixKit.AI.Request.format_tokens(@usage_stats.last_30_days.total_tokens)} tokens
-            </div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Success Rate</div>
-            <div class="stat-value text-2xl">{@usage_stats.all_time.success_rate}%</div>
-            <div class="stat-desc">{@usage_stats.all_time.error_count} errors</div>
-          </div>
-          <div class="stat bg-base-200 rounded-lg">
-            <div class="stat-title">Avg Latency</div>
-            <div class="stat-value text-2xl">
-              {PhoenixKit.AI.Request.format_latency(@usage_stats.all_time.avg_latency_ms)}
-            </div>
-            <div class="stat-desc">response time</div>
-          </div>
-        </div>
-
-        <%!-- All Time Stats --%>
+        <%!-- Usage Stats --%>
         <div class="card bg-base-200 mb-6">
-          <div class="card-body">
-            <h3 class="card-title text-lg">All Time</h3>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <div class="text-sm text-base-content/70">Total Requests</div>
-                <div class="text-xl font-semibold">{@usage_stats.all_time.total_requests}</div>
-              </div>
-              <div>
-                <div class="text-sm text-base-content/70">Total Tokens</div>
-                <div class="text-xl font-semibold">
-                  {PhoenixKit.AI.Request.format_tokens(@usage_stats.all_time.total_tokens)}
+          <div class="card-body py-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <%!-- Today --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens today</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.today.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                      @usage_stats.today.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors today</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.today.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.today.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency today</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.AI.Request.format_latency(@usage_stats.today.avg_latency_ms)}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div class="text-sm text-base-content/70">Successful</div>
-                <div class="text-xl font-semibold text-success">
-                  {@usage_stats.all_time.success_count}
+
+              <%!-- 30 Days --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.last_30_days.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                      @usage_stats.last_30_days.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.last_30_days.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.last_30_days.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.AI.Request.format_latency(
+                      @usage_stats.last_30_days.avg_latency_ms
+                    )}
+                  </div>
                 </div>
               </div>
-              <div>
-                <div class="text-sm text-base-content/70">Errors</div>
-                <div class="text-xl font-semibold text-error">
-                  {@usage_stats.all_time.error_count}
+
+              <%!-- All Time --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens (all time)</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.all_time.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                      @usage_stats.all_time.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors (all time)</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.all_time.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.all_time.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency (all time)</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.AI.Request.format_latency(@usage_stats.all_time.avg_latency_ms)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -287,64 +380,71 @@
         <%!-- Recent Requests --%>
         <div class="card bg-base-200">
           <div class="card-body">
-            <div class="flex flex-wrap items-center justify-between gap-4 mb-4">
-              <h3 class="card-title text-lg">Recent Requests</h3>
+            <h3 class="card-title text-lg mb-4">Recent Requests</h3>
 
-              <%!-- Filters (only show dropdowns with 2+ options) --%>
-              <form phx-change="usage_filter" class="flex flex-wrap items-center gap-2">
-                <%= if length(@usage_filter_options.endpoints) > 1 do %>
-                  <select name="endpoint" class="select select-sm select-bordered">
-                    <option value="">All Endpoints</option>
-                    <%= for {id, name} <- @usage_filter_options.endpoints do %>
-                      <option value={id} selected={@usage_filter_endpoint == id}>{name}</option>
-                    <% end %>
-                  </select>
-                <% end %>
+            <%!-- Filters --%>
+            <form phx-change="usage_filter" class="flex flex-wrap items-center gap-2 mb-4">
+              <%!-- Date filter (always visible) --%>
+              <select name="date" class="select select-sm select-bordered">
+                <option value="today" selected={@usage_filter_date == "today"}>Today</option>
+                <option value="7d" selected={@usage_filter_date == "7d"}>Last 7 Days</option>
+                <option value="30d" selected={@usage_filter_date == "30d"}>Last 30 Days</option>
+                <option value="all" selected={@usage_filter_date == "all"}>All Time</option>
+              </select>
 
-                <%= if length(@usage_filter_options.models) > 1 do %>
-                  <select name="model" class="select select-sm select-bordered">
-                    <option value="">All Models</option>
-                    <%= for model <- @usage_filter_options.models do %>
-                      <option value={model} selected={@usage_filter_model == model}>
-                        {PhoenixKit.AI.Request.short_model_name(model)}
-                      </option>
-                    <% end %>
-                  </select>
-                <% end %>
+              <%!-- Other filters (only show dropdowns with 2+ options) --%>
+              <%= if length(@usage_filter_options.endpoints) > 1 do %>
+                <select name="endpoint" class="select select-sm select-bordered">
+                  <option value="">All Endpoints</option>
+                  <%= for {id, name} <- @usage_filter_options.endpoints do %>
+                    <option value={id} selected={@usage_filter_endpoint == id}>{name}</option>
+                  <% end %>
+                </select>
+              <% end %>
 
-                <%= if length(@usage_filter_options.statuses) > 1 do %>
-                  <select name="status" class="select select-sm select-bordered">
-                    <option value="">All Statuses</option>
-                    <%= for status <- @usage_filter_options.statuses do %>
-                      <option value={status} selected={@usage_filter_status == status}>
-                        {String.capitalize(status)}
-                      </option>
-                    <% end %>
-                  </select>
-                <% end %>
+              <%= if length(@usage_filter_options.models) > 1 do %>
+                <select name="model" class="select select-sm select-bordered">
+                  <option value="">All Models</option>
+                  <%= for model <- @usage_filter_options.models do %>
+                    <option value={model} selected={@usage_filter_model == model}>
+                      {PhoenixKit.AI.Request.short_model_name(model)}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
 
-                <%= if length(@usage_filter_options.sources) > 1 do %>
-                  <select name="source" class="select select-sm select-bordered">
-                    <option value="">All Sources</option>
-                    <%= for source <- @usage_filter_options.sources do %>
-                      <option value={source} selected={@usage_filter_source == source}>
-                        {source}
-                      </option>
-                    <% end %>
-                  </select>
-                <% end %>
+              <%= if length(@usage_filter_options.statuses) > 1 do %>
+                <select name="status" class="select select-sm select-bordered">
+                  <option value="">All Statuses</option>
+                  <%= for status <- @usage_filter_options.statuses do %>
+                    <option value={status} selected={@usage_filter_status == status}>
+                      {String.capitalize(status)}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
 
-                <%= if @usage_filter_endpoint || @usage_filter_model || @usage_filter_status || @usage_filter_source do %>
-                  <button
-                    type="button"
-                    phx-click="clear_usage_filters"
-                    class="btn btn-ghost btn-sm"
-                  >
-                    <.icon name="hero-x-mark" class="w-4 h-4" /> Clear
-                  </button>
-                <% end %>
-              </form>
-            </div>
+              <%= if length(@usage_filter_options.sources) > 1 do %>
+                <select name="source" class="select select-sm select-bordered">
+                  <option value="">All Sources</option>
+                  <%= for source <- @usage_filter_options.sources do %>
+                    <option value={source} selected={@usage_filter_source == source}>
+                      {source}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
+
+              <%= if @usage_filter_endpoint || @usage_filter_model || @usage_filter_status || @usage_filter_source || @usage_filter_date != "7d" do %>
+                <button
+                  type="button"
+                  phx-click="clear_usage_filters"
+                  class="btn btn-ghost btn-sm"
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Clear
+                </button>
+              <% end %>
+            </form>
 
             <%!-- Results count --%>
             <div class="text-sm text-base-content/70 mb-2">
