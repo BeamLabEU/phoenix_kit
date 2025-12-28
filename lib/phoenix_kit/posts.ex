@@ -45,6 +45,7 @@ defmodule PhoenixKit.Posts do
   """
 
   import Ecto.Query, warn: false
+  require Logger
 
   alias PhoenixKit.Posts.{
     Post,
@@ -402,6 +403,7 @@ defmodule PhoenixKit.Posts do
 
   - `post` - Post to schedule
   - `scheduled_at` - DateTime to publish at (must be in future)
+  - `attrs` - Additional attributes to update (title, content, etc.)
   - `opts` - Options
     - `:created_by_id` - UUID of user scheduling the post
 
@@ -409,14 +411,31 @@ defmodule PhoenixKit.Posts do
 
       iex> schedule_post(post, ~U[2025-12-31 09:00:00Z])
       {:ok, %Post{status: "scheduled"}}
+
+      iex> schedule_post(post, ~U[2025-12-31 09:00:00Z], %{title: "New Title"})
+      {:ok, %Post{status: "scheduled", title: "New Title"}}
   """
-  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at, opts \\ []) do
+  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at, attrs \\ %{}, opts \\ []) do
     repo().transaction(fn ->
-      # Update the post status and scheduled_at
-      case update_post(post, %{status: "scheduled", scheduled_at: scheduled_at}) do
+      # Merge additional attrs with status and scheduled_at
+      update_attrs =
+        attrs
+        |> Map.new(fn {k, v} -> {to_string(k), v} end)
+        |> Map.merge(%{"status" => "scheduled", "scheduled_at" => scheduled_at})
+
+      # Update the post with all attrs
+      case update_post(post, update_attrs) do
         {:ok, updated_post} ->
+          Logger.debug("Posts.schedule_post: Post status updated to 'scheduled'")
+
           # Cancel any existing pending scheduled jobs for this post
-          ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+          {cancelled_count, _} = ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+
+          if cancelled_count > 0 do
+            Logger.debug(
+              "Posts.schedule_post: Cancelled #{cancelled_count} existing scheduled job(s)"
+            )
+          end
 
           # Create new scheduled job entry
           case ScheduledJobs.schedule_job(
@@ -426,14 +445,23 @@ defmodule PhoenixKit.Posts do
                  %{},
                  opts
                ) do
-            {:ok, _job} ->
+            {:ok, job} ->
+              Logger.info(
+                "Posts.schedule_post: Created scheduled job #{job.id} for post #{post.id}"
+              )
+
               updated_post
 
             {:error, reason} ->
+              Logger.error(
+                "Posts.schedule_post: Failed to create scheduled job: #{inspect(reason)}"
+              )
+
               repo().rollback(reason)
           end
 
         {:error, changeset} ->
+          Logger.error("Posts.schedule_post: Failed to update post: #{inspect(changeset.errors)}")
           repo().rollback(changeset)
       end
     end)

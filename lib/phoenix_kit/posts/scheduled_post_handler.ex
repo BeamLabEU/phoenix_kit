@@ -31,6 +31,8 @@ defmodule PhoenixKit.Posts.ScheduledPostHandler do
 
   @behaviour PhoenixKit.ScheduledJobs.Handler
 
+  require Logger
+
   alias PhoenixKit.Posts
 
   @impl true
@@ -41,14 +43,32 @@ defmodule PhoenixKit.Posts.ScheduledPostHandler do
 
   @impl true
   def execute(post_id, _args) do
+    Logger.info("ScheduledPostHandler: Publishing post #{inspect(post_id)}")
+
     case Posts.get_post(post_id) do
       nil ->
+        Logger.warning("ScheduledPostHandler: Post #{inspect(post_id)} not found")
         {:error, :not_found}
 
       post ->
+        Logger.debug(
+          "ScheduledPostHandler: Found post with status=#{post.status}, title=#{post.title}"
+        )
+
         case Posts.publish_post(post) do
-          {:ok, _published_post} -> :ok
-          {:error, reason} -> {:error, reason}
+          {:ok, published_post} ->
+            Logger.info(
+              "ScheduledPostHandler: Successfully published post #{post_id}, new status=#{published_post.status}"
+            )
+
+            :ok
+
+          {:error, reason} ->
+            Logger.error(
+              "ScheduledPostHandler: Failed to publish post #{post_id}: #{inspect(reason)}"
+            )
+
+            {:error, reason}
         end
     end
   end

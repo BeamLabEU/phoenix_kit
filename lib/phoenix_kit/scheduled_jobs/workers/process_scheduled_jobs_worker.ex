@@ -43,6 +43,21 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: _args}) do
+    Logger.debug("ProcessScheduledJobsWorker: Starting scheduled jobs check...")
+
+    pending_jobs = ScheduledJobs.get_pending_jobs()
+    pending_count = length(pending_jobs)
+
+    if pending_count > 0 do
+      Logger.info("ProcessScheduledJobsWorker: Found #{pending_count} pending job(s) to process")
+
+      Enum.each(pending_jobs, fn job ->
+        Logger.debug(
+          "ProcessScheduledJobsWorker: Job #{job.id} - type=#{job.job_type}, resource=#{job.resource_type}/#{job.resource_id}, scheduled_at=#{job.scheduled_at}"
+        )
+      end)
+    end
+
     {:ok, stats} = ScheduledJobs.process_pending_jobs()
 
     if stats.executed > 0 or stats.failed > 0 do

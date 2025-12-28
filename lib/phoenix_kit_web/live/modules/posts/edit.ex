@@ -349,10 +349,30 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   defp save_post(socket, nil, post_params, tags) do
     # Convert scheduled_at from user's local time to UTC
     post_params = convert_scheduled_at_to_utc(post_params, socket.assigns.current_user)
+    new_status = post_params["status"]
 
     # Creating new post
-    case Posts.create_post(socket.assigns.current_user.id, post_params) do
+    # First create with draft status if scheduling, then schedule separately
+    create_params =
+      if new_status == "scheduled" do
+        Map.put(post_params, "status", "draft")
+      else
+        post_params
+      end
+
+    case Posts.create_post(socket.assigns.current_user.id, create_params) do
       {:ok, post} ->
+        # If scheduling, create the scheduled job
+        post =
+          if new_status == "scheduled" and post_params["scheduled_at"] do
+            case Posts.schedule_post(post, post_params["scheduled_at"]) do
+              {:ok, scheduled_post} -> scheduled_post
+              {:error, _reason} -> post
+            end
+          else
+            post
+          end
+
         # Handle tags
         if tags != [] do
           Posts.add_tags_to_post(post, tags)
@@ -383,21 +403,53 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   defp save_post(socket, _post_id, post_params, tags) do
     # Convert scheduled_at from user's local time to UTC
     post_params = convert_scheduled_at_to_utc(post_params, socket.assigns.current_user)
+    post = socket.assigns.post
+    new_status = post_params["status"]
+    old_status = post.status
 
-    # Updating existing post
-    case Posts.update_post(socket.assigns.post, post_params) do
-      {:ok, post} ->
+    result =
+      cond do
+        # Scheduling a post (new status is "scheduled" with a datetime)
+        new_status == "scheduled" and post_params["scheduled_at"] ->
+          scheduled_at = post_params["scheduled_at"]
+
+          # Pass all other params to schedule_post (it will set status and scheduled_at)
+          other_params =
+            post_params
+            |> Map.delete("scheduled_at")
+            |> Map.delete("status")
+
+          Posts.schedule_post(post, scheduled_at, other_params)
+
+        # Unscheduling a post (was scheduled, now something else)
+        old_status == "scheduled" and new_status != "scheduled" ->
+          case Posts.unschedule_post(post) do
+            {:ok, unscheduled_post} ->
+              # Apply the new status/other changes
+              Posts.update_post(unscheduled_post, post_params)
+
+            error ->
+              error
+          end
+
+        # Regular update (not involving scheduling)
+        true ->
+          Posts.update_post(post, post_params)
+      end
+
+    case result do
+      {:ok, saved_post} ->
         # Handle tags
         if tags != [] do
-          Posts.add_tags_to_post(post, tags)
+          Posts.add_tags_to_post(saved_post, tags)
         end
 
         {:noreply,
          socket
          |> put_flash(:info, "Post updated successfully")
-         |> push_navigate(to: Routes.path("/admin/posts/#{post.id}"))}
+         |> push_navigate(to: Routes.path("/admin/posts/#{saved_post.id}"))}
 
-      {:error, _changeset} ->
+      {:error, _error} ->
         {:noreply,
          socket
          |> put_flash(:error, "Failed to update post")

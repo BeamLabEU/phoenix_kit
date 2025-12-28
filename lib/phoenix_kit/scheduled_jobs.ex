@@ -252,18 +252,26 @@ defmodule PhoenixKit.ScheduledJobs do
   ## Private Functions
 
   defp execute_job(%ScheduledJob{} = job) do
+    Logger.info(
+      "ScheduledJobs: Executing job #{job.id} (#{job.job_type}) for #{job.resource_type}/#{job.resource_id}"
+    )
+
     handler_module = String.to_existing_atom(job.handler_module)
+    Logger.debug("ScheduledJobs: Using handler module #{handler_module}")
 
     case handler_module.execute(job.resource_id, job.args) do
       :ok ->
+        Logger.info("ScheduledJobs: Job #{job.id} executed successfully")
         mark_executed(job)
         :ok
 
       {:ok, _result} ->
+        Logger.info("ScheduledJobs: Job #{job.id} executed successfully")
         mark_executed(job)
         :ok
 
       {:error, reason} = error ->
+        Logger.warning("ScheduledJobs: Job #{job.id} failed with reason: #{inspect(reason)}")
         mark_failed(job, reason)
         error
     end
