@@ -39,6 +39,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   require Logger
 
+  alias PhoenixKit.Posts
   alias PhoenixKit.ScheduledJobs
 
   @impl Oban.Worker
@@ -64,6 +65,14 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
       Logger.info(
         "ProcessScheduledJobsWorker: Completed processing - #{stats.executed} executed, #{stats.failed} failed"
       )
+    end
+
+    # Catch-up: Publish any posts that are "scheduled" with past scheduled_at
+    # This handles orphaned posts without scheduled jobs (e.g., server was down, job failed)
+    {:ok, catchup_count} = Posts.process_scheduled_posts()
+
+    if catchup_count > 0 do
+      Logger.info("ProcessScheduledJobsWorker: Published #{catchup_count} catch-up post(s)")
     end
 
     :ok
