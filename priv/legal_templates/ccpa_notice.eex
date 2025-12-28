@@ -1,0 +1,134 @@
+<%!-- CCPA Notice at Collection Template --%>
+<%!-- Variables: company_name, company_address, company_country, company_website, dpo_name, dpo_email, frameworks, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated based on your selected compliance frameworks.
+> It provides a basic template that meets minimum requirements but MUST be reviewed
+> and customized by a qualified legal professional before publication.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+# Notice at Collection of Personal Information
+
+## California Consumer Privacy Act (CCPA) / California Privacy Rights Act (CPRA)
+
+This Notice at Collection is provided pursuant to the California Consumer Privacy Act of 2018 (CCPA), as amended by the California Privacy Rights Act of 2020 (CPRA), and describes <%= @company_name %>'s practices regarding the collection and use of personal information.
+
+## Categories of Personal Information We Collect
+
+At or before the point of collection, we may collect the following categories of personal information:
+
+| Category | Examples | Collected |
+|----------|----------|-----------|
+| **Identifiers** | Name, email address, phone number, IP address, account name | Yes |
+| **Customer Records** | Billing address, payment information, purchase history | Yes |
+| **Commercial Information** | Products purchased, services used, transaction history | Yes |
+| **Internet Activity** | Browsing history, search history, interaction with website | Yes |
+| **Geolocation Data** | General location based on IP address | Yes |
+| **Professional Information** | Job title, company name (if provided) | Yes |
+| **Inferences** | Preferences, characteristics, behavior patterns | Yes |
+| **Sensitive Personal Information** | Account login credentials | Yes |
+
+## Purposes for Collection and Use
+
+We collect and use personal information for the following business purposes:
+
+1. **Providing Services**
+   - Processing transactions and orders
+   - Managing your account
+   - Providing customer support
+
+2. **Communications**
+   - Sending service-related notifications
+   - Marketing communications (with consent)
+   - Responding to inquiries
+
+3. **Improvement and Analytics**
+   - Improving our products and services
+   - Understanding usage patterns
+   - Conducting research and analytics
+
+4. **Security and Compliance**
+   - Detecting and preventing fraud
+   - Maintaining security
+   - Complying with legal obligations
+
+## Retention of Personal Information
+
+Personal information is retained for as long as necessary to fulfill the purposes for which it was collected, typically:
+
+- Account information: Duration of account relationship plus 3 years
+- Transaction records: 7 years for tax and legal compliance
+- Marketing preferences: Until withdrawal of consent
+- Website analytics: 26 months
+
+## Your California Privacy Rights
+
+As a California resident, you have the following rights:
+
+### Right to Know
+You may request information about:
+- Categories of personal information collected
+- Sources of personal information
+- Business purposes for collection
+- Categories of third parties with whom we share information
+- Specific pieces of personal information collected about you
+
+### Right to Delete
+You may request deletion of your personal information, subject to certain exceptions.
+
+### Right to Correct
+You may request correction of inaccurate personal information.
+
+### Right to Opt-Out
+You may opt out of:
+- The sale of your personal information
+- Sharing of your personal information for cross-context behavioral advertising
+
+### Right to Limit Use of Sensitive Personal Information
+You may limit the use and disclosure of sensitive personal information.
+
+### Right to Non-Discrimination
+You will not receive discriminatory treatment for exercising your privacy rights.
+
+## How to Exercise Your Rights
+
+To exercise your California privacy rights:
+
+1. **Online:** Visit our "Do Not Sell My Personal Information" page
+2. **Email:** Contact us at <%= if @dpo_email != "", do: @dpo_email, else: "privacy@[your-domain].com" %>
+<%= if @company_address != "" do %>3. **Mail:** <%= @company_address %><% end %>
+
+We will verify your identity before fulfilling your request. You may designate an authorized agent to make requests on your behalf.
+
+## Sale and Sharing of Personal Information
+
+<%= @company_name %> does not "sell" personal information in the traditional sense. However, certain sharing activities (such as with advertising partners) may be considered a "sale" or "sharing" under the CCPA/CPRA.
+
+**Categories potentially sold/shared in the preceding 12 months:**
+- Internet activity and browsing history (with advertising partners)
+- Identifiers (with analytics providers)
+
+To opt out of the sale/sharing of your personal information, visit our "Do Not Sell My Personal Information" page.
+
+## Sensitive Personal Information
+
+We collect sensitive personal information (account credentials) solely for providing our services. We do not use or disclose sensitive personal information for purposes beyond those permitted by the CPRA.
+
+## Financial Incentives
+
+We do not offer financial incentives for the collection, sale, or deletion of personal information.
+
+## Contact Us
+
+For questions about this Notice or our privacy practices:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>
+<%= if @company_website != "" do %>Website: <%= @company_website %><% end %>

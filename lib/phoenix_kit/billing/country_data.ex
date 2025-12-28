@@ -326,6 +326,35 @@ defmodule PhoenixKit.Billing.CountryData do
   def get_flag(_), do: nil
 
   @doc """
+  Get subdivision type label for a country (State, Province, Region, etc.).
+
+  Returns the localized name of the primary administrative division.
+  Falls back to "State/Region" if not available.
+
+  ## Examples
+
+      iex> CountryData.get_subdivision_label("US")
+      "State"
+
+      iex> CountryData.get_subdivision_label("CA")
+      "Province"
+
+      iex> CountryData.get_subdivision_label("JP")
+      "Prefecture"
+
+      iex> CountryData.get_subdivision_label("XX")
+      "Region"
+  """
+  def get_subdivision_label(country_code) when is_binary(country_code) do
+    case get_country(country_code) do
+      %{subdivision_type: type} when is_binary(type) and type != "" -> type
+      _ -> "Region"
+    end
+  end
+
+  def get_subdivision_label(_), do: "Region"
+
+  @doc """
   Check if country with given code exists.
 
   ## Examples

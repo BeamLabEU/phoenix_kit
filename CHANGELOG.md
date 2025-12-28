@@ -1,3 +1,18 @@
+## 1.7.15 - 2025-12-28
+
+### Legal Module - Phase 1
+- **New Legal module** for privacy compliance and legal page management
+- **Compliance framework selection** - Support for GDPR, CCPA, LGPD, PDPA, POPIA, and Generic frameworks
+- **Company information form** - Store company details for legal page generation
+- **DPO contact form** - Data Protection Officer contact information
+- **Legal page generation** - Generate pages from EEx templates:
+  - Privacy Policy, Terms of Service, Cookie Policy
+  - Data Retention Policy, CCPA Notice, Acceptable Use Policy, Do Not Sell
+- **Blogging integration** - Generated pages stored as blog posts in dedicated "legal" blog
+- **Consent logging schema** - Track user consent for cookies and data processing
+- **Admin settings interface** - Manage legal settings at `/admin/settings/legal`
+- **Module organization** - Files structured in `lib/modules/legal/` following Storage module pattern
+
 ## 1.7.14 - 2025-12-26
 - Improve V40 UUID migration UX and documentation
 - Add UUIDv7 generation to all Ecto schemas

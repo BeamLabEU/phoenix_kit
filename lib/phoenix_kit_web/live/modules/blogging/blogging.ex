@@ -74,7 +74,32 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   @doc """
+  Returns a blog by its slug.
+
+  ## Parameters
+  - slug: Blog slug to look up
+
+  ## Returns
+  - `{:ok, blog}` if found
+  - `{:error, :not_found}` if not found
+  """
+  @spec get_blog(String.t()) :: {:ok, blog()} | {:error, :not_found}
+  def get_blog(slug) when is_binary(slug) do
+    case Enum.find(list_blogs(), &(&1["slug"] == slug)) do
+      nil -> {:error, :not_found}
+      blog -> {:ok, blog}
+    end
+  end
+
+  @doc """
   Adds a new blog.
+
+  When `preferred_slug` is provided explicitly:
+  - If a blog with that slug already exists, returns `{:error, :already_exists}`
+  - Use `get_blog/1` to check if a blog exists before calling this function
+
+  When `preferred_slug` is nil:
+  - Slug is derived from name and auto-suffixed if needed
   """
   @spec add_blog(String.t(), String.t(), String.t() | nil) :: {:ok, blog()} | {:error, atom()}
   def add_blog(name, mode \\ @default_blog_mode, preferred_slug \\ nil) when is_binary(name) do
@@ -91,8 +116,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       true ->
         blogs = list_blogs()
 
-        with {:ok, requested_slug} <- derive_requested_slug(preferred_slug, trimmed) do
-          slug = ensure_unique_slug(requested_slug, blogs)
+        with {:ok, requested_slug} <- derive_requested_slug(preferred_slug, trimmed),
+             :ok <- check_slug_availability(requested_slug, blogs, preferred_slug) do
+          # Only auto-suffix when no explicit preferred_slug was provided
+          slug =
+            if is_nil(preferred_slug) do
+              ensure_unique_slug(requested_slug, blogs)
+            else
+              requested_slug
+            end
 
           blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
           updated = blogs ++ [blog]
@@ -105,6 +137,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         end
     end
   end
+
+  # When preferred_slug is explicitly provided, reject duplicates
+  defp check_slug_availability(slug, blogs, preferred_slug) when not is_nil(preferred_slug) do
+    if Enum.any?(blogs, &(&1["slug"] == slug)) do
+      {:error, :already_exists}
+    else
+      :ok
+    end
+  end
+
+  # When no preferred_slug, allow duplicates (will be auto-suffixed)
+  defp check_slug_availability(_slug, _blogs, nil), do: :ok
 
   @doc """
   Removes a blog by slug.

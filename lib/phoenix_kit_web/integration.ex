@@ -366,6 +366,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
           live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
 
+          # Legal module settings
+          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
+
           # Posts module routes
           live "/admin/posts", Live.Modules.Posts.Posts, :index
           live "/admin/posts/new", Live.Modules.Posts.Edit, :new
@@ -570,6 +573,9 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
           live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
           live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
+
+          # Legal module settings
+          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
 
           # Posts module routes
           live "/admin/posts", Live.Modules.Posts.Posts, :index

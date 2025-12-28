@@ -13,6 +13,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Entities
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
@@ -48,6 +49,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     db_sync_config = DBSync.get_config()
     tickets_config = Tickets.get_config()
     connections_config = Connections.get_config()
+    legal_config = Legal.get_config()
 
     socket =
       socket
@@ -104,6 +106,10 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:connections_follows_count, connections_config.follows_count)
       |> assign(:connections_connections_count, connections_config.connections_count)
       |> assign(:connections_blocks_count, connections_config.blocks_count)
+      |> assign(:legal_enabled, legal_config.enabled)
+      |> assign(:legal_blogging_enabled, legal_config.blogging_enabled)
+      |> assign(:legal_frameworks, legal_config.frameworks)
+      |> assign(:legal_generated_pages_count, length(legal_config.generated_pages))
 
     {:ok, socket}
   end
@@ -626,6 +632,46 @@ defmodule PhoenixKitWeb.Live.Modules do
 
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update connections module")
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_legal", _params, socket) do
+    new_enabled = !socket.assigns.legal_enabled
+
+    result =
+      if new_enabled do
+        Legal.enable_system()
+      else
+        Legal.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        legal_config = Legal.get_config()
+
+        socket =
+          socket
+          |> assign(:legal_enabled, new_enabled)
+          |> assign(:legal_blogging_enabled, legal_config.blogging_enabled)
+          |> assign(:legal_frameworks, legal_config.frameworks)
+          |> assign(:legal_generated_pages_count, length(legal_config.generated_pages))
+          |> put_flash(
+            :info,
+            if(new_enabled,
+              do: "Legal module enabled",
+              else: "Legal module disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, :blogging_required} ->
+        socket = put_flash(socket, :error, "Please enable Blogging module first")
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        socket = put_flash(socket, :error, "Failed to update legal module")
         {:noreply, socket}
     end
   end

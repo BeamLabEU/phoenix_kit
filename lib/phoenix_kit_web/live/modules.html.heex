@@ -390,6 +390,75 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- Legal Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Legal"
+        description="Generate legal pages (Privacy Policy, Terms, Cookie Policy) for compliance frameworks"
+        icon="⚖️"
+        enabled={@legal_enabled}
+        toggle_event="toggle_legal"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@legal_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @legal_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+          </span>
+          <%= if not @legal_blogging_enabled do %>
+            <span class="badge badge-warning ml-2 whitespace-nowrap">
+              {gettext("Requires Blogging")}
+            </span>
+          <% end %>
+          <%= if @legal_enabled and length(@legal_frameworks) > 0 do %>
+            <span class="badge badge-outline ml-2 whitespace-nowrap">
+              {length(@legal_frameworks)} {gettext("frameworks")}
+            </span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @legal_blogging_enabled do %>
+              <.link
+                navigate={
+                  PhoenixKit.Utils.Routes.path("/admin/settings/legal",
+                    locale: @current_locale || "en"
+                  )
+                }
+                class={"btn btn-sm #{if @legal_enabled, do: "btn-primary", else: "btn-outline"}"}
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> {gettext("Configure")}
+              </.link>
+            <% else %>
+              <.link
+                navigate={
+                  PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
+                    locale: @current_locale || "en"
+                  )
+                }
+                class="btn btn-sm btn-warning"
+              >
+                <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" /> {gettext("Enable Blogging")}
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">{gettext("Frameworks:")}</span>
+              <span class="font-medium">{length(@legal_frameworks)}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">{gettext("Pages:")}</span>
+              <span class="font-medium">{@legal_generated_pages_count}</span>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- Posts Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="Posts"

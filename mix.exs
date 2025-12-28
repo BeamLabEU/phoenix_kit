@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.7.14"
+  @version "1.7.15"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -139,7 +139,9 @@ defmodule PhoenixKit.MixProject do
       {:igniter, "~> 0.7"},
 
       # Language and country data
-      {:beamlab_countries, "~> 1.0.5"}
+      # TODO: Switch back to Hex version after PR #7 is merged
+      {:beamlab_countries,
+       github: "timujinne/beamlab_countries", branch: "feature/add-subdivision-type"}
     ]
   end
 

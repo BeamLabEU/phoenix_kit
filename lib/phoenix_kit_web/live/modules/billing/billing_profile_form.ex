@@ -46,6 +46,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
     |> assign(:profile, nil)
     |> assign(:form, to_form(changeset))
     |> assign(:selected_user_id, nil)
+    |> assign(:subdivision_label, "Region")
   end
 
   defp load_profile(socket, id) do
@@ -65,6 +66,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
         |> assign(:form, to_form(changeset))
         |> assign(:selected_user_id, profile.user_id)
         |> assign(:profile_type, profile.type)
+        |> assign(:subdivision_label, CountryData.get_subdivision_label(profile.country))
     end
   end
 
@@ -91,7 +93,13 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.BillingProfileForm do
       |> Billing.change_billing_profile(params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :form, to_form(changeset))}
+    # Update subdivision label when country changes
+    subdivision_label = CountryData.get_subdivision_label(params["country"])
+
+    {:noreply,
+     socket
+     |> assign(:form, to_form(changeset))
+     |> assign(:subdivision_label, subdivision_label)}
   end
 
   @impl true
