@@ -70,6 +70,14 @@ defmodule PhoenixKit.Billing.Currency do
     |> validate_number(:exchange_rate, greater_than: 0)
     |> unique_constraint(:code)
     |> upcase_code()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   defp upcase_code(changeset) do

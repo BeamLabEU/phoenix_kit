@@ -96,6 +96,14 @@ defmodule PhoenixKit.Billing.SubscriptionPlan do
     |> validate_length(:slug, min: 1, max: 50)
     |> validate_length(:currency, is: 3)
     |> unique_constraint(:slug)
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """

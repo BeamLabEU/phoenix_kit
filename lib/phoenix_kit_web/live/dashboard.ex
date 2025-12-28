@@ -144,7 +144,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
         session_id: session_id,
         ip_address: IpAddress.extract_from_socket(socket),
         user_agent: get_connect_info(socket, :user_agent),
-        current_page: Routes.path("/admin/dashboard")
+        current_page: Routes.path("/admin")
       })
     end
   end

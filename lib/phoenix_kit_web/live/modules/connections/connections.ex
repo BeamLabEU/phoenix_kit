@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.Connections do
       {:ok,
        socket
        |> put_flash(:error, "Access denied")
-       |> push_navigate(to: Routes.path("/admin/dashboard"))}
+       |> push_navigate(to: Routes.path("/admin"))}
     end
   end
 

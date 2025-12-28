@@ -53,18 +53,21 @@ This will automatically:
 ## 📦 Current PhoenixKit Features / Modules:
 
 ```
-✅ Simple installation using Igniter
+✅ Simple installation using Igniter (`mix phoenix_kit.install` and updating via `mix phoenix_kit.update`) 
 ✅ Tailwind and DaisyUI integration
 ✅ App layout integration
 ✅ App database integration (Postgres only for now)
 ✅ Custom slug prefix (default: `/phoenix_kit`)
+
+✅ Backend Admin module
+
 ✅ User Module
   ✅ Registration
   ✅ Login
-    [ ] Login screen customizations
   ✅ Logout
   ✅ Magic link
   ✅ Email confirmation (waiting Email Module)
+  ✅ Fail2ban (userbased, ip based, region based)
   ✅ Password reset
   ✅ User roles
   ✅ Custom user fields
@@ -73,77 +76,82 @@ This will automatically:
   ✅ User's timezone (and mismatch detection)
   ✅ User's locale
   ✅ OAuth (google, facebook)
-```
 
-- [ ] Backend Admin module
-  - [x] Modules Manager
-  - [x] Session Manager Module
-  - [x] Settings
-    - [x] Global app title
-    - [x] Global app timezone (using timex)
-    - [x] Global time format (using timex)
-  - [x] User management
-  - [x] Role management
-  - [x] Referral Program
-  - [x] Maintenance Mode Module
-  - [x] Email Module
-    - [x] AWS SES integration
-  - [x] Entities Module (WordPress ACF-like dynamic content types)
-    - [x] Dynamic entity type creation
-    - [x] Flexible field schemas (13 field types)
-    - [x] JSONB storage for flexibility
-    - [x] Full CRUD interfaces
-    - [x] Settings management
-  - [x] Pages Module
-  - [x] Posts Module
-    - [x] Scheduled publishing with timezone support
-  - [x] UI Components
-    - [x] [Draggable List](guides/draggable_list_component.md) - Drag-and-drop grid/list component
 
-## 🛣️ Roadmap / Ideas / Feature requests
+✅ Modules Manager
 
-- User Auth
-  - 2FA
-  - Fail2ban (userbased, ip based, region based)
-  - User impersonation
-- Backend admin
-  - Design / templates / themes
-  - Settings
-    - General
-    - Languages
-  - Email Module
-    - Email templates
-  - Newsletter Module
-  - Notifications Module
-    - Integration with notification providers (Twilio, etc...)
-  - Blogging module
-    - Media / Gallery (with s3 backend)
-    - Video (Video processing, streaming, Adaptive Bitrate (ABR): stream in multiple bitrates and resolutions for difference devices, HTTP Live Streaming (HLS): reduce bandwidth usage, playback latency, and buffering, H.264, H.265, VP8 & VP9: optimized next-generation video codecs)
-    - Audio
-    - Media / Gallery
-    - Local / External storage support (AWS S3, Azure Storage, Google Storage, Cloudflare R2, and DigitalOcean Spaces)
-    - CDN
-    - Static pages
-    - Blog
-    - Comments
-    - Search
-    - Blocks
-      - Sliders
-      - Video player (mp4, youtube, etc)
-  - Billing System Module
+✅ Session Manager Module
+
+✅ Settings
+    ✅ General
+    ✅ App title
+    ✅ Global app timezone (switched from timex to native elixir)
+    ✅ Global time format (switched from timex to native elixir)
+    ✅ Language configuration
+
+✅ Languages (Backend and frontend languages, broken down to countries and regions)
+    ✅ Backend languages
+    ✅ Frontend enduser languages, broken down and organized by countries and regions
+
+✅ Users Module
+    ✅ Role management
+    ✅ Referral Program
+
+✅ User Relationship Module (for User Generated Content/UGC)
+
+✅ Maintenance Mode Module
+
+✅ Email Module
+    ✅ AWS SES integration
+
+✅ Entities Module (WordPress ACF-like dynamic content types)
+    ✅ Dynamic entity type creation
+    ✅ Flexible field schemas (13 field types)
+    ✅ JSONB storage for flexibility
+    ✅ Full CRUD interfaces
+    ✅ Settings management
+
+✅ Media Module
+    ✅ Photos and Videos
+    ✅ Local and cloud multiple storages
+    ✅ Image resizing 
+    ✅ Video resizing
+✅ Blogging Module
+     ✅ 2 type of bloggin supported: timed and slug based
+     ✅ Multilingual publishing
+     ✅ Timezone support
+
+✅ Posts Module (for User Generated Content/UGC)
+
+✅ Sync Module (to sync dev / testing / staging / production) environments
+
+✅ Sitemap Module
+
+✅ AI Module
+     ✅ OpenRouter Integration
+
+✅ Billing Module
     - Invoices
     - Payment
       - Integration
         - Stripe
         - PayPal
-        - Crypto
     - Orders
   - Membership / Subscription Module
-  - E-commerce Module
-    - Digital and downloadable products
-    - Physical products
-  - Cookies Module
-  - Complience and Legal Module
+
+✅ Basic UI Components
+    ✅ [Draggable List](guides/draggable_list_component.md) - Drag-and-drop grid/list component
+```
+
+
+## 🛣️ Roadmap / Ideas / Feature requests
+
+--- Next priority
+
+- Newsletter Module
+- Notifications Module
+- Cookies Module
+- Complience and Legal Module
     - Cookies usage
     - Terms Of Service
     - Acceptable Use
@@ -151,36 +159,58 @@ This will automatically:
     - CCPA (California Consumer Privacy Act) for California users
     - Data Retention Policy
     - Privacy Policy
-  - Booking Module (Calendar based)
-  - Popups Module
-  - Contact Us Module
-  - SEO Module (sitemap, open graph)
-  - AI Module
-    - OpenRouter Integration
-    - Integration with other AI providers
-  - What’s New Module
-  - Internal Chat Module (https://github.com/basecamp/once-campfire)
-  - DB Manager Module
+- Customer service Module
+    - Chat
+- Jobs Module (Oban powered)
+- E-commerce Module
+    - Physical products
+    - Digital and downloadable products
+- Missing features for User Auth Module
+  - 2FA
+  - User impersonation
+  - New device notification
+
+--- To sort items
+
+- Design / templates / themes
+- Integration with notification providers (Twilio, etc...)
+- Media / Gallery (with s3 backend)
+- Video (Video processing, streaming, Adaptive Bitrate (ABR): stream in multiple bitrates and resolutions for difference devices, HTTP Live Streaming (HLS): reduce bandwidth usage, playback latency, and buffering, H.264, H.265, VP8 & VP9: optimized next-generation video codecs)
+- Audio
+- Media / Gallery
+- Local / External storage support (AWS S3, Azure Storage, Google Storage, Cloudflare R2, and DigitalOcean Spaces)
+- CDN
+- Static pages
+- Blog
+- Comments
+- Search
+- Blocks
+- Sliders
+- Video player (mp4, youtube, etc)
+- Booking Module (Calendar based)
+- Popups Module
+- Contact Us Module
+- SEO Module (sitemap, open graph)
+- What’s New Module
+- Internal Chat Module (https://github.com/basecamp/once-campfire)
+- DB Manager Module
     - Export / Import
     - Snapshots
     - Backups (onsite/offsite)
-  - Customer service Module
-    - Chat
-  - Feedback Module
-  - Roadmap / Ideas Module
-  - CRM Module
-  - App Analytics / BI Module
-    - ClickHouse backend
-    - Events
-    - Charts, trends and notifications
-  - API Module
-  - Cron Modules
-  - Jobs Module (Oban powered)
-  - Testimonials Module
-  - Team Module
-  - FAQ
-  - Forms Module
-  - Cluster Module
+- Feedback Module
+- Roadmap / Ideas Module
+- CRM Module
+- App Analytics / BI Module
+  - ClickHouse backend
+  - Events
+  - Charts, trends and notifications
+- API Module
+- Cron Modules
+- Testimonials Module
+- Team Module
+- FAQ
+- Forms Module
+- Cluster Module
 
 💡 Send your ideas and suggestions about any existing modules and features our way. Start building your apps today!
 
@@ -365,7 +395,7 @@ See [OAuth Setup Guide](guides/oauth_and_magic_link_setup.md) for details.
 
 ### Admin Routes (Owner/Admin only)
 
-- `GET {prefix}/admin/dashboard` - Admin dashboard
+- `GET {prefix}/admin` - Admin dashboard
 - `GET {prefix}/admin/users` - User management
 
 ## API Usage
@@ -467,7 +497,7 @@ PhoenixKit.AI.disable_system()
 ### Built-in Admin Interface
 
 **Core Administration:**
-- `{prefix}/admin/dashboard` - System statistics and overview
+- `{prefix}/admin` - System statistics and overview
 - `{prefix}/admin/users` - User management with role controls
 - `{prefix}/admin/sessions` - Active session management
 - `{prefix}/admin/modules` - Enable/disable PhoenixKit modules

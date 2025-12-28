@@ -138,7 +138,6 @@
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
         <%!-- System Owners Card --%>
         <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
-          circle_size="20"
           value={@stats.owner_count}
           title={gettext("System Owners")}
           subtitle={gettext("Complete system authority")}
@@ -150,7 +149,6 @@
 
         <%!-- Administrators Card --%>
         <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
-          circle_size="16"
           value={@stats.admin_count}
           title={gettext("Administrators")}
           subtitle={gettext("Management privileges")}
@@ -162,7 +160,6 @@
 
         <%!-- Total Users Card --%>
         <PhoenixKitWeb.Components.Core.HeroStatCard.hero_stat_card
-          circle_size="24"
           value={@stats.total_users}
           title={gettext("Total Users")}
           subtitle={gettext("Registered accounts")}

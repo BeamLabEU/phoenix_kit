@@ -1,3 +1,14 @@
+## 1.7.14 - 2025-12-26
+- Improve V40 UUID migration UX and documentation
+- Add UUIDv7 generation to all Ecto schemas
+- Add fallback to default en when site_content_language setting
+
+## 1.7.13 - 2025-12-25
+- Fix email sender to use Settings Database
+- Add V40 migration for UUIDv7 columns on all legacy tables
+- Fixed/Updated posts and stopped the logs spamming
+- Fix incorect routes
+
 ## 1.7.12 - 2025-12-24
 ### Blog Language Detection & Fallbacks
 - **Content-based language detection** - Custom language files (e.g., `af.phk`, `test.phk`) now work correctly without needing to be predefined in the Languages module
@@ -51,7 +62,7 @@
 ## 1.7.8 - 2025-12-22
 
 ### Route Priority Fix
-- **Non-localized routes first** - Fixed 105 route conflicts where paths like `/admin/dashboard` were incorrectly matched as `/:locale/dashboard` with `locale="admin"`
+- **Non-localized routes first** - Fixed 105 route conflicts where paths like `/admin` were incorrectly matched as `/:locale/dashboard` with `locale="admin"`
 - **Locale scope ordering** - Non-localized scope now comes before localized scope in router macros
 
 ### Sitemap Performance Improvements
@@ -635,7 +646,7 @@ phoenix_kit_email_metrics: NEW
   - First registered user automatically becomes Owner
   - Admin dashboard with system statistics
   - User management interface
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard`
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin`
 - **User Management** - Complete interface at `{prefix}/admin/users`
 
 ### Changed

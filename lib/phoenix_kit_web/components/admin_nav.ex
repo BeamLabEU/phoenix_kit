@@ -22,17 +22,17 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   ## Examples
 
       <.admin_nav_item
-        href={Routes.locale_aware_path(assigns,"/admin/dashboard")}
+        href={Routes.locale_aware_path(assigns,"/admin")}
         icon="dashboard"
         label="Dashboard"
-        current_path={Routes.locale_aware_path(assigns,"/admin/dashboard")}
+        current_path={Routes.locale_aware_path(assigns,"/admin")}
       />
 
       <.admin_nav_item
         href={Routes.locale_aware_path(assigns,"/admin/users")}
         icon="users"
         label="Users"
-        current_path={Routes.locale_aware_path(assigns,"/admin/dashboard")}
+        current_path={Routes.locale_aware_path(assigns,"/admin")}
         mobile={true}
       />
   """
