@@ -42,6 +42,12 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
     current_path = get_current_path(socket, session)
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
+    # Subscribe to real-time updates
+    if connected?(socket) do
+      AI.subscribe_endpoints()
+      AI.subscribe_requests()
+    end
+
     # Check if we have any endpoints for initial tab selection
     {_endpoints, total} = AI.list_endpoints()
     has_endpoints = total > 0
@@ -139,46 +145,34 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   @valid_sort_fields Enum.map(@sort_options, fn {field, _} -> Atom.to_string(field) end)
 
   defp parse_sort_params(params) do
-    sort_by =
-      case params["sort"] do
-        field when is_binary(field) ->
-          if field in @valid_sort_fields do
-            String.to_existing_atom(field)
-          else
-            :id
-          end
-
-        _ ->
-          :id
-      end
-
-    sort_dir =
-      case params["dir"] do
-        "asc" -> :asc
-        "desc" -> :desc
-        _ -> :asc
-      end
-
-    page =
-      case params["page"] do
-        nil ->
-          1
-
-        "" ->
-          1
-
-        p when is_binary(p) ->
-          case Integer.parse(p) do
-            {n, ""} when n > 0 -> n
-            _ -> 1
-          end
-
-        _ ->
-          1
-      end
-
-    {sort_by, sort_dir, page}
+    {
+      parse_sort_field(params["sort"], @valid_sort_fields, :id),
+      parse_sort_dir(params["dir"]),
+      parse_page(params["page"])
+    }
   end
+
+  defp parse_sort_field(field, valid_fields, default) when is_binary(field) do
+    if field in valid_fields, do: String.to_existing_atom(field), else: default
+  end
+
+  defp parse_sort_field(_, _valid_fields, default), do: default
+
+  defp parse_sort_dir("asc"), do: :asc
+  defp parse_sort_dir("desc"), do: :desc
+  defp parse_sort_dir(_), do: :asc
+
+  defp parse_page(nil), do: 1
+  defp parse_page(""), do: 1
+
+  defp parse_page(p) when is_binary(p) do
+    case Integer.parse(p) do
+      {n, ""} when n > 0 -> n
+      _ -> 1
+    end
+  end
+
+  defp parse_page(_), do: 1
 
   @valid_usage_sort_fields ~w(inserted_at endpoint_name model total_tokens latency_ms cost_cents status)
 
@@ -432,6 +426,36 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   end
 
   # ===========================================
+  # PUBSUB HANDLERS - Real-time updates
+  # ===========================================
+
+  @impl true
+  def handle_info({event, _endpoint}, socket)
+      when event in [:endpoint_created, :endpoint_updated, :endpoint_deleted] do
+    # Reload endpoints list when any endpoint changes
+    {:noreply, reload_endpoints(socket)}
+  end
+
+  @impl true
+  def handle_info({:request_created, _request}, socket) do
+    # Reload usage data if on usage tab
+    socket =
+      if socket.assigns.active_tab == "usage" do
+        socket
+        |> reload_usage_requests()
+        |> update_usage_stats()
+      else
+        socket
+      end
+
+    {:noreply, socket}
+  end
+
+  # Catch-all for other PubSub messages
+  @impl true
+  def handle_info(_msg, socket), do: {:noreply, socket}
+
+  # ===========================================
   # PRIVATE HELPERS
   # ===========================================
 
@@ -507,6 +531,15 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
     |> assign(:usage_requests, requests)
     |> assign(:usage_total_requests, total)
     |> assign(:usage_page, 1)
+  end
+
+  defp update_usage_stats(socket) do
+    stats = AI.get_dashboard_stats()
+    filter_options = AI.get_request_filter_options()
+
+    socket
+    |> assign(:usage_stats, stats)
+    |> assign(:usage_filter_options, filter_options)
   end
 
   defp maybe_add_filter(opts, _key, nil), do: opts

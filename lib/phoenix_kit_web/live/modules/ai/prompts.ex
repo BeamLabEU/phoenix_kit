@@ -39,6 +39,11 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
     current_path = get_current_path(socket, session)
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
+    # Subscribe to real-time updates
+    if connected?(socket) do
+      AI.subscribe_prompts()
+    end
+
     socket =
       socket
       |> assign(:current_path, current_path)
@@ -74,46 +79,34 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
   @valid_sort_fields Enum.map(@sort_options, fn {field, _} -> Atom.to_string(field) end)
 
   defp parse_sort_params(params) do
-    sort_by =
-      case params["sort"] do
-        field when is_binary(field) ->
-          if field in @valid_sort_fields do
-            String.to_existing_atom(field)
-          else
-            :sort_order
-          end
-
-        _ ->
-          :sort_order
-      end
-
-    sort_dir =
-      case params["dir"] do
-        "asc" -> :asc
-        "desc" -> :desc
-        _ -> :asc
-      end
-
-    page =
-      case params["page"] do
-        nil ->
-          1
-
-        "" ->
-          1
-
-        p when is_binary(p) ->
-          case Integer.parse(p) do
-            {n, ""} when n > 0 -> n
-            _ -> 1
-          end
-
-        _ ->
-          1
-      end
-
-    {sort_by, sort_dir, page}
+    {
+      parse_sort_field(params["sort"], @valid_sort_fields, :sort_order),
+      parse_sort_dir(params["dir"]),
+      parse_page(params["page"])
+    }
   end
+
+  defp parse_sort_field(field, valid_fields, default) when is_binary(field) do
+    if field in valid_fields, do: String.to_existing_atom(field), else: default
+  end
+
+  defp parse_sort_field(_, _valid_fields, default), do: default
+
+  defp parse_sort_dir("asc"), do: :asc
+  defp parse_sort_dir("desc"), do: :desc
+  defp parse_sort_dir(_), do: :asc
+
+  defp parse_page(nil), do: 1
+  defp parse_page(""), do: 1
+
+  defp parse_page(p) when is_binary(p) do
+    case Integer.parse(p) do
+      {n, ""} when n > 0 -> n
+      _ -> 1
+    end
+  end
+
+  defp parse_page(_), do: 1
 
   # ===========================================
   # PROMPT ACTIONS
@@ -191,6 +184,21 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Prompts do
         {:noreply, socket}
     end
   end
+
+  # ===========================================
+  # PUBSUB HANDLERS - Real-time updates
+  # ===========================================
+
+  @impl true
+  def handle_info({event, _prompt}, socket)
+      when event in [:prompt_created, :prompt_updated, :prompt_deleted] do
+    # Reload prompts list when any prompt changes
+    {:noreply, reload_prompts(socket)}
+  end
+
+  # Catch-all for other PubSub messages
+  @impl true
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   # ===========================================
   # PRIVATE HELPERS

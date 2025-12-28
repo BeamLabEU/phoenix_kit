@@ -385,11 +385,11 @@ defmodule PhoenixKit.AI.Endpoint do
       nil ->
         changeset
 
-      tokens when is_integer(tokens) and tokens >= 1024 and tokens <= 32000 ->
+      tokens when is_integer(tokens) and tokens >= 1024 and tokens <= 32_000 ->
         changeset
 
       tokens when is_integer(tokens) ->
-        add_error(changeset, :reasoning_max_tokens, "must be between 1024 and 32000")
+        add_error(changeset, :reasoning_max_tokens, "must be between 1024 and 32,000")
 
       _ ->
         changeset

@@ -68,7 +68,53 @@ defmodule PhoenixKit.AI do
   alias PhoenixKit.AI.Endpoint
   alias PhoenixKit.AI.Prompt
   alias PhoenixKit.AI.Request
+  alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
+
+  # ===========================================
+  # PUBSUB TOPICS
+  # ===========================================
+
+  @endpoints_topic "phoenix_kit:ai:endpoints"
+  @prompts_topic "phoenix_kit:ai:prompts"
+  @requests_topic "phoenix_kit:ai:requests"
+
+  @doc """
+  Returns the PubSub topic for AI endpoints.
+  Subscribe to this topic to receive real-time updates.
+  """
+  def endpoints_topic, do: @endpoints_topic
+
+  @doc """
+  Returns the PubSub topic for AI prompts.
+  """
+  def prompts_topic, do: @prompts_topic
+
+  @doc """
+  Returns the PubSub topic for AI requests/usage.
+  """
+  def requests_topic, do: @requests_topic
+
+  @doc """
+  Subscribes the current process to AI endpoint changes.
+  """
+  def subscribe_endpoints do
+    PubSub.subscribe(@endpoints_topic)
+  end
+
+  @doc """
+  Subscribes the current process to AI prompt changes.
+  """
+  def subscribe_prompts do
+    PubSub.subscribe(@prompts_topic)
+  end
+
+  @doc """
+  Subscribes the current process to AI request/usage changes.
+  """
+  def subscribe_requests do
+    PubSub.subscribe(@requests_topic)
+  end
 
   # ===========================================
   # HELPERS
@@ -76,6 +122,39 @@ defmodule PhoenixKit.AI do
 
   defp repo do
     PhoenixKit.RepoHelper.repo()
+  end
+
+  defp broadcast_endpoint_change(result, event) do
+    case result do
+      {:ok, endpoint} ->
+        PubSub.broadcast(@endpoints_topic, {event, endpoint})
+        {:ok, endpoint}
+
+      error ->
+        error
+    end
+  end
+
+  defp broadcast_prompt_change(result, event) do
+    case result do
+      {:ok, prompt} ->
+        PubSub.broadcast(@prompts_topic, {event, prompt})
+        {:ok, prompt}
+
+      error ->
+        error
+    end
+  end
+
+  defp broadcast_request_change(result, event) do
+    case result do
+      {:ok, request} ->
+        PubSub.broadcast(@requests_topic, {event, request})
+        {:ok, request}
+
+      error ->
+        error
+    end
   end
 
   # ===========================================
@@ -296,6 +375,7 @@ defmodule PhoenixKit.AI do
     %Endpoint{}
     |> Endpoint.changeset(attrs)
     |> repo().insert()
+    |> broadcast_endpoint_change(:endpoint_created)
   end
 
   @doc """
@@ -305,6 +385,7 @@ defmodule PhoenixKit.AI do
     endpoint
     |> Endpoint.changeset(attrs)
     |> repo().update()
+    |> broadcast_endpoint_change(:endpoint_updated)
   end
 
   @doc """
@@ -312,6 +393,7 @@ defmodule PhoenixKit.AI do
   """
   def delete_endpoint(%Endpoint{} = endpoint) do
     repo().delete(endpoint)
+    |> broadcast_endpoint_change(:endpoint_deleted)
   end
 
   @doc """
@@ -447,6 +529,7 @@ defmodule PhoenixKit.AI do
     %Prompt{}
     |> Prompt.changeset(attrs)
     |> repo().insert()
+    |> broadcast_prompt_change(:prompt_created)
   end
 
   @doc """
@@ -456,6 +539,7 @@ defmodule PhoenixKit.AI do
     prompt
     |> Prompt.changeset(attrs)
     |> repo().update()
+    |> broadcast_prompt_change(:prompt_updated)
   end
 
   @doc """
@@ -463,6 +547,7 @@ defmodule PhoenixKit.AI do
   """
   def delete_prompt(%Prompt{} = prompt) do
     repo().delete(prompt)
+    |> broadcast_prompt_change(:prompt_deleted)
   end
 
   @doc """
@@ -888,6 +973,7 @@ defmodule PhoenixKit.AI do
     %Request{}
     |> Request.changeset(attrs)
     |> repo().insert()
+    |> broadcast_request_change(:request_created)
   end
 
   @doc """
