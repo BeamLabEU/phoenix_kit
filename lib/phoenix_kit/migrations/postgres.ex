@@ -303,6 +303,15 @@ defmodule PhoenixKit.Migrations.Postgres do
     - `reasoning_max_tokens` (integer) - Hard cap on thinking tokens (1024-32000)
     - `reasoning_exclude` (boolean) - Hide reasoning from response
 
+  ### V42 - Universal Scheduled Jobs System ⚡ LATEST
+  - Phoenix_kit_scheduled_jobs for polymorphic scheduled task management
+  - Behaviour-based handler pattern for extensibility
+  - Priority-based job execution ordering
+  - Retry logic with max_attempts and last_error tracking
+  - Status management: pending, executed, failed, cancelled
+  - Replaces single-purpose PublishScheduledPostsJob with generic processor
+  - Supports any schedulable resource (posts, emails, notifications, etc.)
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
@@ -361,7 +370,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 41
+  @current_version 42
   @default_prefix "public"
 
   @doc false

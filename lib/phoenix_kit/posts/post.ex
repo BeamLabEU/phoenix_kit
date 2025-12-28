@@ -219,14 +219,20 @@ defmodule PhoenixKit.Posts.Post do
   defp validate_scheduled_at(changeset) do
     status = get_field(changeset, :status)
     scheduled_at = get_field(changeset, :scheduled_at)
+    status_changed? = get_change(changeset, :status) != nil
+    scheduled_at_changed? = get_change(changeset, :scheduled_at) != nil
 
     case {status, scheduled_at} do
       {"scheduled", nil} ->
         add_error(changeset, :scheduled_at, "must be set when status is scheduled")
 
       {"scheduled", datetime} when not is_nil(datetime) ->
-        # Validate scheduled_at is in the future
-        if DateTime.compare(datetime, DateTime.utc_now()) == :lt do
+        # Only validate scheduled_at is in the future if:
+        # 1. scheduled_at is being changed, OR
+        # 2. status is being changed TO "scheduled"
+        # This allows editing other fields without re-validating an existing schedule
+        if (scheduled_at_changed? or status_changed?) and
+             DateTime.compare(datetime, DateTime.utc_now()) == :lt do
           add_error(changeset, :scheduled_at, "must be in the future")
         else
           changeset

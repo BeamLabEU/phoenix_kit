@@ -45,6 +45,7 @@ defmodule PhoenixKit.Posts do
   """
 
   import Ecto.Query, warn: false
+  require Logger
 
   alias PhoenixKit.Posts.{
     Post,
@@ -55,9 +56,11 @@ defmodule PhoenixKit.Posts do
     PostMedia,
     PostMention,
     PostTag,
-    PostTagAssignment
+    PostTagAssignment,
+    ScheduledPostHandler
   }
 
+  alias PhoenixKit.ScheduledJobs
   alias PhoenixKit.Settings
 
   # ============================================================================
@@ -233,6 +236,37 @@ defmodule PhoenixKit.Posts do
   end
 
   @doc """
+  Gets a single post by ID with optional preloads.
+
+  Returns `nil` if post not found.
+
+  ## Parameters
+
+  - `id` - Post ID (UUIDv7)
+  - `opts` - Options
+    - `:preload` - List of associations to preload
+
+  ## Examples
+
+      iex> get_post("018e3c4a-...")
+      %Post{}
+
+      iex> get_post("018e3c4a-...", preload: [:user, :media, :tags])
+      %Post{user: %User{}, media: [...], tags: [...]}
+
+      iex> get_post("nonexistent")
+      nil
+  """
+  def get_post(id, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [])
+
+    case repo().get(Post, id) do
+      nil -> nil
+      post -> repo().preload(post, preloads)
+    end
+  end
+
+  @doc """
   Gets a single post by slug.
 
   ## Parameters
@@ -362,21 +396,109 @@ defmodule PhoenixKit.Posts do
   @doc """
   Schedules a post for future publishing.
 
+  Updates the post status to "scheduled" and creates an entry in the
+  scheduled jobs table for execution by the cron worker.
+
   ## Parameters
 
   - `post` - Post to schedule
   - `scheduled_at` - DateTime to publish at (must be in future)
+  - `attrs` - Additional attributes to update (title, content, etc.)
+  - `opts` - Options
+    - `:created_by_id` - UUID of user scheduling the post
 
   ## Examples
 
       iex> schedule_post(post, ~U[2025-12-31 09:00:00Z])
       {:ok, %Post{status: "scheduled"}}
+
+      iex> schedule_post(post, ~U[2025-12-31 09:00:00Z], %{title: "New Title"})
+      {:ok, %Post{status: "scheduled", title: "New Title"}}
   """
-  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at) do
-    update_post(post, %{
-      status: "scheduled",
-      scheduled_at: scheduled_at
-    })
+  def schedule_post(%Post{} = post, %DateTime{} = scheduled_at, attrs \\ %{}, opts \\ []) do
+    repo().transaction(fn ->
+      # Merge additional attrs with status and scheduled_at
+      update_attrs =
+        attrs
+        |> Map.new(fn {k, v} -> {to_string(k), v} end)
+        |> Map.merge(%{"status" => "scheduled", "scheduled_at" => scheduled_at})
+
+      # Update the post with all attrs
+      case update_post(post, update_attrs) do
+        {:ok, updated_post} ->
+          Logger.debug("Posts.schedule_post: Post status updated to 'scheduled'")
+
+          # Cancel any existing pending scheduled jobs for this post
+          {cancelled_count, _} = ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+
+          if cancelled_count > 0 do
+            Logger.debug(
+              "Posts.schedule_post: Cancelled #{cancelled_count} existing scheduled job(s)"
+            )
+          end
+
+          # Create new scheduled job entry with useful context
+          job_args = %{
+            "post_title" => updated_post.title,
+            "post_type" => updated_post.type,
+            "post_status" => updated_post.status,
+            "scheduled_for" => DateTime.to_iso8601(scheduled_at)
+          }
+
+          case ScheduledJobs.schedule_job(
+                 ScheduledPostHandler,
+                 post.id,
+                 scheduled_at,
+                 job_args,
+                 opts
+               ) do
+            {:ok, job} ->
+              Logger.info(
+                "Posts.schedule_post: Created scheduled job #{job.id} for post #{post.id}"
+              )
+
+              updated_post
+
+            {:error, reason} ->
+              Logger.error(
+                "Posts.schedule_post: Failed to create scheduled job: #{inspect(reason)}"
+              )
+
+              repo().rollback(reason)
+          end
+
+        {:error, changeset} ->
+          Logger.error("Posts.schedule_post: Failed to update post: #{inspect(changeset.errors)}")
+          repo().rollback(changeset)
+      end
+    end)
+  end
+
+  @doc """
+  Unschedules a post, reverting it to draft status.
+
+  Cancels any pending scheduled jobs for this post.
+
+  ## Parameters
+
+  - `post` - Post to unschedule
+
+  ## Examples
+
+      iex> unschedule_post(post)
+      {:ok, %Post{status: "draft"}}
+  """
+  def unschedule_post(%Post{} = post) do
+    repo().transaction(fn ->
+      # Cancel any pending scheduled jobs
+      ScheduledJobs.cancel_jobs_for_resource("post", post.id)
+
+      # Revert to draft status
+      case update_post(post, %{status: "draft", scheduled_at: nil}) do
+        {:ok, updated_post} -> updated_post
+        {:error, changeset} -> repo().rollback(changeset)
+      end
+    end)
   end
 
   @doc """
