@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   import Ecto.Query
 
   alias PhoenixKit.Jobs, as: JobsModule
+  alias PhoenixKit.ScheduledJobs.ScheduledJob
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -43,8 +44,11 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
         |> assign(:current_page, 1)
         |> assign(:per_page, @per_page)
         |> assign(:selected_job, nil)
+        |> assign(:selected_scheduled_job, nil)
+        |> assign(:active_tab, "oban")
         |> load_stats()
         |> load_jobs()
+        |> load_scheduled_jobs()
 
       {:ok, socket}
     end
@@ -142,6 +146,22 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   end
 
   @impl true
+  def handle_event("switch_tab", %{"tab" => tab}, socket) do
+    {:noreply, assign(socket, :active_tab, tab)}
+  end
+
+  @impl true
+  def handle_event("show_scheduled_job", %{"id" => id}, socket) do
+    job = load_scheduled_job(id)
+    {:noreply, assign(socket, :selected_scheduled_job, job)}
+  end
+
+  @impl true
+  def handle_event("close_scheduled_job", _params, socket) do
+    {:noreply, assign(socket, :selected_scheduled_job, nil)}
+  end
+
+  @impl true
   def handle_info(:refresh, socket) do
     Process.send_after(self(), :refresh, @refresh_interval)
 
@@ -149,6 +169,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
       socket
       |> load_jobs()
       |> load_stats()
+      |> load_scheduled_jobs()
 
     {:noreply, socket}
   end
@@ -229,6 +250,24 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
     |> repo.one()
   end
 
+  defp load_scheduled_jobs(socket) do
+    repo = PhoenixKit.Config.get_repo()
+
+    scheduled_jobs =
+      from(j in ScheduledJob,
+        order_by: [desc: j.inserted_at],
+        limit: 50
+      )
+      |> repo.all()
+
+    assign(socket, :scheduled_jobs, scheduled_jobs)
+  end
+
+  defp load_scheduled_job(id) do
+    repo = PhoenixKit.Config.get_repo()
+    repo.get(ScheduledJob, id)
+  end
+
   defp load_stats(socket) do
     repo = PhoenixKit.Config.get_repo()
 
@@ -307,6 +346,16 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
       "executing" -> "badge-primary"
       "retryable" -> "badge-warning"
       "discarded" -> "badge-error"
+      "cancelled" -> "badge-ghost"
+      _ -> "badge-ghost"
+    end
+  end
+
+  defp scheduled_job_badge_class(status) do
+    case status do
+      "pending" -> "badge-warning"
+      "executed" -> "badge-success"
+      "failed" -> "badge-error"
       "cancelled" -> "badge-ghost"
       _ -> "badge-ghost"
     end

@@ -46,185 +46,296 @@
       </div>
     </div>
 
-    <%!-- Filters --%>
-    <div class="card bg-base-100 shadow-xl">
-      <div class="card-body p-4">
-        <div class="flex flex-wrap gap-4 mb-4">
-          <form phx-change="filter_queue" class="form-control">
-            <label class="label py-1">
-              <span class="label-text text-xs">Queue</span>
-            </label>
-            <select class="select select-bordered select-sm" name="queue">
-              <option value="all" selected={@filter_queue == "all"}>All Queues</option>
-              <%= for {queue, _count} <- @queue_stats do %>
-                <option value={queue} selected={@filter_queue == queue}>{queue}</option>
-              <% end %>
-            </select>
-          </form>
+    <%!-- Tabs --%>
+    <div role="tablist" class="tabs tabs-boxed mb-4 w-fit">
+      <button
+        type="button"
+        role="tab"
+        class={"tab #{if @active_tab == "oban", do: "tab-active"}"}
+        phx-click="switch_tab"
+        phx-value-tab="oban"
+      >
+        Oban Jobs
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class={"tab #{if @active_tab == "scheduled", do: "tab-active"}"}
+        phx-click="switch_tab"
+        phx-value-tab="scheduled"
+      >
+        Scheduled Tasks
+        <%= if length(@scheduled_jobs) > 0 do %>
+          <span class="badge badge-sm ml-1">{length(@scheduled_jobs)}</span>
+        <% end %>
+      </button>
+    </div>
 
-          <form phx-change="filter_state" class="form-control">
-            <label class="label py-1">
-              <span class="label-text text-xs">State</span>
-            </label>
-            <select class="select select-bordered select-sm" name="state">
-              <option value="all" selected={@filter_state == "all"}>All States</option>
-              <option value="available" selected={@filter_state == "available"}>available</option>
-              <option value="scheduled" selected={@filter_state == "scheduled"}>scheduled</option>
-              <option value="executing" selected={@filter_state == "executing"}>executing</option>
-              <option value="completed" selected={@filter_state == "completed"}>completed</option>
-              <option value="retryable" selected={@filter_state == "retryable"}>retryable</option>
-              <option value="discarded" selected={@filter_state == "discarded"}>discarded</option>
-              <option value="cancelled" selected={@filter_state == "cancelled"}>cancelled</option>
-            </select>
-          </form>
+    <%!-- Oban Jobs Tab --%>
+    <div class={if @active_tab != "oban", do: "hidden"}>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4">
+          <div class="flex flex-wrap gap-4 mb-4">
+            <form phx-change="filter_queue" class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Queue</span>
+              </label>
+              <select class="select select-bordered select-sm" name="queue">
+                <option value="all" selected={@filter_queue == "all"}>All Queues</option>
+                <%= for {queue, _count} <- @queue_stats do %>
+                  <option value={queue} selected={@filter_queue == queue}>{queue}</option>
+                <% end %>
+              </select>
+            </form>
 
-          <form phx-change="filter_worker" class="form-control">
-            <label class="label py-1">
-              <span class="label-text text-xs">Worker</span>
-            </label>
-            <select class="select select-bordered select-sm" name="worker">
-              <option value="all" selected={@filter_worker == "all"}>All Workers</option>
-              <%= for {worker, count} <- @worker_stats do %>
-                <option value={worker} selected={@filter_worker == worker}>
-                  {short_worker_name(worker)} ({count})
+            <form phx-change="filter_state" class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">State</span>
+              </label>
+              <select class="select select-bordered select-sm" name="state">
+                <option value="all" selected={@filter_state == "all"}>All States</option>
+                <option value="available" selected={@filter_state == "available"}>
+                  available
                 </option>
-              <% end %>
-            </select>
-          </form>
+                <option value="scheduled" selected={@filter_state == "scheduled"}>
+                  scheduled
+                </option>
+                <option value="executing" selected={@filter_state == "executing"}>
+                  executing
+                </option>
+                <option value="completed" selected={@filter_state == "completed"}>
+                  completed
+                </option>
+                <option value="retryable" selected={@filter_state == "retryable"}>
+                  retryable
+                </option>
+                <option value="discarded" selected={@filter_state == "discarded"}>
+                  discarded
+                </option>
+                <option value="cancelled" selected={@filter_state == "cancelled"}>
+                  cancelled
+                </option>
+              </select>
+            </form>
 
-          <div class="flex-1"></div>
+            <form phx-change="filter_worker" class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-xs">Worker</span>
+              </label>
+              <select class="select select-bordered select-sm" name="worker">
+                <option value="all" selected={@filter_worker == "all"}>All Workers</option>
+                <%= for {worker, count} <- @worker_stats do %>
+                  <option value={worker} selected={@filter_worker == worker}>
+                    {short_worker_name(worker)} ({count})
+                  </option>
+                <% end %>
+              </select>
+            </form>
 
-          <div class="self-end flex items-center gap-4">
-            <%= if @hidden_workers != [] do %>
-              <div class="dropdown dropdown-end">
-                <div tabindex="0" role="button" class="btn btn-xs btn-ghost text-warning">
-                  <.icon name="hero-eye-slash" class="w-4 h-4" />
-                  {length(@hidden_workers)} hidden
-                </div>
-                <div
-                  tabindex="0"
-                  class="dropdown-content z-50 menu p-2 shadow bg-base-200 rounded-box w-64"
-                >
-                  <div class="text-xs font-semibold px-2 py-1 text-base-content/70">
-                    Hidden Workers
+            <div class="flex-1"></div>
+
+            <div class="self-end flex items-center gap-4">
+              <%= if @hidden_workers != [] do %>
+                <div class="dropdown dropdown-end">
+                  <div tabindex="0" role="button" class="btn btn-xs btn-ghost text-warning">
+                    <.icon name="hero-eye-slash" class="w-4 h-4" />
+                    {length(@hidden_workers)} hidden
                   </div>
-                  <%= for worker <- @hidden_workers do %>
-                    <button
-                      type="button"
-                      class="btn btn-xs btn-ghost justify-start text-left"
-                      phx-click="toggle_hide_worker"
-                      phx-value-worker={worker}
-                    >
-                      <.icon name="hero-eye" class="w-3 h-3" />
-                      <span class="truncate">{short_worker_name(worker)}</span>
-                    </button>
-                  <% end %>
-                  <div class="divider my-1"></div>
-                  <button
-                    type="button"
-                    class="btn btn-xs btn-ghost text-error"
-                    phx-click="clear_hidden_workers"
+                  <div
+                    tabindex="0"
+                    class="dropdown-content z-50 menu p-2 shadow bg-base-200 rounded-box w-64"
                   >
-                    Show all workers
-                  </button>
-                </div>
-              </div>
-            <% end %>
-            <span class="text-sm text-base-content/70">
-              {@total_count} jobs | Auto-refresh: 30s
-            </span>
-          </div>
-        </div>
-
-        <%!-- Jobs Table --%>
-        <.table_default variant="zebra" size="sm">
-          <.table_default_header>
-            <.table_default_row>
-              <.table_default_header_cell>ID</.table_default_header_cell>
-              <.table_default_header_cell>Queue</.table_default_header_cell>
-              <.table_default_header_cell>Worker</.table_default_header_cell>
-              <.table_default_header_cell>State</.table_default_header_cell>
-              <.table_default_header_cell>Attempt</.table_default_header_cell>
-              <.table_default_header_cell>Inserted</.table_default_header_cell>
-              <.table_default_header_cell>Scheduled</.table_default_header_cell>
-            </.table_default_row>
-          </.table_default_header>
-          <.table_default_body>
-            <%= if Enum.empty?(@jobs) do %>
-              <.table_default_row hover={false}>
-                <.table_default_cell colspan={7} class="text-center py-8 text-base-content/50">
-                  No jobs found
-                </.table_default_cell>
-              </.table_default_row>
-            <% else %>
-              <%= for job <- @jobs do %>
-                <.table_default_row
-                  class="cursor-pointer hover:bg-base-200"
-                  phx-click="show_job"
-                  phx-value-id={job.id}
-                >
-                  <.table_default_cell class="font-mono text-xs">{job.id}</.table_default_cell>
-                  <.table_default_cell>
-                    <span class="badge badge-sm badge-outline">{job.queue}</span>
-                  </.table_default_cell>
-                  <.table_default_cell class="text-sm">
-                    <div class="flex items-center gap-1">
-                      <span title={job.worker}>{short_worker_name(job.worker)}</span>
+                    <div class="text-xs font-semibold px-2 py-1 text-base-content/70">
+                      Hidden Workers
+                    </div>
+                    <%= for worker <- @hidden_workers do %>
                       <button
                         type="button"
-                        class="btn btn-ghost btn-xs opacity-30 hover:opacity-100"
+                        class="btn btn-xs btn-ghost justify-start text-left"
                         phx-click="toggle_hide_worker"
-                        phx-value-worker={job.worker}
-                        title="Hide this worker"
+                        phx-value-worker={worker}
                       >
-                        <.icon name="hero-eye-slash" class="w-3 h-3" />
+                        <.icon name="hero-eye" class="w-3 h-3" />
+                        <span class="truncate">{short_worker_name(worker)}</span>
                       </button>
-                    </div>
-                  </.table_default_cell>
-                  <.table_default_cell>
-                    <span class={"badge badge-sm #{state_badge_class(job.state)}"}>
-                      {job.state}
-                    </span>
-                  </.table_default_cell>
-                  <.table_default_cell class="text-center">
-                    {job.attempt}/{job.max_attempts}
-                  </.table_default_cell>
-                  <.table_default_cell class="text-xs text-base-content/70">
-                    {format_datetime(job.inserted_at)}
-                  </.table_default_cell>
-                  <.table_default_cell class="text-xs text-base-content/70">
-                    {format_datetime(job.scheduled_at)}
+                    <% end %>
+                    <div class="divider my-1"></div>
+                    <button
+                      type="button"
+                      class="btn btn-xs btn-ghost text-error"
+                      phx-click="clear_hidden_workers"
+                    >
+                      Show all workers
+                    </button>
+                  </div>
+                </div>
+              <% end %>
+              <span class="text-sm text-base-content/70">
+                {@total_count} jobs | Auto-refresh: 30s
+              </span>
+            </div>
+          </div>
+
+          <%!-- Jobs Table --%>
+          <.table_default variant="zebra" size="sm">
+            <.table_default_header>
+              <.table_default_row>
+                <.table_default_header_cell>ID</.table_default_header_cell>
+                <.table_default_header_cell>Queue</.table_default_header_cell>
+                <.table_default_header_cell>Worker</.table_default_header_cell>
+                <.table_default_header_cell>State</.table_default_header_cell>
+                <.table_default_header_cell>Attempt</.table_default_header_cell>
+                <.table_default_header_cell>Inserted</.table_default_header_cell>
+                <.table_default_header_cell>Scheduled</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+            <.table_default_body>
+              <%= if Enum.empty?(@jobs) do %>
+                <.table_default_row hover={false}>
+                  <.table_default_cell colspan={7} class="text-center py-8 text-base-content/50">
+                    No jobs found
                   </.table_default_cell>
                 </.table_default_row>
+              <% else %>
+                <%= for job <- @jobs do %>
+                  <.table_default_row
+                    class="cursor-pointer hover:bg-base-200"
+                    phx-click="show_job"
+                    phx-value-id={job.id}
+                  >
+                    <.table_default_cell class="font-mono text-xs">{job.id}</.table_default_cell>
+                    <.table_default_cell>
+                      <span class="badge badge-sm badge-outline">{job.queue}</span>
+                    </.table_default_cell>
+                    <.table_default_cell class="text-sm">
+                      <div class="flex items-center gap-1">
+                        <span title={job.worker}>{short_worker_name(job.worker)}</span>
+                        <button
+                          type="button"
+                          class="btn btn-ghost btn-xs opacity-30 hover:opacity-100"
+                          phx-click="toggle_hide_worker"
+                          phx-value-worker={job.worker}
+                          title="Hide this worker"
+                        >
+                          <.icon name="hero-eye-slash" class="w-3 h-3" />
+                        </button>
+                      </div>
+                    </.table_default_cell>
+                    <.table_default_cell>
+                      <span class={"badge badge-sm #{state_badge_class(job.state)}"}>
+                        {job.state}
+                      </span>
+                    </.table_default_cell>
+                    <.table_default_cell class="text-center">
+                      {job.attempt}/{job.max_attempts}
+                    </.table_default_cell>
+                    <.table_default_cell class="text-xs text-base-content/70">
+                      {format_datetime(job.inserted_at)}
+                    </.table_default_cell>
+                    <.table_default_cell class="text-xs text-base-content/70">
+                      {format_datetime(job.scheduled_at)}
+                    </.table_default_cell>
+                  </.table_default_row>
+                <% end %>
               <% end %>
-            <% end %>
-          </.table_default_body>
-        </.table_default>
+            </.table_default_body>
+          </.table_default>
 
-        <%!-- Pagination --%>
-        <%= if @total_pages > 1 do %>
-          <div class="flex justify-center gap-2 mt-4">
-            <button
-              class="btn btn-sm btn-outline"
-              phx-click="change_page"
-              phx-value-page={max(1, @current_page - 1)}
-              disabled={@current_page == 1}
-            >
-              Previous
-            </button>
-            <span class="btn btn-sm btn-ghost no-animation">
-              Page {@current_page} of {@total_pages}
+          <%!-- Pagination --%>
+          <%= if @total_pages > 1 do %>
+            <div class="flex justify-center gap-2 mt-4">
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="change_page"
+                phx-value-page={max(1, @current_page - 1)}
+                disabled={@current_page == 1}
+              >
+                Previous
+              </button>
+              <span class="btn btn-sm btn-ghost no-animation">
+                Page {@current_page} of {@total_pages}
+              </span>
+              <button
+                class="btn btn-sm btn-outline"
+                phx-click="change_page"
+                phx-value-page={min(@total_pages, @current_page + 1)}
+                disabled={@current_page == @total_pages}
+              >
+                Next
+              </button>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Scheduled Tasks Tab --%>
+    <div class={if @active_tab != "scheduled", do: "hidden"}>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body p-4">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-semibold">Scheduled Tasks</h3>
+            <span class="text-sm text-base-content/70">
+              {length(@scheduled_jobs)} tasks | Auto-refresh: 30s
             </span>
-            <button
-              class="btn btn-sm btn-outline"
-              phx-click="change_page"
-              phx-value-page={min(@total_pages, @current_page + 1)}
-              disabled={@current_page == @total_pages}
-            >
-              Next
-            </button>
           </div>
-        <% end %>
+
+          <.table_default variant="zebra" size="sm">
+            <.table_default_header>
+              <.table_default_row>
+                <.table_default_header_cell>Type</.table_default_header_cell>
+                <.table_default_header_cell>Resource</.table_default_header_cell>
+                <.table_default_header_cell>Status</.table_default_header_cell>
+                <.table_default_header_cell>Scheduled For</.table_default_header_cell>
+                <.table_default_header_cell>Executed At</.table_default_header_cell>
+                <.table_default_header_cell>Args</.table_default_header_cell>
+              </.table_default_row>
+            </.table_default_header>
+            <.table_default_body>
+              <%= if Enum.empty?(@scheduled_jobs) do %>
+                <.table_default_row hover={false}>
+                  <.table_default_cell colspan={6} class="text-center py-8 text-base-content/50">
+                    No scheduled tasks found
+                  </.table_default_cell>
+                </.table_default_row>
+              <% else %>
+                <%= for job <- @scheduled_jobs do %>
+                  <.table_default_row
+                    class="cursor-pointer hover:bg-base-200"
+                    phx-click="show_scheduled_job"
+                    phx-value-id={job.id}
+                  >
+                    <.table_default_cell>
+                      <span class="badge badge-sm badge-outline">{job.job_type}</span>
+                    </.table_default_cell>
+                    <.table_default_cell class="font-mono text-xs">
+                      {job.resource_type}/{String.slice(job.resource_id || "", 0, 8)}...
+                    </.table_default_cell>
+                    <.table_default_cell>
+                      <span class={"badge badge-sm #{scheduled_job_badge_class(job.status)}"}>
+                        {job.status}
+                      </span>
+                    </.table_default_cell>
+                    <.table_default_cell class="text-xs text-base-content/70">
+                      {format_datetime(job.scheduled_at)}
+                    </.table_default_cell>
+                    <.table_default_cell class="text-xs text-base-content/70">
+                      {format_datetime(job.executed_at)}
+                    </.table_default_cell>
+                    <.table_default_cell
+                      class="text-xs max-w-xs truncate"
+                      title={format_json(job.args)}
+                    >
+                      {if job.args && job.args != %{},
+                        do: Map.get(job.args, "post_title") || "...",
+                        else: "-"}
+                    </.table_default_cell>
+                  </.table_default_row>
+                <% end %>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
+        </div>
       </div>
     </div>
 
@@ -374,6 +485,107 @@
           </div>
         </div>
         <div class="modal-backdrop" phx-click="close_job"></div>
+      </div>
+    <% end %>
+
+    <%!-- Scheduled Job Detail Modal --%>
+    <%= if @selected_scheduled_job do %>
+      <div class="modal modal-open" phx-window-keydown="close_scheduled_job" phx-key="Escape">
+        <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
+          <button
+            type="button"
+            class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
+            phx-click="close_scheduled_job"
+          >
+            ✕
+          </button>
+
+          <h3 class="font-bold text-lg flex items-center gap-2 pr-8">
+            <span>{@selected_scheduled_job.job_type}</span>
+            <span class={"badge badge-sm #{scheduled_job_badge_class(@selected_scheduled_job.status)}"}>
+              {@selected_scheduled_job.status}
+            </span>
+          </h3>
+          <p class="text-xs text-base-content/50 mb-4">
+            {@selected_scheduled_job.resource_type}/{@selected_scheduled_job.resource_id}
+          </p>
+
+          <%!-- Basic Info Grid --%>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <div class="text-xs text-base-content/50">Handler</div>
+              <div class="text-sm font-mono text-xs">
+                {@selected_scheduled_job.handler_module}
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-base-content/50">Attempts</div>
+              <div class="text-sm">
+                {@selected_scheduled_job.attempts}/{@selected_scheduled_job.max_attempts}
+              </div>
+            </div>
+            <div>
+              <div class="text-xs text-base-content/50">Priority</div>
+              <div class="text-sm">{@selected_scheduled_job.priority}</div>
+            </div>
+          </div>
+
+          <%!-- Timestamps --%>
+          <div class="mb-6">
+            <h4 class="font-semibold text-sm mb-2">Timestamps</h4>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span class="text-base-content/50">Created:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_scheduled_job.inserted_at)}
+                </span>
+              </div>
+              <div>
+                <span class="text-base-content/50">Scheduled For:</span>
+                <span class="font-mono text-xs ml-1">
+                  {format_datetime(@selected_scheduled_job.scheduled_at)}
+                </span>
+              </div>
+              <%= if @selected_scheduled_job.executed_at do %>
+                <div>
+                  <span class="text-success">Executed:</span>
+                  <span class="font-mono text-xs ml-1">
+                    {format_datetime(@selected_scheduled_job.executed_at)}
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Args --%>
+          <div class="collapse collapse-arrow bg-base-200 mb-2">
+            <input type="checkbox" checked />
+            <div class="collapse-title font-semibold text-sm">
+              Arguments
+            </div>
+            <div class="collapse-content">
+              <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto"><code>{format_json(@selected_scheduled_job.args)}</code></pre>
+            </div>
+          </div>
+
+          <%!-- Error --%>
+          <%= if @selected_scheduled_job.last_error do %>
+            <div class="collapse collapse-arrow bg-error/10 mb-2">
+              <input type="checkbox" checked />
+              <div class="collapse-title font-semibold text-sm text-error">
+                Last Error
+              </div>
+              <div class="collapse-content">
+                <pre class="text-xs bg-base-300 p-3 rounded overflow-x-auto whitespace-pre-wrap"><code>{@selected_scheduled_job.last_error}</code></pre>
+              </div>
+            </div>
+          <% end %>
+
+          <div class="modal-action">
+            <button type="button" class="btn" phx-click="close_scheduled_job">Close</button>
+          </div>
+        </div>
+        <div class="modal-backdrop" phx-click="close_scheduled_job"></div>
       </div>
     <% end %>
   </div>

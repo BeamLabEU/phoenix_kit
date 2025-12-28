@@ -437,12 +437,19 @@ defmodule PhoenixKit.Posts do
             )
           end
 
-          # Create new scheduled job entry
+          # Create new scheduled job entry with useful context
+          job_args = %{
+            "post_title" => updated_post.title,
+            "post_type" => updated_post.type,
+            "post_status" => updated_post.status,
+            "scheduled_for" => DateTime.to_iso8601(scheduled_at)
+          }
+
           case ScheduledJobs.schedule_job(
                  ScheduledPostHandler,
                  post.id,
                  scheduled_at,
-                 %{},
+                 job_args,
                  opts
                ) do
             {:ok, job} ->
