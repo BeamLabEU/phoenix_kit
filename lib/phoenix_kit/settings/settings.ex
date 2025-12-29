@@ -74,6 +74,7 @@ defmodule PhoenixKit.Settings do
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
+  @default_locale PhoenixKit.Config.default_locale()
   @cache_name :settings
 
   # Gets the configured repository for database operations.
@@ -153,8 +154,8 @@ defmodule PhoenixKit.Settings do
       "oauth_github_client_secret" => "",
       "oauth_facebook_app_id" => "",
       "oauth_facebook_app_secret" => "",
-      # Admin Panel Languages - default is just English (en-US) for fresh installs
-      "admin_languages" => Jason.encode!(["en-US"])
+      # Admin Panel Languages - default is just the default locale for fresh installs
+      "admin_languages" => Jason.encode!([@default_locale])
     }
   end
 

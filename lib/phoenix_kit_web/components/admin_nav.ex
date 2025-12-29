@@ -7,6 +7,7 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   use Phoenix.Component
 
   alias Phoenix.LiveView.JS
+  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
@@ -15,6 +16,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   alias PhoenixKit.Utils.Routes
 
   import PhoenixKitWeb.Components.Core.Icon
+
+  @default_locale Config.default_locale()
 
   @doc """
   Renders an admin navigation item with proper active state styling.
@@ -660,12 +663,12 @@ defmodule PhoenixKitWeb.Components.AdminNav do
       # Note: admin_languages is stored as JSON string in value column
       admin_languages_json =
         Settings.get_setting_cached("admin_languages", nil) ||
-          Jason.encode!(["en-US"])
+          Jason.encode!([@default_locale])
 
       admin_language_codes =
         case Jason.decode(admin_languages_json) do
           {:ok, codes} when is_list(codes) -> codes
-          _ -> ["en-US"]
+          _ -> [@default_locale]
         end
 
       # Map codes to full language objects

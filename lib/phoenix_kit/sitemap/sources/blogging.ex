@@ -46,6 +46,8 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
   alias PhoenixKit.Sitemap.UrlEntry
   alias PhoenixKitWeb.Live.Modules.Blogging
 
+  @default_locale Config.default_locale()
+
   @impl true
   def source_name, do: :blogging
 
@@ -464,7 +466,7 @@ defmodule PhoenixKit.Sitemap.Sources.Blogging do
 
   # Get default language from admin settings
   defp get_default_language do
-    case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
+    case PhoenixKit.Settings.get_json_setting_cached("admin_languages", [@default_locale]) do
       [first | _] -> Languages.DialectMapper.extract_base(first)
       _ -> "en"
     end
