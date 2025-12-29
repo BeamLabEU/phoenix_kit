@@ -94,9 +94,11 @@ defmodule PhoenixKit.Modules.Languages do
       }
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
 
   @config_key "languages_config"
+  @default_locale Config.default_locale()
   @enabled_key "languages_enabled"
   @module_name "languages"
 
@@ -394,10 +396,10 @@ defmodule PhoenixKit.Modules.Languages do
     # Admin navbar languages are managed separately in settings
     if enabled?() do
       codes = get_enabled_language_codes()
-      # Ensure we always have at least "en-US" as a fallback
-      if Enum.empty?(codes), do: ["en-US"], else: codes
+      # Ensure we always have at least the default locale as a fallback
+      if Enum.empty?(codes), do: [@default_locale], else: codes
     else
-      ["en-US"]
+      [@default_locale]
     end
   end
 

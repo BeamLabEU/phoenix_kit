@@ -439,6 +439,31 @@ defmodule PhoenixKit.Config do
   end
 
   @doc """
+  Returns the default locale for the application.
+
+  Parent apps can override via config:
+
+      config :phoenix_kit,
+        default_locale: "es-ES"
+
+  Defaults to "en-US" if not configured.
+
+  ## Examples
+
+      iex> PhoenixKit.Config.default_locale()
+      "en-US"
+
+      # With custom config:
+      iex> PhoenixKit.Config.default_locale()
+      "es-ES"
+
+  """
+  @spec default_locale() :: String.t()
+  def default_locale do
+    get_string(:default_locale, "en-US")
+  end
+
+  @doc """
   Gets configuration from the parent application.
 
   This is useful for accessing parent app mailer, endpoint, or other configurations

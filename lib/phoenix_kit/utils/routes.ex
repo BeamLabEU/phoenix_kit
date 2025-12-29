@@ -6,7 +6,10 @@ defmodule PhoenixKit.Utils.Routes do
   PhoenixKit prefix configured in the application.
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages.DialectMapper
+
+  @default_locale Config.default_locale()
 
   # NOTE: Locale override logic below exists for the temporary blogging component system integration.
   # Switch to the upcoming media/storage helpers once they land.
@@ -63,7 +66,7 @@ defmodule PhoenixKit.Utils.Routes do
     if mix_task_context?() do
       "en"
     else
-      case PhoenixKit.Settings.get_json_setting_cached("admin_languages", ["en-US"]) do
+      case PhoenixKit.Settings.get_json_setting_cached("admin_languages", [@default_locale]) do
         nil ->
           # No setting exists, default is "en"
           "en"
@@ -102,7 +105,7 @@ defmodule PhoenixKit.Utils.Routes do
     # Prefer base code, fall back to extracting from full dialect
     locale =
       assigns[:current_locale_base] ||
-        DialectMapper.extract_base(assigns[:current_locale] || "en-US")
+        DialectMapper.extract_base(assigns[:current_locale] || @default_locale)
 
     path(url_path, locale: locale)
   end

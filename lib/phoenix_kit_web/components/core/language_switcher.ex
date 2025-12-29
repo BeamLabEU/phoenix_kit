@@ -28,10 +28,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   use Phoenix.Component
 
   alias Phoenix.LiveView.JS
+  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Components.Core.Icon
+
+  @default_locale Config.default_locale()
 
   @doc """
   Renders a dropdown language switcher.
@@ -83,7 +86,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       assigns.current_locale ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en-US"
+        @default_locale
 
     # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
@@ -225,7 +228,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       assigns.current_locale ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en-US"
+        @default_locale
 
     # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
@@ -331,7 +334,7 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
       assigns.current_locale ||
         Process.get(:phoenix_kit_current_locale) ||
         Gettext.get_locale(PhoenixKitWeb.Gettext) ||
-        "en-US"
+        @default_locale
 
     # Get enabled languages - these are full dialect codes with names
     languages_config = assigns.languages || Languages.get_display_languages()
