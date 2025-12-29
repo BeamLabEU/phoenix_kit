@@ -380,6 +380,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/email-tracking", Live.Modules.Emails.EmailTracking, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
+          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
 
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,
@@ -588,6 +589,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
           live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
           live "/admin/settings/languages", Live.Modules.Languages, :index
+          live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
 
           live "/admin/settings/maintenance",
                Live.Modules.Maintenance.Settings,

@@ -292,7 +292,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Creates unique indexes on uuid columns
   - Enables gradual transition to UUID-based lookups
 
-  ### V41 - AI Prompt Tracking & Reasoning Parameters ⚡ LATEST
+  ### V41 - AI Prompt Tracking & Reasoning Parameters
   - Adds `prompt_id` and `prompt_name` to phoenix_kit_ai_requests
   - Tracks which prompt template was used for AI completions
   - Denormalized prompt_name preserved for historical display
@@ -303,7 +303,7 @@ defmodule PhoenixKit.Migrations.Postgres do
     - `reasoning_max_tokens` (integer) - Hard cap on thinking tokens (1024-32000)
     - `reasoning_exclude` (boolean) - Hide reasoning from response
 
-  ### V42 - Universal Scheduled Jobs System ⚡ LATEST
+  ### V42 - Universal Scheduled Jobs System
   - Phoenix_kit_scheduled_jobs for polymorphic scheduled task management
   - Behaviour-based handler pattern for extensibility
   - Priority-based job execution ordering
@@ -311,6 +311,15 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Status management: pending, executed, failed, cancelled
   - Replaces single-purpose PublishScheduledPostsJob with generic processor
   - Supports any schedulable resource (posts, emails, notifications, etc.)
+
+  ### V43 - Legal Module ⚡ LATEST
+  - Phoenix_kit_consent_logs for user consent tracking (GDPR/CCPA compliance)
+  - Supports logged-in users and anonymous visitors via session_id
+  - Consent types: necessary, analytics, marketing, preferences
+  - Settings seeds for legal module configuration:
+    - legal_enabled, legal_frameworks, legal_company_info
+    - legal_dpo_contact, legal_consent_widget_enabled
+    - legal_cookie_banner_position
 
   ## Migration Paths
 
@@ -370,7 +379,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 42
+  @current_version 43
   @default_prefix "public"
 
   @doc false

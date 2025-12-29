@@ -74,6 +74,25 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   @doc """
+  Gets a blog by slug.
+
+  ## Examples
+
+      iex> Blogging.get_blog("news")
+      {:ok, %{"name" => "News", "slug" => "news", ...}}
+
+      iex> Blogging.get_blog("nonexistent")
+      {:error, :not_found}
+  """
+  @spec get_blog(String.t()) :: {:ok, blog()} | {:error, :not_found}
+  def get_blog(slug) when is_binary(slug) do
+    case Enum.find(list_blogs(), &(&1["slug"] == slug)) do
+      nil -> {:error, :not_found}
+      blog -> {:ok, blog}
+    end
+  end
+
+  @doc """
   Adds a new blog.
   """
   @spec add_blog(String.t(), String.t(), String.t() | nil) :: {:ok, blog()} | {:error, atom()}
@@ -91,7 +110,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       true ->
         blogs = list_blogs()
 
-        with {:ok, requested_slug} <- derive_requested_slug(preferred_slug, trimmed) do
+        with {:ok, requested_slug} <- derive_requested_slug(preferred_slug, trimmed),
+             :ok <- check_slug_availability(requested_slug, blogs, preferred_slug) do
           slug = ensure_unique_slug(requested_slug, blogs)
 
           blog = %{"name" => trimmed, "slug" => slug, "mode" => mode}
@@ -497,6 +517,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     slugified = slugify(fallback_name)
     if slugified == "", do: {:error, :invalid_slug}, else: {:ok, slugified}
   end
+
+  # Check if explicit slug already exists (only when preferred_slug is provided)
+  defp check_slug_availability(slug, blogs, preferred_slug) when not is_nil(preferred_slug) do
+    if Enum.any?(blogs, &(&1["slug"] == slug)) do
+      {:error, :already_exists}
+    else
+      :ok
+    end
+  end
+
+  defp check_slug_availability(_slug, _blogs, nil), do: :ok
 
   defp ensure_unique_slug(slug, blogs), do: ensure_unique_slug(slug, blogs, 2)
 

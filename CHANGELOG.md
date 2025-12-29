@@ -1,3 +1,18 @@
+## 1.7.16 - 2025-12-29
+
+### Legal Module - Phase 1
+- **New Legal module** for privacy compliance and legal page management
+- **Compliance framework selection** - Support for GDPR, CCPA, LGPD, PDPA, POPIA, and Generic frameworks
+- **Company information form** - Store company details for legal page generation
+- **DPO contact form** - Data Protection Officer contact information
+- **Legal page generation** - Generate pages from EEx templates:
+  - Privacy Policy, Terms of Service, Cookie Policy
+  - Data Retention Policy, CCPA Notice, Acceptable Use Policy, Do Not Sell
+- **Blogging integration** - Generated pages stored as blog posts in dedicated "legal" blog
+- **Consent logging schema** - Track user consent for cookies and data processing (V43 migration)
+- **Admin settings interface** - Manage legal settings at `/admin/settings/legal`
+- **Module organization** - Files structured in `lib/modules/legal/` following Storage module pattern
+
 ## 1.7.15 - 2025-12-29
 - Major AI Module enhancements: real-time PubSub updates across tabs, client-side TimeAgo hook for efficient time displays, reasoning/thinking parameters for AI endpoints, prompt tracking in request logs, and pagination with date filtering on admin pages.
 - Initial Job Module release with basic functionality

@@ -1,0 +1,497 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale_base)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Legal Settings")}</h1>
+        <p class="text-lg text-base-content">
+          {gettext(
+            "Configure compliance frameworks, company information, and generate legal pages."
+          )}
+        </p>
+      </div>
+    </header>
+
+    <div class="max-w-4xl mx-auto space-y-6">
+      <%!-- Module Toggle --%>
+      <div class="flex items-center justify-between bg-base-200 p-4 rounded-lg">
+        <div>
+          <h2 class="font-semibold">{gettext("Legal Module")}</h2>
+          <p class="text-sm text-base-content/60">
+            {gettext("Enable or disable the Legal module")}
+          </p>
+        </div>
+        <div class="form-control">
+          <label class="label cursor-pointer gap-4">
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={@legal_enabled}
+              phx-click="toggle_legal"
+              disabled={not @blogging_enabled}
+            />
+          </label>
+        </div>
+      </div>
+
+      <%!-- Blogging Dependency Warning --%>
+      <%= if not @blogging_enabled do %>
+        <div class="alert alert-warning">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="stroke-current shrink-0 h-6 w-6"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+            />
+          </svg>
+          <span>
+            {gettext("Blogging module is required for Legal pages. Please enable Blogging first.")}
+          </span>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/blogging")}
+            class="btn btn-sm"
+          >
+            {gettext("Enable Blogging")}
+          </.link>
+        </div>
+      <% end %>
+
+      <%= if @legal_enabled do %>
+        <%!-- Section 1: Compliance Frameworks --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title">{gettext("Compliance Frameworks")}</h2>
+            <p class="text-sm text-base-content/60 mb-4">
+              {gettext("Select the privacy regulations your application must comply with.")}
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <%= for {id, framework} <- @available_frameworks do %>
+                <label class={"flex items-start gap-3 p-4 border rounded-lg cursor-pointer hover:bg-base-200 transition-colors #{if id in @selected_frameworks, do: "border-primary bg-primary/5", else: "border-base-300"}"}>
+                  <input
+                    type="checkbox"
+                    class="checkbox checkbox-primary checkbox-sm mt-0.5 shrink-0"
+                    checked={id in @selected_frameworks}
+                    phx-click="toggle_framework"
+                    phx-value-id={id}
+                  />
+                  <div class="min-w-0 flex-1">
+                    <div class="font-medium text-sm">{framework.name}</div>
+                    <div class="text-xs text-base-content/60 mt-1">
+                      {framework.description}
+                    </div>
+                  </div>
+                </label>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Section 2: Company Information --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title">{gettext("Company Information")}</h2>
+            <p class="text-sm text-base-content/60 mb-4">
+              {gettext("This information will appear in your legal documents.")}
+            </p>
+
+            <form phx-submit="save_company_info">
+              <div class="space-y-4">
+                <%!-- Company Name & Website row --%>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("Company Name")}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company_name"
+                      value={@company_info["name"]}
+                      class="input input-bordered"
+                      placeholder="Acme Corp"
+                    />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("Website URL")}</span>
+                    </label>
+                    <input
+                      type="url"
+                      name="company_website"
+                      value={@company_info["website_url"]}
+                      class="input input-bordered"
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                </div>
+
+                <%!-- Address Line 1 --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("Address Line 1")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="company_address_line1"
+                    value={@company_info["address_line1"]}
+                    class="input input-bordered"
+                    placeholder="123 Business Street"
+                  />
+                </div>
+
+                <%!-- Address Line 2 --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("Address Line 2")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="company_address_line2"
+                    value={@company_info["address_line2"]}
+                    class="input input-bordered"
+                    placeholder={gettext("Suite, Floor, Building (optional)")}
+                  />
+                </div>
+
+                <%!-- City + State row --%>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("City")}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company_city"
+                      value={@company_info["city"]}
+                      class="input input-bordered"
+                      placeholder="Tallinn"
+                    />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{@subdivision_label}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company_state"
+                      value={@company_info["state"]}
+                      class="input input-bordered"
+                      placeholder={gettext("(optional)")}
+                    />
+                  </div>
+                </div>
+
+                <%!-- Postal Code + Country row --%>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("Postal Code")}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="company_postal_code"
+                      value={@company_info["postal_code"]}
+                      class="input input-bordered font-mono"
+                      placeholder="10115"
+                    />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("Country")}</span>
+                    </label>
+                    <select
+                      name="company_country"
+                      class="select select-bordered"
+                      phx-change="update_country"
+                    >
+                      <option value="">{gettext("Select country...")}</option>
+                      <%= for {name, code} <- @countries do %>
+                        <option value={code} selected={@company_info["country"] == code}>
+                          {name}
+                        </option>
+                      <% end %>
+                    </select>
+                  </div>
+                </div>
+
+                <%!-- Registration Number + VAT row --%>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("Registration Number")}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="registration_number"
+                      value={@company_info["registration_number"]}
+                      class="input input-bordered"
+                    />
+                  </div>
+
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text">{gettext("VAT Number")}</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="vat_number"
+                      value={@company_info["vat_number"]}
+                      class="input input-bordered"
+                      placeholder="EE123456789"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-actions justify-end mt-4">
+                <button type="submit" class="btn btn-primary">
+                  {gettext("Save Company Info")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <%!-- Section 3: DPO Contact --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title">{gettext("Data Protection Officer (DPO)")}</h2>
+            <p class="text-sm text-base-content/60 mb-4">
+              {gettext("Required for GDPR compliance. Leave empty if not applicable.")}
+            </p>
+
+            <form phx-submit="save_dpo_contact">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("DPO Name")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="dpo_name"
+                    value={@dpo_contact["name"]}
+                    class="input input-bordered"
+                  />
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("DPO Email")}</span>
+                  </label>
+                  <input
+                    type="email"
+                    name="dpo_email"
+                    value={@dpo_contact["email"]}
+                    class="input input-bordered"
+                    placeholder="dpo@example.com"
+                  />
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("DPO Phone")}</span>
+                  </label>
+                  <input
+                    type="tel"
+                    name="dpo_phone"
+                    value={@dpo_contact["phone"]}
+                    class="input input-bordered"
+                  />
+                </div>
+
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("DPO Address")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="dpo_address"
+                    value={@dpo_contact["address"]}
+                    class="input input-bordered"
+                  />
+                </div>
+              </div>
+
+              <div class="card-actions justify-end mt-4">
+                <button type="submit" class="btn btn-primary">
+                  {gettext("Save DPO Contact")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <%!-- Section 4: Page Generation --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="card-title">{gettext("Legal Pages")}</h2>
+                <p class="text-sm text-base-content/60">
+                  {gettext("Generate legal pages based on selected frameworks.")}
+                </p>
+              </div>
+              <button
+                phx-click="generate_all_pages"
+                class="btn btn-primary"
+                disabled={@generating or Enum.empty?(@selected_frameworks)}
+              >
+                <%= if @generating do %>
+                  <span class="loading loading-spinner loading-sm"></span>
+                <% end %>
+                {gettext("Generate All Required Pages")}
+              </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <%= if Enum.empty?(@selected_frameworks) do %>
+              <div class="alert alert-info">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  class="stroke-current shrink-0 w-6 h-6"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  >
+                  </path>
+                </svg>
+                <span>
+                  {gettext("Select compliance frameworks above to see required pages.")}
+                </span>
+              </div>
+            <% else %>
+              <div class="overflow-x-auto">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Page")}</th>
+                      <th>{gettext("Required By")}</th>
+                      <th>{gettext("Status")}</th>
+                      <th class="text-right">{gettext("Actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for {page_type, page_config} <- @available_page_types do %>
+                      <% required_by =
+                        Enum.filter(@selected_frameworks, fn fw_id ->
+                          fw = @available_frameworks[fw_id]
+                          fw && page_type in (fw.required_pages ++ fw.optional_pages)
+                        end) %>
+                      <%= if not Enum.empty?(required_by) do %>
+                        <tr>
+                          <td>
+                            <div class="font-medium">{page_config.title}</div>
+                            <div class="text-xs text-base-content/60">
+                              {page_config.description}
+                            </div>
+                          </td>
+                          <td>
+                            <div class="flex flex-wrap gap-1">
+                              <%= for fw_id <- required_by do %>
+                                <% fw = @available_frameworks[fw_id] %>
+                                <span class={"badge badge-sm #{if page_type in fw.required_pages, do: "badge-primary", else: "badge-ghost"}"}>
+                                  {fw_id}
+                                </span>
+                              <% end %>
+                            </div>
+                          </td>
+                          <td>
+                            <%= if page_generated?(page_type, @generated_pages) do %>
+                              <% status = get_page_status(page_type, @generated_pages) %>
+                              <span class={"badge #{if status == "published", do: "badge-success", else: "badge-warning"}"}>
+                                {status}
+                              </span>
+                            <% else %>
+                              <span class="badge badge-ghost">{gettext("Not generated")}</span>
+                            <% end %>
+                          </td>
+                          <td class="text-right">
+                            <div class="flex justify-end gap-2">
+                              <%= if page_generated?(page_type, @generated_pages) do %>
+                                <.link
+                                  navigate={get_edit_url(page_type, @generated_pages)}
+                                  class="btn btn-sm btn-ghost"
+                                >
+                                  {gettext("Edit")}
+                                </.link>
+                              <% end %>
+                              <button
+                                phx-click="generate_page"
+                                phx-value-page_type={page_type}
+                                class="btn btn-sm btn-outline"
+                                disabled={@generating}
+                              >
+                                {if page_generated?(page_type, @generated_pages),
+                                  do: gettext("Regenerate"),
+                                  else: gettext("Generate")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      <% end %>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="alert alert-warning mt-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="stroke-current shrink-0 h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+                <div>
+                  <h3 class="font-bold">{gettext("Legal Review Required")}</h3>
+                  <div class="text-sm">
+                    {gettext(
+                      "Generated pages are drafts. Have them reviewed by a legal professional before publishing."
+                    )}
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
