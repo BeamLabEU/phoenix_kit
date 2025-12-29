@@ -72,5 +72,15 @@
 
   # Blogging module type inference false positives
   # Dialyzer incorrectly infers create_post only returns {:error, ...} in certain contexts
-  ~r/lib\/phoenix_kit_web\/live\/modules\/blogging\/editor\.ex:839:.*pattern_match/
+  ~r/lib\/phoenix_kit_web\/live\/modules\/blogging\/editor\.ex:839:.*pattern_match/,
+
+  # Legal module - dynamic dispatch to Blogging module
+  # Dialyzer can't infer types through blogging_module() helper
+  ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
+  ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match_cov/,
+
+  # ConsentLog schema - changeset type spec with empty struct
+  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*invalid_contract/,
+  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*no_return/,
+  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/
 ]

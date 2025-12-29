@@ -248,6 +248,33 @@ defmodule PhoenixKit.Billing.CountryData do
   end
 
   @doc """
+  Get the subdivision label for a country.
+
+  Returns appropriate label like "State", "Province", "Region", etc.
+  based on what the country uses for administrative divisions.
+
+  ## Examples
+
+      iex> CountryData.get_subdivision_label("US")
+      "State"
+
+      iex> CountryData.get_subdivision_label("CA")
+      "Province"
+
+      iex> CountryData.get_subdivision_label("EE")
+      "County"
+  """
+  def get_subdivision_label(nil), do: "State/Province"
+  def get_subdivision_label(""), do: "State/Province"
+
+  def get_subdivision_label(alpha2) when is_binary(alpha2) do
+    case BeamLabCountries.get(alpha2) do
+      nil -> "State/Province"
+      country -> country.subdivision_type || "State/Province"
+    end
+  end
+
+  @doc """
   Get list of EU countries for select dropdown.
   """
   def eu_countries_for_select do

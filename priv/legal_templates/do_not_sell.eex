@@ -1,0 +1,111 @@
+<%!-- Do Not Sell My Personal Information Template (CCPA) --%>
+<%!-- Variables: company_name, company_address, company_website, dpo_email, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated for CCPA/CPRA compliance.
+> It MUST be reviewed and customized by a qualified legal professional
+> before publication.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+## Your California Privacy Rights
+
+The California Consumer Privacy Act (CCPA) and California Privacy Rights Act (CPRA) give California residents the right to opt out of the "sale" or "sharing" of their personal information.
+
+## What Does "Sale" Mean Under CCPA?
+
+Under CCPA, a "sale" is broadly defined as sharing, disclosing, or making available personal information to a third party in exchange for monetary or other valuable consideration. This can include:
+
+- Sharing data with advertising partners
+- Using third-party analytics that share data
+- Allowing cookies that track you across websites
+
+## Do We Sell Your Personal Information?
+
+<%= @company_name %> <%= "[does/does not]" %> sell personal information as defined by the CCPA. However, we may share your information with third parties for advertising and analytics purposes, which may be considered a "sale" under CCPA.
+
+### Categories of Information We May Share
+
+| Category | Examples | Third Parties |
+|----------|----------|---------------|
+| Identifiers | IP address, cookie IDs | Analytics, Advertising |
+| Internet Activity | Browsing history, search queries | Analytics |
+| Geolocation | General location data | Analytics, Advertising |
+
+## How to Opt Out
+
+You can opt out of the sale or sharing of your personal information using any of the following methods:
+
+### 1. Online Request
+
+Click the button below to submit your opt-out request:
+
+**[Do Not Sell My Personal Information]**
+
+### 2. Email Request
+
+Send an email to: <%= if @dpo_email != "", do: @dpo_email, else: "[privacy@yourcompany.com]" %>
+
+Include:
+- Subject line: "CCPA Opt-Out Request"
+- Your name and email address associated with your account
+- A statement that you wish to opt out of the sale of your personal information
+
+### 3. Browser Settings
+
+You can enable Global Privacy Control (GPC) in your browser. We honor GPC signals as a valid opt-out request.
+
+Browsers that support GPC:
+- Firefox (with extension)
+- Brave
+- DuckDuckGo
+
+## What Happens After You Opt Out
+
+Once you submit an opt-out request:
+
+1. **Immediate Effect:** We will stop selling your personal information to third parties within 15 business days
+2. **Existing Data:** We will instruct third parties to stop using any previously shared data
+3. **Cookies:** Non-essential tracking cookies will be disabled
+4. **Account Impact:** Your account and service access will not be affected
+
+## Verification
+
+To protect your privacy, we may need to verify your identity before processing your request. We may ask for:
+- Email verification
+- Account credentials
+- Additional identifying information
+
+## Authorized Agents
+
+You may designate an authorized agent to submit requests on your behalf. The agent must provide:
+- Written authorization signed by you
+- Proof of the agent's identity
+- Proof of your identity
+
+## Your Other CCPA Rights
+
+In addition to opting out, you have the right to:
+
+- **Know:** Request information about the personal data we collect, use, and disclose
+- **Delete:** Request deletion of your personal information
+- **Correct:** Request correction of inaccurate personal information
+- **Limit Use:** Limit use of sensitive personal information
+- **Non-Discrimination:** Not receive discriminatory treatment for exercising your rights
+
+## Contact Us
+
+For questions about this page or to exercise your rights, contact us at:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>
+
+---
+
+**Last updated:** <%= @effective_date %>

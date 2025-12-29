@@ -843,6 +843,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
+                        <%= if PhoenixKit.Modules.Legal.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/legal")}
+                            icon="legal"
+                            label={gettext("Legal")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
                         <%= if SEO.module_enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/seo")}

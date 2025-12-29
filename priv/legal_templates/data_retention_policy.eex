@@ -1,0 +1,126 @@
+<%!-- Data Retention Policy Template --%>
+<%!-- Variables: company_name, company_address, company_country, company_website, dpo_name, dpo_email, frameworks, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated based on your selected compliance frameworks.
+> It provides a basic template that meets minimum requirements but MUST be reviewed
+> and customized by a qualified legal professional before publication.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+## 1. Introduction
+
+This Data Retention Policy outlines how <%= @company_name %> ("we," "our," or "us") retains, manages, and disposes of personal data in compliance with applicable data protection laws<%= if "gdpr" in @frameworks, do: ", including the General Data Protection Regulation (GDPR)", else: "" %>.
+
+## 2. Purpose
+
+The purpose of this policy is to:
+- Ensure personal data is not kept longer than necessary
+- Comply with legal and regulatory requirements
+- Protect the rights of data subjects
+- Establish clear procedures for data retention and deletion
+
+## 3. Scope
+
+This policy applies to all personal data processed by <%= @company_name %>, regardless of the format or medium in which it is stored.
+
+<%= if @dpo_name != "" or @dpo_email != "" do %>
+## 4. Responsible Party
+
+**Data Protection Officer:**
+<%= if @dpo_name != "" do %>- **Name:** <%= @dpo_name %><% end %>
+<%= if @dpo_email != "" do %>- **Email:** <%= @dpo_email %><% end %>
+<%= if @dpo_phone != "" do %>- **Phone:** <%= @dpo_phone %><% end %>
+<% end %>
+
+## 5. Retention Periods
+
+The following table outlines our standard retention periods for different categories of personal data:
+
+| Data Category | Retention Period | Legal Basis |
+|---------------|------------------|-------------|
+| **Account Information** | Duration of account + 3 years | Contractual necessity, legal obligations |
+| **Transaction Records** | 7 years from transaction date | Tax and accounting regulations |
+| **Communication Records** | 3 years from last contact | Legitimate interest, legal claims |
+| **Marketing Preferences** | Until consent withdrawal + 30 days | Consent |
+| **Website Analytics** | 26 months | Legitimate interest |
+| **Access Logs** | 12 months | Security, legal compliance |
+| **Backup Data** | 90 days after source deletion | Business continuity |
+| **Job Applications** | 6 months (unsuccessful), duration of employment + 7 years (successful) | Legal obligations, legitimate interest |
+| **Contract Documents** | Duration of contract + 10 years | Legal claims |
+| **Support Tickets** | 3 years from resolution | Service improvement, legal claims |
+
+*Note: These periods may vary based on specific legal requirements in your jurisdiction.*
+
+## 6. Retention Principles
+
+<%= if "gdpr" in @frameworks or "uk_gdpr" in @frameworks do %>
+### 6.1 GDPR Principles
+
+In accordance with GDPR Article 5(1)(e), personal data shall be:
+
+- Kept in a form which permits identification of data subjects for no longer than is necessary
+- Processed in a manner that ensures appropriate security
+- Subject to periodic review to assess the necessity of retention
+<% end %>
+
+### 6.2 General Principles
+
+- **Necessity:** Data is retained only as long as required for its original purpose
+- **Accuracy:** Retained data is kept accurate and up-to-date
+- **Security:** Appropriate security measures protect retained data
+- **Accountability:** Clear records document retention decisions
+
+## 7. Data Disposal
+
+When the retention period expires, personal data will be:
+
+### 7.1 Electronic Data
+- Securely deleted using industry-standard methods
+- Removed from all backup systems within the backup retention cycle
+- Anonymized where full deletion is not feasible
+
+### 7.2 Physical Records
+- Shredded using cross-cut shredders
+- Disposed of through certified destruction services
+- Documented with destruction certificates where applicable
+
+## 8. Exceptions to Standard Retention
+
+Data may be retained beyond standard periods when:
+- Required by law or regulatory authority
+- Needed for ongoing legal proceedings
+- Subject to a legal hold notice
+- Necessary for legitimate business purposes (documented)
+
+## 9. Data Subject Rights
+
+<%= if "gdpr" in @frameworks or "uk_gdpr" in @frameworks do %>
+Data subjects may request:
+- Information about how long their data will be stored
+- Erasure of their personal data ("right to be forgotten")
+- Restriction of processing during retention review
+
+To exercise these rights, contact: <%= if @dpo_email != "", do: @dpo_email, else: "our Data Protection Officer" %>
+<% end %>
+
+## 10. Review and Updates
+
+This policy is reviewed annually and updated as necessary to reflect:
+- Changes in legal requirements
+- Business process changes
+- Technological developments
+- Lessons learned from data protection incidents
+
+## 11. Contact Information
+
+For questions about this Data Retention Policy, please contact:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>

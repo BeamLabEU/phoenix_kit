@@ -14,6 +14,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
@@ -50,6 +51,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     tickets_config = Tickets.get_config()
     connections_config = Connections.get_config()
     jobs_config = Jobs.get_config()
+    legal_config = Legal.get_config()
 
     socket =
       socket
@@ -108,6 +110,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:connections_blocks_count, connections_config.blocks_count)
       |> assign(:jobs_enabled, jobs_config.enabled)
       |> assign(:jobs_stats, jobs_config.stats)
+      |> assign(:legal_enabled, legal_config.enabled)
+      |> assign(:blogging_enabled_for_legal, legal_config.blogging_enabled)
 
     {:ok, socket}
   end
@@ -665,6 +669,35 @@ defmodule PhoenixKitWeb.Live.Modules do
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update Jobs module")
         {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_legal", _params, socket) do
+    if socket.assigns.legal_enabled do
+      case Legal.disable_system() do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:legal_enabled, false)
+           |> put_flash(:info, gettext("Legal module disabled"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to disable Legal module"))}
+      end
+    else
+      case Legal.enable_system() do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:legal_enabled, true)
+           |> put_flash(:info, gettext("Legal module enabled"))}
+
+        {:error, :blogging_required} ->
+          {:noreply, put_flash(socket, :error, gettext("Please enable Blogging module first"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
+      end
     end
   end
 
