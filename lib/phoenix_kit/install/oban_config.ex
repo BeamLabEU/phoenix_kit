@@ -12,7 +12,6 @@ defmodule PhoenixKit.Install.ObanConfig do
   use PhoenixKit.Install.IgniterCompat
 
   # Mix functions only available at compile-time during installation
-  @dialyzer {:nowarn_function, cleanup_oban_config_syntax: 0}
   @dialyzer {:nowarn_function, update_existing_oban_config: 3}
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
@@ -89,26 +88,13 @@ defmodule PhoenixKit.Install.ObanConfig do
   end
 
   # Clean up broken Oban config syntax from previous failed updates
-  # This fixes issues like "# comment," where comma ended up after a comment
+  # NOTE: Previously this function attempted to fix syntax issues with greedy
+  # regexes, but they could corrupt valid commented config. The regexes have
+  # been removed as they caused more harm than good. If syntax issues occur
+  # from failed updates, they should be fixed manually or with more targeted
+  # approaches.
   defp cleanup_oban_config_syntax do
-    config_path = "config/config.exs"
-
-    if File.exists?(config_path) do
-      content = File.read!(config_path)
-
-      # Fix pattern: "# some comment,\n" -> ",\n" (comma was placed after comment)
-      # This happens when queue additions with comments are chained
-      fixed =
-        content
-        |> String.replace(~r/#[^\n]*,\s*\n(\s*)(\w)/, ",\n\\1\\2")
-
-      if fixed != content do
-        File.write!(config_path, fixed)
-        Mix.shell().info("  🔧 Fixed broken Oban config syntax from previous update")
-      end
-    end
-  rescue
-    _ -> :ok
+    :ok
   end
 
   # Add Oban configuration to config.exs
@@ -346,9 +332,9 @@ defmodule PhoenixKit.Install.ObanConfig do
     else
       Mix.shell().info("  ➕ Adding db_sync queue to Oban configuration...")
 
-      # Find the queues configuration for this app's Oban config
+      # Find the ACTIVE queues configuration (not commented out)
       case Regex.run(
-             ~r/(config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/s,
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
              content,
              capture: :all
            ) do
