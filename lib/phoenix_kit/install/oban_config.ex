@@ -101,7 +101,6 @@ defmodule PhoenixKit.Install.ObanConfig do
       fixed =
         content
         |> String.replace(~r/#[^\n]*,\s*\n(\s*)(\w)/, ",\n\\1\\2")
-        |> String.replace(~r/#[^\n]*\]\s*\n/, "]\n")
 
       if fixed != content do
         File.write!(config_path, fixed)
