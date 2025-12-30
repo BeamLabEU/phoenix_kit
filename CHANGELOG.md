@@ -1,3 +1,12 @@
+## 1.7.17 - 2025-12-30
+
+### Fixed
+- **Critical: Greedy regex corrupting config files** - Fixed `cleanup_oban_config_syntax/0` function that was corrupting valid commented configuration in `config/config.exs` during `mix phoenix_kit.update` (#268)
+  - Removed `~r/#[^\n]*\]\s*\n/` regex that matched ANY commented line ending with `]`
+  - Removed `~r/#[^\n]*,\s*\n(\s*)(\w)/` regex that matched ANY commented line ending with `,`
+  - These regexes would replace entire valid comment lines with just `]` or `,`, causing syntax errors
+- **Inconsistent regex in ensure_db_sync_queue** - Added missing `^` anchor and `m` multiline flag to match pattern used in other queue functions, preventing accidental matches on commented-out config
+
 ## 1.7.16 - 2025-12-29
 
 ### Legal Module - Phase 1
