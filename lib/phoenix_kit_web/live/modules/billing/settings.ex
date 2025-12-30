@@ -54,6 +54,10 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     |> assign(:company_country, Settings.get_setting("billing_company_country", ""))
     # Country dropdown data
     |> assign(:countries, CountryData.countries_for_select())
+    |> assign(
+      :subdivision_label,
+      CountryData.get_subdivision_label(Settings.get_setting("billing_company_country", ""))
+    )
     |> assign_suggested_tax_rate()
     # Bank details
     |> assign(:bank_name, Settings.get_setting("billing_bank_name", ""))
@@ -125,6 +129,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     {:noreply,
      socket
      |> assign(:company_country, country_code)
+     |> assign(:subdivision_label, CountryData.get_subdivision_label(country_code))
      |> assign(:suggested_tax_rate, suggested_rate)}
   end
 
