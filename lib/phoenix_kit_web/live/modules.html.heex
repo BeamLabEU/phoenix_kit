@@ -957,6 +957,52 @@
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- Legal Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="Legal"
+        description="GDPR/CCPA compliance with consent tracking, cookie banners, and legal page generation"
+        icon="⚖️"
+        enabled={@legal_enabled}
+        toggle_event="toggle_legal"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@legal_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @legal_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if @legal_enabled and @blogging_enabled_for_legal do %>
+            <span class="badge badge-info ml-2">Blogging Ready</span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <%= if @legal_enabled do %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/legal")}
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+          <% else %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/legal")}
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+            </.link>
+          <% end %>
+        </:action_buttons>
+
+        <:stats>
+          <div class="text-xs text-base-content/70">
+            <p>Privacy Policy • Terms of Service • Cookie Policy</p>
+            <p class="mt-1">CCPA Notice • Data Retention • Acceptable Use</p>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
     </div>
 
     <%!-- Future Modules Section --%>
