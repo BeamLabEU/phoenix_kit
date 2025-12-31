@@ -13,6 +13,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   # Delegate language info function to Storage
   defdelegate get_language_info(language_code), to: Storage
 
+  # Delegate version functions to Storage
+  defdelegate list_versions(blog_slug, post_slug), to: Storage
+  defdelegate get_latest_version(blog_slug, post_slug), to: Storage
+  defdelegate get_latest_published_version(blog_slug, post_slug), to: Storage
+  defdelegate get_live_version(blog_slug, post_slug), to: Storage
+  defdelegate get_version_status(blog_slug, post_slug, version, language), to: Storage
+  defdelegate detect_post_structure(post_path), to: Storage
+  defdelegate content_changed?(post, params), to: Storage
+  defdelegate status_change_only?(post, params), to: Storage
+  defdelegate should_create_new_version?(post, params, editing_language), to: Storage
+
   @enabled_key "blogging_enabled"
   @blogs_key "blogging_blogs"
   @legacy_categories_key "blogging_categories"
@@ -279,14 +290,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
   @doc """
   Reads an existing blog post.
+
+  For slug-mode blogs, accepts an optional version parameter.
+  If version is nil, reads the latest version.
   """
-  @spec read_post(String.t(), String.t(), String.t() | nil) ::
+  @spec read_post(String.t(), String.t(), String.t() | nil, integer() | nil) ::
           {:ok, Storage.post()} | {:error, any()}
-  def read_post(blog_slug, identifier, language \\ nil) do
+  def read_post(blog_slug, identifier, language \\ nil, version \\ nil) do
     case get_blog_mode(blog_slug) do
       "slug" ->
-        {post_slug, inferred_language} = extract_slug_and_language(blog_slug, identifier)
-        Storage.read_post_slug_mode(blog_slug, post_slug, language || inferred_language)
+        {post_slug, inferred_version, inferred_language} =
+          extract_slug_version_and_language(blog_slug, identifier)
+
+        # Use explicit parameters if provided, otherwise use inferred values from path
+        final_language = language || inferred_language
+        final_version = version || inferred_version
+
+        Storage.read_post_slug_mode(blog_slug, post_slug, final_language, final_version)
 
       _ ->
         Storage.read_post(blog_slug, identifier)
@@ -316,15 +336,55 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   @doc """
-  Adds a new language file to an existing post.
+  Creates a new version of a slug-mode post by copying from the source version.
+
+  The new version starts as draft with is_live: false.
+  Content and metadata updates from params are applied to the new version.
   """
-  @spec add_language_to_post(String.t(), String.t(), String.t()) ::
+  @spec create_new_version(String.t(), Storage.post(), map(), map() | keyword()) ::
           {:ok, Storage.post()} | {:error, any()}
-  def add_language_to_post(blog_slug, identifier, language_code) do
+  def create_new_version(blog_slug, source_post, params \\ %{}, opts \\ %{}) do
+    audit_meta =
+      opts
+      |> fetch_option(:scope)
+      |> audit_metadata(:create)
+
+    Storage.create_new_version(blog_slug, source_post, params, audit_meta)
+  end
+
+  @doc """
+  Sets a version as the live version for a post.
+  Clears is_live from all other versions.
+  """
+  @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
+  def set_version_live(blog_slug, post_slug, version) do
+    Storage.set_version_live(blog_slug, post_slug, version)
+  end
+
+  @doc """
+  Adds a new language file to an existing post.
+
+  For slug-mode blogs, accepts an optional version parameter to specify which
+  version to add the translation to. If not specified, uses the version from
+  the identifier path (if present) or defaults to the latest version.
+  """
+  @spec add_language_to_post(String.t(), String.t(), String.t(), integer() | nil) ::
+          {:ok, Storage.post()} | {:error, any()}
+  def add_language_to_post(blog_slug, identifier, language_code, version \\ nil) do
     case get_blog_mode(blog_slug) do
       "slug" ->
-        {post_slug, _} = extract_slug_and_language(blog_slug, identifier)
-        Storage.add_language_to_post_slug_mode(blog_slug, post_slug, language_code)
+        {post_slug, inferred_version, _language} =
+          extract_slug_version_and_language(blog_slug, identifier)
+
+        # Use explicit version if provided, otherwise use version from path
+        target_version = version || inferred_version
+
+        Storage.add_language_to_post_slug_mode(
+          blog_slug,
+          post_slug,
+          language_code,
+          target_version
+        )
 
       _ ->
         Storage.add_language_to_post(blog_slug, identifier, language_code)
@@ -542,25 +602,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   defp mode_atom("slug"), do: :slug
   defp mode_atom(_), do: :timestamp
 
-  defp extract_slug_and_language(_blog_slug, nil), do: {"", nil}
+  # Extract slug, version, and language from a path identifier
+  # Handles paths like:
+  #   - "post-slug" → {"post-slug", nil, nil}
+  #   - "post-slug/en.phk" → {"post-slug", nil, "en"}
+  #   - "post-slug/v1/en.phk" → {"post-slug", 1, "en"}
+  #   - "blog/post-slug/v2/am.phk" → {"post-slug", 2, "am"}
+  defp extract_slug_version_and_language(_blog_slug, nil), do: {"", nil, nil}
 
-  defp extract_slug_and_language(blog_slug, identifier) do
-    identifier
-    |> to_string()
-    |> String.trim()
-    |> String.trim_leading("/")
-    |> String.split("/", trim: true)
-    |> drop_blog_prefix(blog_slug)
-    |> case do
+  defp extract_slug_version_and_language(blog_slug, identifier) do
+    parts =
+      identifier
+      |> to_string()
+      |> String.trim()
+      |> String.trim_leading("/")
+      |> String.split("/", trim: true)
+      |> drop_blog_prefix(blog_slug)
+
+    case parts do
       [] ->
-        {"", nil}
+        {"", nil, nil}
 
       [slug] ->
-        {slug, nil}
+        {slug, nil, nil}
 
       [slug | rest] ->
+        # Extract version if present (v1, v2, v3, etc.)
+        {version, rest_after_version} = extract_version_from_parts(rest)
+
+        # Extract language from remaining parts
         language =
-          rest
+          rest_after_version
           |> List.first()
           |> case do
             nil -> nil
@@ -568,9 +640,30 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
             lang_file -> String.replace_suffix(lang_file, ".phk", "")
           end
 
-        {slug, language}
+        {slug, version, language}
     end
   end
+
+  # Extract version number from path parts if present
+  # Returns {version_integer | nil, remaining_parts}
+  defp extract_version_from_parts([]), do: {nil, []}
+
+  defp extract_version_from_parts([first | rest] = parts) do
+    case parse_version_directory(first) do
+      {:ok, version} -> {version, rest}
+      :error -> {nil, parts}
+    end
+  end
+
+  # Parse a version directory like "v1", "v2", etc. to an integer
+  defp parse_version_directory(segment) when is_binary(segment) do
+    case Regex.run(~r/^v(\d+)$/, segment) do
+      [_, num_str] -> {:ok, String.to_integer(num_str)}
+      nil -> :error
+    end
+  end
+
+  defp parse_version_directory(_), do: :error
 
   # Only drop blog prefix if there are more elements after it
   # This prevents dropping the post slug when it matches the blog slug

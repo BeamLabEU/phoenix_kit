@@ -26,7 +26,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
           created_by_id: String.t() | nil,
           created_by_email: String.t() | nil,
           updated_by_id: String.t() | nil,
-          updated_by_email: String.t() | nil
+          updated_by_email: String.t() | nil,
+          # Version fields
+          version: integer() | nil,
+          version_created_at: String.t() | nil,
+          version_created_from: integer() | nil,
+          is_live: boolean() | nil,
+          # Per-post version access control (allows public access to older versions)
+          allow_version_access: boolean() | nil
         }
 
   @doc """
@@ -64,12 +71,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
         :created_by_id,
         :created_by_email,
         :updated_by_id,
-        :updated_by_email
+        :updated_by_email,
+        # Version fields (optional for backward compatibility)
+        :version,
+        :version_created_at,
+        :version_created_from,
+        :is_live,
+        :allow_version_access
       ]
       |> Enum.flat_map(fn key ->
         case metadata_value(metadata, key) do
           nil -> []
           "" -> []
+          # Handle boolean values for is_live
+          true -> ["#{Atom.to_string(key)}: true"]
+          false -> ["#{Atom.to_string(key)}: false"]
           value -> ["#{Atom.to_string(key)}: #{value}"]
         end
       end)
@@ -92,6 +108,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
 
   @doc """
   Returns default metadata for a new post.
+  New posts default to version 1.
   """
   @spec default_metadata() :: metadata()
   def default_metadata do
@@ -108,7 +125,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       created_by_id: nil,
       created_by_email: nil,
       updated_by_id: nil,
-      updated_by_email: nil
+      updated_by_email: nil,
+      # Version fields - new posts start at v1
+      version: 1,
+      version_created_at: DateTime.to_iso8601(now),
+      version_created_from: nil,
+      is_live: false,
+      # Per-post version access - defaults to false (only live version accessible)
+      allow_version_access: false
     }
   end
 
@@ -311,11 +335,40 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       created_by_id: Map.get(metadata, "created_by_id", default.created_by_id),
       created_by_email: Map.get(metadata, "created_by_email", default.created_by_email),
       updated_by_id: Map.get(metadata, "updated_by_id", default.updated_by_id),
-      updated_by_email: Map.get(metadata, "updated_by_email", default.updated_by_email)
+      updated_by_email: Map.get(metadata, "updated_by_email", default.updated_by_email),
+      # Version fields - parse with defaults for backward compatibility
+      version: parse_integer(Map.get(metadata, "version"), default.version),
+      version_created_at: Map.get(metadata, "version_created_at", default.version_created_at),
+      version_created_from: parse_integer(Map.get(metadata, "version_created_from"), nil),
+      is_live: parse_boolean(Map.get(metadata, "is_live"), default.is_live),
+      # Per-post version access control
+      allow_version_access:
+        parse_boolean(Map.get(metadata, "allow_version_access"), default.allow_version_access)
     }
 
     metadata_map
   end
+
+  # Parse integer from string, returning default if nil or invalid
+  defp parse_integer(nil, default), do: default
+  defp parse_integer("", default), do: default
+
+  defp parse_integer(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, _} -> int
+      :error -> default
+    end
+  end
+
+  defp parse_integer(value, _default) when is_integer(value), do: value
+  defp parse_integer(_, default), do: default
+
+  # Parse boolean from string
+  defp parse_boolean(nil, default), do: default
+  defp parse_boolean("true", _default), do: true
+  defp parse_boolean("false", _default), do: false
+  defp parse_boolean(value, _default) when is_boolean(value), do: value
+  defp parse_boolean(_, default), do: default
 
   # Extract metadata from <Page> element attributes (legacy XML format)
   defp extract_metadata_from_xml(content) do
@@ -338,7 +391,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
       created_by_id: nil,
       created_by_email: nil,
       updated_by_id: nil,
-      updated_by_email: nil
+      updated_by_email: nil,
+      # Legacy posts default to v1 (will be migrated)
+      version: 1,
+      version_created_at: nil,
+      version_created_from: nil,
+      is_live: false
     }
   end
 

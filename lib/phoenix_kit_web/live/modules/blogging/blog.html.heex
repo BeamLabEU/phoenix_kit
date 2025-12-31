@@ -88,17 +88,22 @@
               <% blog_slug =
                 post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                   "blog" %>
+              <% master_lang = @master_language %>
               <% default_lang = List.first(post.available_languages) || @current_locale_base %>
               <% default_lang_path =
                 Path.join([
                   Path.dirname(post.path),
-                  "#{default_lang}.phk"
+                  "#{master_lang}.phk"
                 ]) %>
               <% files_path = "priv/blogging/" <> post.path %>
               <%!-- Use post's actual language, falling back to first available language for this post --%>
               <% public_url =
                 BlogHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
               <% full_public_url = @endpoint_url <> public_url %>
+              <%!-- Version info (only for slug-mode posts) --%>
+              <% version_count = length(Map.get(post, :available_versions) || []) %>
+              <% is_versioned =
+                post.mode == :slug and not Map.get(post, :is_legacy_structure, true) %>
               <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
                 <div class="card-body p-4 md:p-5 min-w-0">
                   <%!-- Post info section --%>
@@ -107,6 +112,14 @@
                       <span>
                         {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
                       </span>
+                      <%!-- Version badge (only show when multiple versions exist) --%>
+                      <%= if is_versioned and version_count > 1 do %>
+                        <span class="badge badge-ghost badge-xs">
+                          {ngettext("%{count} version", "%{count} versions", version_count,
+                            count: version_count
+                          )}
+                        </span>
+                      <% end %>
                     </div>
                     <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
                       <a
@@ -137,14 +150,23 @@
                     </p>
                   </div>
                   <%!-- Languages section --%>
-                  <div class="border-t border-base-200 pt-3 mt-3">
+                  <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
+                    <%!-- Master language label --%>
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="text-base-content/60">{gettext("Master")}:</span>
+                      <span class="font-bold text-base-content uppercase">
+                        {String.upcase(@master_language)}
+                      </span>
+                    </div>
+                    <%!-- All translations --%>
                     <.blog_language_switcher
                       languages={
                         build_post_languages(
                           post,
                           @blog_slug,
                           @enabled_languages,
-                          @current_locale
+                          @current_locale,
+                          @master_language
                         )
                       }
                       show_status={true}

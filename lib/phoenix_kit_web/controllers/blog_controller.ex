@@ -58,6 +58,9 @@ defmodule PhoenixKitWeb.BlogController do
             {:date_only_post, blog_slug, date} ->
               handle_date_only_url(conn, blog_slug, date, language)
 
+            {:versioned_post, blog_slug, post_slug, version} ->
+              render_versioned_post(conn, blog_slug, post_slug, version, language)
+
             {:error, reason} ->
               handle_not_found(conn, reason)
           end
@@ -109,6 +112,9 @@ defmodule PhoenixKitWeb.BlogController do
           {:date_only_post, blog_slug, date} ->
             handle_date_only_url(conn, blog_slug, date, language)
 
+          {:versioned_post, blog_slug, post_slug, version} ->
+            render_versioned_post(conn, blog_slug, post_slug, version, language)
+
           {:error, reason} ->
             handle_not_found(conn, reason)
         end
@@ -134,6 +140,9 @@ defmodule PhoenixKitWeb.BlogController do
 
           {:date_only_post, blog_slug, date} ->
             handle_date_only_url(conn, blog_slug, date, language)
+
+          {:versioned_post, blog_slug, post_slug, version} ->
+            render_versioned_post(conn, blog_slug, post_slug, version, language)
 
           {:error, reason} ->
             handle_not_found(conn, reason)
@@ -301,6 +310,17 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
+  # Version-specific URL: /blog/post-slug/v/2
+  defp parse_path([blog_slug, post_slug, "v", version_str]) do
+    case Integer.parse(version_str) do
+      {version, ""} when version > 0 ->
+        {:versioned_post, blog_slug, post_slug, version}
+
+      _ ->
+        {:error, :invalid_version}
+    end
+  end
+
   defp parse_path([blog_slug, segment]) do
     # Check if segment is a date (for date-only timestamp URLs)
     # If it's a date, treat as date-only timestamp post
@@ -410,6 +430,9 @@ defmodule PhoenixKitWeb.BlogController do
             # Build breadcrumbs
             breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
 
+            # Build version dropdown data if allowed
+            version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
+
             conn
             |> assign(:page_title, post.metadata.title)
             |> assign(:blog_slug, blog_slug)
@@ -418,6 +441,7 @@ defmodule PhoenixKitWeb.BlogController do
             |> assign(:current_language, canonical_language)
             |> assign(:translations, translations)
             |> assign(:breadcrumbs, breadcrumbs)
+            |> assign(:version_dropdown, version_dropdown)
             |> render(:show)
           end
         else
@@ -428,6 +452,65 @@ defmodule PhoenixKitWeb.BlogController do
       {:error, reason} ->
         log_404(conn, blog_slug, identifier, language, reason)
         handle_not_found(conn, reason)
+    end
+  end
+
+  # Renders a specific version of a post (for version browsing feature)
+  defp render_versioned_post(conn, blog_slug, post_slug, version, language) do
+    # Check per-post version access setting (from the live version's metadata)
+    # Each post controls its own version access - no global setting required
+    unless post_allows_version_access?(blog_slug, post_slug, language) do
+      handle_not_found(conn, :version_access_disabled)
+    else
+      # Fetch the specific version
+      case Blogging.read_post(blog_slug, post_slug, language, version) do
+        {:ok, post} ->
+          # Check if version is published
+          if post.metadata.status == "published" do
+            # Get canonical language
+            canonical_language = get_canonical_url_language_for_post(post.language)
+
+            # Render markdown
+            html_content = render_markdown(post.content)
+
+            # Build translation links
+            translations = build_translation_links(blog_slug, post, canonical_language)
+
+            # Build breadcrumbs
+            breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
+
+            # Build canonical URL (points to main post URL, not versioned URL)
+            canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
+
+            # Check if this is the live version
+            is_live = Map.get(post.metadata, :is_live, false)
+
+            # Build version dropdown data
+            version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
+
+            conn
+            |> assign(:page_title, post.metadata.title)
+            |> assign(:blog_slug, blog_slug)
+            |> assign(:post, post)
+            |> assign(:html_content, html_content)
+            |> assign(:current_language, canonical_language)
+            |> assign(:translations, translations)
+            |> assign(:breadcrumbs, breadcrumbs)
+            |> assign(:canonical_url, canonical_url)
+            |> assign(:is_versioned_view, true)
+            |> assign(:is_live_version, is_live)
+            |> assign(:version, version)
+            |> assign(:version_dropdown, version_dropdown)
+            |> render(:show)
+          else
+            log_404(conn, blog_slug, {:slug, post_slug, version}, language, :unpublished)
+            handle_not_found(conn, :unpublished)
+          end
+
+        {:error, reason} ->
+          log_404(conn, blog_slug, {:slug, post_slug, version}, language, reason)
+          handle_not_found(conn, reason)
+      end
     end
   end
 
@@ -486,27 +569,136 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
+  # Fetch a slug-mode post - iterates from highest version down, returns first published
+  # Falls back to master language or first available if requested language isn't found
   defp fetch_post(blog_slug, {:slug, post_slug}, language) do
-    case Blogging.read_post(blog_slug, post_slug, language) do
-      {:ok, post} -> {:ok, post}
-      _ -> {:error, :post_not_found}
+    versions = Storage.list_versions(blog_slug, post_slug)
+
+    if versions == [] do
+      {:error, :post_not_found}
+    else
+      master_language = Storage.get_master_language()
+      post_dir = Path.join([Storage.root_path(), blog_slug, post_slug])
+
+      # Find first published version, starting from highest
+      published_result =
+        versions
+        |> Enum.sort(:desc)
+        |> Enum.find_value(fn version ->
+          version_dir = Path.join(post_dir, "v#{version}")
+          available_languages = detect_available_languages_in_dir(version_dir)
+
+          # Build priority list of languages to try:
+          # 1. Resolved version of requested language
+          # 2. Master language
+          # 3. First available language
+          resolved_language = resolve_language_for_post(language, available_languages)
+
+          languages_to_try =
+            [resolved_language, master_language | available_languages]
+            |> Enum.uniq()
+            |> Enum.filter(&(&1 in available_languages))
+
+          Enum.find_value(languages_to_try, fn lang ->
+            case Blogging.read_post(blog_slug, post_slug, lang, version) do
+              {:ok, post} when post.metadata.status == "published" -> {:ok, post}
+              _ -> nil
+            end
+          end)
+        end)
+
+      published_result || {:error, :post_not_found}
     end
   end
 
   defp fetch_post(blog_slug, {:timestamp, date, time}, language) do
-    # First, detect available languages for this post
     post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
-    available_languages = detect_available_languages_in_dir(post_dir)
 
-    # Resolve the language - find matching dialect in available languages
+    # Detect if post uses versioned or legacy structure
+    case Storage.detect_post_structure(post_dir) do
+      :versioned ->
+        fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir)
+
+      :legacy ->
+        fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir)
+
+      :empty ->
+        {:error, :post_not_found}
+    end
+  end
+
+  # Fetch a versioned timestamp post (files in v1/, v2/, etc.)
+  # Iterates from highest version down, returns first published version found
+  # Falls back to master language or first available if requested language isn't found
+  defp fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir) do
+    versions = list_timestamp_versions(post_dir) |> Enum.sort(:desc)
+    master_language = Storage.get_master_language()
+
+    # Find first published version, starting from highest
+    published_result =
+      Enum.find_value(versions, fn version ->
+        version_dir = Path.join(post_dir, "v#{version}")
+        available_languages = detect_available_languages_in_dir(version_dir)
+
+        # Build priority list of languages to try:
+        # 1. Resolved version of requested language
+        # 2. Master language
+        # 3. First available language
+        resolved_language = resolve_language_for_post(language, available_languages)
+
+        languages_to_try =
+          [resolved_language, master_language | available_languages]
+          |> Enum.uniq()
+          |> Enum.filter(&(&1 in available_languages))
+
+        Enum.find_value(languages_to_try, fn lang ->
+          path = "#{blog_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
+
+          case Blogging.read_post(blog_slug, path) do
+            {:ok, post} when post.metadata.status == "published" -> {:ok, post}
+            _ -> nil
+          end
+        end)
+      end)
+
+    published_result || {:error, :post_not_found}
+  end
+
+  # Fetch a legacy timestamp post (files directly in post directory)
+  # Falls back to master language or first available if requested language isn't found
+  defp fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir) do
+    available_languages = detect_available_languages_in_dir(post_dir)
+    master_language = Storage.get_master_language()
     resolved_language = resolve_language_for_post(language, available_languages)
 
-    # Build path for timestamp mode: blog/date/time/language.phk
-    path = "#{blog_slug}/#{date}/#{time}/#{resolved_language}.phk"
+    # Build priority list of languages to try
+    languages_to_try =
+      [resolved_language, master_language | available_languages]
+      |> Enum.uniq()
+      |> Enum.filter(&(&1 in available_languages))
 
-    case Blogging.read_post(blog_slug, path) do
-      {:ok, post} -> {:ok, post}
-      _ -> {:error, :post_not_found}
+    Enum.find_value(languages_to_try, fn lang ->
+      # Build legacy path: blog/date/time/language.phk
+      path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
+
+      case Blogging.read_post(blog_slug, path) do
+        {:ok, post} -> {:ok, post}
+        _ -> nil
+      end
+    end) || {:error, :post_not_found}
+  end
+
+  # List version numbers for a timestamp post directory
+  defp list_timestamp_versions(post_dir) do
+    case File.ls(post_dir) do
+      {:ok, entries} ->
+        entries
+        |> Enum.filter(&Regex.match?(~r/^v\d+$/, &1))
+        |> Enum.map(&(String.replace_prefix(&1, "v", "") |> String.to_integer()))
+        |> Enum.sort()
+
+      {:error, _} ->
+        []
     end
   end
 
@@ -519,6 +711,31 @@ defmodule PhoenixKitWeb.BlogController do
         |> Enum.map(&String.replace_suffix(&1, ".phk", ""))
 
       {:error, _} ->
+        []
+    end
+  end
+
+  # Detect available languages in a timestamp post directory
+  # Handles both versioned (files in v1/, v2/) and legacy (files in root) structures
+  defp detect_available_languages_in_timestamp_dir(post_dir) do
+    case Storage.detect_post_structure(post_dir) do
+      :versioned ->
+        # Get languages from the latest version directory
+        versions = list_timestamp_versions(post_dir)
+
+        case Enum.max(versions, fn -> nil end) do
+          nil ->
+            []
+
+          latest_version ->
+            version_dir = Path.join(post_dir, "v#{latest_version}")
+            detect_available_languages_in_dir(version_dir)
+        end
+
+      :legacy ->
+        detect_available_languages_in_dir(post_dir)
+
+      :empty ->
         []
     end
   end
@@ -957,6 +1174,97 @@ defmodule PhoenixKitWeb.BlogController do
     Settings.get_boolean_setting("blogging_public_enabled", true)
   end
 
+  # Checks if a specific post allows public access to older versions
+  # Always reads from the master language's live version to ensure consistency
+  defp post_allows_version_access?(blog_slug, post_slug, _language) do
+    # Always read from master language to ensure per-post (not per-language) behavior
+    master_language = Storage.get_master_language()
+
+    # Read the live version (version: nil means get latest/live)
+    case Blogging.read_post(blog_slug, post_slug, master_language, nil) do
+      {:ok, post} ->
+        Map.get(post.metadata, :allow_version_access, false)
+
+      {:error, _} ->
+        # If we can't read the live version, deny access
+        false
+    end
+  end
+
+  # Builds version dropdown data for the public post template
+  # Returns nil if version access is disabled or only one published version exists
+  defp build_version_dropdown(blog_slug, post, language) do
+    # Always read allow_version_access from master language for consistency
+    master_language = Storage.get_master_language()
+    allow_access = get_master_language_allow_access(blog_slug, post.slug, master_language, post)
+    version_statuses = Map.get(post, :version_statuses, %{})
+    current_version = Map.get(post, :version, 1)
+
+    if allow_access and map_size(version_statuses) > 0 do
+      # Filter to only published versions
+      published_versions =
+        version_statuses
+        |> Enum.filter(fn {_v, status} -> status == "published" end)
+        |> Enum.map(fn {v, _status} -> v end)
+        |> Enum.sort(:desc)
+
+      # Only show dropdown if there are multiple published versions
+      if length(published_versions) > 1 do
+        # Get the actual live version to correctly mark it in dropdown
+        live_version = get_actual_live_version(blog_slug, post.slug)
+
+        versions_with_urls =
+          Enum.map(published_versions, fn version ->
+            url = build_version_url(blog_slug, post, language, version)
+
+            %{
+              version: version,
+              url: url,
+              is_current: version == current_version,
+              is_live: version == live_version
+            }
+          end)
+
+        %{
+          versions: versions_with_urls,
+          current_version: current_version
+        }
+      else
+        nil
+      end
+    else
+      nil
+    end
+  end
+
+  # Gets allow_version_access from master language, falling back to current post if same language
+  defp get_master_language_allow_access(blog_slug, post_slug, master_language, current_post) do
+    # If already viewing master language, use current post's metadata
+    if current_post.language == master_language do
+      Map.get(current_post.metadata, :allow_version_access, false)
+    else
+      # Read master language version to get the canonical setting
+      case Blogging.read_post(blog_slug, post_slug, master_language, nil) do
+        {:ok, master_post} -> Map.get(master_post.metadata, :allow_version_access, false)
+        {:error, _} -> false
+      end
+    end
+  end
+
+  # Gets the actual live version number regardless of which version is currently being viewed
+  defp get_actual_live_version(blog_slug, post_slug) do
+    case Storage.get_live_version(blog_slug, post_slug) do
+      {:ok, version} -> version
+      {:error, _} -> nil
+    end
+  end
+
+  # Builds URL for a specific version of a post
+  defp build_version_url(blog_slug, post, language, version) do
+    base_url = BlogHTML.build_post_url(blog_slug, post, language)
+    "#{base_url}/v/#{version}"
+  end
+
   defp log_404(conn, blog_slug, identifier, language, reason) do
     Logger.info("Blog 404",
       blog_slug: blog_slug,
@@ -1047,7 +1355,8 @@ defmodule PhoenixKitWeb.BlogController do
     if blog_exists?(blog_slug) do
       # Step 1: Try other languages for this exact time
       post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
-      available = detect_available_languages_in_dir(post_dir)
+      # Use version-aware language detection (handles both versioned and legacy)
+      available = detect_available_languages_in_timestamp_dir(post_dir)
 
       # Time exists with language files - try other languages
       if available != [] do
@@ -1104,7 +1413,8 @@ defmodule PhoenixKitWeb.BlogController do
   defp find_first_published_time(blog_slug, date, times, preferred_lang) do
     Enum.find_value(times, fn time ->
       post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
-      available = detect_available_languages_in_dir(post_dir)
+      # Use version-aware language detection (handles both versioned and legacy)
+      available = detect_available_languages_in_timestamp_dir(post_dir)
 
       if available != [] do
         # Try preferred language first, then others
@@ -1121,7 +1431,53 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   # Tries each language for timestamp mode until finding a published version
+  # Handles both versioned and legacy structures
   defp find_first_published_timestamp_version(blog_slug, date, time, languages) do
+    post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+
+    case Storage.detect_post_structure(post_dir) do
+      :versioned ->
+        find_first_published_versioned_timestamp(blog_slug, date, time, languages, post_dir)
+
+      :legacy ->
+        find_first_published_legacy_timestamp(blog_slug, date, time, languages)
+
+      :empty ->
+        :not_found
+    end
+  end
+
+  # Find first published post in versioned timestamp structure
+  # Iterates versions from highest to lowest, then tries each language
+  defp find_first_published_versioned_timestamp(blog_slug, date, time, languages, post_dir) do
+    versions = list_timestamp_versions(post_dir) |> Enum.sort(:desc)
+
+    Enum.find_value(versions, fn version ->
+      version_dir = Path.join(post_dir, "v#{version}")
+      available_languages = detect_available_languages_in_dir(version_dir)
+
+      # Try preferred languages first, then fall back to what's available
+      languages_to_try =
+        (languages ++ available_languages)
+        |> Enum.uniq()
+        |> Enum.filter(&(&1 in available_languages))
+
+      Enum.find_value(languages_to_try, fn lang ->
+        path = "#{blog_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
+
+        case Blogging.read_post(blog_slug, path) do
+          {:ok, post} when post.metadata.status == "published" ->
+            {:ok, build_timestamp_url(blog_slug, date, time, lang)}
+
+          _ ->
+            nil
+        end
+      end)
+    end) || :not_found
+  end
+
+  # Find first published post in legacy timestamp structure
+  defp find_first_published_legacy_timestamp(blog_slug, date, time, languages) do
     Enum.find_value(languages, fn lang ->
       path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
 
@@ -1136,27 +1492,56 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   # Tries to find any available published language version of the post
-  # Priority: default language first, then any other available language
-  # Falls back to blog listing if no published versions exist
+  # Priority:
+  # 1. Check for published versions in the SAME language first (across all versions)
+  # 2. Then try other languages
+  # 3. Falls back to blog listing if no published versions exist
+  #
+  # Note: fetch_post now handles finding the latest published version automatically,
+  # so we can just use base URLs here (no version-specific URLs needed)
   defp find_any_available_language_version(blog_slug, post_slug, requested_language) do
     default_lang = get_default_language()
 
     # Find the post in the blog to get available languages
     case find_post_by_slug(blog_slug, post_slug) do
       {:ok, post} ->
-        available = post.available_languages || []
-
-        # Build priority list: default first, then others (excluding already-tried language)
-        languages_to_try =
-          ([default_lang | available] -- [requested_language])
-          |> Enum.uniq()
-
-        find_first_published_version(blog_slug, post_slug, post, languages_to_try, default_lang)
+        # The initial fetch failed, so we know no published version exists for the requested_language.
+        # Proceed directly to trying other available languages.
+        try_other_languages(blog_slug, post_slug, post, requested_language, default_lang)
 
       :not_found ->
         # Post doesn't exist at all - fall back to blog listing
         {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
     end
+  end
+
+  # Finds the latest published version for a specific language
+  defp find_published_version_for_language(blog_slug, post_slug, language) do
+    versions = Storage.list_versions(blog_slug, post_slug)
+
+    published_version =
+      versions
+      |> Enum.sort(:desc)
+      |> Enum.find(fn version ->
+        Storage.get_version_status(blog_slug, post_slug, version, language) == "published"
+      end)
+
+    case published_version do
+      nil -> :not_found
+      version -> {:ok, version}
+    end
+  end
+
+  # Tries other languages when requested language has no published versions
+  defp try_other_languages(blog_slug, post_slug, post, requested_language, default_lang) do
+    available = post.available_languages || []
+
+    # Build priority list: default first, then others (excluding already-tried language)
+    languages_to_try =
+      ([default_lang | available] -- [requested_language])
+      |> Enum.uniq()
+
+    find_first_published_version(blog_slug, post_slug, post, languages_to_try, default_lang)
   end
 
   # Finds a post by its slug from the blog's post list
@@ -1170,14 +1555,19 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   # Tries each language in order until finding a published version
-  defp find_first_published_version(blog_slug, post_slug, _post, languages, fallback_lang) do
+  # Uses find_published_version_for_language to check across all versions
+  # fetch_post will automatically find the right version when the URL is visited
+  defp find_first_published_version(blog_slug, post_slug, post, languages, fallback_lang) do
     result =
       Enum.find_value(languages, fn lang ->
-        case Blogging.read_post(blog_slug, post_slug, lang) do
-          {:ok, lang_post} when lang_post.metadata.status == "published" ->
-            {:ok, BlogHTML.build_post_url(blog_slug, lang_post, lang)}
+        # Check if any published version exists for this language
+        case find_published_version_for_language(blog_slug, post_slug, lang) do
+          {:ok, _version} ->
+            # Published version exists - use base URL
+            # fetch_post will find the right version
+            {:ok, BlogHTML.build_post_url(blog_slug, post, lang)}
 
-          _ ->
+          :not_found ->
             nil
         end
       end)

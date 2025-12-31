@@ -57,6 +57,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       |> assign(:current_blog, current_blog)
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
+      |> assign(:master_language, Storage.get_master_language())
       |> assign(:posts, posts)
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
@@ -347,16 +348,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
 
   The `enabled` field indicates if the language is currently active in the Languages module.
   The `known` field indicates if the language code is recognized (vs unknown files like "test.phk").
+  The `is_master` field indicates if this is the master/primary language for versioning.
 
   Uses preloaded `language_statuses` from the post to avoid re-reading files on every render.
   """
-  def build_post_languages(post, _blog_slug, enabled_languages, _current_locale) do
+  def build_post_languages(
+        post,
+        _blog_slug,
+        enabled_languages,
+        _current_locale,
+        master_language \\ nil
+      ) do
     # Use shared ordering function for consistent display across all views
     all_languages =
       Storage.order_languages_for_display(post.available_languages, enabled_languages)
 
     # Get preloaded language statuses (falls back to empty map for backwards compatibility)
     language_statuses = Map.get(post, :language_statuses) || %{}
+
+    # Get master language if not provided
+    master_lang = master_language || Storage.get_master_language()
 
     Enum.map(all_languages, fn lang_code ->
       lang_path =
@@ -369,6 +380,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       file_exists = lang_code in post.available_languages
       is_enabled = Storage.language_enabled?(lang_code, enabled_languages)
       is_known = lang_info != nil
+      is_master = lang_code == master_lang
 
       # Use preloaded status instead of re-reading file
       status = Map.get(language_statuses, lang_code)
@@ -385,6 +397,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
         exists: file_exists,
         enabled: is_enabled,
         known: is_known,
+        is_master: is_master,
         path: if(file_exists, do: lang_path, else: nil),
         post_path: post.path
       }

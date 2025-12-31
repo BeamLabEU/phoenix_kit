@@ -595,8 +595,8 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
         </div>
       <% end %>
 
-      <%!-- Component Insert Toolbar (legacy - only when formatting toolbar is disabled) --%>
-      <%= if not @show_formatting_toolbar and (length(@toolbar) > 0 or @show_save_button) do %>
+      <%!-- Component Insert Toolbar (legacy - only when formatting toolbar is disabled and not readonly) --%>
+      <%= if not @show_formatting_toolbar and not @readonly and (length(@toolbar) > 0 or @show_save_button) do %>
         <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
           <%!-- Component Toolbar --%>
           <%= if length(@toolbar) > 0 do %>
@@ -689,7 +689,7 @@ defmodule PhoenixKitWeb.Components.Core.MarkdownEditor do
         phx-target={@myself}
         phx-debounce={@debounce}
         placeholder={@placeholder}
-        class="textarea textarea-bordered w-full font-mono text-sm leading-6"
+        class={"textarea textarea-bordered w-full font-mono text-sm leading-6 #{if @readonly, do: "bg-base-200 cursor-not-allowed opacity-70"}"}
         style={"height: #{@height}"}
         readonly={@readonly}
       ><%= @content %></textarea>
