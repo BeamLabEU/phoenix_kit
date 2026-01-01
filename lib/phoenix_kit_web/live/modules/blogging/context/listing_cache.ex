@@ -30,37 +30,152 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   - Translation is added
   - Version is created
 
-  ## Future Optimization: ETS Cache
+  ## In-Memory Caching with :persistent_term
 
-  For even faster performance (<1ms), the cache can be loaded into ETS
-  (Erlang Term Storage) on application startup. See the README for details.
+  For sub-millisecond performance, parsed cache data is stored in `:persistent_term`.
+
+  - First read after restart: loads from file, parses JSON, stores in :persistent_term (~2ms)
+  - Subsequent reads: direct memory access (~0.1μs, no variance)
+  - On regenerate: updates both file and :persistent_term
+  - On invalidate: clears :persistent_term entry
+
+  The JSON file provides persistence across restarts. :persistent_term provides
+  zero-copy, sub-microsecond reads during runtime.
   """
 
+  alias PhoenixKit.Settings
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   require Logger
 
   @cache_filename ".listing_cache.json"
+  @persistent_term_prefix :phoenix_kit_blog_listing_cache
+  @persistent_term_loaded_at_prefix :phoenix_kit_blog_listing_cache_loaded_at
+  @persistent_term_file_generated_at_prefix :phoenix_kit_blog_listing_cache_file_generated_at
+  @file_cache_key "blogging_file_cache_enabled"
+  @memory_cache_key "blogging_memory_cache_enabled"
 
   @doc """
   Reads the cached listing for a blog.
 
   Returns `{:ok, posts}` if cache exists and is valid.
-  Returns `{:error, :cache_miss}` if cache doesn't exist or is corrupt.
+  Returns `{:error, :cache_miss}` if cache doesn't exist, is corrupt, or caching is disabled.
 
-  The returned posts are maps with the same structure as `Storage.list_posts/2`,
-  but loaded from the cache file instead of scanning the filesystem.
+  Respects the `blogging_file_cache_enabled` and `blogging_memory_cache_enabled` settings.
   """
   @spec read(String.t()) :: {:ok, [map()]} | {:error, :cache_miss}
   def read(blog_slug) do
+    memory_enabled = memory_cache_enabled?()
+    file_enabled = file_cache_enabled?()
+
+    # If both caches are disabled, return cache miss
+    if not memory_enabled and not file_enabled do
+      {:error, :cache_miss}
+    else
+      term_key = persistent_term_key(blog_slug)
+
+      # First, try :persistent_term if enabled (sub-microsecond)
+      if memory_enabled do
+        case safe_persistent_term_get(term_key) do
+          {:ok, posts} ->
+            {:ok, posts}
+
+          :not_found ->
+            # Fall back to file if enabled
+            if file_enabled do
+              read_from_file_and_cache(blog_slug, term_key, memory_enabled)
+            else
+              {:error, :cache_miss}
+            end
+        end
+      else
+        # Memory cache disabled, only try file cache
+        if file_enabled do
+          read_from_file_only(blog_slug)
+        else
+          {:error, :cache_miss}
+        end
+      end
+    end
+  end
+
+  # Safely get from :persistent_term (returns :not_found instead of raising)
+  defp safe_persistent_term_get(key) do
+    try do
+      {:ok, :persistent_term.get(key)}
+    rescue
+      ArgumentError -> :not_found
+    end
+  end
+
+  # Read from JSON file and optionally store in :persistent_term
+  defp read_from_file_and_cache(blog_slug, term_key, store_in_memory) do
+    cache_path = cache_path(blog_slug)
+
+    case File.read(cache_path) do
+      {:ok, content} ->
+        case Jason.decode(content) do
+          {:ok, %{"posts" => posts} = data} ->
+            # Convert string keys back to atoms for compatibility
+            normalized_posts = Enum.map(posts, &normalize_post/1)
+            generated_at = Map.get(data, "generated_at")
+
+            # Store in :persistent_term if memory cache is enabled
+            if store_in_memory do
+              :persistent_term.put(term_key, normalized_posts)
+
+              :persistent_term.put(
+                loaded_at_key(blog_slug),
+                DateTime.utc_now() |> DateTime.to_iso8601()
+              )
+
+              # Store the file's generated_at so we know what version of data is in memory
+              if generated_at do
+                :persistent_term.put(file_generated_at_key(blog_slug), generated_at)
+              end
+
+              Logger.debug(
+                "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
+              )
+
+              # Broadcast cache change so admin UI updates live
+              BloggingPubSub.broadcast_cache_changed(blog_slug)
+            end
+
+            {:ok, normalized_posts}
+
+          {:ok, _} ->
+            Logger.warning("[ListingCache] Invalid cache format for #{blog_slug}")
+            {:error, :cache_miss}
+
+          {:error, reason} ->
+            Logger.warning(
+              "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
+            )
+
+            {:error, :cache_miss}
+        end
+
+      {:error, :enoent} ->
+        # Don't log warning for missing cache - it's expected for new blogs
+        {:error, :cache_miss}
+
+      {:error, reason} ->
+        Logger.warning("[ListingCache] Failed to read cache for #{blog_slug}: #{inspect(reason)}")
+        {:error, :cache_miss}
+    end
+  end
+
+  # Read from JSON file only (no :persistent_term storage)
+  defp read_from_file_only(blog_slug) do
     cache_path = cache_path(blog_slug)
 
     case File.read(cache_path) do
       {:ok, content} ->
         case Jason.decode(content) do
           {:ok, %{"posts" => posts}} ->
-            # Convert string keys back to atoms for compatibility
             normalized_posts = Enum.map(posts, &normalize_post/1)
             {:ok, normalized_posts}
 
@@ -69,12 +184,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
             {:error, :cache_miss}
 
           {:error, reason} ->
-            Logger.warning("[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}")
+            Logger.warning(
+              "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
+            )
+
             {:error, :cache_miss}
         end
 
       {:error, :enoent} ->
-        Logger.warning("[ListingCache] Cache file not found for #{blog_slug} at: #{cache_path}")
         {:error, :cache_miss}
 
       {:error, reason} ->
@@ -99,6 +216,78 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   """
   @spec regenerate(String.t()) :: :ok | {:error, any()}
   def regenerate(blog_slug) do
+    file_enabled = file_cache_enabled?()
+    memory_enabled = memory_cache_enabled?()
+
+    # If both caches are disabled, nothing to do
+    if not file_enabled and not memory_enabled do
+      :ok
+    else
+      start_time = System.monotonic_time(:millisecond)
+
+      # Fetch all posts using the existing storage layer
+      posts =
+        case Blogging.get_blog_mode(blog_slug) do
+          "slug" -> Storage.list_posts_slug_mode(blog_slug, nil)
+          _ -> Storage.list_posts(blog_slug, nil)
+        end
+
+      # Convert to cacheable format (strip content, keep metadata)
+      serialized_posts = Enum.map(posts, &serialize_post/1)
+      normalized_posts = Enum.map(serialized_posts, &normalize_post/1)
+
+      # Generate timestamp once for consistency
+      generated_at = DateTime.utc_now() |> DateTime.to_iso8601()
+
+      # Write to file cache if enabled
+      file_result =
+        if file_enabled do
+          cache_data = %{
+            "generated_at" => generated_at,
+            "post_count" => length(posts),
+            "posts" => serialized_posts
+          }
+
+          write_cache_file(cache_path(blog_slug), cache_data)
+        else
+          :ok
+        end
+
+      # Update :persistent_term if enabled
+      if memory_enabled do
+        :persistent_term.put(persistent_term_key(blog_slug), normalized_posts)
+        :persistent_term.put(loaded_at_key(blog_slug), generated_at)
+        :persistent_term.put(file_generated_at_key(blog_slug), generated_at)
+      end
+
+      elapsed = System.monotonic_time(:millisecond) - start_time
+
+      case file_result do
+        :ok ->
+          Logger.debug(
+            "[ListingCache] Regenerated cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms"
+          )
+
+          :ok
+
+        {:error, reason} = error ->
+          Logger.error(
+            "[ListingCache] Failed to write cache for #{blog_slug}: #{inspect(reason)}"
+          )
+
+          error
+      end
+    end
+  end
+
+  @doc """
+  Regenerates only the file cache without loading into memory.
+
+  This scans all posts and writes to `.listing_cache.json` but does not
+  update :persistent_term. Use `load_into_memory/1` separately if needed.
+  """
+  @spec regenerate_file_only(String.t()) :: :ok | {:error, any()}
+  def regenerate_file_only(blog_slug) do
     start_time = System.monotonic_time(:millisecond)
 
     # Fetch all posts using the existing storage layer
@@ -108,36 +297,128 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
         _ -> Storage.list_posts(blog_slug, nil)
       end
 
-    # Convert to cacheable format (strip content, keep metadata)
+    # Convert to cacheable format
+    serialized_posts = Enum.map(posts, &serialize_post/1)
+
     cache_data = %{
       "generated_at" => DateTime.utc_now() |> DateTime.to_iso8601(),
       "post_count" => length(posts),
-      "posts" => Enum.map(posts, &serialize_post/1)
+      "posts" => serialized_posts
     }
 
-    # Write cache file
-    cache_path = cache_path(blog_slug)
+    result = write_cache_file(cache_path(blog_slug), cache_data)
+    elapsed = System.monotonic_time(:millisecond) - start_time
 
-    case write_cache_file(cache_path, cache_data) do
+    case result do
       :ok ->
-        elapsed = System.monotonic_time(:millisecond) - start_time
-        Logger.debug("[ListingCache] Regenerated cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms")
+        Logger.debug(
+          "[ListingCache] Regenerated file cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms"
+        )
+
         :ok
 
       {:error, reason} = error ->
         Logger.error("[ListingCache] Failed to write cache for #{blog_slug}: #{inspect(reason)}")
+
         error
+    end
+  end
+
+  @doc """
+  Loads the cache from file into :persistent_term without regenerating the file.
+
+  Returns `:ok` if successful, `{:error, :no_file}` if file doesn't exist,
+  or `{:error, reason}` for other failures.
+  """
+  @spec load_into_memory(String.t()) :: :ok | {:error, any()}
+  def load_into_memory(blog_slug) do
+    cache_path = cache_path(blog_slug)
+
+    case File.read(cache_path) do
+      {:ok, content} ->
+        case Jason.decode(content) do
+          {:ok, %{"posts" => posts, "generated_at" => generated_at}} ->
+            normalized_posts = Enum.map(posts, &normalize_post/1)
+            :persistent_term.put(persistent_term_key(blog_slug), normalized_posts)
+
+            :persistent_term.put(
+              loaded_at_key(blog_slug),
+              DateTime.utc_now() |> DateTime.to_iso8601()
+            )
+
+            # Store the file's generated_at so we know what version of data is in memory
+            :persistent_term.put(file_generated_at_key(blog_slug), generated_at)
+
+            Logger.debug(
+              "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
+            )
+
+            # Broadcast cache change so admin UI updates live
+            BloggingPubSub.broadcast_cache_changed(blog_slug)
+
+            :ok
+
+          {:ok, %{"posts" => posts}} ->
+            # Fallback for files without generated_at
+            normalized_posts = Enum.map(posts, &normalize_post/1)
+            :persistent_term.put(persistent_term_key(blog_slug), normalized_posts)
+
+            :persistent_term.put(
+              loaded_at_key(blog_slug),
+              DateTime.utc_now() |> DateTime.to_iso8601()
+            )
+
+            # Broadcast cache change so admin UI updates live
+            BloggingPubSub.broadcast_cache_changed(blog_slug)
+
+            :ok
+
+          {:ok, _} ->
+            {:error, :invalid_format}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+
+      {:error, :enoent} ->
+        {:error, :no_file}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
   @doc """
   Invalidates (deletes) the cache for a blog.
 
+  Clears both the :persistent_term entry and the JSON file.
   The next read will return `:cache_miss`, triggering a fallback to
   the filesystem scan.
   """
   @spec invalidate(String.t()) :: :ok
   def invalidate(blog_slug) do
+    # Clear :persistent_term entries
+    term_key = persistent_term_key(blog_slug)
+
+    try do
+      :persistent_term.erase(term_key)
+    rescue
+      ArgumentError -> :ok
+    end
+
+    try do
+      :persistent_term.erase(loaded_at_key(blog_slug))
+    rescue
+      ArgumentError -> :ok
+    end
+
+    try do
+      :persistent_term.erase(file_generated_at_key(blog_slug))
+    rescue
+      ArgumentError -> :ok
+    end
+
+    # Then delete the file
     cache_path = cache_path(blog_slug)
 
     case File.rm(cache_path) do
@@ -149,17 +430,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
         :ok
 
       {:error, reason} ->
-        Logger.warning("[ListingCache] Failed to delete cache for #{blog_slug}: #{inspect(reason)}")
+        Logger.warning(
+          "[ListingCache] Failed to delete cache for #{blog_slug}: #{inspect(reason)}"
+        )
+
         :ok
     end
   end
 
   @doc """
-  Checks if a cache exists for a blog.
+  Checks if a cache exists for a blog (in :persistent_term or file).
   """
   @spec exists?(String.t()) :: boolean()
   def exists?(blog_slug) do
-    cache_path(blog_slug) |> File.exists?()
+    case safe_persistent_term_get(persistent_term_key(blog_slug)) do
+      {:ok, _} -> true
+      :not_found -> cache_path(blog_slug) |> File.exists?()
+    end
   end
 
   @doc """
@@ -168,6 +455,69 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   @spec cache_path(String.t()) :: String.t()
   def cache_path(blog_slug) do
     Path.join([Storage.root_path(), blog_slug, @cache_filename])
+  end
+
+  @doc """
+  Returns the :persistent_term key for a blog's cache.
+  """
+  @spec persistent_term_key(String.t()) :: tuple()
+  def persistent_term_key(blog_slug) do
+    {@persistent_term_prefix, blog_slug}
+  end
+
+  @doc """
+  Returns the :persistent_term key for tracking when the memory cache was loaded.
+  """
+  @spec loaded_at_key(String.t()) :: tuple()
+  def loaded_at_key(blog_slug) do
+    {@persistent_term_loaded_at_prefix, blog_slug}
+  end
+
+  @doc """
+  Returns when the memory cache was loaded (ISO 8601 string), or nil if not loaded.
+  """
+  @spec memory_loaded_at(String.t()) :: String.t() | nil
+  def memory_loaded_at(blog_slug) do
+    case safe_persistent_term_get(loaded_at_key(blog_slug)) do
+      {:ok, loaded_at} -> loaded_at
+      :not_found -> nil
+    end
+  end
+
+  @doc """
+  Returns the :persistent_term key for tracking the file's generated_at when loaded into memory.
+  """
+  @spec file_generated_at_key(String.t()) :: tuple()
+  def file_generated_at_key(blog_slug) do
+    {@persistent_term_file_generated_at_prefix, blog_slug}
+  end
+
+  @doc """
+  Returns the file's generated_at timestamp that was stored when the memory cache was loaded.
+  This tells us what version of the file data is currently in memory.
+  """
+  @spec memory_file_generated_at(String.t()) :: String.t() | nil
+  def memory_file_generated_at(blog_slug) do
+    case safe_persistent_term_get(file_generated_at_key(blog_slug)) do
+      {:ok, generated_at} -> generated_at
+      :not_found -> nil
+    end
+  end
+
+  @doc """
+  Returns whether file caching is enabled.
+  """
+  @spec file_cache_enabled?() :: boolean()
+  def file_cache_enabled? do
+    Settings.get_setting(@file_cache_key, "true") == "true"
+  end
+
+  @doc """
+  Returns whether memory caching (:persistent_term) is enabled.
+  """
+  @spec memory_cache_enabled?() :: boolean()
+  def memory_cache_enabled? do
+    Settings.get_setting(@memory_cache_key, "true") == "true"
   end
 
   # Private functions
@@ -223,7 +573,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   end
 
   # Extract excerpt: use description if available, otherwise extract from content
-  defp extract_excerpt(_content, %{description: desc}) when is_binary(desc) and desc != "", do: desc
+  defp extract_excerpt(_content, %{description: desc}) when is_binary(desc) and desc != "",
+    do: desc
 
   defp extract_excerpt(content, _metadata) when is_binary(content) do
     # Get first paragraph or content before <!-- more --> tag
@@ -338,7 +689,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
 
   defp parse_time(time_str) when is_binary(time_str) do
     case Time.from_iso8601(time_str) do
-      {:ok, time} -> time
+      {:ok, time} ->
+        time
+
       # Try parsing without seconds (HH:MM format)
       _ ->
         case Time.from_iso8601(time_str <> ":00") do

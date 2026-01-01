@@ -57,6 +57,190 @@
       </div>
     </header>
 
+    <%!-- Cache Status Section --%>
+    <%= if @cache_info do %>
+      <div class="card bg-base-100 shadow-sm border border-base-200 mb-6">
+        <div class="card-body p-4">
+          <%!-- Header with main status --%>
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+              <.icon name="hero-archive-box" class="w-5 h-5" />
+              <span class="font-semibold">{gettext("Caching")}</span>
+            </div>
+            <%= if @cache_info.file_enabled || @cache_info.memory_enabled do %>
+              <span class="badge badge-success badge-sm gap-1">
+                <.icon name="hero-check" class="w-3 h-3" />
+                {gettext("ON")}
+              </span>
+            <% else %>
+              <span class="badge badge-ghost badge-sm">
+                {gettext("OFF")}
+              </span>
+            <% end %>
+          </div>
+
+          <% memory_is_stale =
+            @cache_info.memory_enabled && @cache_info.in_memory &&
+              @cache_info.memory_file_generated_at &&
+              @cache_info.generated_at &&
+              @cache_info.memory_file_generated_at != @cache_info.generated_at %>
+
+          <div class="space-y-2">
+            <%!-- File Cache Row --%>
+            <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg">
+              <div class="flex items-center gap-2">
+                <.icon name="hero-document" class="w-4 h-4 text-base-content/70" />
+                <span class="text-sm font-medium">{gettext("File")}</span>
+                <%= if @cache_info.file_enabled do %>
+                  <%= if @cache_info.exists do %>
+                    <span class="badge badge-success badge-xs">{gettext("cached")}</span>
+                    <%= if @cache_info.generated_at do %>
+                      <span class="text-xs text-base-content/50">
+                        {format_cache_time(@cache_info.generated_at)}
+                      </span>
+                    <% end %>
+                  <% else %>
+                    <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                  <% end %>
+                <% else %>
+                  <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                <% end %>
+              </div>
+              <div class="flex items-center gap-1">
+                <%= if @cache_info.file_enabled do %>
+                  <%= if @cache_info.exists do %>
+                    <button
+                      type="button"
+                      phx-click="invalidate_file_cache"
+                      class="btn btn-ghost btn-xs text-error"
+                      title={gettext("Clear file cache")}
+                    >
+                      <.icon name="hero-trash" class="w-3 h-3" />
+                    </button>
+                  <% end %>
+                  <button
+                    type="button"
+                    phx-click="regenerate_file_cache"
+                    class="btn btn-ghost btn-xs"
+                    title={gettext("Regenerate file cache")}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" />
+                  </button>
+                <% end %>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary toggle-xs"
+                  checked={@cache_info.file_enabled}
+                  phx-click="toggle_file_cache"
+                />
+              </div>
+            </div>
+
+            <%!-- Memory Cache Row --%>
+            <div class={[
+              "flex items-center justify-between p-2 rounded-lg",
+              if(memory_is_stale, do: "bg-error/10", else: "bg-base-200")
+            ]}>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-cpu-chip" class="w-4 h-4 text-base-content/70" />
+                <span class="text-sm font-medium">{gettext("Memory")}</span>
+                <%= if @cache_info.memory_enabled do %>
+                  <%= if @cache_info.in_memory do %>
+                    <%= if memory_is_stale do %>
+                      <span class="badge badge-warning badge-xs">{gettext("stale")}</span>
+                    <% else %>
+                      <span class="badge badge-success badge-xs">{gettext("loaded")}</span>
+                    <% end %>
+                    <%= if @cache_info.memory_file_generated_at do %>
+                      <span class="text-xs text-base-content/50">
+                        {gettext("using file from %{time}",
+                          time: format_cache_time(@cache_info.memory_file_generated_at)
+                        )}
+                      </span>
+                    <% end %>
+                  <% else %>
+                    <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                  <% end %>
+                <% else %>
+                  <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                <% end %>
+              </div>
+              <div class="flex items-center gap-1">
+                <%= if @cache_info.memory_enabled do %>
+                  <%= if @cache_info.in_memory do %>
+                    <button
+                      type="button"
+                      phx-click="invalidate_memory_cache"
+                      class="btn btn-ghost btn-xs text-error"
+                      title={gettext("Clear memory cache")}
+                    >
+                      <.icon name="hero-trash" class="w-3 h-3" />
+                    </button>
+                  <% end %>
+                  <button
+                    type="button"
+                    phx-click="load_memory_cache"
+                    class="btn btn-ghost btn-xs"
+                    title={gettext("Load into memory")}
+                  >
+                    <.icon name="hero-arrow-path" class="w-3 h-3" />
+                  </button>
+                <% end %>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-primary toggle-xs"
+                  checked={@cache_info.memory_enabled}
+                  phx-click="toggle_memory_cache"
+                />
+              </div>
+            </div>
+          </div>
+
+          <%!-- Status Explanation --%>
+          <div class="mt-3 text-xs text-base-content/60">
+            <%= cond do %>
+              <% memory_is_stale -> %>
+                <p class="text-amber-700 dark:text-amber-400">
+                  <.icon name="hero-exclamation-triangle" class="w-3 h-3 inline" />
+                  {gettext(
+                    "Visitors are seeing stale data. Reload the memory cache or clear it to serve fresh content."
+                  )}
+                </p>
+              <% @cache_info.memory_enabled && @cache_info.in_memory -> %>
+                <p class="text-success">
+                  <.icon name="hero-check-circle" class="w-3 h-3 inline" />
+                  {gettext(
+                    "Visitors are seeing cached content with sub-millisecond response times."
+                  )}
+                </p>
+              <% @cache_info.memory_enabled && !@cache_info.in_memory && @cache_info.file_enabled && @cache_info.exists -> %>
+                <p>
+                  <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                  {gettext(
+                    "File cache is ready. Click the reload button to load it into memory now, or it will load automatically on the first visitor request."
+                  )}
+                </p>
+              <% @cache_info.file_enabled && @cache_info.exists && !@cache_info.memory_enabled -> %>
+                <p>
+                  <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                  {gettext("File cache is ready. Enable memory cache for faster response times.")}
+                </p>
+              <% !@cache_info.file_enabled && !@cache_info.memory_enabled -> %>
+                <p>
+                  <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                  {gettext("Caching is disabled. Pages are generated fresh on each request.")}
+                </p>
+              <% true -> %>
+                <p>
+                  <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                  {gettext("Cache is empty. It will be populated when content changes.")}
+                </p>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
     <div class="space-y-6">
       <div class="flex-1">
         <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">

@@ -248,6 +248,38 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
   end
 
   # ============================================================================
+  # Cache Updates (for live admin UI updates)
+  # ============================================================================
+
+  @doc """
+  Returns the topic for cache updates for a specific blog.
+  """
+  def cache_topic(blog_slug) do
+    "#{@topic_prefix}:#{blog_slug}:cache"
+  end
+
+  @doc """
+  Subscribes the current process to cache updates for a blog.
+  """
+  def subscribe_to_cache(blog_slug) do
+    Manager.subscribe(cache_topic(blog_slug))
+  end
+
+  @doc """
+  Unsubscribes the current process from cache updates for a blog.
+  """
+  def unsubscribe_from_cache(blog_slug) do
+    Manager.unsubscribe(cache_topic(blog_slug))
+  end
+
+  @doc """
+  Broadcasts that the cache state has changed (file regenerated, memory loaded, etc).
+  """
+  def broadcast_cache_changed(blog_slug) do
+    Manager.broadcast(cache_topic(blog_slug), {:cache_changed, blog_slug})
+  end
+
+  # ============================================================================
   # Form Key Helpers
   # ============================================================================
 

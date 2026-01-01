@@ -414,22 +414,32 @@ defmodule PhoenixKitWeb.BlogController do
   # Fetches posts using cache when available, falls back to filesystem scan
   # On cache miss, regenerates cache asynchronously for next request
   defp fetch_posts_with_cache(blog_slug) do
-    start_time = System.monotonic_time(:millisecond)
+    start_time = System.monotonic_time(:microsecond)
 
     case ListingCache.read(blog_slug) do
       {:ok, posts} ->
-        elapsed = System.monotonic_time(:millisecond) - start_time
-        Logger.debug("[BlogController] Cache HIT for #{blog_slug} (#{elapsed}ms, #{length(posts)} posts)")
+        elapsed_us = System.monotonic_time(:microsecond) - start_time
+
+        Logger.debug(
+          "[BlogController] Cache HIT for #{blog_slug} (#{elapsed_us}μs, #{length(posts)} posts)"
+        )
+
         posts
 
       {:error, :cache_miss} ->
-        Logger.warning("[BlogController] Cache MISS for #{blog_slug} - falling back to filesystem scan")
+        Logger.warning(
+          "[BlogController] Cache MISS for #{blog_slug} - falling back to filesystem scan"
+        )
 
         # Cache miss - scan filesystem and regenerate cache for next request
         all_posts = Blogging.list_posts(blog_slug, nil)
 
-        elapsed = System.monotonic_time(:millisecond) - start_time
-        Logger.warning("[BlogController] Filesystem scan complete for #{blog_slug} (#{elapsed}ms, #{length(all_posts)} posts)")
+        elapsed_us = System.monotonic_time(:microsecond) - start_time
+        elapsed_ms = Float.round(elapsed_us / 1000, 1)
+
+        Logger.warning(
+          "[BlogController] Filesystem scan complete for #{blog_slug} (#{elapsed_ms}ms, #{length(all_posts)} posts)"
+        )
 
         # Regenerate cache asynchronously (don't block the request)
         Task.start(fn -> ListingCache.regenerate(blog_slug) end)

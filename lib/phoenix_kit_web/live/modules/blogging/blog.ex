@@ -11,6 +11,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
   alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
@@ -21,6 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) && blog_slug do
       BloggingPubSub.subscribe_to_posts(blog_slug)
+      BloggingPubSub.subscribe_to_cache(blog_slug)
     end
 
     # Load date/time format settings once for performance
@@ -61,14 +63,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       |> assign(:posts, posts)
       |> assign(:endpoint_url, nil)
       |> assign(:date_time_settings, date_time_settings)
+      |> assign(:cache_info, get_cache_info(blog_slug))
 
     {:ok, redirect_if_missing(socket)}
   end
 
   @impl true
   def handle_params(_params, uri, socket) do
+    blog_slug = socket.assigns.blog_slug
+
     posts =
-      case socket.assigns.blog_slug do
+      case blog_slug do
         nil -> []
         slug -> Blogging.list_posts(slug, socket.assigns.current_locale_base)
       end
@@ -79,6 +84,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       socket
       |> assign(:posts, posts)
       |> assign(:endpoint_url, endpoint_url)
+      |> assign(:cache_info, get_cache_info(blog_slug))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -222,6 +228,135 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     end
   end
 
+  def handle_event("regenerate_file_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    case ListingCache.regenerate_file_only(blog_slug) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:cache_info, get_cache_info(blog_slug))
+         |> put_flash(:info, gettext("File cache regenerated"))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to regenerate cache"))}
+    end
+  end
+
+  def handle_event("invalidate_file_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    cache_path = ListingCache.cache_path(blog_slug)
+
+    case File.rm(cache_path) do
+      :ok -> :ok
+      {:error, :enoent} -> :ok
+      _ -> :ok
+    end
+
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(blog_slug))
+     |> put_flash(:info, gettext("File cache cleared"))}
+  end
+
+  def handle_event("load_memory_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    # Load from file into memory only (don't regenerate file)
+    case ListingCache.load_into_memory(blog_slug) do
+      :ok ->
+        {:noreply,
+         socket
+         |> assign(:cache_info, get_cache_info(blog_slug))
+         |> put_flash(:info, gettext("Cache loaded into memory"))}
+
+      {:error, :no_file} ->
+        {:noreply, put_flash(socket, :error, gettext("No file cache to load from"))}
+
+      {:error, _reason} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to load cache"))}
+    end
+  end
+
+  def handle_event("invalidate_memory_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    # Clear the cache, loaded_at, and file_generated_at timestamps
+    try do
+      :persistent_term.erase(ListingCache.persistent_term_key(blog_slug))
+    rescue
+      ArgumentError -> :ok
+    end
+
+    try do
+      :persistent_term.erase(ListingCache.loaded_at_key(blog_slug))
+    rescue
+      ArgumentError -> :ok
+    end
+
+    try do
+      :persistent_term.erase(ListingCache.file_generated_at_key(blog_slug))
+    rescue
+      ArgumentError -> :ok
+    end
+
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(blog_slug))
+     |> put_flash(:info, gettext("Memory cache cleared"))}
+  end
+
+  def handle_event("toggle_file_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    current = ListingCache.file_cache_enabled?()
+    new_value = !current
+    Settings.update_setting("blogging_file_cache_enabled", to_string(new_value))
+
+    message =
+      if new_value, do: gettext("File cache enabled"), else: gettext("File cache disabled")
+
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(blog_slug))
+     |> put_flash(:info, message)}
+  end
+
+  def handle_event("toggle_memory_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    current = ListingCache.memory_cache_enabled?()
+    new_value = !current
+    Settings.update_setting("blogging_memory_cache_enabled", to_string(new_value))
+
+    # If disabling, clear memory cache
+    unless new_value do
+      try do
+        :persistent_term.erase(ListingCache.persistent_term_key(blog_slug))
+      rescue
+        ArgumentError -> :ok
+      end
+
+      try do
+        :persistent_term.erase(ListingCache.loaded_at_key(blog_slug))
+      rescue
+        ArgumentError -> :ok
+      end
+
+      try do
+        :persistent_term.erase(ListingCache.file_generated_at_key(blog_slug))
+      rescue
+        ArgumentError -> :ok
+      end
+    end
+
+    message =
+      if new_value, do: gettext("Memory cache enabled"), else: gettext("Memory cache disabled")
+
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(blog_slug))
+     |> put_flash(:info, message)}
+  end
+
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
@@ -242,6 +377,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   def handle_info({:post_deleted, _post_path}, socket) do
     # Refresh the posts list when a post is deleted
     {:noreply, refresh_posts(socket)}
+  end
+
+  def handle_info({:cache_changed, blog_slug}, socket) do
+    # Refresh cache info when cache state changes (from visitor loading it, etc.)
+    {:noreply, assign(socket, :cache_info, get_cache_info(blog_slug))}
   end
 
   defp refresh_posts(socket) do
@@ -403,5 +543,101 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
       }
     end)
     |> Enum.filter(fn lang -> lang.exists || lang.enabled end)
+  end
+
+  # Cache info helper
+
+  def format_cache_time(nil), do: ""
+
+  def format_cache_time(iso_string) when is_binary(iso_string) do
+    case DateTime.from_iso8601(iso_string) do
+      {:ok, dt, _offset} ->
+        # Format as relative time if recent, otherwise show date/time
+        now = DateTime.utc_now()
+        diff_seconds = DateTime.diff(now, dt, :second)
+
+        cond do
+          diff_seconds < 60 ->
+            gettext("just now")
+
+          diff_seconds < 3600 ->
+            minutes = div(diff_seconds, 60)
+            ngettext("%{count} minute ago", "%{count} minutes ago", minutes, count: minutes)
+
+          diff_seconds < 86400 ->
+            hours = div(diff_seconds, 3600)
+            ngettext("%{count} hour ago", "%{count} hours ago", hours, count: hours)
+
+          true ->
+            # Show date for older caches
+            Calendar.strftime(dt, "%Y-%m-%d %H:%M")
+        end
+
+      _ ->
+        iso_string
+    end
+  end
+
+  defp get_cache_info(nil), do: nil
+
+  defp get_cache_info(blog_slug) do
+    cache_path = ListingCache.cache_path(blog_slug)
+    file_enabled = ListingCache.file_cache_enabled?()
+    memory_enabled = ListingCache.memory_cache_enabled?()
+
+    # Check if in :persistent_term
+    in_memory =
+      case :persistent_term.get(ListingCache.persistent_term_key(blog_slug), :not_found) do
+        :not_found -> false
+        _ -> true
+      end
+
+    # Get when memory cache was loaded and what file version it contains
+    memory_loaded_at = ListingCache.memory_loaded_at(blog_slug)
+    memory_file_generated_at = ListingCache.memory_file_generated_at(blog_slug)
+
+    case File.stat(cache_path) do
+      {:ok, stat} ->
+        # Read cache to get post count and generated_at
+        {post_count, generated_at} =
+          case File.read(cache_path) do
+            {:ok, content} ->
+              case Jason.decode(content) do
+                {:ok, %{"post_count" => count, "generated_at" => gen_at}} -> {count, gen_at}
+                {:ok, %{"post_count" => count}} -> {count, nil}
+                _ -> {nil, nil}
+              end
+
+            _ ->
+              {nil, nil}
+          end
+
+        %{
+          exists: true,
+          file_size: stat.size,
+          modified_at: stat.mtime,
+          post_count: post_count,
+          generated_at: generated_at,
+          in_memory: in_memory,
+          memory_loaded_at: memory_loaded_at,
+          memory_file_generated_at: memory_file_generated_at,
+          file_enabled: file_enabled,
+          memory_enabled: memory_enabled
+        }
+
+      {:error, :enoent} ->
+        %{
+          exists: false,
+          file_size: 0,
+          modified_at: nil,
+          post_count: nil,
+          generated_at: nil,
+          in_memory: in_memory,
+          memory_loaded_at: memory_loaded_at,
+          memory_file_generated_at: memory_file_generated_at,
+          file_enabled: file_enabled,
+          memory_enabled: memory_enabled
+        }
+    end
   end
 end
