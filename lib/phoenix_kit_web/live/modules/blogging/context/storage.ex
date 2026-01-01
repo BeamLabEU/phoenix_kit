@@ -415,7 +415,21 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   """
   @spec root_path() :: String.t()
   def root_path do
-    parent_app = PhoenixKit.Config.get_parent_app() || :phoenix_kit
+    parent_app =
+      case PhoenixKit.Config.get_parent_app() do
+        nil ->
+          raise """
+          PhoenixKit parent app not configured.
+          Cannot determine storage path for blogging module.
+
+          Please add the following to your config/config.exs:
+
+              config :phoenix_kit, parent_app_name: :your_app_name
+          """
+
+        app ->
+          app
+      end
 
     # Get the parent app's priv directory
     # This ensures files are always stored in the parent app, not in PhoenixKit's deps folder

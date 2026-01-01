@@ -8,6 +8,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth.Scope
+  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   # Delegate language info function to Storage
@@ -61,7 +62,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   """
   @spec list_blogs() :: [blog()]
   def list_blogs do
-    case settings_call(:get_json_setting, [@blogs_key, nil]) do
+    case settings_call(:get_json_setting_cached, [@blogs_key, nil]) do
       %{"blogs" => blogs} when is_list(blogs) ->
         normalize_blogs(blogs)
 
@@ -70,7 +71,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
       _ ->
         legacy =
-          case settings_call(:get_json_setting, [@legacy_categories_key, %{"types" => []}]) do
+          case settings_call(:get_json_setting_cached, [@legacy_categories_key, %{"types" => []}]) do
             %{"types" => types} when is_list(types) -> types
             other when is_list(other) -> other
             _ -> []
@@ -277,15 +278,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
     scope = fetch_option(opts, :scope)
     audit_meta = audit_metadata(scope, :create)
 
-    case get_blog_mode(blog_slug) do
-      "slug" ->
-        title = fetch_option(opts, :title)
-        slug = fetch_option(opts, :slug)
-        Storage.create_post_slug_mode(blog_slug, title, slug, audit_meta)
+    result =
+      case get_blog_mode(blog_slug) do
+        "slug" ->
+          title = fetch_option(opts, :title)
+          slug = fetch_option(opts, :slug)
+          Storage.create_post_slug_mode(blog_slug, title, slug, audit_meta)
 
-      _ ->
-        Storage.create_post(blog_slug, audit_meta)
+        _ ->
+          Storage.create_post(blog_slug, audit_meta)
+      end
+
+    # Regenerate listing cache on success
+    with {:ok, _post} <- result do
+      ListingCache.regenerate(blog_slug)
     end
+
+    result
   end
 
   @doc """
@@ -329,10 +338,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         Map.get(post, "mode") ||
         mode_atom(get_blog_mode(blog_slug))
 
-    case mode do
-      :slug -> Storage.update_post_slug_mode(blog_slug, post, params, audit_meta)
-      _ -> Storage.update_post(blog_slug, post, params, audit_meta)
+    result =
+      case mode do
+        :slug -> Storage.update_post_slug_mode(blog_slug, post, params, audit_meta)
+        _ -> Storage.update_post(blog_slug, post, params, audit_meta)
+      end
+
+    # Regenerate listing cache on success
+    with {:ok, _post} <- result do
+      ListingCache.regenerate(blog_slug)
     end
+
+    result
   end
 
   @doc """
@@ -349,7 +366,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       |> fetch_option(:scope)
       |> audit_metadata(:create)
 
-    Storage.create_new_version(blog_slug, source_post, params, audit_meta)
+    result = Storage.create_new_version(blog_slug, source_post, params, audit_meta)
+
+    # Regenerate listing cache on success
+    with {:ok, _post} <- result do
+      ListingCache.regenerate(blog_slug)
+    end
+
+    result
   end
 
   @doc """
@@ -358,7 +382,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   """
   @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
   def set_version_live(blog_slug, post_slug, version) do
-    Storage.set_version_live(blog_slug, post_slug, version)
+    result = Storage.set_version_live(blog_slug, post_slug, version)
+
+    # Regenerate listing cache on success
+    if result == :ok do
+      ListingCache.regenerate(blog_slug)
+    end
+
+    result
   end
 
   @doc """
@@ -371,24 +402,32 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   @spec add_language_to_post(String.t(), String.t(), String.t(), integer() | nil) ::
           {:ok, Storage.post()} | {:error, any()}
   def add_language_to_post(blog_slug, identifier, language_code, version \\ nil) do
-    case get_blog_mode(blog_slug) do
-      "slug" ->
-        {post_slug, inferred_version, _language} =
-          extract_slug_version_and_language(blog_slug, identifier)
+    result =
+      case get_blog_mode(blog_slug) do
+        "slug" ->
+          {post_slug, inferred_version, _language} =
+            extract_slug_version_and_language(blog_slug, identifier)
 
-        # Use explicit version if provided, otherwise use version from path
-        target_version = version || inferred_version
+          # Use explicit version if provided, otherwise use version from path
+          target_version = version || inferred_version
 
-        Storage.add_language_to_post_slug_mode(
-          blog_slug,
-          post_slug,
-          language_code,
-          target_version
-        )
+          Storage.add_language_to_post_slug_mode(
+            blog_slug,
+            post_slug,
+            language_code,
+            target_version
+          )
 
-      _ ->
-        Storage.add_language_to_post(blog_slug, identifier, language_code)
+        _ ->
+          Storage.add_language_to_post(blog_slug, identifier, language_code)
+      end
+
+    # Regenerate listing cache on success
+    with {:ok, _post} <- result do
+      ListingCache.regenerate(blog_slug)
     end
+
+    result
   end
 
   # Legacy wrappers (deprecated)
@@ -448,7 +487,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   end
 
   defp settings_call(fun, args) do
-    apply(settings_module(), fun, args)
+    module = settings_module()
+
+    # For cached functions, fall back to uncached if custom module doesn't implement them
+    case fun do
+      :get_json_setting_cached ->
+        if function_exported?(module, :get_json_setting_cached, length(args)) do
+          apply(module, :get_json_setting_cached, args)
+        else
+          apply(module, :get_json_setting, args)
+        end
+
+      _ ->
+        apply(module, fun, args)
+    end
   end
 
   defp normalize_blogs(blogs) do

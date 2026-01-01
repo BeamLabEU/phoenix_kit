@@ -19,6 +19,7 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
@@ -366,9 +367,12 @@ defmodule PhoenixKitWeb.BlogController do
           page = get_page_param(params)
           per_page = get_per_page_setting()
 
-          # List posts that have this EXACT language file and are published
+          # Try cache first, fall back to filesystem scan
+          all_posts_unfiltered = fetch_posts_with_cache(blog_slug)
+
+          # Filter to posts that have this EXACT language file and are published
           all_posts =
-            Blogging.list_posts(blog_slug, language)
+            all_posts_unfiltered
             |> filter_published()
             |> filter_by_exact_language(blog_slug, language)
 
@@ -384,8 +388,8 @@ defmodule PhoenixKitWeb.BlogController do
               %{label: blog["name"], url: nil}
             ]
 
-            # Build translation links for blog listing
-            translations = build_listing_translations(blog_slug, language)
+            # Build translation links for blog listing (reuse unfiltered posts)
+            translations = build_listing_translations(blog_slug, language, all_posts_unfiltered)
 
             conn
             |> assign(:page_title, blog["name"])
@@ -404,6 +408,33 @@ defmodule PhoenixKitWeb.BlogController do
 
       {:error, reason} ->
         handle_not_found(conn, reason)
+    end
+  end
+
+  # Fetches posts using cache when available, falls back to filesystem scan
+  # On cache miss, regenerates cache asynchronously for next request
+  defp fetch_posts_with_cache(blog_slug) do
+    start_time = System.monotonic_time(:millisecond)
+
+    case ListingCache.read(blog_slug) do
+      {:ok, posts} ->
+        elapsed = System.monotonic_time(:millisecond) - start_time
+        Logger.debug("[BlogController] Cache HIT for #{blog_slug} (#{elapsed}ms, #{length(posts)} posts)")
+        posts
+
+      {:error, :cache_miss} ->
+        Logger.warning("[BlogController] Cache MISS for #{blog_slug} - falling back to filesystem scan")
+
+        # Cache miss - scan filesystem and regenerate cache for next request
+        all_posts = Blogging.list_posts(blog_slug, nil)
+
+        elapsed = System.monotonic_time(:millisecond) - start_time
+        Logger.warning("[BlogController] Filesystem scan complete for #{blog_slug} (#{elapsed}ms, #{length(all_posts)} posts)")
+
+        # Regenerate cache asynchronously (don't block the request)
+        Task.start(fn -> ListingCache.regenerate(blog_slug) end)
+
+        all_posts
     end
   end
 
@@ -820,7 +851,9 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  defp build_listing_translations(blog_slug, current_language) do
+  # Build translation links for blog listing page
+  # Accepts posts to avoid redundant list_posts calls
+  defp build_listing_translations(blog_slug, current_language, posts) do
     # Get enabled languages - these are the ONLY languages that should show
     enabled_languages =
       try do
@@ -840,8 +873,8 @@ defmodule PhoenixKitWeb.BlogController do
     translations =
       enabled_languages
       |> Enum.filter(fn lang ->
-        # Check if this specific language has published content
-        has_published_content_for_language?(blog_slug, lang)
+        # Check if this specific language has published content (using passed posts)
+        has_published_content_for_language?(posts, lang)
       end)
       |> Enum.map(fn lang ->
         # Use display_code helper to determine if we show base or full code
@@ -874,51 +907,14 @@ defmodule PhoenixKitWeb.BlogController do
   # Check if a specific enabled language has published content in the blog
   # ONLY checks for EXACT file matches - no base code fallback
   # This ensures only languages with actual files show in the public switcher
-  defp has_published_content_for_language?(blog_slug, language) do
-    # Get all posts and check if any have published content for this EXACT language
-    all_posts = Blogging.list_posts(blog_slug, nil)
-
-    Enum.any?(all_posts, fn post ->
+  # Uses passed posts to avoid redundant list_posts calls
+  defp has_published_content_for_language?(posts, language) do
+    Enum.any?(posts, fn post ->
       # Check if there's a published file for this EXACT language only
-      post.available_languages
-      |> Enum.any?(fn file_lang ->
-        # Only match exact language - no base code matching
-        file_lang == language and lang_published?(blog_slug, post, file_lang)
-      end)
+      # Use preloaded language_statuses map
+      language in (post.available_languages || []) and
+        Map.get(post.language_statuses, language) == "published"
     end)
-  end
-
-  # Check if a specific language version of a post is published
-  defp lang_published?(blog_slug, post, language) do
-    # If this is the post's current language, check its metadata directly
-    if post.language == language do
-      post.metadata.status == "published"
-    else
-      # Need to read the language-specific file to check its status
-      lang_path =
-        case post.mode do
-          :slug ->
-            "#{blog_slug}/#{post.slug}/#{language}.phk"
-
-          :timestamp when not is_nil(post.date) and not is_nil(post.time) ->
-            date_str = Date.to_iso8601(post.date)
-            time_str = post.time |> Time.to_string() |> String.slice(0..4)
-            "#{blog_slug}/#{date_str}/#{time_str}/#{language}.phk"
-
-          _ ->
-            # Can't build path for timestamp mode without date/time
-            nil
-        end
-
-      if lang_path do
-        case Blogging.read_post(blog_slug, lang_path) do
-          {:ok, lang_post} -> lang_post.metadata.status == "published"
-          _ -> false
-        end
-      else
-        false
-      end
-    end
   end
 
   defp build_translation_links(blog_slug, post, current_language) do
@@ -1094,12 +1090,15 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Filter posts to only include those that have a matching language file
   # Handles both exact matches and base code matches (e.g., "en" matches "en-US")
-  defp filter_by_exact_language(posts, blog_slug, language) do
+  # Uses preloaded language_statuses to avoid redundant file reads
+  defp filter_by_exact_language(posts, _blog_slug, language) do
     Enum.filter(posts, fn post ->
       # Find the matching language file (exact or base code match)
       matching_language = find_matching_language(language, post.available_languages)
 
-      matching_language != nil and lang_published?(blog_slug, post, matching_language)
+      # Use preloaded status from language_statuses map
+      matching_language != nil and
+        Map.get(post.language_statuses, matching_language) == "published"
     end)
   end
 
