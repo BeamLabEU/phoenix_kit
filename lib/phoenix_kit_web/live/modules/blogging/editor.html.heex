@@ -225,6 +225,28 @@
       </div>
     <% end %>
 
+    <%!-- Spectator mode banner - someone else is editing --%>
+    <%= if @readonly? do %>
+      <div class="alert alert-warning shadow-sm">
+        <.icon name="hero-eye" class="w-5 h-5" />
+        <div class="flex-1">
+          <span class="font-medium">{gettext("View only mode:")}</span>
+          <span>
+            <%= if @lock_owner_user do %>
+              {gettext(
+                "%{email} is currently editing this post. You can view but not make changes.",
+                email: @lock_owner_user.email
+              )}
+            <% else %>
+              {gettext(
+                "Another user is currently editing this post. You can view but not make changes."
+              )}
+            <% end %>
+          </span>
+        </div>
+      </div>
+    <% end %>
+
     <%!-- Info banner when editing a published version (only for versioned structure, master language, not older versions) --%>
     <%!-- Translations don't create new versions, so this warning doesn't apply to them --%>
     <%!-- Legacy structure posts save in-place, so this doesn't apply to them --%>
@@ -312,14 +334,14 @@
                       id="slug-input"
                       value={@form["slug"]}
                       pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                      class={"input input-bordered w-full lowercase #{if @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                      class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                       placeholder={gettext("auto-generated from first heading")}
                       title={
                         gettext(
                           "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
                         )
                       }
-                      readonly={@viewing_older_version}
+                      readonly={@readonly? or @viewing_older_version}
                     />
                     <p class="text-xs text-base-content/60 mt-1">
                       {gettext("Use lowercase letters, numbers, and hyphens only.")}
@@ -348,8 +370,8 @@
                           class="w-full rounded-lg border-2 border-base-300 object-cover max-h-56"
                           loading="lazy"
                         />
-                        <%!-- Desktop: Hover overlay (hidden when viewing older version) --%>
-                        <%= if not @viewing_older_version do %>
+                        <%!-- Desktop: Hover overlay (hidden when readonly or viewing older version) --%>
+                        <%= if not (@readonly? or @viewing_older_version) do %>
                           <div class="hidden md:flex absolute inset-0 bg-base-content/0 group-hover:bg-base-content/60 transition-all rounded-lg items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                             <button
                               type="button"
@@ -370,8 +392,8 @@
                           </div>
                         <% end %>
                       </div>
-                      <%!-- Mobile: Always visible buttons (hidden when viewing older version) --%>
-                      <%= if not @viewing_older_version do %>
+                      <%!-- Mobile: Always visible buttons (hidden when readonly or viewing older version) --%>
+                      <%= if not (@readonly? or @viewing_older_version) do %>
                         <div class="flex md:hidden gap-2">
                           <button
                             type="button"
@@ -397,8 +419,8 @@
                     <button
                       type="button"
                       phx-click="open_media_selector"
-                      class={"w-full border-2 border-dashed border-base-300 rounded-lg p-8 transition-all group #{if @viewing_older_version, do: "opacity-50 cursor-not-allowed", else: "hover:border-primary hover:bg-primary/5"}"}
-                      disabled={@viewing_older_version}
+                      class={"w-full border-2 border-dashed border-base-300 rounded-lg p-8 transition-all group #{if @readonly? or @viewing_older_version, do: "opacity-50 cursor-not-allowed", else: "hover:border-primary hover:bg-primary/5"}"}
+                      disabled={@readonly? or @viewing_older_version}
                     >
                       <div class="flex flex-col items-center gap-3 text-base-content/60 group-hover:text-primary transition-colors">
                         <.icon name="hero-photo" class="w-12 h-12" />
@@ -435,9 +457,9 @@
                         type="text"
                         name="featured_image_id"
                         value={@form["featured_image_id"]}
-                        class={"input input-bordered input-sm w-full font-mono text-xs #{if @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        class={"input input-bordered input-sm w-full font-mono text-xs #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
                         placeholder="018e3c4a-9f6b-7890-abcd-ef1234567890"
-                        readonly={@viewing_older_version}
+                        readonly={@readonly? or @viewing_older_version}
                       />
                       <p class="text-xs text-base-content/60 mt-2">
                         {gettext("Paste a Phoenix Kit Media ID if you know it.")}
@@ -453,8 +475,9 @@
                     </span>
                   </label>
                   <select
-                    class="select select-bordered w-full"
+                    class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
                     name="status"
+                    disabled={@readonly?}
                   >
                     <%= if @viewing_older_version do %>
                       <%!-- Older versions can only be published or archived, not draft --%>
@@ -531,8 +554,8 @@
                     type="datetime-local"
                     name="published_at"
                     value={datetime_local_value(@form["published_at"])}
-                    class={"input input-bordered w-full #{if @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                    readonly={@viewing_older_version}
+                    class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                    readonly={@readonly? or @viewing_older_version}
                   />
                   <p class="text-xs text-base-content/60 mt-1">
                     {gettext(
@@ -556,7 +579,7 @@
                           {gettext("Display a version dropdown on the public post")}
                         </p>
                       </div>
-                      <label class="swap">
+                      <label class={"swap #{if @readonly?, do: "opacity-50 pointer-events-none"}"}>
                         <input
                           type="checkbox"
                           checked={Map.get(@post.metadata, :allow_version_access, false)}
@@ -566,6 +589,7 @@
                               do: "false",
                               else: "true"
                           }
+                          disabled={@readonly?}
                         />
                         <span class="swap-on">
                           <span class="badge badge-success badge-sm">{gettext("On")}</span>
@@ -591,11 +615,11 @@
                     class="tooltip tooltip-bottom"
                     data-tip={Enum.map_join(@other_viewers, ", ", & &1.user_email)}
                   >
-                    <span class="badge badge-warning badge-sm gap-1">
+                    <span class="badge badge-info badge-sm gap-1">
                       <.icon name="hero-eye" class="w-3 h-3" />
                       {ngettext(
-                        "1 other editing",
-                        "%{count} others editing",
+                        "1 other viewing",
+                        "%{count} others viewing",
                         length(@other_viewers),
                         count: length(@other_viewers)
                       )}
@@ -621,10 +645,10 @@
                   phx-click="save"
                   class={[
                     "btn btn-primary btn-xs shadow-none gap-1",
-                    (@is_autosaving || !@has_pending_changes) &&
+                    (@readonly? || @is_autosaving || !@has_pending_changes) &&
                       "btn-disabled pointer-events-none opacity-60"
                   ]}
-                  disabled={@is_autosaving || !@has_pending_changes}
+                  disabled={@readonly? || @is_autosaving || !@has_pending_changes}
                 >
                   <span class="hidden phx-click-loading:inline-flex items-center gap-1">
                     <span class="loading loading-spinner loading-2xs"></span>
@@ -646,10 +670,10 @@
               height="480px"
               debounce={400}
               toolbar={[:image, :video]}
-              show_formatting_toolbar={not @viewing_older_version}
+              show_formatting_toolbar={not (@readonly? or @viewing_older_version)}
               protect_navigation={false}
               script_nonce={nonce}
-              readonly={@viewing_older_version}
+              readonly={@readonly? or @viewing_older_version}
             />
           </div>
         </div>

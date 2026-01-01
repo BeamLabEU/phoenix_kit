@@ -379,6 +379,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     {:noreply, refresh_posts(socket)}
   end
 
+  def handle_info({:version_created, _post}, socket) do
+    # Refresh the posts list when a new version is created
+    {:noreply, refresh_posts(socket)}
+  end
+
+  def handle_info({:version_live_changed, _post_slug, _version}, socket) do
+    # Refresh the posts list when the live version changes
+    {:noreply, refresh_posts(socket)}
+  end
+
   def handle_info({:cache_changed, blog_slug}, socket) do
     # Refresh cache info when cache state changes (from visitor loading it, etc.)
     {:noreply, assign(socket, :cache_info, get_cache_info(blog_slug))}

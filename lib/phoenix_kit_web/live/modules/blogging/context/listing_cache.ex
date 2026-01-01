@@ -268,6 +268,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
             "[ListingCache] Regenerated cache for #{blog_slug} (#{length(posts)} posts) in #{elapsed}ms"
           )
 
+          # Broadcast cache change so admin UI updates live
+          BloggingPubSub.broadcast_cache_changed(blog_slug)
+
           :ok
 
         {:error, reason} = error ->

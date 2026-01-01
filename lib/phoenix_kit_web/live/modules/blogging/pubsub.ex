@@ -115,6 +115,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
     Manager.broadcast(posts_topic(blog_slug), {:post_status_changed, post})
   end
 
+  @doc """
+  Broadcasts that a new version was created for a post.
+  """
+  def broadcast_version_created(blog_slug, post) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_created, post})
+  end
+
+  @doc """
+  Broadcasts that the live version changed for a post.
+  """
+  def broadcast_version_live_changed(blog_slug, post_slug, version) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_live_changed, post_slug, version})
+  end
+
   # ============================================================================
   # Post-Level Updates (translation changes)
   # ============================================================================
@@ -286,20 +300,34 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
   @doc """
   Generates a form key for a post being edited.
 
+  The form key includes the language to allow concurrent editing of different
+  translations of the same post.
+
   ## Examples
 
-      generate_form_key("blog", %{path: "blog/my-post/en.phk"})
-      # => "blog:blog/my-post/en.phk"
+      generate_form_key("blog", %{path: "blog/my-post/v1/en.phk"})
+      # => "blog:blog/my-post/v1/en.phk"
+
+      generate_form_key("blog", %{slug: "my-post", language: "en"})
+      # => "blog:my-post:en"
 
       generate_form_key("blog", %{slug: "my-post", language: "en"}, :new)
       # => "blog:new:en"
   """
   def generate_form_key(blog_slug, post, mode \\ :edit)
 
+  # Path already includes language (e.g., "blog/my-post/v1/en.phk")
   def generate_form_key(blog_slug, %{path: path}, :edit) when is_binary(path) do
     "#{blog_slug}:#{path}"
   end
 
+  # Slug mode - include language for per-language locking
+  def generate_form_key(blog_slug, %{slug: slug, language: lang}, :edit)
+      when is_binary(slug) and is_binary(lang) do
+    "#{blog_slug}:#{slug}:#{lang}"
+  end
+
+  # Fallback for slug without language (shouldn't happen in practice)
   def generate_form_key(blog_slug, %{slug: slug}, :edit) when is_binary(slug) do
     "#{blog_slug}:#{slug}"
   end

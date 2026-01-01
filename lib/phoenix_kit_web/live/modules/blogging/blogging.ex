@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
+  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   # Delegate language info function to Storage
@@ -289,9 +290,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
           Storage.create_post(blog_slug, audit_meta)
       end
 
-    # Regenerate listing cache on success
-    with {:ok, _post} <- result do
+    # Regenerate listing cache and broadcast on success
+    with {:ok, post} <- result do
       ListingCache.regenerate(blog_slug)
+      BloggingPubSub.broadcast_post_created(blog_slug, post)
     end
 
     result
@@ -344,9 +346,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
         _ -> Storage.update_post(blog_slug, post, params, audit_meta)
       end
 
-    # Regenerate listing cache on success
-    with {:ok, _post} <- result do
-      ListingCache.regenerate(blog_slug)
+    # Regenerate listing cache on success, but only if the post is live
+    # (For versioned posts, non-live versions don't affect public listings)
+    # Always broadcast so all viewers of any version see updates
+    with {:ok, updated_post} <- result do
+      if should_regenerate_cache?(updated_post) do
+        ListingCache.regenerate(blog_slug)
+      end
+
+      BloggingPubSub.broadcast_post_updated(blog_slug, updated_post)
     end
 
     result
@@ -368,9 +376,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
 
     result = Storage.create_new_version(blog_slug, source_post, params, audit_meta)
 
-    # Regenerate listing cache on success
-    with {:ok, _post} <- result do
-      ListingCache.regenerate(blog_slug)
+    # Note: New versions start as drafts (is_live: false), so we don't
+    # regenerate the cache here. Cache will be regenerated when the
+    # version is set live or published.
+    # Always broadcast so all viewers see the new version exists
+    with {:ok, new_version} <- result do
+      BloggingPubSub.broadcast_version_created(blog_slug, new_version)
     end
 
     result
@@ -384,9 +395,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   def set_version_live(blog_slug, post_slug, version) do
     result = Storage.set_version_live(blog_slug, post_slug, version)
 
-    # Regenerate listing cache on success
+    # Regenerate listing cache and broadcast on success
     if result == :ok do
       ListingCache.regenerate(blog_slug)
+      BloggingPubSub.broadcast_version_live_changed(blog_slug, post_slug, version)
     end
 
     result
@@ -422,9 +434,17 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
           Storage.add_language_to_post(blog_slug, identifier, language_code)
       end
 
-    # Regenerate listing cache on success
-    with {:ok, _post} <- result do
-      ListingCache.regenerate(blog_slug)
+    # Regenerate listing cache on success, but only if the post is live
+    # Always broadcast so all viewers see the new translation
+    with {:ok, new_post} <- result do
+      if should_regenerate_cache?(new_post) do
+        ListingCache.regenerate(blog_slug)
+      end
+
+      # Broadcast translation created
+      if new_post.slug do
+        BloggingPubSub.broadcast_translation_created(blog_slug, new_post.slug, language_code)
+      end
     end
 
     result
@@ -480,6 +500,27 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       end
 
     slug in language_codes
+  end
+
+  # Determines if a post update should trigger cache regeneration.
+  # For versioned posts (slug mode with version info), only regenerate if the post is live.
+  # For non-versioned posts (timestamp mode or legacy), always regenerate.
+  defp should_regenerate_cache?(post) do
+    mode = Map.get(post, :mode)
+    metadata = Map.get(post, :metadata, %{})
+    is_live = Map.get(metadata, :is_live)
+    version = Map.get(metadata, :version) || Map.get(post, :version)
+
+    cond do
+      # Timestamp mode posts always regenerate (no versioning)
+      mode == :timestamp -> true
+      # Slug mode posts without version info (legacy) always regenerate
+      is_nil(version) -> true
+      # Slug mode posts: only regenerate if this is the live version
+      is_live == true -> true
+      # Non-live versioned posts don't affect public listings
+      true -> false
+    end
   end
 
   defp settings_module do
