@@ -262,19 +262,34 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
   def handle_event("load_memory_cache", _params, socket) do
     blog_slug = socket.assigns.blog_slug
 
-    # Load from file into memory only (don't regenerate file)
-    case ListingCache.load_into_memory(blog_slug) do
-      :ok ->
-        {:noreply,
-         socket
-         |> assign(:cache_info, get_cache_info(blog_slug))
-         |> put_flash(:info, gettext("Cache loaded into memory"))}
+    # If file cache is disabled, scan posts directly into memory
+    # Otherwise, load from existing file
+    if ListingCache.file_cache_enabled?() do
+      case ListingCache.load_into_memory(blog_slug) do
+        :ok ->
+          {:noreply,
+           socket
+           |> assign(:cache_info, get_cache_info(blog_slug))
+           |> put_flash(:info, gettext("Cache loaded into memory"))}
 
-      {:error, :no_file} ->
-        {:noreply, put_flash(socket, :error, gettext("No file cache to load from"))}
+        {:error, :no_file} ->
+          {:noreply, put_flash(socket, :error, gettext("No file cache to load from"))}
 
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to load cache"))}
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to load cache"))}
+      end
+    else
+      # File cache disabled - scan posts directly into memory
+      case ListingCache.regenerate(blog_slug) do
+        :ok ->
+          {:noreply,
+           socket
+           |> assign(:cache_info, get_cache_info(blog_slug))
+           |> put_flash(:info, gettext("Cache loaded into memory from filesystem scan"))}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to scan posts"))}
+      end
     end
   end
 
@@ -355,6 +370,36 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
      socket
      |> assign(:cache_info, get_cache_info(blog_slug))
      |> put_flash(:info, message)}
+  end
+
+  def handle_event("toggle_render_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    current = Renderer.blog_render_cache_enabled?(blog_slug)
+    new_value = !current
+    Settings.update_setting("blogging_render_cache_enabled_#{blog_slug}", to_string(new_value))
+
+    message =
+      if new_value, do: gettext("Render cache enabled"), else: gettext("Render cache disabled")
+
+    {:noreply,
+     socket
+     |> assign(:cache_info, get_cache_info(blog_slug))
+     |> put_flash(:info, message)}
+  end
+
+  def handle_event("clear_render_cache", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    case Renderer.clear_blog_cache(blog_slug) do
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> assign(:cache_info, get_cache_info(blog_slug))
+         |> put_flash(:info, gettext("Cleared %{count} cached posts", count: count))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to clear cache"))}
+    end
   end
 
   # PubSub handlers for live updates
@@ -594,6 +639,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
     cache_path = ListingCache.cache_path(blog_slug)
     file_enabled = ListingCache.file_cache_enabled?()
     memory_enabled = ListingCache.memory_cache_enabled?()
+    render_enabled = Renderer.blog_render_cache_enabled?(blog_slug)
+    render_global_enabled = Renderer.global_render_cache_enabled?()
 
     # Check if in :persistent_term
     in_memory =
@@ -632,7 +679,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
           memory_loaded_at: memory_loaded_at,
           memory_file_generated_at: memory_file_generated_at,
           file_enabled: file_enabled,
-          memory_enabled: memory_enabled
+          memory_enabled: memory_enabled,
+          render_enabled: render_enabled,
+          render_global_enabled: render_global_enabled
         }
 
       {:error, :enoent} ->
@@ -646,7 +695,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
           memory_loaded_at: memory_loaded_at,
           memory_file_generated_at: memory_file_generated_at,
           file_enabled: file_enabled,
-          memory_enabled: memory_enabled
+          memory_enabled: memory_enabled,
+          render_enabled: render_enabled,
+          render_global_enabled: render_global_enabled
         }
     end
   end

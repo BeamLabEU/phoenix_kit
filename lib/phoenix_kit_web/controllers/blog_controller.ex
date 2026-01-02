@@ -20,7 +20,6 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @doc """
@@ -175,12 +174,23 @@ defmodule PhoenixKitWeb.BlogController do
   defp detect_language_in_blog_param(_params), do: :not_a_language
 
   # Check if any post in the blog has content for the given language
+  # Uses listing cache when available for fast lookups
   defp has_content_for_language?(blog_slug, language) do
-    posts = Blogging.list_posts(blog_slug, nil)
+    # Try cache first for fast lookup
+    case ListingCache.read(blog_slug) do
+      {:ok, posts} ->
+        Enum.any?(posts, fn post ->
+          language in (post.available_languages || [])
+        end)
 
-    Enum.any?(posts, fn post ->
-      language in (post.available_languages || [])
-    end)
+      {:error, _} ->
+        # Cache miss - fall back to filesystem scan
+        posts = Blogging.list_posts(blog_slug, nil)
+
+        Enum.any?(posts, fn post ->
+          language in (post.available_languages || [])
+        end)
+    end
   rescue
     _ -> false
   end
@@ -462,8 +472,8 @@ defmodule PhoenixKitWeb.BlogController do
             canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
             redirect(conn, to: canonical_url)
           else
-            # Render markdown
-            html_content = render_markdown(post.content)
+            # Render markdown (cached for published posts)
+            html_content = render_post_content(post)
 
             # Build translation links
             translations = build_translation_links(blog_slug, post, canonical_language)
@@ -511,8 +521,8 @@ defmodule PhoenixKitWeb.BlogController do
             # Get canonical language
             canonical_language = get_canonical_url_language_for_post(post.language)
 
-            # Render markdown
-            html_content = render_markdown(post.content)
+            # Render markdown (cached for published posts)
+            html_content = render_post_content(post)
 
             # Build translation links
             translations = build_translation_links(blog_slug, post, canonical_language)
@@ -653,19 +663,96 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp fetch_post(blog_slug, {:timestamp, date, time}, language) do
-    post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+    # Try cache first for fast lookup (sub-microsecond from :persistent_term)
+    case fetch_timestamp_post_from_cache(blog_slug, date, time, language) do
+      {:ok, _post} = result ->
+        result
 
-    # Detect if post uses versioned or legacy structure
-    case Storage.detect_post_structure(post_dir) do
-      :versioned ->
-        fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir)
+      {:error, _} ->
+        # Cache miss - fall back to filesystem scan
+        post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
 
-      :legacy ->
-        fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir)
+        case Storage.detect_post_structure(post_dir) do
+          :versioned ->
+            fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir)
 
-      :empty ->
-        {:error, :post_not_found}
+          :legacy ->
+            fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir)
+
+          :empty ->
+            {:error, :post_not_found}
+        end
     end
+  end
+
+  # Fast path: Use cache to get metadata, only read content file
+  defp fetch_timestamp_post_from_cache(blog_slug, date, time, language) do
+    case ListingCache.find_post_by_path(blog_slug, date, time) do
+      {:ok, cached_post} ->
+        # Cache has all metadata, we just need to read the content
+        # Find the right language file to read
+        resolved_language = resolve_language_for_post(language, cached_post.available_languages)
+
+        if resolved_language do
+          # Build path to the content file
+          # The cached post has the live version's path
+          content_path = build_content_path_from_cache(cached_post, resolved_language)
+
+          case read_content_only(content_path) do
+            {:ok, content} ->
+              # Merge cached metadata with fresh content
+              {:ok, merge_cache_with_content(cached_post, content, resolved_language)}
+
+            {:error, _} ->
+              {:error, :content_not_found}
+          end
+        else
+          {:error, :language_not_found}
+        end
+
+      {:error, _} ->
+        {:error, :cache_miss}
+    end
+  end
+
+  # Build the content file path from cached post data
+  defp build_content_path_from_cache(cached_post, language) do
+    # The cached post's full_path points to the live version
+    # Replace the language portion
+    cached_post.full_path
+    |> Path.dirname()
+    |> Path.join("#{language}.phk")
+  end
+
+  # Read just the content from a file (skip expensive metadata operations)
+  defp read_content_only(path) do
+    with {:ok, file_content} <- File.read(path),
+         {:ok, _metadata, body} <-
+           PhoenixKitWeb.Live.Modules.Blogging.Metadata.parse_with_content(file_content) do
+      {:ok, body}
+    end
+  end
+
+  # Merge cached metadata with fresh content
+  defp merge_cache_with_content(cached_post, content, language) do
+    %{
+      blog: cached_post.blog,
+      slug: cached_post.slug,
+      date: cached_post.date,
+      time: cached_post.time,
+      path: cached_post.path,
+      full_path: build_content_path_from_cache(cached_post, language),
+      metadata: cached_post.metadata,
+      content: content,
+      language: language,
+      available_languages: cached_post.available_languages,
+      language_statuses: cached_post.language_statuses,
+      mode: cached_post.mode,
+      version: cached_post.version,
+      available_versions: cached_post.available_versions,
+      version_statuses: cached_post.version_statuses,
+      is_legacy_structure: cached_post.is_legacy_structure
+    }
   end
 
   # Fetch a versioned timestamp post (files in v1/, v2/, etc.)
@@ -810,8 +897,14 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  defp render_markdown(content) do
-    Renderer.render_markdown(content)
+  # Renders post content with caching for published posts
+  # Uses Renderer.render_post/1 which caches based on content hash
+  defp render_post_content(post) do
+    case Renderer.render_post(post) do
+      {:ok, html} -> html
+      # Fallback to uncached rendering if render_post returns unexpected format
+      _ -> Renderer.render_markdown(post.content)
+    end
   end
 
   # Gets the canonical URL language code for a given language.
@@ -1038,24 +1131,10 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   # Checks if the exact language file exists and is published
-  # Does not consider fallback/alias files - only the exact file path
-  # Used for building public translation links to show only actual files
+  # Uses preloaded language_statuses map to avoid redundant file reads
   defp translation_published_exact?(_blog_slug, post, language) do
-    # Build the exact file path from the post's full_path
-    # Replace the language portion of the filename
-    exact_file_path =
-      post.full_path
-      |> Path.dirname()
-      |> Path.join("#{language}.phk")
-
-    # Check if the exact file exists and is published
-    with true <- File.exists?(exact_file_path),
-         {:ok, contents} <- File.read(exact_file_path),
-         {:ok, metadata, _content} <- Metadata.parse_with_content(contents) do
-      metadata[:status] == "published"
-    else
-      _ -> false
-    end
+    language in (post.available_languages || []) and
+      Map.get(post.language_statuses, language) == "published"
   end
 
   defp build_breadcrumbs(blog_slug, post, language) do
@@ -1202,10 +1281,12 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Builds version dropdown data for the public post template
   # Returns nil if version access is disabled or only one published version exists
+  # Uses listing cache for fast lookups instead of reading files
   defp build_version_dropdown(blog_slug, post, language) do
-    # Always read allow_version_access from master language for consistency
-    master_language = Storage.get_master_language()
-    allow_access = get_master_language_allow_access(blog_slug, post.slug, master_language, post)
+    # Try to get cached data first (sub-microsecond from :persistent_term)
+    # The cache stores the live version with all version metadata
+    {allow_access, live_version} = get_cached_version_info(blog_slug, post)
+
     version_statuses = Map.get(post, :version_statuses, %{})
     current_version = Map.get(post, :version, 1)
 
@@ -1219,9 +1300,6 @@ defmodule PhoenixKitWeb.BlogController do
 
       # Only show dropdown if there are multiple published versions
       if length(published_versions) > 1 do
-        # Get the actual live version to correctly mark it in dropdown
-        live_version = get_actual_live_version(blog_slug, post.slug)
-
         versions_with_urls =
           Enum.map(published_versions, fn version ->
             url = build_version_url(blog_slug, post, language, version)
@@ -1246,22 +1324,39 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  # Gets allow_version_access from master language, falling back to current post if same language
-  defp get_master_language_allow_access(blog_slug, post_slug, master_language, current_post) do
-    # If already viewing master language, use current post's metadata
+  # Gets version info from cache (allow_version_access and live_version)
+  # Falls back to file reads if cache miss
+  defp get_cached_version_info(blog_slug, current_post) do
+    case ListingCache.find_post(blog_slug, current_post.slug) do
+      {:ok, cached_post} ->
+        # Cache stores the live version's metadata
+        allow_access = Map.get(cached_post.metadata, :allow_version_access, false)
+        live_version = cached_post.version
+        {allow_access, live_version}
+
+      {:error, _} ->
+        # Cache miss - fall back to file reads
+        master_language = Storage.get_master_language()
+        allow_access = get_allow_access_from_file(blog_slug, current_post, master_language)
+        live_version = get_live_version_from_file(blog_slug, current_post.slug)
+        {allow_access, live_version}
+    end
+  end
+
+  # Fallback: Gets allow_version_access from file when cache misses
+  defp get_allow_access_from_file(blog_slug, current_post, master_language) do
     if current_post.language == master_language do
       Map.get(current_post.metadata, :allow_version_access, false)
     else
-      # Read master language version to get the canonical setting
-      case Blogging.read_post(blog_slug, post_slug, master_language, nil) do
+      case Blogging.read_post(blog_slug, current_post.slug, master_language, nil) do
         {:ok, master_post} -> Map.get(master_post.metadata, :allow_version_access, false)
         {:error, _} -> false
       end
     end
   end
 
-  # Gets the actual live version number regardless of which version is currently being viewed
-  defp get_actual_live_version(blog_slug, post_slug) do
+  # Fallback: Gets live version from file when cache misses
+  defp get_live_version_from_file(blog_slug, post_slug) do
     case Storage.get_live_version(blog_slug, post_slug) do
       {:ok, version} -> version
       {:error, _} -> nil

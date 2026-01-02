@@ -5,6 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -14,6 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
 
   @file_cache_key "blogging_file_cache_enabled"
   @memory_cache_key "blogging_memory_cache_enabled"
+  @render_cache_key "blogging_render_cache_enabled"
 
   def mount(_params, _session, socket) do
     blogs = Blogging.list_blogs()
@@ -32,7 +34,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
       |> assign(:languages_enabled, languages_enabled)
       |> assign(:file_cache_enabled, Settings.get_setting(@file_cache_key, "true") == "true")
       |> assign(:memory_cache_enabled, Settings.get_setting(@memory_cache_key, "true") == "true")
+      |> assign(:render_cache_enabled, Settings.get_setting(@render_cache_key, "true") == "true")
       |> assign(:cache_status, build_cache_status(blogs))
+      |> assign(:render_cache_stats, get_render_cache_stats())
+      |> assign(:render_cache_per_blog, build_render_cache_per_blog(blogs))
 
     {:ok, socket}
   end
@@ -142,6 +147,53 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
      |> put_flash(:info, cache_toggle_message("Memory cache", new_value))}
   end
 
+  def handle_event("clear_render_cache", _params, socket) do
+    Renderer.clear_all_cache()
+
+    {:noreply,
+     socket
+     |> assign(:render_cache_stats, get_render_cache_stats())
+     |> put_flash(:info, gettext("Render cache cleared"))}
+  end
+
+  def handle_event("clear_blog_render_cache", %{"slug" => slug}, socket) do
+    case Renderer.clear_blog_cache(slug) do
+      {:ok, count} ->
+        {:noreply,
+         socket
+         |> assign(:render_cache_stats, get_render_cache_stats())
+         |> put_flash(
+           :info,
+           gettext("Cleared %{count} cached posts for %{blog}", count: count, blog: slug)
+         )}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to clear cache"))}
+    end
+  end
+
+  def handle_event("toggle_render_cache", _params, socket) do
+    new_value = !socket.assigns.render_cache_enabled
+    Settings.update_setting(@render_cache_key, to_string(new_value))
+
+    {:noreply,
+     socket
+     |> assign(:render_cache_enabled, new_value)
+     |> put_flash(:info, cache_toggle_message("Render cache", new_value))}
+  end
+
+  def handle_event("toggle_blog_render_cache", %{"slug" => slug}, socket) do
+    per_blog_key = "blogging_render_cache_enabled_#{slug}"
+    current_value = Settings.get_setting(per_blog_key, "true") == "true"
+    new_value = !current_value
+    Settings.update_setting(per_blog_key, to_string(new_value))
+
+    {:noreply,
+     socket
+     |> assign(:render_cache_per_blog, build_render_cache_per_blog(socket.assigns.blogs))
+     |> put_flash(:info, cache_toggle_message("Render cache for #{slug}", new_value))}
+  end
+
   defp cache_toggle_message(cache_type, enabled) do
     if enabled do
       gettext("%{type} enabled", type: cache_type)
@@ -194,5 +246,18 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
       {:error, :enoent} ->
         %{exists: false, file_size: 0, modified_at: nil, post_count: nil, in_memory: false}
     end
+  end
+
+  defp get_render_cache_stats do
+    PhoenixKit.Cache.stats(:blog_posts)
+  rescue
+    _ -> %{hits: 0, misses: 0, puts: 0, invalidations: 0, hit_rate: 0.0}
+  end
+
+  defp build_render_cache_per_blog(blogs) do
+    Map.new(blogs, fn blog ->
+      slug = blog["slug"]
+      {slug, Renderer.blog_render_cache_enabled?(slug)}
+    end)
   end
 end
