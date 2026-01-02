@@ -982,6 +982,79 @@ children = [
 
 For most use cases, the JSON file cache provides excellent performance with simpler implementation.
 
+### Future: Per-Language Slugs
+
+Currently, all language translations of a post share the same URL slug (the directory name). For better SEO in multilingual sites, each language could have its own unique URL slug.
+
+**Current Behavior:**
+```
+# All languages share same slug
+/en/docs/getting-started  →  docs/getting-started/en.phk
+/es/docs/getting-started  →  docs/getting-started/es.phk
+/fr/docs/getting-started  →  docs/getting-started/fr.phk
+```
+
+**Proposed Per-Language Slugs:**
+```
+# Each language has its own SEO-friendly slug
+/en/docs/getting-started   →  docs/getting-started/en.phk  (slug: "getting-started")
+/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (slug: "primeros-pasos")
+/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (slug: "prise-en-main")
+```
+
+**Implementation Approach:**
+
+1. **Directory = Master Slug (Internal Identifier)**
+   - The post directory name becomes the internal ID (e.g., `getting-started/`)
+   - This never changes and ties all language versions together
+
+2. **Frontmatter = Per-Language Slug**
+   - Each `.phk` file stores its own `slug` in frontmatter
+   - English: `slug: getting-started`
+   - Spanish: `slug: primeros-pasos`
+   - Slug can be edited independently per language
+
+3. **ListingCache Indexes Language Slugs**
+   ```json
+   {
+     "posts": [{
+       "master_slug": "getting-started",
+       "language_slugs": {
+         "en": "getting-started",
+         "es": "primeros-pasos",
+         "fr": "prise-en-main"
+       }
+     }]
+   }
+   ```
+
+4. **O(1) Lookup via Cache**
+   ```elixir
+   # Instead of filesystem scan, lookup in memory cache
+   ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
+   # => {:ok, %{master_slug: "getting-started", language: "es", ...}}
+   ```
+
+**Components to Update:**
+
+| Component | Changes Required |
+|-----------|-----------------|
+| `metadata.ex` | Slug field already exists (no change) |
+| `listing_cache.ex` | Add `language_slugs` map to cache structure, add `find_by_url_slug/3` |
+| `blog_controller.ex` | Use cache lookup instead of direct path construction |
+| `editor.ex` | Allow editing slug per-language (currently shared) |
+| `blog_html.ex` | `build_post_url/4` uses language-specific slug from post struct |
+
+**Migration Path:**
+
+Existing posts would work as-is (all languages default to directory name as slug). Per-language slugs would be opt-in by editing the slug field for specific translations.
+
+**Why This Matters:**
+
+- **SEO Benefits**: Search engines prefer localized URLs (`/es/blog/primeros-pasos` vs `/es/blog/getting-started`)
+- **User Experience**: Native speakers see URLs in their language
+- **Link Sharing**: Localized URLs are more shareable in non-English communities
+
 ## Getting Help
 
 1. Review storage layer implementation: `lib/phoenix_kit_web/live/modules/blogging/context/storage.ex`
