@@ -143,6 +143,7 @@
       <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
       <.cookie_consent
         frameworks={config.frameworks}
+        consent_mode={config.consent_mode}
         icon_position={config.icon_position}
         policy_version={config.policy_version}
         cookie_policy_url={config.cookie_policy_url}

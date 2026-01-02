@@ -49,6 +49,8 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
       |> assign(:generating, false)
       # Consent widget assigns (Phase 2)
       |> assign(:consent_widget_enabled, widget_config.enabled)
+      |> assign(:consent_mode, widget_config.consent_mode)
+      |> assign(:hide_for_authenticated, widget_config.hide_for_authenticated)
       |> assign(:icon_position, widget_config.icon_position)
       |> assign(:policy_version, widget_config.policy_version)
       |> assign(:google_consent_mode, widget_config.google_consent_mode)
@@ -231,14 +233,23 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
 
   @impl true
   def handle_event("save_consent_settings", params, socket) do
-    with {:ok, _} <- Legal.update_icon_position(params["icon_position"] || "bottom-right"),
-         {:ok, _} <- Legal.update_policy_version(params["policy_version"] || "1.0"),
+    consent_mode = params["consent_mode"] || "strict"
+    hide_for_auth = params["hide_for_authenticated"] == "true"
+
+    with {:ok, _} <- Legal.update_consent_mode(consent_mode),
+         {:ok, _} <- Legal.update_hide_for_authenticated(hide_for_auth),
+         {:ok, _} <- Legal.update_icon_position(params["icon_position"] || "bottom-right"),
          {:ok, _} <- update_google_consent_mode(params["google_consent_mode"]) do
+      # Recalculate show_icon based on new settings
+      show_icon = Legal.should_show_consent_icon?()
+
       {:noreply,
        socket
+       |> assign(:consent_mode, consent_mode)
+       |> assign(:hide_for_authenticated, hide_for_auth)
        |> assign(:icon_position, params["icon_position"] || "bottom-right")
-       |> assign(:policy_version, params["policy_version"] || "1.0")
        |> assign(:google_consent_mode, params["google_consent_mode"] == "true")
+       |> assign(:show_consent_icon, show_icon)
        |> put_flash(:info, gettext("Consent widget settings saved"))}
     else
       {:error, _} ->

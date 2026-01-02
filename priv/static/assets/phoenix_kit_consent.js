@@ -109,7 +109,14 @@
     var stored = loadConsent();
     var storedVersion = getStoredVersion();
     var currentVersion = PhoenixKitConsent.config.policyVersion;
+    var consentMode = PhoenixKitConsent.config.consentMode;
 
+    // In notice mode: only show once (don't re-show on version change)
+    if (consentMode === "notice") {
+      return !stored;
+    }
+
+    // In strict mode: re-show if no consent or version changed
     if (!stored || storedVersion !== currentVersion) {
       return true;
     }
@@ -588,8 +595,15 @@
   // =====================================================
 
   function initFromConfig(config) {
+    // Check if widget should be shown (respects hide_for_authenticated)
+    if (config.should_show === false) {
+      log("Widget hidden (user authenticated or disabled)");
+      return;
+    }
+
     PhoenixKitConsent.config = {
       frameworks: config.frameworks || [],
+      consentMode: config.consent_mode || "strict",
       policyVersion: config.policy_version || "1.0",
       googleConsentMode: config.google_consent_mode || false,
       iconPosition: config.icon_position || "bottom-right",
@@ -609,8 +623,10 @@
       modal: document.getElementById("pk-consent-modal")
     };
 
-    // Initialize Google Consent Mode
-    initGoogleConsentMode();
+    // Initialize Google Consent Mode (only in strict mode)
+    if (PhoenixKitConsent.config.consentMode === "strict") {
+      initGoogleConsentMode();
+    }
 
     // Setup cross-tab sync
     setupCrossTabSync();
@@ -620,7 +636,8 @@
     if (stored) {
       PhoenixKitConsent.consent = stored;
       applyConsent(stored);
-    } else if (isOptInMode()) {
+    } else if (isOptInMode() && PhoenixKitConsent.config.consentMode === "strict") {
+      // Only block scripts in strict mode
       blockScripts();
     }
 
@@ -641,6 +658,7 @@
   function initFromElement(rootElement) {
     var config = {
       frameworks: JSON.parse(rootElement.dataset.frameworks || "[]"),
+      consent_mode: rootElement.dataset.consentMode || "strict",
       policy_version: rootElement.dataset.policyVersion || "1.0",
       google_consent_mode: rootElement.dataset.googleConsentMode === "true",
       icon_position: rootElement.dataset.iconPosition || "bottom-right",
@@ -651,6 +669,7 @@
 
     PhoenixKitConsent.config = {
       frameworks: config.frameworks,
+      consentMode: config.consent_mode,
       policyVersion: config.policy_version,
       googleConsentMode: config.google_consent_mode,
       iconPosition: config.icon_position,
@@ -666,14 +685,19 @@
       modal: document.getElementById("pk-consent-modal")
     };
 
-    initGoogleConsentMode();
+    // Initialize Google Consent Mode (only in strict mode)
+    if (PhoenixKitConsent.config.consentMode === "strict") {
+      initGoogleConsentMode();
+    }
+
     setupCrossTabSync();
 
     var stored = loadConsent();
     if (stored) {
       PhoenixKitConsent.consent = stored;
       applyConsent(stored);
-    } else if (isOptInMode()) {
+    } else if (isOptInMode() && PhoenixKitConsent.config.consentMode === "strict") {
+      // Only block scripts in strict mode
       blockScripts();
     }
 

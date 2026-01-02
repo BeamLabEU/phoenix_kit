@@ -62,6 +62,11 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
 
   attr :frameworks, :list, default: [], doc: "Selected compliance frameworks"
 
+  attr :consent_mode, :string,
+    default: "strict",
+    values: ~w(strict notice),
+    doc: "Consent mode: strict (full compliance) or notice (simple notice)"
+
   attr :icon_position, :string,
     default: "bottom-right",
     values: ~w(bottom-left bottom-right top-left top-right),
@@ -74,7 +79,10 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
   attr :class, :string, default: ""
 
   def cookie_consent(assigns) do
-    show_icon = Enum.any?(assigns.frameworks, &(&1 in @opt_in_frameworks))
+    # Icon only shown in strict mode with opt-in frameworks
+    show_icon =
+      assigns.consent_mode == "strict" and
+        Enum.any?(assigns.frameworks, &(&1 in @opt_in_frameworks))
 
     assigns =
       assigns
@@ -86,6 +94,7 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
       id="pk-consent-root"
       phx-hook="CookieConsent"
       data-frameworks={Jason.encode!(@frameworks)}
+      data-consent-mode={@consent_mode}
       data-policy-version={@policy_version}
       data-google-consent-mode={to_string(@google_consent_mode)}
       data-icon-position={@icon_position}
