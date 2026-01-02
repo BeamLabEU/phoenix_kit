@@ -128,6 +128,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.InvoiceStatusBadge
       import PhoenixKitWeb.Components.Core.TransactionTypeBadge
       import PhoenixKitWeb.Components.Core.CurrencyDisplay
+      import PhoenixKitWeb.Components.Core.CookieConsent
     end
   end
 

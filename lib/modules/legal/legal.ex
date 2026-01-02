@@ -332,6 +332,8 @@ defmodule PhoenixKit.Modules.Legal do
   # CONSENT WIDGET (Phase 2)
   # ===================================
 
+  @opt_in_frameworks ~w(gdpr uk_gdpr lgpd pipeda)
+
   @doc """
   Check if consent widget is enabled (Phase 2 feature).
   """
@@ -341,11 +343,147 @@ defmodule PhoenixKit.Modules.Legal do
   end
 
   @doc """
-  Get cookie banner position.
+  Enable consent widget.
+  """
+  @spec enable_consent_widget() :: {:ok, term()} | {:error, term()}
+  def enable_consent_widget do
+    Settings.update_boolean_setting_with_module(
+      "legal_consent_widget_enabled",
+      true,
+      @module_name
+    )
+  end
+
+  @doc """
+  Disable consent widget.
+  """
+  @spec disable_consent_widget() :: {:ok, term()} | {:error, term()}
+  def disable_consent_widget do
+    Settings.update_boolean_setting_with_module(
+      "legal_consent_widget_enabled",
+      false,
+      @module_name
+    )
+  end
+
+  @doc """
+  Check if consent icon should be shown.
+
+  Returns true only if:
+  - Legal module is enabled
+  - Consent widget is enabled
+  - At least one opt-in framework is selected (GDPR, UK GDPR, LGPD, PIPEDA)
+  """
+  @spec should_show_consent_icon?() :: boolean()
+  def should_show_consent_icon? do
+    enabled?() and
+      consent_widget_enabled?() and
+      has_opt_in_framework?()
+  end
+
+  @doc """
+  Check if any opt-in framework is selected.
+  """
+  @spec has_opt_in_framework?() :: boolean()
+  def has_opt_in_framework? do
+    get_selected_frameworks()
+    |> Enum.any?(&(&1 in @opt_in_frameworks))
+  end
+
+  @doc """
+  Get cookie banner/icon position.
+  Options: "bottom-left", "bottom-right", "top-left", "top-right"
   """
   @spec get_cookie_banner_position() :: String.t()
   def get_cookie_banner_position do
-    Settings.get_setting("legal_cookie_banner_position", "bottom")
+    Settings.get_setting("legal_cookie_banner_position", "bottom-right")
+  end
+
+  @doc """
+  Alias for get_cookie_banner_position/0.
+  """
+  @spec get_icon_position() :: String.t()
+  def get_icon_position, do: get_cookie_banner_position()
+
+  @doc """
+  Update cookie banner/icon position.
+  """
+  @spec update_icon_position(String.t()) :: {:ok, term()} | {:error, term()}
+  def update_icon_position(position)
+      when position in ~w(bottom-left bottom-right top-left top-right) do
+    Settings.update_setting_with_module("legal_cookie_banner_position", position, @module_name)
+  end
+
+  def update_icon_position(_), do: {:error, :invalid_position}
+
+  @doc """
+  Get policy version for consent tracking.
+  Changing this version will prompt users to re-consent.
+  """
+  @spec get_policy_version() :: String.t()
+  def get_policy_version do
+    Settings.get_setting("legal_policy_version", "1.0")
+  end
+
+  @doc """
+  Update policy version.
+  """
+  @spec update_policy_version(String.t()) :: {:ok, term()} | {:error, term()}
+  def update_policy_version(version) when is_binary(version) do
+    Settings.update_setting_with_module("legal_policy_version", version, @module_name)
+  end
+
+  @doc """
+  Check if Google Consent Mode v2 is enabled.
+  """
+  @spec google_consent_mode_enabled?() :: boolean()
+  def google_consent_mode_enabled? do
+    Settings.get_boolean_setting("legal_google_consent_mode", false)
+  end
+
+  @doc """
+  Enable Google Consent Mode v2.
+  """
+  @spec enable_google_consent_mode() :: {:ok, term()} | {:error, term()}
+  def enable_google_consent_mode do
+    Settings.update_boolean_setting_with_module("legal_google_consent_mode", true, @module_name)
+  end
+
+  @doc """
+  Disable Google Consent Mode v2.
+  """
+  @spec disable_google_consent_mode() :: {:ok, term()} | {:error, term()}
+  def disable_google_consent_mode do
+    Settings.update_boolean_setting_with_module("legal_google_consent_mode", false, @module_name)
+  end
+
+  @doc """
+  Get full consent widget configuration for the component.
+
+  Returns a map with all settings needed by the cookie_consent component:
+  - enabled: boolean
+  - show_icon: boolean
+  - icon_position: string
+  - policy_version: string
+  - google_consent_mode: boolean
+  - frameworks: list of framework IDs
+  - cookie_policy_url: string
+  - privacy_policy_url: string
+  """
+  @spec get_consent_widget_config() :: map()
+  def get_consent_widget_config do
+    prefix = PhoenixKit.Config.get_url_prefix()
+
+    %{
+      enabled: consent_widget_enabled?(),
+      show_icon: should_show_consent_icon?(),
+      icon_position: get_icon_position(),
+      policy_version: get_policy_version(),
+      google_consent_mode: google_consent_mode_enabled?(),
+      frameworks: get_selected_frameworks(),
+      cookie_policy_url: "#{prefix}/legal/cookie-policy",
+      privacy_policy_url: "#{prefix}/legal/privacy-policy"
+    }
   end
 
   # ===================================

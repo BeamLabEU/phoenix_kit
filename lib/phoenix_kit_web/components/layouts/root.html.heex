@@ -137,5 +137,18 @@
         </div>
       </main>
     <% end %>
+
+    <%!-- Cookie Consent Widget (Phase 2 Legal Module) --%>
+    <%= if PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
+      <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
+      <.cookie_consent
+        frameworks={config.frameworks}
+        icon_position={config.icon_position}
+        policy_version={config.policy_version}
+        cookie_policy_url={config.cookie_policy_url}
+        privacy_policy_url={config.privacy_policy_url}
+        google_consent_mode={config.google_consent_mode}
+      />
+    <% end %>
   </body>
 </html>

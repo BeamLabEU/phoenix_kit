@@ -491,6 +491,242 @@
             <% end %>
           </div>
         </div>
+
+        <%!-- Section 5: Cookie Consent Widget (Phase 2) --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title flex items-center gap-2">
+              <svg class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+              </svg>
+              {gettext("Cookie Consent Widget")}
+            </h2>
+            <p class="text-sm text-base-content/60 mb-4">
+              {gettext("Configure the cookie consent banner for your website visitors.")}
+            </p>
+
+            <%!-- Widget Enable Toggle --%>
+            <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg mb-4">
+              <div>
+                <span class="font-medium">{gettext("Enable Cookie Banner")}</span>
+                <p class="text-sm text-base-content/60">
+                  {gettext("Show cookie consent banner to visitors")}
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@consent_widget_enabled}
+                phx-click="toggle_consent_widget"
+              />
+            </div>
+
+            <%!-- Icon visibility info --%>
+            <%= if @consent_widget_enabled do %>
+              <div class={"alert mb-4 #{if @show_consent_icon, do: "alert-success", else: "alert-info"}"}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  class="stroke-current shrink-0 w-6 h-6"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  >
+                  </path>
+                </svg>
+                <div>
+                  <%= if @show_consent_icon do %>
+                    <span class="font-medium">{gettext("Floating icon will be shown")}</span>
+                    <p class="text-sm">
+                      {gettext("Opt-in framework selected (GDPR, UK GDPR, LGPD, or PIPEDA)")}
+                    </p>
+                  <% else %>
+                    <span class="font-medium">{gettext("Floating icon will NOT be shown")}</span>
+                    <p class="text-sm">
+                      {gettext(
+                        "Icon only appears when opt-in frameworks are selected (GDPR, UK GDPR, LGPD, PIPEDA)"
+                      )}
+                    </p>
+                  <% end %>
+                </div>
+              </div>
+
+              <form phx-submit="save_consent_settings" class="space-y-4">
+                <%!-- Icon Position --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("Icon Position")}</span>
+                  </label>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <%= for {position, label} <- [
+                      {"top-left", gettext("Top Left")},
+                      {"top-right", gettext("Top Right")},
+                      {"bottom-left", gettext("Bottom Left")},
+                      {"bottom-right", gettext("Bottom Right")}
+                    ] do %>
+                      <label class={"flex items-center justify-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-base-200 transition-colors #{if @icon_position == position, do: "border-primary bg-primary/5", else: "border-base-300"}"}>
+                        <input
+                          type="radio"
+                          name="icon_position"
+                          value={position}
+                          checked={@icon_position == position}
+                          class="radio radio-primary radio-sm"
+                        />
+                        <span class="text-sm">{label}</span>
+                      </label>
+                    <% end %>
+                  </div>
+                </div>
+
+                <%!-- Policy Version --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text">{gettext("Policy Version")}</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="policy_version"
+                    value={@policy_version}
+                    class="input input-bordered w-32"
+                    placeholder="1.0"
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/60">
+                      {gettext("Changing version will prompt users to re-consent")}
+                    </span>
+                  </label>
+                </div>
+
+                <%!-- Google Consent Mode --%>
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="checkbox"
+                      name="google_consent_mode"
+                      value="true"
+                      class="checkbox checkbox-primary"
+                      checked={@google_consent_mode}
+                    />
+                    <div>
+                      <span class="label-text font-medium">
+                        {gettext("Google Consent Mode v2")}
+                      </span>
+                      <p class="text-sm text-base-content/60">
+                        {gettext("Integrate with Google Analytics/Ads consent signals")}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                <div class="card-actions justify-end">
+                  <button type="submit" class="btn btn-primary">
+                    {gettext("Save Settings")}
+                  </button>
+                </div>
+              </form>
+
+              <%!-- Preview Section --%>
+              <div class="divider">{gettext("Preview")}</div>
+
+              <div class="mockup-browser border border-base-300 bg-base-100">
+                <div class="mockup-browser-toolbar">
+                  <div class="input">{gettext("your-website.com")}</div>
+                </div>
+                <div class="bg-base-200 relative min-h-[320px]">
+                  <%!-- Website placeholder content --%>
+                  <div class="absolute inset-0 flex items-center justify-center p-8">
+                    <div class="text-center text-base-content/30">
+                      <svg
+                        class="w-16 h-16 mx-auto mb-2 opacity-50"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="1.5"
+                          d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <p class="text-sm">{gettext("Your website content")}</p>
+                    </div>
+                  </div>
+
+                  <%!-- Preview Floating Icon --%>
+                  <%= if @show_consent_icon do %>
+                    <div
+                      class={[
+                        "absolute z-20 w-12 h-12 rounded-full bg-primary shadow-lg flex items-center justify-center cursor-pointer hover:scale-110 transition-transform",
+                        case @icon_position do
+                          "top-left" -> "top-4 left-4"
+                          "top-right" -> "top-4 right-4"
+                          "bottom-left" -> "bottom-20 left-4"
+                          _ -> "bottom-20 right-4"
+                        end
+                      ]}
+                      title={gettext("Cookie preferences")}
+                    >
+                      <svg
+                        class="w-6 h-6 text-primary-content"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                      </svg>
+                    </div>
+                  <% end %>
+
+                  <%!-- Preview Banner (matches real widget) --%>
+                  <div class="absolute z-10 bottom-0 left-0 right-0 bg-base-100/95 backdrop-blur-sm border-t border-base-300 shadow-lg">
+                    <div class="max-w-4xl mx-auto px-4 py-4">
+                      <div class="flex flex-wrap items-center gap-4">
+                        <div class="flex items-start gap-3 flex-1 min-w-[200px]">
+                          <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <svg
+                              class="w-5 h-5 text-primary"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <h3 class="font-semibold text-sm text-base-content">
+                              {gettext("We value your privacy")}
+                            </h3>
+                            <p class="text-xs text-base-content/60 mt-0.5">
+                              {gettext("We use cookies to enhance your experience.")}
+                              {" "}
+                              <a href="#" class="link link-primary text-xs">
+                                {gettext("Cookie Policy")}
+                              </a>
+                            </p>
+                          </div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                          <button class="btn btn-ghost btn-sm text-xs">
+                            {gettext("Customize")}
+                          </button>
+                          <button class="btn btn-outline btn-sm text-xs">
+                            {gettext("Reject")}
+                          </button>
+                          <button class="btn btn-primary btn-sm text-xs">
+                            {gettext("Accept All")}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
       <% end %>
     </div>
   </div>
