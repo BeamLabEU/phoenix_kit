@@ -549,6 +549,33 @@ defmodule PhoenixKit.Modules.Legal do
   end
 
   @doc """
+  Check if there are unpublished legal pages that are required.
+
+  Returns a list of unpublished page slugs (e.g., ["cookie-policy", "privacy-policy"]).
+  """
+  @spec get_unpublished_required_pages() :: list(String.t())
+  def get_unpublished_required_pages do
+    required_pages = ["cookie-policy", "privacy-policy"]
+    generated = list_generated_pages()
+
+    Enum.filter(required_pages, fn slug ->
+      case Enum.find(generated, &(&1.slug == slug)) do
+        nil -> true
+        %{status: "published"} -> false
+        _ -> true
+      end
+    end)
+  end
+
+  @doc """
+  Check if all required legal pages are published.
+  """
+  @spec all_required_pages_published?() :: boolean()
+  def all_required_pages_published? do
+    get_unpublished_required_pages() == []
+  end
+
+  @doc """
   Get auto-calculated policy version based on legal page updates.
 
   Uses the latest updated_at from cookie-policy or privacy-policy pages.
@@ -614,6 +641,39 @@ defmodule PhoenixKit.Modules.Legal do
     with {:ok, page_config} <- get_page_config(page_type),
          {:ok, content} <- render_template(page_config.template) do
       create_or_update_legal_post(page_config, content, language, scope)
+    end
+  end
+
+  @doc """
+  Publish a legal page by slug.
+
+  ## Parameters
+  - page_slug: The slug of the page to publish (e.g., "cookie-policy")
+  - opts: Keyword options
+    - :scope - User scope for audit trail
+
+  ## Returns
+  - `{:ok, post}` on success
+  - `{:error, reason}` on failure
+  """
+  @spec publish_page(String.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  def publish_page(page_slug, opts \\ []) do
+    scope = Keyword.get(opts, :scope, nil)
+
+    case blogging_module().read_post(@legal_blog_slug, page_slug) do
+      {:ok, post} ->
+        blogging_module().update_post(
+          @legal_blog_slug,
+          post,
+          %{"status" => "published"},
+          scope: scope
+        )
+
+      {:error, :not_found} ->
+        {:error, :page_not_found}
+
+      error ->
+        error
     end
   end
 
@@ -804,19 +864,18 @@ defmodule PhoenixKit.Modules.Legal do
     # Check if post already exists
     case blogging_module().read_post(@legal_blog_slug, page_config.slug) do
       {:ok, existing_post} ->
-        # Update existing post
+        # Update existing post (keep current status)
         blogging_module().update_post(
           @legal_blog_slug,
           existing_post,
           %{
-            "content" => full_content,
-            "status" => "draft"
+            "content" => full_content
           },
           scope: scope
         )
 
       {:error, :not_found} ->
-        # Create new post
+        # Create new post as draft (user must publish manually)
         blogging_module().create_post(@legal_blog_slug, %{
           title: page_config.title,
           slug: page_config.slug,
@@ -824,7 +883,7 @@ defmodule PhoenixKit.Modules.Legal do
         })
         |> case do
           {:ok, post} ->
-            # Update with content
+            # Update with content (stays as draft)
             blogging_module().update_post(
               @legal_blog_slug,
               post,

@@ -11,6 +11,9 @@ defmodule PhoenixKitWeb.Controllers.ConsentConfigController do
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Users.Auth.Scope
 
+  # Fetch current user for authentication check
+  plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_user
+
   @doc """
   Returns the consent widget configuration as JSON.
 
