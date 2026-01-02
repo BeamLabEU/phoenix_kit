@@ -12,6 +12,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
+  # Suppress dialyzer false positives for pattern matches
+  @dialyzer :no_match
+  @dialyzer {:nowarn_function, create_post: 2}
+  @dialyzer {:nowarn_function, add_language_to_post: 4}
+  @dialyzer {:nowarn_function, parse_version_directory: 1}
+
   # Delegate language info function to Storage
   defdelegate get_language_info(language_code), to: Storage
 

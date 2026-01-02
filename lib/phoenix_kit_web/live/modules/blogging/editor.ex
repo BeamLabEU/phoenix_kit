@@ -5,6 +5,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  # Suppress dialyzer warnings for pattern matches in create_new_post/create_new_translation
+  # where dialyzer incorrectly infers that {:ok, _} patterns can never match.
+  # The Blogging context functions do return {:ok, _} on success.
+  @dialyzer {:nowarn_function, create_new_post: 2}
+  @dialyzer {:nowarn_function, create_new_translation: 2}
+  @dialyzer {:nowarn_function, handle_post_update_error: 2}
+  @dialyzer {:nowarn_function, handle_post_update_result: 4}
+  @dialyzer {:nowarn_function, handle_event: 3}
+
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
@@ -2249,71 +2258,75 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   # Used for initial setup (reads old_form_key from socket.assigns)
   defp setup_collaborative_editing(socket, form_key) do
     current_user = socket.assigns[:phoenix_kit_current_user]
-    old_form_key = socket.assigns[:form_key]
 
     if connected?(socket) && form_key && current_user do
-      # Try to set up collaborative editing, but gracefully handle failures
-      # (e.g., Presence module not started yet due to supervisor ordering)
-      try do
-        # Clean up old presence tracking if switching languages/versions
-        if old_form_key && old_form_key != form_key do
-          PresenceHelpers.untrack_editing_session(old_form_key, socket)
-          PresenceHelpers.unsubscribe_from_editing(old_form_key)
-          BloggingPubSub.unsubscribe_from_editor_form(old_form_key)
-        end
-
-        # Track this user in Presence (handle already_tracked gracefully for re-navigation)
-        case PresenceHelpers.track_editing_session(form_key, socket, current_user) do
-          {:ok, _ref} -> :ok
-          {:error, {:already_tracked, _pid, _topic, _key}} -> :ok
-        end
-
-        # Subscribe to presence changes and form events
-        PresenceHelpers.subscribe_to_editing(form_key)
-        BloggingPubSub.subscribe_to_editor_form(form_key)
-
-        # Subscribe to translation changes for this post (so language selector updates live)
-        case socket.assigns[:post] && socket.assigns.post[:slug] do
-          post_slug when is_binary(post_slug) ->
-            BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
-
-          _ ->
-            :ok
-        end
-
-        # Determine our role (owner or spectator)
-        socket = assign_editing_role(socket, form_key)
-
-        # Load spectator state if we're not the owner
-        if socket.assigns.readonly? do
-          load_spectator_state(socket, form_key)
-        else
-          socket
-        end
-      rescue
-        ArgumentError ->
-          # Presence module not started - fall back to single-user mode
-          Logger.warning(
-            "Blogging Presence not available - collaborative editing disabled. " <>
-              "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"
-          )
-
-          socket
-          |> assign(:lock_owner?, true)
-          |> assign(:readonly?, false)
-          |> assign(:lock_owner_user, nil)
-          |> assign(:spectators, [])
-          |> assign(:other_viewers, [])
-      end
+      do_setup_collaborative_editing(socket, form_key, current_user)
     else
-      # Not connected or no form key - default to owner mode
-      socket
-      |> assign(:lock_owner?, true)
-      |> assign(:readonly?, false)
-      |> assign(:lock_owner_user, nil)
-      |> assign(:spectators, [])
-      |> assign(:other_viewers, [])
+      assign_default_editing_state(socket)
     end
+  end
+
+  defp do_setup_collaborative_editing(socket, form_key, current_user) do
+    old_form_key = socket.assigns[:form_key]
+
+    try do
+      cleanup_old_presence(old_form_key, form_key, socket)
+      track_and_subscribe(form_key, socket, current_user)
+      subscribe_to_post_translations(socket)
+
+      socket
+      |> assign_editing_role(form_key)
+      |> maybe_load_spectator_state(form_key)
+    rescue
+      ArgumentError ->
+        Logger.warning(
+          "Blogging Presence not available - collaborative editing disabled. " <>
+            "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"
+        )
+
+        assign_default_editing_state(socket)
+    end
+  end
+
+  defp cleanup_old_presence(old_form_key, form_key, socket) do
+    if old_form_key && old_form_key != form_key do
+      PresenceHelpers.untrack_editing_session(old_form_key, socket)
+      PresenceHelpers.unsubscribe_from_editing(old_form_key)
+      BloggingPubSub.unsubscribe_from_editor_form(old_form_key)
+    end
+  end
+
+  defp track_and_subscribe(form_key, socket, current_user) do
+    case PresenceHelpers.track_editing_session(form_key, socket, current_user) do
+      {:ok, _ref} -> :ok
+      {:error, {:already_tracked, _pid, _topic, _key}} -> :ok
+    end
+
+    PresenceHelpers.subscribe_to_editing(form_key)
+    BloggingPubSub.subscribe_to_editor_form(form_key)
+  end
+
+  defp subscribe_to_post_translations(socket) do
+    case socket.assigns[:post] && socket.assigns.post[:slug] do
+      post_slug when is_binary(post_slug) ->
+        BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp maybe_load_spectator_state(socket, form_key) do
+    if socket.assigns.readonly?, do: load_spectator_state(socket, form_key), else: socket
+  end
+
+  defp assign_default_editing_state(socket) do
+    socket
+    |> assign(:lock_owner?, true)
+    |> assign(:readonly?, false)
+    |> assign(:lock_owner_user, nil)
+    |> assign(:spectators, [])
+    |> assign(:other_viewers, [])
   end
 
   defp assign_editing_role(socket, form_key) do

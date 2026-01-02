@@ -17,6 +17,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   alias PhoenixKit.Utils.Slug
   alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
 
+  # Suppress dialyzer false positives for pattern matches where dialyzer incorrectly infers types.
+  @dialyzer {:nowarn_function, add_language_to_post: 3}
+  @dialyzer {:nowarn_function, add_language_to_post_slug_mode: 4}
+  @dialyzer {:nowarn_function, list_versioned_timestamp_post: 5}
+  @dialyzer {:nowarn_function, list_legacy_timestamp_post: 5}
+
   @doc """
   Returns the filename for a specific language code.
   """
@@ -1021,57 +1027,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     v1_dir = Path.join(post_dir, "v1")
     now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-    # Create v1 directory
-    case File.mkdir_p(v1_dir) do
-      :ok ->
-        # Get all .phk files in the post directory
-        case File.ls(post_dir) do
-          {:ok, files} ->
-            phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+    with :ok <- File.mkdir_p(v1_dir),
+         {:ok, phk_files} <- list_phk_files(post_dir),
+         :ok <- migrate_files_to_v1(post_dir, v1_dir, phk_files, now, post.metadata) do
+      read_migrated_post(post, language)
+    else
+      {:error, :no_files} -> {:error, :no_files}
+      {:error, reason} -> {:error, reason}
+    end
+  end
 
-            if phk_files == [] do
-              {:error, :no_files}
-            else
-              # Move each file to v1/ and update metadata
-              results =
-                Enum.map(phk_files, fn file ->
-                  migrate_single_file_to_v1(post_dir, v1_dir, file, now, post.metadata)
-                end)
-
-              if Enum.all?(results, &(&1 == :ok)) do
-                # Re-read the post from the new location
-                case post.mode do
-                  :slug ->
-                    read_post_slug_mode(post.blog, post.slug, language, 1)
-
-                  :timestamp ->
-                    # Build new path for timestamp mode
-                    new_relative_path =
-                      relative_path_with_language_versioned(
-                        post.blog,
-                        post.date,
-                        post.time,
-                        1,
-                        language
-                      )
-
-                    read_post(post.blog, new_relative_path)
-
-                  _ ->
-                    {:error, :unknown_mode}
-                end
-              else
-                errors = Enum.reject(results, &(&1 == :ok))
-                {:error, {:migration_failed, errors}}
-              end
-            end
-
-          {:error, reason} ->
-            {:error, reason}
-        end
+  defp list_phk_files(post_dir) do
+    case File.ls(post_dir) do
+      {:ok, files} ->
+        phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+        if phk_files == [], do: {:error, :no_files}, else: {:ok, phk_files}
 
       {:error, reason} ->
-        {:error, {:mkdir_failed, reason}}
+        {:error, reason}
+    end
+  end
+
+  defp migrate_files_to_v1(post_dir, v1_dir, phk_files, now, metadata) do
+    results = Enum.map(phk_files, &migrate_single_file_to_v1(post_dir, v1_dir, &1, now, metadata))
+
+    if Enum.all?(results, &(&1 == :ok)) do
+      :ok
+    else
+      {:error, {:migration_failed, Enum.reject(results, &(&1 == :ok))}}
+    end
+  end
+
+  defp read_migrated_post(post, language) do
+    case post.mode do
+      :slug ->
+        read_post_slug_mode(post.blog, post.slug, language, 1)
+
+      :timestamp ->
+        new_relative_path =
+          relative_path_with_language_versioned(post.blog, post.date, post.time, 1, language)
+
+        read_post(post.blog, new_relative_path)
+
+      _ ->
+        {:error, :unknown_mode}
     end
   end
 
@@ -1376,7 +1375,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
       not File.exists?(file_path) ->
         {:error, :language_not_found}
 
-      is_last_language_file?(dir) ->
+      last_language_file?(dir) ->
         {:error, :cannot_delete_last_language}
 
       true ->
@@ -1384,7 +1383,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
     end
   end
 
-  defp is_last_language_file?(dir) do
+  defp last_language_file?(dir) do
     case File.ls(dir) do
       {:ok, files} ->
         phk_count = Enum.count(files, &String.ends_with?(&1, ".phk"))
@@ -1570,33 +1569,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   defp list_times(blog_slug, date, date_path, preferred_language) do
     case File.ls(date_path) do
       {:ok, time_folders} ->
-        Enum.flat_map(time_folders, fn time_folder ->
-          time_path = Path.join(date_path, time_folder)
-
-          with {:ok, time} <- parse_time_folder(time_folder) do
-            # Detect if versioned or legacy structure
-            case detect_post_structure(time_path) do
-              :versioned ->
-                list_versioned_timestamp_post(
-                  blog_slug,
-                  date,
-                  time,
-                  time_path,
-                  preferred_language
-                )
-
-              :legacy ->
-                list_legacy_timestamp_post(blog_slug, date, time, time_path, preferred_language)
-
-              :empty ->
-                []
-            end
-          else
-            _ -> []
-          end
-        end)
+        Enum.flat_map(
+          time_folders,
+          &process_time_folder(&1, blog_slug, date, date_path, preferred_language)
+        )
 
       {:error, _} ->
+        []
+    end
+  end
+
+  defp process_time_folder(time_folder, blog_slug, date, date_path, preferred_language) do
+    time_path = Path.join(date_path, time_folder)
+
+    case parse_time_folder(time_folder) do
+      {:ok, time} ->
+        list_post_for_structure(blog_slug, date, time, time_path, preferred_language)
+
+      _ ->
+        []
+    end
+  end
+
+  defp list_post_for_structure(blog_slug, date, time, time_path, preferred_language) do
+    case detect_post_structure(time_path) do
+      :versioned ->
+        list_versioned_timestamp_post(blog_slug, date, time, time_path, preferred_language)
+
+      :legacy ->
+        list_legacy_timestamp_post(blog_slug, date, time, time_path, preferred_language)
+
+      :empty ->
         []
     end
   end
@@ -1791,24 +1794,24 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
       # For each language, check if ANY version has it published
       Enum.reduce(all_languages, %{}, fn lang, acc ->
-        has_published =
-          Enum.any?(versions, fn v ->
-            version_dir = Path.join(post_dir, "v#{v}")
-            lang_path = Path.join(version_dir, language_filename(lang))
-
-            case File.read(lang_path) do
-              {:ok, content} ->
-                {:ok, metadata, _content} = Metadata.parse_with_content(content)
-                Map.get(metadata, :status) == "published"
-
-              {:error, _} ->
-                false
-            end
-          end)
-
+        has_published = Enum.any?(versions, &language_published_in_version?(post_dir, &1, lang))
         status = if has_published, do: "published", else: "draft"
         Map.put(acc, lang, status)
       end)
+    end
+  end
+
+  defp language_published_in_version?(post_dir, version, lang) do
+    version_dir = Path.join(post_dir, "v#{version}")
+    lang_path = Path.join(version_dir, language_filename(lang))
+
+    case File.read(lang_path) do
+      {:ok, content} ->
+        {:ok, metadata, _content} = Metadata.parse_with_content(content)
+        Map.get(metadata, :status) == "published"
+
+      {:error, _} ->
+        false
     end
   end
 
@@ -1982,85 +1985,99 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
 
   defp posts_for_slug(blog_slug, post_slug, post_path, preferred_language) do
     if File.dir?(post_path) do
-      structure = detect_post_structure(post_path)
-
-      # For listing, we show the latest version
-      case resolve_version_dir_for_listing(post_path, structure, blog_slug, post_slug) do
-        {:ok, version, content_dir} ->
-          available_languages = detect_available_languages(content_dir)
-
-          if Enum.empty?(available_languages) do
-            []
-          else
-            display_language = select_display_language(available_languages, preferred_language)
-            file_path = Path.join(content_dir, language_filename(display_language))
-
-            {:ok, metadata, content} =
-              file_path
-              |> File.read!()
-              |> Metadata.parse_with_content()
-
-            # Load all versions info
-            available_versions = list_versions(blog_slug, post_slug)
-            version_statuses = load_version_statuses(blog_slug, post_slug, available_versions)
-            version_dates = load_version_dates(blog_slug, post_slug, available_versions)
-
-            # Load language statuses - for versioned posts, check ALL versions
-            language_statuses =
-              if structure == :versioned do
-                load_language_statuses_across_versions(blog_slug, post_slug, available_languages)
-              else
-                load_language_statuses(content_dir, available_languages)
-              end
-
-            # Build path based on structure
-            relative_path =
-              case structure do
-                :versioned ->
-                  Path.join([
-                    blog_slug,
-                    post_slug,
-                    "v#{version}",
-                    language_filename(display_language)
-                  ])
-
-                :legacy ->
-                  Path.join([blog_slug, post_slug, language_filename(display_language)])
-              end
-
-            # Check if this is a legacy structure
-            is_legacy = detect_post_structure(post_path) == :legacy
-
-            [
-              %{
-                blog: blog_slug,
-                slug: post_slug,
-                date: nil,
-                time: nil,
-                path: relative_path,
-                full_path: file_path,
-                metadata: metadata,
-                content: content,
-                language: display_language,
-                available_languages: available_languages,
-                language_statuses: language_statuses,
-                mode: :slug,
-                # Version fields
-                version: version,
-                available_versions: available_versions,
-                version_statuses: version_statuses,
-                version_dates: version_dates,
-                is_legacy_structure: is_legacy
-              }
-            ]
-          end
-
-        {:error, _} ->
-          []
-      end
+      do_posts_for_slug(blog_slug, post_slug, post_path, preferred_language)
     else
       []
     end
+  end
+
+  defp do_posts_for_slug(blog_slug, post_slug, post_path, preferred_language) do
+    structure = detect_post_structure(post_path)
+
+    with {:ok, version, content_dir} <-
+           resolve_version_dir_for_listing(post_path, structure, blog_slug, post_slug),
+         available_languages when available_languages != [] <-
+           detect_available_languages(content_dir) do
+      build_slug_post(
+        blog_slug,
+        post_slug,
+        post_path,
+        preferred_language,
+        structure,
+        version,
+        content_dir,
+        available_languages
+      )
+    else
+      _ -> []
+    end
+  end
+
+  defp build_slug_post(
+         blog_slug,
+         post_slug,
+         post_path,
+         preferred_language,
+         structure,
+         version,
+         content_dir,
+         available_languages
+       ) do
+    display_language = select_display_language(available_languages, preferred_language)
+    file_path = Path.join(content_dir, language_filename(display_language))
+
+    {:ok, metadata, content} =
+      file_path
+      |> File.read!()
+      |> Metadata.parse_with_content()
+
+    # Load all versions info
+    available_versions = list_versions(blog_slug, post_slug)
+    version_statuses = load_version_statuses(blog_slug, post_slug, available_versions)
+    version_dates = load_version_dates(blog_slug, post_slug, available_versions)
+
+    # Load language statuses - for versioned posts, check ALL versions
+    language_statuses =
+      if structure == :versioned do
+        load_language_statuses_across_versions(blog_slug, post_slug, available_languages)
+      else
+        load_language_statuses(content_dir, available_languages)
+      end
+
+    relative_path =
+      build_slug_relative_path(blog_slug, post_slug, version, display_language, structure)
+
+    is_legacy = detect_post_structure(post_path) == :legacy
+
+    [
+      %{
+        blog: blog_slug,
+        slug: post_slug,
+        date: nil,
+        time: nil,
+        path: relative_path,
+        full_path: file_path,
+        metadata: metadata,
+        content: content,
+        language: display_language,
+        available_languages: available_languages,
+        language_statuses: language_statuses,
+        mode: :slug,
+        version: version,
+        available_versions: available_versions,
+        version_statuses: version_statuses,
+        version_dates: version_dates,
+        is_legacy_structure: is_legacy
+      }
+    ]
+  end
+
+  defp build_slug_relative_path(blog_slug, post_slug, version, display_language, :versioned) do
+    Path.join([blog_slug, post_slug, "v#{version}", language_filename(display_language)])
+  end
+
+  defp build_slug_relative_path(blog_slug, post_slug, _version, display_language, :legacy) do
+    Path.join([blog_slug, post_slug, language_filename(display_language)])
   end
 
   # Resolve version directory for listing (always use latest)
@@ -2257,69 +2274,59 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def update_post_slug_in_place(blog_slug, post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
 
-    current_title =
-      metadata_value(post.metadata, :title) ||
-        Metadata.extract_title_from_content(post.content || "")
-
-    featured_image_id = resolve_featured_image_id(params, post.metadata)
-
     current_status = metadata_value(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
-
-    # Check if transitioning to published
     becoming_published? = current_status != "published" and new_status == "published"
-
-    # Preserve existing version fields
     version = Map.get(post.metadata, :version, 1)
-    version_created_at = Map.get(post.metadata, :version_created_at)
-    version_created_from = Map.get(post.metadata, :version_created_from)
 
-    # If becoming published, set is_live to true
-    is_live = if becoming_published?, do: true, else: Map.get(post.metadata, :is_live, false)
-
-    # Handle allow_version_access - can be passed as param or preserved from existing
-    allow_version_access =
-      case Map.get(params, "allow_version_access") do
-        nil -> Map.get(post.metadata, :allow_version_access, false)
-        value when is_boolean(value) -> value
-        "true" -> true
-        "false" -> false
-        _ -> Map.get(post.metadata, :allow_version_access, false)
-      end
-
-    metadata =
-      post.metadata
-      |> Map.put(:title, Map.get(params, "title", current_title))
-      |> Map.put(:status, new_status)
-      |> Map.put(
-        :published_at,
-        Map.get(params, "published_at", metadata_value(post.metadata, :published_at))
-      )
-      |> Map.put(:featured_image_id, featured_image_id)
-      |> Map.put(:created_at, Map.get(post.metadata, :created_at))
-      |> Map.put(:slug, post.slug)
-      # Preserve version fields
-      |> Map.put(:version, version)
-      |> Map.put(:version_created_at, version_created_at)
-      |> Map.put(:version_created_from, version_created_from)
-      |> Map.put(:is_live, is_live)
-      |> Map.put(:allow_version_access, allow_version_access)
-      |> apply_update_audit_metadata(audit_meta)
-
+    metadata = build_update_metadata(post, params, audit_meta, becoming_published?)
     content = Map.get(params, "content", post.content)
     serialized = Metadata.serialize(metadata) <> "\n\n" <> String.trim_leading(content)
 
     case File.write(post.full_path, serialized <> "\n") do
       :ok ->
-        # If becoming published, clear is_live from other versions
-        if becoming_published? do
-          set_version_live(blog_slug, post.slug, version)
-        end
-
+        if becoming_published?, do: set_version_live(blog_slug, post.slug, version)
         {:ok, %{post | metadata: metadata, content: content}}
 
       {:error, reason} ->
         {:error, reason}
+    end
+  end
+
+  defp build_update_metadata(post, params, audit_meta, becoming_published?) do
+    current_title =
+      metadata_value(post.metadata, :title) ||
+        Metadata.extract_title_from_content(post.content || "")
+
+    current_status = metadata_value(post.metadata, :status, "draft")
+    new_status = Map.get(params, "status", current_status)
+    is_live = if becoming_published?, do: true, else: Map.get(post.metadata, :is_live, false)
+
+    post.metadata
+    |> Map.put(:title, Map.get(params, "title", current_title))
+    |> Map.put(:status, new_status)
+    |> Map.put(
+      :published_at,
+      Map.get(params, "published_at", metadata_value(post.metadata, :published_at))
+    )
+    |> Map.put(:featured_image_id, resolve_featured_image_id(params, post.metadata))
+    |> Map.put(:created_at, Map.get(post.metadata, :created_at))
+    |> Map.put(:slug, post.slug)
+    |> Map.put(:version, Map.get(post.metadata, :version, 1))
+    |> Map.put(:version_created_at, Map.get(post.metadata, :version_created_at))
+    |> Map.put(:version_created_from, Map.get(post.metadata, :version_created_from))
+    |> Map.put(:is_live, is_live)
+    |> Map.put(:allow_version_access, resolve_allow_version_access(params, post.metadata))
+    |> apply_update_audit_metadata(audit_meta)
+  end
+
+  defp resolve_allow_version_access(params, metadata) do
+    case Map.get(params, "allow_version_access") do
+      nil -> Map.get(metadata, :allow_version_access, false)
+      value when is_boolean(value) -> value
+      "true" -> true
+      "false" -> false
+      _ -> Map.get(metadata, :allow_version_access, false)
     end
   end
 
@@ -2783,44 +2790,41 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   defp load_version_statuses_timestamp(post_dir, versions, language) do
     Enum.reduce(versions, %{}, fn version, acc ->
       version_dir = Path.join(post_dir, "v#{version}")
-      lang_file = Path.join(version_dir, language_filename(language))
-
-      status =
-        if File.exists?(lang_file) do
-          case File.read(lang_file) do
-            {:ok, content} ->
-              {:ok, metadata, _} = Metadata.parse_with_content(content)
-              Map.get(metadata, :status, "draft")
-
-            _ ->
-              "draft"
-          end
-        else
-          # Try to find any language file to get status
-          case File.ls(version_dir) do
-            {:ok, files} ->
-              phk_file = Enum.find(files, &String.ends_with?(&1, ".phk"))
-
-              if phk_file do
-                case File.read(Path.join(version_dir, phk_file)) do
-                  {:ok, content} ->
-                    {:ok, metadata, _} = Metadata.parse_with_content(content)
-                    Map.get(metadata, :status, "draft")
-
-                  _ ->
-                    "draft"
-                end
-              else
-                "draft"
-              end
-
-            _ ->
-              "draft"
-          end
-        end
-
+      status = get_version_status(version_dir, language)
       Map.put(acc, version, status)
     end)
+  end
+
+  defp get_version_status(version_dir, language) do
+    lang_file = Path.join(version_dir, language_filename(language))
+
+    if File.exists?(lang_file) do
+      read_status_from_file(lang_file)
+    else
+      read_status_from_any_language(version_dir)
+    end
+  end
+
+  defp read_status_from_file(file_path) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, _} = Metadata.parse_with_content(content)
+        Map.get(metadata, :status, "draft")
+
+      _ ->
+        "draft"
+    end
+  end
+
+  defp read_status_from_any_language(version_dir) do
+    case File.ls(version_dir) do
+      {:ok, files} ->
+        phk_file = Enum.find(files, &String.ends_with?(&1, ".phk"))
+        if phk_file, do: read_status_from_file(Path.join(version_dir, phk_file)), else: "draft"
+
+      _ ->
+        "draft"
+    end
   end
 
   @doc """

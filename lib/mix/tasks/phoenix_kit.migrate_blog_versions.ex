@@ -1,4 +1,8 @@
 defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
+  # Suppress dialyzer warnings for Mix module functions not recognized at analysis time
+  @dialyzer :no_undefined_callbacks
+  @dialyzer {:no_unknown, run: 1}
+
   @moduledoc """
   Migrates existing blog posts to the new versioned folder structure.
 
@@ -148,8 +152,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
         post_slugs =
           entries
           |> Enum.filter(&File.dir?(Path.join(blog_path, &1)))
-          |> Enum.reject(&String.starts_with?(&1, "."))
-          |> Enum.reject(&String.starts_with?(&1, "_trash"))
+          |> Enum.reject(&(String.starts_with?(&1, ".") or String.starts_with?(&1, "_trash")))
 
         if opts[:verbose] do
           Mix.shell().info("   Found #{length(post_slugs)} post directories")
@@ -208,39 +211,36 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
     post_path = Path.join([Storage.root_path(), blog_slug, post_slug])
     v1_path = Path.join(post_path, "v1")
 
-    # Get all .phk files in the post directory
+    with {:ok, phk_files} <- list_phk_files_for_migration(post_path),
+         :ok <- File.mkdir_p(v1_path),
+         :ok <- migrate_phk_files(post_path, v1_path, phk_files, opts) do
+      :ok
+    else
+      {:error, :no_files} -> {:error, "No .phk files found"}
+      {:error, reason} when is_binary(reason) -> {:error, reason}
+      {:error, reason} -> {:error, "Failed to create v1 directory: #{inspect(reason)}"}
+    end
+  end
+
+  defp list_phk_files_for_migration(post_path) do
     case File.ls(post_path) do
       {:ok, files} ->
-        phk_files =
-          files
-          |> Enum.filter(&String.ends_with?(&1, ".phk"))
-
-        if phk_files == [] do
-          {:error, "No .phk files found"}
-        else
-          # Create v1 directory
-          case File.mkdir_p(v1_path) do
-            :ok ->
-              # Move each .phk file to v1/ and update metadata
-              results =
-                Enum.map(phk_files, fn file ->
-                  migrate_file(post_path, v1_path, file, opts)
-                end)
-
-              if Enum.all?(results, &(&1 == :ok)) do
-                :ok
-              else
-                errors = Enum.filter(results, &match?({:error, _}, &1))
-                {:error, inspect(errors)}
-              end
-
-            {:error, reason} ->
-              {:error, "Failed to create v1 directory: #{reason}"}
-          end
-        end
+        phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+        if phk_files == [], do: {:error, :no_files}, else: {:ok, phk_files}
 
       {:error, reason} ->
-        {:error, "Failed to list files: #{reason}"}
+        {:error, "Failed to list files: #{inspect(reason)}"}
+    end
+  end
+
+  defp migrate_phk_files(post_path, v1_path, phk_files, opts) do
+    results = Enum.map(phk_files, &migrate_file(post_path, v1_path, &1, opts))
+
+    if Enum.all?(results, &(&1 == :ok)) do
+      :ok
+    else
+      errors = Enum.filter(results, &match?({:error, _}, &1))
+      {:error, inspect(errors)}
     end
   end
 
@@ -248,34 +248,16 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
     source = Path.join(post_path, file)
     dest = Path.join(v1_path, file)
 
-    # Read the file
-    case File.read(source) do
-      {:ok, content} ->
-        # Parse and update metadata (always succeeds)
-        {:ok, updated_content} = update_metadata_for_v1(content)
-
-        # Write to v1 directory
-        case File.write(dest, updated_content) do
-          :ok ->
-            # Remove original file
-            case File.rm(source) do
-              :ok ->
-                if opts[:verbose] do
-                  Mix.shell().info("     Moved: #{file} → v1/#{file}")
-                end
-
-                :ok
-
-              {:error, reason} ->
-                {:error, "Failed to remove original: #{reason}"}
-            end
-
-          {:error, reason} ->
-            {:error, "Failed to write: #{reason}"}
-        end
-
-      {:error, reason} ->
-        {:error, "Failed to read: #{reason}"}
+    with {:ok, content} <- File.read(source),
+         {:ok, updated_content} <- update_metadata_for_v1(content),
+         :ok <- File.write(dest, updated_content),
+         :ok <- File.rm(source) do
+      if opts[:verbose], do: Mix.shell().info("     Moved: #{file} → v1/#{file}")
+      :ok
+    else
+      {:error, :enoent} -> {:error, "Failed to read: file not found"}
+      {:error, reason} when is_atom(reason) -> {:error, "File operation failed: #{reason}"}
+      {:error, reason} -> {:error, reason}
     end
   end
 

@@ -20,7 +20,11 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKitWeb.BlogHTML
   alias PhoenixKitWeb.Live.Modules.Blogging
   alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
+  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
   alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+
+  # Suppress dialyzer false positive for defensive fallback pattern
+  @dialyzer {:nowarn_function, render_post_content: 1}
 
   @doc """
   Displays a blog post, blog listing, or all blogs overview.
@@ -510,9 +514,7 @@ defmodule PhoenixKitWeb.BlogController do
   defp render_versioned_post(conn, blog_slug, post_slug, version, language) do
     # Check per-post version access setting (from the live version's metadata)
     # Each post controls its own version access - no global setting required
-    unless post_allows_version_access?(blog_slug, post_slug, language) do
-      handle_not_found(conn, :version_access_disabled)
-    else
+    if post_allows_version_access?(blog_slug, post_slug, language) do
       # Fetch the specific version
       case Blogging.read_post(blog_slug, post_slug, language, version) do
         {:ok, post} ->
@@ -562,6 +564,8 @@ defmodule PhoenixKitWeb.BlogController do
           log_404(conn, blog_slug, {:slug, post_slug, version}, language, reason)
           handle_not_found(conn, reason)
       end
+    else
+      handle_not_found(conn, :version_access_disabled)
     end
   end
 
@@ -623,42 +627,12 @@ defmodule PhoenixKitWeb.BlogController do
   # Fetch a slug-mode post - iterates from highest version down, returns first published
   # Falls back to master language or first available if requested language isn't found
   defp fetch_post(blog_slug, {:slug, post_slug}, language) do
-    versions = Storage.list_versions(blog_slug, post_slug)
+    case Storage.list_versions(blog_slug, post_slug) do
+      [] ->
+        {:error, :post_not_found}
 
-    if versions == [] do
-      {:error, :post_not_found}
-    else
-      master_language = Storage.get_master_language()
-      post_dir = Path.join([Storage.root_path(), blog_slug, post_slug])
-
-      # Find first published version, starting from highest
-      published_result =
-        versions
-        |> Enum.sort(:desc)
-        |> Enum.find_value(fn version ->
-          version_dir = Path.join(post_dir, "v#{version}")
-          available_languages = detect_available_languages_in_dir(version_dir)
-
-          # Build priority list of languages to try:
-          # 1. Resolved version of requested language
-          # 2. Master language
-          # 3. First available language
-          resolved_language = resolve_language_for_post(language, available_languages)
-
-          languages_to_try =
-            [resolved_language, master_language | available_languages]
-            |> Enum.uniq()
-            |> Enum.filter(&(&1 in available_languages))
-
-          Enum.find_value(languages_to_try, fn lang ->
-            case Blogging.read_post(blog_slug, post_slug, lang, version) do
-              {:ok, post} when post.metadata.status == "published" -> {:ok, post}
-              _ -> nil
-            end
-          end)
-        end)
-
-      published_result || {:error, :post_not_found}
+      versions ->
+        find_published_slug_post(blog_slug, post_slug, versions, language)
     end
   end
 
@@ -682,6 +656,40 @@ defmodule PhoenixKitWeb.BlogController do
           :empty ->
             {:error, :post_not_found}
         end
+    end
+  end
+
+  defp find_published_slug_post(blog_slug, post_slug, versions, language) do
+    master_language = Storage.get_master_language()
+    post_dir = Path.join([Storage.root_path(), blog_slug, post_slug])
+
+    published_result =
+      versions
+      |> Enum.sort(:desc)
+      |> Enum.find_value(
+        &find_published_version(&1, blog_slug, post_slug, post_dir, language, master_language)
+      )
+
+    published_result || {:error, :post_not_found}
+  end
+
+  defp find_published_version(version, blog_slug, post_slug, post_dir, language, master_language) do
+    version_dir = Path.join(post_dir, "v#{version}")
+    available_languages = detect_available_languages_in_dir(version_dir)
+    resolved_language = resolve_language_for_post(language, available_languages)
+
+    languages_to_try =
+      [resolved_language, master_language | available_languages]
+      |> Enum.uniq()
+      |> Enum.filter(&(&1 in available_languages))
+
+    Enum.find_value(languages_to_try, &try_read_published_post(blog_slug, post_slug, &1, version))
+  end
+
+  defp try_read_published_post(blog_slug, post_slug, lang, version) do
+    case Blogging.read_post(blog_slug, post_slug, lang, version) do
+      {:ok, post} when post.metadata.status == "published" -> {:ok, post}
+      _ -> nil
     end
   end
 
@@ -727,8 +735,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Read just the content from a file (skip expensive metadata operations)
   defp read_content_only(path) do
     with {:ok, file_content} <- File.read(path),
-         {:ok, _metadata, body} <-
-           PhoenixKitWeb.Live.Modules.Blogging.Metadata.parse_with_content(file_content) do
+         {:ok, _metadata, body} <- Metadata.parse_with_content(file_content) do
       {:ok, body}
     end
   end

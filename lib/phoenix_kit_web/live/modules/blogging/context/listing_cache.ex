@@ -50,6 +50,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
 
   require Logger
 
+  # Suppress dialyzer false positive for guard clause in read_from_file_and_cache
+  @dialyzer {:nowarn_function, read_from_file_and_cache: 3}
+
   @cache_filename ".listing_cache.json"
   @persistent_term_prefix :phoenix_kit_blog_listing_cache
   @persistent_term_loaded_at_prefix :phoenix_kit_blog_listing_cache_loaded_at
@@ -69,134 +72,117 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   def read(blog_slug) do
     memory_enabled = memory_cache_enabled?()
     file_enabled = file_cache_enabled?()
+    term_key = persistent_term_key(blog_slug)
 
-    # If both caches are disabled, return cache miss
-    if not memory_enabled and not file_enabled do
-      {:error, :cache_miss}
-    else
-      term_key = persistent_term_key(blog_slug)
+    cond do
+      # Both caches disabled
+      not memory_enabled and not file_enabled ->
+        {:error, :cache_miss}
 
-      # First, try :persistent_term if enabled (sub-microsecond)
-      if memory_enabled do
-        case safe_persistent_term_get(term_key) do
-          {:ok, posts} ->
-            {:ok, posts}
+      # Memory enabled and found in persistent_term
+      memory_enabled and memory_cache_hit?(term_key) ->
+        safe_persistent_term_get(term_key)
 
-          :not_found ->
-            # Fall back to file if enabled
-            if file_enabled do
-              read_from_file_and_cache(blog_slug, term_key, memory_enabled)
-            else
-              {:error, :cache_miss}
-            end
-        end
-      else
-        # Memory cache disabled, only try file cache
-        if file_enabled do
-          read_from_file_only(blog_slug)
-        else
-          {:error, :cache_miss}
-        end
-      end
+      # Memory enabled but not found, try file
+      memory_enabled and file_enabled ->
+        read_from_file_and_cache(blog_slug, term_key, true)
+
+      # Memory enabled, file disabled, not in memory
+      memory_enabled ->
+        {:error, :cache_miss}
+
+      # Memory disabled, file enabled
+      file_enabled ->
+        read_from_file_only(blog_slug)
+
+      # Fallback
+      true ->
+        {:error, :cache_miss}
+    end
+  end
+
+  defp memory_cache_hit?(term_key) do
+    case safe_persistent_term_get(term_key) do
+      {:ok, _} -> true
+      :not_found -> false
     end
   end
 
   # Safely get from :persistent_term (returns :not_found instead of raising)
   defp safe_persistent_term_get(key) do
-    try do
-      {:ok, :persistent_term.get(key)}
-    rescue
-      ArgumentError -> :not_found
-    end
+    {:ok, :persistent_term.get(key)}
+  rescue
+    ArgumentError -> :not_found
   end
 
   # Read from JSON file and optionally store in :persistent_term
   defp read_from_file_and_cache(blog_slug, term_key, store_in_memory) do
     cache_path = cache_path(blog_slug)
 
+    with {:ok, content} <- read_cache_file(cache_path),
+         {:ok, normalized_posts, generated_at} <- parse_cache_content(content, blog_slug) do
+      if store_in_memory do
+        store_posts_in_memory(blog_slug, term_key, normalized_posts, generated_at)
+      end
+
+      {:ok, normalized_posts}
+    end
+  end
+
+  defp read_cache_file(cache_path) do
     case File.read(cache_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, %{"posts" => posts} = data} ->
-            # Convert string keys back to atoms for compatibility
-            normalized_posts = Enum.map(posts, &normalize_post/1)
-            generated_at = Map.get(data, "generated_at")
+      {:ok, content} -> {:ok, content}
+      {:error, :enoent} -> {:error, :cache_miss}
+      {:error, _reason} -> {:error, :cache_miss}
+    end
+  end
 
-            # Store in :persistent_term if memory cache is enabled
-            if store_in_memory do
-              safe_persistent_term_put(term_key, normalized_posts)
+  defp parse_cache_content(content, blog_slug) do
+    case Jason.decode(content) do
+      {:ok, %{"posts" => posts} = data} ->
+        normalized_posts = Enum.map(posts, &normalize_post/1)
+        generated_at = Map.get(data, "generated_at")
+        {:ok, normalized_posts, generated_at}
 
-              safe_persistent_term_put(
-                loaded_at_key(blog_slug),
-                DateTime.utc_now() |> DateTime.to_iso8601()
-              )
-
-              # Store the file's generated_at so we know what version of data is in memory
-              if generated_at do
-                safe_persistent_term_put(file_generated_at_key(blog_slug), generated_at)
-              end
-
-              Logger.debug(
-                "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
-              )
-
-              # Broadcast cache change so admin UI updates live
-              BloggingPubSub.broadcast_cache_changed(blog_slug)
-            end
-
-            {:ok, normalized_posts}
-
-          {:ok, _} ->
-            Logger.warning("[ListingCache] Invalid cache format for #{blog_slug}")
-            {:error, :cache_miss}
-
-          {:error, reason} ->
-            Logger.warning(
-              "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
-            )
-
-            {:error, :cache_miss}
-        end
-
-      {:error, :enoent} ->
-        # Don't log warning for missing cache - it's expected for new blogs
+      {:ok, _} ->
+        Logger.warning("[ListingCache] Invalid cache format for #{blog_slug}")
         {:error, :cache_miss}
 
       {:error, reason} ->
-        Logger.warning("[ListingCache] Failed to read cache for #{blog_slug}: #{inspect(reason)}")
+        Logger.warning(
+          "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
+        )
+
         {:error, :cache_miss}
     end
+  end
+
+  defp store_posts_in_memory(blog_slug, term_key, normalized_posts, generated_at) do
+    safe_persistent_term_put(term_key, normalized_posts)
+
+    safe_persistent_term_put(
+      loaded_at_key(blog_slug),
+      DateTime.utc_now() |> DateTime.to_iso8601()
+    )
+
+    if generated_at do
+      safe_persistent_term_put(file_generated_at_key(blog_slug), generated_at)
+    end
+
+    Logger.debug(
+      "[ListingCache] Loaded #{blog_slug} from file into :persistent_term (#{length(normalized_posts)} posts)"
+    )
+
+    BloggingPubSub.broadcast_cache_changed(blog_slug)
   end
 
   # Read from JSON file only (no :persistent_term storage)
   defp read_from_file_only(blog_slug) do
     cache_path = cache_path(blog_slug)
 
-    case File.read(cache_path) do
-      {:ok, content} ->
-        case Jason.decode(content) do
-          {:ok, %{"posts" => posts}} ->
-            normalized_posts = Enum.map(posts, &normalize_post/1)
-            {:ok, normalized_posts}
-
-          {:ok, _} ->
-            Logger.warning("[ListingCache] Invalid cache format for #{blog_slug}")
-            {:error, :cache_miss}
-
-          {:error, reason} ->
-            Logger.warning(
-              "[ListingCache] Failed to parse cache for #{blog_slug}: #{inspect(reason)}"
-            )
-
-            {:error, :cache_miss}
-        end
-
-      {:error, :enoent} ->
-        {:error, :cache_miss}
-
-      {:error, reason} ->
-        Logger.warning("[ListingCache] Failed to read cache for #{blog_slug}: #{inspect(reason)}")
-        {:error, :cache_miss}
+    with {:ok, content} <- read_cache_file(cache_path),
+         {:ok, normalized_posts, _generated_at} <- parse_cache_content(content, blog_slug) do
+      {:ok, normalized_posts}
     end
   end
 

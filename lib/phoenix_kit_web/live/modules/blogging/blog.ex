@@ -619,7 +619,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
             minutes = div(diff_seconds, 60)
             ngettext("%{count} minute ago", "%{count} minutes ago", minutes, count: minutes)
 
-          diff_seconds < 86400 ->
+          diff_seconds < 86_400 ->
             hours = div(diff_seconds, 3600)
             ngettext("%{count} hour ago", "%{count} hours ago", hours, count: hours)
 
