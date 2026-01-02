@@ -247,11 +247,12 @@
   // =====================================================
 
   function getIconPositionClass(position) {
+    // Use 5rem offset to avoid conflict with mobile menu buttons (typically at 1rem)
     switch(position) {
-      case "bottom-left": return "bottom: 1rem; left: 1rem;";
+      case "bottom-left": return "bottom: 5rem; left: 1rem;";
       case "top-left": return "top: 1rem; left: 1rem;";
       case "top-right": return "top: 1rem; right: 1rem;";
-      default: return "bottom: 1rem; right: 1rem;";
+      default: return "bottom: 5rem; right: 1rem;";
     }
   }
 
