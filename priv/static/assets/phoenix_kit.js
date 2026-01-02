@@ -21,6 +21,9 @@
 // Import the sortable module (same vendor directory)
 import "./phoenix_kit_sortable.js";
 
+// Import the cookie consent module
+import "./phoenix_kit_consent.js";
+
 (function() {
   "use strict";
 
@@ -35,6 +38,9 @@ import "./phoenix_kit_sortable.js";
   if (window.SortableGridHook) {
     window.PhoenixKitHooks.SortableGrid = window.SortableGridHook;
   }
+
+  // Register CookieConsent hook (set by phoenix_kit_consent.js)
+  // This hook is registered directly in the consent module
 
   // ResetSelect hook - resets select element to first option on push event
   window.PhoenixKitHooks.ResetSelect = {

@@ -234,6 +234,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/sitemap.xsl", SitemapController, :xsl_stylesheet
         get "/assets/sitemap/:style", SitemapController, :xsl_stylesheet
 
+        # Cookie consent widget config (public API for JS auto-injection)
+        get "/api/consent-config", Controllers.ConsentConfigController, :config
+
         # Pages routes temporarily disabled
         # get "/pages/*path", PagesController, :show
       end

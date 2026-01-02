@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   @impl true
   def mount(_params, _session, socket) do
     config = Legal.get_config()
+    widget_config = Legal.get_consent_widget_config()
 
     socket =
       socket
@@ -46,6 +47,14 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
       |> assign(:dpo_contact, config.dpo_contact)
       |> assign(:generated_pages, config.generated_pages)
       |> assign(:generating, false)
+      # Consent widget assigns (Phase 2)
+      |> assign(:consent_widget_enabled, widget_config.enabled)
+      |> assign(:consent_mode, widget_config.consent_mode)
+      |> assign(:hide_for_authenticated, widget_config.hide_for_authenticated)
+      |> assign(:icon_position, widget_config.icon_position)
+      |> assign(:policy_version, widget_config.policy_version)
+      |> assign(:google_consent_mode, widget_config.google_consent_mode)
+      |> assign(:show_consent_icon, widget_config.show_icon)
 
     {:ok, socket}
   end
@@ -186,6 +195,70 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
      |> assign(:generated_pages, Legal.list_generated_pages())
      |> put_flash(:info, gettext("Generated %{count} pages", count: success_count))}
   end
+
+  # ===================================
+  # CONSENT WIDGET EVENTS (Phase 2)
+  # ===================================
+
+  @impl true
+  def handle_event("toggle_consent_widget", _params, socket) do
+    if socket.assigns.consent_widget_enabled do
+      case Legal.disable_consent_widget() do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:consent_widget_enabled, false)
+           |> assign(:show_consent_icon, false)
+           |> put_flash(:info, gettext("Cookie consent widget disabled"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to update setting"))}
+      end
+    else
+      case Legal.enable_consent_widget() do
+        {:ok, _} ->
+          show_icon = Legal.has_opt_in_framework?()
+
+          {:noreply,
+           socket
+           |> assign(:consent_widget_enabled, true)
+           |> assign(:show_consent_icon, show_icon)
+           |> put_flash(:info, gettext("Cookie consent widget enabled"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to update setting"))}
+      end
+    end
+  end
+
+  @impl true
+  def handle_event("save_consent_settings", params, socket) do
+    consent_mode = params["consent_mode"] || "strict"
+    hide_for_auth = params["hide_for_authenticated"] == "true"
+
+    with {:ok, _} <- Legal.update_consent_mode(consent_mode),
+         {:ok, _} <- Legal.update_hide_for_authenticated(hide_for_auth),
+         {:ok, _} <- Legal.update_icon_position(params["icon_position"] || "bottom-right"),
+         {:ok, _} <- update_google_consent_mode(params["google_consent_mode"]) do
+      # Recalculate show_icon based on new settings
+      show_icon = Legal.should_show_consent_icon?()
+
+      {:noreply,
+       socket
+       |> assign(:consent_mode, consent_mode)
+       |> assign(:hide_for_authenticated, hide_for_auth)
+       |> assign(:icon_position, params["icon_position"] || "bottom-right")
+       |> assign(:google_consent_mode, params["google_consent_mode"] == "true")
+       |> assign(:show_consent_icon, show_icon)
+       |> put_flash(:info, gettext("Consent widget settings saved"))}
+    else
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to save settings"))}
+    end
+  end
+
+  defp update_google_consent_mode("true"), do: Legal.enable_google_consent_mode()
+  defp update_google_consent_mode(_), do: Legal.disable_google_consent_mode()
 
   # Helper to get edit URL for a legal page
   defp get_edit_url(page_slug, generated_pages) do
