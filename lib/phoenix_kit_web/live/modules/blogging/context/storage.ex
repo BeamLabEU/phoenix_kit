@@ -1246,6 +1246,235 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   end
 
   @doc """
+  Moves a post to the trash folder.
+
+  For slug-mode blogs, moves the entire post directory (all versions and languages).
+  For timestamp-mode blogs, moves the time folder.
+
+  The post directory is moved to:
+    priv/blogging/trash/<blog_slug>/<post_identifier>-<timestamp>/
+
+  Returns {:ok, trash_path} on success or {:error, reason} on failure.
+  """
+  @spec trash_post(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  def trash_post(blog_slug, post_identifier) do
+    # Determine the post directory based on mode
+    post_dir = resolve_post_directory(blog_slug, post_identifier)
+
+    if File.dir?(post_dir) do
+      # Ensure trash directory exists for this blog
+      trash_dir = Path.join([root_path(), "trash", blog_slug])
+      File.mkdir_p!(trash_dir)
+
+      timestamp =
+        DateTime.utc_now()
+        |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
+
+      # Use sanitized identifier for trash folder name
+      sanitized_id = sanitize_for_trash(post_identifier)
+      new_name = "#{sanitized_id}-#{timestamp}"
+      destination = Path.join(trash_dir, new_name)
+
+      case File.rename(post_dir, destination) do
+        :ok ->
+          # Clean up empty parent directories (for timestamp mode)
+          cleanup_empty_dirs(Path.dirname(post_dir))
+          {:ok, "trash/#{blog_slug}/#{new_name}"}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      {:error, :not_found}
+    end
+  end
+
+  # Resolve the post directory path based on the identifier format
+  defp resolve_post_directory(blog_slug, post_identifier) do
+    # Check if it's a date/time path (timestamp mode) or a slug (slug mode)
+    if String.contains?(post_identifier, "/") do
+      # Could be "2025-01-15/14:30" or "post-slug/v1/en.phk"
+      # Take just the main identifier part
+      parts = String.split(post_identifier, "/", trim: true)
+
+      case parts do
+        [date, time | _] when byte_size(date) == 10 and byte_size(time) >= 4 ->
+          # Timestamp mode: date/time format
+          Path.join([root_path(), blog_slug, date, time])
+
+        [slug | _] ->
+          # Slug mode with path components
+          Path.join([root_path(), blog_slug, slug])
+      end
+    else
+      # Simple slug
+      Path.join([root_path(), blog_slug, post_identifier])
+    end
+  end
+
+  # Sanitize identifier for use in trash folder name
+  defp sanitize_for_trash(identifier) do
+    identifier
+    |> String.replace("/", "_")
+    |> String.replace(":", "-")
+  end
+
+  @doc """
+  Deletes a specific language file from a post.
+
+  For versioned posts, specify the version. For legacy posts, version is ignored.
+  Refuses to delete the last remaining language file.
+
+  Returns :ok on success or {:error, reason} on failure.
+  """
+  @spec delete_language(String.t(), String.t(), String.t(), integer() | nil) ::
+          :ok | {:error, term()}
+  def delete_language(blog_slug, post_identifier, language_code, version \\ nil) do
+    post_dir = resolve_post_directory(blog_slug, post_identifier)
+
+    unless File.dir?(post_dir) do
+      {:error, :post_not_found}
+    else
+      structure = detect_post_structure(post_dir)
+      do_delete_language(post_dir, structure, language_code, version, blog_slug, post_identifier)
+    end
+  end
+
+  defp do_delete_language(post_dir, :versioned, language_code, version, blog_slug, post_identifier) do
+    # For versioned posts, we need to know which version
+    target_version = version || get_latest_version_number(blog_slug, post_identifier)
+
+    case target_version do
+      nil ->
+        {:error, :version_not_found}
+
+      v ->
+        version_dir = Path.join(post_dir, "v#{v}")
+        delete_language_from_directory(version_dir, language_code)
+    end
+  end
+
+  defp do_delete_language(post_dir, :legacy, language_code, _version, _blog_slug, _post_id) do
+    delete_language_from_directory(post_dir, language_code)
+  end
+
+  defp do_delete_language(_post_dir, :empty, _language_code, _version, _blog_slug, _post_id) do
+    {:error, :post_not_found}
+  end
+
+  defp delete_language_from_directory(dir, language_code) do
+    file_path = Path.join(dir, "#{language_code}.phk")
+
+    unless File.exists?(file_path) do
+      {:error, :language_not_found}
+    else
+      # Check if this is the last language file
+      case File.ls(dir) do
+        {:ok, files} ->
+          phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+
+          if length(phk_files) <= 1 do
+            {:error, :cannot_delete_last_language}
+          else
+            case File.rm(file_path) do
+              :ok -> :ok
+              {:error, reason} -> {:error, reason}
+            end
+          end
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp get_latest_version_number(blog_slug, post_identifier) do
+    case get_latest_version(blog_slug, post_identifier) do
+      {:ok, v} -> v
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Deletes an entire version of a post.
+
+  Moves the version folder to trash instead of permanent deletion.
+  Refuses to delete the last remaining version or the live version.
+
+  Returns :ok on success or {:error, reason} on failure.
+  """
+  @spec delete_version(String.t(), String.t(), integer()) :: :ok | {:error, term()}
+  def delete_version(blog_slug, post_identifier, version) do
+    post_dir = resolve_post_directory(blog_slug, post_identifier)
+
+    unless File.dir?(post_dir) do
+      {:error, :post_not_found}
+    else
+      structure = detect_post_structure(post_dir)
+
+      case structure do
+        :versioned ->
+          do_delete_version(post_dir, blog_slug, post_identifier, version)
+
+        :legacy ->
+          {:error, :not_versioned}
+
+        :empty ->
+          {:error, :post_not_found}
+      end
+    end
+  end
+
+  defp do_delete_version(post_dir, blog_slug, post_identifier, version) do
+    version_dir = Path.join(post_dir, "v#{version}")
+
+    cond do
+      not File.dir?(version_dir) ->
+        {:error, :version_not_found}
+
+      version_is_live?(blog_slug, post_identifier, version) ->
+        {:error, :cannot_delete_live_version}
+
+      only_version?(post_dir) ->
+        {:error, :cannot_delete_last_version}
+
+      true ->
+        # Move to trash instead of permanent deletion
+        trash_dir = Path.join([root_path(), "trash", blog_slug, post_identifier])
+        File.mkdir_p!(trash_dir)
+
+        timestamp =
+          DateTime.utc_now()
+          |> Calendar.strftime("%Y-%m-%d-%H-%M-%S")
+
+        destination = Path.join(trash_dir, "v#{version}-#{timestamp}")
+
+        case File.rename(version_dir, destination) do
+          :ok -> :ok
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  defp version_is_live?(blog_slug, post_identifier, version) do
+    case get_live_version(blog_slug, post_identifier) do
+      {:ok, ^version} -> true
+      _ -> false
+    end
+  end
+
+  defp only_version?(post_dir) do
+    case File.ls(post_dir) do
+      {:ok, entries} ->
+        version_dirs = Enum.filter(entries, &version_dir?/1)
+        length(version_dirs) <= 1
+
+      _ ->
+        true
+    end
+  end
+
+  @doc """
   Counts the number of posts on a specific date for a blog.
   Used to determine if time should be included in URLs.
   """

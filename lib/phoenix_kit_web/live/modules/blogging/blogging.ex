@@ -26,6 +26,32 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   defdelegate status_change_only?(post, params), to: Storage
   defdelegate should_create_new_version?(post, params, editing_language), to: Storage
 
+  # Delegate slug utilities to Storage
+  defdelegate validate_slug(slug), to: Storage
+  defdelegate slug_exists?(blog_slug, post_slug), to: Storage
+  defdelegate generate_unique_slug(blog_slug, title), to: Storage
+  defdelegate generate_unique_slug(blog_slug, title, preferred_slug), to: Storage
+  defdelegate generate_unique_slug(blog_slug, title, preferred_slug, opts), to: Storage
+
+  # Delegate language utilities to Storage
+  defdelegate enabled_language_codes(), to: Storage
+  defdelegate get_master_language(), to: Storage
+  defdelegate language_enabled?(language_code, enabled_languages), to: Storage
+  defdelegate get_display_code(language_code, enabled_languages), to: Storage
+  defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage
+
+  # Delegate version metadata to Storage
+  defdelegate get_version_metadata(blog_slug, post_slug, version, language), to: Storage
+  defdelegate migrate_post_to_versioned(post), to: Storage
+  defdelegate migrate_post_to_versioned(post, language), to: Storage
+
+  # Delegate cache operations to ListingCache
+  defdelegate regenerate_cache(blog_slug), to: ListingCache, as: :regenerate
+  defdelegate invalidate_cache(blog_slug), to: ListingCache, as: :invalidate
+  defdelegate cache_exists?(blog_slug), to: ListingCache, as: :exists?
+  defdelegate find_cached_post(blog_slug, post_slug), to: ListingCache, as: :find_post
+  defdelegate find_cached_post_by_path(blog_slug, date, time), to: ListingCache, as: :find_post_by_path
+
   @enabled_key "blogging_enabled"
   @blogs_key "blogging_blogs"
   @legacy_categories_key "blogging_categories"
@@ -445,6 +471,69 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
       if new_post.slug do
         BloggingPubSub.broadcast_translation_created(blog_slug, new_post.slug, language_code)
       end
+    end
+
+    result
+  end
+
+  @doc """
+  Moves a post to the trash folder.
+
+  For slug-mode blogs, provide the post slug.
+  For timestamp-mode blogs, provide the date/time path (e.g., "2025-01-15/14:30").
+
+  Returns {:ok, trash_path} on success or {:error, reason} on failure.
+  """
+  @spec trash_post(String.t(), String.t()) :: {:ok, String.t()} | {:error, term()}
+  def trash_post(blog_slug, post_identifier) do
+    result = Storage.trash_post(blog_slug, post_identifier)
+
+    with {:ok, _trash_path} <- result do
+      ListingCache.regenerate(blog_slug)
+      BloggingPubSub.broadcast_post_deleted(blog_slug, post_identifier)
+    end
+
+    result
+  end
+
+  @doc """
+  Deletes a specific language translation from a post.
+
+  For versioned posts, specify the version. For legacy posts, version is ignored.
+  Refuses to delete the last remaining language file.
+
+  Returns :ok on success or {:error, reason} on failure.
+  """
+  @spec delete_language(String.t(), String.t(), String.t(), integer() | nil) ::
+          :ok | {:error, term()}
+  def delete_language(blog_slug, post_identifier, language_code, version \\ nil) do
+    result = Storage.delete_language(blog_slug, post_identifier, language_code, version)
+
+    if result == :ok do
+      ListingCache.regenerate(blog_slug)
+      BloggingPubSub.broadcast_translation_deleted(blog_slug, post_identifier, language_code)
+    end
+
+    result
+  end
+
+  @doc """
+  Deletes an entire version of a post.
+
+  Moves the version folder to trash instead of permanent deletion.
+  Refuses to delete the last remaining version or the live version.
+
+  Returns :ok on success or {:error, reason} on failure.
+  """
+  @spec delete_version(String.t(), String.t(), integer()) :: :ok | {:error, term()}
+  def delete_version(blog_slug, post_identifier, version) do
+    result = Storage.delete_version(blog_slug, post_identifier, version)
+
+    if result == :ok do
+      # Only regenerate cache if deleting affected the live version
+      # (but we already prevent deleting live version, so this is just for safety)
+      ListingCache.regenerate(blog_slug)
+      BloggingPubSub.broadcast_version_deleted(blog_slug, post_identifier, version)
     end
 
     result

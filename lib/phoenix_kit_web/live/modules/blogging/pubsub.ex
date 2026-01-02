@@ -129,6 +129,13 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
     Manager.broadcast(posts_topic(blog_slug), {:version_live_changed, post_slug, version})
   end
 
+  @doc """
+  Broadcasts that a version was deleted from a post.
+  """
+  def broadcast_version_deleted(blog_slug, post_slug, version) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_deleted, post_slug, version})
+  end
+
   # ============================================================================
   # Post-Level Updates (translation changes)
   # ============================================================================
