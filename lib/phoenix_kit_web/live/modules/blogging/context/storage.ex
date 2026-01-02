@@ -1332,15 +1332,22 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def delete_language(blog_slug, post_identifier, language_code, version \\ nil) do
     post_dir = resolve_post_directory(blog_slug, post_identifier)
 
-    unless File.dir?(post_dir) do
-      {:error, :post_not_found}
-    else
+    if File.dir?(post_dir) do
       structure = detect_post_structure(post_dir)
       do_delete_language(post_dir, structure, language_code, version, blog_slug, post_identifier)
+    else
+      {:error, :post_not_found}
     end
   end
 
-  defp do_delete_language(post_dir, :versioned, language_code, version, blog_slug, post_identifier) do
+  defp do_delete_language(
+         post_dir,
+         :versioned,
+         language_code,
+         version,
+         blog_slug,
+         post_identifier
+       ) do
     # For versioned posts, we need to know which version
     target_version = version || get_latest_version_number(blog_slug, post_identifier)
 
@@ -1365,26 +1372,26 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   defp delete_language_from_directory(dir, language_code) do
     file_path = Path.join(dir, "#{language_code}.phk")
 
-    unless File.exists?(file_path) do
-      {:error, :language_not_found}
-    else
-      # Check if this is the last language file
-      case File.ls(dir) do
-        {:ok, files} ->
-          phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+    cond do
+      not File.exists?(file_path) ->
+        {:error, :language_not_found}
 
-          if length(phk_files) <= 1 do
-            {:error, :cannot_delete_last_language}
-          else
-            case File.rm(file_path) do
-              :ok -> :ok
-              {:error, reason} -> {:error, reason}
-            end
-          end
+      is_last_language_file?(dir) ->
+        {:error, :cannot_delete_last_language}
 
-        {:error, reason} ->
-          {:error, reason}
-      end
+      true ->
+        File.rm(file_path)
+    end
+  end
+
+  defp is_last_language_file?(dir) do
+    case File.ls(dir) do
+      {:ok, files} ->
+        phk_count = Enum.count(files, &String.ends_with?(&1, ".phk"))
+        phk_count <= 1
+
+      {:error, _} ->
+        true
     end
   end
 
@@ -1407,9 +1414,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   def delete_version(blog_slug, post_identifier, version) do
     post_dir = resolve_post_directory(blog_slug, post_identifier)
 
-    unless File.dir?(post_dir) do
-      {:error, :post_not_found}
-    else
+    if File.dir?(post_dir) do
       structure = detect_post_structure(post_dir)
 
       case structure do
@@ -1422,6 +1427,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
         :empty ->
           {:error, :post_not_found}
       end
+    else
+      {:error, :post_not_found}
     end
   end
 

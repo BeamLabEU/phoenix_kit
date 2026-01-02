@@ -50,7 +50,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   defdelegate invalidate_cache(blog_slug), to: ListingCache, as: :invalidate
   defdelegate cache_exists?(blog_slug), to: ListingCache, as: :exists?
   defdelegate find_cached_post(blog_slug, post_slug), to: ListingCache, as: :find_post
-  defdelegate find_cached_post_by_path(blog_slug, date, time), to: ListingCache, as: :find_post_by_path
+
+  defdelegate find_cached_post_by_path(blog_slug, date, time),
+    to: ListingCache,
+    as: :find_post_by_path
 
   @enabled_key "blogging_enabled"
   @blogs_key "blogging_blogs"
