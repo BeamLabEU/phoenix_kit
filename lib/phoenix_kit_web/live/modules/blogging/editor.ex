@@ -5,6 +5,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  # Suppress dialyzer warnings for pattern matches in create_new_post/create_new_translation
+  # where dialyzer incorrectly infers that {:ok, _} patterns can never match.
+  # The Blogging context functions do return {:ok, _} on success.
+  @dialyzer {:nowarn_function, create_new_post: 2}
+  @dialyzer {:nowarn_function, create_new_translation: 2}
+  @dialyzer {:nowarn_function, handle_post_update_error: 2}
+  @dialyzer {:nowarn_function, handle_post_update_result: 4}
+  @dialyzer {:nowarn_function, handle_event: 3}
+
   alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
@@ -58,12 +67,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:current_language, nil)
       |> assign(:current_language_enabled, true)
       |> assign(:current_language_known, true)
+      |> assign(:is_master_language, true)
       |> assign(:available_languages, [])
       |> assign(:all_enabled_languages, [])
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, false)
       |> assign(:is_new_translation, false)
       |> assign(:public_url, nil)
+      # Version-related assigns
+      |> assign(:current_version, nil)
+      |> assign(:available_versions, [])
+      |> assign(:version_statuses, %{})
+      |> assign(:version_dates, %{})
+      |> assign(:editing_published_version, false)
+      |> assign(:viewing_older_version, false)
       |> assign(
         :current_path,
         Routes.path("/admin/blogging/#{blog_slug}/edit",
@@ -128,6 +145,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:is_new_post, true)
       |> assign(:public_url, nil)
       |> assign(:form_key, form_key)
+      # New posts start at version 1
+      |> assign(:current_version, 1)
+      |> assign(:available_versions, [])
+      |> assign(:version_statuses, %{})
+      |> assign(:version_dates, %{})
+      |> assign(:editing_published_version, false)
       |> push_event("changes-status", %{has_changes: false})
 
     # Set up collaborative editing for new posts
@@ -166,6 +189,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             form = post_form(virtual_post)
             fk = BloggingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
+            # Recalculate viewing_older_version for the new translation language
+            # Translations (non-master languages) should not be locked
+            current_version = Map.get(post, :version, 1)
+            available_versions = Map.get(post, :available_versions, [])
+
             sock =
               socket
               |> assign(:blog_mode, blog_mode)
@@ -183,6 +211,14 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
                   locale: socket.assigns.current_locale_base
                 )
               )
+              |> assign(:current_version, current_version)
+              |> assign(:available_versions, available_versions)
+              |> assign(:version_statuses, Map.get(post, :version_statuses, %{}))
+              |> assign(:version_dates, Map.get(post, :version_dates, %{}))
+              |> assign(
+                :viewing_older_version,
+                viewing_older_version?(current_version, available_versions, switch_to_lang)
+              )
               |> assign(:has_pending_changes, false)
               |> assign(:is_new_translation, true)
               |> assign(:original_post_path, path)
@@ -194,6 +230,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           else
             form = post_form(post)
             fk = BloggingPubSub.generate_form_key(blog_slug, post, :edit)
+
+            # Check if we're editing a published version
+            is_published = Map.get(post.metadata, :status) == "published"
 
             sock =
               socket
@@ -214,6 +253,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
               |> assign(:has_pending_changes, false)
               |> assign(:public_url, build_public_url(post, post.language))
               |> assign(:form_key, fk)
+              # Version-related assigns
+              |> assign(:current_version, Map.get(post, :version, 1))
+              |> assign(:available_versions, Map.get(post, :available_versions, []))
+              |> assign(:version_statuses, Map.get(post, :version_statuses, %{}))
+              |> assign(:version_dates, Map.get(post, :version_dates, %{}))
+              |> assign(:editing_published_version, is_published)
+              |> assign(
+                :viewing_older_version,
+                viewing_older_version?(
+                  Map.get(post, :version, 1),
+                  Map.get(post, :available_versions, []),
+                  post.language
+                )
+              )
               |> push_event("changes-status", %{has_changes: false})
 
             {sock, fk}
@@ -339,18 +392,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_event("clear_featured_image", _params, socket) do
-    # Clear the featured image from the form (form is a simple map, not a struct)
-    updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
+    # Spectators cannot edit
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      # Clear the featured image from the form (form is a simple map, not a struct)
+      updated_form = Map.put(socket.assigns.form, "featured_image_id", "")
 
-    socket =
-      socket
-      |> assign(:form, updated_form)
-      |> assign(:has_pending_changes, true)
-      |> put_flash(:info, gettext("Featured image cleared"))
-      |> push_event("changes-status", %{has_changes: true})
-      |> schedule_autosave()
+      socket =
+        socket
+        |> assign(:form, updated_form)
+        |> assign(:has_pending_changes, true)
+        |> put_flash(:info, gettext("Featured image cleared"))
+        |> push_event("changes-status", %{has_changes: true})
+        |> schedule_autosave()
 
-    {:noreply, socket}
+      {:noreply, socket}
+    end
   end
 
   def handle_event("generate_slug_from_content", _params, socket) do
@@ -419,6 +477,42 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   def handle_event("noop", _params, socket), do: {:noreply, socket}
 
+  def handle_event("toggle_version_access", %{"enabled" => enabled_str}, socket) do
+    # Spectators cannot edit
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      enabled = enabled_str == "true"
+      post = socket.assigns.post
+      blog_slug = socket.assigns.blog_slug
+
+      # Update the metadata with the new setting
+      updated_metadata = Map.put(post.metadata, :allow_version_access, enabled)
+      updated_post = %{post | metadata: updated_metadata}
+
+      # Save the change to disk
+      scope = socket.assigns[:phoenix_kit_current_scope]
+      params = %{"allow_version_access" => enabled}
+
+      case Blogging.update_post(blog_slug, updated_post, params, %{scope: scope}) do
+        {:ok, saved_post} ->
+          flash_msg =
+            if enabled,
+              do: gettext("Version access enabled - older versions are now publicly accessible"),
+              else: gettext("Version access disabled - only live version is publicly accessible")
+
+          {:noreply,
+           socket
+           |> assign(:post, saved_post)
+           |> put_flash(:info, flash_msg)}
+
+        {:error, _reason} ->
+          {:noreply,
+           put_flash(socket, :error, gettext("Failed to update version access setting"))}
+      end
+    end
+  end
+
   def handle_event("preview", _params, socket) do
     preview_payload = build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
@@ -479,6 +573,15 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     file_exists = new_language in post.available_languages
 
     if file_exists do
+      # Clean up old presence before switching to existing language file
+      old_form_key = socket.assigns[:form_key]
+
+      if old_form_key && connected?(socket) do
+        PresenceHelpers.untrack_editing_session(old_form_key, socket)
+        PresenceHelpers.unsubscribe_from_editing(old_form_key)
+        BloggingPubSub.unsubscribe_from_editor_form(old_form_key)
+      end
+
       {:noreply,
        push_patch(socket,
          to:
@@ -498,17 +601,219 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         |> Map.put(:mode, post.mode)
         |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
 
+      # Recalculate viewing_older_version for the new language
+      # Translations (non-master languages) should not be locked
+      current_version = socket.assigns.current_version || 1
+      available_versions = socket.assigns.available_versions || []
+
+      # Generate new form_key for the new language
+      new_form_key = BloggingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
+
+      # Save old form_key BEFORE assigning new one (for presence cleanup)
+      old_form_key = socket.assigns[:form_key]
+
+      socket =
+        socket
+        |> assign(:post, virtual_post)
+        |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
+        |> assign(:content, "")
+        |> assign_current_language(new_language)
+        |> assign(
+          :viewing_older_version,
+          viewing_older_version?(current_version, available_versions, new_language)
+        )
+        |> assign(:has_pending_changes, false)
+        |> assign(:is_new_translation, true)
+        |> assign(:original_post_path, post.path || post.slug)
+        |> assign(:form_key, new_form_key)
+        |> push_event("changes-status", %{has_changes: false})
+
+      # Clean up old presence and set up new (pass old_form_key explicitly)
+      socket = cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key)
+
+      # Update the URL to reflect the new language using switch_to parameter
+      # (since the new translation file doesn't exist yet)
+      original_path = socket.assigns[:original_post_path] || post.path || post.slug
+
       {:noreply,
-       socket
-       |> assign(:post, virtual_post)
-       |> assign_form_with_tracking(post_form(virtual_post), slug_manually_set: false)
-       |> assign(:content, "")
-       |> assign_current_language(new_language)
-       |> assign(:has_pending_changes, false)
-       |> assign(:is_new_translation, true)
-       |> assign(:original_post_path, post.path || post.slug)
-       |> push_event("changes-status", %{has_changes: false})}
+       push_patch(socket,
+         to:
+           Routes.path(
+             "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}",
+             locale: socket.assigns.current_locale_base
+           ),
+         replace: true
+       )}
     end
+  end
+
+  def handle_event("switch_version", %{"version" => version_str}, socket) do
+    version = String.to_integer(version_str)
+    current_version = socket.assigns.current_version
+
+    if version == current_version do
+      {:noreply, socket}
+    else
+      blog_slug = socket.assigns.blog_slug
+      post = socket.assigns.post
+      language = socket.assigns.current_language
+      blog_mode = socket.assigns.blog_mode
+      master_language = Storage.get_master_language()
+
+      # Read the specified version based on blog mode
+      # Try current language first, then fall back to master language
+      read_result =
+        case blog_mode do
+          "slug" ->
+            case Blogging.read_post(blog_slug, post.slug, language, version) do
+              {:ok, _} = result ->
+                result
+
+              {:error, _} when language != master_language ->
+                # Fall back to master language
+                Blogging.read_post(blog_slug, post.slug, master_language, version)
+
+              error ->
+                error
+            end
+
+          _ ->
+            # For timestamp mode, build the versioned path
+            case read_timestamp_version(blog_slug, post, language, version) do
+              {:ok, _} = result ->
+                result
+
+              {:error, _} when language != master_language ->
+                # Fall back to master language
+                read_timestamp_version(blog_slug, post, master_language, version)
+
+              error ->
+                error
+            end
+        end
+
+      case read_result do
+        {:ok, version_post} ->
+          form = post_form(version_post)
+          is_published = Map.get(version_post.metadata, :status) == "published"
+          actual_language = version_post.language
+
+          # Generate new form_key for the new version
+          new_form_key = BloggingPubSub.generate_form_key(blog_slug, version_post, :edit)
+
+          # Save old form_key BEFORE assigning new one (for presence cleanup)
+          old_form_key = socket.assigns[:form_key]
+
+          socket =
+            socket
+            |> assign(:post, %{version_post | blog: blog_slug})
+            |> assign_form_with_tracking(form)
+            |> assign(:content, version_post.content)
+            |> assign(:current_version, version)
+            |> assign(:available_versions, version_post.available_versions)
+            |> assign(:version_statuses, version_post.version_statuses)
+            |> assign(:version_dates, Map.get(version_post, :version_dates, %{}))
+            |> assign(:available_languages, version_post.available_languages)
+            |> assign(:editing_published_version, is_published)
+            |> assign(
+              :viewing_older_version,
+              viewing_older_version?(version, version_post.available_versions, actual_language)
+            )
+            |> assign(:has_pending_changes, false)
+            |> assign(:public_url, build_public_url(version_post, actual_language))
+            |> assign_current_language(actual_language)
+            |> assign(:form_key, new_form_key)
+            |> push_event("changes-status", %{has_changes: false})
+            |> push_event("set-content", %{content: version_post.content})
+
+          # Clean up old presence and set up new (pass old_form_key explicitly)
+          socket = cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key)
+
+          # Update URL to reflect the new version's path
+          {:noreply,
+           push_patch(socket,
+             to:
+               Routes.path(
+                 "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}",
+                 locale: socket.assigns.current_locale_base
+               ),
+             replace: true
+           )}
+
+        {:error, _reason} ->
+          {:noreply, put_flash(socket, :error, gettext("Version not found"))}
+      end
+    end
+  end
+
+  def handle_event("migrate_to_versioned", _params, socket) do
+    post = socket.assigns.post
+
+    if post && post.is_legacy_structure do
+      language = socket.assigns.current_language
+
+      case Storage.migrate_post_to_versioned(post, language) do
+        {:ok, migrated_post} ->
+          # Refresh the form with the migrated post
+          form = post_form(migrated_post)
+
+          socket =
+            socket
+            |> assign(:post, %{migrated_post | blog: socket.assigns.blog_slug})
+            |> assign_form_with_tracking(form)
+            |> assign(:content, migrated_post.content)
+            |> assign(:current_version, migrated_post.version)
+            |> assign(:available_versions, migrated_post.available_versions)
+            |> assign(:version_statuses, migrated_post.version_statuses)
+            |> assign(:version_dates, Map.get(migrated_post, :version_dates, %{}))
+            |> assign(
+              :viewing_older_version,
+              viewing_older_version?(
+                migrated_post.version,
+                migrated_post.available_versions,
+                language
+              )
+            )
+            |> assign(:has_pending_changes, false)
+            |> push_event("changes-status", %{has_changes: false})
+            |> put_flash(:info, gettext("Post migrated to versioned structure (v1)"))
+            |> push_patch(
+              to:
+                Routes.path(
+                  "/admin/blogging/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}",
+                  locale: socket.assigns.current_locale_base
+                )
+            )
+
+          {:noreply, socket}
+
+        {:error, reason} ->
+          {:noreply,
+           put_flash(
+             socket,
+             :error,
+             gettext("Failed to migrate post: %{reason}", reason: inspect(reason))
+           )}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Helper to read a specific version for timestamp-mode posts
+  defp read_timestamp_version(blog_slug, post, language, version) do
+    # Build the versioned path for timestamp mode
+    date_str = Date.to_iso8601(post.date)
+    time_str = format_time_folder(post.time)
+    versioned_path = Path.join([blog_slug, date_str, time_str, "v#{version}", "#{language}.phk"])
+
+    Storage.read_post(blog_slug, versioned_path)
+  end
+
+  defp format_time_folder(%Time{} = time) do
+    {hour, minute, _second} = Time.to_erl(time)
+
+    "#{String.pad_leading(to_string(hour), 2, "0")}:#{String.pad_leading(to_string(minute), 2, "0")}"
   end
 
   @impl true
@@ -534,46 +839,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   end
 
   def handle_info({:media_selected, file_ids}, socket) do
-    # Handle the selected file IDs from the media selector modal
-    file_id = List.first(file_ids)
-    inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
-
-    {socket, autosave?} =
-      cond do
-        file_id && inserting_image_component ->
-          # Insert image with standard markdown syntax at cursor via JavaScript
-          file_url = get_file_url(file_id)
-
-          js_code =
-            "window.bloggingEditorInsertMedia && window.bloggingEditorInsertMedia('#{file_url}', 'image')"
-
-          {
-            socket
-            |> assign(:show_media_selector, false)
-            |> assign(:inserting_image_component, false)
-            |> put_flash(:info, gettext("Image component inserted"))
-            |> push_event("exec-js", %{js: js_code}),
-            false
-          }
-
-        file_id ->
-          {
-            socket
-            |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
-            |> assign(:has_pending_changes, true)
-            |> assign(:show_media_selector, false)
-            |> put_flash(:info, gettext("Featured image selected"))
-            |> push_event("changes-status", %{has_changes: true}),
-            true
-          }
-
-        true ->
-          {socket |> assign(:show_media_selector, false), false}
-      end
-
-    socket = if autosave?, do: schedule_autosave(socket), else: socket
-
-    {:noreply, socket}
+    # Spectators cannot edit
+    if socket.assigns[:readonly?] do
+      {:noreply, assign(socket, :show_media_selector, false)}
+    else
+      handle_media_selected(socket, file_ids)
+    end
   end
 
   def handle_info({:media_selector_closed}, socket) do
@@ -772,6 +1043,50 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
     end
   end
 
+  # Helper for handle_info({:media_selected, ...})
+  defp handle_media_selected(socket, file_ids) do
+    # Handle the selected file IDs from the media selector modal
+    file_id = List.first(file_ids)
+    inserting_image_component = Map.get(socket.assigns, :inserting_image_component, false)
+
+    {socket, autosave?} =
+      cond do
+        file_id && inserting_image_component ->
+          # Insert image with standard markdown syntax at cursor via JavaScript
+          file_url = get_file_url(file_id)
+
+          js_code =
+            "window.bloggingEditorInsertMedia && window.bloggingEditorInsertMedia('#{file_url}', 'image')"
+
+          {
+            socket
+            |> assign(:show_media_selector, false)
+            |> assign(:inserting_image_component, false)
+            |> put_flash(:info, gettext("Image component inserted"))
+            |> push_event("exec-js", %{js: js_code}),
+            false
+          }
+
+        file_id ->
+          {
+            socket
+            |> assign(:form, update_form_with_media(socket.assigns.form, file_id))
+            |> assign(:has_pending_changes, true)
+            |> assign(:show_media_selector, false)
+            |> put_flash(:info, gettext("Featured image selected"))
+            |> push_event("changes-status", %{has_changes: true}),
+            true
+          }
+
+        true ->
+          {socket |> assign(:show_media_selector, false), false}
+      end
+
+    socket = if autosave?, do: schedule_autosave(socket), else: socket
+
+    {:noreply, socket}
+  end
+
   # Get a URL for a file from storage (for standard markdown image syntax)
   defp get_file_url(file_id) do
     URLSigner.signed_url(file_id, "original")
@@ -837,10 +1152,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
     case Blogging.create_post(socket.assigns.blog_slug, create_opts) do
       {:ok, new_post} ->
+        # Note: Blogging.create_post and update_post handle broadcasts internally
         case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
-          {:ok, updated_post} = result ->
-            BloggingPubSub.broadcast_post_created(socket.assigns.blog_slug, updated_post)
-
+          {:ok, _updated_post} = result ->
             handle_post_update_result(socket, result, gettext("Post created and saved"), %{
               is_new_post: false
             })
@@ -869,25 +1183,19 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           Map.get(socket.assigns, :original_post_path, socket.assigns.post.path)
       end
 
+    # Pass the current version to ensure translation is created in the right version
+    current_version = socket.assigns[:current_version]
+
     case Blogging.add_language_to_post(
            socket.assigns.blog_slug,
            original_identifier,
-           socket.assigns.current_language
+           socket.assigns.current_language,
+           current_version
          ) do
       {:ok, new_post} ->
+        # Note: Blogging.add_language_to_post and update_post handle broadcasts internally
         case Blogging.update_post(socket.assigns.blog_slug, new_post, params, %{scope: scope}) do
-          {:ok, updated_post} = result ->
-            BloggingPubSub.broadcast_post_updated(socket.assigns.blog_slug, updated_post)
-
-            # Broadcast translation created so other editors of the same post update their language selector
-            if updated_post.slug do
-              BloggingPubSub.broadcast_translation_created(
-                socket.assigns.blog_slug,
-                updated_post.slug,
-                socket.assigns.current_language
-              )
-            end
-
+          {:ok, _updated_post} = result ->
             handle_post_update_result(socket, result, gettext("Translation created and saved"), %{
               is_new_translation: false,
               original_post_path: nil
@@ -907,9 +1215,75 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
 
   defp update_existing_post(socket, params) do
     scope = socket.assigns[:phoenix_kit_current_scope]
+    post = socket.assigns.post
+    language = socket.assigns.current_language
+    old_path = post.path
 
-    old_path = socket.assigns.post.path
+    # Check if we need to create a new version (editing published content)
+    # This applies to both slug-mode and timestamp-mode blogs
+    # Only create versions for posts that have been migrated to versioned structure
+    should_create_version =
+      not Map.get(post, :is_legacy_structure, false) and
+        Storage.should_create_new_version?(post, params, language)
 
+    if should_create_version do
+      # Create new version instead of updating in place
+      create_new_version_from_edit(socket, params, scope)
+    else
+      update_post_in_place(socket, params, scope, old_path)
+    end
+  end
+
+  defp create_new_version_from_edit(socket, params, scope) do
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+
+    case Blogging.create_new_version(blog_slug, post, params, %{scope: scope}) do
+      {:ok, new_version_post} ->
+        # Invalidate cache for the post
+        invalidate_post_cache(blog_slug, new_version_post)
+
+        # Note: Blogging.create_new_version handles broadcasts internally
+
+        form = post_form(new_version_post)
+
+        socket =
+          socket
+          |> assign(:post, new_version_post)
+          |> assign_form_with_tracking(form)
+          |> assign(:content, new_version_post.content)
+          |> assign(:current_version, new_version_post.version)
+          |> assign(:available_versions, new_version_post.available_versions)
+          |> assign(:version_statuses, new_version_post.version_statuses)
+          |> assign(:version_dates, Map.get(new_version_post, :version_dates, %{}))
+          |> assign(:editing_published_version, false)
+          |> assign(:has_pending_changes, false)
+          |> push_event("changes-status", %{has_changes: false})
+          |> put_flash(
+            :info,
+            gettext("Created new version %{version} (draft)", version: new_version_post.version)
+          )
+          |> push_patch(
+            to:
+              Routes.path(
+                "/admin/blogging/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}",
+                locale: socket.assigns.current_locale_base
+              )
+          )
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Failed to create new version: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
+  defp update_post_in_place(socket, params, scope, old_path) do
     case Blogging.update_post(socket.assigns.blog_slug, socket.assigns.post, params, %{
            scope: scope
          }) do
@@ -917,8 +1291,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         # Invalidate cache for this post
         invalidate_post_cache(socket.assigns.blog_slug, post)
 
-        # Broadcast the update to other connected clients (for post list refresh)
-        BloggingPubSub.broadcast_post_updated(socket.assigns.blog_slug, post)
+        # Note: Post list broadcast is now handled in Blogging.update_post/4
 
         # Broadcast save to other tabs/users so they can reload (for editor sync)
         if socket.assigns[:form_key] do
@@ -935,16 +1308,40 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
             do: nil,
             else: gettext("Post saved")
 
-        form = post_form(post)
+        # Re-read post from disk to get fresh cross-version statuses
+        # (language_statuses and version_statuses are calculated on read)
+        # IMPORTANT: Pass the current version to avoid jumping to latest version
+        current_version = socket.assigns[:current_version]
+        current_language = socket.assigns[:current_language]
+
+        refreshed_post =
+          case Blogging.read_post(
+                 socket.assigns.blog_slug,
+                 post.path,
+                 current_language,
+                 current_version
+               ) do
+            {:ok, fresh_post} -> fresh_post
+            {:error, _} -> post
+          end
+
+        form = post_form(refreshed_post)
+
+        # Check if post is now published (for versioning message updates)
+        is_published = Map.get(refreshed_post.metadata, :status) == "published"
 
         socket =
           socket
-          |> assign(:post, post)
+          |> assign(:post, refreshed_post)
           |> assign_form_with_tracking(form)
-          |> assign(:content, post.content)
+          |> assign(:content, refreshed_post.content)
           |> assign(:has_pending_changes, false)
+          |> assign(:editing_published_version, is_published)
+          |> assign(:language_statuses, refreshed_post.language_statuses)
+          |> assign(:version_statuses, refreshed_post.version_statuses)
+          |> assign(:version_dates, Map.get(refreshed_post, :version_dates, %{}))
           |> push_event("changes-status", %{has_changes: false})
-          |> maybe_update_current_path(old_path, post.path)
+          |> maybe_update_current_path(old_path, refreshed_post.path)
 
         {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
 
@@ -1082,6 +1479,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   defp assign_current_language(socket, language_code) do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Blogging.get_language_info(language_code)
+    master_language = Storage.get_master_language()
 
     socket
     |> assign(:current_language, language_code)
@@ -1090,6 +1488,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       Storage.language_enabled?(language_code, enabled_languages)
     )
     |> assign(:current_language_known, lang_info != nil)
+    |> assign(:is_master_language, language_code == master_language)
   end
 
   # Helper function to handle post creation errors
@@ -1557,7 +1956,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       language: primary_language,
       available_languages: [],
       mode: :slug,
-      slug: nil
+      slug: nil,
+      is_legacy_structure: false
     }
   end
 
@@ -1589,15 +1989,23 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       content: "",
       language: primary_language,
       available_languages: [],
-      mode: :timestamp
+      mode: :timestamp,
+      is_legacy_structure: false
     }
   end
 
   defp slug_base_dir(post, blog_slug) do
     cond do
+      # For versioned posts, use the path to preserve version directory
+      # e.g., "blog/post-slug/v1/en.phk" -> "blog/post-slug/v1"
+      post.path && not Map.get(post, :is_legacy_structure, false) ->
+        Path.dirname(post.path)
+
+      # For legacy slug mode posts without versioning
       Map.get(post, :mode) == :slug and Map.get(post, :slug) ->
         Path.join([blog_slug || "blog", post.slug])
 
+      # Fallback to path dirname if available
       post.path ->
         Path.dirname(post.path)
 
@@ -1796,46 +2204,40 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   # Collaborative Editing
   # ============================================================================
 
-  defp setup_collaborative_editing(socket, form_key) do
+  # Used when we know the old form_key (e.g., when switching languages/versions)
+  defp cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key) do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
-    if connected?(socket) && form_key && current_user do
-      # Try to set up collaborative editing, but gracefully handle failures
-      # (e.g., Presence module not started yet due to supervisor ordering)
+    if connected?(socket) && new_form_key && current_user do
       try do
-        # Track this user in Presence
-        {:ok, _ref} = PresenceHelpers.track_editing_session(form_key, socket, current_user)
-
-        # Subscribe to presence changes and form events
-        PresenceHelpers.subscribe_to_editing(form_key)
-        BloggingPubSub.subscribe_to_editor_form(form_key)
-
-        # Subscribe to translation changes for this post (so language selector updates live)
-        case socket.assigns[:post] && socket.assigns.post[:slug] do
-          post_slug when is_binary(post_slug) ->
-            BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
-
-          _ ->
-            :ok
+        # Clean up old presence tracking
+        if old_form_key && old_form_key != new_form_key do
+          PresenceHelpers.untrack_editing_session(old_form_key, socket)
+          PresenceHelpers.unsubscribe_from_editing(old_form_key)
+          BloggingPubSub.unsubscribe_from_editor_form(old_form_key)
         end
 
+        # Track this user in Presence
+        case PresenceHelpers.track_editing_session(new_form_key, socket, current_user) do
+          {:ok, _ref} -> :ok
+          {:error, {:already_tracked, _pid, _topic, _key}} -> :ok
+        end
+
+        # Subscribe to presence changes and form events
+        PresenceHelpers.subscribe_to_editing(new_form_key)
+        BloggingPubSub.subscribe_to_editor_form(new_form_key)
+
         # Determine our role (owner or spectator)
-        socket = assign_editing_role(socket, form_key)
+        socket = assign_editing_role(socket, new_form_key)
 
         # Load spectator state if we're not the owner
         if socket.assigns.readonly? do
-          load_spectator_state(socket, form_key)
+          load_spectator_state(socket, new_form_key)
         else
           socket
         end
       rescue
         ArgumentError ->
-          # Presence module not started - fall back to single-user mode
-          Logger.warning(
-            "Blogging Presence not available - collaborative editing disabled. " <>
-              "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"
-          )
-
           socket
           |> assign(:lock_owner?, true)
           |> assign(:readonly?, false)
@@ -1844,7 +2246,6 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
           |> assign(:other_viewers, [])
       end
     else
-      # Not connected or no form key - default to owner mode
       socket
       |> assign(:lock_owner?, true)
       |> assign(:readonly?, false)
@@ -1852,6 +2253,80 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
       |> assign(:spectators, [])
       |> assign(:other_viewers, [])
     end
+  end
+
+  # Used for initial setup (reads old_form_key from socket.assigns)
+  defp setup_collaborative_editing(socket, form_key) do
+    current_user = socket.assigns[:phoenix_kit_current_user]
+
+    if connected?(socket) && form_key && current_user do
+      do_setup_collaborative_editing(socket, form_key, current_user)
+    else
+      assign_default_editing_state(socket)
+    end
+  end
+
+  defp do_setup_collaborative_editing(socket, form_key, current_user) do
+    old_form_key = socket.assigns[:form_key]
+
+    try do
+      cleanup_old_presence(old_form_key, form_key, socket)
+      track_and_subscribe(form_key, socket, current_user)
+      subscribe_to_post_translations(socket)
+
+      socket
+      |> assign_editing_role(form_key)
+      |> maybe_load_spectator_state(form_key)
+    rescue
+      ArgumentError ->
+        Logger.warning(
+          "Blogging Presence not available - collaborative editing disabled. " <>
+            "Ensure PhoenixKit.Supervisor starts before your Endpoint in application.ex"
+        )
+
+        assign_default_editing_state(socket)
+    end
+  end
+
+  defp cleanup_old_presence(old_form_key, form_key, socket) do
+    if old_form_key && old_form_key != form_key do
+      PresenceHelpers.untrack_editing_session(old_form_key, socket)
+      PresenceHelpers.unsubscribe_from_editing(old_form_key)
+      BloggingPubSub.unsubscribe_from_editor_form(old_form_key)
+    end
+  end
+
+  defp track_and_subscribe(form_key, socket, current_user) do
+    case PresenceHelpers.track_editing_session(form_key, socket, current_user) do
+      {:ok, _ref} -> :ok
+      {:error, {:already_tracked, _pid, _topic, _key}} -> :ok
+    end
+
+    PresenceHelpers.subscribe_to_editing(form_key)
+    BloggingPubSub.subscribe_to_editor_form(form_key)
+  end
+
+  defp subscribe_to_post_translations(socket) do
+    case socket.assigns[:post] && socket.assigns.post[:slug] do
+      post_slug when is_binary(post_slug) ->
+        BloggingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp maybe_load_spectator_state(socket, form_key) do
+    if socket.assigns.readonly?, do: load_spectator_state(socket, form_key), else: socket
+  end
+
+  defp assign_default_editing_state(socket) do
+    socket
+    |> assign(:lock_owner?, true)
+    |> assign(:readonly?, false)
+    |> assign(:lock_owner_user, nil)
+    |> assign(:spectators, [])
+    |> assign(:other_viewers, [])
   end
 
   defp assign_editing_role(socket, form_key) do
@@ -1970,4 +2445,28 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
         )
     end
   end
+
+  # Check if viewing an older version AND editing master language
+  # Returns true only if:
+  # 1. current_version < max(available_versions) (newer version exists)
+  # 2. current_language is the master language (explicit content language setting)
+  # Translations on older versions can still be edited freely
+  defp viewing_older_version?(current_version, available_versions, current_language)
+       when is_integer(current_version) and is_list(available_versions) do
+    case available_versions do
+      [] ->
+        false
+
+      versions ->
+        is_older_version = current_version < Enum.max(versions)
+        # Use explicit content language setting for master language detection
+        master_language = Storage.get_master_language()
+        is_master_language = current_language == master_language
+
+        # Only lock if older version AND master language
+        is_older_version and is_master_language
+    end
+  end
+
+  defp viewing_older_version?(_current_version, _available_versions, _current_language), do: false
 end

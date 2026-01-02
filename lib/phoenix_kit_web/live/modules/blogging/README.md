@@ -7,6 +7,9 @@ The PhoenixKit Blogging module provides a filesystem-based content management sy
 - **Admin Interface**: `/{prefix}/admin/blogging`
 - **Public Blog**: `/{prefix}/{language}/{blog-slug}` (listing) or `/{prefix}/{blog-slug}` (single-language)
 - **Settings**: Configure via `blogging_public_enabled` and `blogging_posts_per_page` in Settings
+- **Enable Module**: Activate via Admin → Modules or run `PhoenixKitWeb.Live.Modules.Blogging.enable_system/0`
+- **Cache Settings**: Toggle `blogging_file_cache_enabled`, `blogging_memory_cache_enabled`, and `blogging_render_cache_enabled[_<slug>]`
+- **What it ships**: Listing cache, render cache, collaborative editor, public fallback routing, and optional per-post version history
 
 ## Public Blog Display
 
@@ -18,6 +21,8 @@ The blogging module includes public-facing routes for displaying published posts
 ```
 /{prefix}/{language}/{blog-slug}                  # Blog post listing
 /{prefix}/{language}/{blog-slug}/{post-slug}      # Slug mode post
+/{prefix}/{language}/{blog-slug}/{post-slug}/v/{version}  # Versioned slug-mode post
+/{prefix}/{language}/{blog-slug}/{date}           # Timestamp mode (date-only shortcut)
 /{prefix}/{language}/{blog-slug}/{date}/{time}    # Timestamp mode post
 ```
 
@@ -25,6 +30,8 @@ The blogging module includes public-facing routes for displaying published posts
 ```
 /{prefix}/{blog-slug}                             # Blog post listing
 /{prefix}/{blog-slug}/{post-slug}                 # Slug mode post
+/{prefix}/{blog-slug}/{post-slug}/v/{version}     # Versioned slug-mode post
+/{prefix}/{blog-slug}/{date}                      # Timestamp mode (date-only shortcut)
 /{prefix}/{blog-slug}/{date}/{time}               # Timestamp mode post
 ```
 
@@ -32,7 +39,9 @@ The blogging module includes public-facing routes for displaying published posts
 - `/phoenix_kit/en/docs` - Lists all published posts in Docs blog (English)
 - `/phoenix_kit/en/docs/getting-started` - Shows specific post (slug mode)
 - `/phoenix_kit/en/news/2025-11-02/14:30` - Shows specific post (timestamp mode)
+- `/phoenix_kit/en/news/2025-11-02` - Date-only timestamp URL (auto-resolves to the first published time)
 - `/phoenix_kit/docs` - Single-language mode listing
+- `/phoenix_kit/news/2025-11-02` - Date-only timestamp URL (renders if single post exists, otherwise redirects to the first time slot on that date)
 
 ### Features
 
@@ -68,7 +77,8 @@ When only one language is enabled, URLs don't require the language segment:
 
 ### Fallback Behavior
 
-Fallbacks are triggered only for `:post_not_found` or `:unpublished` errors. Other errors (e.g., `:blog_not_found`, server errors) result in a standard 404 page.
+Fallbacks are triggered when posts are missing (`:post_not_found`, `:unpublished`) **and** when a blog
+slug is invalid (`:blog_not_found`). Server errors or other reasons still render the standard 404 page.
 
 **For slug-mode posts (`/{prefix}/en/docs/getting-started`):**
 1. Try other languages for the same post (default language first)
@@ -88,6 +98,7 @@ The system tries languages in this order:
 - Redirects include a flash message: "The page you requested was not found. Showing closest match."
 - Bookmarked URLs continue to work even if specific translations are removed
 - Users are never shown a 404 if any published version of the content exists
+- Invalid blog slugs fall back to the default blog listing (if one exists) before showing a 404
 
 ### Configuration
 
@@ -101,7 +112,9 @@ PhoenixKit.Settings.update_setting("blogging_public_enabled", "true")
 PhoenixKit.Settings.update_setting("blogging_posts_per_page", "20")
 ```
 
-**Note:** These settings are currently only configurable via code. There is no admin UI for these options yet.
+`blogging_public_enabled` gates the entire `PhoenixKitWeb.BlogController` – set it to `"false"` to return a 404 for every public blog route. `blogging_posts_per_page` drives listing pagination.
+
+**Note:** These settings are currently only configurable via code. There is no admin UI for these options yet; expose them in your app if customers need runtime control.
 
 ### Templates
 
@@ -120,14 +133,39 @@ When editing a post in the admin interface:
 
 ### Caching
 
-The `PhoenixKit.Blogging.Renderer` module provides:
+PhoenixKit ships two cache layers:
 
-- **Content-hash-based cache keys** - Automatic invalidation when content changes
-- **Versioned cache** - Keys include `v1:` prefix for cache busting
-- **Published-only caching** - Draft and archived posts are not cached
-- **Performance logging** - Debug logs include render time and content size
+1. **Listing cache** – `PhoenixKitWeb.Live.Modules.Blogging.ListingCache` writes summary JSON to
+   `priv/blogging/<blog>/.listing_cache.json` and mirrors parsed data into `:persistent_term`
+   for sub-microsecond reads. File vs memory caching can be toggled via the
+   `blogging_file_cache_enabled` / `blogging_memory_cache_enabled` settings or from the Blogging
+   Settings UI, which also offers regenerate/clear actions per blog.
+2. **Render cache** – `PhoenixKit.Blogging.Renderer` stores rendered HTML for published posts in the
+   `:blog_posts` cache (6-hour TTL) with content-hash keys, a global
+   `blogging_render_cache_enabled` toggle, and per-blog overrides (`blogging_render_cache_enabled_<slug>`)
+   plus UI buttons to clear stats or individual blog caches.
 
-Example cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
+Example render cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
+
+Manual cache operations remain available when scripting:
+
+```elixir
+alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
+
+ListingCache.regenerate("my-blog")
+ListingCache.invalidate("my-blog")
+ListingCache.read("my-blog")
+ListingCache.exists?("my-blog")
+
+# Context helpers that wrap ListingCache
+PhoenixKitWeb.Live.Modules.Blogging.regenerate_cache("my-blog")
+PhoenixKitWeb.Live.Modules.Blogging.invalidate_cache("my-blog")
+
+alias PhoenixKit.Blogging.Renderer
+
+Renderer.clear_blog_cache("my-blog")
+Renderer.clear_all_cache()
+```
 
 ## Architecture Overview
 
@@ -150,6 +188,7 @@ Example cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
 
 **Rendering & Caching:**
 
+- **PhoenixKitWeb.Live.Modules.Blogging.ListingCache** – File + memory listing cache
 - **PhoenixKit.Blogging.Renderer** – Markdown/PHK rendering with content-hash caching
 
 **Collaborative Editing:**
@@ -248,6 +287,9 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `published_at` – Publication timestamp (ISO8601 format)
 - `featured_image_id` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
+- `version`, `version_created_at`, `version_created_from`, `is_live` – Managed automatically when
+  slug-mode posts create drafts, go live, or get copied to new versions
+- `allow_version_access` – Enables public viewing of historical versions when set to `true`
 
 **Audit Fields (optional):**
 
@@ -285,6 +327,92 @@ Supported components: `Image`, `Hero`, `CTA`, `Headline`, `Subheadline`, `Video`
 
 The main context module (`blogging.ex`) routes operations based on blog mode:
 
+## Command-Line / IEx Usage
+
+PhoenixKit exposes the entire blogging system through the `PhoenixKitWeb.Live.Modules.Blogging`
+module, so you can manage blogs from IEx or any script without touching the UI. This is extremely
+useful when seeding sample content, migrating posts, or when an AI assistant has CLI access.
+
+### Bootstrapping a session
+
+```bash
+$ iex -S mix
+iex> alias PhoenixKitWeb.Live.Modules.Blogging, as: Blogging
+iex> alias PhoenixKit.Users.Auth.Scope
+iex> Blogging.enable_system()
+```
+
+- `Blogging` is available anywhere via the alias above.
+- `Scope` is optional but lets you stamp `created_by_*` / `updated_by_*` metadata.
+- Module settings live in `PhoenixKit.Settings` (or your configured `blogging_settings_module`).
+
+### Managing blogs
+
+```elixir
+iex> {:ok, docs} = Blogging.add_blog("Documentation", "slug")
+iex> Blogging.list_blogs()
+[%{"name" => "Documentation", "slug" => "documentation", "mode" => "slug"}]
+iex> {:ok, blog} = Blogging.get_blog("documentation")
+iex> {:ok, _} = Blogging.update_blog("documentation", name: "Docs")
+iex> Blogging.trash_blog("documentation")
+{:ok, "trash/documentation-2025-01-15-09-30-00"}
+```
+
+- `mode` must be `"slug"` or `"timestamp"` and is immutable after creation.
+- Blog directories live under `priv/blogging/<blog-slug>`.
+
+### Creating scope-aware posts
+
+```elixir
+iex> user = MyApp.Repo.get!(MyApp.Users.User, 123)
+iex> scope = Scope.for_user(user)
+iex> {:ok, post} = Blogging.create_post("documentation", %{title: "Intro", scope: scope})
+iex> {:ok, post} = Blogging.create_post("docs", %{title: "Intro", slug: "getting-started"})
+iex> {:ok, post} = Blogging.create_post("news", %{scope: Scope.for_user(nil)})
+```
+
+- Slug mode expects a title (auto-slug) or explicit `:slug`.
+- Timestamp mode ignores slug and uses current UTC time for the folder.
+- `scope` is optional; pass `Scope.for_user(nil)` for system automation.
+- Replace `MyApp.*` with your host application's modules/Repo.
+
+### Reading and updating posts
+
+```elixir
+iex> {:ok, post} = Blogging.read_post("docs", "getting-started")
+iex> {:ok, post_es} = Blogging.read_post("docs", "getting-started", "es")
+iex> {:ok, updated} = Blogging.update_post("docs", post, %{"content" => "# v2"}, scope: scope)
+```
+
+- Slug-mode identifiers can include versions, e.g. `"getting-started/v2/en.phk"`.
+- Timestamp-mode identifiers are `"YYYY-MM-DD/HH:MM"` paths.
+- `update_post/4` automatically moves files when slugs or timestamps change.
+
+### Versioning and translations
+
+```elixir
+iex> {:ok, draft_v2} = Blogging.create_new_version("docs", post, %{"content" => "..."})
+iex> :ok = Blogging.set_version_live("docs", post.slug, 2)
+iex> {:ok, spanish} = Blogging.add_language_to_post("docs", "getting-started", "es")
+iex> :ok = Blogging.delete_language("docs", "getting-started", "fr")
+iex> :ok = Blogging.delete_version("docs", "getting-started", 1)
+```
+
+- `create_new_version/4` clones metadata/content into a draft; promote it with `set_version_live/3`.
+- Languages live beside each other (`en.phk`, `es.phk`, etc.) and share cache + slug metadata.
+
+### Filesystem + cache helpers
+
+```elixir
+iex> posts = Blogging.list_posts("docs")
+iex> :ok = Blogging.regenerate_cache("docs")
+iex> {:ok, cached} = Blogging.find_cached_post("docs", "getting-started")
+iex> {:ok, trash_path} = Blogging.trash_post("docs", "getting-started")
+```
+
+- `.listing_cache.json` sits inside each blog directory; cache helpers wrap direct JSON access.
+- All destructive helpers move content into `priv/blogging/trash/...` so you can restore manually.
+
 ### Blog Management
 
 ```elixir
@@ -319,7 +447,25 @@ slug = Blogging.slugify("My Blog Post!")  # => "my-blog-post"
 Blogging.valid_slug?("my-slug")  # => true
 Blogging.valid_slug?("en")       # => false (reserved language code)
 
-# Language info (delegated to Storage)
+# Slug validation with error reason
+{:ok, "hello-world"} = Blogging.validate_slug("hello-world")
+{:error, :invalid_format} = Blogging.validate_slug("Hello World")
+{:error, :reserved_language_code} = Blogging.validate_slug("en")
+
+# Check if slug exists and generate unique slugs
+Blogging.slug_exists?("docs", "getting-started")  # => true/false
+{:ok, slug} = Blogging.generate_unique_slug("docs", "Getting Started")
+# => {:ok, "getting-started"} or {:ok, "getting-started-1"} if exists
+
+# Language utilities
+Blogging.enabled_language_codes()  # => ["en", "es", "fr"]
+Blogging.get_master_language()     # => "en"
+Blogging.language_enabled?("en", ["en-US", "es"])  # => true
+Blogging.get_display_code("en", ["en-US", "es"])   # => "en-US"
+Blogging.order_languages_for_display(["fr", "en"], ["en", "es"])
+# => ["en", "fr"] (enabled first, then others)
+
+# Language info
 info = Blogging.get_language_info("en")
 # => %{code: "en", name: "English", flag: "🇺🇸"}
 ```
@@ -358,6 +504,94 @@ posts = Blogging.list_posts("docs", "es")  # With language preference
 
 # Add translation
 {:ok, spanish_post} = Blogging.add_language_to_post("docs", "getting-started", "es")
+```
+
+### Delete Operations
+
+All delete operations move content to a trash folder rather than permanent deletion:
+
+```elixir
+# Move post to trash (all versions and languages)
+{:ok, trash_path} = Blogging.trash_post("docs", "getting-started")
+# => {:ok, "trash/docs/getting-started-2025-01-02-14-30-00"}
+
+# For timestamp mode, use the date/time path
+{:ok, trash_path} = Blogging.trash_post("news", "2025-01-15/14:30")
+
+# Delete a specific translation (refuses if last language)
+:ok = Blogging.delete_language("docs", "getting-started", "es")
+:ok = Blogging.delete_language("docs", "getting-started", "es", 2)  # specific version
+{:error, :cannot_delete_last_language} = Blogging.delete_language("docs", "post", "en")
+
+# Delete a version (moves to trash, refuses if live or last version)
+:ok = Blogging.delete_version("docs", "getting-started", 1)
+{:error, :cannot_delete_live_version} = Blogging.delete_version("docs", "post", 2)
+{:error, :cannot_delete_last_version} = Blogging.delete_version("docs", "post", 1)
+```
+
+### Versioning Operations
+
+```elixir
+# List all versions of a post
+versions = Blogging.list_versions("docs", "getting-started")
+# => [1, 2, 3]
+
+# Get specific version info
+{:ok, 3} = Blogging.get_latest_version("docs", "getting-started")
+{:ok, 2} = Blogging.get_latest_published_version("docs", "getting-started")
+{:ok, 2} = Blogging.get_live_version("docs", "getting-started")
+
+# Get version metadata
+{:ok, metadata} = Blogging.get_version_metadata("docs", "getting-started", 1, "en")
+
+# Create new version from existing post
+{:ok, new_post} = Blogging.create_new_version("docs", source_post, %{
+  "content" => "Updated content..."
+}, scope: current_user_scope)
+
+# Set a version as live (public-facing)
+:ok = Blogging.set_version_live("docs", "getting-started", 2)
+
+# Check version structure and migration
+:versioned = Blogging.detect_post_structure("/path/to/post")
+{:ok, post} = Blogging.migrate_post_to_versioned(legacy_post)
+
+# Helpers for version creation logic
+Blogging.content_changed?(post, params)  # => true/false
+Blogging.status_change_only?(post, params)  # => true/false
+Blogging.should_create_new_version?(post, params, "en")  # => true/false
+```
+
+### Version History & Public URLs
+
+Slug-mode blogs can expose older published versions directly to visitors.
+
+- In the editor, toggle **Show Version History** (master language only) to set
+  `allow_version_access: true` in frontmatter. This adds a version dropdown to the public page.
+- Public URLs follow the pattern `/{prefix}/{language}/{blog}/{post}/v/{version}` and are only
+  accessible when the target version's metadata.status is `"published"` and the live version allows
+  history access.
+- The controller always checks the master language's live version to decide if history is enabled,
+  and `PhoenixKitWeb.Live.Modules.Blogging.ListingCache` stores the `allow_version_access` flag +
+  live `version` for fast dropdown rendering.
+- When disabled (default), `v/<version>` URLs return `404` to prevent unintended leakage of draft
+  content.
+
+### Cache Operations
+
+```elixir
+# Regenerate listing cache (called automatically on post changes)
+:ok = Blogging.regenerate_cache("docs")
+
+# Invalidate (delete) cache
+:ok = Blogging.invalidate_cache("docs")
+
+# Check if cache exists
+Blogging.cache_exists?("docs")  # => true/false
+
+# Fast post lookup from cache (O(1) instead of filesystem scan)
+{:ok, post_data} = Blogging.find_cached_post("docs", "getting-started")
+{:ok, post_data} = Blogging.find_cached_post_by_path("news", "2025-01-15", "14:30")
 ```
 
 ## Storage Layer Implementation
@@ -434,6 +668,11 @@ Storage.absolute_path("docs/getting-started/en.phk")
 Storage.ensure_blog_root("docs")  # Creates directory if needed
 Storage.rename_blog_directory("old-slug", "new-slug")
 Storage.move_blog_to_trash("docs")  # Renames with timestamp
+
+# Post/version/language deletion (moves to trash)
+{:ok, path} = Storage.trash_post("docs", "getting-started")
+:ok = Storage.delete_language("docs", "getting-started", "es", 1)
+:ok = Storage.delete_version("docs", "getting-started", 1)
 
 # Language helpers
 Storage.language_filename()        # => "en.phk" (based on content language setting)
@@ -666,6 +905,17 @@ Blogging.enabled?()  # => true/false
 
 # Legacy key supported for backward compatibility:
 # Key: "blogging_categories" (auto-migrated to "blogging_blogs" on read)
+
+# Cache toggles
+PhoenixKit.Settings.update_setting("blogging_file_cache_enabled", "true")
+PhoenixKit.Settings.update_setting("blogging_memory_cache_enabled", "true")
+
+# Render cache (global + per blog)
+PhoenixKit.Settings.update_setting("blogging_render_cache_enabled", "true")
+PhoenixKit.Settings.update_setting("blogging_render_cache_enabled_docs", "false")
+
+# Custom settings backend (optional)
+config :phoenix_kit, blogging_settings_module: MyApp.CustomSettings
 ```
 
 ### Storage Path
@@ -859,6 +1109,152 @@ To change modes, you must:
 4. Delete old blog
 
 **No automatic migration is provided** – this is an infrequent operation best done manually.
+
+---
+
+### Problem: Cannot delete the last language
+
+**Symptoms:**
+```
+{:error, :cannot_delete_last_language}
+```
+
+**Root Cause:**
+
+Every post must have at least one language file. You cannot delete the only remaining translation.
+
+**Solution:**
+
+Either add another translation first, or trash the entire post:
+
+```elixir
+# Add another language first
+{:ok, _} = Blogging.add_language_to_post("docs", "post", "es")
+# Then delete the unwanted one
+:ok = Blogging.delete_language("docs", "post", "en")
+
+# Or trash the entire post
+{:ok, _} = Blogging.trash_post("docs", "post")
+```
+
+---
+
+### Problem: Cannot delete the live version
+
+**Symptoms:**
+```
+{:error, :cannot_delete_live_version}
+```
+
+**Root Cause:**
+
+The version you're trying to delete is currently the live (public-facing) version.
+
+**Solution:**
+
+Set a different version as live first:
+
+```elixir
+# Make another version live
+:ok = Blogging.set_version_live("docs", "post", 2)
+# Now delete the old version
+:ok = Blogging.delete_version("docs", "post", 1)
+```
+
+---
+
+### Problem: Cannot delete the last version
+
+**Symptoms:**
+```
+{:error, :cannot_delete_last_version}
+```
+
+**Root Cause:**
+
+Every post must have at least one version. You cannot delete the only remaining version.
+
+**Solution:**
+
+Either create a new version first, or trash the entire post:
+
+```elixir
+# Trash the entire post instead
+{:ok, _} = Blogging.trash_post("docs", "post")
+```
+
+### Future: Per-Language Slugs
+
+Currently, all language translations of a post share the same URL slug (the directory name). For better SEO in multilingual sites, each language could have its own unique URL slug.
+
+**Current Behavior:**
+```
+# All languages share same slug
+/en/docs/getting-started  →  docs/getting-started/en.phk
+/es/docs/getting-started  →  docs/getting-started/es.phk
+/fr/docs/getting-started  →  docs/getting-started/fr.phk
+```
+
+**Proposed Per-Language Slugs:**
+```
+# Each language has its own SEO-friendly slug
+/en/docs/getting-started   →  docs/getting-started/en.phk  (slug: "getting-started")
+/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (slug: "primeros-pasos")
+/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (slug: "prise-en-main")
+```
+
+**Implementation Approach:**
+
+1. **Directory = Master Slug (Internal Identifier)**
+   - The post directory name becomes the internal ID (e.g., `getting-started/`)
+   - This never changes and ties all language versions together
+
+2. **Frontmatter = Per-Language Slug**
+   - Each `.phk` file stores its own `slug` in frontmatter
+   - English: `slug: getting-started`
+   - Spanish: `slug: primeros-pasos`
+   - Slug can be edited independently per language
+
+3. **ListingCache Indexes Language Slugs**
+   ```json
+   {
+     "posts": [{
+       "master_slug": "getting-started",
+       "language_slugs": {
+         "en": "getting-started",
+         "es": "primeros-pasos",
+         "fr": "prise-en-main"
+       }
+     }]
+   }
+   ```
+
+4. **O(1) Lookup via Cache**
+   ```elixir
+   # Instead of filesystem scan, lookup in memory cache
+   ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
+   # => {:ok, %{master_slug: "getting-started", language: "es", ...}}
+   ```
+
+**Components to Update:**
+
+| Component | Changes Required |
+|-----------|-----------------|
+| `metadata.ex` | Slug field already exists (no change) |
+| `listing_cache.ex` | Add `language_slugs` map to cache structure, add `find_by_url_slug/3` |
+| `blog_controller.ex` | Use cache lookup instead of direct path construction |
+| `editor.ex` | Allow editing slug per-language (currently shared) |
+| `blog_html.ex` | `build_post_url/4` uses language-specific slug from post struct |
+
+**Migration Path:**
+
+Existing posts would work as-is (all languages default to directory name as slug). Per-language slugs would be opt-in by editing the slug field for specific translations.
+
+**Why This Matters:**
+
+- **SEO Benefits**: Search engines prefer localized URLs (`/es/blog/primeros-pasos` vs `/es/blog/getting-started`)
+- **User Experience**: Native speakers see URLs in their language
+- **Link Sharing**: Localized URLs are more shareable in non-English communities
 
 ## Getting Help
 

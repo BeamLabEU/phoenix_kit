@@ -2,7 +2,9 @@ import Config
 
 # Configure PhoenixKit application
 config :phoenix_kit,
-  ecto_repos: []
+  ecto_repos: [],
+  # Required for standalone development - ensures Storage.root_path() resolves correctly
+  parent_app_name: :phoenix_kit
 
 # Configure password requirements (optional - these are the defaults)
 # Uncomment and modify to enforce specific password strength requirements

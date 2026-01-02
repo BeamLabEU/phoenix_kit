@@ -115,6 +115,27 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
     Manager.broadcast(posts_topic(blog_slug), {:post_status_changed, post})
   end
 
+  @doc """
+  Broadcasts that a new version was created for a post.
+  """
+  def broadcast_version_created(blog_slug, post) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_created, post})
+  end
+
+  @doc """
+  Broadcasts that the live version changed for a post.
+  """
+  def broadcast_version_live_changed(blog_slug, post_slug, version) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_live_changed, post_slug, version})
+  end
+
+  @doc """
+  Broadcasts that a version was deleted from a post.
+  """
+  def broadcast_version_deleted(blog_slug, post_slug, version) do
+    Manager.broadcast(posts_topic(blog_slug), {:version_deleted, post_slug, version})
+  end
+
   # ============================================================================
   # Post-Level Updates (translation changes)
   # ============================================================================
@@ -248,26 +269,72 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
   end
 
   # ============================================================================
+  # Cache Updates (for live admin UI updates)
+  # ============================================================================
+
+  @doc """
+  Returns the topic for cache updates for a specific blog.
+  """
+  def cache_topic(blog_slug) do
+    "#{@topic_prefix}:#{blog_slug}:cache"
+  end
+
+  @doc """
+  Subscribes the current process to cache updates for a blog.
+  """
+  def subscribe_to_cache(blog_slug) do
+    Manager.subscribe(cache_topic(blog_slug))
+  end
+
+  @doc """
+  Unsubscribes the current process from cache updates for a blog.
+  """
+  def unsubscribe_from_cache(blog_slug) do
+    Manager.unsubscribe(cache_topic(blog_slug))
+  end
+
+  @doc """
+  Broadcasts that the cache state has changed (file regenerated, memory loaded, etc).
+  """
+  def broadcast_cache_changed(blog_slug) do
+    Manager.broadcast(cache_topic(blog_slug), {:cache_changed, blog_slug})
+  end
+
+  # ============================================================================
   # Form Key Helpers
   # ============================================================================
 
   @doc """
   Generates a form key for a post being edited.
 
+  The form key includes the language to allow concurrent editing of different
+  translations of the same post.
+
   ## Examples
 
-      generate_form_key("blog", %{path: "blog/my-post/en.phk"})
-      # => "blog:blog/my-post/en.phk"
+      generate_form_key("blog", %{path: "blog/my-post/v1/en.phk"})
+      # => "blog:blog/my-post/v1/en.phk"
+
+      generate_form_key("blog", %{slug: "my-post", language: "en"})
+      # => "blog:my-post:en"
 
       generate_form_key("blog", %{slug: "my-post", language: "en"}, :new)
       # => "blog:new:en"
   """
   def generate_form_key(blog_slug, post, mode \\ :edit)
 
+  # Path already includes language (e.g., "blog/my-post/v1/en.phk")
   def generate_form_key(blog_slug, %{path: path}, :edit) when is_binary(path) do
     "#{blog_slug}:#{path}"
   end
 
+  # Slug mode - include language for per-language locking
+  def generate_form_key(blog_slug, %{slug: slug, language: lang}, :edit)
+      when is_binary(slug) and is_binary(lang) do
+    "#{blog_slug}:#{slug}:#{lang}"
+  end
+
+  # Fallback for slug without language (shouldn't happen in practice)
   def generate_form_key(blog_slug, %{slug: slug}, :edit) when is_binary(slug) do
     "#{blog_slug}:#{slug}"
   end
