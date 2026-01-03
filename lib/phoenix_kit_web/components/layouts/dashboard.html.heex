@@ -11,6 +11,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
+    <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
     <.live_title default={"#{project_title} Dashboard"}>
       {assigns[:page_title] || "Dashboard"}
     </.live_title>

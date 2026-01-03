@@ -11,6 +11,18 @@ defmodule PhoenixKit.Utils.Routes do
 
   @default_locale Config.default_locale()
 
+  @doc """
+  Returns the configured PhoenixKit URL prefix.
+
+  ## Examples
+
+      iex> PhoenixKit.Utils.Routes.url_prefix()
+      "/phoenix_kit"
+
+  """
+  @spec url_prefix() :: String.t()
+  def url_prefix, do: Config.get_url_prefix()
+
   # NOTE: Locale override logic below exists for the temporary blogging component system integration.
   # Switch to the upcoming media/storage helpers once they land.
   def path(url_path, opts \\ []) do

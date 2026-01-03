@@ -1160,7 +1160,7 @@ defmodule PhoenixKit.Modules.Storage do
       |> Base.encode16(case: :lower)
 
     # Generate UUIDv7 for file ID
-    file_id = generate_uuidv7()
+    file_id = PhoenixKit.UUID.generate()
 
     # Build hierarchical path - organized by user_prefix/hash_prefix/md5_hash
     user_prefix = String.slice(to_string(user_id), 0, 2)
@@ -1394,10 +1394,6 @@ defmodule PhoenixKit.Modules.Storage do
       |> repo().delete_all()
 
     deleted_count
-  end
-
-  defp generate_uuidv7 do
-    UUIDv7.generate()
   end
 
   defp get_file_size(source_path) do

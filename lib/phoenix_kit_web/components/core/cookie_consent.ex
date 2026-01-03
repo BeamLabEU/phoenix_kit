@@ -101,31 +101,29 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
       data-show-icon={to_string(@show_icon)}
       class={["pk-consent-widget", @class]}
     >
-      <%!-- Custom Styles --%>
+      <%!-- Custom Styles using daisyUI CSS variables --%>
       <style>
         .pk-consent-widget {
-          --pk-glass-bg: rgba(255, 255, 255, 0.85);
-          --pk-glass-border: rgba(255, 255, 255, 0.3);
-          --pk-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-          --pk-accent: oklch(65% 0.19 255);
-          --pk-accent-glow: oklch(65% 0.19 255 / 0.4);
-        }
-
-        [data-theme="dark"] .pk-consent-widget,
-        .dark .pk-consent-widget {
-          --pk-glass-bg: rgba(30, 30, 40, 0.9);
-          --pk-glass-border: rgba(255, 255, 255, 0.1);
-          --pk-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+          --pk-bg: oklch(var(--b1));
+          --pk-bg-alt: oklch(var(--b2));
+          --pk-border: oklch(var(--b3));
+          --pk-text: oklch(var(--bc));
+          --pk-text-muted: oklch(var(--bc) / 0.6);
+          --pk-primary: oklch(var(--p));
+          --pk-primary-content: oklch(var(--pc));
+          --pk-primary-soft: oklch(var(--p) / 0.1);
+          --pk-primary-glow: oklch(var(--p) / 0.4);
+          --pk-shadow: 0 8px 32px oklch(var(--bc) / 0.12);
         }
 
         @keyframes pk-breathe {
           0%, 100% {
-            box-shadow: 0 0 0 0 var(--pk-accent-glow),
-                        0 4px 12px rgba(0, 0, 0, 0.15);
+            box-shadow: 0 0 0 0 var(--pk-primary-glow),
+                        0 4px 12px oklch(var(--bc) / 0.15);
           }
           50% {
             box-shadow: 0 0 0 8px transparent,
-                        0 4px 16px rgba(0, 0, 0, 0.2);
+                        0 4px 16px oklch(var(--bc) / 0.2);
           }
         }
 
@@ -154,8 +152,8 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
         .pk-floating-icon:hover {
           transform: scale(1.1);
           animation: none;
-          box-shadow: 0 0 0 4px var(--pk-accent-glow),
-                      0 8px 24px rgba(0, 0, 0, 0.25);
+          box-shadow: 0 0 0 4px var(--pk-primary-glow),
+                      0 8px 24px oklch(var(--bc) / 0.25);
         }
 
         .pk-floating-icon:active {
@@ -175,27 +173,36 @@ defmodule PhoenixKitWeb.Components.Core.CookieConsent do
         }
 
         .pk-glass {
-          background: var(--pk-glass-bg);
+          background: oklch(var(--b1) / 0.95);
           backdrop-filter: blur(20px) saturate(180%);
           -webkit-backdrop-filter: blur(20px) saturate(180%);
-          border: 1px solid var(--pk-glass-border);
-          box-shadow: var(--pk-glass-shadow);
+          border: 1px solid var(--pk-border);
+          box-shadow: var(--pk-shadow);
         }
 
         .pk-category-card {
           transition: all 0.2s ease;
+          background: var(--pk-bg-alt);
+          border: 1px solid var(--pk-border);
         }
 
         .pk-category-card:hover {
           transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px oklch(var(--bc) / 0.1);
         }
 
         .pk-toggle-track {
+          background: var(--pk-border);
           transition: background-color 0.2s ease;
         }
 
+        .pk-toggle-track.active {
+          background: var(--pk-primary);
+        }
+
         .pk-toggle-thumb {
+          background: var(--pk-bg);
+          box-shadow: 0 1px 3px oklch(var(--bc) / 0.2);
           transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 

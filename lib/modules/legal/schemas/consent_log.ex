@@ -136,14 +136,8 @@ defmodule PhoenixKit.Modules.Legal.ConsentLog do
     if get_field(changeset, :uuid) do
       changeset
     else
-      put_change(changeset, :uuid, generate_uuidv7())
+      put_change(changeset, :uuid, PhoenixKit.UUID.generate())
     end
-  end
-
-  # Generate UUIDv7 (time-ordered)
-  defp generate_uuidv7 do
-    # Use Ecto.UUID.generate for now, replace with proper UUIDv7 if needed
-    Ecto.UUID.generate()
   end
 
   # ===================================

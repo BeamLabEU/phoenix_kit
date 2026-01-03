@@ -23,8 +23,14 @@
 
   var STORAGE_KEY = "pk_consent";
   var VERSION_KEY = "pk_consent_version";
-  var CONFIG_ENDPOINT = "/phoenix_kit/api/consent-config";
   var CATEGORIES = ["necessary", "analytics", "marketing", "preferences"];
+
+  // Get PhoenixKit URL prefix from meta tag or default
+  function getConfigEndpoint() {
+    var meta = document.querySelector('meta[name="phoenix-kit-prefix"]');
+    var prefix = meta ? meta.getAttribute("content") : "/phoenix_kit";
+    return prefix + "/api/consent-config";
+  }
   var OPT_IN_FRAMEWORKS = ["gdpr", "uk_gdpr", "lgpd", "pipeda"];
 
   // =====================================================
@@ -185,6 +191,26 @@
     });
 
     log("Google Consent Mode updated", consent);
+  }
+
+  function resetGoogleConsentMode() {
+    // Reset Google Consent Mode to granted state when widget is disabled
+    // This ensures no blocking occurs when the consent widget is turned off
+    if (typeof window.dataLayer === "undefined") return;
+
+    function gtag() { window.dataLayer.push(arguments); }
+
+    gtag("consent", "update", {
+      "ad_storage": "granted",
+      "analytics_storage": "granted",
+      "ad_user_data": "granted",
+      "ad_personalization": "granted",
+      "personalization_storage": "granted",
+      "functionality_storage": "granted",
+      "security_storage": "granted"
+    });
+
+    log("Google Consent Mode reset to granted (widget disabled)");
   }
 
   // =====================================================
@@ -714,7 +740,7 @@
   }
 
   function fetchConfigAndInit() {
-    fetch(CONFIG_ENDPOINT)
+    fetch(getConfigEndpoint(), { credentials: "same-origin" })
       .then(function(response) {
         if (!response.ok) {
           throw new Error("Config endpoint returned " + response.status);
@@ -722,10 +748,12 @@
         return response.json();
       })
       .then(function(config) {
-        if (config.enabled) {
+        if (config.enabled && config.should_show !== false) {
           initFromConfig(config);
         } else {
           log("Consent widget is disabled");
+          // Reset Google Consent Mode to granted state when widget is disabled
+          resetGoogleConsentMode();
         }
       })
       .catch(function(err) {

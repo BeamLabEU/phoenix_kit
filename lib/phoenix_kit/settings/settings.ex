@@ -143,6 +143,10 @@ defmodule PhoenixKit.Settings do
       # SEO
       "seo_module_enabled" => "false",
       "seo_no_index" => "false",
+      # Webhook Security Settings
+      "webhook_verify_sns_signature" => "true",
+      "webhook_check_aws_ip" => "true",
+      "webhook_rate_limit_enabled" => "true",
       # OAuth Provider Credentials
       "oauth_google_client_id" => "",
       "oauth_google_client_secret" => "",

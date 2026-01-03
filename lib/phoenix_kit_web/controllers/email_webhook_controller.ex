@@ -31,13 +31,16 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
 
   ## Configuration
 
-  Set these environment variables for security:
+  Security settings are stored in the database and managed via Settings:
 
-      # Enable/disable specific security features
-      PHOENIX_KIT_WEBHOOK_VERIFY_SNS_SIGNATURE=true
-      PHOENIX_KIT_WEBHOOK_CHECK_AWS_IP=true
-      PHOENIX_KIT_WEBHOOK_RATE_LIMIT_ENABLED=true
-      PHOENIX_KIT_WEBHOOK_MAX_AGE_SECONDS=300
+      # Settings keys (all default to true)
+      webhook_verify_sns_signature    # Validate AWS SNS signatures
+      webhook_check_aws_ip            # Restrict to AWS IP ranges
+      webhook_rate_limit_enabled      # Enable rate limiting
+
+  Configure via Admin UI at `/admin/settings` or programmatically:
+
+      PhoenixKit.Settings.update_boolean_setting("webhook_verify_sns_signature", false)
 
   ## Usage
 
@@ -74,6 +77,8 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
   import Bitwise
 
   require Logger
+
+  alias PhoenixKit.Settings
 
   # Rate limiting configuration (commented out for future use)
   # @default_rate_limit %{max_requests: 100, window_seconds: 60}
@@ -499,16 +504,16 @@ defmodule PhoenixKitWeb.Controllers.EmailWebhookController do
     end
   end
 
-  # Configuration helpers
+  # Configuration helpers - uses Settings database for centralized configuration
   defp signature_verification_enabled? do
-    System.get_env("PHOENIX_KIT_WEBHOOK_VERIFY_SNS_SIGNATURE", "true") == "true"
+    Settings.get_boolean_setting("webhook_verify_sns_signature", true)
   end
 
   defp aws_ip_check_enabled? do
-    System.get_env("PHOENIX_KIT_WEBHOOK_CHECK_AWS_IP", "true") == "true"
+    Settings.get_boolean_setting("webhook_check_aws_ip", true)
   end
 
   defp rate_limiting_enabled? do
-    System.get_env("PHOENIX_KIT_WEBHOOK_RATE_LIMIT_ENABLED", "true") == "true"
+    Settings.get_boolean_setting("webhook_rate_limit_enabled", true)
   end
 end
