@@ -83,6 +83,17 @@
                       <% end %>
                     </tr>
                   <% end %>
+                  <%!-- Empty placeholder rows to maintain consistent height --%>
+                  <% empty_rows = @per_page - length(@preview.rows) %>
+                  <%= if empty_rows > 0 do %>
+                    <%= for _i <- 1..empty_rows do %>
+                      <tr class="invisible">
+                        <%= for _column <- @preview.columns do %>
+                          <td class="align-middle">&nbsp;</td>
+                        <% end %>
+                      </tr>
+                    <% end %>
+                  <% end %>
                 <% end %>
               </tbody>
             </table>
