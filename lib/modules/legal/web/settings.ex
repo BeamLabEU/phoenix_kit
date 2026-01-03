@@ -55,6 +55,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
       |> assign(:policy_version, widget_config.policy_version)
       |> assign(:google_consent_mode, widget_config.google_consent_mode)
       |> assign(:show_consent_icon, widget_config.show_icon)
+      |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
 
     {:ok, socket}
   end
@@ -166,6 +167,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
          socket
          |> assign(:generating, false)
          |> assign(:generated_pages, Legal.list_generated_pages())
+         |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
          |> put_flash(:info, gettext("Page generated successfully"))}
 
       {:error, reason} ->
@@ -175,6 +177,26 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
          |> put_flash(
            :error,
            gettext("Failed to generate page: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
+  @impl true
+  def handle_event("publish_page", %{"page_slug" => page_slug}, socket) do
+    case Legal.publish_page(page_slug, scope: socket.assigns[:current_scope]) do
+      {:ok, _post} ->
+        {:noreply,
+         socket
+         |> assign(:generated_pages, Legal.list_generated_pages())
+         |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
+         |> put_flash(:info, gettext("Page published successfully"))}
+
+      {:error, reason} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Failed to publish page: %{reason}", reason: inspect(reason))
          )}
     end
   end
@@ -193,6 +215,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
      socket
      |> assign(:generating, false)
      |> assign(:generated_pages, Legal.list_generated_pages())
+     |> assign(:unpublished_pages, Legal.get_unpublished_required_pages())
      |> put_flash(:info, gettext("Generated %{count} pages", count: success_count))}
   end
 

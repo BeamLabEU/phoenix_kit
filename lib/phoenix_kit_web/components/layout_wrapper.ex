@@ -31,12 +31,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   import PhoenixKitWeb.Components.Core.Flash, only: [flash_group: 1]
+  import PhoenixKitWeb.Components.Core.CookieConsent, only: [cookie_consent: 1]
   import PhoenixKitWeb.Components.AdminNav
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
@@ -1275,6 +1277,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
+        <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
         <.live_title default={"#{assigns[:project_title] || "PhoenixKit"} Admin"}>
           {assigns[:page_title] || "Admin"}
         </.live_title>
@@ -1290,6 +1293,20 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
           <.flash_group flash={@flash} />
           {render_slot(@inner_block)}
         </main>
+
+        <%!-- Cookie Consent Widget --%>
+        <%= if Legal.consent_widget_enabled?() do %>
+          <% config = Legal.get_consent_widget_config() %>
+          <.cookie_consent
+            frameworks={config.frameworks}
+            consent_mode={config.consent_mode}
+            icon_position={config.icon_position}
+            policy_version={config.policy_version}
+            cookie_policy_url={config.cookie_policy_url}
+            privacy_policy_url={config.privacy_policy_url}
+            google_consent_mode={config.google_consent_mode}
+          />
+        <% end %>
       </body>
     </html>
     """
