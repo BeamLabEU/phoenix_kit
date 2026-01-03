@@ -92,9 +92,11 @@
           <%= if @preview.total_pages > 1 do %>
             <div id="scrollbar-container" class="relative flex-shrink-0 self-stretch">
               <%!-- Page markers (hidden until scrolling) --%>
+              <% zone_offset = 50 / @preview.total_pages %>
               <div
                 id="page-markers"
-                class="absolute right-5 top-0 bottom-0 w-8 pointer-events-none opacity-0 transition-opacity duration-150"
+                class="absolute right-5 w-8 pointer-events-none opacity-0 transition-opacity duration-150"
+                style={"top: #{zone_offset}%; bottom: #{zone_offset}%;"}
               >
                 <%= for page <- 1..@preview.total_pages do %>
                   <div
@@ -172,6 +174,9 @@
 
           // Update scrollbar content height
           this.updateScrollbarHeight();
+
+          // Sync scroll position to current page on initial load
+          this.syncScrollToPage();
 
           // Calculate and set optimal per_page on mount
           this.calculatePerPage();
@@ -302,6 +307,14 @@
           } else if (content) {
             content.style.height = `${this.totalPages * 500}px`;
           }
+        },
+
+        syncScrollToPage() {
+          if (!this.scrollbar || this.totalPages <= 1) return;
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const targetScroll = ((this.page - 1) / (this.totalPages - 1)) * maxScroll;
+          this.scrollbar.scrollTop = targetScroll;
         },
 
         showMarkers() {
