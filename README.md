@@ -163,6 +163,7 @@ This will automatically:
     - Chat
 - Jobs Module (Oban powered)
 - E-commerce Module
+    - E-commerce Storefront
     - Physical products
     - Digital and downloadable products
 - Missing features for User Auth Module
@@ -180,8 +181,6 @@ This will automatically:
 - Media / Gallery
 - Local / External storage support (AWS S3, Azure Storage, Google Storage, Cloudflare R2, and DigitalOcean Spaces)
 - CDN
-- Static pages
-- Blog
 - Comments
 - Search
 - Blocks
@@ -206,9 +205,6 @@ This will automatically:
   - Charts, trends and notifications
 - API Module
 - Cron Modules
-- Testimonials Module
-- Team Module
-- FAQ
 - Forms Module
 - Cluster Module
 
