@@ -176,6 +176,7 @@
           this.resizeTimer = null;
           this.markerHideTimer = null;
           this.lockedHeight = null;
+          this.isHoldingScrollbar = false;
           this.page = parseInt(this.el.dataset.page || '1', 10);
           this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
           this.perPage = parseInt(this.el.dataset.perPage || '50', 10);
@@ -197,10 +198,23 @@
             this.scrollHandler = this.handleScroll.bind(this);
             this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
 
-            // Show/hide markers on interaction
-            this.scrollbar.addEventListener('mousedown', () => this.showMarkers());
-            this.scrollbar.addEventListener('mouseup', () => this.hideMarkersDelayed());
-            this.scrollbar.addEventListener('mouseleave', () => this.hideMarkersDelayed());
+            // Show/hide markers and snap on release
+            this.scrollbar.addEventListener('mousedown', () => {
+              this.isHoldingScrollbar = true;
+              this.showMarkers();
+            });
+            this.scrollbar.addEventListener('mouseup', () => {
+              this.isHoldingScrollbar = false;
+              this.snapToPage();
+              this.hideMarkersDelayed();
+            });
+            this.scrollbar.addEventListener('mouseleave', () => {
+              if (this.isHoldingScrollbar) {
+                this.isHoldingScrollbar = false;
+                this.snapToPage();
+              }
+              this.hideMarkersDelayed();
+            });
           }
 
           // Handle window resize
@@ -325,6 +339,16 @@
 
           const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
           const targetScroll = ((this.page - 1) / (this.totalPages - 1)) * maxScroll;
+          this.scrollbar.scrollTop = targetScroll;
+        },
+
+        snapToPage() {
+          // Snap to the pending page or current page position
+          const page = this.pendingPage || this.page;
+          if (!this.scrollbar || this.totalPages <= 1) return;
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const targetScroll = ((page - 1) / (this.totalPages - 1)) * maxScroll;
           this.scrollbar.scrollTop = targetScroll;
         },
 
