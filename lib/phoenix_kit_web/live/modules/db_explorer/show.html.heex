@@ -1,0 +1,357 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - #{@schema}.#{@table}"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-base-content">{@schema}.{@table}</h1>
+        <p class="text-base-content/70">
+          <.formatted_number number={@preview.approx_rows} format={:short} />
+          rows • {format_bytes(@preview.size_bytes)}
+        </p>
+      </div>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables
+      </.link>
+    </header>
+
+    <div class="bg-base-100 rounded-box shadow border border-base-200">
+      <div class="p-4 border-b border-base-200 flex flex-col md:flex-row gap-4">
+        <div class="flex-1">
+          <.form for={%{}} phx-change="search">
+            <.input
+              name="search"
+              label="Search rows"
+              value={@search}
+              placeholder="Search text columns"
+              phx-debounce="400"
+            />
+          </.form>
+        </div>
+        <div class="text-sm text-base-content/70 md:self-end md:pb-2">
+          Page {@preview.page} of {@preview.total_pages} • {@preview.row_count} rows
+        </div>
+      </div>
+
+      <div
+        id="db-table-scroller"
+        class="relative"
+        phx-hook="DBTableScroller"
+        data-page={@preview.page}
+        data-total-pages={@preview.total_pages}
+        data-per-page={@per_page}
+      >
+        <%!-- Fake scrollbar container --%>
+        <div class="flex">
+          <%!-- Table content --%>
+          <div id="table-container" class="flex-1 overflow-x-auto">
+            <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
+              <thead>
+                <tr>
+                  <%= for column <- @preview.columns do %>
+                    <th class="text-xs uppercase tracking-wide text-base-content/70">
+                      {column.name}
+                    </th>
+                  <% end %>
+                </tr>
+              </thead>
+              <tbody>
+                <%= if Enum.empty?(@preview.rows) do %>
+                  <tr>
+                    <td
+                      colspan={length(@preview.columns)}
+                      class="text-center !py-8 text-base-content/70"
+                    >
+                      No rows found.
+                    </td>
+                  </tr>
+                <% else %>
+                  <%= for row <- @preview.rows do %>
+                    <tr>
+                      <%= for column <- @preview.columns do %>
+                        <td class="align-middle max-w-xs truncate">
+                          {format_cell(Map.get(row, column.name))}
+                        </td>
+                      <% end %>
+                    </tr>
+                  <% end %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+
+          <%!-- Fake scrollbar with page markers --%>
+          <%= if @preview.total_pages > 1 do %>
+            <div id="scrollbar-container" class="relative flex-shrink-0 self-stretch">
+              <%!-- Page markers (hidden until scrolling) --%>
+              <div
+                id="page-markers"
+                class="absolute right-5 top-0 bottom-0 w-8 pointer-events-none opacity-0 transition-opacity duration-150"
+              >
+                <%= for page <- 1..@preview.total_pages do %>
+                  <div
+                    class="absolute right-0 text-[10px] font-medium text-base-content bg-base-100 px-1 rounded shadow-sm border border-base-300 -translate-y-1/2"
+                    style={"top: #{if @preview.total_pages > 1, do: (page - 1) / (@preview.total_pages - 1) * 100, else: 0}%"}
+                  >
+                    {page}
+                  </div>
+                <% end %>
+              </div>
+              <%!-- Scrollbar --%>
+              <div
+                id="fake-scrollbar"
+                class="w-4 bg-base-200 overflow-y-scroll"
+                style="height: 200px;"
+                phx-update="ignore"
+              >
+                <div id="fake-scrollbar-content"></div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-t border-base-200">
+        <div class="text-xs text-base-content/50">
+          Scroll the bar on the right to navigate pages, or use buttons below
+        </div>
+        <div class="btn-group">
+          <button
+            class="btn btn-sm"
+            phx-click="change_page"
+            phx-value-page={@preview.page - 1}
+            disabled={@preview.page <= 1}
+          >
+            « Prev
+          </button>
+          <button
+            class="btn btn-sm"
+            phx-click="change_page"
+            phx-value-page={@preview.page + 1}
+            disabled={@preview.page >= @preview.total_pages}
+          >
+            Next »
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+      if (window.PhoenixKitHooks.DBTableScroller) return;
+
+      window.PhoenixKitHooks.DBTableScroller = {
+        mounted() {
+          this.scrollbar = this.el.querySelector('#fake-scrollbar');
+          this.tableContainer = this.el.querySelector('#table-container');
+          this.tbody = this.el.querySelector('tbody');
+          this.pageMarkers = this.el.querySelector('#page-markers');
+
+          this.pendingPage = null;
+          this.debounceTimer = null;
+          this.resizeTimer = null;
+          this.markerHideTimer = null;
+          this.lockedHeight = null;
+          this.page = parseInt(this.el.dataset.page || '1', 10);
+          this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
+          this.perPage = parseInt(this.el.dataset.perPage || '50', 10);
+
+          // Measure and lock height on first full page
+          this.measureAndLockHeight();
+
+          // Update scrollbar content height
+          this.updateScrollbarHeight();
+
+          // Calculate and set optimal per_page on mount
+          this.calculatePerPage();
+
+          // Set up scroll handler
+          if (this.scrollbar) {
+            this.scrollHandler = this.handleScroll.bind(this);
+            this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
+
+            // Show/hide markers on interaction
+            this.scrollbar.addEventListener('mousedown', () => this.showMarkers());
+            this.scrollbar.addEventListener('mouseup', () => this.hideMarkersDelayed());
+            this.scrollbar.addEventListener('mouseleave', () => this.hideMarkersDelayed());
+          }
+
+          // Handle window resize
+          this.resizeHandler = this.handleResize.bind(this);
+          window.addEventListener('resize', this.resizeHandler, { passive: true });
+        },
+
+        updated() {
+          const newPage = parseInt(this.el.dataset.page || '1', 10);
+          const newTotalPages = parseInt(this.el.dataset.totalPages || '1', 10);
+          const newPerPage = parseInt(this.el.dataset.perPage || '50', 10);
+
+          // Re-query elements in case LiveView replaced them
+          const newScrollbar = this.el.querySelector('#fake-scrollbar');
+          if (newScrollbar !== this.scrollbar) {
+            // Scrollbar was replaced, re-attach event listeners
+            if (this.scrollbar) {
+              this.scrollbar.removeEventListener('scroll', this.scrollHandler);
+            }
+            this.scrollbar = newScrollbar;
+            if (this.scrollbar) {
+              this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
+              this.scrollbar.addEventListener('mousedown', () => this.showMarkers());
+              this.scrollbar.addEventListener('mouseup', () => this.hideMarkersDelayed());
+              this.scrollbar.addEventListener('mouseleave', () => this.hideMarkersDelayed());
+            }
+          }
+          this.tableContainer = this.el.querySelector('#table-container');
+          this.tbody = this.el.querySelector('tbody');
+          this.pageMarkers = this.el.querySelector('#page-markers');
+
+          // Update state
+          if (newTotalPages !== this.totalPages) {
+            this.totalPages = newTotalPages;
+            this.updateScrollbarHeight();
+          }
+
+          if (newPerPage !== this.perPage) {
+            this.perPage = newPerPage;
+            this.lockedHeight = null;
+          }
+
+          this.page = newPage;
+
+          // Measure and apply heights
+          this.measureAndLockHeight();
+        },
+
+        destroyed() {
+          if (this.scrollbar) {
+            this.scrollbar.removeEventListener('scroll', this.scrollHandler);
+          }
+          window.removeEventListener('resize', this.resizeHandler);
+          if (this.debounceTimer) clearTimeout(this.debounceTimer);
+          if (this.resizeTimer) clearTimeout(this.resizeTimer);
+          if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
+        },
+
+        measureAndLockHeight() {
+          if (!this.tableContainer) return;
+
+          const rowCount = this.tbody?.querySelectorAll('tr').length || 0;
+          const currentHeight = this.tableContainer.offsetHeight;
+
+          // Lock height when we have a full page of content
+          if (rowCount >= this.perPage && !this.lockedHeight) {
+            this.lockedHeight = currentHeight;
+          }
+
+          // Apply locked height to table container and scrollbar
+          if (this.lockedHeight) {
+            this.tableContainer.style.minHeight = `${this.lockedHeight}px`;
+            if (this.scrollbar) {
+              this.scrollbar.style.height = `${this.lockedHeight}px`;
+            }
+          } else if (currentHeight > 0 && this.scrollbar) {
+            // Use current height as fallback for scrollbar
+            this.scrollbar.style.height = `${currentHeight}px`;
+          }
+        },
+
+        calculatePerPage() {
+          // Get available height for table
+          const containerRect = this.el.getBoundingClientRect();
+          const availableHeight = window.innerHeight - containerRect.top - 150; // 150px for footer/padding
+
+          // Get row height from first data row
+          const firstRow = this.tbody?.querySelector('tr');
+          const rowHeight = firstRow ? firstRow.offsetHeight : 24;
+
+          // Calculate how many rows fit, with a minimum of 10 and max of 200
+          const calculatedPerPage = Math.max(10, Math.min(200, Math.floor(availableHeight / rowHeight)));
+
+          // Only update if significantly different (more than 5 rows)
+          if (Math.abs(calculatedPerPage - this.perPage) > 5) {
+            this.perPage = calculatedPerPage;
+            this.lockedHeight = null; // Reset locked height
+            this.pushEvent('set_per_page', { per_page: calculatedPerPage });
+          }
+        },
+
+        handleResize() {
+          if (this.resizeTimer) clearTimeout(this.resizeTimer);
+          this.resizeTimer = setTimeout(() => {
+            this.lockedHeight = null; // Reset on resize
+            if (this.tableContainer) this.tableContainer.style.minHeight = '';
+            this.calculatePerPage();
+          }, 300);
+        },
+
+        updateScrollbarHeight() {
+          const content = this.el.querySelector('#fake-scrollbar-content');
+          if (content && this.lockedHeight) {
+            content.style.height = `${this.totalPages * this.lockedHeight}px`;
+          } else if (content) {
+            content.style.height = `${this.totalPages * 500}px`;
+          }
+        },
+
+        showMarkers() {
+          if (this.markerHideTimer) {
+            clearTimeout(this.markerHideTimer);
+            this.markerHideTimer = null;
+          }
+          if (this.pageMarkers) {
+            this.pageMarkers.style.opacity = '1';
+          }
+        },
+
+        hideMarkersDelayed() {
+          if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
+          this.markerHideTimer = setTimeout(() => {
+            if (this.pageMarkers) {
+              this.pageMarkers.style.opacity = '0';
+            }
+          }, 300);
+        },
+
+        handleScroll() {
+          if (this.totalPages <= 1) return;
+
+          // Show markers while scrolling
+          this.showMarkers();
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const scrollPercent = this.scrollbar.scrollTop / maxScroll;
+          const newPage = Math.round(scrollPercent * (this.totalPages - 1)) + 1;
+          const clampedPage = Math.max(1, Math.min(newPage, this.totalPages));
+
+          this.pendingPage = clampedPage;
+
+          if (this.debounceTimer) clearTimeout(this.debounceTimer);
+
+          this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = null;
+
+            // Load page if changed
+            if (this.pendingPage !== this.page) {
+              this.page = this.pendingPage;
+              this.pushEvent('change_page', { page: this.pendingPage });
+            }
+
+            // Hide markers after scrolling stops
+            this.hideMarkersDelayed();
+          }, 100);
+        }
+      };
+    })();
+  </script>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

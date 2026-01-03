@@ -897,6 +897,71 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
+      <%!-- DB Explorer Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="DB Explorer"
+        description="Explore tables, rows, and stats"
+        icon="🗃️"
+        enabled={@db_explorer_enabled}
+        toggle_event="toggle_db_explorer"
+        stats_title="Current Stats"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@db_explorer_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @db_explorer_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @db_explorer_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-table-cells" class="w-4 h-4 mr-1" /> Explore DB
+              </.link>
+            <% else %>
+              <span class="text-xs text-base-content/50 text-center">
+                Enable module to browse database tables
+              </span>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Tables</span>
+              <div class="font-semibold">
+                <.formatted_number number={@db_explorer_table_count} />
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Rows</span>
+              <div class="font-semibold">
+                <.formatted_number number={@db_explorer_total_rows} format={:short} />
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Tables size</span>
+              <div class="font-semibold">
+                {format_bytes(@db_explorer_total_size)}
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Database size</span>
+              <div class="font-semibold">
+                {format_bytes(@db_explorer_database_size)}
+              </div>
+            </div>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
       <%!-- Jobs Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
         title="Jobs"
