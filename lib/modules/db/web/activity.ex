@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DB.Activity do
+defmodule PhoenixKit.Modules.DB.Web.Activity do
   @moduledoc """
   Live activity monitor for database changes.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DB.Activity do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.DB
-  alias PhoenixKit.DB.Listener
+  alias PhoenixKit.Modules.DB
+  alias PhoenixKit.Modules.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

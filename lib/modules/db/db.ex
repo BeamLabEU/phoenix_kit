@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DB do
+defmodule PhoenixKit.Modules.DB do
   @moduledoc """
   Database helpers for PhoenixKit.
 

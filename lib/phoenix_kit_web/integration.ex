@@ -297,6 +297,21 @@ defmodule PhoenixKitWeb.Integration do
         get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
         get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
       end
+
+      # DB Explorer routes - uses PhoenixKit.Modules.DB namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_db_explorer,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/db", PhoenixKit.Modules.DB.Web.Index, :index, as: :db_index
+
+          live "/admin/db/activity", PhoenixKit.Modules.DB.Web.Activity, :activity,
+            as: :db_activity
+
+          live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
+        end
+      end
     end
   end
 
@@ -503,10 +518,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/sync", Live.Modules.Sync.Index, :index
         live "/admin/sync/connections", Live.Modules.Sync.ConnectionsLive, :index
         live "/admin/sync/history", Live.Modules.Sync.History, :index
-        live "/admin/db", Live.Modules.DB.Index, :index
-        live "/admin/db/activity", Live.Modules.DB.Activity, :activity
-        live "/admin/db/:schema/:table", Live.Modules.DB.Show, :show
-
         # Entities Management
         live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
         live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DB.Show do
+defmodule PhoenixKit.Modules.DB.Web.Show do
   @moduledoc """
   Table detail view with paginated row browsing.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DB.Show do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.DB
-  alias PhoenixKit.DB.Listener
+  alias PhoenixKit.Modules.DB
+  alias PhoenixKit.Modules.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

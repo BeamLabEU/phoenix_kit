@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DB.Listener do
+defmodule PhoenixKit.Modules.DB.Listener do
   @moduledoc """
   GenServer that listens for PostgreSQL NOTIFY events for live table updates.
 

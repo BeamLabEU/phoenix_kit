@@ -9,10 +9,10 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
+  alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
