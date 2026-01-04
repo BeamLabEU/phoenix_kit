@@ -849,33 +849,33 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- DB Sync Module --%>
+      <%!-- Sync Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="DB Sync"
+        title="Sync"
         description="Sync data between PhoenixKit instances in real-time"
         icon="🔄"
-        enabled={@db_sync_enabled}
-        toggle_event="toggle_db_sync"
+        enabled={@sync_enabled}
+        toggle_event="toggle_sync"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@db_sync_enabled, do: "badge-success", else: "badge-neutral")
+            if(@sync_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @db_sync_enabled, do: "Enabled", else: "Disabled"}
+            {if @sync_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @db_sync_enabled and @db_sync_active_sessions > 0 do %>
+          <%= if @sync_enabled and @sync_active_sessions > 0 do %>
             <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
-              {@db_sync_active_sessions} active
+              {@sync_active_sessions} active
             </span>
           <% end %>
         </:status_badges>
 
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
-            <%= if @db_sync_enabled do %>
+            <%= if @sync_enabled do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/db-sync")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/sync")}
                 class="btn btn-primary btn-sm"
               >
                 <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Open Sync
@@ -890,9 +890,74 @@
 
         <:stats>
           <div class="text-xs text-base-content/70">
-            {if @db_sync_enabled,
+            {if @sync_enabled,
               do: "Sync data between dev, staging, and production environments",
               else: "Enable to sync data between PhoenixKit sites"}
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- DB Explorer Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="DB Explorer"
+        description="Explore tables, rows, and stats"
+        icon="🗃️"
+        enabled={@db_explorer_enabled}
+        toggle_event="toggle_db_explorer"
+        stats_title="Current Stats"
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@db_explorer_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @db_explorer_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @db_explorer_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-table-cells" class="w-4 h-4 mr-1" /> Open DB
+              </.link>
+            <% else %>
+              <span class="text-xs text-base-content/50 text-center">
+                Enable module to browse database tables
+              </span>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Tables</span>
+              <div class="font-semibold">
+                <.formatted_number number={@db_explorer_table_count} />
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Rows</span>
+              <div class="font-semibold">
+                <.formatted_number number={@db_explorer_total_rows} format={:short} />
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Tables size</span>
+              <div class="font-semibold">
+                {format_bytes(@db_explorer_total_size)}
+              </div>
+            </div>
+            <div>
+              <span class="text-base-content/70">Database size</span>
+              <div class="font-semibold">
+                {format_bytes(@db_explorer_database_size)}
+              </div>
+            </div>
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>

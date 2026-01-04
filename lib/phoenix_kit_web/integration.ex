@@ -245,44 +245,48 @@ defmodule PhoenixKitWeb.Integration do
       scope unquote(url_prefix), PhoenixKitWeb do
         pipe_through [:phoenix_kit_api]
 
-        post "/db-sync/api/register-connection",
-             Controllers.DBSyncApiController,
+        post "/sync/api/register-connection",
+             Controllers.SyncApiController,
              :register_connection
 
-        post "/db-sync/api/delete-connection",
-             Controllers.DBSyncApiController,
+        post "/sync/api/delete-connection",
+             Controllers.SyncApiController,
              :delete_connection
 
-        post "/db-sync/api/verify-connection",
-             Controllers.DBSyncApiController,
+        post "/sync/api/verify-connection",
+             Controllers.SyncApiController,
              :verify_connection
 
-        post "/db-sync/api/update-status",
-             Controllers.DBSyncApiController,
+        post "/sync/api/update-status",
+             Controllers.SyncApiController,
              :update_status
 
-        post "/db-sync/api/get-connection-status",
-             Controllers.DBSyncApiController,
+        post "/sync/api/get-connection-status",
+             Controllers.SyncApiController,
              :get_connection_status
 
-        post "/db-sync/api/list-tables",
-             Controllers.DBSyncApiController,
+        post "/sync/api/list-tables",
+             Controllers.SyncApiController,
              :list_tables
 
-        post "/db-sync/api/pull-data",
-             Controllers.DBSyncApiController,
+        post "/sync/api/pull-data",
+             Controllers.SyncApiController,
              :pull_data
 
-        post "/db-sync/api/table-schema",
-             Controllers.DBSyncApiController,
+        post "/sync/api/table-schema",
+             Controllers.SyncApiController,
              :table_schema
 
-        post "/db-sync/api/table-records",
-             Controllers.DBSyncApiController,
+        post "/sync/api/table-records",
+             Controllers.SyncApiController,
              :table_records
 
-        get "/db-sync/api/status", Controllers.DBSyncApiController, :status
+        get "/sync/api/status", Controllers.SyncApiController, :status
       end
+
+      # Sync WebSocket - forward to plug for websocket upgrade handling
+      # Uses url_prefix to be consistent with API routes
+      forward "#{unquote(url_prefix)}/sync/websocket", PhoenixKitWeb.Plugs.SyncSocketPlug
 
       # Email export routes (require admin or owner role)
       scope unquote(url_prefix), PhoenixKitWeb do
@@ -496,9 +500,12 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
 
         # DB Sync Module (permanent connections only)
-        live "/admin/db-sync", Live.Modules.DBSync.Index, :index
-        live "/admin/db-sync/connections", Live.Modules.DBSync.ConnectionsLive, :index
-        live "/admin/db-sync/history", Live.Modules.DBSync.History, :index
+        live "/admin/sync", Live.Modules.Sync.Index, :index
+        live "/admin/sync/connections", Live.Modules.Sync.ConnectionsLive, :index
+        live "/admin/sync/history", Live.Modules.Sync.History, :index
+        live "/admin/db", Live.Modules.DB.Index, :index
+        live "/admin/db/activity", Live.Modules.DB.Activity, :activity
+        live "/admin/db/:schema/:table", Live.Modules.DB.Show, :show
 
         # Entities Management
         live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
@@ -663,37 +670,36 @@ defmodule PhoenixKitWeb.Integration do
   end
 
   @doc """
-  Adds PhoenixKit sockets to your endpoint.
+  **DEPRECATED**: This macro is no longer needed.
 
-  Call this macro in your endpoint.ex to enable PhoenixKit WebSocket features
-  like DB Sync.
+  The Sync WebSocket is now automatically handled via the router when you
+  use `phoenix_kit_routes()`. The websocket endpoint is available at
+  `{url_prefix}/sync/websocket` without any additional configuration.
 
-  ## Usage
+  You can safely remove this macro from your endpoint.ex if you have it.
 
-  In your endpoint.ex:
+  ## Legacy Usage (deprecated)
+
+  Previously, this macro was required in endpoint.ex:
 
       defmodule MyAppWeb.Endpoint do
         use Phoenix.Endpoint, otp_app: :my_app
         import PhoenixKitWeb.Integration
 
-        # Add PhoenixKit sockets (for DB Sync, etc.)
-        phoenix_kit_socket()
-
-        # ... rest of your endpoint config
+        # No longer needed - remove this line
+        # phoenix_kit_socket()
       end
-
-  This adds:
-  - `/db-sync/websocket` endpoint for cross-site data sync
 
   ## Implementation Note
 
-  Uses WebSock directly (via Plug) instead of Phoenix.Socket/Channel to avoid
-  cross-OTP-app channel supervision issues. The WebSocket handler processes
-  JSON messages in Phoenix channel format for compatibility.
+  WebSocket handling is now done via `forward` in the router, which makes
+  the setup fully self-contained within PhoenixKit. No endpoint modifications
+  are required.
   """
+  @deprecated "Sync websocket is now handled automatically via phoenix_kit_routes()"
   defmacro phoenix_kit_socket do
     quote do
-      plug PhoenixKitWeb.Plugs.DBSyncSocketPlug
+      plug PhoenixKitWeb.Plugs.SyncSocketPlug
     end
   end
 

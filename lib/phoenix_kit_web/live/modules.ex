@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.DBSync
+  alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
@@ -23,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Sync
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
@@ -47,11 +48,12 @@ defmodule PhoenixKitWeb.Live.Modules do
     billing_config = Billing.get_config()
     posts_config = Posts.get_config()
     ai_config = AI.get_config()
-    db_sync_config = DBSync.get_config()
+    db_sync_config = Sync.get_config()
     tickets_config = Tickets.get_config()
     connections_config = Connections.get_config()
     jobs_config = Jobs.get_config()
     legal_config = Legal.get_config()
+    db_explorer_config = DB.get_config()
 
     socket =
       socket
@@ -98,8 +100,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:posts_total, posts_config.total_posts)
       |> assign(:posts_published, posts_config.published_posts)
       |> assign(:posts_draft, posts_config.draft_posts)
-      |> assign(:db_sync_enabled, db_sync_config.enabled)
-      |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
+      |> assign(:sync_enabled, db_sync_config.enabled)
+      |> assign(:sync_active_sessions, db_sync_config.active_sessions)
       |> assign(:tickets_enabled, tickets_config.enabled)
       |> assign(:tickets_total, tickets_config.total_tickets)
       |> assign(:tickets_open, tickets_config.open_tickets)
@@ -112,6 +114,11 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:jobs_stats, jobs_config.stats)
       |> assign(:legal_enabled, legal_config.enabled)
       |> assign(:blogging_enabled_for_legal, legal_config.blogging_enabled)
+      |> assign(:db_explorer_enabled, db_explorer_config.enabled)
+      |> assign(:db_explorer_table_count, db_explorer_config.table_count)
+      |> assign(:db_explorer_total_rows, db_explorer_config.approx_rows)
+      |> assign(:db_explorer_total_size, db_explorer_config.total_size_bytes)
+      |> assign(:db_explorer_database_size, db_explorer_config.database_size_bytes)
 
     {:ok, socket}
   end
@@ -532,29 +539,29 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  def handle_event("toggle_db_sync", _params, socket) do
-    new_enabled = !socket.assigns.db_sync_enabled
+  def handle_event("toggle_sync", _params, socket) do
+    new_enabled = !socket.assigns.sync_enabled
 
     result =
       if new_enabled do
-        DBSync.enable_system()
+        Sync.enable_system()
       else
-        DBSync.disable_system()
+        Sync.disable_system()
       end
 
     case result do
       {:ok, _} ->
-        db_sync_config = DBSync.get_config()
+        sync_config = Sync.get_config()
 
         socket =
           socket
-          |> assign(:db_sync_enabled, new_enabled)
-          |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
+          |> assign(:sync_enabled, new_enabled)
+          |> assign(:sync_active_sessions, sync_config.active_sessions)
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "DB Sync module enabled",
-              else: "DB Sync module disabled"
+              do: "Sync module enabled",
+              else: "Sync module disabled"
             )
           )
 
@@ -563,6 +570,42 @@ defmodule PhoenixKitWeb.Live.Modules do
       {:error, _changeset} ->
         socket = put_flash(socket, :error, "Failed to update DB Sync module")
         {:noreply, socket}
+    end
+  end
+
+  def handle_event("toggle_db_explorer", _params, socket) do
+    new_enabled = !socket.assigns.db_explorer_enabled
+
+    result =
+      if new_enabled do
+        DB.enable_system()
+      else
+        DB.disable_system()
+      end
+
+    case result do
+      {:ok, _} ->
+        config = DB.get_config()
+
+        socket =
+          socket
+          |> assign(:db_explorer_enabled, config.enabled)
+          |> assign(:db_explorer_table_count, config.table_count)
+          |> assign(:db_explorer_total_rows, config.approx_rows)
+          |> assign(:db_explorer_total_size, config.total_size_bytes)
+          |> assign(:db_explorer_database_size, config.database_size_bytes)
+          |> put_flash(
+            :info,
+            if(config.enabled,
+              do: "DB Explorer enabled",
+              else: "DB Explorer disabled"
+            )
+          )
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Failed to update DB Explorer")}
     end
   end
 
@@ -719,4 +762,29 @@ defmodule PhoenixKitWeb.Live.Modules do
   end
 
   def format_timestamp(_), do: "Never"
+
+  def format_bytes(nil), do: "0 B"
+  def format_bytes(0), do: "0 B"
+
+  def format_bytes(%Decimal{} = bytes) do
+    bytes |> Decimal.to_integer() |> format_bytes()
+  end
+
+  def format_bytes(bytes) when is_integer(bytes) and bytes < 1024 do
+    "#{bytes} B"
+  end
+
+  def format_bytes(bytes) when is_integer(bytes) and bytes < 1_048_576 do
+    "#{Float.round(bytes / 1024, 1)} KB"
+  end
+
+  def format_bytes(bytes) when is_integer(bytes) and bytes < 1_073_741_824 do
+    "#{Float.round(bytes / 1_048_576, 1)} MB"
+  end
+
+  def format_bytes(bytes) when is_integer(bytes) do
+    "#{Float.round(bytes / 1_073_741_824, 2)} GB"
+  end
+
+  def format_bytes(_), do: "0 B"
 end
