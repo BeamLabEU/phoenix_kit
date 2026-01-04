@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
+defmodule PhoenixKitWeb.Live.Modules.DB.Activity do
   @moduledoc """
   Live activity monitor for database changes.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.DBExplorer
-  alias PhoenixKit.DBExplorer.Listener
+  alias PhoenixKit.DB
+  alias PhoenixKit.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -40,7 +40,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
       |> assign(:page_title, "Live Activity")
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-explorer/activity", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/db/activity", locale: locale))
       |> assign(:activity_log, [])
       |> assign(:paused, false)
       |> assign(:filter_table, initial_table_filter)
@@ -54,7 +54,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
 
   defp load_tables do
     # Get all tables (use high per_page to get them all)
-    result = DBExplorer.list_tables(%{page: 1, per_page: 1000})
+    result = DB.list_tables(%{page: 1, per_page: 1000})
 
     result.entries
     |> Enum.map(fn t -> "#{t.schema}.#{t.name}" end)
@@ -101,7 +101,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
   # Update the trigger function to ensure it includes row_id
   defp update_trigger_function do
     # This will CREATE OR REPLACE the function with the new version that includes row_id
-    DBExplorer.ensure_trigger("public", "phoenix_kit_settings")
+    DB.ensure_trigger("public", "phoenix_kit_settings")
   end
 
   defp add_activity_entry(socket, schema, table, operation, row_id) do
@@ -113,7 +113,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Activity do
       # Fetch row data for INSERT/UPDATE
       row_data =
         if operation in ["INSERT", "UPDATE"] and row_id do
-          case DBExplorer.fetch_row(schema, table, row_id) do
+          case DB.fetch_row(schema, table, row_id) do
             {:ok, row} -> row
             _ -> nil
           end

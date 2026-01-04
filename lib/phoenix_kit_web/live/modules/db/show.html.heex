@@ -17,13 +17,13 @@
       </div>
       <div class="flex items-center gap-2">
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer/activity?table=#{@schema}.#{@table}")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity?table=#{@schema}.#{@table}")}
           class="btn btn-outline btn-primary btn-sm"
         >
           <.icon name="hero-signal" class="w-4 h-4" /> Live Activity
         </.link>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
           class="btn btn-outline btn-primary btn-sm"
         >
           <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables

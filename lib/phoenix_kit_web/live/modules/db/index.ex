@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
+defmodule PhoenixKitWeb.Live.Modules.DB.Index do
   @moduledoc """
-  Admin DB Explorer index - lists all tables with stats.
+  Admin DB index - lists all tables with stats.
 
   Supports live updates - when any table changes, the stats and
   table list are refreshed automatically.
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.DBExplorer
-  alias PhoenixKit.DBExplorer.Listener
+  alias PhoenixKit.DB
+  alias PhoenixKit.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -24,17 +24,17 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
       Listener.subscribe_all()
     end
 
-    tables = DBExplorer.list_tables(%{page: page, search: search})
+    tables = DB.list_tables(%{page: page, search: search})
 
     socket =
       socket
-      |> assign(:page_title, "DB Explorer")
+      |> assign(:page_title, "DB")
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-explorer", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/db", locale: locale))
       |> assign(:search, search)
       |> assign(:tables, tables)
-      |> assign(:stats, DBExplorer.database_stats())
+      |> assign(:stats, DB.database_stats())
 
     {:ok, socket}
   end
@@ -44,7 +44,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
     page = parse_int(params["page"], 1)
     search = params["search"] || ""
 
-    tables = DBExplorer.list_tables(%{page: page, search: search})
+    tables = DB.list_tables(%{page: page, search: search})
 
     {:noreply,
      socket
@@ -80,7 +80,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
 
     # Refresh tables list and stats
     tables =
-      DBExplorer.list_tables(%{
+      DB.list_tables(%{
         page: socket.assigns.tables.page,
         search: socket.assigns.search
       })
@@ -88,7 +88,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
     socket =
       socket
       |> assign(:tables, tables)
-      |> assign(:stats, DBExplorer.database_stats())
+      |> assign(:stats, DB.database_stats())
 
     {:noreply, socket}
   end
@@ -144,7 +144,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
       |> Enum.reject(fn {_k, v} -> v in [nil, "", 1, "1"] end)
       |> Map.new()
 
-    base = Routes.path("/admin/db-explorer", locale: socket.assigns.current_locale)
+    base = Routes.path("/admin/db", locale: socket.assigns.current_locale)
 
     if map_size(params) == 0 do
       base

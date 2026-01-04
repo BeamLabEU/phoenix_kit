@@ -663,11 +663,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.DBExplorer.enabled?() do %>
+                    <%= if PhoenixKit.DB.enabled?() do %>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/db-explorer")}
+                        href={Routes.locale_aware_path(assigns, "/admin/db")}
                         icon="hero-table-cells"
-                        label={gettext("DB Explorer")}
+                        label={gettext("DB")}
                         current_path={@current_path || ""}
                         exact_match_only={true}
                       />

@@ -41,7 +41,7 @@ defmodule PhoenixKit.Supervisor do
       # DB Sync session store for ephemeral connection codes
       PhoenixKit.DBSync.SessionStore,
       # DB Explorer listener for PostgreSQL LISTEN/NOTIFY (live table updates)
-      PhoenixKit.DBExplorer.Listener
+      PhoenixKit.DB.Listener
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

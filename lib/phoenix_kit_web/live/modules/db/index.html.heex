@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title={"#{@project_title} - DB Explorer"}
+  page_title={"#{@project_title} - DB"}
   current_path={@current_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -9,12 +9,12 @@
   <div class="container mx-auto px-4 py-6 space-y-6">
     <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
       <div>
-        <h1 class="text-3xl font-bold text-base-content">DB Explorer</h1>
+        <h1 class="text-3xl font-bold text-base-content">DB</h1>
         <p class="text-base-content/70">Explore database tables and their contents.</p>
       </div>
       <div class="flex items-center gap-2">
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer/activity")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity")}
           class="btn btn-outline btn-primary btn-sm"
         >
           <.icon name="hero-signal" class="w-4 h-4" /> Live Activity
@@ -92,7 +92,7 @@
                     <.link
                       navigate={
                         PhoenixKit.Utils.Routes.path(
-                          "/admin/db-explorer/#{entry.schema}/#{entry.name}"
+                          "/admin/db/#{entry.schema}/#{entry.name}"
                         )
                       }
                       class="font-semibold link link-hover"
@@ -110,7 +110,7 @@
                     <.link
                       navigate={
                         PhoenixKit.Utils.Routes.path(
-                          "/admin/db-explorer/#{entry.schema}/#{entry.name}"
+                          "/admin/db/#{entry.schema}/#{entry.name}"
                         )
                       }
                       class="btn btn-ghost btn-sm"

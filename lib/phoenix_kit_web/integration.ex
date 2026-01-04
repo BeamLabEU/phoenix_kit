@@ -499,9 +499,9 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/db-sync", Live.Modules.DBSync.Index, :index
         live "/admin/db-sync/connections", Live.Modules.DBSync.ConnectionsLive, :index
         live "/admin/db-sync/history", Live.Modules.DBSync.History, :index
-        live "/admin/db-explorer", Live.Modules.DBExplorer.Index, :index
-        live "/admin/db-explorer/activity", Live.Modules.DBExplorer.Activity, :activity
-        live "/admin/db-explorer/:schema/:table", Live.Modules.DBExplorer.Show, :show
+        live "/admin/db", Live.Modules.DB.Index, :index
+        live "/admin/db/activity", Live.Modules.DB.Activity, :activity
+        live "/admin/db/:schema/:table", Live.Modules.DB.Show, :show
 
         # Entities Management
         live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities

@@ -10,7 +10,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
   alias PhoenixKit.DBSync
-  alias PhoenixKit.DBExplorer
+  alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
@@ -53,7 +53,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     connections_config = Connections.get_config()
     jobs_config = Jobs.get_config()
     legal_config = Legal.get_config()
-    db_explorer_config = DBExplorer.get_config()
+    db_explorer_config = DB.get_config()
 
     socket =
       socket
@@ -578,14 +578,14 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     result =
       if new_enabled do
-        DBExplorer.enable_system()
+        DB.enable_system()
       else
-        DBExplorer.disable_system()
+        DB.disable_system()
       end
 
     case result do
       {:ok, _} ->
-        config = DBExplorer.get_config()
+        config = DB.get_config()
 
         socket =
           socket

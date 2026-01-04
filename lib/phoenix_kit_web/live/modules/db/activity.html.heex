@@ -37,7 +37,7 @@
           <.icon name="hero-trash" class="w-4 h-4" /> Clear
         </button>
         <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer")}
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
           class="btn btn-outline btn-primary btn-sm"
         >
           <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables
@@ -107,7 +107,7 @@
                 <.link
                   navigate={
                     PhoenixKit.Utils.Routes.path(
-                      "/admin/db-explorer/#{entry.schema}/#{entry.table}"
+                      "/admin/db/#{entry.schema}/#{entry.table}"
                     )
                   }
                   class="font-mono text-sm link link-hover"

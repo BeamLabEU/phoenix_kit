@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
+defmodule PhoenixKitWeb.Live.Modules.DB.Show do
   @moduledoc """
   Table detail view with paginated row browsing.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.DBExplorer
-  alias PhoenixKit.DBExplorer.Listener
+  alias PhoenixKit.DB
+  alias PhoenixKit.DB.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -28,10 +28,10 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       Listener.subscribe(schema, table)
 
       # Ensure the trigger is set up for this table
-      DBExplorer.ensure_trigger(schema, table)
+      DB.ensure_trigger(schema, table)
     end
 
-    preview = DBExplorer.table_preview(schema, table, %{page: page, per_page: per_page})
+    preview = DB.table_preview(schema, table, %{page: page, per_page: per_page})
 
     socket =
       socket
@@ -40,7 +40,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       |> assign(:current_locale, locale)
       |> assign(
         :current_path,
-        Routes.path("/admin/db-explorer/#{schema}/#{table}", locale: locale)
+        Routes.path("/admin/db/#{schema}/#{table}", locale: locale)
       )
       |> assign(:schema, schema)
       |> assign(:table, table)
@@ -58,7 +58,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     per_page = parse_per_page(params["per_page"])
 
     preview =
-      DBExplorer.table_preview(
+      DB.table_preview(
         socket.assigns.schema,
         socket.assigns.table,
         %{page: page, per_page: per_page}
@@ -112,7 +112,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     old_row_count = old_preview.row_count
 
     new_preview =
-      DBExplorer.table_preview(socket.assigns.schema, socket.assigns.table, %{
+      DB.table_preview(socket.assigns.schema, socket.assigns.table, %{
         page: old_preview.page,
         per_page: socket.assigns.per_page
       })
@@ -221,7 +221,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       |> Map.new()
 
     base =
-      Routes.path("/admin/db-explorer/#{socket.assigns.schema}/#{socket.assigns.table}",
+      Routes.path("/admin/db/#{socket.assigns.schema}/#{socket.assigns.table}",
         locale: socket.assigns.current_locale
       )
 

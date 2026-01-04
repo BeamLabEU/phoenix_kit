@@ -1,17 +1,17 @@
-defmodule PhoenixKit.DBExplorer do
+defmodule PhoenixKit.DB do
   @moduledoc """
-  Database explorer helpers for PhoenixKit.
+  Database helpers for PhoenixKit.
 
   Provides metadata, stats, and paginated previews for Postgres tables so the
   admin UI can browse data without exposing full SQL access.
 
   ## Live Updates
 
-  The DB Explorer supports real-time updates via PostgreSQL LISTEN/NOTIFY.
+  The DB module supports real-time updates via PostgreSQL LISTEN/NOTIFY.
   When a table is being viewed, changes to that table trigger automatic refreshes.
 
   This requires:
-  1. The `DBExplorer.Listener` GenServer running (started via Application supervisor)
+  1. The `DB.Listener` GenServer running (started via Application supervisor)
   2. A notification trigger on the table being viewed
 
   Use `ensure_trigger/2` to set up the trigger for a table.

@@ -919,10 +919,10 @@
           <div class="flex flex-col gap-2 w-full">
             <%= if @db_explorer_enabled do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/db-explorer")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
                 class="btn btn-primary btn-sm"
               >
-                <.icon name="hero-table-cells" class="w-4 h-4 mr-1" /> Explore DB
+                <.icon name="hero-table-cells" class="w-4 h-4 mr-1" /> Open DB
               </.link>
             <% else %>
               <span class="text-xs text-base-content/50 text-center">

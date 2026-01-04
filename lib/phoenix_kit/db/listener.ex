@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBExplorer.Listener do
+defmodule PhoenixKit.DB.Listener do
   @moduledoc """
   GenServer that listens for PostgreSQL NOTIFY events for live table updates.
 
@@ -43,7 +43,7 @@ defmodule PhoenixKit.DBExplorer.Listener do
     case Process.whereis(__MODULE__) do
       nil ->
         Logger.warning(
-          "DBExplorer.Listener is not running. Live updates will not work. " <>
+          "DB.Listener is not running. Live updates will not work. " <>
             "Ensure PhoenixKit.Supervisor is started."
         )
 
@@ -97,17 +97,17 @@ defmodule PhoenixKit.DBExplorer.Listener do
                 {:ok, %{conn: pid}}
 
               {:error, reason} ->
-                Logger.warning("DBExplorer.Listener failed to LISTEN: #{inspect(reason)}")
+                Logger.warning("DB.Listener failed to LISTEN: #{inspect(reason)}")
                 {:ok, %{conn: nil}}
             end
 
           {:error, reason} ->
-            Logger.warning("DBExplorer.Listener failed to connect: #{inspect(reason)}")
+            Logger.warning("DB.Listener failed to connect: #{inspect(reason)}")
             {:ok, %{conn: nil}}
         end
 
       {:error, reason} ->
-        Logger.warning("DBExplorer.Listener could not get DB config: #{inspect(reason)}")
+        Logger.warning("DB.Listener could not get DB config: #{inspect(reason)}")
         {:ok, %{conn: nil}}
     end
   end
@@ -117,7 +117,7 @@ defmodule PhoenixKit.DBExplorer.Listener do
     # Payload format: "schema.table:OPERATION:row_id" (e.g., "public.users:INSERT:123")
     case parse_payload(payload) do
       {schema, table, operation, row_id} ->
-        Logger.info("DBExplorer: #{schema}.#{table} - #{operation} (id: #{row_id || "n/a"})")
+        Logger.info("DB: #{schema}.#{table} - #{operation} (id: #{row_id || "n/a"})")
 
         message = {:table_changed, schema, table, operation, row_id}
 
@@ -128,7 +128,7 @@ defmodule PhoenixKit.DBExplorer.Listener do
         PhoenixKit.PubSub.Manager.broadcast("db_explorer:all", message)
 
       :error ->
-        Logger.warning("DBExplorer: Invalid notification payload: #{payload}")
+        Logger.warning("DB: Invalid notification payload: #{payload}")
     end
 
     {:noreply, state}
@@ -215,7 +215,7 @@ defmodule PhoenixKit.DBExplorer.Listener do
     end
   rescue
     e ->
-      Logger.error("DBExplorer.Listener failed to get connection config: #{inspect(e)}")
+      Logger.error("DB.Listener failed to get connection config: #{inspect(e)}")
       {:error, e}
   end
 end
