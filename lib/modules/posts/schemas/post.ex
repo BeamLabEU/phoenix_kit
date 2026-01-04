@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.Post do
+defmodule PhoenixKit.Modules.Posts.Post do
   @moduledoc """
   Schema for user posts with media attachments.
 
@@ -96,12 +96,12 @@ defmodule PhoenixKit.Posts.Post do
           view_count: integer(),
           metadata: map(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
-          media: [PhoenixKit.Posts.PostMedia.t()] | Ecto.Association.NotLoaded.t(),
-          likes: [PhoenixKit.Posts.PostLike.t()] | Ecto.Association.NotLoaded.t(),
-          comments: [PhoenixKit.Posts.PostComment.t()] | Ecto.Association.NotLoaded.t(),
-          mentions: [PhoenixKit.Posts.PostMention.t()] | Ecto.Association.NotLoaded.t(),
-          tags: [PhoenixKit.Posts.PostTag.t()] | Ecto.Association.NotLoaded.t(),
-          groups: [PhoenixKit.Posts.PostGroup.t()] | Ecto.Association.NotLoaded.t(),
+          media: [PhoenixKit.Modules.Posts.PostMedia.t()] | Ecto.Association.NotLoaded.t(),
+          likes: [PhoenixKit.Modules.Posts.PostLike.t()] | Ecto.Association.NotLoaded.t(),
+          comments: [PhoenixKit.Modules.Posts.PostComment.t()] | Ecto.Association.NotLoaded.t(),
+          mentions: [PhoenixKit.Modules.Posts.PostMention.t()] | Ecto.Association.NotLoaded.t(),
+          tags: [PhoenixKit.Modules.Posts.PostTag.t()] | Ecto.Association.NotLoaded.t(),
+          groups: [PhoenixKit.Modules.Posts.PostGroup.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -123,17 +123,17 @@ defmodule PhoenixKit.Posts.Post do
 
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
-    has_many :media, PhoenixKit.Posts.PostMedia
-    has_many :likes, PhoenixKit.Posts.PostLike
-    has_many :comments, PhoenixKit.Posts.PostComment
-    has_many :mentions, PhoenixKit.Posts.PostMention
+    has_many :media, PhoenixKit.Modules.Posts.PostMedia
+    has_many :likes, PhoenixKit.Modules.Posts.PostLike
+    has_many :comments, PhoenixKit.Modules.Posts.PostComment
+    has_many :mentions, PhoenixKit.Modules.Posts.PostMention
 
-    many_to_many :tags, PhoenixKit.Posts.PostTag,
-      join_through: PhoenixKit.Posts.PostTagAssignment,
+    many_to_many :tags, PhoenixKit.Modules.Posts.PostTag,
+      join_through: PhoenixKit.Modules.Posts.PostTagAssignment,
       join_keys: [post_id: :id, tag_id: :id]
 
-    many_to_many :groups, PhoenixKit.Posts.PostGroup,
-      join_through: PhoenixKit.Posts.PostGroupAssignment,
+    many_to_many :groups, PhoenixKit.Modules.Posts.PostGroup,
+      join_through: PhoenixKit.Modules.Posts.PostGroupAssignment,
       join_keys: [post_id: :id, group_id: :id]
 
     timestamps(type: :naive_datetime)

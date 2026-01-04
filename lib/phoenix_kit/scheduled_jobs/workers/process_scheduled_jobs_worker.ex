@@ -39,7 +39,7 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   require Logger
 
-  alias PhoenixKit.Posts
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.ScheduledJobs
 
   @impl Oban.Worker

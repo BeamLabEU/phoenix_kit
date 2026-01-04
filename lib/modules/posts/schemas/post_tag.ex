@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostTag do
+defmodule PhoenixKit.Modules.Posts.PostTag do
   @moduledoc """
   Schema for post tags (hashtags).
 
@@ -48,7 +48,8 @@ defmodule PhoenixKit.Posts.PostTag do
     field :slug, :string
     field :usage_count, :integer, default: 0
 
-    many_to_many :posts, PhoenixKit.Posts.Post, join_through: PhoenixKit.Posts.PostTagAssignment
+    many_to_many :posts, PhoenixKit.Modules.Posts.Post,
+      join_through: PhoenixKit.Modules.Posts.PostTagAssignment
 
     timestamps(type: :naive_datetime)
   end

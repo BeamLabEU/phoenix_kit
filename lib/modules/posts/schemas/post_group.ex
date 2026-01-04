@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostGroup do
+defmodule PhoenixKit.Modules.Posts.PostGroup do
   @moduledoc """
   Schema for user-created post groups (Pinterest-style boards).
 
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Posts.PostGroup do
           position: integer(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           cover_image: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t() | nil,
-          posts: [PhoenixKit.Posts.Post.t()] | Ecto.Association.NotLoaded.t(),
+          posts: [PhoenixKit.Modules.Posts.Post.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -77,7 +77,8 @@ defmodule PhoenixKit.Posts.PostGroup do
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :cover_image, PhoenixKit.Modules.Storage.File, type: UUIDv7
 
-    many_to_many :posts, PhoenixKit.Posts.Post, join_through: PhoenixKit.Posts.PostGroupAssignment
+    many_to_many :posts, PhoenixKit.Modules.Posts.Post,
+      join_through: PhoenixKit.Modules.Posts.PostGroupAssignment
 
     timestamps(type: :naive_datetime)
   end

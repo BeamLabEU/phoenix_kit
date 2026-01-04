@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.Workers.PublishScheduledPostsJob do
+defmodule PhoenixKit.Modules.Posts.Workers.PublishScheduledPostsJob do
   @moduledoc """
   Oban cron job for publishing scheduled posts.
 
@@ -13,7 +13,7 @@ defmodule PhoenixKit.Posts.Workers.PublishScheduledPostsJob do
         plugins: [
           {Oban.Plugins.Cron,
            crontab: [
-             {"* * * * *", PhoenixKit.Posts.Workers.PublishScheduledPostsJob}
+             {"* * * * *", PhoenixKit.Modules.Posts.Workers.PublishScheduledPostsJob}
            ]}
         ]
 
@@ -29,7 +29,7 @@ defmodule PhoenixKit.Posts.Workers.PublishScheduledPostsJob do
 
   require Logger
 
-  alias PhoenixKit.Posts
+  alias PhoenixKit.Modules.Posts
 
   @doc """
   Process scheduled posts that are ready to be published.

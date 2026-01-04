@@ -16,10 +16,10 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Pages
-  alias PhoenixKit.Posts
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap

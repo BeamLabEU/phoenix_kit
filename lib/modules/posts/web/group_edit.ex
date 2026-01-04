@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
   use PhoenixKitWeb, :live_view
 
   alias Phoenix.Component
-  alias PhoenixKit.Posts
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

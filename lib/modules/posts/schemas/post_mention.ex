@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostMention do
+defmodule PhoenixKit.Modules.Posts.PostMention do
   @moduledoc """
   Schema for post mentions (tagged users).
 
@@ -42,7 +42,7 @@ defmodule PhoenixKit.Posts.PostMention do
           post_id: UUIDv7.t(),
           user_id: integer(),
           mention_type: String.t(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -51,7 +51,7 @@ defmodule PhoenixKit.Posts.PostMention do
   schema "phoenix_kit_post_mentions" do
     field :mention_type, :string, default: "mention"
 
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
     timestamps(type: :naive_datetime)

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostGroupAssignment do
+defmodule PhoenixKit.Modules.Posts.PostGroupAssignment do
   @moduledoc """
   Junction schema for post-group assignments.
 
@@ -36,8 +36,8 @@ defmodule PhoenixKit.Posts.PostGroupAssignment do
           post_id: UUIDv7.t(),
           group_id: UUIDv7.t(),
           position: integer(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
-          group: PhoenixKit.Posts.PostGroup.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          group: PhoenixKit.Modules.Posts.PostGroup.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -45,8 +45,8 @@ defmodule PhoenixKit.Posts.PostGroupAssignment do
   schema "phoenix_kit_post_group_assignments" do
     field :position, :integer, default: 0
 
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7, primary_key: true
-    belongs_to :group, PhoenixKit.Posts.PostGroup, type: UUIDv7, primary_key: true
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7, primary_key: true
+    belongs_to :group, PhoenixKit.Modules.Posts.PostGroup, type: UUIDv7, primary_key: true
 
     timestamps(type: :naive_datetime)
   end

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.ScheduledPostHandler do
+defmodule PhoenixKit.Modules.Posts.ScheduledPostHandler do
   @moduledoc """
   Handler for scheduled post publishing.
 
@@ -10,7 +10,7 @@ defmodule PhoenixKit.Posts.ScheduledPostHandler do
   Schedule a post for publishing:
 
       ScheduledJobs.schedule_job(
-        PhoenixKit.Posts.ScheduledPostHandler,
+        PhoenixKit.Modules.Posts.ScheduledPostHandler,
         post.id,
         ~U[2025-01-15 10:00:00Z]
       )
@@ -33,7 +33,7 @@ defmodule PhoenixKit.Posts.ScheduledPostHandler do
 
   require Logger
 
-  alias PhoenixKit.Posts
+  alias PhoenixKit.Modules.Posts
 
   @impl true
   def job_type, do: "publish_post"

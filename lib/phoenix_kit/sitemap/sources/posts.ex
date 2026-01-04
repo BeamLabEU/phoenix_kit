@@ -46,6 +46,7 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
   require Logger
 
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap.RouteResolver
   alias PhoenixKit.Sitemap.UrlEntry
@@ -168,7 +169,7 @@ defmodule PhoenixKit.Sitemap.Sources.Posts do
   end
 
   defp collect_posts(base_url, language, is_default) do
-    posts = PhoenixKit.Posts.list_public_posts(preload: [])
+    posts = Posts.list_public_posts(preload: [])
 
     posts
     |> Enum.reject(&excluded?/1)

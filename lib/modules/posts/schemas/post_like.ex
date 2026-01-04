@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostLike do
+defmodule PhoenixKit.Modules.Posts.PostLike do
   @moduledoc """
   Schema for post likes.
 
@@ -26,14 +26,14 @@ defmodule PhoenixKit.Posts.PostLike do
           id: UUIDv7.t() | nil,
           post_id: UUIDv7.t(),
           user_id: integer(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
 
   schema "phoenix_kit_post_likes" do
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
     timestamps(type: :naive_datetime)

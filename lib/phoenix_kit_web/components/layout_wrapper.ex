@@ -673,7 +673,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       />
                     <% end %>
 
-                    <%= if PhoenixKit.Posts.enabled?() do %>
+                    <%= if PhoenixKit.Modules.Posts.enabled?() do %>
                       <%!-- Posts Section --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/posts")}

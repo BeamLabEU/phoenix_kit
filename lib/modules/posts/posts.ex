@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts do
+defmodule PhoenixKit.Modules.Posts do
   @moduledoc """
   Context for managing posts, comments, likes, tags, and groups.
 
@@ -47,7 +47,7 @@ defmodule PhoenixKit.Posts do
   import Ecto.Query, warn: false
   require Logger
 
-  alias PhoenixKit.Posts.{
+  alias PhoenixKit.Modules.Posts.{
     Post,
     PostComment,
     PostGroup,
