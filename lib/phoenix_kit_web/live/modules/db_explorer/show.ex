@@ -20,7 +20,6 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     locale = params["locale"] || Routes.get_default_admin_locale()
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], @default_per_page)
-    search = params["search"] || ""
 
     # Set up live updates if connected
     if connected?(socket) do
@@ -31,8 +30,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       DBExplorer.ensure_trigger(schema, table)
     end
 
-    preview =
-      DBExplorer.table_preview(schema, table, %{page: page, per_page: per_page, search: search})
+    preview = DBExplorer.table_preview(schema, table, %{page: page, per_page: per_page})
 
     socket =
       socket
@@ -45,7 +43,6 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       )
       |> assign(:schema, schema)
       |> assign(:table, table)
-      |> assign(:search, search)
       |> assign(:per_page, per_page)
       |> assign(:preview, preview)
       |> assign(:highlighted_rows, [])
@@ -58,25 +55,18 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
   def handle_params(params, _uri, socket) do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], socket.assigns[:per_page] || @default_per_page)
-    search = params["search"] || ""
 
     preview =
       DBExplorer.table_preview(
         socket.assigns.schema,
         socket.assigns.table,
-        %{page: page, per_page: per_page, search: search}
+        %{page: page, per_page: per_page}
       )
 
     {:noreply,
      socket
-     |> assign(:search, search)
      |> assign(:per_page, per_page)
      |> assign(:preview, preview)}
-  end
-
-  @impl true
-  def handle_event("search", %{"search" => value}, socket) do
-    {:noreply, push_patch(socket, to: build_path(socket, %{search: value, page: 1}))}
   end
 
   @impl true
@@ -122,8 +112,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     new_preview =
       DBExplorer.table_preview(socket.assigns.schema, socket.assigns.table, %{
         page: old_preview.page,
-        per_page: socket.assigns.per_page,
-        search: socket.assigns.search
+        per_page: socket.assigns.per_page
       })
 
     # Detect what changed
@@ -204,7 +193,6 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
 
     params =
       %{
-        "search" => socket.assigns.search,
         "page" => socket.assigns.preview.page,
         "per_page" => socket.assigns.per_page
       }

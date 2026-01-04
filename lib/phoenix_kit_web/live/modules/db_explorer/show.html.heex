@@ -24,20 +24,52 @@
     </header>
 
     <div class="bg-base-100 rounded-box shadow border border-base-200">
-      <div class="p-4 border-b border-base-200 flex flex-col md:flex-row gap-4">
-        <div class="flex-1">
-          <.form for={%{}} phx-change="search">
-            <.input
-              name="search"
-              label="Search rows"
-              value={@search}
-              placeholder="Search text columns"
-              phx-debounce="400"
-            />
-          </.form>
+      <div class="p-4 border-b border-base-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="text-sm text-base-content/70">
+          {@preview.row_count} rows total
         </div>
-        <div class="text-sm text-base-content/70 md:self-end md:pb-2">
-          Page {@preview.page} of {@preview.total_pages} • {@preview.row_count} rows
+        <div class="flex items-center gap-2">
+          <div class="join">
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page="1"
+              disabled={@preview.page <= 1}
+              title="First page"
+            >
+              <.icon name="hero-chevron-double-left" class="w-4 h-4" />
+            </button>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.page - 1}
+              disabled={@preview.page <= 1}
+              title="Previous page"
+            >
+              <.icon name="hero-chevron-left" class="w-4 h-4" />
+            </button>
+            <span class="join-item btn btn-sm btn-disabled !text-base-content">
+              Page {@preview.page} of {@preview.total_pages}
+            </span>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.page + 1}
+              disabled={@preview.page >= @preview.total_pages}
+              title="Next page"
+            >
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.total_pages}
+              disabled={@preview.page >= @preview.total_pages}
+              title="Last page"
+            >
+              <.icon name="hero-chevron-double-right" class="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -132,29 +164,6 @@
         </div>
       </div>
 
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-t border-base-200">
-        <div class="text-xs text-base-content/50">
-          Scroll the bar on the right to navigate pages, or use buttons below
-        </div>
-        <div class="btn-group">
-          <button
-            class="btn btn-sm"
-            phx-click="change_page"
-            phx-value-page={@preview.page - 1}
-            disabled={@preview.page <= 1}
-          >
-            « Prev
-          </button>
-          <button
-            class="btn btn-sm"
-            phx-click="change_page"
-            phx-value-page={@preview.page + 1}
-            disabled={@preview.page >= @preview.total_pages}
-          >
-            Next »
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 
