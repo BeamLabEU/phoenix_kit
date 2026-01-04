@@ -53,8 +53,8 @@ defmodule PhoenixKit.Sync.Transfers do
 
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.Sync.Transfer
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Sync.Transfer
 
   # ===========================================
   # CRUD OPERATIONS

@@ -69,11 +69,11 @@ defmodule PhoenixKit.Sync do
       {:ok, result} = PhoenixKit.Sync.Client.transfer(client, "users", strategy: :skip)
   """
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Sync.DataExporter
   alias PhoenixKit.Sync.DataImporter
   alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.Sync.SessionStore
-  alias PhoenixKit.Settings
 
   @module_name "sync"
   @enabled_key "sync_enabled"

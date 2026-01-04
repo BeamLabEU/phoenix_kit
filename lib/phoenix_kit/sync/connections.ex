@@ -47,8 +47,8 @@ defmodule PhoenixKit.Sync.Connections do
 
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.Sync.Connection
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Sync.Connection
 
   # ===========================================
   # CRUD OPERATIONS

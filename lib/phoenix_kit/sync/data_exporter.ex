@@ -23,8 +23,8 @@ defmodule PhoenixKit.Sync.DataExporter do
       ]}
   """
 
-  alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Sync.SchemaInspector
 
   @default_limit 100
   @max_limit 1000

@@ -8,9 +8,9 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.History do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Sync
   alias PhoenixKit.Sync.Transfers
-  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @per_page 20

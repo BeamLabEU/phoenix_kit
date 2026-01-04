@@ -10,9 +10,9 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Sync
   alias PhoenixKit.Sync.Connections
-  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true

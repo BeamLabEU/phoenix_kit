@@ -27,8 +27,8 @@ defmodule PhoenixKit.Sync.DataImporter do
       }
   """
 
-  alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.RepoHelper
+  alias PhoenixKit.Sync.SchemaInspector
 
   require Logger
 

@@ -16,10 +16,10 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.Sync.WebSocketClient
   alias PhoenixKit.Sync.Workers.ImportWorker
-  alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 

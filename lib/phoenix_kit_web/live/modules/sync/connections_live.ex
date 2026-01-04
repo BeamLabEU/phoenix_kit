@@ -11,12 +11,12 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.ConnectionsLive do
 
   require Logger
 
+  alias PhoenixKit.Settings
   alias PhoenixKit.Sync
   alias PhoenixKit.Sync.Connection
   alias PhoenixKit.Sync.ConnectionNotifier
   alias PhoenixKit.Sync.Connections
   alias PhoenixKit.Sync.SchemaInspector
-  alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
   @impl true

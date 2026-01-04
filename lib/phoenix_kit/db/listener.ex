@@ -17,6 +17,8 @@ defmodule PhoenixKit.DB.Listener do
 
   use GenServer
 
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
+
   require Logger
 
   @channel "phoenix_kit_db_changes"
@@ -59,14 +61,14 @@ defmodule PhoenixKit.DB.Listener do
   """
   def subscribe(schema, table) do
     ensure_started()
-    PhoenixKit.PubSub.Manager.subscribe(topic(schema, table))
+    PubSubManager.subscribe(topic(schema, table))
   end
 
   @doc """
   Unsubscribe from changes for a specific table.
   """
   def unsubscribe(schema, table) do
-    PhoenixKit.PubSub.Manager.unsubscribe(topic(schema, table))
+    PubSubManager.unsubscribe(topic(schema, table))
   end
 
   @doc """
@@ -74,14 +76,14 @@ defmodule PhoenixKit.DB.Listener do
   """
   def subscribe_all do
     ensure_started()
-    PhoenixKit.PubSub.Manager.subscribe("db_explorer:all")
+    PubSubManager.subscribe("db_explorer:all")
   end
 
   @doc """
   Unsubscribe from all table changes.
   """
   def unsubscribe_all do
-    PhoenixKit.PubSub.Manager.unsubscribe("db_explorer:all")
+    PubSubManager.unsubscribe("db_explorer:all")
   end
 
   # Server callbacks
@@ -122,10 +124,10 @@ defmodule PhoenixKit.DB.Listener do
         message = {:table_changed, schema, table, operation, row_id}
 
         # Broadcast to specific table subscribers
-        PhoenixKit.PubSub.Manager.broadcast(topic(schema, table), message)
+        PubSubManager.broadcast(topic(schema, table), message)
 
         # Broadcast to "all tables" subscribers (for index page)
-        PhoenixKit.PubSub.Manager.broadcast("db_explorer:all", message)
+        PubSubManager.broadcast("db_explorer:all", message)
 
       :error ->
         Logger.warning("DB: Invalid notification payload: #{payload}")

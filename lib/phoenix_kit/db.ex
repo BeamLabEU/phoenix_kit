@@ -339,9 +339,7 @@ defmodule PhoenixKit.DB do
   end
 
   defp qualified_table(schema, table) do
-    [schema, table]
-    |> Enum.map(&quote_ident/1)
-    |> Enum.join(".")
+    Enum.map_join([schema, table], ".", &quote_ident/1)
   end
 
   defp quote_ident(name) when is_binary(name) do
@@ -439,9 +437,8 @@ defmodule PhoenixKit.DB do
   Returns `:ok` on success or `{:error, reason}` on failure.
   """
   def ensure_trigger(schema, table) do
-    with :ok <- ensure_notify_function(),
-         :ok <- create_table_trigger(schema, table) do
-      :ok
+    with :ok <- ensure_notify_function() do
+      create_table_trigger(schema, table)
     end
   end
 

@@ -9,7 +9,6 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.Sync
   alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
@@ -24,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
+  alias PhoenixKit.Sync
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
