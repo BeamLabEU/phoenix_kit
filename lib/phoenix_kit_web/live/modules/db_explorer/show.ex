@@ -1,11 +1,15 @@
 defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
   @moduledoc """
   Table detail view with paginated row browsing.
+
+  Supports live updates via PostgreSQL LISTEN/NOTIFY - when data in the
+  viewed table changes, the view refreshes automatically.
   """
 
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.DBExplorer
+  alias PhoenixKit.DBExplorer.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -17,6 +21,15 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     page = parse_int(params["page"], 1)
     per_page = parse_int(params["per_page"], @default_per_page)
     search = params["search"] || ""
+
+    # Set up live updates if connected
+    if connected?(socket) do
+      # Subscribe to changes for this table
+      Listener.subscribe(schema, table)
+
+      # Ensure the trigger is set up for this table
+      DBExplorer.ensure_trigger(schema, table)
+    end
 
     preview =
       DBExplorer.table_preview(schema, table, %{page: page, per_page: per_page, search: search})
@@ -35,6 +48,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
       |> assign(:search, search)
       |> assign(:per_page, per_page)
       |> assign(:preview, preview)
+      |> assign(:highlighted_rows, [])
+      |> assign(:refresh_scheduled, false)
 
     {:ok, socket}
   end
@@ -77,6 +92,77 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     new_page = max(1, div(current_row, per_page) + 1)
 
     {:noreply, push_patch(socket, to: build_path(socket, %{per_page: per_page, page: new_page}))}
+  end
+
+  # Debounce interval for live updates (ms)
+  @refresh_debounce_ms 1000
+
+  # Handle live updates from PostgreSQL NOTIFY
+  @impl true
+  def handle_info({:table_changed, schema, table, _operation}, socket) do
+    # Only refresh if this is the table we're viewing
+    if schema == socket.assigns.schema and table == socket.assigns.table do
+      # Debounce: schedule a refresh instead of doing it immediately
+      # This prevents hammering the database on very active tables
+      socket = schedule_debounced_refresh(socket)
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_info(:debounced_refresh, socket) do
+    # Clear the pending refresh flag and do the actual refresh
+    socket = assign(socket, :refresh_scheduled, false)
+
+    old_preview = socket.assigns.preview
+    old_row_count = old_preview.row_count
+
+    new_preview =
+      DBExplorer.table_preview(socket.assigns.schema, socket.assigns.table, %{
+        page: old_preview.page,
+        per_page: socket.assigns.per_page,
+        search: socket.assigns.search
+      })
+
+    # Detect what changed
+    {added_count, removed_count, changed_on_page} =
+      detect_changes(old_preview.rows, new_preview.rows, old_row_count, new_preview.row_count)
+
+    # Find which rows on current page are new/changed for highlighting
+    highlighted_ids = find_new_or_changed_rows(old_preview.rows, new_preview.rows)
+
+    # Build notification message
+    socket = add_change_notification(socket, added_count, removed_count, changed_on_page)
+
+    socket =
+      socket
+      |> assign(:preview, new_preview)
+      |> assign(:highlighted_rows, highlighted_ids)
+
+    # Schedule highlight removal after 3 seconds
+    if highlighted_ids != [] do
+      Process.send_after(self(), :clear_highlights, 3000)
+    end
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(:clear_highlights, socket) do
+    {:noreply, assign(socket, :highlighted_rows, [])}
+  end
+
+  # Schedule a debounced refresh - only schedules if one isn't already pending
+  defp schedule_debounced_refresh(socket) do
+    if socket.assigns[:refresh_scheduled] do
+      # Already scheduled, skip
+      socket
+    else
+      Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
+      assign(socket, :refresh_scheduled, true)
+    end
   end
 
   def format_bytes(nil), do: "0 B"
@@ -140,5 +226,99 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
     else
       base <> "?" <> URI.encode_query(params)
     end
+  end
+
+  # Detect overall changes between old and new data
+  defp detect_changes(old_rows, new_rows, old_count, new_count) do
+    added_count = max(0, new_count - old_count)
+    removed_count = max(0, old_count - new_count)
+
+    # Check if rows on current page changed
+    changed_on_page = rows_changed_on_page?(old_rows, new_rows)
+
+    {added_count, removed_count, changed_on_page}
+  end
+
+  defp rows_changed_on_page?(old_rows, new_rows) do
+    # Simple comparison - if row count or content differs
+    length(old_rows) != length(new_rows) or old_rows != new_rows
+  end
+
+  # Find rows that are new or changed on the current page
+  # Returns list of row identifiers (using "id" column if available, or row index)
+  defp find_new_or_changed_rows(old_rows, new_rows) do
+    old_by_id = rows_by_identifier(old_rows)
+    new_by_id = rows_by_identifier(new_rows)
+
+    # Find new rows (in new but not in old)
+    new_ids =
+      new_by_id
+      |> Map.keys()
+      |> Enum.filter(fn id -> not Map.has_key?(old_by_id, id) end)
+
+    # Find changed rows (same id but different content)
+    changed_ids =
+      new_by_id
+      |> Enum.filter(fn {id, row} ->
+        case Map.get(old_by_id, id) do
+          nil -> false
+          old_row -> old_row != row
+        end
+      end)
+      |> Enum.map(fn {id, _} -> id end)
+
+    new_ids ++ changed_ids
+  end
+
+  # Build a map of rows by their identifier (id column or stringified row)
+  defp rows_by_identifier(rows) do
+    rows
+    |> Enum.with_index()
+    |> Enum.map(fn {row, idx} ->
+      # Use "id" column if available, otherwise use index
+      id = Map.get(row, "id") || Map.get(row, :id) || "idx_#{idx}"
+      {id, row}
+    end)
+    |> Map.new()
+  end
+
+  # Add a flash notification about changes
+  defp add_change_notification(socket, 0, 0, false), do: socket
+
+  defp add_change_notification(socket, added, removed, changed_on_page) do
+    messages = []
+
+    messages =
+      if added > 0 do
+        messages ++ ["#{added} row#{if added > 1, do: "s", else: ""} added"]
+      else
+        messages
+      end
+
+    messages =
+      if removed > 0 do
+        messages ++ ["#{removed} row#{if removed > 1, do: "s", else: ""} removed"]
+      else
+        messages
+      end
+
+    messages =
+      if changed_on_page and added == 0 and removed == 0 do
+        messages ++ ["Data updated"]
+      else
+        messages
+      end
+
+    if messages != [] do
+      put_flash(socket, :info, Enum.join(messages, ", "))
+    else
+      socket
+    end
+  end
+
+  # Check if a row should be highlighted
+  def row_highlighted?(row, highlighted_rows) do
+    id = Map.get(row, "id") || Map.get(row, :id)
+    id != nil and id in highlighted_rows
   end
 end

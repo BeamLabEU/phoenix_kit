@@ -4,10 +4,23 @@ defmodule PhoenixKit.DBExplorer do
 
   Provides metadata, stats, and paginated previews for Postgres tables so the
   admin UI can browse data without exposing full SQL access.
+
+  ## Live Updates
+
+  The DB Explorer supports real-time updates via PostgreSQL LISTEN/NOTIFY.
+  When a table is being viewed, changes to that table trigger automatic refreshes.
+
+  This requires:
+  1. The `DBExplorer.Listener` GenServer running (started via Application supervisor)
+  2. A notification trigger on the table being viewed
+
+  Use `ensure_trigger/2` to set up the trigger for a table.
   """
 
   alias PhoenixKit.RepoHelper
   alias PhoenixKit.Settings
+
+  require Logger
 
   @module_name "db_explorer"
   @enabled_key "db_explorer_enabled"
@@ -15,6 +28,9 @@ defmodule PhoenixKit.DBExplorer do
   @default_table_page_size 20
   @default_row_page 1
   @default_row_page_size 50
+  @notify_channel "phoenix_kit_db_changes"
+  @notify_function_name "phoenix_kit_notify_table_change"
+  @trigger_prefix "phoenix_kit_db_change_"
 
   @textual_types ~w(text character varying character citext json jsonb uuid inet)
 
@@ -362,5 +378,143 @@ defmodule PhoenixKit.DBExplorer do
 
   defp div_with_ceiling(total, per_page) when per_page > 0 do
     div(total + per_page - 1, per_page)
+  end
+
+  # ============================================================================
+  # LIVE UPDATE TRIGGERS
+  # ============================================================================
+
+  @doc """
+  Ensures the notification function exists and creates a trigger on the table.
+
+  This sets up PostgreSQL LISTEN/NOTIFY for live updates. The trigger fires
+  on INSERT, UPDATE, or DELETE and sends a notification to the
+  `phoenix_kit_db_changes` channel.
+
+  Returns `:ok` on success or `{:error, reason}` on failure.
+  """
+  def ensure_trigger(schema, table) do
+    with :ok <- ensure_notify_function(),
+         :ok <- create_table_trigger(schema, table) do
+      :ok
+    end
+  end
+
+  @doc """
+  Removes the notification trigger from a table.
+  """
+  def remove_trigger(schema, table) do
+    trigger_name = trigger_name(schema, table)
+    qualified = qualified_table(schema, table)
+
+    sql = "DROP TRIGGER IF EXISTS #{trigger_name} ON #{qualified}"
+
+    case RepoHelper.query(sql) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
+  Checks if a table has a notification trigger installed.
+  """
+  def has_trigger?(schema, table) do
+    trigger_name = trigger_name(schema, table)
+
+    sql = """
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.triggers
+      WHERE trigger_schema = $1
+      AND event_object_table = $2
+      AND trigger_name = $3
+    )
+    """
+
+    case RepoHelper.query(sql, [schema, table, trigger_name]) do
+      {:ok, %{rows: [[true]]}} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Lists all tables that have notification triggers installed.
+  """
+  def list_triggered_tables do
+    sql = """
+    SELECT trigger_schema, event_object_table
+    FROM information_schema.triggers
+    WHERE trigger_name LIKE '#{@trigger_prefix}%'
+    GROUP BY trigger_schema, event_object_table
+    ORDER BY trigger_schema, event_object_table
+    """
+
+    case RepoHelper.query(sql) do
+      {:ok, %{rows: rows}} ->
+        Enum.map(rows, fn [schema, table] -> {schema, table} end)
+
+      _ ->
+        []
+    end
+  end
+
+  @doc """
+  Removes all notification triggers from all tables.
+  """
+  def remove_all_triggers do
+    list_triggered_tables()
+    |> Enum.each(fn {schema, table} -> remove_trigger(schema, table) end)
+  end
+
+  # Creates the notification function if it doesn't exist
+  defp ensure_notify_function do
+    sql = """
+    CREATE OR REPLACE FUNCTION #{@notify_function_name}()
+    RETURNS trigger AS $$
+    BEGIN
+      PERFORM pg_notify('#{@notify_channel}', TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || TG_OP);
+      -- AFTER triggers ignore return value, but we return appropriately for completeness
+      IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+      ELSE
+        RETURN NEW;
+      END IF;
+    END;
+    $$ LANGUAGE plpgsql;
+    """
+
+    case RepoHelper.query(sql) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Creates a trigger on a specific table
+  defp create_table_trigger(schema, table) do
+    trigger_name = trigger_name(schema, table)
+    qualified = qualified_table(schema, table)
+
+    # First check if trigger already exists
+    if has_trigger?(schema, table) do
+      :ok
+    else
+      sql = """
+      CREATE TRIGGER #{trigger_name}
+      AFTER INSERT OR UPDATE OR DELETE ON #{qualified}
+      FOR EACH ROW
+      EXECUTE FUNCTION #{@notify_function_name}();
+      """
+
+      case RepoHelper.query(sql) do
+        {:ok, _} -> :ok
+        {:error, reason} -> {:error, reason}
+      end
+    end
+  end
+
+  defp trigger_name(schema, table) do
+    # Sanitize for use in trigger name
+    safe_schema = String.replace(schema, ~r/[^a-zA-Z0-9_]/, "_")
+    safe_table = String.replace(table, ~r/[^a-zA-Z0-9_]/, "_")
+    "#{@trigger_prefix}#{safe_schema}_#{safe_table}"
   end
 end

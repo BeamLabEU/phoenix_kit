@@ -75,7 +75,7 @@
                   </tr>
                 <% else %>
                   <%= for row <- @preview.rows do %>
-                    <tr>
+                    <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
                       <%= for column <- @preview.columns do %>
                         <td class="align-middle max-w-xs truncate">
                           {format_cell(Map.get(row, column.name))}
@@ -157,6 +157,19 @@
       </div>
     </div>
   </div>
+
+  <style>
+    @keyframes row-highlight {
+      0% { background-color: oklch(0.85 0.15 140); }
+      100% { background-color: transparent; }
+    }
+    .animate-highlight {
+      animation: row-highlight 3s ease-out;
+    }
+    .animate-highlight td {
+      background-color: inherit !important;
+    }
+  </style>
 
   <script>
     (function() {

@@ -39,7 +39,9 @@ defmodule PhoenixKit.Supervisor do
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
       PhoenixKit.Emails.Supervisor,
       # DB Sync session store for ephemeral connection codes
-      PhoenixKit.DBSync.SessionStore
+      PhoenixKit.DBSync.SessionStore,
+      # DB Explorer listener for PostgreSQL LISTEN/NOTIFY (live table updates)
+      PhoenixKit.DBExplorer.Listener
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

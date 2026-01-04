@@ -1,11 +1,15 @@
 defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
   @moduledoc """
   Admin DB Explorer index - lists all tables with stats.
+
+  Supports live updates - when any table changes, the stats and
+  table list are refreshed automatically.
   """
 
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.DBExplorer
+  alias PhoenixKit.DBExplorer.Listener
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -14,6 +18,11 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
     locale = params["locale"] || Routes.get_default_admin_locale()
     page = parse_int(params["page"], 1)
     search = params["search"] || ""
+
+    # Subscribe to all table changes for live updates
+    if connected?(socket) do
+      Listener.subscribe_all()
+    end
 
     tables = DBExplorer.list_tables(%{page: page, search: search})
 
@@ -51,6 +60,47 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
   @impl true
   def handle_event("change_page", %{"page" => page}, socket) do
     {:noreply, push_patch(socket, to: build_path(socket, %{page: page}))}
+  end
+
+  # Debounce interval for live updates (ms)
+  @refresh_debounce_ms 2000
+
+  # Handle live updates from PostgreSQL NOTIFY
+  @impl true
+  def handle_info({:table_changed, _schema, _table, _operation}, socket) do
+    # Debounce: schedule a refresh instead of doing it immediately
+    socket = schedule_debounced_refresh(socket)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info(:debounced_refresh, socket) do
+    # Clear the pending refresh flag and do the actual refresh
+    socket = assign(socket, :refresh_scheduled, false)
+
+    # Refresh tables list and stats
+    tables =
+      DBExplorer.list_tables(%{
+        page: socket.assigns.tables.page,
+        search: socket.assigns.search
+      })
+
+    socket =
+      socket
+      |> assign(:tables, tables)
+      |> assign(:stats, DBExplorer.database_stats())
+
+    {:noreply, socket}
+  end
+
+  # Schedule a debounced refresh - only schedules if one isn't already pending
+  defp schedule_debounced_refresh(socket) do
+    if socket.assigns[:refresh_scheduled] do
+      socket
+    else
+      Process.send_after(self(), :debounced_refresh, @refresh_debounce_ms)
+      assign(socket, :refresh_scheduled, true)
+    end
   end
 
   def format_bytes(nil), do: "0 B"
