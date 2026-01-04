@@ -160,6 +160,49 @@ defmodule PhoenixKit.DBExplorer do
   end
 
   @doc """
+  Fetches a single row by ID from a table.
+  Returns {:ok, row_map} or {:error, :not_found}.
+  """
+  def fetch_row(schema, table, row_id) when is_binary(table) do
+    schema = schema || "public"
+    qualified = qualified_table(schema, table)
+
+    # Convert row_id to integer if it's a string
+    parsed_id = parse_row_id(row_id)
+
+    if is_nil(parsed_id) do
+      {:error, :invalid_id}
+    else
+      sql = "SELECT * FROM #{qualified} WHERE id = $1 LIMIT 1"
+
+      case RepoHelper.query(sql, [parsed_id]) do
+        {:ok, %{columns: columns, rows: [row]}} ->
+          row_map =
+            columns
+            |> Enum.zip(row)
+            |> Map.new()
+
+          {:ok, row_map}
+
+        {:ok, %{rows: []}} ->
+          {:error, :not_found}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp parse_row_id(id) when is_integer(id), do: id
+  defp parse_row_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+  defp parse_row_id(_), do: nil
+
+  @doc """
   Returns table metadata and row preview.
   """
   def table_preview(schema, table, opts \\ %{}) when is_binary(table) do
@@ -470,8 +513,27 @@ defmodule PhoenixKit.DBExplorer do
     sql = """
     CREATE OR REPLACE FUNCTION #{@notify_function_name}()
     RETURNS trigger AS $$
+    DECLARE
+      row_id TEXT;
     BEGIN
-      PERFORM pg_notify('#{@notify_channel}', TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || TG_OP);
+      -- Try to get the row ID (works for tables with 'id' column)
+      IF TG_OP = 'DELETE' THEN
+        BEGIN
+          row_id := OLD.id::TEXT;
+        EXCEPTION WHEN undefined_column THEN
+          row_id := '';
+        END;
+      ELSE
+        BEGIN
+          row_id := NEW.id::TEXT;
+        EXCEPTION WHEN undefined_column THEN
+          row_id := '';
+        END;
+      END IF;
+
+      -- Payload format: schema.table:operation:row_id
+      PERFORM pg_notify('#{@notify_channel}', TG_TABLE_SCHEMA || '.' || TG_TABLE_NAME || ':' || TG_OP || ':' || COALESCE(row_id, ''));
+
       -- AFTER triggers ignore return value, but we return appropriately for completeness
       IF TG_OP = 'DELETE' THEN
         RETURN OLD;

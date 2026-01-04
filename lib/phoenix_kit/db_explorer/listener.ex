@@ -114,22 +114,18 @@ defmodule PhoenixKit.DBExplorer.Listener do
 
   @impl true
   def handle_info({:notification, _conn, _ref, @channel, payload}, state) do
-    # Payload format: "schema.table:OPERATION" (e.g., "public.users:INSERT")
+    # Payload format: "schema.table:OPERATION:row_id" (e.g., "public.users:INSERT:123")
     case parse_payload(payload) do
-      {schema, table, operation} ->
-        Logger.info("DBExplorer: #{schema}.#{table} - #{operation}")
+      {schema, table, operation, row_id} ->
+        Logger.info("DBExplorer: #{schema}.#{table} - #{operation} (id: #{row_id || "n/a"})")
+
+        message = {:table_changed, schema, table, operation, row_id}
 
         # Broadcast to specific table subscribers
-        PhoenixKit.PubSub.Manager.broadcast(
-          topic(schema, table),
-          {:table_changed, schema, table, operation}
-        )
+        PhoenixKit.PubSub.Manager.broadcast(topic(schema, table), message)
 
         # Broadcast to "all tables" subscribers (for index page)
-        PhoenixKit.PubSub.Manager.broadcast(
-          "db_explorer:all",
-          {:table_changed, schema, table, operation}
-        )
+        PhoenixKit.PubSub.Manager.broadcast("db_explorer:all", message)
 
       :error ->
         Logger.warning("DBExplorer: Invalid notification payload: #{payload}")
@@ -145,16 +141,28 @@ defmodule PhoenixKit.DBExplorer.Listener do
 
   defp parse_payload(payload) do
     case String.split(payload, ":") do
+      # New format: schema.table:OPERATION:row_id
+      [table_part, operation, row_id] ->
+        case String.split(table_part, ".", parts: 2) do
+          [schema, table] ->
+            parsed_id = if row_id == "", do: nil, else: row_id
+            {schema, table, operation, parsed_id}
+
+          _ ->
+            :error
+        end
+
+      # Legacy format: schema.table:OPERATION (backwards compat)
       [table_part, operation] ->
         case String.split(table_part, ".", parts: 2) do
-          [schema, table] -> {schema, table, operation}
+          [schema, table] -> {schema, table, operation, nil}
           _ -> :error
         end
 
-      # Legacy format without operation (backwards compat)
+      # Very old format without operation (backwards compat)
       [table_part] ->
         case String.split(table_part, ".", parts: 2) do
-          [schema, table] -> {schema, table, "UNKNOWN"}
+          [schema, table] -> {schema, table, "UNKNOWN", nil}
           _ -> :error
         end
 

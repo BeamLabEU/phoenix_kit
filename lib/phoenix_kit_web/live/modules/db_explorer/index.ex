@@ -67,7 +67,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Index do
 
   # Handle live updates from PostgreSQL NOTIFY
   @impl true
-  def handle_info({:table_changed, _schema, _table, _operation}, socket) do
+  def handle_info({:table_changed, _schema, _table, _operation, _row_id}, socket) do
     # Debounce: schedule a refresh instead of doing it immediately
     socket = schedule_debounced_refresh(socket)
     {:noreply, socket}
