@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostTagAssignment do
+defmodule PhoenixKit.Modules.Posts.PostTagAssignment do
   @moduledoc """
   Junction schema for post-tag assignments.
 
@@ -26,15 +26,15 @@ defmodule PhoenixKit.Posts.PostTagAssignment do
   @type t :: %__MODULE__{
           post_id: UUIDv7.t(),
           tag_id: UUIDv7.t(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
-          tag: PhoenixKit.Posts.PostTag.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          tag: PhoenixKit.Modules.Posts.PostTag.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
 
   schema "phoenix_kit_post_tag_assignments" do
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7, primary_key: true
-    belongs_to :tag, PhoenixKit.Posts.PostTag, type: UUIDv7, primary_key: true
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7, primary_key: true
+    belongs_to :tag, PhoenixKit.Modules.Posts.PostTag, type: UUIDv7, primary_key: true
 
     timestamps(type: :naive_datetime)
   end

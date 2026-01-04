@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostMedia do
+defmodule PhoenixKit.Modules.Posts.PostMedia do
   @moduledoc """
   Junction schema for post media attachments.
 
@@ -42,7 +42,7 @@ defmodule PhoenixKit.Posts.PostMedia do
           file_id: UUIDv7.t(),
           position: integer(),
           caption: String.t() | nil,
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -52,7 +52,7 @@ defmodule PhoenixKit.Posts.PostMedia do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :post, PhoenixKit.Posts.Post
+    belongs_to :post, PhoenixKit.Modules.Posts.Post
     belongs_to :file, PhoenixKit.Modules.Storage.File
 
     timestamps(type: :naive_datetime)

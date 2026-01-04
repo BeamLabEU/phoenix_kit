@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostView do
+defmodule PhoenixKit.Modules.Posts.PostView do
   @moduledoc """
   Schema for post view tracking (analytics).
 
@@ -49,7 +49,7 @@ defmodule PhoenixKit.Posts.PostView do
           user_agent_hash: String.t() | nil,
           session_id: String.t() | nil,
           viewed_at: DateTime.t(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Posts.PostView do
     field :session_id, :string
     field :viewed_at, :utc_datetime_usec
 
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
 
     timestamps(type: :naive_datetime)

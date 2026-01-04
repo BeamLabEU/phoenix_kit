@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Posts.PostComment do
+defmodule PhoenixKit.Modules.Posts.PostComment do
   @moduledoc """
   Schema for post comments with unlimited threading depth.
 
@@ -68,7 +68,7 @@ defmodule PhoenixKit.Posts.PostComment do
           status: String.t(),
           depth: integer(),
           like_count: integer(),
-          post: PhoenixKit.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
+          post: PhoenixKit.Modules.Posts.Post.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           parent: t() | Ecto.Association.NotLoaded.t() | nil,
           children: [t()] | Ecto.Association.NotLoaded.t(),
@@ -82,7 +82,7 @@ defmodule PhoenixKit.Posts.PostComment do
     field :depth, :integer, default: 0
     field :like_count, :integer, default: 0
 
-    belongs_to :post, PhoenixKit.Posts.Post, type: UUIDv7
+    belongs_to :post, PhoenixKit.Modules.Posts.Post, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :parent, __MODULE__, type: UUIDv7
 

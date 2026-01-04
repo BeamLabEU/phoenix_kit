@@ -20,8 +20,8 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
   use PhoenixKitWeb, :live_view
 
   alias Phoenix.Component
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.Storage.URLSigner
-  alias PhoenixKit.Posts
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes

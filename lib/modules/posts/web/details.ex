@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
   alias PhoenixKit.Users.Roles
 
   alias PhoenixKit.Blogging.Renderer
-  alias PhoenixKit.Posts
+  alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
