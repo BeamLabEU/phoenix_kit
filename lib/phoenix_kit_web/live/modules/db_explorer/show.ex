@@ -13,13 +13,14 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
-  @default_per_page 50
+  @default_per_page 20
+  @allowed_per_page [10, 20, 50, 100, 200]
 
   @impl true
   def mount(%{"schema" => schema, "table" => table} = params, _session, socket) do
     locale = params["locale"] || Routes.get_default_admin_locale()
-    page = parse_int(params["page"], 1)
-    per_page = parse_int(params["per_page"], @default_per_page)
+    page = parse_page(params["page"])
+    per_page = parse_per_page(params["per_page"])
 
     # Set up live updates if connected
     if connected?(socket) do
@@ -53,8 +54,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    page = parse_int(params["page"], 1)
-    per_page = parse_int(params["per_page"], socket.assigns[:per_page] || @default_per_page)
+    page = parse_page(params["page"])
+    per_page = parse_per_page(params["per_page"])
 
     preview =
       DBExplorer.table_preview(
@@ -71,12 +72,13 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
 
   @impl true
   def handle_event("change_page", %{"page" => page}, socket) do
+    page = parse_page(page)
     {:noreply, push_patch(socket, to: build_path(socket, %{page: page}))}
   end
 
   @impl true
   def handle_event("set_per_page", %{"per_page" => per_page}, socket) do
-    per_page = parse_int(per_page, @default_per_page)
+    per_page = parse_per_page(per_page)
     # Recalculate page to keep roughly the same position
     current_row = (socket.assigns.preview.page - 1) * socket.assigns.per_page
     new_page = max(1, div(current_row, per_page) + 1)
@@ -175,17 +177,31 @@ defmodule PhoenixKitWeb.Live.Modules.DBExplorer.Show do
   def format_cell(value) when is_binary(value), do: value
   def format_cell(value), do: to_string(value || "")
 
-  defp parse_int(nil, default), do: default
+  # Parse and validate page number - must be positive integer
+  defp parse_page(nil), do: 1
+  defp parse_page(value) when is_integer(value) and value > 0, do: value
 
-  defp parse_int(value, default) when is_binary(value) do
+  defp parse_page(value) when is_binary(value) do
     case Integer.parse(value) do
-      {int, _} when int > 0 -> int
-      _ -> default
+      {int, ""} when int > 0 -> int
+      _ -> 1
     end
   end
 
-  defp parse_int(value, _default) when is_integer(value) and value > 0, do: value
-  defp parse_int(_, default), do: default
+  defp parse_page(_), do: 1
+
+  # Parse and validate per_page - must be one of the allowed values
+  defp parse_per_page(nil), do: @default_per_page
+  defp parse_per_page(value) when is_integer(value) and value in @allowed_per_page, do: value
+
+  defp parse_per_page(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} when int in @allowed_per_page -> int
+      _ -> @default_per_page
+    end
+  end
+
+  defp parse_per_page(_), do: @default_per_page
 
   defp build_path(socket, overrides) do
     # Normalize overrides to string keys

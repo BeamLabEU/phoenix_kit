@@ -25,8 +25,22 @@
 
     <div class="bg-base-100 rounded-box shadow border border-base-200">
       <div class="p-4 border-b border-base-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div class="text-sm text-base-content/70">
-          {@preview.row_count} rows total
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-base-content/70">
+            {@preview.row_count} rows total
+          </span>
+          <.form for={%{}} phx-change="set_per_page" class="flex items-center gap-2">
+            <span class="text-sm text-base-content/70">Show</span>
+            <select
+              class="select select-bordered select-sm w-20"
+              name="per_page"
+            >
+              <%= for option <- [10, 20, 50, 100, 200] do %>
+                <option value={option} selected={option == @per_page}>{option}</option>
+              <% end %>
+            </select>
+            <span class="text-sm text-base-content/70">per page</span>
+          </.form>
         </div>
         <div class="flex items-center gap-2">
           <div class="join">
@@ -81,55 +95,55 @@
         data-total-pages={@preview.total_pages}
         data-per-page={@per_page}
       >
-        <%!-- Fake scrollbar container --%>
-        <div class="flex">
-          <%!-- Table content --%>
-          <div id="table-container" class="overflow-x-auto">
-            <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
-              <thead>
-                <tr>
-                  <%= for column <- @preview.columns do %>
-                    <th class="text-xs uppercase tracking-wide text-base-content/70">
-                      {column.name}
-                    </th>
-                  <% end %>
-                </tr>
-              </thead>
-              <tbody>
-                <%= if Enum.empty?(@preview.rows) do %>
+          <%!-- Fake scrollbar container --%>
+          <div class="flex">
+            <%!-- Table content --%>
+            <div id="table-container" class="overflow-x-auto">
+              <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
+                <thead>
                   <tr>
-                    <td
-                      colspan={length(@preview.columns)}
-                      class="text-center !py-8 text-base-content/70"
-                    >
-                      No rows found.
-                    </td>
+                    <%= for column <- @preview.columns do %>
+                      <th class="text-xs uppercase tracking-wide text-base-content/70">
+                        {column.name}
+                      </th>
+                    <% end %>
                   </tr>
-                <% else %>
-                  <%= for row <- @preview.rows do %>
-                    <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
-                      <%= for column <- @preview.columns do %>
-                        <td class="align-middle max-w-xs truncate">
-                          {format_cell(Map.get(row, column.name))}
-                        </td>
-                      <% end %>
+                </thead>
+                <tbody>
+                  <%= if Enum.empty?(@preview.rows) do %>
+                    <tr>
+                      <td
+                        colspan={length(@preview.columns)}
+                        class="text-center !py-8 text-base-content/70"
+                      >
+                        No rows found.
+                      </td>
                     </tr>
-                  <% end %>
-                  <%!-- Empty placeholder rows to maintain consistent height --%>
-                  <% empty_rows = @per_page - length(@preview.rows) %>
-                  <%= if empty_rows > 0 do %>
-                    <%= for _i <- 1..empty_rows do %>
-                      <tr class="invisible">
-                        <%= for _column <- @preview.columns do %>
-                          <td class="align-middle">&nbsp;</td>
+                  <% else %>
+                    <%= for row <- @preview.rows do %>
+                      <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
+                        <%= for column <- @preview.columns do %>
+                          <td class="align-middle max-w-xs truncate">
+                            {format_cell(Map.get(row, column.name))}
+                          </td>
                         <% end %>
                       </tr>
                     <% end %>
+                    <%!-- Empty placeholder rows to maintain consistent height --%>
+                    <% empty_rows = @per_page - length(@preview.rows) %>
+                    <%= if empty_rows > 0 do %>
+                      <%= for _i <- 1..empty_rows do %>
+                        <tr class="invisible">
+                          <%= for _column <- @preview.columns do %>
+                            <td class="align-middle">&nbsp;</td>
+                          <% end %>
+                        </tr>
+                      <% end %>
+                    <% end %>
                   <% end %>
-                <% end %>
-              </tbody>
-            </table>
-          </div>
+                </tbody>
+              </table>
+            </div>
 
           <%!-- Fake scrollbar with page markers --%>
           <%= if @preview.total_pages > 1 do %>
@@ -195,17 +209,12 @@
 
           this.pendingPage = null;
           this.debounceTimer = null;
-          this.resizeTimer = null;
           this.markerHideTimer = null;
-          this.lockedHeight = null;
           this.isHoldingScrollbar = false;
           this.initialMount = true;
           this.page = parseInt(this.el.dataset.page || '1', 10);
           this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
           this.perPage = parseInt(this.el.dataset.perPage || '50', 10);
-
-          // Calculate and set optimal per_page on mount
-          this.calculatePerPage();
 
           // Sync scrollbar after a short delay to let table render
           requestAnimationFrame(() => {
@@ -236,10 +245,6 @@
               this.hideMarkersDelayed();
             });
           }
-
-          // Handle window resize
-          this.resizeHandler = this.handleResize.bind(this);
-          window.addEventListener('resize', this.resizeHandler, { passive: true });
         },
 
         updated() {
@@ -274,7 +279,6 @@
 
           if (newPerPage !== this.perPage) {
             this.perPage = newPerPage;
-            this.lockedHeight = null;
           }
 
           // Sync scrollbar if page changed (e.g., via Prev/Next buttons)
@@ -298,59 +302,13 @@
           if (this.scrollbar) {
             this.scrollbar.removeEventListener('scroll', this.scrollHandler);
           }
-          window.removeEventListener('resize', this.resizeHandler);
           if (this.debounceTimer) clearTimeout(this.debounceTimer);
-          if (this.resizeTimer) clearTimeout(this.resizeTimer);
           if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
         },
 
         measureAndLockHeight() {
-          if (!this.tableContainer) return;
-
-          const rowCount = this.tbody?.querySelectorAll('tr').length || 0;
-          const currentHeight = this.tableContainer.offsetHeight;
-
-          // Lock height when we have a full page of content
-          if (rowCount >= this.perPage && !this.lockedHeight) {
-            this.lockedHeight = currentHeight;
-          }
-
-          // Apply locked height to table container
-          if (this.lockedHeight) {
-            this.tableContainer.style.minHeight = `${this.lockedHeight}px`;
-          }
-
-          // Sync scrollbar height to table height
+          // Just sync scrollbar size - placeholder rows handle consistent table height
           this.syncScrollbarSize();
-        },
-
-        calculatePerPage() {
-          // Get available height for table
-          const containerRect = this.el.getBoundingClientRect();
-          const availableHeight = window.innerHeight - containerRect.top - 150; // 150px for footer/padding
-
-          // Get row height from first data row
-          const firstRow = this.tbody?.querySelector('tr');
-          const rowHeight = firstRow ? firstRow.offsetHeight : 24;
-
-          // Calculate how many rows fit, with a minimum of 10 and max of 200
-          const calculatedPerPage = Math.max(10, Math.min(200, Math.floor(availableHeight / rowHeight)));
-
-          // Only update if significantly different (more than 5 rows)
-          if (Math.abs(calculatedPerPage - this.perPage) > 5) {
-            this.perPage = calculatedPerPage;
-            this.lockedHeight = null; // Reset locked height
-            this.pushEvent('set_per_page', { per_page: calculatedPerPage });
-          }
-        },
-
-        handleResize() {
-          if (this.resizeTimer) clearTimeout(this.resizeTimer);
-          this.resizeTimer = setTimeout(() => {
-            this.lockedHeight = null; // Reset on resize
-            if (this.tableContainer) this.tableContainer.style.minHeight = '';
-            this.calculatePerPage();
-          }, 300);
         },
 
         syncScrollbarSize() {
