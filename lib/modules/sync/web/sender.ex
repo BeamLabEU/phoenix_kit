@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
+defmodule PhoenixKit.Modules.Sync.Web.Sender do
   @moduledoc """
   Sender-side LiveView for DB Sync.
 
@@ -15,8 +15,8 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Settings
-  alias PhoenixKit.Sync
   alias PhoenixKit.Utils.Routes
 
   require Logger

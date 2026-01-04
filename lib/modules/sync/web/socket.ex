@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.SyncSocket do
   use Phoenix.Socket
   require Logger
 
-  alias PhoenixKit.Sync
+  alias PhoenixKit.Modules.Sync
 
   channel "transfer:*", PhoenixKitWeb.SyncChannel
 

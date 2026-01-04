@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Sync.Index do
+defmodule PhoenixKit.Modules.Sync.Web.Index do
   @moduledoc """
   Landing page for DB Sync module.
 
@@ -10,9 +10,9 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.Connections
   alias PhoenixKit.Settings
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.Connections
   alias PhoenixKit.Utils.Routes
 
   @impl true

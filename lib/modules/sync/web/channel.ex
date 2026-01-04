@@ -37,9 +37,9 @@ defmodule PhoenixKitWeb.SyncChannel do
   use Phoenix.Channel
   require Logger
 
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.DataExporter
-  alias PhoenixKit.Sync.SchemaInspector
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.DataExporter
+  alias PhoenixKit.Modules.Sync.SchemaInspector
 
   @impl true
   def join("transfer:" <> code, _params, socket) do

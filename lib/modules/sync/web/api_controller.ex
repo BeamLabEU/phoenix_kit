@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Controllers.SyncApiController do
+defmodule PhoenixKit.Modules.Sync.Web.ApiController do
   @moduledoc """
   API controller for Sync cross-site operations.
 
@@ -22,9 +22,9 @@ defmodule PhoenixKitWeb.Controllers.SyncApiController do
   require Logger
 
   alias Ecto.Adapters.SQL
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.Connections
-  alias PhoenixKit.Sync.Transfers
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.Transfers
 
   @doc """
   Registers an incoming connection from a remote site.

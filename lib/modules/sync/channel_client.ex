@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.ChannelClient do
+defmodule PhoenixKit.Modules.Sync.ChannelClient do
   @moduledoc """
   Client for communicating with the Sync channel from the Receiver's LiveView.
 

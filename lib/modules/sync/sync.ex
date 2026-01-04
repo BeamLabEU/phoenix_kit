@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync do
+defmodule PhoenixKit.Modules.Sync do
   @moduledoc """
   Main context for Sync module.
 
@@ -39,41 +39,41 @@ defmodule PhoenixKit.Sync do
 
   ### Remote Operations (via Client)
 
-  For connecting to a remote sender and fetching data, use `PhoenixKit.Sync.Client`:
+  For connecting to a remote sender and fetching data, use `PhoenixKit.Modules.Sync.Client`:
 
-      {:ok, client} = PhoenixKit.Sync.Client.connect("https://example.com", "ABC12345")
-      {:ok, tables} = PhoenixKit.Sync.Client.list_tables(client)
-      {:ok, records} = PhoenixKit.Sync.Client.fetch_records(client, "users")
-      PhoenixKit.Sync.Client.disconnect(client)
+      {:ok, client} = PhoenixKit.Modules.Sync.Client.connect("https://example.com", "ABC12345")
+      {:ok, tables} = PhoenixKit.Modules.Sync.Client.list_tables(client)
+      {:ok, records} = PhoenixKit.Modules.Sync.Client.fetch_records(client, "users")
+      PhoenixKit.Modules.Sync.Client.disconnect(client)
 
   ## Usage Examples
 
       # List local tables
-      {:ok, tables} = PhoenixKit.Sync.list_tables()
+      {:ok, tables} = PhoenixKit.Modules.Sync.list_tables()
       # => [{name: "users", estimated_count: 150}, ...]
 
       # Get table schema
-      {:ok, schema} = PhoenixKit.Sync.get_schema("users")
+      {:ok, schema} = PhoenixKit.Modules.Sync.get_schema("users")
       # => %{table: "users", columns: [...], primary_key: ["id"]}
 
       # Export records with pagination
-      {:ok, records} = PhoenixKit.Sync.export_records("users", limit: 100, offset: 0)
+      {:ok, records} = PhoenixKit.Modules.Sync.export_records("users", limit: 100, offset: 0)
 
       # Import records with conflict strategy
-      {:ok, result} = PhoenixKit.Sync.import_records("users", records, :skip)
+      {:ok, result} = PhoenixKit.Modules.Sync.import_records("users", records, :skip)
       # => %{created: 5, updated: 0, skipped: 3, errors: []}
 
       # Full sync workflow
-      {:ok, client} = PhoenixKit.Sync.Client.connect(url, code)
-      {:ok, tables} = PhoenixKit.Sync.Client.list_tables(client)
-      {:ok, result} = PhoenixKit.Sync.Client.transfer(client, "users", strategy: :skip)
+      {:ok, client} = PhoenixKit.Modules.Sync.Client.connect(url, code)
+      {:ok, tables} = PhoenixKit.Modules.Sync.Client.list_tables(client)
+      {:ok, result} = PhoenixKit.Modules.Sync.Client.transfer(client, "users", strategy: :skip)
   """
 
+  alias PhoenixKit.Modules.Sync.DataExporter
+  alias PhoenixKit.Modules.Sync.DataImporter
+  alias PhoenixKit.Modules.Sync.SchemaInspector
+  alias PhoenixKit.Modules.Sync.SessionStore
   alias PhoenixKit.Settings
-  alias PhoenixKit.Sync.DataExporter
-  alias PhoenixKit.Sync.DataImporter
-  alias PhoenixKit.Sync.SchemaInspector
-  alias PhoenixKit.Sync.SessionStore
 
   @module_name "sync"
   @enabled_key "sync_enabled"
@@ -223,7 +223,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      {:ok, session} = PhoenixKit.Sync.create_session(:receive)
+      {:ok, session} = PhoenixKit.Modules.Sync.create_session(:receive)
       # => %{
       #   code: "A7X9K2M4",
       #   direction: :receive,
@@ -336,7 +336,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      {:ok, tables} = PhoenixKit.Sync.list_tables()
+      {:ok, tables} = PhoenixKit.Modules.Sync.list_tables()
       # => [%{name: "users", estimated_count: 150}, %{name: "posts", estimated_count: 1200}]
   """
   @spec list_tables(keyword()) :: {:ok, [map()]} | {:error, any()}
@@ -349,7 +349,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      {:ok, schema} = PhoenixKit.Sync.get_schema("users")
+      {:ok, schema} = PhoenixKit.Modules.Sync.get_schema("users")
       # => %{
       #   table: "users",
       #   columns: [
@@ -370,7 +370,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      {:ok, count} = PhoenixKit.Sync.get_count("users")
+      {:ok, count} = PhoenixKit.Modules.Sync.get_count("users")
       # => 150
   """
   @spec get_count(String.t(), keyword()) :: {:ok, non_neg_integer()} | {:error, any()}
@@ -383,7 +383,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      PhoenixKit.Sync.table_exists?("users")
+      PhoenixKit.Modules.Sync.table_exists?("users")
       # => true
   """
   @spec table_exists?(String.t(), keyword()) :: boolean()
@@ -401,7 +401,7 @@ defmodule PhoenixKit.Sync do
 
   ## Examples
 
-      {:ok, records} = PhoenixKit.Sync.export_records("users", limit: 50, offset: 0)
+      {:ok, records} = PhoenixKit.Modules.Sync.export_records("users", limit: 50, offset: 0)
       # => [%{"id" => 1, "email" => "user@example.com", ...}, ...]
   """
   @spec export_records(String.t(), keyword()) :: {:ok, [map()]} | {:error, any()}
@@ -426,11 +426,11 @@ defmodule PhoenixKit.Sync do
   ## Examples
 
       records = [%{"email" => "user@example.com", "name" => "John"}, ...]
-      {:ok, result} = PhoenixKit.Sync.import_records("users", records, :skip)
+      {:ok, result} = PhoenixKit.Modules.Sync.import_records("users", records, :skip)
       # => %{created: 5, updated: 0, skipped: 3, errors: []}
 
       # Append mode (ignores primary keys, creates new records)
-      {:ok, result} = PhoenixKit.Sync.import_records("users", records, :append)
+      {:ok, result} = PhoenixKit.Modules.Sync.import_records("users", records, :append)
   """
   @spec import_records(String.t(), [map()], atom()) ::
           {:ok, DataImporter.import_result()} | {:error, any()}
@@ -453,7 +453,7 @@ defmodule PhoenixKit.Sync do
         ],
         "primary_key" => ["id"]
       }
-      :ok = PhoenixKit.Sync.create_table("users", schema)
+      :ok = PhoenixKit.Modules.Sync.create_table("users", schema)
   """
   @spec create_table(String.t(), map(), keyword()) :: :ok | {:error, any()}
   def create_table(table_name, schema_def, opts \\ []) do

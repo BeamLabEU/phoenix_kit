@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
+defmodule PhoenixKit.Modules.Sync.Web.Receiver do
   @moduledoc """
   Receiver-side LiveView for DB Sync.
 
@@ -16,10 +16,10 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Sync.SchemaInspector
+  alias PhoenixKit.Modules.Sync.WebSocketClient
+  alias PhoenixKit.Modules.Sync.Workers.ImportWorker
   alias PhoenixKit.Settings
-  alias PhoenixKit.Sync.SchemaInspector
-  alias PhoenixKit.Sync.WebSocketClient
-  alias PhoenixKit.Sync.Workers.ImportWorker
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
 

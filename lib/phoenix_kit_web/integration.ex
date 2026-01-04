@@ -241,52 +241,52 @@ defmodule PhoenixKitWeb.Integration do
         # get "/pages/*path", PagesController, :show
       end
 
-      # DB Sync API routes (JSON API - accepts JSON from remote PhoenixKit sites)
-      scope unquote(url_prefix), PhoenixKitWeb do
+      # Sync API routes (JSON API - accepts JSON from remote PhoenixKit sites)
+      scope unquote(url_prefix) do
         pipe_through [:phoenix_kit_api]
 
         post "/sync/api/register-connection",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :register_connection
 
         post "/sync/api/delete-connection",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :delete_connection
 
         post "/sync/api/verify-connection",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :verify_connection
 
         post "/sync/api/update-status",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :update_status
 
         post "/sync/api/get-connection-status",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :get_connection_status
 
         post "/sync/api/list-tables",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :list_tables
 
         post "/sync/api/pull-data",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :pull_data
 
         post "/sync/api/table-schema",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :table_schema
 
         post "/sync/api/table-records",
-             Controllers.SyncApiController,
+             PhoenixKit.Modules.Sync.Web.ApiController,
              :table_records
 
-        get "/sync/api/status", Controllers.SyncApiController, :status
+        get "/sync/api/status", PhoenixKit.Modules.Sync.Web.ApiController, :status
       end
 
       # Sync WebSocket - forward to plug for websocket upgrade handling
       # Uses url_prefix to be consistent with API routes
-      forward "#{unquote(url_prefix)}/sync/websocket", PhoenixKitWeb.Plugs.SyncSocketPlug
+      forward "#{unquote(url_prefix)}/sync/websocket", PhoenixKit.Modules.Sync.Web.SocketPlug
 
       # Email export routes (require admin or owner role)
       scope unquote(url_prefix), PhoenixKitWeb do
@@ -310,6 +310,22 @@ defmodule PhoenixKitWeb.Integration do
             as: :db_activity
 
           live "/admin/db/:schema/:table", PhoenixKit.Modules.DB.Web.Show, :show, as: :db_show
+        end
+      end
+
+      # Sync module routes - uses PhoenixKit.Modules.Sync namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_sync,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/sync", PhoenixKit.Modules.Sync.Web.Index, :index, as: :sync_index
+
+          live "/admin/sync/connections", PhoenixKit.Modules.Sync.Web.ConnectionsLive, :index,
+            as: :sync_connections
+
+          live "/admin/sync/history", PhoenixKit.Modules.Sync.Web.History, :index,
+            as: :sync_history
         end
       end
     end
@@ -514,10 +530,6 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
         live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
 
-        # DB Sync Module (permanent connections only)
-        live "/admin/sync", Live.Modules.Sync.Index, :index
-        live "/admin/sync/connections", Live.Modules.Sync.ConnectionsLive, :index
-        live "/admin/sync/history", Live.Modules.Sync.History, :index
         # Entities Management
         live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
         live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
@@ -710,7 +722,7 @@ defmodule PhoenixKitWeb.Integration do
   @deprecated "Sync websocket is now handled automatically via phoenix_kit_routes()"
   defmacro phoenix_kit_socket do
     quote do
-      plug PhoenixKitWeb.Plugs.SyncSocketPlug
+      plug PhoenixKit.Modules.Sync.Web.SocketPlug
     end
   end
 

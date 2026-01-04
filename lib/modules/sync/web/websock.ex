@@ -34,12 +34,12 @@ defmodule PhoenixKitWeb.SyncWebsock do
   @behaviour WebSock
   require Logger
 
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.Connection
-  alias PhoenixKit.Sync.Connections
-  alias PhoenixKit.Sync.DataExporter
-  alias PhoenixKit.Sync.SchemaInspector
-  alias PhoenixKit.Sync.Transfers
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.Connection
+  alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.DataExporter
+  alias PhoenixKit.Modules.Sync.SchemaInspector
+  alias PhoenixKit.Modules.Sync.Transfers
 
   defstruct [
     :auth_type,

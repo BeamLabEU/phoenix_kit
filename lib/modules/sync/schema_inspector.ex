@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.SchemaInspector do
+defmodule PhoenixKit.Modules.Sync.SchemaInspector do
   @moduledoc """
   Inspects database schema for DB Sync module.
 

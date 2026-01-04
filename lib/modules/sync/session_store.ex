@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.SessionStore do
+defmodule PhoenixKit.Modules.Sync.SessionStore do
   @moduledoc """
   ETS-based session storage for DB Sync module.
 

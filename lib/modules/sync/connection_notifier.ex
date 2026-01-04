@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.ConnectionNotifier do
+defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   @moduledoc """
   Handles cross-site notification when creating sender connections.
 
@@ -31,8 +31,8 @@ defmodule PhoenixKit.Sync.ConnectionNotifier do
   require Logger
 
   alias Ecto.Adapters.SQL
-  alias PhoenixKit.Sync.Connections
-  alias PhoenixKit.Sync.Transfers
+  alias PhoenixKit.Modules.Sync.Connections
+  alias PhoenixKit.Modules.Sync.Transfers
 
   @default_timeout 30_000
   @connect_timeout 10_000

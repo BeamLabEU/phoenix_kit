@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.DataExporter do
+defmodule PhoenixKit.Modules.Sync.DataExporter do
   @moduledoc """
   Exports data from database tables for DB Sync module.
 
@@ -23,8 +23,8 @@ defmodule PhoenixKit.Sync.DataExporter do
       ]}
   """
 
+  alias PhoenixKit.Modules.Sync.SchemaInspector
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Sync.SchemaInspector
 
   @default_limit 100
   @max_limit 1000

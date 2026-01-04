@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.Transfers do
+defmodule PhoenixKit.Modules.Sync.Transfers do
   @moduledoc """
   Context module for managing DB Sync transfers.
 
@@ -53,8 +53,8 @@ defmodule PhoenixKit.Sync.Transfers do
 
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Modules.Sync.Transfer
   alias PhoenixKit.RepoHelper
-  alias PhoenixKit.Sync.Transfer
 
   # ===========================================
   # CRUD OPERATIONS

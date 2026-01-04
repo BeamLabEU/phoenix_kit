@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Plugs.SyncSocketPlug do
+defmodule PhoenixKit.Modules.Sync.Web.SocketPlug do
   @moduledoc """
   Plug for handling DB Sync WebSocket connections.
 
@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Plugs.SyncSocketPlug do
 
   In your endpoint:
 
-      plug PhoenixKitWeb.Plugs.SyncSocketPlug
+      plug PhoenixKit.Modules.Sync.Web.SocketPlug
 
   Or mount at a specific path in router (done automatically by phoenix_kit_socket macro).
   """
@@ -29,8 +29,8 @@ defmodule PhoenixKitWeb.Plugs.SyncSocketPlug do
   @behaviour Plug
   require Logger
 
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.Connections
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.Connections
 
   @impl Plug
   def init(opts), do: opts

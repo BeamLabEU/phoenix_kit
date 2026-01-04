@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.WebSocketClient do
+defmodule PhoenixKit.Modules.Sync.WebSocketClient do
   @moduledoc """
   WebSocket client for Sync receiver connections.
 

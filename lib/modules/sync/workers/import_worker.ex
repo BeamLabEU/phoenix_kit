@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.Workers.ImportWorker do
+defmodule PhoenixKit.Modules.Sync.Workers.ImportWorker do
   @moduledoc """
   Oban worker for background data import from DB Sync.
 
@@ -35,8 +35,8 @@ defmodule PhoenixKit.Sync.Workers.ImportWorker do
 
   use Oban.Worker, queue: :sync, max_attempts: 3
 
-  alias PhoenixKit.Sync.DataImporter
-  alias PhoenixKit.Sync.SchemaInspector
+  alias PhoenixKit.Modules.Sync.DataImporter
+  alias PhoenixKit.Modules.Sync.SchemaInspector
 
   require Logger
 

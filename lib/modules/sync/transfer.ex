@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.Transfer do
+defmodule PhoenixKit.Modules.Sync.Transfer do
   @moduledoc """
   Schema for DB Sync data transfers.
 
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Sync.Transfer do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias PhoenixKit.Sync.Connection
+  alias PhoenixKit.Modules.Sync.Connection
   alias PhoenixKit.Users.Auth.User
 
   @type t :: %__MODULE__{}

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.Connection do
+defmodule PhoenixKit.Modules.Sync.Connection do
   @moduledoc """
   Schema for DB Sync persistent connections between PhoenixKit instances.
 

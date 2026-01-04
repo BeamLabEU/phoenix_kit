@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Sync.Client do
+defmodule PhoenixKit.Modules.Sync.Client do
   @moduledoc """
   Synchronous client for connecting to a remote DB Sync sender.
 
@@ -9,24 +9,24 @@ defmodule PhoenixKit.Sync.Client do
   ## Usage
 
       # Connect to a remote sender
-      {:ok, client} = PhoenixKit.Sync.Client.connect("https://sender.com", "ABC12345")
+      {:ok, client} = PhoenixKit.Modules.Sync.Client.connect("https://sender.com", "ABC12345")
 
       # List available tables
-      {:ok, tables} = PhoenixKit.Sync.Client.list_tables(client)
+      {:ok, tables} = PhoenixKit.Modules.Sync.Client.list_tables(client)
 
       # Get table schema
-      {:ok, schema} = PhoenixKit.Sync.Client.get_schema(client, "users")
+      {:ok, schema} = PhoenixKit.Modules.Sync.Client.get_schema(client, "users")
 
       # Fetch records with pagination
-      {:ok, result} = PhoenixKit.Sync.Client.fetch_records(client, "users", limit: 100)
+      {:ok, result} = PhoenixKit.Modules.Sync.Client.fetch_records(client, "users", limit: 100)
       # => %{records: [...], has_more: true, offset: 0}
 
       # Transfer all records from a table (with auto-pagination)
-      {:ok, result} = PhoenixKit.Sync.Client.transfer(client, "users", strategy: :skip)
+      {:ok, result} = PhoenixKit.Modules.Sync.Client.transfer(client, "users", strategy: :skip)
       # => %{created: 50, updated: 0, skipped: 5, errors: []}
 
       # Disconnect when done
-      :ok = PhoenixKit.Sync.Client.disconnect(client)
+      :ok = PhoenixKit.Modules.Sync.Client.disconnect(client)
 
   ## Connection Options
 
@@ -40,8 +40,8 @@ defmodule PhoenixKit.Sync.Client do
   - `:create_missing_tables` - Auto-create tables that don't exist (default: true)
   """
 
-  alias PhoenixKit.Sync
-  alias PhoenixKit.Sync.WebSocketClient
+  alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.Sync.WebSocketClient
 
   require Logger
 
