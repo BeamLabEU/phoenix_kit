@@ -14,7 +14,7 @@ defmodule PhoenixKitWeb.Endpoint do
     longpoll: false
 
   # DB Sync socket for cross-site data sync
-  socket "/sync", PhoenixKitWeb.SyncSocket,
+  socket "/sync", PhoenixKit.Modules.Sync.Web.Socket,
     websocket: [connect_info: [:peer_data, :x_headers]],
     longpoll: false
 

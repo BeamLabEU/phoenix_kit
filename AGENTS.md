@@ -376,14 +376,44 @@ And **never** do this:
 
 ## PhoenixKit Modules
 
-PhoenixKit includes several modules with their own detailed documentation:
+### Module Folder Structure (IMPORTANT)
 
-- **AI Module**: `lib/phoenix_kit_web/live/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
-- **Emails Module**: `lib/phoenix_kit_web/live/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
-- **Blogging Module**: `lib/phoenix_kit_web/live/modules/blogging/README.md` - Filesystem-based CMS with multi-language support
-- **DB Sync Module**: `lib/phoenix_kit_web/live/modules/db_sync/README.md` - Peer-to-peer data sync between PhoenixKit instances with programmatic API
-- **Entities Module**: `lib/phoenix_kit_web/live/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
-- **Billing Module**: `lib/phoenix_kit_web/live/modules/billing/README.md` - Payment providers, subscriptions, invoices
+**All modules MUST be placed in `lib/modules/`** - this is the only correct location for module code.
+
+**Namespace convention:** All modules must use the `PhoenixKit.Modules.<ModuleName>` namespace prefix.
+
+**Example module structure:**
+```
+lib/modules/db/
+├── db.ex                    # PhoenixKit.Modules.DB (main context)
+├── listener.ex              # PhoenixKit.Modules.DB.Listener
+└── web/
+    ├── index.ex             # PhoenixKit.Modules.DB.Web.Index (LiveView)
+    ├── index.html.heex
+    ├── show.ex              # PhoenixKit.Modules.DB.Web.Show (LiveView)
+    └── show.html.heex
+```
+
+**Key rules:**
+- Backend logic AND web/LiveView code go in the same `lib/modules/<name>/` folder
+- Main context module: `PhoenixKit.Modules.<Name>`
+- Sub-modules: `PhoenixKit.Modules.<Name>.<SubModule>`
+- Web/LiveView code: `PhoenixKit.Modules.<Name>.Web.<Component>` (recommended but flexible)
+- Each module is self-contained for future plugin system compatibility
+
+**DO NOT use these legacy locations for new modules:**
+- ❌ `lib/phoenix_kit/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit_web/live/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit/<module_name>.ex` - Legacy location
+
+### Module Documentation
+
+- **AI Module**: `lib/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
+- **Emails Module**: `lib/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
+- **Blogging Module**: `lib/modules/blogging/README.md` - Filesystem-based CMS with multi-language support
+- **Sync Module**: `lib/modules/sync/README.md` - Peer-to-peer data sync between PhoenixKit instances with programmatic API
+- **Entities Module**: `lib/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
+- **Billing Module**: `lib/modules/billing/README.md` - Payment providers, subscriptions, invoices
 - **Posts Module**: Available under `/admin/posts` - Content scheduling and groups
 
 ### ⚠️ CRITICAL: Modules Must Be Enabled Before Use

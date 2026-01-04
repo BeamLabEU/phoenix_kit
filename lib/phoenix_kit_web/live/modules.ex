@@ -9,21 +9,21 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.Connections
+  alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Sitemap
-  alias PhoenixKit.Sync
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging

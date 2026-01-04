@@ -618,7 +618,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Sync.enabled?() do %>
+                    <%= if PhoenixKit.Modules.Sync.enabled?() do %>
                       <%!-- Sync section --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/sync")}
@@ -663,7 +663,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.DB.enabled?() do %>
+                    <%= if PhoenixKit.Modules.DB.enabled?() do %>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/db")}
                         icon="hero-table-cells"
