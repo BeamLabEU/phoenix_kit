@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
+defmodule PhoenixKitWeb.Live.Modules.Sync.History do
   @moduledoc """
   LiveView for DB Sync transfer history.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.Transfers
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.Transfers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -19,14 +19,14 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
     project_title = Settings.get_setting("project_title", "PhoenixKit")
-    config = DBSync.get_config()
+    config = Sync.get_config()
 
     socket =
       socket
       |> assign(:page_title, "Transfer History")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-sync/history", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/sync/history", locale: locale))
       |> assign(:config, config)
       |> assign(:page, 1)
       |> assign(:direction_filter, nil)
@@ -91,7 +91,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
     query_params =
       if status != "", do: Map.put(query_params, "status", status), else: query_params
 
-    base_path = Routes.path("/admin/db-sync/history")
+    base_path = Routes.path("/admin/sync/history")
 
     path =
       if map_size(query_params) > 0 do
@@ -104,7 +104,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
   end
 
   def handle_event("clear_filters", _params, socket) do
-    path = Routes.path("/admin/db-sync/history")
+    path = Routes.path("/admin/sync/history")
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -182,7 +182,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
         do: Map.put(query_params, "status", socket.assigns.status_filter),
         else: query_params
 
-    base_path = Routes.path("/admin/db-sync/history")
+    base_path = Routes.path("/admin/sync/history")
     path = base_path <> "?" <> URI.encode_query(query_params)
     {:noreply, push_patch(socket, to: path)}
   end
@@ -202,7 +202,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.History do
         <%!-- Header Section --%>
         <header class="w-full relative mb-6">
           <.link
-            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
+            navigate={Routes.path("/admin/sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to DB Sync

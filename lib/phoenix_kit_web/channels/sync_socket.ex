@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.DBSyncSocket do
+defmodule PhoenixKitWeb.SyncSocket do
   @moduledoc """
   Socket for DB Sync module.
 
@@ -16,24 +16,24 @@ defmodule PhoenixKitWeb.DBSyncSocket do
   ## Example Connection
 
       // On sender site (using websockex or JS WebSocket)
-      const socket = new WebSocket("wss://receiver-site.com/db-sync/websocket?code=ABC12345")
+      const socket = new WebSocket("wss://receiver-site.com/sync/websocket?code=ABC12345")
   """
 
   use Phoenix.Socket
   require Logger
 
-  alias PhoenixKit.DBSync
+  alias PhoenixKit.Sync
 
-  channel "transfer:*", PhoenixKitWeb.DBSyncChannel
+  channel "transfer:*", PhoenixKitWeb.SyncChannel
 
   @impl true
   def connect(%{"code" => code}, socket, _connect_info) do
     # Check if DB Sync is enabled
-    if DBSync.enabled?() do
+    if Sync.enabled?() do
       # Validate the connection code
-      case DBSync.validate_code(code) do
+      case Sync.validate_code(code) do
         {:ok, session} ->
-          Logger.info("DBSync: Sender connected with code #{code}")
+          Logger.info("Sync: Sender connected with code #{code}")
 
           socket =
             socket
@@ -44,24 +44,24 @@ defmodule PhoenixKitWeb.DBSyncSocket do
           {:ok, socket}
 
         {:error, :invalid_code} ->
-          Logger.warning("DBSync: Invalid code attempt: #{code}")
+          Logger.warning("Sync: Invalid code attempt: #{code}")
           {:error, :invalid_code}
 
         {:error, :already_used} ->
-          Logger.warning("DBSync: Code already used: #{code}")
+          Logger.warning("Sync: Code already used: #{code}")
           {:error, :already_used}
       end
     else
-      Logger.warning("DBSync: Connection attempt but module is disabled")
+      Logger.warning("Sync: Connection attempt but module is disabled")
       {:error, :module_disabled}
     end
   end
 
   def connect(_params, _socket, _connect_info) do
-    Logger.warning("DBSync: Connection attempt without code")
+    Logger.warning("Sync: Connection attempt without code")
     {:error, :missing_code}
   end
 
   @impl true
-  def id(socket), do: "db_sync:#{socket.assigns.session_code}"
+  def id(socket), do: "sync:#{socket.assigns.session_code}"
 end

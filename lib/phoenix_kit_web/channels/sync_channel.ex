@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.DBSyncChannel do
+defmodule PhoenixKitWeb.SyncChannel do
   @moduledoc """
   Channel for DB Sync protocol messages.
 
@@ -37,25 +37,25 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   use Phoenix.Channel
   require Logger
 
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.DataExporter
-  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.DataExporter
+  alias PhoenixKit.Sync.SchemaInspector
 
   @impl true
   def join("transfer:" <> code, _params, socket) do
     # Verify the code matches the socket's session
     if socket.assigns.session_code == code do
       # Update session with channel PID so sender's LiveView can track
-      DBSync.update_session(code, %{channel_pid: self()})
+      Sync.update_session(code, %{channel_pid: self()})
 
       # Notify the sender's LiveView that a receiver has joined
       send_to_sender(socket.assigns.session, {:receiver_joined, self()})
 
-      Logger.info("DBSync: Receiver joined channel for code #{code}")
+      Logger.info("Sync: Receiver joined channel for code #{code}")
       {:ok, socket}
     else
       Logger.warning(
-        "DBSync: Channel join mismatch - expected #{socket.assigns.session_code}, got #{code}"
+        "Sync: Channel join mismatch - expected #{socket.assigns.session_code}, got #{code}"
       )
 
       {:error, %{reason: "code_mismatch"}}
@@ -68,7 +68,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
 
   @impl true
   def handle_in("request:capabilities", %{"ref" => ref}, socket) do
-    Logger.debug("DBSync.Channel: Capabilities requested")
+    Logger.debug("Sync.Channel: Capabilities requested")
 
     capabilities = %{
       version: "1.0.0",
@@ -81,7 +81,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   end
 
   def handle_in("request:tables", %{"ref" => ref}, socket) do
-    Logger.debug("DBSync.Channel: Tables requested")
+    Logger.debug("Sync.Channel: Tables requested")
 
     case SchemaInspector.list_tables() do
       {:ok, tables} ->
@@ -98,22 +98,22 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   end
 
   def handle_in("request:schema", %{"table" => table, "ref" => ref}, socket) do
-    Logger.info("DBSync.Channel: Schema requested for #{table}")
+    Logger.info("Sync.Channel: Schema requested for #{table}")
 
     case SchemaInspector.get_schema(table) do
       {:ok, schema} ->
         Logger.info(
-          "DBSync.Channel: Schema found for #{table}, columns: #{length(schema.columns)}"
+          "Sync.Channel: Schema found for #{table}, columns: #{length(schema.columns)}"
         )
 
         push(socket, "response:schema", %{schema: schema, ref: ref})
 
       {:error, :not_found} ->
-        Logger.warning("DBSync.Channel: Table not found: #{table}")
+        Logger.warning("Sync.Channel: Table not found: #{table}")
         push(socket, "response:error", %{error: "Table not found: #{table}", ref: ref})
 
       {:error, reason} ->
-        Logger.error("DBSync.Channel: Failed to get schema for #{table}: #{inspect(reason)}")
+        Logger.error("Sync.Channel: Failed to get schema for #{table}: #{inspect(reason)}")
 
         push(socket, "response:error", %{
           error: "Failed to get schema: #{inspect(reason)}",
@@ -125,7 +125,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   end
 
   def handle_in("request:count", %{"table" => table, "ref" => ref}, socket) do
-    Logger.debug("DBSync.Channel: Count requested for #{table}")
+    Logger.debug("Sync.Channel: Count requested for #{table}")
 
     case DataExporter.get_count(table) do
       {:ok, count} ->
@@ -148,7 +148,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
     limit = Map.get(payload, "limit", 100)
 
     Logger.debug(
-      "DBSync.Channel: Records requested for #{table} (offset: #{offset}, limit: #{limit})"
+      "Sync.Channel: Records requested for #{table} (offset: #{offset}, limit: #{limit})"
     )
 
     case DataExporter.fetch_records(table, offset: offset, limit: limit) do
@@ -171,7 +171,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   end
 
   def handle_in(event, payload, socket) do
-    Logger.warning("DBSync: Unknown event #{event} with payload #{inspect(payload)}")
+    Logger.warning("Sync: Unknown event #{event} with payload #{inspect(payload)}")
     {:reply, {:error, %{message: "Unknown event: #{event}"}}, socket}
   end
 
@@ -191,7 +191,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
   @impl true
   def terminate(reason, socket) do
     Logger.info(
-      "DBSync: Channel terminated for code #{socket.assigns.session_code}, reason: #{inspect(reason)}"
+      "Sync: Channel terminated for code #{socket.assigns.session_code}, reason: #{inspect(reason)}"
     )
 
     # Notify the sender's LiveView that receiver has disconnected (with PID for multi-receiver support)
@@ -206,7 +206,7 @@ defmodule PhoenixKitWeb.DBSyncChannel do
 
   defp send_to_sender(%{owner_pid: pid}, message) when is_pid(pid) do
     if Process.alive?(pid) do
-      send(pid, {:db_sync, message})
+      send(pid, {:sync, message})
     end
   end
 

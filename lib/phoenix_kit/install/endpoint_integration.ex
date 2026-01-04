@@ -64,7 +64,7 @@ defmodule PhoenixKit.Install.EndpointIntegration do
         )
 
       :error ->
-        # Check if the DBSyncSocket is already defined directly
+        # Check if the SyncSocket is already defined directly
         case check_db_sync_socket_exists(zipper) do
           true ->
             Igniter.add_notice(
@@ -81,14 +81,16 @@ defmodule PhoenixKit.Install.EndpointIntegration do
     end
   end
 
-  # Check if DBSyncSocket is already defined in endpoint
+  # Check if SyncSocket is already defined in endpoint (checks both old and new paths)
   defp check_db_sync_socket_exists(zipper) do
     case Function.move_to_function_call(zipper, :socket, 2) do
       {:ok, socket_zipper} ->
         case Function.move_to_nth_argument(socket_zipper, 0) do
           {:ok, arg_zipper} ->
             node = Sourceror.Zipper.node(arg_zipper)
-            node == "/db-sync" or check_db_sync_socket_exists_next(socket_zipper)
+            # Check for both old (/db-sync) and new (/sync) paths
+            node == "/sync" or node == "/db-sync" or
+              check_db_sync_socket_exists_next(socket_zipper)
 
           :error ->
             check_db_sync_socket_exists_next(socket_zipper)
@@ -99,7 +101,7 @@ defmodule PhoenixKit.Install.EndpointIntegration do
     end
   end
 
-  # Continue searching for DBSyncSocket in remaining socket calls
+  # Continue searching for SyncSocket in remaining socket calls
   defp check_db_sync_socket_exists_next(zipper) do
     case Sourceror.Zipper.next(zipper) do
       nil -> false
@@ -236,26 +238,12 @@ defmodule PhoenixKit.Install.EndpointIntegration do
 
     PhoenixKit could not automatically detect your Phoenix endpoint.
 
-    📋 MANUAL SETUP REQUIRED:
+    ℹ️  NOTE: As of the latest version, the phoenix_kit_socket() macro is
+    deprecated and no longer required. The Sync WebSocket is now handled
+    automatically via the router when you use phoenix_kit_routes().
 
-    1. Open your endpoint file (usually lib/your_app_web/endpoint.ex)
-
-    2. Add the following lines:
-
-       defmodule YourAppWeb.Endpoint do
-         use Phoenix.Endpoint, otp_app: :your_app
-
-         # Add this import
-         import PhoenixKitWeb.Integration
-
-         # Add after your /live socket definition
-         phoenix_kit_socket()
-
-         # ... rest of your endpoint config
-       end
-
-    💡 The phoenix_kit_socket() macro adds:
-       - /db-sync socket for cross-site data sync
+    If you have an existing installation with phoenix_kit_socket() in your
+    endpoint.ex, you can safely remove it.
 
     📖 Common endpoint locations:
        • lib/my_app_web/endpoint.ex

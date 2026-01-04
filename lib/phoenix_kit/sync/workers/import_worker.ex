@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.Workers.ImportWorker do
+defmodule PhoenixKit.Sync.Workers.ImportWorker do
   @moduledoc """
   Oban worker for background data import from DB Sync.
 
@@ -35,8 +35,8 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
 
   use Oban.Worker, queue: :db_sync, max_attempts: 3
 
-  alias PhoenixKit.DBSync.DataImporter
-  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.Sync.DataImporter
+  alias PhoenixKit.Sync.SchemaInspector
 
   require Logger
 
@@ -50,7 +50,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
     schema = Map.get(args, "schema")
 
     Logger.info(
-      "DBSync.ImportWorker: Starting import for #{table} " <>
+      "Sync.ImportWorker: Starting import for #{table} " <>
         "(batch #{batch_index}, #{length(records)} records, strategy: #{strategy})"
     )
 
@@ -59,7 +59,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
       case DataImporter.import_records(table, records, strategy) do
         {:ok, result} ->
           Logger.info(
-            "DBSync.ImportWorker: Completed import for #{table} (session: #{session_code}) - " <>
+            "Sync.ImportWorker: Completed import for #{table} (session: #{session_code}) - " <>
               "created: #{result.created}, updated: #{result.updated}, " <>
               "skipped: #{result.skipped}, errors: #{length(result.errors)}"
           )
@@ -67,7 +67,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
           # Log any errors for debugging
           for {record, error} <- result.errors do
             Logger.warning(
-              "DBSync.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
+              "Sync.ImportWorker: Error importing record in #{table}: #{inspect(error)}"
             )
 
             # Log the record primary key if available
@@ -77,7 +77,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
                 id -> " (id: #{id})"
               end
 
-            Logger.debug("DBSync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
+            Logger.debug("Sync.ImportWorker: Failed record#{pk_info}: #{inspect(record)}")
           end
 
           # Return success even if some records had errors
@@ -86,7 +86,7 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
 
         {:error, reason} ->
           Logger.error(
-            "DBSync.ImportWorker: Failed import for #{table} (session: #{session_code}) - " <>
+            "Sync.ImportWorker: Failed import for #{table} (session: #{session_code}) - " <>
               "#{inspect(reason)}"
           )
 
@@ -100,15 +100,15 @@ defmodule PhoenixKit.DBSync.Workers.ImportWorker do
     if SchemaInspector.table_exists?(table) do
       :ok
     else
-      Logger.info("DBSync.ImportWorker: Creating missing table #{table}")
+      Logger.info("Sync.ImportWorker: Creating missing table #{table}")
 
       case SchemaInspector.create_table(table, schema) do
         :ok ->
-          Logger.info("DBSync.ImportWorker: Created table #{table}")
+          Logger.info("Sync.ImportWorker: Created table #{table}")
           :ok
 
         {:error, reason} ->
-          Logger.error("DBSync.ImportWorker: Failed to create table #{table}: #{inspect(reason)}")
+          Logger.error("Sync.ImportWorker: Failed to create table #{table}: #{inspect(reason)}")
 
           {:error, {:table_creation_failed, reason}}
       end

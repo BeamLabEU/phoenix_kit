@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.Connections do
+defmodule PhoenixKit.Sync.Connections do
   @moduledoc """
   Context module for managing DB Sync connections.
 
@@ -47,7 +47,7 @@ defmodule PhoenixKit.DBSync.Connections do
 
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.DBSync.Connection
+  alias PhoenixKit.Sync.Connection
   alias PhoenixKit.RepoHelper
 
   # ===========================================

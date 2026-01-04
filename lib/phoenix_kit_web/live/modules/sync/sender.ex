@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
+defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
   @moduledoc """
   Sender-side LiveView for DB Sync.
 
@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBSync
+  alias PhoenixKit.Sync
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
       |> assign(:page_title, "Send Data")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-sync/send", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/sync/send", locale: locale))
       |> assign(:site_url, site_url)
       |> assign(:step, :generate_code)
       |> assign(:session, nil)
@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   def terminate(_reason, socket) do
     # Clean up session on unmount
     if socket.assigns.session do
-      DBSync.delete_session(socket.assigns.session.code)
+      Sync.delete_session(socket.assigns.session.code)
     end
 
     :ok
@@ -64,7 +64,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
 
   @impl true
   def handle_event("generate_code", _params, socket) do
-    case DBSync.create_session(:send) do
+    case Sync.create_session(:send) do
       {:ok, session} ->
         socket =
           socket
@@ -81,10 +81,10 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   @impl true
   def handle_event("regenerate_code", _params, socket) do
     if socket.assigns.session do
-      DBSync.delete_session(socket.assigns.session.code)
+      Sync.delete_session(socket.assigns.session.code)
     end
 
-    case DBSync.create_session(:send) do
+    case Sync.create_session(:send) do
       {:ok, session} ->
         socket =
           socket
@@ -101,7 +101,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   @impl true
   def handle_event("cancel", _params, socket) do
     if socket.assigns.session do
-      DBSync.delete_session(socket.assigns.session.code)
+      Sync.delete_session(socket.assigns.session.code)
     end
 
     socket =
@@ -116,7 +116,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   @impl true
   def handle_event("disconnect", _params, socket) do
     if socket.assigns.session do
-      DBSync.delete_session(socket.assigns.session.code)
+      Sync.delete_session(socket.assigns.session.code)
     end
 
     socket =
@@ -156,7 +156,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
 
   @impl true
   def handle_info({:db_sync, {:receiver_joined, channel_pid, full_info}}, socket) do
-    Logger.info("DBSync.Sender: Receiver connected - #{inspect(full_info)}")
+    Logger.info("Sync.Sender: Receiver connected - #{inspect(full_info)}")
 
     # Extract receiver_info and connection_info from the full_info map
     # Handle both new format (with :receiver_info/:connection_info keys) and old format
@@ -187,7 +187,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   # Handle old message format (backwards compatibility)
   @impl true
   def handle_info({:db_sync, {:receiver_joined, channel_pid}}, socket) do
-    Logger.info("DBSync.Sender: Receiver connected (no info)")
+    Logger.info("Sync.Sender: Receiver connected (no info)")
 
     receiver_data = %{
       receiver_info: %{},
@@ -208,7 +208,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
 
   @impl true
   def handle_info({:db_sync, {:receiver_disconnected, channel_pid}}, socket) do
-    Logger.info("DBSync.Sender: Receiver disconnected - #{inspect(channel_pid)}")
+    Logger.info("Sync.Sender: Receiver disconnected - #{inspect(channel_pid)}")
 
     receivers = Map.delete(socket.assigns.receivers, channel_pid)
 
@@ -224,7 +224,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
   # Handle old message format (backwards compatibility) - removes all receivers
   @impl true
   def handle_info({:db_sync, :receiver_disconnected}, socket) do
-    Logger.info("DBSync.Sender: Receiver disconnected (old format)")
+    Logger.info("Sync.Sender: Receiver disconnected (old format)")
 
     # For old format, we don't know which receiver, so just flash a message
     # The channel terminate will send the new format with PID
@@ -235,7 +235,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
 
   @impl true
   def handle_info({:db_sync, msg}, socket) do
-    Logger.debug("DBSync.Sender: Received message - #{inspect(msg)}")
+    Logger.debug("Sync.Sender: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end
 
@@ -263,7 +263,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Sender do
         <%!-- Header Section --%>
         <header class="w-full relative mb-8">
           <.link
-            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
+            navigate={Routes.path("/admin/sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.ChannelClient do
+defmodule PhoenixKit.Sync.ChannelClient do
   @moduledoc """
   Client for communicating with the DB Sync channel from the Receiver's LiveView.
 

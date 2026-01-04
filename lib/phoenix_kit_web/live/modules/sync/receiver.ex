@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
+defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   @moduledoc """
   Receiver-side LiveView for DB Sync.
 
@@ -16,9 +16,9 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBSync.SchemaInspector
-  alias PhoenixKit.DBSync.WebSocketClient
-  alias PhoenixKit.DBSync.Workers.ImportWorker
+  alias PhoenixKit.Sync.SchemaInspector
+  alias PhoenixKit.Sync.WebSocketClient
+  alias PhoenixKit.Sync.Workers.ImportWorker
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
       |> assign(:site_url, site_url)
       |> assign(:current_user, current_user)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-sync/receive", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/sync/receive", locale: locale))
       |> assign(:step, :enter_credentials)
       |> assign(:sender_url, "")
       |> assign(:connection_code, "")
@@ -300,15 +300,15 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   @impl true
   def handle_event("select_detail_table", %{"table" => table_name}, socket) do
     Logger.info(
-      "DBSync.Receiver: Selecting table: #{table_name}, ws_client: #{inspect(socket.assigns.ws_client)}"
+      "Sync.Receiver: Selecting table: #{table_name}, ws_client: #{inspect(socket.assigns.ws_client)}"
     )
 
     # Request schema for the selected table
     if socket.assigns.ws_client do
-      Logger.info("DBSync.Receiver: Requesting schema for #{table_name}")
+      Logger.info("Sync.Receiver: Requesting schema for #{table_name}")
       WebSocketClient.request_schema(socket.assigns.ws_client, table_name)
     else
-      Logger.warning("DBSync.Receiver: No ws_client available!")
+      Logger.warning("Sync.Receiver: No ws_client available!")
     end
 
     socket =
@@ -385,7 +385,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
       case SchemaInspector.create_table(table, schema) do
         :ok ->
-          Logger.info("DBSync.Receiver: Created table #{table}")
+          Logger.info("Sync.Receiver: Created table #{table}")
 
           # Update local_counts to reflect the new table
           local_counts = Map.put(socket.assigns.local_counts, table, 0)
@@ -400,7 +400,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
           {:noreply, socket}
 
         {:error, reason} ->
-          Logger.error("DBSync.Receiver: Failed to create table #{table}: #{inspect(reason)}")
+          Logger.error("Sync.Receiver: Failed to create table #{table}: #{inspect(reason)}")
 
           socket =
             socket
@@ -486,7 +486,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
         {:noreply, socket}
 
       {:error, reason} ->
-        Logger.error("DBSync.Receiver: Failed to start WebSocket client: #{inspect(reason)}")
+        Logger.error("Sync.Receiver: Failed to start WebSocket client: #{inspect(reason)}")
 
         socket =
           socket
@@ -500,7 +500,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
   @impl true
   def handle_info({:db_sync_client, :connected}, socket) do
-    Logger.info("DBSync.Receiver: Connected to sender")
+    Logger.info("Sync.Receiver: Connected to sender")
 
     # Request tables immediately
     WebSocketClient.request_tables(socket.assigns.ws_client)
@@ -518,7 +518,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
   @impl true
   def handle_info({:db_sync_client, :disconnected}, socket) do
-    Logger.info("DBSync.Receiver: Disconnected from sender")
+    Logger.info("Sync.Receiver: Disconnected from sender")
 
     socket =
       socket
@@ -533,7 +533,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
   @impl true
   def handle_info({:db_sync_client, {:disconnected, reason}}, socket) do
-    Logger.info("DBSync.Receiver: Disconnected - #{inspect(reason)}")
+    Logger.info("Sync.Receiver: Disconnected - #{inspect(reason)}")
 
     socket =
       socket
@@ -554,7 +554,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
   @impl true
   def handle_info({:db_sync_client, {:error, reason}}, socket) do
-    Logger.warning("DBSync.Receiver: Connection error - #{inspect(reason)}")
+    Logger.warning("Sync.Receiver: Connection error - #{inspect(reason)}")
 
     socket =
       socket
@@ -609,10 +609,10 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   @impl true
   def handle_info({:db_sync_client, {:schema, table, schema}}, socket) do
     Logger.info(
-      "DBSync.Receiver: Received schema for #{table}, selected: #{socket.assigns.selected_detail_table}"
+      "Sync.Receiver: Received schema for #{table}, selected: #{socket.assigns.selected_detail_table}"
     )
 
-    Logger.debug("DBSync.Receiver: Schema data: #{inspect(schema, limit: 500)}")
+    Logger.debug("Sync.Receiver: Schema data: #{inspect(schema, limit: 500)}")
 
     # Check if this is during bulk transfer schema fetching
     if socket.assigns.transferring and
@@ -633,7 +633,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
         {:noreply, socket}
       else
         Logger.warning(
-          "DBSync.Receiver: Schema table mismatch - received #{table}, expected #{socket.assigns.selected_detail_table}"
+          "Sync.Receiver: Schema table mismatch - received #{table}, expected #{socket.assigns.selected_detail_table}"
         )
 
         {:noreply, socket}
@@ -644,7 +644,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   # Handle schema request errors
   @impl true
   def handle_info({:db_sync_client, {:request_error, {:schema, table}, error}}, socket) do
-    Logger.error("DBSync.Receiver: Error fetching schema for #{table}: #{error}")
+    Logger.error("Sync.Receiver: Error fetching schema for #{table}: #{error}")
 
     # Check if this is during bulk transfer schema fetching
     if socket.assigns.transferring and
@@ -659,7 +659,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
       # Check if all schemas have been received/failed
       if Enum.empty?(pending_schemas) do
-        Logger.info("DBSync.Receiver: All schemas processed, starting record fetch")
+        Logger.info("Sync.Receiver: All schemas processed, starting record fetch")
 
         socket =
           socket
@@ -791,7 +791,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   @impl true
   def handle_info({:db_sync_client, {:request_error, {:records, table}, error}}, socket)
       when socket.assigns.transferring do
-    Logger.error("DBSync.Receiver: Error fetching records for #{table}: #{error}")
+    Logger.error("Sync.Receiver: Error fetching records for #{table}: #{error}")
 
     progress = socket.assigns.transfer_progress
     tables_pending = List.delete(progress.tables_pending, table)
@@ -820,7 +820,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
   # Handle error response for tables
   @impl true
   def handle_info({:db_sync_client, {:request_error, :tables, error}}, socket) do
-    Logger.error("DBSync.Receiver: Error fetching tables: #{error}")
+    Logger.error("Sync.Receiver: Error fetching tables: #{error}")
 
     socket =
       socket
@@ -847,7 +847,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
   @impl true
   def handle_info({:db_sync_client, msg}, socket) do
-    Logger.debug("DBSync.Receiver: Received message - #{inspect(msg)}")
+    Logger.debug("Sync.Receiver: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end
 
@@ -869,7 +869,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
 
     # Check if all schemas have been received
     if Enum.empty?(pending_schemas) do
-      Logger.info("DBSync.Receiver: All schemas received, starting record fetch")
+      Logger.info("Sync.Receiver: All schemas received, starting record fetch")
 
       # All schemas received - start fetching records
       socket =
@@ -906,7 +906,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Receiver do
         <%!-- Header Section --%>
         <header class="w-full relative mb-8">
           <.link
-            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
+            navigate={Routes.path("/admin/sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back

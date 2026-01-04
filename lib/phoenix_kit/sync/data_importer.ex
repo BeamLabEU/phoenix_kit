@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.DataImporter do
+defmodule PhoenixKit.Sync.DataImporter do
   @moduledoc """
   Handles import of records from remote sender with conflict resolution.
 
@@ -27,7 +27,7 @@ defmodule PhoenixKit.DBSync.DataImporter do
       }
   """
 
-  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.RepoHelper
 
   require Logger

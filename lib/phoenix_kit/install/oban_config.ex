@@ -119,7 +119,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         posts: 10,             # Posts scheduled publishing
         sitemap: 5,            # Sitemap generation
         sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
-        db_sync: 5             # DB Sync data import
+        db_sync: 5             # Sync data import
       ],
       plugins: [
         {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days

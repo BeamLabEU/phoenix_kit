@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.DBSyncWebsock do
+defmodule PhoenixKitWeb.SyncWebsock do
   @moduledoc """
   WebSock handler for DB Sync module.
 
@@ -34,12 +34,12 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   @behaviour WebSock
   require Logger
 
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.Connection
-  alias PhoenixKit.DBSync.Connections
-  alias PhoenixKit.DBSync.DataExporter
-  alias PhoenixKit.DBSync.SchemaInspector
-  alias PhoenixKit.DBSync.Transfers
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.Connection
+  alias PhoenixKit.Sync.Connections
+  alias PhoenixKit.Sync.DataExporter
+  alias PhoenixKit.Sync.SchemaInspector
+  alias PhoenixKit.Sync.Transfers
 
   defstruct [
     :auth_type,
@@ -66,7 +66,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
           code = Keyword.get(opts, :code)
           session = Keyword.get(opts, :session)
 
-          Logger.info("DBSync.Websock: Session connection initialized for code #{code}")
+          Logger.info("Sync.Websock: Session connection initialized for code #{code}")
 
           %__MODULE__{
             auth_type: :session,
@@ -80,7 +80,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
         :connection ->
           db_connection = Keyword.get(opts, :connection)
 
-          Logger.info("DBSync.Websock: Token connection initialized for #{db_connection.name}")
+          Logger.info("Sync.Websock: Token connection initialized for #{db_connection.name}")
 
           %__MODULE__{
             auth_type: :connection,
@@ -102,7 +102,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
         handle_message(join_ref, ref, topic, event, payload, state)
 
       {:error, reason} ->
-        Logger.warning("DBSync.Websock: Failed to decode message: #{inspect(reason)}")
+        Logger.warning("Sync.Websock: Failed to decode message: #{inspect(reason)}")
         {:ok, state}
     end
   end
@@ -113,24 +113,24 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   end
 
   @impl WebSock
-  def handle_info({:db_sync, message}, state) do
+  def handle_info({:sync, message}, state) do
     # Handle messages from LiveView or other processes
-    Logger.debug("DBSync.Websock: Received internal message: #{inspect(message)}")
+    Logger.debug("Sync.Websock: Received internal message: #{inspect(message)}")
     {:ok, state}
   end
 
   def handle_info(msg, state) do
-    Logger.debug("DBSync.Websock: Unknown info message: #{inspect(msg)}")
+    Logger.debug("Sync.Websock: Unknown info message: #{inspect(msg)}")
     {:ok, state}
   end
 
   @impl WebSock
   def terminate(reason, state) do
-    Logger.info("DBSync.Websock: Terminated for code #{state.code}, reason: #{inspect(reason)}")
+    Logger.info("Sync.Websock: Terminated for code #{state.code}, reason: #{inspect(reason)}")
 
     # Notify sender's LiveView that receiver disconnected
     if state.session && state.session[:owner_pid] do
-      send(state.session.owner_pid, {:db_sync, :receiver_disconnected})
+      send(state.session.owner_pid, {:sync, :receiver_disconnected})
     end
 
     :ok
@@ -143,7 +143,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   # Handle join message
   defp handle_message(_join_ref, ref, "transfer:" <> code, "phx_join", payload, state) do
     if code == state.code do
-      Logger.info("DBSync.Websock: Receiver joined for code #{code}")
+      Logger.info("Sync.Websock: Receiver joined for code #{code}")
 
       # Extract receiver info from join payload
       receiver_info = get_in(payload, ["receiver_info"]) || %{}
@@ -155,7 +155,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       }
 
       # Update session with connection info
-      DBSync.update_session(code, %{
+      Sync.update_session(code, %{
         channel_pid: self(),
         receiver_info: receiver_info,
         connection_info: state.connection_info
@@ -165,7 +165,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       if state.session[:owner_pid] do
         send(
           state.session.owner_pid,
-          {:db_sync, {:receiver_joined, self(), full_connection_info}}
+          {:sync, {:receiver_joined, self(), full_connection_info}}
         )
       end
 
@@ -176,7 +176,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
 
       {:push, {:text, reply}, state}
     else
-      Logger.warning("DBSync.Websock: Code mismatch - expected #{state.code}, got #{code}")
+      Logger.warning("Sync.Websock: Code mismatch - expected #{state.code}, got #{code}")
 
       reply =
         encode_reply(ref, "transfer:#{code}", "phx_reply", %{
@@ -204,7 +204,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
          state
        ) do
     if state.joined do
-      Logger.debug("DBSync.Websock: Capabilities requested")
+      Logger.debug("Sync.Websock: Capabilities requested")
 
       capabilities = %{
         "version" => "1.0.0",
@@ -227,7 +227,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   # Handle tables request
   defp handle_message(_join_ref, _ref, _topic, "request:tables", %{"ref" => client_ref}, state) do
     if state.joined do
-      Logger.debug("DBSync.Websock: Tables requested")
+      Logger.debug("Sync.Websock: Tables requested")
 
       response =
         case SchemaInspector.list_tables() do
@@ -263,7 +263,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
          state
        ) do
     if state.joined do
-      Logger.debug("DBSync.Websock: Schema requested for #{table}")
+      Logger.debug("Sync.Websock: Schema requested for #{table}")
 
       # Check table access for permanent connections
       response =
@@ -310,7 +310,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
          state
        ) do
     if state.joined do
-      Logger.debug("DBSync.Websock: Count requested for #{table}")
+      Logger.debug("Sync.Websock: Count requested for #{table}")
 
       response =
         if table_allowed?(table, state) do
@@ -352,7 +352,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
       effective_limit = get_effective_limit(limit, state)
 
       Logger.debug(
-        "DBSync.Websock: Records requested for #{table} (offset: #{offset}, limit: #{effective_limit})"
+        "Sync.Websock: Records requested for #{table} (offset: #{offset}, limit: #{effective_limit})"
       )
 
       response = fetch_and_respond_records(table, offset, effective_limit, client_ref, state)
@@ -366,7 +366,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
   # Catch-all for unknown messages
   defp handle_message(_join_ref, _ref, topic, event, payload, state) do
     Logger.warning(
-      "DBSync.Websock: Unknown message - topic: #{topic}, event: #{event}, payload: #{inspect(payload)}"
+      "Sync.Websock: Unknown message - topic: #{topic}, event: #{event}, payload: #{inspect(payload)}"
     )
 
     {:ok, state}
@@ -483,7 +483,7 @@ defmodule PhoenixKitWeb.DBSyncWebsock do
         })
 
       {:error, _changeset} ->
-        Logger.warning("DBSync.Websock: Failed to track transfer for #{table_name}")
+        Logger.warning("Sync.Websock: Failed to track transfer for #{table_name}")
     end
   end
 end

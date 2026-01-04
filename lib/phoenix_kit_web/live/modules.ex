@@ -9,7 +9,7 @@ defmodule PhoenixKitWeb.Live.Modules do
 
   alias PhoenixKit.AI
   alias PhoenixKit.Billing
-  alias PhoenixKit.DBSync
+  alias PhoenixKit.Sync
   alias PhoenixKit.DB
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
@@ -48,7 +48,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     billing_config = Billing.get_config()
     posts_config = Posts.get_config()
     ai_config = AI.get_config()
-    db_sync_config = DBSync.get_config()
+    db_sync_config = Sync.get_config()
     tickets_config = Tickets.get_config()
     connections_config = Connections.get_config()
     jobs_config = Jobs.get_config()
@@ -544,14 +544,14 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     result =
       if new_enabled do
-        DBSync.enable_system()
+        Sync.enable_system()
       else
-        DBSync.disable_system()
+        Sync.disable_system()
       end
 
     case result do
       {:ok, _} ->
-        db_sync_config = DBSync.get_config()
+        db_sync_config = Sync.get_config()
 
         socket =
           socket

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.SessionStore do
+defmodule PhoenixKit.Sync.SessionStore do
   @moduledoc """
   ETS-based session storage for DB Sync module.
 
@@ -176,7 +176,7 @@ defmodule PhoenixKit.DBSync.SessionStore do
     # Schedule periodic cleanup of orphaned sessions (fallback safety)
     schedule_cleanup()
 
-    Logger.debug("DBSync.SessionStore started")
+    Logger.debug("Sync.SessionStore started")
     {:ok, %{}}
   end
 
@@ -185,7 +185,7 @@ defmodule PhoenixKit.DBSync.SessionStore do
     ref = Process.monitor(pid)
     # Store mapping from monitor ref to session code
     :ets.insert(@monitors_table, {ref, code})
-    Logger.debug("DBSync.SessionStore: Monitoring #{inspect(pid)} for session #{code}")
+    Logger.debug("Sync.SessionStore: Monitoring #{inspect(pid)} for session #{code}")
     {:noreply, state}
   end
 
@@ -197,7 +197,7 @@ defmodule PhoenixKit.DBSync.SessionStore do
         :ets.delete(@monitors_table, ref)
         :ets.delete(@table_name, code)
 
-        Logger.debug("DBSync.SessionStore: Session #{code} deleted (owner process terminated)")
+        Logger.debug("Sync.SessionStore: Session #{code} deleted (owner process terminated)")
 
       [] ->
         :ok
@@ -260,7 +260,7 @@ defmodule PhoenixKit.DBSync.SessionStore do
     Enum.each(orphaned, &:ets.delete(@table_name, &1))
 
     if orphaned != [] do
-      Logger.debug("DBSync.SessionStore: Cleaned up #{length(orphaned)} orphaned sessions")
+      Logger.debug("Sync.SessionStore: Cleaned up #{length(orphaned)} orphaned sessions")
     end
   end
 

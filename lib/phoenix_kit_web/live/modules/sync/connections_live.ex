@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
+defmodule PhoenixKitWeb.Live.Modules.Sync.ConnectionsLive do
   @moduledoc """
   LiveView for managing DB Sync permanent connections.
 
@@ -11,11 +11,11 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
 
   require Logger
 
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.Connection
-  alias PhoenixKit.DBSync.ConnectionNotifier
-  alias PhoenixKit.DBSync.Connections
-  alias PhoenixKit.DBSync.SchemaInspector
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.Connection
+  alias PhoenixKit.Sync.ConnectionNotifier
+  alias PhoenixKit.Sync.Connections
+  alias PhoenixKit.Sync.SchemaInspector
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -23,7 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
     project_title = Settings.get_setting("project_title", "PhoenixKit")
-    config = DBSync.get_config()
+    config = Sync.get_config()
 
     # Subscribe to connection updates
     if connected?(socket) do
@@ -39,7 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
       |> assign(:page_title, "Connections")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-sync/connections", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/sync/connections", locale: locale))
       |> assign(:config, config)
       |> assign(:view_mode, :list)
       |> assign(:selected_connection, nil)
@@ -234,27 +234,27 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
   @impl true
   def handle_event("filter", %{"direction" => direction}, socket) do
     params = if direction != "", do: %{direction: direction}, else: %{}
-    path = path_with_params("/admin/db-sync/connections", params)
+    path = path_with_params("/admin/sync/connections", params)
     {:noreply, push_patch(socket, to: path)}
   end
 
   def handle_event("new_connection", _params, socket) do
-    path = path_with_params("/admin/db-sync/connections", %{action: "new"})
+    path = path_with_params("/admin/sync/connections", %{action: "new"})
     {:noreply, push_patch(socket, to: path)}
   end
 
   def handle_event("show_connection", %{"id" => id}, socket) do
-    path = path_with_params("/admin/db-sync/connections", %{action: "show", id: id})
+    path = path_with_params("/admin/sync/connections", %{action: "show", id: id})
     {:noreply, push_patch(socket, to: path)}
   end
 
   def handle_event("edit_connection", %{"id" => id}, socket) do
-    path = path_with_params("/admin/db-sync/connections", %{action: "edit", id: id})
+    path = path_with_params("/admin/sync/connections", %{action: "edit", id: id})
     {:noreply, push_patch(socket, to: path)}
   end
 
   def handle_event("cancel", _params, socket) do
-    path = Routes.path("/admin/db-sync/connections")
+    path = Routes.path("/admin/sync/connections")
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -412,7 +412,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
           |> put_flash(:info, message)
           |> load_connections()
 
-        path = Routes.path("/admin/db-sync/connections")
+        path = Routes.path("/admin/sync/connections")
         {:noreply, push_patch(socket, to: path)}
 
       {:error, _changeset} ->
@@ -421,7 +421,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
   end
 
   def handle_event("start_sync", %{"id" => id}, socket) do
-    path = path_with_params("/admin/db-sync/connections", %{action: "sync", id: id})
+    path = path_with_params("/admin/sync/connections", %{action: "sync", id: id})
     {:noreply, push_patch(socket, to: path)}
   end
 
@@ -946,7 +946,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
         if connection.direction == "sender" do
           Task.start(fn ->
             result = ConnectionNotifier.notify_remote_site(connection, token)
-            Logger.info("DBSync: Remote notification result: #{inspect(result)}")
+            Logger.info("Sync: Remote notification result: #{inspect(result)}")
           end)
         end
 
@@ -955,7 +955,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
           |> put_flash(:info, "Connection created successfully")
           |> load_connections()
 
-        path = Routes.path("/admin/db-sync/connections")
+        path = Routes.path("/admin/sync/connections")
         {:noreply, push_patch(socket, to: path)}
 
       {:error, changeset} ->
@@ -971,7 +971,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
           |> put_flash(:info, "Connection updated successfully")
           |> load_connections()
 
-        path = Routes.path("/admin/db-sync/connections")
+        path = Routes.path("/admin/sync/connections")
         {:noreply, push_patch(socket, to: path)}
 
       {:error, changeset} ->
@@ -994,7 +994,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.ConnectionsLive do
         <%!-- Header Section --%>
         <header class="w-full relative mb-6">
           <.link
-            navigate={Routes.path("/admin/db-sync", locale: @current_locale)}
+            navigate={Routes.path("/admin/sync", locale: @current_locale)}
             class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
           >
             <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to DB Sync

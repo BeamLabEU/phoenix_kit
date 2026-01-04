@@ -1,4 +1,4 @@
-defmodule PhoenixKit.DBSync.ConnectionNotifier do
+defmodule PhoenixKit.Sync.ConnectionNotifier do
   @moduledoc """
   Handles cross-site notification when creating sender connections.
 
@@ -31,8 +31,8 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
   require Logger
 
   alias Ecto.Adapters.SQL
-  alias PhoenixKit.DBSync.Connections
-  alias PhoenixKit.DBSync.Transfers
+  alias PhoenixKit.Sync.Connections
+  alias PhoenixKit.Sync.Transfers
 
   @default_timeout 30_000
   @connect_timeout 10_000
@@ -97,7 +97,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     # Build request body
     body = build_request_body(conn_name, site_url, raw_token, password)
 
-    Logger.info("DBSync: Notifying remote site about new connection", %{
+    Logger.info("Sync: Notifying remote site about new connection", %{
       remote_url: site_url,
       api_url: api_url,
       connection_name: conn_name
@@ -191,30 +191,30 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
         "auth_token_hash" => auth_token_hash
       }
 
-      Logger.info("DBSync: Notifying remote site to delete connection", %{
+      Logger.info("Sync: Notifying remote site to delete connection", %{
         remote_url: site_url,
         api_url: api_url
       })
 
       case make_http_request(api_url, body, timeout) do
         {:ok, %{status: status}} when status in [200, 204] ->
-          Logger.info("DBSync: Remote site deleted connection successfully")
+          Logger.info("Sync: Remote site deleted connection successfully")
           {:ok, :deleted}
 
         {:ok, %{status: 404}} ->
-          Logger.info("DBSync: Connection not found on remote site (already deleted)")
+          Logger.info("Sync: Connection not found on remote site (already deleted)")
           {:ok, :not_found}
 
         {:ok, %{status: status, body: resp_body}} ->
-          Logger.warning("DBSync: Remote site returned unexpected status #{status}: #{resp_body}")
+          Logger.warning("Sync: Remote site returned unexpected status #{status}: #{resp_body}")
           {:error, {:unexpected_status, status}}
 
         {:error, %{reason: reason}} when reason in [:econnrefused, :timeout, :nxdomain] ->
-          Logger.info("DBSync: Remote site offline, connection will self-heal")
+          Logger.info("Sync: Remote site offline, connection will self-heal")
           {:ok, :offline}
 
         {:error, reason} ->
-          Logger.error("DBSync: Failed to notify delete: #{inspect(reason)}")
+          Logger.error("Sync: Failed to notify delete: #{inspect(reason)}")
           {:error, reason}
       end
     end
@@ -258,30 +258,30 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
         "status" => new_status
       }
 
-      Logger.info("DBSync: Notifying remote site of status change", %{
+      Logger.info("Sync: Notifying remote site of status change", %{
         remote_url: site_url,
         new_status: new_status
       })
 
       case make_http_request(api_url, body, timeout) do
         {:ok, %{status: status}} when status in [200, 204] ->
-          Logger.info("DBSync: Remote site updated status successfully")
+          Logger.info("Sync: Remote site updated status successfully")
           {:ok, :updated}
 
         {:ok, %{status: 404}} ->
-          Logger.info("DBSync: Connection not found on remote site")
+          Logger.info("Sync: Connection not found on remote site")
           {:ok, :not_found}
 
         {:ok, %{status: status, body: resp_body}} ->
-          Logger.warning("DBSync: Remote site returned unexpected status #{status}: #{resp_body}")
+          Logger.warning("Sync: Remote site returned unexpected status #{status}: #{resp_body}")
           {:error, {:unexpected_status, status}}
 
         {:error, %{reason: reason}} when reason in [:econnrefused, :timeout, :nxdomain] ->
-          Logger.info("DBSync: Remote site offline")
+          Logger.info("Sync: Remote site offline")
           {:ok, :offline}
 
         {:error, reason} ->
-          Logger.error("DBSync: Failed to notify status change: #{inspect(reason)}")
+          Logger.error("Sync: Failed to notify status change: #{inspect(reason)}")
           {:error, reason}
       end
     end
@@ -320,7 +320,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
       "auth_token_hash" => auth_token_hash
     }
 
-    Logger.debug("DBSync: Querying sender for connection status", %{sender_url: site_url})
+    Logger.debug("Sync: Querying sender for connection status", %{sender_url: site_url})
 
     case make_http_request(api_url, body, timeout) do
       {:ok, %{status: 200, body: resp_body}} ->
@@ -421,7 +421,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     api_url = build_list_tables_url(site_url)
     body = %{"auth_token_hash" => auth_token_hash}
 
-    Logger.debug("DBSync: Fetching tables from sender", %{sender_url: site_url})
+    Logger.debug("Sync: Fetching tables from sender", %{sender_url: site_url})
 
     case make_http_request(api_url, body, timeout) do
       {:ok, %{status: 200, body: resp_body}} ->
@@ -485,7 +485,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     timeout = Keyword.get(opts, :timeout, 60_000)
     conflict_strategy = Keyword.get(opts, :conflict_strategy, "skip")
 
-    Logger.info("DBSync: Pulling data for table #{table_name}", %{sender_url: site_url})
+    Logger.info("Sync: Pulling data for table #{table_name}", %{sender_url: site_url})
 
     {:ok, transfer} = create_pull_transfer(connection_id, table_name, site_url, conflict_strategy)
 
@@ -729,61 +729,61 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     # Default is /phoenix_kit but could be configured differently
     prefix = detect_prefix(base_url)
 
-    "#{base_url}#{prefix}/db-sync/api/register-connection"
+    "#{base_url}#{prefix}/sync/api/register-connection"
   end
 
   defp build_status_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/status"
+    "#{base_url}#{prefix}/sync/api/status"
   end
 
   defp build_delete_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/delete-connection"
+    "#{base_url}#{prefix}/sync/api/delete-connection"
   end
 
   defp build_verify_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/verify-connection"
+    "#{base_url}#{prefix}/sync/api/verify-connection"
   end
 
   defp build_status_change_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/update-status"
+    "#{base_url}#{prefix}/sync/api/update-status"
   end
 
   defp build_get_status_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/get-connection-status"
+    "#{base_url}#{prefix}/sync/api/get-connection-status"
   end
 
   defp build_list_tables_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/list-tables"
+    "#{base_url}#{prefix}/sync/api/list-tables"
   end
 
   defp build_pull_data_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/pull-data"
+    "#{base_url}#{prefix}/sync/api/pull-data"
   end
 
   defp build_schema_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/table-schema"
+    "#{base_url}#{prefix}/sync/api/table-schema"
   end
 
   defp build_records_url(site_url) do
     base_url = String.trim_trailing(site_url, "/")
     prefix = detect_prefix(base_url)
-    "#{base_url}#{prefix}/db-sync/api/table-records"
+    "#{base_url}#{prefix}/sync/api/table-records"
   end
 
   defp detect_prefix(_base_url) do
@@ -854,7 +854,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     headers = [
       {"content-type", "application/json"},
       {"accept", "application/json"},
-      {"user-agent", "PhoenixKit-DBSync/1.0"}
+      {"user-agent", "PhoenixKit-Sync/1.0"}
     ]
 
     case Jason.encode(body) do
@@ -885,7 +885,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
 
     headers = [
       {"accept", "application/json"},
-      {"user-agent", "PhoenixKit-DBSync/1.0"}
+      {"user-agent", "PhoenixKit-Sync/1.0"}
     ]
 
     request = Finch.build(:get, url, headers)
@@ -1074,7 +1074,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
   defp import_table_data(table_name, data, conflict_strategy) when is_list(data) do
     repo = PhoenixKit.RepoHelper.repo()
 
-    Logger.info("DBSync: Importing #{length(data)} records into #{table_name}")
+    Logger.info("Sync: Importing #{length(data)} records into #{table_name}")
 
     # Execute raw SQL insert for each record
     # This is a simplified implementation - production would use batch inserts
@@ -1092,7 +1092,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
         end
       end)
 
-    Logger.info("DBSync: Import complete for #{table_name}", results)
+    Logger.info("Sync: Import complete for #{table_name}", results)
     results
   end
 
@@ -1137,7 +1137,7 @@ defmodule PhoenixKit.DBSync.ConnectionNotifier do
     end
   rescue
     e ->
-      Logger.warning("DBSync: Failed to insert record: #{Exception.message(e)}")
+      Logger.warning("Sync: Failed to insert record: #{Exception.message(e)}")
       :error
   end
 

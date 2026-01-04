@@ -849,9 +849,9 @@
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
-      <%!-- DB Sync Module --%>
+      <%!-- Sync Module --%>
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="DB Sync"
+        title="Sync"
         description="Sync data between PhoenixKit instances in real-time"
         icon="🔄"
         enabled={@db_sync_enabled}
@@ -875,7 +875,7 @@
           <div class="flex flex-col gap-2 w-full">
             <%= if @db_sync_enabled do %>
               <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/db-sync")}
+                navigate={PhoenixKit.Utils.Routes.path("/admin/sync")}
                 class="btn btn-primary btn-sm"
               >
                 <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Open Sync

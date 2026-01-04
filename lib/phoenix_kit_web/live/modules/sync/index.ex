@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
+defmodule PhoenixKitWeb.Live.Modules.Sync.Index do
   @moduledoc """
   Landing page for DB Sync module.
 
@@ -10,8 +10,8 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.Connections
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.Connections
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
     project_title = Settings.get_setting("project_title", "PhoenixKit")
-    config = DBSync.get_config()
+    config = Sync.get_config()
 
     # Get connection stats
     stats = get_connection_stats()
@@ -29,7 +29,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
       |> assign(:page_title, "DB Sync")
       |> assign(:project_title, project_title)
       |> assign(:current_locale, locale)
-      |> assign(:current_path, Routes.path("/admin/db-sync", locale: locale))
+      |> assign(:current_path, Routes.path("/admin/sync", locale: locale))
       |> assign(:config, config)
       |> assign(:stats, stats)
 
@@ -166,7 +166,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
               </p>
               <div class="card-actions">
                 <.link
-                  navigate={Routes.path("/admin/db-sync/connections", locale: @current_locale)}
+                  navigate={Routes.path("/admin/sync/connections", locale: @current_locale)}
                   class="btn btn-primary btn-lg"
                 >
                   <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Manage Connections
@@ -191,7 +191,7 @@ defmodule PhoenixKitWeb.Live.Modules.DBSync.Index do
               </p>
               <div class="card-actions">
                 <.link
-                  navigate={Routes.path("/admin/db-sync/history", locale: @current_locale)}
+                  navigate={Routes.path("/admin/sync/history", locale: @current_locale)}
                   class="btn btn-secondary btn-lg"
                 >
                   <.icon name="hero-queue-list" class="w-5 h-5" /> View History

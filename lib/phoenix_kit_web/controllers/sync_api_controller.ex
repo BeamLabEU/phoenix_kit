@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
+defmodule PhoenixKitWeb.Controllers.SyncApiController do
   @moduledoc """
-  API controller for DB Sync cross-site operations.
+  API controller for Sync cross-site operations.
 
   Handles incoming connection registration requests from remote PhoenixKit sites.
   When a remote site creates a sender connection pointing to this site, they call
@@ -14,7 +14,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
 
   ## Endpoints
 
-  - `POST /{prefix}/db-sync/api/register-connection` - Register incoming connection
+  - `POST /{prefix}/sync/api/register-connection` - Register incoming connection
   """
 
   use PhoenixKitWeb, :controller
@@ -22,9 +22,9 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   require Logger
 
   alias Ecto.Adapters.SQL
-  alias PhoenixKit.DBSync
-  alias PhoenixKit.DBSync.Connections
-  alias PhoenixKit.DBSync.Transfers
+  alias PhoenixKit.Sync
+  alias PhoenixKit.Sync.Connections
+  alias PhoenixKit.Sync.Transfers
 
   @doc """
   Registers an incoming connection from a remote site.
@@ -110,7 +110,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   Returns whether the module is enabled and accepting connections.
   """
   def status(conn, _params) do
-    config = DBSync.get_config()
+    config = Sync.get_config()
 
     conn
     |> put_status(200)
@@ -210,7 +210,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
       if pubsub do
         Phoenix.PubSub.broadcast(
           pubsub,
-          "db_sync:connections",
+          "sync:connections",
           {:connection_status_changed, connection.id, validated.status}
         )
       end
@@ -307,7 +307,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   - 503 Service Unavailable - DB Sync module is disabled
   """
   def get_connection_status(conn, params) do
-    Logger.info("DBSync API: get_connection_status called with params: #{inspect(params)}")
+    Logger.info("Sync API: get_connection_status called with params: #{inspect(params)}")
 
     with :ok <- check_module_enabled(),
          {:ok, validated} <- validate_get_status_params(params),
@@ -325,7 +325,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
               if pubsub do
                 Phoenix.PubSub.broadcast(
                   pubsub,
-                  "db_sync:connections",
+                  "sync:connections",
                   {:connection_status_changed, connection.id, "active"}
                 )
               end
@@ -340,7 +340,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
         end
 
       Logger.info(
-        "DBSync API: Found sender connection #{updated_connection.id} with status '#{status}'"
+        "Sync API: Found sender connection #{updated_connection.id} with status '#{status}'"
       )
 
       conn
@@ -352,14 +352,14 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
       })
     else
       {:error, :module_disabled} ->
-        Logger.warning("DBSync API: get_connection_status - module disabled")
+        Logger.warning("Sync API: get_connection_status - module disabled")
 
         conn
         |> put_status(503)
         |> json(%{success: false, error: "DB Sync module is disabled"})
 
       {:error, :missing_fields, fields} ->
-        Logger.warning("DBSync API: get_connection_status - missing fields: #{inspect(fields)}")
+        Logger.warning("Sync API: get_connection_status - missing fields: #{inspect(fields)}")
 
         conn
         |> put_status(400)
@@ -367,7 +367,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
 
       {:error, :not_found} ->
         Logger.warning(
-          "DBSync API: get_connection_status - connection not found for hash: #{params["auth_token_hash"]}"
+          "Sync API: get_connection_status - connection not found for hash: #{params["auth_token_hash"]}"
         )
 
         conn
@@ -644,7 +644,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   # --- Private Functions ---
 
   defp check_module_enabled do
-    if DBSync.enabled?() do
+    if Sync.enabled?() do
       :ok
     else
       {:error, :module_disabled}
@@ -652,7 +652,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   end
 
   defp check_incoming_allowed do
-    case DBSync.get_incoming_mode() do
+    case Sync.get_incoming_mode() do
       "deny_all" -> {:error, :incoming_denied}
       _ -> :ok
     end
@@ -748,9 +748,9 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
   end
 
   defp validate_password(provided_password) do
-    case DBSync.get_incoming_mode() do
+    case Sync.get_incoming_mode() do
       "require_password" ->
-        stored_password = DBSync.get_incoming_password()
+        stored_password = Sync.get_incoming_password()
 
         cond do
           is_nil(stored_password) or stored_password == "" ->
@@ -812,7 +812,7 @@ defmodule PhoenixKitWeb.Controllers.DBSyncApiController do
         if pubsub do
           Phoenix.PubSub.broadcast(
             pubsub,
-            "db_sync:connections",
+            "sync:connections",
             {:connection_created, connection.id}
           )
         end
