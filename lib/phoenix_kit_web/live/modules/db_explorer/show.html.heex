@@ -93,61 +93,64 @@
         phx-hook="DBTableScroller"
         data-page={@preview.page}
         data-total-pages={@preview.total_pages}
-        data-per-page={@per_page}
       >
-          <%!-- Fake scrollbar container --%>
-          <div class="flex">
-            <%!-- Table content --%>
-            <div id="table-container" class="overflow-x-auto">
-              <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
-                <thead>
+        <%!-- Fake scrollbar container --%>
+        <div class="flex">
+          <%!-- Table content --%>
+          <div id="table-container" class="overflow-x-auto">
+            <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
+              <thead>
+                <tr>
+                  <%= for column <- @preview.columns do %>
+                    <th class="text-xs uppercase tracking-wide text-base-content/70">
+                      {column.name}
+                    </th>
+                  <% end %>
+                </tr>
+              </thead>
+              <tbody>
+                <%= if Enum.empty?(@preview.rows) do %>
                   <tr>
-                    <%= for column <- @preview.columns do %>
-                      <th class="text-xs uppercase tracking-wide text-base-content/70">
-                        {column.name}
-                      </th>
-                    <% end %>
+                    <td
+                      colspan={length(@preview.columns)}
+                      class="text-center !py-8 text-base-content/70"
+                    >
+                      No rows found.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  <%= if Enum.empty?(@preview.rows) do %>
-                    <tr>
-                      <td
-                        colspan={length(@preview.columns)}
-                        class="text-center !py-8 text-base-content/70"
-                      >
-                        No rows found.
-                      </td>
+                <% else %>
+                  <%= for row <- @preview.rows do %>
+                    <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
+                      <%= for column <- @preview.columns do %>
+                        <td class="align-middle max-w-xs truncate">
+                          {format_cell(Map.get(row, column.name))}
+                        </td>
+                      <% end %>
                     </tr>
-                  <% else %>
-                    <%= for row <- @preview.rows do %>
-                      <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
-                        <%= for column <- @preview.columns do %>
-                          <td class="align-middle max-w-xs truncate">
-                            {format_cell(Map.get(row, column.name))}
-                          </td>
+                  <% end %>
+                  <%!-- Empty placeholder rows to maintain consistent height --%>
+                  <% empty_rows = @per_page - length(@preview.rows) %>
+                  <%= if empty_rows > 0 do %>
+                    <%= for _i <- 1..empty_rows do %>
+                      <tr class="invisible">
+                        <%= for _column <- @preview.columns do %>
+                          <td class="align-middle">&nbsp;</td>
                         <% end %>
                       </tr>
                     <% end %>
-                    <%!-- Empty placeholder rows to maintain consistent height --%>
-                    <% empty_rows = @per_page - length(@preview.rows) %>
-                    <%= if empty_rows > 0 do %>
-                      <%= for _i <- 1..empty_rows do %>
-                        <tr class="invisible">
-                          <%= for _column <- @preview.columns do %>
-                            <td class="align-middle">&nbsp;</td>
-                          <% end %>
-                        </tr>
-                      <% end %>
-                    <% end %>
                   <% end %>
-                </tbody>
-              </table>
-            </div>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
 
           <%!-- Fake scrollbar with page markers --%>
           <%= if @preview.total_pages > 1 do %>
-            <div id="scrollbar-container" class="relative flex-shrink-0 self-stretch">
+            <div
+              id="scrollbar-container"
+              class="relative flex-shrink-0 self-stretch"
+              style={"--total-pages: #{@preview.total_pages}"}
+            >
               <%!-- Page markers (hidden until scrolling) --%>
               <% zone_offset = 50 / @preview.total_pages %>
               <div
@@ -164,20 +167,19 @@
                   </div>
                 <% end %>
               </div>
-              <%!-- Scrollbar --%>
+              <%!-- Scrollbar - height via CSS, content height via CSS variable --%>
               <div
                 id="fake-scrollbar"
-                class="w-4 bg-base-200 overflow-y-scroll"
-                style="height: 200px;"
+                class="w-4 h-full bg-base-200 overflow-y-scroll"
                 phx-update="ignore"
               >
-                <div id="fake-scrollbar-content"></div>
+                <div id="fake-scrollbar-content" style="height: calc(var(--total-pages) * 100%);">
+                </div>
               </div>
             </div>
           <% end %>
         </div>
       </div>
-
     </div>
   </div>
 
@@ -203,24 +205,17 @@
       window.PhoenixKitHooks.DBTableScroller = {
         mounted() {
           this.scrollbar = this.el.querySelector('#fake-scrollbar');
-          this.tableContainer = this.el.querySelector('#table-container');
-          this.tbody = this.el.querySelector('tbody');
           this.pageMarkers = this.el.querySelector('#page-markers');
 
           this.pendingPage = null;
           this.debounceTimer = null;
           this.markerHideTimer = null;
           this.isHoldingScrollbar = false;
-          this.initialMount = true;
           this.page = parseInt(this.el.dataset.page || '1', 10);
           this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
-          this.perPage = parseInt(this.el.dataset.perPage || '50', 10);
 
-          // Sync scrollbar after a short delay to let table render
-          requestAnimationFrame(() => {
-            this.syncScrollbarSize();
-            this.syncScrollToPage();
-          });
+          // Sync scroll position after render
+          requestAnimationFrame(() => this.syncScrollToPage());
 
           // Set up scroll handler
           if (this.scrollbar) {
@@ -250,12 +245,10 @@
         updated() {
           const newPage = parseInt(this.el.dataset.page || '1', 10);
           const newTotalPages = parseInt(this.el.dataset.totalPages || '1', 10);
-          const newPerPage = parseInt(this.el.dataset.perPage || '50', 10);
 
           // Re-query elements in case LiveView replaced them
           const newScrollbar = this.el.querySelector('#fake-scrollbar');
           if (newScrollbar !== this.scrollbar) {
-            // Scrollbar was replaced, re-attach event listeners
             if (this.scrollbar) {
               this.scrollbar.removeEventListener('scroll', this.scrollHandler);
             }
@@ -267,34 +260,18 @@
               this.scrollbar.addEventListener('mouseleave', () => this.hideMarkersDelayed());
             }
           }
-          this.tableContainer = this.el.querySelector('#table-container');
-          this.tbody = this.el.querySelector('tbody');
           this.pageMarkers = this.el.querySelector('#page-markers');
 
-          // Update state
-          if (newTotalPages !== this.totalPages) {
-            this.totalPages = newTotalPages;
-            this.updateScrollbarHeight();
-          }
+          const pageChanged = newPage !== this.page;
+          const totalPagesChanged = newTotalPages !== this.totalPages;
 
-          if (newPerPage !== this.perPage) {
-            this.perPage = newPerPage;
-          }
+          this.totalPages = newTotalPages;
+          this.page = newPage;
 
-          // Sync scrollbar if page changed (e.g., via Prev/Next buttons)
-          if (newPage !== this.page) {
-            this.page = newPage;
-            this.syncScrollToPage();
-          }
-
-          // Only lock height after initial mount completes (per_page calculated)
-          if (this.initialMount) {
-            this.initialMount = false;
-            // Sync scrollbar on first real update
-            requestAnimationFrame(() => this.syncScrollbarSize());
-          } else {
-            // Measure and apply heights after initial setup
-            this.measureAndLockHeight();
+          // Sync scroll position when page or total pages change
+          // CSS variables handle the scrollbar sizing automatically
+          if (pageChanged || totalPagesChanged) {
+            requestAnimationFrame(() => this.syncScrollToPage());
           }
         },
 
@@ -304,32 +281,6 @@
           }
           if (this.debounceTimer) clearTimeout(this.debounceTimer);
           if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
-        },
-
-        measureAndLockHeight() {
-          // Just sync scrollbar size - placeholder rows handle consistent table height
-          this.syncScrollbarSize();
-        },
-
-        syncScrollbarSize() {
-          if (!this.scrollbar || !this.tableContainer) return;
-
-          // Match scrollbar height to table height
-          const tableHeight = this.tableContainer.offsetHeight;
-          if (tableHeight > 0) {
-            this.scrollbar.style.height = `${tableHeight}px`;
-
-            // Set content height so thumb is 1/totalPages of scrollbar
-            const content = this.el.querySelector('#fake-scrollbar-content');
-            if (content) {
-              content.style.height = `${this.totalPages * tableHeight}px`;
-            }
-          }
-        },
-
-        updateScrollbarHeight() {
-          // Just sync the scrollbar size
-          this.syncScrollbarSize();
         },
 
         syncScrollToPage() {
