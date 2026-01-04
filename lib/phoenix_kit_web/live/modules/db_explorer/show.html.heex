@@ -52,7 +52,7 @@
         <%!-- Fake scrollbar container --%>
         <div class="flex">
           <%!-- Table content --%>
-          <div id="table-container" class="flex-1 overflow-x-auto">
+          <div id="table-container" class="overflow-x-auto">
             <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
               <thead>
                 <tr>
@@ -190,21 +190,19 @@
           this.markerHideTimer = null;
           this.lockedHeight = null;
           this.isHoldingScrollbar = false;
+          this.initialMount = true;
           this.page = parseInt(this.el.dataset.page || '1', 10);
           this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
           this.perPage = parseInt(this.el.dataset.perPage || '50', 10);
 
-          // Measure and lock height on first full page
-          this.measureAndLockHeight();
-
-          // Update scrollbar content height
-          this.updateScrollbarHeight();
-
-          // Sync scroll position to current page on initial load
-          this.syncScrollToPage();
-
           // Calculate and set optimal per_page on mount
           this.calculatePerPage();
+
+          // Sync scrollbar after a short delay to let table render
+          requestAnimationFrame(() => {
+            this.syncScrollbarSize();
+            this.syncScrollToPage();
+          });
 
           // Set up scroll handler
           if (this.scrollbar) {
@@ -270,10 +268,21 @@
             this.lockedHeight = null;
           }
 
-          this.page = newPage;
+          // Sync scrollbar if page changed (e.g., via Prev/Next buttons)
+          if (newPage !== this.page) {
+            this.page = newPage;
+            this.syncScrollToPage();
+          }
 
-          // Measure and apply heights
-          this.measureAndLockHeight();
+          // Only lock height after initial mount completes (per_page calculated)
+          if (this.initialMount) {
+            this.initialMount = false;
+            // Sync scrollbar on first real update
+            requestAnimationFrame(() => this.syncScrollbarSize());
+          } else {
+            // Measure and apply heights after initial setup
+            this.measureAndLockHeight();
+          }
         },
 
         destroyed() {
@@ -297,16 +306,13 @@
             this.lockedHeight = currentHeight;
           }
 
-          // Apply locked height to table container and scrollbar
+          // Apply locked height to table container
           if (this.lockedHeight) {
             this.tableContainer.style.minHeight = `${this.lockedHeight}px`;
-            if (this.scrollbar) {
-              this.scrollbar.style.height = `${this.lockedHeight}px`;
-            }
-          } else if (currentHeight > 0 && this.scrollbar) {
-            // Use current height as fallback for scrollbar
-            this.scrollbar.style.height = `${currentHeight}px`;
           }
+
+          // Sync scrollbar height to table height
+          this.syncScrollbarSize();
         },
 
         calculatePerPage() {
@@ -338,13 +344,25 @@
           }, 300);
         },
 
-        updateScrollbarHeight() {
-          const content = this.el.querySelector('#fake-scrollbar-content');
-          if (content && this.lockedHeight) {
-            content.style.height = `${this.totalPages * this.lockedHeight}px`;
-          } else if (content) {
-            content.style.height = `${this.totalPages * 500}px`;
+        syncScrollbarSize() {
+          if (!this.scrollbar || !this.tableContainer) return;
+
+          // Match scrollbar height to table height
+          const tableHeight = this.tableContainer.offsetHeight;
+          if (tableHeight > 0) {
+            this.scrollbar.style.height = `${tableHeight}px`;
+
+            // Set content height so thumb is 1/totalPages of scrollbar
+            const content = this.el.querySelector('#fake-scrollbar-content');
+            if (content) {
+              content.style.height = `${this.totalPages * tableHeight}px`;
+            }
           }
+        },
+
+        updateScrollbarHeight() {
+          // Just sync the scrollbar size
+          this.syncScrollbarSize();
         },
 
         syncScrollToPage() {
