@@ -318,13 +318,13 @@ defmodule PhoenixKit.Sync.Client do
 
   defp wait_for_connection(pid, timeout) do
     receive do
-      {:db_sync_client, :connected} ->
+      {:sync_client, :connected} ->
         {:ok, pid}
 
-      {:db_sync_client, {:error, reason}} ->
+      {:sync_client, {:error, reason}} ->
         {:error, reason}
 
-      {:db_sync_client, {:disconnected, reason}} ->
+      {:sync_client, {:disconnected, reason}} ->
         {:error, {:disconnected, reason}}
     after
       timeout ->
@@ -335,28 +335,28 @@ defmodule PhoenixKit.Sync.Client do
 
   defp wait_for_response(expected_type, timeout) do
     receive do
-      {:db_sync_client, {:tables, tables}} when expected_type == :tables ->
+      {:sync_client, {:tables, tables}} when expected_type == :tables ->
         {:ok, tables}
 
-      {:db_sync_client, {:schema, table, schema}} when expected_type == {:schema, table} ->
+      {:sync_client, {:schema, table, schema}} when expected_type == {:schema, table} ->
         {:ok, schema}
 
-      {:db_sync_client, {:count, table, count}} when expected_type == {:count, table} ->
+      {:sync_client, {:count, table, count}} when expected_type == {:count, table} ->
         {:ok, count}
 
-      {:db_sync_client, {:records, table, result}} when expected_type == {:records, table} ->
+      {:sync_client, {:records, table, result}} when expected_type == {:records, table} ->
         {:ok, result}
 
-      {:db_sync_client, {:request_error, ^expected_type, error}} ->
+      {:sync_client, {:request_error, ^expected_type, error}} ->
         {:error, error}
 
-      {:db_sync_client, {:error, error}} ->
+      {:sync_client, {:error, error}} ->
         {:error, error}
 
-      {:db_sync_client, :disconnected} ->
+      {:sync_client, :disconnected} ->
         {:error, :disconnected}
 
-      {:db_sync_client, {:disconnected, reason}} ->
+      {:sync_client, {:disconnected, reason}} ->
         {:error, {:disconnected, reason}}
     after
       timeout ->

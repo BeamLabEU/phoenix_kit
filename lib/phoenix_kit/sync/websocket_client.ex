@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Sync.WebSocketClient do
   @moduledoc """
-  WebSocket client for DB Sync receiver connections.
+  WebSocket client for Sync receiver connections.
 
   Uses WebSockex to connect from the receiver site to the sender's
   WebSocket endpoint. Sends requests and receives responses.
@@ -22,11 +22,11 @@ defmodule PhoenixKit.Sync.WebSocketClient do
 
       # Request available tables
       WebSocketClient.request_tables(pid)
-      # Receive: {:db_sync_client, {:tables, tables}}
+      # Receive: {:sync_client, {:tables, tables}}
 
       # Request records
       WebSocketClient.request_records(pid, "users", offset: 0, limit: 100)
-      # Receive: {:db_sync_client, {:records, "users", result}}
+      # Receive: {:sync_client, {:records, "users", result}}
   """
 
   use WebSockex
@@ -517,7 +517,7 @@ defmodule PhoenixKit.Sync.WebSocketClient do
 
   defp notify_caller(%{caller: caller}, message) when is_pid(caller) do
     if Process.alive?(caller) do
-      send(caller, {:db_sync_client, message})
+      send(caller, {:sync_client, message})
     end
   end
 

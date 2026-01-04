@@ -499,7 +499,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, :connected}, socket) do
+  def handle_info({:sync_client, :connected}, socket) do
     Logger.info("Sync.Receiver: Connected to sender")
 
     # Request tables immediately
@@ -517,7 +517,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, :disconnected}, socket) do
+  def handle_info({:sync_client, :disconnected}, socket) do
     Logger.info("Sync.Receiver: Disconnected from sender")
 
     socket =
@@ -532,7 +532,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, {:disconnected, reason}}, socket) do
+  def handle_info({:sync_client, {:disconnected, reason}}, socket) do
     Logger.info("Sync.Receiver: Disconnected - #{inspect(reason)}")
 
     socket =
@@ -553,7 +553,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, {:error, reason}}, socket) do
+  def handle_info({:sync_client, {:error, reason}}, socket) do
     Logger.warning("Sync.Receiver: Connection error - #{inspect(reason)}")
 
     socket =
@@ -566,7 +566,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, {:terminated, _reason}}, socket) do
+  def handle_info({:sync_client, {:terminated, _reason}}, socket) do
     socket =
       socket
       |> assign(:connecting, false)
@@ -577,7 +577,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, :channel_closed}, socket) do
+  def handle_info({:sync_client, :channel_closed}, socket) do
     socket =
       socket
       |> assign(:connecting, false)
@@ -591,7 +591,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle tables response from WebSocketClient
   @impl true
-  def handle_info({:db_sync_client, {:tables, tables}}, socket) do
+  def handle_info({:sync_client, {:tables, tables}}, socket) do
     # Fetch local counts for comparison
     local_counts = fetch_local_counts(tables)
 
@@ -607,7 +607,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle schema response from WebSocketClient
   @impl true
-  def handle_info({:db_sync_client, {:schema, table, schema}}, socket) do
+  def handle_info({:sync_client, {:schema, table, schema}}, socket) do
     Logger.info(
       "Sync.Receiver: Received schema for #{table}, selected: #{socket.assigns.selected_detail_table}"
     )
@@ -643,7 +643,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle schema request errors
   @impl true
-  def handle_info({:db_sync_client, {:request_error, {:schema, table}, error}}, socket) do
+  def handle_info({:sync_client, {:request_error, {:schema, table}, error}}, socket) do
     Logger.error("Sync.Receiver: Error fetching schema for #{table}: #{error}")
 
     # Check if this is during bulk transfer schema fetching
@@ -687,7 +687,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle records response for preview (not transferring)
   @impl true
-  def handle_info({:db_sync_client, {:records, table, result}}, socket)
+  def handle_info({:sync_client, {:records, table, result}}, socket)
       when not socket.assigns.transferring and socket.assigns.loading_preview do
     if socket.assigns.selected_detail_table == table do
       records = Map.get(result, :records, [])
@@ -712,7 +712,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle records response from WebSocketClient during transfer
   @impl true
-  def handle_info({:db_sync_client, {:records, table, result}}, socket)
+  def handle_info({:sync_client, {:records, table, result}}, socket)
       when socket.assigns.transferring do
     progress = socket.assigns.transfer_progress
 
@@ -789,7 +789,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle error response during transfer
   @impl true
-  def handle_info({:db_sync_client, {:request_error, {:records, table}, error}}, socket)
+  def handle_info({:sync_client, {:request_error, {:records, table}, error}}, socket)
       when socket.assigns.transferring do
     Logger.error("Sync.Receiver: Error fetching records for #{table}: #{error}")
 
@@ -819,7 +819,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
 
   # Handle error response for tables
   @impl true
-  def handle_info({:db_sync_client, {:request_error, :tables, error}}, socket) do
+  def handle_info({:sync_client, {:request_error, :tables, error}}, socket) do
     Logger.error("Sync.Receiver: Error fetching tables: #{error}")
 
     socket =
@@ -846,7 +846,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Receiver do
   end
 
   @impl true
-  def handle_info({:db_sync_client, msg}, socket) do
+  def handle_info({:sync_client, msg}, socket) do
     Logger.debug("Sync.Receiver: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end

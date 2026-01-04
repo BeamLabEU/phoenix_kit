@@ -155,7 +155,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
   # ===========================================
 
   @impl true
-  def handle_info({:db_sync, {:receiver_joined, channel_pid, full_info}}, socket) do
+  def handle_info({:sync, {:receiver_joined, channel_pid, full_info}}, socket) do
     Logger.info("Sync.Sender: Receiver connected - #{inspect(full_info)}")
 
     # Extract receiver_info and connection_info from the full_info map
@@ -186,7 +186,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
 
   # Handle old message format (backwards compatibility)
   @impl true
-  def handle_info({:db_sync, {:receiver_joined, channel_pid}}, socket) do
+  def handle_info({:sync, {:receiver_joined, channel_pid}}, socket) do
     Logger.info("Sync.Sender: Receiver connected (no info)")
 
     receiver_data = %{
@@ -207,7 +207,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
   end
 
   @impl true
-  def handle_info({:db_sync, {:receiver_disconnected, channel_pid}}, socket) do
+  def handle_info({:sync, {:receiver_disconnected, channel_pid}}, socket) do
     Logger.info("Sync.Sender: Receiver disconnected - #{inspect(channel_pid)}")
 
     receivers = Map.delete(socket.assigns.receivers, channel_pid)
@@ -223,7 +223,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
 
   # Handle old message format (backwards compatibility) - removes all receivers
   @impl true
-  def handle_info({:db_sync, :receiver_disconnected}, socket) do
+  def handle_info({:sync, :receiver_disconnected}, socket) do
     Logger.info("Sync.Sender: Receiver disconnected (old format)")
 
     # For old format, we don't know which receiver, so just flash a message
@@ -234,7 +234,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.Sender do
   end
 
   @impl true
-  def handle_info({:db_sync, msg}, socket) do
+  def handle_info({:sync, msg}, socket) do
     Logger.debug("Sync.Sender: Received message - #{inspect(msg)}")
     {:noreply, socket}
   end
