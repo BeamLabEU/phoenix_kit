@@ -72,7 +72,7 @@ defmodule PhoenixKit.Sync.Transfer do
   @valid_statuses ~w(pending pending_approval approved denied in_progress completed failed cancelled expired)
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
-  schema "phoenix_kit_db_sync_transfers" do
+  schema "phoenix_kit_sync_transfers" do
     field :uuid, Ecto.UUID
     field :direction, :string
     field :session_code, :string

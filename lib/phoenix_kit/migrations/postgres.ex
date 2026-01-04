@@ -312,7 +312,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces single-purpose PublishScheduledPostsJob with generic processor
   - Supports any schedulable resource (posts, emails, notifications, etc.)
 
-  ### V43 - Legal Module ⚡ LATEST
+  ### V43 - Legal Module
   - Phoenix_kit_consent_logs for user consent tracking (GDPR/CCPA compliance)
   - Supports logged-in users and anonymous visitors via session_id
   - Consent types: necessary, analytics, marketing, preferences
@@ -320,6 +320,12 @@ defmodule PhoenixKit.Migrations.Postgres do
     - legal_enabled, legal_frameworks, legal_company_info
     - legal_dpo_contact, legal_consent_widget_enabled
     - legal_cookie_banner_position
+
+  ### V44 - Sync Table Rename ⚡ LATEST
+  - Rename phoenix_kit_db_sync_connections → phoenix_kit_sync_connections
+  - Rename phoenix_kit_db_sync_transfers → phoenix_kit_sync_transfers
+  - Rename all related indexes to match new table names
+  - Matches module rename from DBSync to Sync
 
   ## Migration Paths
 
@@ -379,7 +385,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 43
+  @current_version 44
   @default_prefix "public"
 
   @doc false

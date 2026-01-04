@@ -66,7 +66,7 @@ defmodule PhoenixKit.Sync.Connection do
   @valid_approval_modes ~w(auto_approve require_approval per_table)
   @valid_conflict_strategies ~w(skip overwrite merge append)
 
-  schema "phoenix_kit_db_sync_connections" do
+  schema "phoenix_kit_sync_connections" do
     field :uuid, Ecto.UUID
     field :name, :string
     field :direction, :string
@@ -176,7 +176,7 @@ defmodule PhoenixKit.Sync.Connection do
     |> validate_number(:allowed_hours_end, greater_than_or_equal_to: 0, less_than_or_equal_to: 23)
     |> validate_number(:auto_sync_interval_minutes, greater_than: 0)
     |> unique_constraint([:site_url, :direction],
-      name: :phoenix_kit_db_sync_connections_site_direction_uidx
+      name: :phoenix_kit_sync_connections_site_direction_uidx
     )
     |> hash_auth_token()
     |> hash_download_password()
