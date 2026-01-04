@@ -263,9 +263,9 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
 
-  ### V37 - DB Sync Connections & Transfer Tracking
-  - Phoenix_kit_db_sync_connections for permanent site-to-site connections
-  - Phoenix_kit_db_sync_transfers for tracking all data transfers
+  ### V37 - Sync Connections & Transfer Tracking
+  - phoenix_kit_sync_connections for permanent site-to-site connections (renamed in V44)
+  - phoenix_kit_sync_transfers for tracking all data transfers (renamed in V44)
   - Approval modes: auto_approve, require_approval, per_table
   - Expiration and download limits (max_downloads, max_records_total)
   - Additional security: password protection, IP whitelist, time restrictions
@@ -325,6 +325,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Rename phoenix_kit_db_sync_connections → phoenix_kit_sync_connections
   - Rename phoenix_kit_db_sync_transfers → phoenix_kit_sync_transfers
   - Rename all related indexes to match new table names
+  - Rename settings keys: db_sync_* → sync_*
   - Matches module rename from DBSync to Sync
 
   ## Migration Paths

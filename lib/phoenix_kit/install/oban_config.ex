@@ -16,7 +16,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, ensure_posts_queue: 2}
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
   @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
-  @dialyzer {:nowarn_function, ensure_db_sync_queue: 2}
+  @dialyzer {:nowarn_function, ensure_sync_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, ensure_pruner_max_age: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
@@ -119,7 +119,7 @@ defmodule PhoenixKit.Install.ObanConfig do
         posts: 10,             # Posts scheduled publishing
         sitemap: 5,            # Sitemap generation
         sqs_polling: 1,        # SQS polling for email events (only one concurrent job)
-        db_sync: 5             # Sync data import
+        sync: 5             # Sync data import
       ],
       plugins: [
         {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days
@@ -163,7 +163,7 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Update existing Oban configuration to add posts/sitemap/sqs_polling/db_sync queues and cron plugin
+  # Update existing Oban configuration to add posts/sitemap/sqs_polling/sync queues and cron plugin
   defp update_existing_oban_config(source, content, app_name) do
     Mix.shell().info("🔍 Updating existing Oban configuration for :#{app_name}...")
 
@@ -172,7 +172,7 @@ defmodule PhoenixKit.Install.ObanConfig do
       |> ensure_posts_queue(app_name)
       |> ensure_sitemap_queue(app_name)
       |> ensure_sqs_polling_queue(app_name)
-      |> ensure_db_sync_queue(app_name)
+      |> ensure_sync_queue(app_name)
       |> ensure_cron_plugin(app_name)
       |> ensure_pruner_max_age(app_name)
 
@@ -323,14 +323,14 @@ defmodule PhoenixKit.Install.ObanConfig do
     end
   end
 
-  # Ensure db_sync queue exists in the queues list
-  defp ensure_db_sync_queue(content, app_name) do
-    # Check if db_sync queue already exists
-    if Regex.match?(~r/db_sync:\s*\d+/, content) do
-      Mix.shell().info("  ℹ️  db_sync queue already configured")
+  # Ensure sync queue exists in the queues list
+  defp ensure_sync_queue(content, app_name) do
+    # Check if sync queue already exists
+    if Regex.match?(~r/sync:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  sync queue already configured")
       content
     else
-      Mix.shell().info("  ➕ Adding db_sync queue to Oban configuration...")
+      Mix.shell().info("  ➕ Adding sync queue to Oban configuration...")
 
       # Find the ACTIVE queues configuration (not commented out)
       case Regex.run(
@@ -339,18 +339,18 @@ defmodule PhoenixKit.Install.ObanConfig do
              capture: :all
            ) do
         [full_match, before_queues, queues_content, after_queues] ->
-          Mix.shell().info("  ✓ Found queues block, adding db_sync queue")
+          Mix.shell().info("  ✓ Found queues block, adding sync queue")
 
           # Remove trailing whitespace and check for comma
           trimmed_content = String.trim_trailing(queues_content)
           has_trailing_comma = String.ends_with?(trimmed_content, ",")
 
-          # Add db_sync queue with proper formatting (no comments to avoid syntax issues)
+          # Add sync queue with proper formatting (no comments to avoid syntax issues)
           new_queue_entry =
             if has_trailing_comma do
-              "\n    db_sync: 5"
+              "\n    sync: 5"
             else
-              ",\n    db_sync: 5"
+              ",\n    sync: 5"
             end
 
           updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
@@ -359,10 +359,10 @@ defmodule PhoenixKit.Install.ObanConfig do
 
         nil ->
           Mix.shell().error(
-            "  ⚠️  Could not parse queues block for :#{app_name} - skipping db_sync queue update"
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping sync queue update"
           )
 
-          Mix.shell().error("     Please manually add: db_sync: 5")
+          Mix.shell().error("     Please manually add: sync: 5")
           content
       end
     end
@@ -722,7 +722,7 @@ defmodule PhoenixKit.Install.ObanConfig do
           posts: 10,
           sitemap: 5,
           sqs_polling: 1,
-          db_sync: 5
+          sync: 5
         ],
         plugins: [
           {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},  # Keep jobs for 30 days

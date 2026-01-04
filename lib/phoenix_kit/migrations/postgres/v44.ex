@@ -14,6 +14,11 @@ defmodule PhoenixKit.Migrations.Postgres.V44 do
   ### Index Renames
   All indexes are renamed to match the new table names.
 
+  ### Setting Key Renames
+  - `db_sync_enabled` → `sync_enabled`
+  - `db_sync_incoming_mode` → `sync_incoming_mode`
+  - `db_sync_incoming_password` → `sync_incoming_password`
+
   ## Backwards Compatibility
 
   This is a breaking change for existing installations. The migration
@@ -149,6 +154,14 @@ defmodule PhoenixKit.Migrations.Postgres.V44 do
     'Track all data transfers (uploads and downloads) with approval workflow'
     """
 
+    # ===========================================
+    # 4. RENAME SETTINGS KEYS
+    # ===========================================
+
+    rename_setting_key("db_sync_enabled", "sync_enabled", prefix)
+    rename_setting_key("db_sync_incoming_mode", "sync_incoming_mode", prefix)
+    rename_setting_key("db_sync_incoming_password", "sync_incoming_password", prefix)
+
     # Update version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '44'"
   end
@@ -253,8 +266,27 @@ defmodule PhoenixKit.Migrations.Postgres.V44 do
       prefix
     )
 
+    # Rename settings keys back
+    rename_setting_key("sync_enabled", "db_sync_enabled", prefix)
+    rename_setting_key("sync_incoming_mode", "db_sync_incoming_mode", prefix)
+    rename_setting_key("sync_incoming_password", "db_sync_incoming_password", prefix)
+
     # Update version back
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '43'"
+  end
+
+  # Helper to rename setting key if it exists
+  defp rename_setting_key(old_key, new_key, prefix) do
+    prefix_str = if prefix, do: "#{prefix}.", else: ""
+
+    execute """
+    UPDATE #{prefix_str}phoenix_kit_settings
+    SET key = '#{new_key}'
+    WHERE key = '#{old_key}'
+    AND NOT EXISTS (
+      SELECT 1 FROM #{prefix_str}phoenix_kit_settings WHERE key = '#{new_key}'
+    );
+    """
   end
 
   # Helper to rename index if it exists

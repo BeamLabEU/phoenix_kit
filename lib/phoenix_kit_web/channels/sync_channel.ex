@@ -102,9 +102,7 @@ defmodule PhoenixKitWeb.SyncChannel do
 
     case SchemaInspector.get_schema(table) do
       {:ok, schema} ->
-        Logger.info(
-          "Sync.Channel: Schema found for #{table}, columns: #{length(schema.columns)}"
-        )
+        Logger.info("Sync.Channel: Schema found for #{table}, columns: #{length(schema.columns)}")
 
         push(socket, "response:schema", %{schema: schema, ref: ref})
 

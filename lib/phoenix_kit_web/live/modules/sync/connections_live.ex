@@ -30,7 +30,7 @@ defmodule PhoenixKitWeb.Live.Modules.Sync.ConnectionsLive do
       pubsub = PhoenixKit.Config.pubsub_server()
 
       if pubsub do
-        Phoenix.PubSub.subscribe(pubsub, "db_sync:connections")
+        Phoenix.PubSub.subscribe(pubsub, "sync:connections")
       end
     end
 

@@ -194,12 +194,14 @@ defmodule PhoenixKit.DB do
   end
 
   defp parse_row_id(id) when is_integer(id), do: id
+
   defp parse_row_id(id) when is_binary(id) do
     case Integer.parse(id) do
       {int, ""} -> int
       _ -> nil
     end
   end
+
   defp parse_row_id(_), do: nil
 
   @doc """

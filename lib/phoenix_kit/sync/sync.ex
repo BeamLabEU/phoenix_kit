@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Sync do
   @moduledoc """
-  Main context for DB Sync module.
+  Main context for Sync module.
 
   Provides peer-to-peer data sync between PhoenixKit instances.
   Supports sync between dev↔prod, dev↔dev, or even different websites.
@@ -12,9 +12,9 @@ defmodule PhoenixKit.Sync do
 
   ### System Control
 
-  - `enabled?/0` - Check if DB Sync module is enabled
-  - `enable_system/0` - Enable DB Sync module
-  - `disable_system/0` - Disable DB Sync module
+  - `enabled?/0` - Check if Sync module is enabled
+  - `enable_system/0` - Enable Sync module
+  - `disable_system/0` - Disable Sync module
   - `get_config/0` - Get current configuration and stats
 
   ### Session Management (for LiveView UI)
@@ -75,17 +75,17 @@ defmodule PhoenixKit.Sync do
   alias PhoenixKit.Sync.SessionStore
   alias PhoenixKit.Settings
 
-  @module_name "db_sync"
-  @enabled_key "db_sync_enabled"
-  @incoming_mode_key "db_sync_incoming_mode"
-  @incoming_password_key "db_sync_incoming_password"
+  @module_name "sync"
+  @enabled_key "sync_enabled"
+  @incoming_mode_key "sync_incoming_mode"
+  @incoming_password_key "sync_incoming_password"
 
   # ===========================================
   # SYSTEM CONTROL
   # ===========================================
 
   @doc """
-  Checks if the DB Sync module is enabled.
+  Checks if the Sync module is enabled.
   """
   @spec enabled?() :: boolean()
   def enabled? do
@@ -93,7 +93,7 @@ defmodule PhoenixKit.Sync do
   end
 
   @doc """
-  Enables the DB Sync module.
+  Enables the Sync module.
   """
   @spec enable_system() :: {:ok, any()} | {:error, any()}
   def enable_system do
@@ -101,7 +101,7 @@ defmodule PhoenixKit.Sync do
   end
 
   @doc """
-  Disables the DB Sync module.
+  Disables the Sync module.
   """
   @spec disable_system() :: {:ok, any()} | {:error, any()}
   def disable_system do
@@ -109,7 +109,7 @@ defmodule PhoenixKit.Sync do
   end
 
   @doc """
-  Gets the DB Sync module configuration with statistics.
+  Gets the Sync module configuration with statistics.
 
   Returns a map with:
   - `enabled` - Whether the module is enabled

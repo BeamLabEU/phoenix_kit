@@ -198,13 +198,13 @@ Connections have fields for auto-sync but the scheduler isn't implemented yet:
 - `auto_sync_tables`: Tables to sync automatically
 - `auto_sync_interval_minutes`: How often to sync
 
-## Database Tables (V35)
+## Database Tables (V37, renamed in V44)
 
-### phoenix_kit_db_sync_connections
+### phoenix_kit_sync_connections
 
 Stores permanent connections with full configuration and audit trail.
 
-### phoenix_kit_db_sync_transfers
+### phoenix_kit_sync_transfers
 
 Tracks all data transfers with:
 - Direction (send/receive)

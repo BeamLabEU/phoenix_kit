@@ -619,10 +619,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <% end %>
 
                     <%= if PhoenixKit.Sync.enabled?() do %>
-                      <%!-- DB Sync section --%>
+                      <%!-- Sync section --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/sync")}
-                        icon="db_sync"
+                        icon="sync"
                         label={gettext("Sync")}
                         current_path={@current_path || ""}
                         disable_active={true}

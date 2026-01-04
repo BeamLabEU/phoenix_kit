@@ -27,13 +27,13 @@ defmodule PhoenixKit.Sync.Workers.ImportWorker do
 
   ## Queue Configuration
 
-  Add the db_sync queue to your Oban config:
+  Add the sync queue to your Oban config:
 
       config :my_app, Oban,
-        queues: [default: 10, db_sync: 5]
+        queues: [default: 10, sync: 5]
   """
 
-  use Oban.Worker, queue: :db_sync, max_attempts: 3
+  use Oban.Worker, queue: :sync, max_attempts: 3
 
   alias PhoenixKit.Sync.DataImporter
   alias PhoenixKit.Sync.SchemaInspector

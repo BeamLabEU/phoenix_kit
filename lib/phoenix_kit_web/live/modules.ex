@@ -100,8 +100,8 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:posts_total, posts_config.total_posts)
       |> assign(:posts_published, posts_config.published_posts)
       |> assign(:posts_draft, posts_config.draft_posts)
-      |> assign(:db_sync_enabled, db_sync_config.enabled)
-      |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
+      |> assign(:sync_enabled, db_sync_config.enabled)
+      |> assign(:sync_active_sessions, db_sync_config.active_sessions)
       |> assign(:tickets_enabled, tickets_config.enabled)
       |> assign(:tickets_total, tickets_config.total_tickets)
       |> assign(:tickets_open, tickets_config.open_tickets)
@@ -539,8 +539,8 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  def handle_event("toggle_db_sync", _params, socket) do
-    new_enabled = !socket.assigns.db_sync_enabled
+  def handle_event("toggle_sync", _params, socket) do
+    new_enabled = !socket.assigns.sync_enabled
 
     result =
       if new_enabled do
@@ -551,17 +551,17 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     case result do
       {:ok, _} ->
-        db_sync_config = Sync.get_config()
+        sync_config = Sync.get_config()
 
         socket =
           socket
-          |> assign(:db_sync_enabled, new_enabled)
-          |> assign(:db_sync_active_sessions, db_sync_config.active_sessions)
+          |> assign(:sync_enabled, new_enabled)
+          |> assign(:sync_active_sessions, sync_config.active_sessions)
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "DB Sync module enabled",
-              else: "DB Sync module disabled"
+              do: "Sync module enabled",
+              else: "Sync module disabled"
             )
           )
 

@@ -467,8 +467,12 @@ defmodule PhoenixKit.Sync.WebSocketClient do
 
     path =
       case uri.path do
-        nil -> "/sync/websocket"
-        "" -> "/sync/websocket"
+        nil ->
+          "/sync/websocket"
+
+        "" ->
+          "/sync/websocket"
+
         # If path already ends with /sync/websocket, use as-is
         # Otherwise append /sync/websocket to the prefix path
         p ->

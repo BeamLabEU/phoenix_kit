@@ -854,26 +854,26 @@
         title="Sync"
         description="Sync data between PhoenixKit instances in real-time"
         icon="🔄"
-        enabled={@db_sync_enabled}
-        toggle_event="toggle_db_sync"
+        enabled={@sync_enabled}
+        toggle_event="toggle_sync"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@db_sync_enabled, do: "badge-success", else: "badge-neutral")
+            if(@sync_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @db_sync_enabled, do: "Enabled", else: "Disabled"}
+            {if @sync_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @db_sync_enabled and @db_sync_active_sessions > 0 do %>
+          <%= if @sync_enabled and @sync_active_sessions > 0 do %>
             <span class="badge badge-outline badge-warning ml-2 whitespace-nowrap">
-              {@db_sync_active_sessions} active
+              {@sync_active_sessions} active
             </span>
           <% end %>
         </:status_badges>
 
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
-            <%= if @db_sync_enabled do %>
+            <%= if @sync_enabled do %>
               <.link
                 navigate={PhoenixKit.Utils.Routes.path("/admin/sync")}
                 class="btn btn-primary btn-sm"
@@ -890,7 +890,7 @@
 
         <:stats>
           <div class="text-xs text-base-content/70">
-            {if @db_sync_enabled,
+            {if @sync_enabled,
               do: "Sync data between dev, staging, and production environments",
               else: "Enable to sync data between PhoenixKit sites"}
           </div>

@@ -35,8 +35,8 @@ defmodule PhoenixKit.Sync.SessionStore do
   use GenServer
   require Logger
 
-  @table_name :phoenix_kit_db_sync_sessions
-  @monitors_table :phoenix_kit_db_sync_monitors
+  @table_name :phoenix_kit_sync_sessions
+  @monitors_table :phoenix_kit_sync_monitors
   @cleanup_interval :timer.hours(1)
 
   # ===========================================
