@@ -151,17 +151,18 @@
               class="relative flex-shrink-0 self-stretch"
               style={"--total-pages: #{@preview.total_pages}"}
             >
-              <%!-- Page markers (hidden until scrolling) --%>
+              <%!-- Page markers (hidden until scrolling, fish-eye effect applied via JS) --%>
               <% zone_offset = 50 / @preview.total_pages %>
               <div
                 id="page-markers"
-                class="absolute right-5 w-8 pointer-events-none opacity-0 transition-opacity duration-150"
+                class="absolute right-5 w-12 pointer-events-none opacity-0 transition-opacity duration-150"
                 style={"top: #{zone_offset}%; bottom: #{zone_offset}%;"}
               >
                 <%= for page <- 1..@preview.total_pages do %>
                   <div
-                    class="absolute right-0 text-[10px] font-medium text-base-content bg-base-100 px-1 rounded shadow-sm border border-base-300 -translate-y-1/2"
-                    style={"top: #{if @preview.total_pages > 1, do: (page - 1) / (@preview.total_pages - 1) * 100, else: 0}%"}
+                    class="page-marker absolute right-0 font-medium text-base-content bg-base-100 px-1 rounded shadow-sm border border-base-300 -translate-y-1/2 origin-right transition-transform duration-75"
+                    data-page={page}
+                    style={"top: #{if @preview.total_pages > 1, do: (page - 1) / (@preview.total_pages - 1) * 100, else: 0}%; font-size: 8px;"}
                   >
                     {page}
                   </div>
@@ -211,6 +212,7 @@
           this.debounceTimer = null;
           this.markerHideTimer = null;
           this.isHoldingScrollbar = false;
+          this.isHovering = false;
           this.page = parseInt(this.el.dataset.page || '1', 10);
           this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
 
@@ -222,22 +224,29 @@
             this.scrollHandler = this.handleScroll.bind(this);
             this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
 
-            // Show/hide markers and snap on release
-            this.scrollbar.addEventListener('mousedown', () => {
-              this.isHoldingScrollbar = true;
+            // Show markers on hover
+            this.scrollbar.addEventListener('mouseenter', () => {
+              this.isHovering = true;
               this.showMarkers();
             });
-            this.scrollbar.addEventListener('mouseup', () => {
-              this.isHoldingScrollbar = false;
-              this.snapToPage();
-              this.hideMarkersDelayed();
-            });
+
+            // Hide markers when leaving
             this.scrollbar.addEventListener('mouseleave', () => {
+              this.isHovering = false;
               if (this.isHoldingScrollbar) {
                 this.isHoldingScrollbar = false;
                 this.snapToPage();
               }
               this.hideMarkersDelayed();
+            });
+
+            // Track dragging state
+            this.scrollbar.addEventListener('mousedown', () => {
+              this.isHoldingScrollbar = true;
+            });
+            this.scrollbar.addEventListener('mouseup', () => {
+              this.isHoldingScrollbar = false;
+              this.snapToPage();
             });
           }
         },
@@ -308,6 +317,7 @@
           }
           if (this.pageMarkers) {
             this.pageMarkers.style.opacity = '1';
+            this.updateMarkerStyles();
           }
         },
 
@@ -320,10 +330,75 @@
           }, 300);
         },
 
+        updateMarkerStyles() {
+          if (!this.pageMarkers || !this.scrollbar) return;
+
+          const markers = this.pageMarkers.querySelectorAll('.page-marker');
+          if (!markers.length) return;
+
+          // Calculate current page from scroll position
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const scrollPercent = maxScroll > 0 ? this.scrollbar.scrollTop / maxScroll : 0;
+          const currentPage = scrollPercent * (this.totalPages - 1) + 1;
+          const focusPercent = (currentPage - 1) / (this.totalPages - 1); // 0 to 1
+
+          // Calculate density: pixels available per page marker
+          const markerAreaHeight = this.pageMarkers.offsetHeight || this.scrollbar.clientHeight;
+          const pixelsPerPage = markerAreaHeight / this.totalPages;
+
+          // Density factor: 0 = very crowded (needs strong effect), 1 = spacious (minimal effect)
+          // Effect kicks in when less than ~20px per page, full effect at ~5px per page
+          const densityFactor = Math.min(Math.max((pixelsPerPage - 5) / 15, 0), 1);
+
+          // Scale fish-eye parameters based on density
+          // When spacious (densityFactor=1): minimal effect, larger base font
+          // When crowded (densityFactor=0): full effect, smaller base font
+          const effectStrength = 1 - densityFactor;
+
+          // Base font size scales with available space: 8px when crowded, 14px when spacious
+          const baseFontSize = 8 + 6 * densityFactor;     // 8 to 14
+
+          const maxScale = 1 + 1.2 * effectStrength;      // 1.0 to 2.2
+          const minScale = 1 - 0.6 * effectStrength;      // 1.0 to 0.4
+          const maxOffset = 22 * effectStrength;          // 0 to 22
+          const falloffRange = 3 + 4 * densityFactor;     // 3 to 7
+          const compressionStrength = 0.4 * effectStrength; // 0 to 0.4
+
+          markers.forEach(marker => {
+            const page = parseInt(marker.dataset.page, 10);
+            const distance = Math.abs(page - currentPage);
+
+            // Original position (0 to 1)
+            const originalPos = (page - 1) / (this.totalPages - 1);
+
+            // Apply fish-eye lens distortion to vertical position (only when needed)
+            let newPos = originalPos;
+            if (compressionStrength > 0.01) {
+              const delta = originalPos - focusPercent;
+              const expandedDelta = Math.sign(delta) * Math.pow(Math.abs(delta), 1 - compressionStrength);
+              newPos = focusPercent + expandedDelta;
+            }
+
+            // Calculate scale and offset based on distance
+            const t = Math.min(distance / falloffRange, 1);
+            const scale = maxScale - (maxScale - minScale) * t;
+            const offset = maxOffset * (1 - t);
+
+            // Apply new vertical position, font size, and transforms
+            marker.style.top = `${newPos * 100}%`;
+            marker.style.fontSize = `${baseFontSize}px`;
+            marker.style.transform = `translateY(-50%) translateX(-${offset}px) scale(${scale})`;
+
+            // Distant markers fade more (also scaled by effect strength)
+            const minOpacity = 0.3 + 0.7 * densityFactor; // 0.3 to 1.0
+            marker.style.opacity = minOpacity + (1 - minOpacity) * (1 - t * 0.6);
+          });
+        },
+
         handleScroll() {
           if (this.totalPages <= 1) return;
 
-          // Show markers while scrolling
+          // Show markers while scrolling (also updates fish-eye effect)
           this.showMarkers();
 
           const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
