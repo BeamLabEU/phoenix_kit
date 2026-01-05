@@ -1,0 +1,400 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Subscription #{@subscription.id}"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <div class="flex items-center gap-3">
+            <h1 class="text-3xl font-bold">Subscription #{@subscription.id}</h1>
+            <span class={["badge badge-lg", status_badge_class(@subscription.status)]}>
+              {@subscription.status}
+            </span>
+          </div>
+          <p class="text-base-content/60 mt-1">
+            Created <.time_ago datetime={@subscription.inserted_at} />
+          </p>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <%!-- Change Plan Button (for active/trialing subscriptions) --%>
+        <%= if @subscription.status in ["active", "trialing"] && !@subscription.cancel_at_period_end do %>
+          <button phx-click="open_change_plan_modal" class="btn btn-outline btn-sm">
+            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Plan
+          </button>
+        <% end %>
+
+        <%!-- Action Buttons based on status --%>
+        <%= case @subscription.status do %>
+          <% "active" -> %>
+            <%= if @subscription.cancel_at_period_end do %>
+              <button phx-click="resume" class="btn btn-success btn-sm">
+                <.icon name="hero-play" class="w-4 h-4" /> Resume
+              </button>
+            <% else %>
+              <button phx-click="pause" class="btn btn-warning btn-sm">
+                <.icon name="hero-pause" class="w-4 h-4" /> Pause
+              </button>
+              <button
+                phx-click="cancel_at_period_end"
+                class="btn btn-error btn-outline btn-sm"
+                data-confirm="Cancel subscription at period end?"
+              >
+                <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel at Period End
+              </button>
+            <% end %>
+          <% "trialing" -> %>
+            <button
+              phx-click="cancel_now"
+              class="btn btn-error btn-sm"
+              data-confirm="Cancel subscription immediately?"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+            </button>
+          <% "paused" -> %>
+            <button phx-click="resume" class="btn btn-success btn-sm">
+              <.icon name="hero-play" class="w-4 h-4" /> Resume
+            </button>
+            <button
+              phx-click="cancel_now"
+              class="btn btn-error btn-outline btn-sm"
+              data-confirm="Cancel subscription?"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+            </button>
+          <% "past_due" -> %>
+            <button
+              phx-click="cancel_now"
+              class="btn btn-error btn-sm"
+              data-confirm="Cancel subscription immediately?"
+            >
+              <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel Now
+            </button>
+          <% _ -> %>
+        <% end %>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Main Content --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Plan Details --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Plan Details</h2>
+            <%= if @subscription.plan do %>
+              <div class="mt-4">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <h3 class="text-xl font-bold">{@subscription.plan.name}</h3>
+                    <p class="text-base-content/60">{@subscription.plan.description}</p>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-2xl font-bold">
+                      <.currency_amount
+                        amount={@subscription.plan.price}
+                        currency={@subscription.plan.currency}
+                      />
+                    </div>
+                    <div class="text-sm text-base-content/60">
+                      {format_interval(
+                        @subscription.plan.interval,
+                        @subscription.plan.interval_count
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <%!-- Features --%>
+                <%= if @subscription.plan.features && is_list(@subscription.plan.features) && length(@subscription.plan.features) > 0 do %>
+                  <div class="divider">Features</div>
+                  <ul class="space-y-2">
+                    <%= for feature <- @subscription.plan.features do %>
+                      <li class="flex items-center gap-2">
+                        <.icon name="hero-check" class="w-4 h-4 text-success" />
+                        <span>{feature}</span>
+                      </li>
+                    <% end %>
+                  </ul>
+                <% end %>
+              </div>
+            <% else %>
+              <div class="text-center py-6 text-base-content/50">
+                <p>No plan associated</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Billing Period --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Billing Period</h2>
+            <div class="grid grid-cols-2 gap-4 mt-4">
+              <div class="bg-base-200 rounded-lg p-4">
+                <div class="text-sm text-base-content/60">Period Start</div>
+                <div class="font-medium">
+                  <%= if @subscription.current_period_start do %>
+                    <.time_ago datetime={@subscription.current_period_start} />
+                  <% else %>
+                    <span class="text-base-content/50">Not set</span>
+                  <% end %>
+                </div>
+              </div>
+              <div class="bg-base-200 rounded-lg p-4">
+                <div class="text-sm text-base-content/60">Period End</div>
+                <div class="font-medium">
+                  <%= if @subscription.current_period_end do %>
+                    <.time_ago datetime={@subscription.current_period_end} />
+                    <% days = days_until_renewal(@subscription) %>
+                    <%= if days && days > 0 do %>
+                      <span class="text-xs text-base-content/60 block">
+                        ({days} days remaining)
+                      </span>
+                    <% end %>
+                  <% else %>
+                    <span class="text-base-content/50">Not set</span>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Trial Period --%>
+            <%= if @subscription.trial_start || @subscription.trial_end do %>
+              <div class="divider">Trial Period</div>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="bg-info/10 rounded-lg p-4">
+                  <div class="text-sm text-info">Trial Start</div>
+                  <div class="font-medium">
+                    <%= if @subscription.trial_start do %>
+                      <.time_ago datetime={@subscription.trial_start} />
+                    <% else %>
+                      <span class="text-base-content/50">-</span>
+                    <% end %>
+                  </div>
+                </div>
+                <div class="bg-info/10 rounded-lg p-4">
+                  <div class="text-sm text-info">Trial End</div>
+                  <div class="font-medium">
+                    <%= if @subscription.trial_end do %>
+                      <.time_ago datetime={@subscription.trial_end} />
+                    <% else %>
+                      <span class="text-base-content/50">-</span>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Grace Period (if past_due) --%>
+            <%= if @subscription.status == "past_due" && @subscription.grace_period_end do %>
+              <div class="divider">Grace Period</div>
+              <div class="alert alert-warning">
+                <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                <div>
+                  <div class="font-medium">Payment Failed - Grace Period Active</div>
+                  <div class="text-sm">
+                    Grace period ends <.time_ago datetime={@subscription.grace_period_end} />
+                    <% grace_days = grace_period_remaining(@subscription) %>
+                    <%= if grace_days && grace_days > 0 do %>
+                      ({grace_days} days remaining)
+                    <% end %>
+                  </div>
+                  <div class="text-sm mt-1">
+                    Renewal attempts: {@subscription.renewal_attempts || 0}
+                  </div>
+                </div>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Cancellation Info --%>
+        <%= if @subscription.cancel_at_period_end || @subscription.cancelled_at do %>
+          <div class="card bg-error/10 border border-error shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-error">
+                <.icon name="hero-x-circle" class="w-6 h-6" /> Cancellation
+              </h2>
+              <%= if @subscription.cancel_at_period_end do %>
+                <p>This subscription will cancel at the end of the current billing period.</p>
+              <% end %>
+              <%= if @subscription.cancelled_at do %>
+                <p>
+                  Cancelled <.time_ago datetime={@subscription.cancelled_at} />
+                </p>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+      </div>
+
+      <%!-- Sidebar --%>
+      <div class="space-y-6">
+        <%!-- Customer Info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Customer</h2>
+            <%= if @subscription.user do %>
+              <div class="flex items-center gap-3 mt-2">
+                <.user_avatar user={@subscription.user} size="lg" />
+                <div>
+                  <div class="font-medium">{@subscription.user.email}</div>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/admin/users/edit/#{@subscription.user.id}")
+                    }
+                    class="text-sm text-primary hover:underline"
+                  >
+                    View Profile
+                  </.link>
+                </div>
+              </div>
+            <% else %>
+              <p class="text-base-content/50 mt-2">No customer linked</p>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Payment Method --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Payment Method</h2>
+            <%= if @subscription.payment_method do %>
+              <div class="mt-2">
+                <div class="flex items-center gap-3 p-3 bg-base-200 rounded-lg">
+                  <.icon name="hero-credit-card" class="w-6 h-6 text-primary" />
+                  <div>
+                    <div class="font-medium">
+                      {PhoenixKit.Modules.Billing.PaymentMethod.display_name(
+                        @subscription.payment_method
+                      )}
+                    </div>
+                    <div class="text-sm text-base-content/60">
+                      Provider: {@subscription.payment_method.provider}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% else %>
+              <div class="text-center py-4 text-base-content/50">
+                <.icon name="hero-credit-card" class="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No payment method</p>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Quick Info --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">Quick Info</h2>
+            <div class="space-y-3 mt-2">
+              <div class="flex justify-between items-center">
+                <span class="text-base-content/60">Status</span>
+                <span class={["badge", status_badge_class(@subscription.status)]}>
+                  {@subscription.status}
+                </span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-base-content/60">Created</span>
+                <span><.time_ago datetime={@subscription.inserted_at} /></span>
+              </div>
+              <%= if @subscription.started_at do %>
+                <div class="flex justify-between items-center">
+                  <span class="text-base-content/60">Started</span>
+                  <span><.time_ago datetime={@subscription.started_at} /></span>
+                </div>
+              <% end %>
+              <%= if @subscription.ended_at do %>
+                <div class="flex justify-between items-center">
+                  <span class="text-base-content/60">Ended</span>
+                  <span><.time_ago datetime={@subscription.ended_at} /></span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%!-- Change Plan Modal --%>
+  <%= if @show_change_plan_modal do %>
+    <div class="modal modal-open">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg">Change Subscription Plan</h3>
+
+        <%!-- Current Plan --%>
+        <%= if @subscription.plan do %>
+          <div class="mt-4 p-3 bg-base-200 rounded-lg">
+            <div class="text-sm text-base-content/60">Current Plan</div>
+            <div class="font-medium">{@subscription.plan.name}</div>
+            <div class="text-sm">
+              <.currency_compact
+                amount={@subscription.plan.price}
+                currency={@subscription.plan.currency}
+              />
+              / {format_interval(@subscription.plan.interval, @subscription.plan.interval_count)}
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- New Plan Selection --%>
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text">Select New Plan</span>
+          </label>
+          <select
+            name="plan_id"
+            phx-change="select_new_plan"
+            class="select select-bordered w-full"
+          >
+            <option value="">Choose a plan...</option>
+            <%= for plan <- @plans do %>
+              <%= if plan.id != @subscription.plan_id do %>
+                <option value={plan.id} selected={@selected_new_plan_id == plan.id}>
+                  {plan.name} - <.currency_compact amount={plan.price} currency={plan.currency} />
+                  / {format_interval(plan.interval, plan.interval_count)}
+                </option>
+              <% end %>
+            <% end %>
+          </select>
+        </div>
+
+        <%!-- Warning --%>
+        <div class="alert alert-warning mt-4">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <span>Plan change takes effect immediately. The billing period will be adjusted.</span>
+        </div>
+
+        <%!-- Modal Actions --%>
+        <div class="modal-action">
+          <button type="button" phx-click="close_change_plan_modal" class="btn">
+            Cancel
+          </button>
+          <button
+            type="button"
+            phx-click="change_plan"
+            class="btn btn-primary"
+            disabled={is_nil(@selected_new_plan_id)}
+          >
+            <.icon name="hero-arrow-path" class="w-4 h-4" /> Change Plan
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_change_plan_modal"></div>
+    </div>
+  <% end %>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

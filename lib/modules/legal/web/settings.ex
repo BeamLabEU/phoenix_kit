@@ -15,7 +15,6 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -24,6 +23,13 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   def mount(_params, _session, socket) do
     config = Legal.get_config()
     widget_config = Legal.get_consent_widget_config()
+
+    # Get data for preview and import functionality
+    company_info = config.company_info
+    site_url = Settings.get_setting("site_url", "")
+    from_email = Settings.get_setting("from_email", "")
+    company_country_name = get_country_name(company_info["country"])
+    company_address_formatted = format_company_address_oneline(company_info)
 
     socket =
       socket
@@ -38,12 +44,11 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
       |> assign(:available_frameworks, Legal.available_frameworks())
       |> assign(:available_page_types, Legal.available_page_types())
       |> assign(:selected_frameworks, config.frameworks)
-      |> assign(:company_info, config.company_info)
-      |> assign(:countries, CountryData.countries_for_select())
-      |> assign(
-        :subdivision_label,
-        CountryData.get_subdivision_label(config.company_info["country"])
-      )
+      |> assign(:company_info, company_info)
+      |> assign(:company_country_name, company_country_name)
+      |> assign(:site_url, site_url)
+      |> assign(:from_email, from_email)
+      |> assign(:company_address_formatted, company_address_formatted)
       |> assign(:dpo_contact, config.dpo_contact)
       |> assign(:generated_pages, config.generated_pages)
       |> assign(:generating, false)
@@ -114,26 +119,37 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   end
 
   @impl true
-  def handle_event("save_company_info", params, socket) do
-    company_info = build_company_info(params)
+  def handle_event("import_dpo_email", _params, socket) do
+    from_email = socket.assigns.from_email
+    dpo_contact = Map.put(socket.assigns.dpo_contact, "email", from_email)
 
-    case Legal.update_company_info(company_info) do
+    case Legal.update_dpo_contact(dpo_contact) do
       {:ok, _} ->
         {:noreply,
          socket
-         |> assign(:company_info, company_info)
-         |> assign(:subdivision_label, CountryData.get_subdivision_label(company_info["country"]))
-         |> put_flash(:info, gettext("Company information saved"))}
+         |> assign(:dpo_contact, dpo_contact)
+         |> put_flash(:info, gettext("Email imported from General Settings"))}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to save company information"))}
+        {:noreply, put_flash(socket, :error, gettext("Failed to import email"))}
     end
   end
 
   @impl true
-  def handle_event("update_country", %{"company_country" => country_code}, socket) do
-    {:noreply,
-     assign(socket, :subdivision_label, CountryData.get_subdivision_label(country_code))}
+  def handle_event("import_dpo_address", _params, socket) do
+    company_address = socket.assigns.company_address_formatted
+    dpo_contact = Map.put(socket.assigns.dpo_contact, "address", company_address)
+
+    case Legal.update_dpo_contact(dpo_contact) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:dpo_contact, dpo_contact)
+         |> put_flash(:info, gettext("Address imported from Organization"))}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, gettext("Failed to import address"))}
+    end
   end
 
   @impl true
@@ -307,19 +323,30 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
     end
   end
 
-  # Helper to build company info map from params
-  defp build_company_info(params) do
-    %{
-      "name" => params["company_name"] || "",
-      "address_line1" => params["company_address_line1"] || "",
-      "address_line2" => params["company_address_line2"] || "",
-      "city" => params["company_city"] || "",
-      "state" => params["company_state"] || "",
-      "postal_code" => params["company_postal_code"] || "",
-      "country" => params["company_country"] || "",
-      "website_url" => params["company_website"] || "",
-      "registration_number" => params["registration_number"] || "",
-      "vat_number" => params["vat_number"] || ""
-    }
+  # Helper to get country name from code
+  defp get_country_name(nil), do: ""
+  defp get_country_name(""), do: ""
+
+  defp get_country_name(country_code) do
+    case BeamLabCountries.get(country_code) do
+      nil -> country_code
+      country -> country.name
+    end
+  end
+
+  # Helper to format company address as one line (for DPO import)
+  defp format_company_address_oneline(company) do
+    parts =
+      [
+        company["address_line1"],
+        company["address_line2"],
+        company["city"],
+        company["state"],
+        company["postal_code"],
+        get_country_name(company["country"])
+      ]
+      |> Enum.reject(&(&1 == "" or is_nil(&1)))
+
+    Enum.join(parts, ", ")
   end
 end

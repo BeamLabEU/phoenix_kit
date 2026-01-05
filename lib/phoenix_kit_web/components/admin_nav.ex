@@ -150,6 +150,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-document-text" class="w-5 h-5" />
         <% "legal" -> %>
           <.icon name="hero-scale" class="w-5 h-5" />
+        <% "organization" -> %>
+          <.icon name="hero-building-office" class="w-5 h-5" />
         <% "maintenance" -> %>
           <.icon name="hero-wrench-screwdriver" class="w-5 h-5" />
         <% "storage" -> %>
