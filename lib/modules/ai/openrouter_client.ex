@@ -1,4 +1,4 @@
-defmodule PhoenixKit.AI.OpenRouterClient do
+defmodule PhoenixKit.Modules.AI.OpenRouterClient do
   @moduledoc """
   OpenRouter API client for PhoenixKit AI system.
 
@@ -16,13 +16,13 @@ defmodule PhoenixKit.AI.OpenRouterClient do
   ## Usage Examples
 
       # Validate an API key
-      case PhoenixKit.AI.OpenRouterClient.validate_api_key("sk-or-v1-...") do
+      case PhoenixKit.Modules.AI.OpenRouterClient.validate_api_key("sk-or-v1-...") do
         {:ok, %{credits: credits}} -> IO.puts("Valid! Credits: \#{credits}")
         {:error, reason} -> IO.puts("Invalid: \#{reason}")
       end
 
       # Fetch available models
-      {:ok, models} = PhoenixKit.AI.OpenRouterClient.fetch_models("sk-or-v1-...")
+      {:ok, models} = PhoenixKit.Modules.AI.OpenRouterClient.fetch_models("sk-or-v1-...")
   """
 
   require Logger

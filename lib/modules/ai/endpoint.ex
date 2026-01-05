@@ -1,4 +1,4 @@
-defmodule PhoenixKit.AI.Endpoint do
+defmodule PhoenixKit.Modules.AI.Endpoint do
   @moduledoc """
   AI endpoint schema for PhoenixKit AI system.
 
@@ -48,7 +48,7 @@ defmodule PhoenixKit.AI.Endpoint do
   ## Usage Examples
 
       # Create an endpoint
-      {:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+      {:ok, endpoint} = PhoenixKit.Modules.AI.create_endpoint(%{
         name: "Claude Fast",
         provider: "openrouter",
         api_key: "sk-or-v1-...",
@@ -57,7 +57,7 @@ defmodule PhoenixKit.AI.Endpoint do
       })
 
       # Use the endpoint
-      {:ok, response} = PhoenixKit.AI.ask(endpoint.id, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
   """
 
   use Ecto.Schema
@@ -142,7 +142,7 @@ defmodule PhoenixKit.AI.Endpoint do
     field :sort_order, :integer, default: 0
     field :last_validated_at, :utc_datetime_usec
 
-    has_many :requests, PhoenixKit.AI.Request, foreign_key: :endpoint_id
+    has_many :requests, PhoenixKit.Modules.AI.Request, foreign_key: :endpoint_id
 
     timestamps(type: :utc_datetime_usec)
   end

@@ -518,6 +518,35 @@ defmodule PhoenixKitWeb.Integration do
                as: :entities_settings
         end
       end
+
+      # AI module routes - uses PhoenixKit.Modules.AI namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_ai,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
+
+          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
+            as: :ai_endpoints
+
+          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
+
+          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
+            as: :ai_endpoint_new
+
+          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
+            as: :ai_endpoint_edit
+
+          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
+
+          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
+            as: :ai_prompt_new
+
+          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
+            as: :ai_prompt_edit
+        end
+      end
     end
   end
 
@@ -673,18 +702,8 @@ defmodule PhoenixKitWeb.Integration do
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
 
-        # AI Module
-        live "/admin/ai", Live.Modules.AI.Endpoints, :index
-        live "/admin/ai/endpoints", Live.Modules.AI.Endpoints, :endpoints
-        live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
-        live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
-        live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
-        live "/admin/ai/prompts", Live.Modules.AI.Prompts, :index
-        live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
-        live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
-
-        # Note: Entities routes are defined in generate_basic_scope/1
-        # using a separate scope without PhoenixKitWeb module prefix
+        # Note: AI, Billing, Blogging, and Entities routes are defined in generate_basic_scope/1
+        # using separate scopes without PhoenixKitWeb module prefix
       end
     end
   end

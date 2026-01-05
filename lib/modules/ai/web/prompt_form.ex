@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.AI.PromptForm do
+defmodule PhoenixKit.Modules.AI.Web.PromptForm do
   @moduledoc """
   LiveView for creating and editing AI prompts.
 
@@ -8,8 +8,8 @@ defmodule PhoenixKitWeb.Live.Modules.AI.PromptForm do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.AI
-  alias PhoenixKit.AI.Prompt
+  alias PhoenixKit.Modules.AI
+  alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

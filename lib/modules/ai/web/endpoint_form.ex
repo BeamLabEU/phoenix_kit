@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
+defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   @moduledoc """
   LiveView for creating and editing AI endpoints.
 
@@ -8,9 +8,9 @@ defmodule PhoenixKitWeb.Live.Modules.AI.EndpointForm do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.AI
-  alias PhoenixKit.AI.Endpoint
-  alias PhoenixKit.AI.OpenRouterClient
+  alias PhoenixKit.Modules.AI
+  alias PhoenixKit.Modules.AI.Endpoint
+  alias PhoenixKit.Modules.AI.OpenRouterClient
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

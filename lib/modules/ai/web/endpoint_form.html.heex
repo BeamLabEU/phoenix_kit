@@ -180,7 +180,7 @@
                         <% provider = current_model_id |> String.split("/") |> List.first() %>
                         <span class="badge badge-outline badge-sm">
                           <.icon name="hero-building-office-2" class="w-3 h-3 mr-1" />
-                          {PhoenixKit.AI.OpenRouterClient.humanize_provider(provider)}
+                          {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)}
                         </span>
 
                         <%!-- Context Length --%>
@@ -329,7 +329,7 @@
                     </option>
                     <%= for {provider, models} <- @models_grouped do %>
                       <option value={provider} selected={@selected_provider == provider}>
-                        {PhoenixKit.AI.OpenRouterClient.humanize_provider(provider)} ({length(
+                        {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)} ({length(
                           models
                         )} models)
                       </option>
@@ -342,7 +342,7 @@
                   <div class="mt-4">
                     <div class="flex items-center justify-between mb-2">
                       <span class="text-sm text-base-content/70">
-                        {length(@provider_models)} models from {PhoenixKit.AI.OpenRouterClient.humanize_provider(
+                        {length(@provider_models)} models from {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(
                           @selected_provider
                         )}
                       </span>
@@ -451,7 +451,7 @@
 
       <%!-- Parameters Card - Only shown when model is selected --%>
       <% supported_params =
-        PhoenixKitWeb.Live.Modules.AI.EndpointForm.get_supported_params(@selected_model) %>
+        PhoenixKit.Modules.AI.Web.EndpointForm.get_supported_params(@selected_model) %>
       <% basic_params = supported_params[:basic] || [] %>
       <% advanced_params = supported_params[:advanced] || [] %>
 
@@ -465,11 +465,11 @@
               <div class="alert alert-info py-2 mt-2">
                 <.icon name="hero-information-circle" class="w-4 h-4" />
                 <span class="text-sm">
-                  Context: {PhoenixKitWeb.Live.Modules.AI.EndpointForm.format_number(
+                  Context: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
                     @selected_model["context_length"]
                   )} tokens
                   <%= if @selected_model["max_completion_tokens"] do %>
-                    • Max output: {PhoenixKitWeb.Live.Modules.AI.EndpointForm.format_number(
+                    • Max output: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
                       @selected_model["max_completion_tokens"]
                     )} tokens
                   <% end %>
@@ -534,7 +534,7 @@
                         class="select select-bordered select-sm"
                       >
                         <option value="">Default (medium)</option>
-                        <%= for {label, value} <- PhoenixKit.AI.Endpoint.reasoning_effort_options() do %>
+                        <%= for {label, value} <- PhoenixKit.Modules.AI.Endpoint.reasoning_effort_options() do %>
                           <option
                             value={value}
                             selected={

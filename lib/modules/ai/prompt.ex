@@ -1,4 +1,4 @@
-defmodule PhoenixKit.AI.Prompt do
+defmodule PhoenixKit.Modules.AI.Prompt do
   @moduledoc """
   AI prompt schema for PhoenixKit AI system.
 
@@ -39,21 +39,21 @@ defmodule PhoenixKit.AI.Prompt do
   ## Usage Examples
 
       # Create a prompt
-      {:ok, prompt} = PhoenixKit.AI.create_prompt(%{
+      {:ok, prompt} = PhoenixKit.Modules.AI.create_prompt(%{
         name: "Translator",
         content: "Translate the following text to {{Language}}:\\n\\n{{Text}}"
       })
       # Variables auto-extracted: ["Language", "Text"]
 
       # Render with variables
-      {:ok, text} = PhoenixKit.AI.Prompt.render(prompt, %{
+      {:ok, text} = PhoenixKit.Modules.AI.Prompt.render(prompt, %{
         "Language" => "French",
         "Text" => "Hello, world!"
       })
       # => "Translate the following text to French:\\n\\nHello, world!"
 
       # Use with AI completion
-      {:ok, response} = PhoenixKit.AI.ask_with_prompt(
+      {:ok, response} = PhoenixKit.Modules.AI.ask_with_prompt(
         endpoint_id,
         prompt.id,
         %{"Language" => "Spanish", "Text" => "Good morning"}
@@ -164,13 +164,13 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> PhoenixKit.AI.Prompt.extract_variables("Hello {{Name}}, welcome to {{Place}}!")
+      iex> PhoenixKit.Modules.AI.Prompt.extract_variables("Hello {{Name}}, welcome to {{Place}}!")
       ["Name", "Place"]
 
-      iex> PhoenixKit.AI.Prompt.extract_variables("No variables here")
+      iex> PhoenixKit.Modules.AI.Prompt.extract_variables("No variables here")
       []
 
-      iex> PhoenixKit.AI.Prompt.extract_variables("{{A}} and {{B}} and {{A}} again")
+      iex> PhoenixKit.Modules.AI.Prompt.extract_variables("{{A}} and {{B}} and {{A}} again")
       ["A", "B"]
   """
   def extract_variables(content) when is_binary(content) do
@@ -190,16 +190,16 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{content: "Hello {{Name}}!"}
-      iex> PhoenixKit.AI.Prompt.render(prompt, %{"Name" => "World"})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{content: "Hello {{Name}}!"}
+      iex> PhoenixKit.Modules.AI.Prompt.render(prompt, %{"Name" => "World"})
       {:ok, "Hello World!"}
 
-      iex> prompt = %PhoenixKit.AI.Prompt{content: "Translate to {{Lang}}: {{Text}}"}
-      iex> PhoenixKit.AI.Prompt.render(prompt, %{Lang: "French", Text: "Hello"})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{content: "Translate to {{Lang}}: {{Text}}"}
+      iex> PhoenixKit.Modules.AI.Prompt.render(prompt, %{Lang: "French", Text: "Hello"})
       {:ok, "Translate to French: Hello"}
 
-      iex> prompt = %PhoenixKit.AI.Prompt{content: "Missing {{Var}}"}
-      iex> PhoenixKit.AI.Prompt.render(prompt, %{})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{content: "Missing {{Var}}"}
+      iex> PhoenixKit.Modules.AI.Prompt.render(prompt, %{})
       {:ok, "Missing {{Var}}"}
   """
   def render(%__MODULE__{content: content}, variables) when is_map(variables) do
@@ -222,7 +222,7 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> PhoenixKit.AI.Prompt.render_content("Hello {{Name}}!", %{"Name" => "World"})
+      iex> PhoenixKit.Modules.AI.Prompt.render_content("Hello {{Name}}!", %{"Name" => "World"})
       {:ok, "Hello World!"}
   """
   def render_content(content, variables) when is_binary(content) and is_map(variables) do
@@ -244,12 +244,12 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.validate_variables(prompt, %{"Name" => "John", "Age" => "30"})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.validate_variables(prompt, %{"Name" => "John", "Age" => "30"})
       :ok
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.validate_variables(prompt, %{"Name" => "John"})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.validate_variables(prompt, %{"Name" => "John"})
       {:error, ["Age"]}
   """
   def validate_variables(%__MODULE__{variables: variables}, provided) when is_map(provided) do
@@ -294,10 +294,10 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> PhoenixKit.AI.Prompt.generate_slug("My Cool Prompt!")
+      iex> PhoenixKit.Modules.AI.Prompt.generate_slug("My Cool Prompt!")
       "my-cool-prompt"
 
-      iex> PhoenixKit.AI.Prompt.generate_slug("Translate to French")
+      iex> PhoenixKit.Modules.AI.Prompt.generate_slug("Translate to French")
       "translate-to-french"
   """
   def generate_slug(nil), do: ""
@@ -317,12 +317,12 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.has_variables?(prompt)
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.has_variables?(prompt)
       true
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: []}
-      iex> PhoenixKit.AI.Prompt.has_variables?(prompt)
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: []}
+      iex> PhoenixKit.Modules.AI.Prompt.has_variables?(prompt)
       false
   """
   def has_variables?(%__MODULE__{variables: variables}) do
@@ -336,8 +336,8 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.variable_count(prompt)
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.variable_count(prompt)
       2
   """
   def variable_count(%__MODULE__{variables: variables}) when is_list(variables) do
@@ -353,12 +353,12 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.format_variables_for_display(prompt)
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.format_variables_for_display(prompt)
       "{{Name}}, {{Age}}"
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: []}
-      iex> PhoenixKit.AI.Prompt.format_variables_for_display(prompt)
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: []}
+      iex> PhoenixKit.Modules.AI.Prompt.format_variables_for_display(prompt)
       ""
   """
   def format_variables_for_display(%__MODULE__{variables: variables}) when is_list(variables) do
@@ -375,13 +375,13 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> PhoenixKit.AI.Prompt.valid_content?("Hello {{Name}}!")
+      iex> PhoenixKit.Modules.AI.Prompt.valid_content?("Hello {{Name}}!")
       true
 
-      iex> PhoenixKit.AI.Prompt.valid_content?("No variables here")
+      iex> PhoenixKit.Modules.AI.Prompt.valid_content?("No variables here")
       true
 
-      iex> PhoenixKit.AI.Prompt.valid_content?("Hello {{User Name}}!")
+      iex> PhoenixKit.Modules.AI.Prompt.valid_content?("Hello {{User Name}}!")
       false
   """
   def valid_content?(content) when is_binary(content) do
@@ -403,10 +403,10 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> PhoenixKit.AI.Prompt.invalid_variables("Hello {{Name}}!")
+      iex> PhoenixKit.Modules.AI.Prompt.invalid_variables("Hello {{Name}}!")
       []
 
-      iex> PhoenixKit.AI.Prompt.invalid_variables("{{User Name}} and {{ok}}")
+      iex> PhoenixKit.Modules.AI.Prompt.invalid_variables("{{User Name}} and {{ok}}")
       ["User Name"]
   """
   def invalid_variables(content) when is_binary(content) do
@@ -425,8 +425,8 @@ defmodule PhoenixKit.AI.Prompt do
 
   ## Examples
 
-      iex> prompt = %PhoenixKit.AI.Prompt{variables: ["Name", "Age"]}
-      iex> PhoenixKit.AI.Prompt.merge_with_defaults(prompt, %{"Name" => "John"}, %{"Age" => "Unknown"})
+      iex> prompt = %PhoenixKit.Modules.AI.Prompt{variables: ["Name", "Age"]}
+      iex> PhoenixKit.Modules.AI.Prompt.merge_with_defaults(prompt, %{"Name" => "John"}, %{"Age" => "Unknown"})
       %{"Name" => "John", "Age" => "Unknown"}
   """
   def merge_with_defaults(%__MODULE__{variables: variables}, provided, defaults)

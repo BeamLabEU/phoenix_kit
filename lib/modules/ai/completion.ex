@@ -1,9 +1,9 @@
-defmodule PhoenixKit.AI.Completion do
+defmodule PhoenixKit.Modules.AI.Completion do
   @moduledoc """
   OpenRouter completion client for making AI API calls.
 
   This module handles the actual HTTP requests to OpenRouter's chat completions
-  and other endpoints. It's used internally by `PhoenixKit.AI` public functions.
+  and other endpoints. It's used internally by `PhoenixKit.Modules.AI` public functions.
 
   ## Supported Endpoints
 
@@ -14,7 +14,7 @@ defmodule PhoenixKit.AI.Completion do
 
   require Logger
 
-  alias PhoenixKit.AI.OpenRouterClient
+  alias PhoenixKit.Modules.AI.OpenRouterClient
 
   @base_url "https://openrouter.ai/api/v1"
   @timeout 120_000

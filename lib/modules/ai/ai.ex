@@ -1,4 +1,4 @@
-defmodule PhoenixKit.AI do
+defmodule PhoenixKit.Modules.AI do
   @moduledoc """
   Main context for PhoenixKit AI system.
 
@@ -44,10 +44,10 @@ defmodule PhoenixKit.AI do
   ## Usage Examples
 
       # Enable the module
-      PhoenixKit.AI.enable_system()
+      PhoenixKit.Modules.AI.enable_system()
 
       # Create an endpoint
-      {:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+      {:ok, endpoint} = PhoenixKit.Modules.AI.create_endpoint(%{
         name: "Claude Fast",
         provider: "openrouter",
         api_key: "sk-or-v1-...",
@@ -56,18 +56,18 @@ defmodule PhoenixKit.AI do
       })
 
       # Use the endpoint
-      {:ok, response} = PhoenixKit.AI.ask(endpoint.id, "Hello!")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(endpoint.id, "Hello!")
 
       # Extract the response text
-      {:ok, text} = PhoenixKit.AI.extract_content(response)
+      {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
   """
 
   import Ecto.Query, warn: false
   require Logger
 
-  alias PhoenixKit.AI.Endpoint
-  alias PhoenixKit.AI.Prompt
-  alias PhoenixKit.AI.Request
+  alias PhoenixKit.Modules.AI.Endpoint
+  alias PhoenixKit.Modules.AI.Prompt
+  alias PhoenixKit.Modules.AI.Request
   alias PhoenixKit.PubSub.Manager, as: PubSub
   alias PhoenixKit.Settings
 
@@ -208,8 +208,8 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      PhoenixKit.AI.list_endpoints()
-      PhoenixKit.AI.list_endpoints(provider: "openrouter", enabled: true)
+      PhoenixKit.Modules.AI.list_endpoints()
+      PhoenixKit.Modules.AI.list_endpoints(provider: "openrouter", enabled: true)
   """
   def list_endpoints(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
@@ -346,8 +346,8 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, endpoint} = PhoenixKit.AI.resolve_endpoint(1)
-      {:ok, endpoint} = PhoenixKit.AI.resolve_endpoint(endpoint)
+      {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint(1)
+      {:ok, endpoint} = PhoenixKit.Modules.AI.resolve_endpoint(endpoint)
   """
   def resolve_endpoint(id) when is_integer(id) do
     case get_endpoint(id) do
@@ -363,7 +363,7 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+      {:ok, endpoint} = PhoenixKit.Modules.AI.create_endpoint(%{
         name: "Claude Fast",
         provider: "openrouter",
         api_key: "sk-or-v1-...",
@@ -441,9 +441,9 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      PhoenixKit.AI.list_prompts()
-      PhoenixKit.AI.list_prompts(sort_by: :name, sort_dir: :asc)
-      PhoenixKit.AI.list_prompts(enabled: true)
+      PhoenixKit.Modules.AI.list_prompts()
+      PhoenixKit.Modules.AI.list_prompts(sort_by: :name, sort_dir: :asc)
+      PhoenixKit.Modules.AI.list_prompts(enabled: true)
   """
   def list_prompts(opts \\ []) do
     sort_by = Keyword.get(opts, :sort_by, :sort_order)
@@ -486,7 +486,7 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      PhoenixKit.AI.list_enabled_prompts()
+      PhoenixKit.Modules.AI.list_enabled_prompts()
   """
   def list_enabled_prompts do
     list_prompts(enabled: true)
@@ -520,7 +520,7 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, prompt} = PhoenixKit.AI.create_prompt(%{
+      {:ok, prompt} = PhoenixKit.Modules.AI.create_prompt(%{
         name: "Translator",
         content: "Translate the following text to {{Language}}:\\n\\n{{Text}}"
       })
@@ -1170,7 +1170,7 @@ defmodule PhoenixKit.AI do
   # COMPLETION API
   # ===========================================
 
-  alias PhoenixKit.AI.Completion
+  alias PhoenixKit.Modules.AI.Completion
 
   @doc """
   Makes a chat completion request using a configured endpoint.
@@ -1188,24 +1188,24 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.AI.complete(1, [
+      {:ok, response} = PhoenixKit.Modules.AI.complete(1, [
         %{role: "user", content: "Hello!"}
       ])
 
       # With system message
-      {:ok, response} = PhoenixKit.AI.complete(1, [
+      {:ok, response} = PhoenixKit.Modules.AI.complete(1, [
         %{role: "system", content: "You are a helpful assistant."},
         %{role: "user", content: "What is 2+2?"}
       ])
 
       # With parameter overrides
-      {:ok, response} = PhoenixKit.AI.complete(1, messages,
+      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages,
         temperature: 0.5,
         max_tokens: 500
       )
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.AI.complete(1, messages,
+      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages,
         source: "MyModule"
       )
 
@@ -1278,21 +1278,21 @@ defmodule PhoenixKit.AI do
   ## Examples
 
       # Simple question
-      {:ok, response} = PhoenixKit.AI.ask(1, "What is the capital of France?")
+      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "What is the capital of France?")
 
       # With system message
-      {:ok, response} = PhoenixKit.AI.ask(1, "Translate: Hello",
+      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Translate: Hello",
         system: "You are a translator. Translate to French."
       )
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!",
+      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!",
         source: "Languages"
       )
 
       # Extract just the text content
-      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
-      {:ok, text} = PhoenixKit.AI.extract_content(response)
+      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+      {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 
   ## Returns
 
@@ -1327,16 +1327,16 @@ defmodule PhoenixKit.AI do
   ## Examples
 
       # Single text
-      {:ok, response} = PhoenixKit.AI.embed(1, "Hello, world!")
+      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello, world!")
 
       # Multiple texts
-      {:ok, response} = PhoenixKit.AI.embed(1, ["Hello", "World"])
+      {:ok, response} = PhoenixKit.Modules.AI.embed(1, ["Hello", "World"])
 
       # With dimension override
-      {:ok, response} = PhoenixKit.AI.embed(1, "Hello", dimensions: 512)
+      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello", dimensions: 512)
 
       # With custom source for tracking
-      {:ok, response} = PhoenixKit.AI.embed(1, "Hello",
+      {:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello",
         source: "SemanticSearch"
       )
 
@@ -1372,8 +1372,8 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
-      {:ok, text} = PhoenixKit.AI.extract_content(response)
+      {:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
+      {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
       # => "Hello! How can I help you today?"
   """
   defdelegate extract_content(response), to: Completion
@@ -1383,8 +1383,8 @@ defmodule PhoenixKit.AI do
 
   ## Examples
 
-      {:ok, response} = PhoenixKit.AI.complete(1, messages)
-      usage = PhoenixKit.AI.extract_usage(response)
+      {:ok, response} = PhoenixKit.Modules.AI.complete(1, messages)
+      usage = PhoenixKit.Modules.AI.extract_usage(response)
       # => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25}
   """
   defdelegate extract_usage(response), to: Completion
@@ -1476,8 +1476,8 @@ defmodule PhoenixKit.AI do
   end
 
   defp extract_source(stack) do
-    # Modules to skip (PhoenixKit.AI internals, Elixir/Erlang core)
-    skip_prefixes = ["PhoenixKit.AI", "Elixir.PhoenixKit.AI"]
+    # Modules to skip (PhoenixKit.Modules.AI internals, Elixir/Erlang core)
+    skip_prefixes = ["PhoenixKit.Modules.AI", "Elixir.PhoenixKit.Modules.AI"]
     skip_modules = [Process, :proc_lib, :gen_server, :gen, :elixir, :erl_eval]
 
     caller =

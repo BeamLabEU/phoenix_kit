@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
+defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   @moduledoc """
   LiveView for AI endpoints management.
 
@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Live.Modules.AI.Endpoints do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.AI
+  alias PhoenixKit.Modules.AI
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

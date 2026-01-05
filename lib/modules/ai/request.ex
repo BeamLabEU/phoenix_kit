@@ -1,4 +1,4 @@
-defmodule PhoenixKit.AI.Request do
+defmodule PhoenixKit.Modules.AI.Request do
   @moduledoc """
   AI request schema for PhoenixKit AI system.
 
@@ -43,7 +43,7 @@ defmodule PhoenixKit.AI.Request do
   ## Usage Examples
 
       # Log a successful request (new endpoint system)
-      {:ok, request} = PhoenixKit.AI.create_request(%{
+      {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
         endpoint_id: 1,
         endpoint_name: "Claude Fast",
         user_id: 123,
@@ -58,7 +58,7 @@ defmodule PhoenixKit.AI.Request do
       })
 
       # Log a failed request
-      {:ok, request} = PhoenixKit.AI.create_request(%{
+      {:ok, request} = PhoenixKit.Modules.AI.create_request(%{
         endpoint_id: 1,
         endpoint_name: "Claude Fast",
         model: "anthropic/claude-3-haiku",
@@ -70,8 +70,8 @@ defmodule PhoenixKit.AI.Request do
   use Ecto.Schema
   import Ecto.Changeset
 
-  alias PhoenixKit.AI.Endpoint
-  alias PhoenixKit.AI.Prompt
+  alias PhoenixKit.Modules.AI.Endpoint
+  alias PhoenixKit.Modules.AI.Prompt
   alias PhoenixKit.Users.Auth.User
 
   @primary_key {:id, :id, autogenerate: true}

@@ -125,7 +125,9 @@
                     <div class="mt-2 flex flex-wrap gap-4 text-sm text-base-content/70">
                       <div class="flex items-center gap-1">
                         <.icon name="hero-cpu-chip" class="w-4 h-4" />
-                        <span>{PhoenixKit.AI.Endpoint.short_model_name(endpoint.model)}</span>
+                        <span>
+                          {PhoenixKit.Modules.AI.Endpoint.short_model_name(endpoint.model)}
+                        </span>
                       </div>
                       <%= if endpoint.temperature do %>
                         <div class="flex items-center gap-1">
@@ -156,12 +158,12 @@
                       >
                         <.icon name="hero-document-text" class="w-4 h-4" />
                         <span>
-                          {PhoenixKit.AI.Request.format_tokens(stats.total_tokens)} tokens
+                          {PhoenixKit.Modules.AI.Request.format_tokens(stats.total_tokens)} tokens
                         </span>
                       </div>
                       <div class="flex items-center gap-1 text-base-content/70" title="Total cost">
                         <.icon name="hero-currency-dollar" class="w-4 h-4" />
-                        <span>{PhoenixKit.AI.Request.format_cost(stats.total_cost)}</span>
+                        <span>{PhoenixKit.Modules.AI.Request.format_cost(stats.total_cost)}</span>
                       </div>
                       <div class="flex items-center gap-1 text-base-content/70" title="Last used">
                         <.icon name="hero-clock" class="w-4 h-4" />
@@ -301,7 +303,7 @@
                 <div>
                   <div class="text-sm text-base-content/70">Requests / Tokens today</div>
                   <div class="text-xl font-semibold">
-                    {@usage_stats.today.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                    {@usage_stats.today.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
                       @usage_stats.today.total_tokens
                     )}
                   </div>
@@ -317,7 +319,9 @@
                 <div>
                   <div class="text-sm text-base-content/70">Avg Latency today</div>
                   <div class="text-xl font-semibold">
-                    {PhoenixKit.AI.Request.format_latency(@usage_stats.today.avg_latency_ms)}
+                    {PhoenixKit.Modules.AI.Request.format_latency(
+                      @usage_stats.today.avg_latency_ms
+                    )}
                   </div>
                 </div>
               </div>
@@ -327,7 +331,7 @@
                 <div>
                   <div class="text-sm text-base-content/70">Requests / Tokens (30 days)</div>
                   <div class="text-xl font-semibold">
-                    {@usage_stats.last_30_days.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                    {@usage_stats.last_30_days.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
                       @usage_stats.last_30_days.total_tokens
                     )}
                   </div>
@@ -343,7 +347,7 @@
                 <div>
                   <div class="text-sm text-base-content/70">Avg Latency (30 days)</div>
                   <div class="text-xl font-semibold">
-                    {PhoenixKit.AI.Request.format_latency(
+                    {PhoenixKit.Modules.AI.Request.format_latency(
                       @usage_stats.last_30_days.avg_latency_ms
                     )}
                   </div>
@@ -355,7 +359,7 @@
                 <div>
                   <div class="text-sm text-base-content/70">Requests / Tokens (all time)</div>
                   <div class="text-xl font-semibold">
-                    {@usage_stats.all_time.total_requests} / {PhoenixKit.AI.Request.format_tokens(
+                    {@usage_stats.all_time.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
                       @usage_stats.all_time.total_tokens
                     )}
                   </div>
@@ -371,7 +375,9 @@
                 <div>
                   <div class="text-sm text-base-content/70">Avg Latency (all time)</div>
                   <div class="text-xl font-semibold">
-                    {PhoenixKit.AI.Request.format_latency(@usage_stats.all_time.avg_latency_ms)}
+                    {PhoenixKit.Modules.AI.Request.format_latency(
+                      @usage_stats.all_time.avg_latency_ms
+                    )}
                   </div>
                 </div>
               </div>
@@ -409,7 +415,7 @@
                   <option value="">All Models</option>
                   <%= for model <- @usage_filter_options.models do %>
                     <option value={model} selected={@usage_filter_model == model}>
-                      {PhoenixKit.AI.Request.short_model_name(model)}
+                      {PhoenixKit.Modules.AI.Request.short_model_name(model)}
                     </option>
                   <% end %>
                 </select>
@@ -634,24 +640,24 @@
                         </td>
                         <%!-- Always visible --%>
                         <td class="text-sm font-mono">
-                          {PhoenixKit.AI.Request.short_model_name(request.model)}
+                          {PhoenixKit.Modules.AI.Request.short_model_name(request.model)}
                         </td>
                         <%!-- Hidden until xl (accounts for sidebar) --%>
                         <td class="hidden xl:table-cell text-sm">
-                          {PhoenixKit.AI.Request.format_tokens(request.total_tokens)}
+                          {PhoenixKit.Modules.AI.Request.format_tokens(request.total_tokens)}
                         </td>
                         <%!-- Hidden until xl (accounts for sidebar) --%>
                         <td class="hidden xl:table-cell text-sm">
-                          {PhoenixKit.AI.Request.format_latency(request.latency_ms)}
+                          {PhoenixKit.Modules.AI.Request.format_latency(request.latency_ms)}
                         </td>
                         <%!-- Hidden until lg (accounts for sidebar) --%>
                         <td class="hidden lg:table-cell text-sm">
-                          {PhoenixKit.AI.Request.format_cost(request.cost_cents)}
+                          {PhoenixKit.Modules.AI.Request.format_cost(request.cost_cents)}
                         </td>
                         <%!-- Always visible --%>
                         <td>
-                          <span class={"badge badge-sm #{PhoenixKit.AI.Request.status_color(request.status)}"}>
-                            {PhoenixKit.AI.Request.status_label(request.status)}
+                          <span class={"badge badge-sm #{PhoenixKit.Modules.AI.Request.status_color(request.status)}"}>
+                            {PhoenixKit.Modules.AI.Request.status_label(request.status)}
                           </span>
                           <%= if request.error_message do %>
                             <div class="tooltip" data-tip={request.error_message}>
@@ -722,20 +728,20 @@
           </div>
           <div>
             <div class="text-xs text-base-content/70">Status</div>
-            <span class={"badge badge-sm #{PhoenixKit.AI.Request.status_color(@selected_request.status)}"}>
-              {PhoenixKit.AI.Request.status_label(@selected_request.status)}
+            <span class={"badge badge-sm #{PhoenixKit.Modules.AI.Request.status_color(@selected_request.status)}"}>
+              {PhoenixKit.Modules.AI.Request.status_label(@selected_request.status)}
             </span>
           </div>
           <div>
             <div class="text-xs text-base-content/70">Latency</div>
             <div class="text-sm">
-              {PhoenixKit.AI.Request.format_latency(@selected_request.latency_ms)}
+              {PhoenixKit.Modules.AI.Request.format_latency(@selected_request.latency_ms)}
             </div>
           </div>
           <div>
             <div class="text-xs text-base-content/70">Cost</div>
             <div class="text-sm">
-              {PhoenixKit.AI.Request.format_cost(@selected_request.cost_cents)}
+              {PhoenixKit.Modules.AI.Request.format_cost(@selected_request.cost_cents)}
             </div>
           </div>
         </div>
@@ -772,19 +778,19 @@
           <div>
             <div class="text-xs text-base-content/70">Input Tokens</div>
             <div class="text-sm">
-              {PhoenixKit.AI.Request.format_tokens(@selected_request.input_tokens)}
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.input_tokens)}
             </div>
           </div>
           <div>
             <div class="text-xs text-base-content/70">Output Tokens</div>
             <div class="text-sm">
-              {PhoenixKit.AI.Request.format_tokens(@selected_request.output_tokens)}
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.output_tokens)}
             </div>
           </div>
           <div>
             <div class="text-xs text-base-content/70">Total Tokens</div>
             <div class="text-sm font-semibold">
-              {PhoenixKit.AI.Request.format_tokens(@selected_request.total_tokens)}
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.total_tokens)}
             </div>
           </div>
         </div>

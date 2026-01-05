@@ -19,12 +19,12 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ### Core Modules
 
-- **PhoenixKit.AI** – Main API module with completion functions and endpoint management
-- **PhoenixKit.AI.Endpoint** – Endpoint schema combining credentials + model + parameters
-- **PhoenixKit.AI.Prompt** – Reusable prompt templates with variable substitution
-- **PhoenixKit.AI.Request** – Request logging schema for usage tracking
-- **PhoenixKit.AI.Completion** – HTTP client for making API calls
-- **PhoenixKit.AI.OpenRouterClient** – Model discovery and API key validation
+- **PhoenixKit.Modules.AI** – Main API module with completion functions and endpoint management
+- **PhoenixKit.Modules.AI.Endpoint** – Endpoint schema combining credentials + model + parameters
+- **PhoenixKit.Modules.AI.Prompt** – Reusable prompt templates with variable substitution
+- **PhoenixKit.Modules.AI.Request** – Request logging schema for usage tracking
+- **PhoenixKit.Modules.AI.Completion** – HTTP client for making API calls
+- **PhoenixKit.Modules.AI.OpenRouterClient** – Model discovery and API key validation
 
 ## Core Features
 
@@ -49,15 +49,15 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ```elixir
 # Using endpoint ID
-{:ok, response} = PhoenixKit.AI.ask(1, "What is 2+2?")
-{:ok, text} = PhoenixKit.AI.extract_content(response)
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "What is 2+2?")
+{:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 # => "4"
 ```
 
 ### With System Message
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.ask(1, "Hello",
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello",
   system: "You are a pirate. Always respond like a pirate."
 )
 ```
@@ -65,7 +65,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 ### Multi-Turn Conversation
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.complete(1, [
+{:ok, response} = PhoenixKit.Modules.AI.complete(1, [
   %{role: "system", content: "You are a helpful assistant."},
   %{role: "user", content: "What's the weather like?"},
   %{role: "assistant", content: "I don't have real-time weather data..."},
@@ -77,7 +77,7 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ```elixir
 # Override temperature and max_tokens for this request only
-{:ok, response} = PhoenixKit.AI.ask(1, "Write a creative poem",
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Write a creative poem",
   temperature: 1.5,
   max_tokens: 500
 )
@@ -87,25 +87,25 @@ The AI module uses a unified **Endpoint** architecture where each endpoint conta
 
 ```elixir
 # Single text
-{:ok, response} = PhoenixKit.AI.embed(1, "Hello, world!")
+{:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello, world!")
 
 # Multiple texts (batch)
-{:ok, response} = PhoenixKit.AI.embed(1, ["Text 1", "Text 2", "Text 3"])
+{:ok, response} = PhoenixKit.Modules.AI.embed(1, ["Text 1", "Text 2", "Text 3"])
 
 # With dimension override
-{:ok, response} = PhoenixKit.AI.embed(1, "Hello", dimensions: 512)
+{:ok, response} = PhoenixKit.Modules.AI.embed(1, "Hello", dimensions: 512)
 ```
 
 ### Extracting Response Data
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
 
 # Get just the text content
-{:ok, text} = PhoenixKit.AI.extract_content(response)
+{:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
 
 # Get usage statistics (includes cost in nanodollars)
-usage = PhoenixKit.AI.extract_usage(response)
+usage = PhoenixKit.Modules.AI.extract_usage(response)
 # => %{prompt_tokens: 10, completion_tokens: 15, total_tokens: 25, cost_cents: 30}
 
 # Full response includes latency
@@ -130,7 +130,7 @@ Every request automatically stores:
 
 ```elixir
 # Automatic detection - no code changes needed
-{:ok, response} = PhoenixKit.AI.ask(1, "Hello!")
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!")
 # Source automatically detected from caller: "MyApp.ContentGenerator.summarize"
 ```
 
@@ -139,7 +139,7 @@ Every request automatically stores:
 Override the auto-detected source when needed:
 
 ```elixir
-{:ok, response} = PhoenixKit.AI.ask(1, "Hello!",
+{:ok, response} = PhoenixKit.Modules.AI.ask(1, "Hello!",
   source: "CustomLabel"
 )
 # Manual source used, but stacktrace and caller context still captured
@@ -159,7 +159,7 @@ This information is stored in the request's `metadata` field (JSONB) and require
 ### Creating Endpoints
 
 ```elixir
-{:ok, endpoint} = PhoenixKit.AI.create_endpoint(%{
+{:ok, endpoint} = PhoenixKit.Modules.AI.create_endpoint(%{
   name: "Claude Fast",
   provider: "openrouter",
   api_key: "sk-or-v1-...",
@@ -173,31 +173,31 @@ This information is stored in the request's `metadata` field (JSONB) and require
 
 ```elixir
 # List all endpoints
-endpoints = PhoenixKit.AI.list_endpoints()
+endpoints = PhoenixKit.Modules.AI.list_endpoints()
 
 # With sorting
-endpoints = PhoenixKit.AI.list_endpoints(sort_by: :usage, sort_dir: :desc)
+endpoints = PhoenixKit.Modules.AI.list_endpoints(sort_by: :usage, sort_dir: :desc)
 
 # Filter by provider or status
-endpoints = PhoenixKit.AI.list_endpoints(provider: "openrouter", enabled: true)
+endpoints = PhoenixKit.Modules.AI.list_endpoints(provider: "openrouter", enabled: true)
 ```
 
 ### Updating Endpoints
 
 ```elixir
-endpoint = PhoenixKit.AI.get_endpoint!(1)
-{:ok, updated} = PhoenixKit.AI.update_endpoint(endpoint, %{temperature: 0.5})
+endpoint = PhoenixKit.Modules.AI.get_endpoint!(1)
+{:ok, updated} = PhoenixKit.Modules.AI.update_endpoint(endpoint, %{temperature: 0.5})
 ```
 
 ### Enabling/Disabling Endpoints
 
 ```elixir
 # Disabled endpoints return an error when called
-endpoint = PhoenixKit.AI.get_endpoint!(1)
-{:ok, _} = PhoenixKit.AI.update_endpoint(endpoint, %{enabled: false})
+endpoint = PhoenixKit.Modules.AI.get_endpoint!(1)
+{:ok, _} = PhoenixKit.Modules.AI.update_endpoint(endpoint, %{enabled: false})
 
 # Calling a disabled endpoint
-{:error, "Endpoint is disabled"} = PhoenixKit.AI.ask(1, "Hello")
+{:error, "Endpoint is disabled"} = PhoenixKit.Modules.AI.ask(1, "Hello")
 ```
 
 ## Prompt Templates
@@ -207,7 +207,7 @@ Prompts are reusable templates with variable substitution using `{{VariableName}
 ### Creating Prompts
 
 ```elixir
-{:ok, prompt} = PhoenixKit.AI.create_prompt(%{
+{:ok, prompt} = PhoenixKit.Modules.AI.create_prompt(%{
   name: "Email Writer",
   slug: "email-writer",
   content: "Write a professional email about {{Topic}} to {{Recipient}}.",
@@ -220,14 +220,14 @@ Prompts are reusable templates with variable substitution using `{{VariableName}
 
 ```elixir
 # Simple: render prompt and make AI call
-{:ok, response} = PhoenixKit.AI.ask_with_prompt(
+{:ok, response} = PhoenixKit.Modules.AI.ask_with_prompt(
   endpoint_id,
   "email-writer",  # Can use ID, slug, or Prompt struct
   %{"Topic" => "project update", "Recipient" => "the team"}
 )
 
 # Advanced: use prompt as system message with user input
-{:ok, response} = PhoenixKit.AI.complete_with_system_prompt(
+{:ok, response} = PhoenixKit.Modules.AI.complete_with_system_prompt(
   endpoint_id,
   "email-writer",
   %{"Topic" => "Q4 results", "Recipient" => "stakeholders"},
@@ -240,18 +240,18 @@ Prompts are reusable templates with variable substitution using `{{VariableName}
 
 ```elixir
 # Get variables from a prompt
-{:ok, variables} = PhoenixKit.AI.get_prompt_variables("email-writer")
+{:ok, variables} = PhoenixKit.Modules.AI.get_prompt_variables("email-writer")
 # => ["Topic", "Recipient"]
 
 # Preview rendered prompt
-{:ok, rendered} = PhoenixKit.AI.preview_prompt("email-writer", %{
+{:ok, rendered} = PhoenixKit.Modules.AI.preview_prompt("email-writer", %{
   "Topic" => "meeting notes",
   "Recipient" => "the manager"
 })
 # => "Write a professional email about meeting notes to the manager."
 
 # Validate variables before use
-case PhoenixKit.AI.validate_prompt_variables("email-writer", %{"Topic" => "test"}) do
+case PhoenixKit.Modules.AI.validate_prompt_variables("email-writer", %{"Topic" => "test"}) do
   {:ok, _} -> # All required variables provided
   {:error, {:missing_variables, missing}} -> # Handle missing: ["Recipient"]
 end
@@ -261,13 +261,13 @@ end
 
 ```elixir
 # Search prompts by name or content
-prompts = PhoenixKit.AI.search_prompts("email", enabled_only: true)
+prompts = PhoenixKit.Modules.AI.search_prompts("email", enabled_only: true)
 
 # Find prompts using a specific variable
-prompts = PhoenixKit.AI.get_prompts_with_variable("Recipient")
+prompts = PhoenixKit.Modules.AI.get_prompts_with_variable("Recipient")
 
 # Validate prompt content syntax
-{:ok, variables} = PhoenixKit.AI.validate_prompt_content("Hello {{Name}}")
+{:ok, variables} = PhoenixKit.Modules.AI.validate_prompt_content("Hello {{Name}}")
 # => ["Name"]
 ```
 
@@ -275,35 +275,35 @@ prompts = PhoenixKit.AI.get_prompts_with_variable("Recipient")
 
 ```elixir
 # List all prompts
-prompts = PhoenixKit.AI.list_prompts()
+prompts = PhoenixKit.Modules.AI.list_prompts()
 
 # List enabled prompts only
-prompts = PhoenixKit.AI.list_enabled_prompts()
+prompts = PhoenixKit.Modules.AI.list_enabled_prompts()
 
 # Get by ID or slug
-prompt = PhoenixKit.AI.get_prompt!(1)
-prompt = PhoenixKit.AI.get_prompt_by_slug("email-writer")
+prompt = PhoenixKit.Modules.AI.get_prompt!(1)
+prompt = PhoenixKit.Modules.AI.get_prompt_by_slug("email-writer")
 
 # Enable/disable
-{:ok, prompt} = PhoenixKit.AI.enable_prompt(prompt_id)
-{:ok, prompt} = PhoenixKit.AI.disable_prompt(prompt_id)
+{:ok, prompt} = PhoenixKit.Modules.AI.enable_prompt(prompt_id)
+{:ok, prompt} = PhoenixKit.Modules.AI.disable_prompt(prompt_id)
 
 # Duplicate a prompt
-{:ok, new_prompt} = PhoenixKit.AI.duplicate_prompt(prompt_id, "Email Writer v2")
+{:ok, new_prompt} = PhoenixKit.Modules.AI.duplicate_prompt(prompt_id, "Email Writer v2")
 
 # Delete
-{:ok, _} = PhoenixKit.AI.delete_prompt(prompt)
+{:ok, _} = PhoenixKit.Modules.AI.delete_prompt(prompt)
 ```
 
 ### Usage Statistics
 
 ```elixir
 # Get usage stats for all prompts
-stats = PhoenixKit.AI.get_prompt_usage_stats()
+stats = PhoenixKit.Modules.AI.get_prompt_usage_stats()
 # => [%{id: 1, name: "Email Writer", usage_count: 150, ...}, ...]
 
 # Reset usage counter
-{:ok, prompt} = PhoenixKit.AI.reset_prompt_usage(prompt_id)
+{:ok, prompt} = PhoenixKit.Modules.AI.reset_prompt_usage(prompt_id)
 ```
 
 ### Prompt Schema
@@ -384,7 +384,7 @@ All requests are automatically logged to `phoenix_kit_ai_requests`.
 
 ```elixir
 # Get dashboard stats (today, last 30 days, all time)
-stats = PhoenixKit.AI.get_dashboard_stats()
+stats = PhoenixKit.Modules.AI.get_dashboard_stats()
 # => %{
 #   today: %{total_requests: 50, total_tokens: 25000, ...},
 #   last_30_days: %{...},
@@ -396,7 +396,7 @@ stats = PhoenixKit.AI.get_dashboard_stats()
 
 ```elixir
 # Get usage stats per endpoint
-stats = PhoenixKit.AI.get_endpoint_usage_stats()
+stats = PhoenixKit.Modules.AI.get_endpoint_usage_stats()
 # => %{
 #   1 => %{request_count: 100, total_tokens: 50000, total_cost: 150000, last_used_at: ~U[...]},
 #   2 => %{...}
@@ -407,10 +407,10 @@ stats = PhoenixKit.AI.get_endpoint_usage_stats()
 
 ```elixir
 # List requests with pagination
-{requests, total} = PhoenixKit.AI.list_requests(page: 1, page_size: 20)
+{requests, total} = PhoenixKit.Modules.AI.list_requests(page: 1, page_size: 20)
 
 # With filters
-{requests, total} = PhoenixKit.AI.list_requests(
+{requests, total} = PhoenixKit.Modules.AI.list_requests(
   endpoint_id: 1,
   model: "anthropic/claude-3-haiku",
   status: "success",
@@ -418,13 +418,13 @@ stats = PhoenixKit.AI.get_endpoint_usage_stats()
 )
 
 # With sorting
-{requests, total} = PhoenixKit.AI.list_requests(
+{requests, total} = PhoenixKit.Modules.AI.list_requests(
   sort_by: :cost_cents,
   sort_dir: :desc
 )
 
 # Get filter options (for UI dropdowns)
-options = PhoenixKit.AI.get_request_filter_options()
+options = PhoenixKit.Modules.AI.get_request_filter_options()
 # => %{endpoints: [{1, "Claude Fast"}, ...], models: [...], statuses: [...], sources: [...]}
 ```
 
@@ -478,9 +478,9 @@ options = PhoenixKit.AI.get_request_filter_options()
 All functions return `{:ok, result}` or `{:error, reason}`:
 
 ```elixir
-case PhoenixKit.AI.ask(1, "Hello") do
+case PhoenixKit.Modules.AI.ask(1, "Hello") do
   {:ok, response} ->
-    {:ok, text} = PhoenixKit.AI.extract_content(response)
+    {:ok, text} = PhoenixKit.Modules.AI.extract_content(response)
     IO.puts(text)
 
   {:error, "Endpoint not found"} ->
@@ -514,7 +514,7 @@ end
 
 ## LiveView Interfaces
 
-> **Note**: The AI module must be enabled before accessing admin pages. Enable via Admin UI at `/{prefix}/admin/modules` or programmatically with `PhoenixKit.AI.enable_system()`.
+> **Note**: The AI module must be enabled before accessing admin pages. Enable via Admin UI at `/{prefix}/admin/modules` or programmatically with `PhoenixKit.Modules.AI.enable_system()`.
 
 ### Endpoints Page (`/{prefix}/admin/ai/endpoints`)
 
@@ -556,10 +556,10 @@ Costs are tracked in **nanodollars** (1/1,000,000 of a dollar) for precision wit
 # Example: $0.00003 = 30 nanodollars
 
 # Format for display
-PhoenixKit.AI.Request.format_cost(30)
+PhoenixKit.Modules.AI.Request.format_cost(30)
 # => "$0.000030"
 
-PhoenixKit.AI.Request.format_cost(1_500_000)
+PhoenixKit.Modules.AI.Request.format_cost(1_500_000)
 # => "$1.50"
 ```
 
@@ -636,7 +636,7 @@ For rich interactive charts with click-to-filter and hover details, the best sol
 4. Charts load ApexCharts from CDN on first use
 
 The data functions already exist:
-- `PhoenixKit.AI.get_requests_by_day/1` – Returns `[%{date: date, count: integer, tokens: integer}, ...]`
-- `PhoenixKit.AI.get_tokens_by_model/1` – Returns `[%{model: string, total_tokens: integer, request_count: integer}, ...]`
+- `PhoenixKit.Modules.AI.get_requests_by_day/1` – Returns `[%{date: date, count: integer, tokens: integer}, ...]`
+- `PhoenixKit.Modules.AI.get_tokens_by_model/1` – Returns `[%{model: string, total_tokens: integer, request_count: integer}, ...]`
 
 These are already called by `get_dashboard_stats/0` and available in `@usage_stats`.

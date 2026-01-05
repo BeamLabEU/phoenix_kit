@@ -440,11 +440,11 @@ defmacro phoenix_kit_module_routes do
       forward "/admin/billing", Routers.BillingRouter
     end
 
-    if PhoenixKit.AI.enabled?() do
+    if PhoenixKit.Modules.AI.enabled?() do
       forward "/admin/ai", Routers.AIRouter
     end
 
-    if PhoenixKit.Entities.enabled?() do
+    if PhoenixKit.Modules.Entities.enabled?() do
       forward "/admin/entities", Routers.EntitiesRouter
     end
   end
