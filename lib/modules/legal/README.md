@@ -235,12 +235,22 @@ Legal.get_consent_widget_config()
 
 ### Parent App Integration
 
-Add meta tag to your root layout for URL prefix detection:
+Add the following to your root layout (`root.html.heex`):
 
 ```heex
-<!-- In your root.html.heex -->
+<%!-- In your <head> section --%>
+<%!-- Meta tag for URL prefix detection --%>
 <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
+
+<%!-- Cookie Consent Script (auto-initializes on DOMContentLoaded) --%>
+<script defer src={"#{PhoenixKit.Utils.Routes.url_prefix()}/assets/phoenix_kit_consent.js"}>
+</script>
 ```
+
+The script will automatically:
+1. Fetch configuration from `/phoenix_kit/api/consent-config`
+2. Create and inject the widget if consent is needed
+3. Handle consent storage and cross-tab synchronization
 
 ### JavaScript API
 
@@ -421,7 +431,9 @@ Legal.get_consent_widget_config()
 2. Check widget is enabled: `Legal.consent_widget_enabled?()`
 3. Check opt-in framework selected: `Legal.has_opt_in_framework?()`
 4. Verify meta tag in layout: `<meta name="phoenix-kit-prefix" ...>`
-5. Check browser console for errors
+5. Verify consent script is loaded: `<script src=".../assets/phoenix_kit_consent.js">`
+6. Check browser console for errors
+7. Verify API endpoint works: `curl http://localhost:4000/phoenix_kit/api/consent-config`
 
 ### Pages not generating
 

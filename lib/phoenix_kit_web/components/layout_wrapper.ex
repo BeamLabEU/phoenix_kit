@@ -1286,6 +1286,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
           <meta name="googlebot" content="noindex,nofollow" />
         <% end %>
         <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+        <script defer src={"#{Routes.url_prefix()}/assets/phoenix_kit_consent.js"}>
+        </script>
       </head>
       <body class="bg-base-100 antialiased transition-colors" data-admin-theme-base="system">
         <%!-- Admin pages without parent headers --%>

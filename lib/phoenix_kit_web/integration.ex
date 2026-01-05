@@ -292,6 +292,13 @@ defmodule PhoenixKitWeb.Integration do
         get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
         get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
       end
+
+      # PhoenixKit static assets (no CSRF protection needed for static files)
+      scope unquote(url_prefix), PhoenixKitWeb do
+        pipe_through [:phoenix_kit_api]
+
+        get "/assets/:file", AssetsController, :serve
+      end
     end
   end
 
