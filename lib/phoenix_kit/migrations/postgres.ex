@@ -263,9 +263,9 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Block: prevents all interaction, removes existing relationships
   - Settings: connections_enabled
 
-  ### V37 - DB Sync Connections & Transfer Tracking
-  - Phoenix_kit_db_sync_connections for permanent site-to-site connections
-  - Phoenix_kit_db_sync_transfers for tracking all data transfers
+  ### V37 - Sync Connections & Transfer Tracking
+  - phoenix_kit_sync_connections for permanent site-to-site connections (renamed in V44)
+  - phoenix_kit_sync_transfers for tracking all data transfers (renamed in V44)
   - Approval modes: auto_approve, require_approval, per_table
   - Expiration and download limits (max_downloads, max_records_total)
   - Additional security: password protection, IP whitelist, time restrictions
@@ -312,7 +312,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Replaces single-purpose PublishScheduledPostsJob with generic processor
   - Supports any schedulable resource (posts, emails, notifications, etc.)
 
-  ### V43 - Legal Module ⚡ LATEST
+  ### V43 - Legal Module
   - Phoenix_kit_consent_logs for user consent tracking (GDPR/CCPA compliance)
   - Supports logged-in users and anonymous visitors via session_id
   - Consent types: necessary, analytics, marketing, preferences
@@ -320,6 +320,13 @@ defmodule PhoenixKit.Migrations.Postgres do
     - legal_enabled, legal_frameworks, legal_company_info
     - legal_dpo_contact, legal_consent_widget_enabled
     - legal_cookie_banner_position
+
+  ### V44 - Sync Table Rename ⚡ LATEST
+  - Rename phoenix_kit_db_sync_connections → phoenix_kit_sync_connections
+  - Rename phoenix_kit_db_sync_transfers → phoenix_kit_sync_transfers
+  - Rename all related indexes to match new table names
+  - Rename settings keys: db_sync_* → sync_*
+  - Matches module rename from DBSync to Sync
 
   ## Migration Paths
 
@@ -379,7 +386,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 43
+  @current_version 44
   @default_prefix "public"
 
   @doc false

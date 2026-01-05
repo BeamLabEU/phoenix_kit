@@ -9,6 +9,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKitWeb.Live.Modules.Blogging
+  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
 
   def mount(_params, session, socket) do
     # Attach locale hook for automatic locale handling
@@ -72,6 +74,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     case result do
       {:ok, _} ->
+        # Regenerate all blog caches since language availability changed
+        regenerate_all_blog_caches()
+
         # Reload configuration to get fresh data
         socket =
           socket
@@ -139,6 +144,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
     case result do
       {:ok, _config} ->
+        # Regenerate all blog caches since language availability changed
+        regenerate_all_blog_caches()
+
         predefined_lang = Languages.get_predefined_language(code)
         language_name = (predefined_lang && predefined_lang.name) || code
         action = if is_enabled, do: "disabled", else: "enabled"
@@ -279,5 +287,15 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     end)
     |> Enum.uniq()
     |> Enum.sort_by(fn {country, _} -> country end)
+  end
+
+  # Regenerate listing caches for all blogs when language settings change
+  defp regenerate_all_blog_caches do
+    if Blogging.enabled?() do
+      Blogging.list_blogs()
+      |> Enum.each(fn blog ->
+        ListingCache.regenerate(blog["slug"])
+      end)
+    end
   end
 end

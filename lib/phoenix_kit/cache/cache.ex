@@ -271,6 +271,34 @@ defmodule PhoenixKit.Cache do
   end
 
   @doc """
+  Clears all cache entries whose keys start with the given prefix.
+
+  Returns the count of entries cleared.
+
+  ## Examples
+
+      PhoenixKit.Cache.clear_by_prefix(:blog_posts, "v1:blog_post:my-blog:")
+      # => {:ok, 15}
+
+  """
+  @spec clear_by_prefix(cache_name(), String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
+  def clear_by_prefix(cache_name, prefix) do
+    GenServer.call(via_tuple(cache_name), {:clear_by_prefix, prefix}, 10_000)
+  rescue
+    error in [ArgumentError, RuntimeError] ->
+      Logger.warning("Cache #{cache_name} unavailable: #{inspect(error)}")
+      {:ok, 0}
+  catch
+    :exit, {:noproc, _} ->
+      Logger.warning("Cache #{cache_name} not started")
+      {:ok, 0}
+
+    :exit, {:timeout, _} ->
+      Logger.warning("Cache #{cache_name} timeout during clear_by_prefix")
+      {:error, :timeout}
+  end
+
+  @doc """
   Gets cache statistics.
 
   ## Examples
@@ -421,6 +449,30 @@ defmodule PhoenixKit.Cache do
 
     response = Map.put(stats, :hit_rate, hit_rate)
     {:reply, response, state}
+  end
+
+  @impl GenServer
+  def handle_call({:clear_by_prefix, prefix}, _from, %{table: table, stats: stats} = state) do
+    # Find all keys matching the prefix and delete them
+    matching_keys =
+      :ets.foldl(
+        fn {key, _value, _expires_at}, acc ->
+          if is_binary(key) and String.starts_with?(key, prefix) do
+            [key | acc]
+          else
+            acc
+          end
+        end,
+        [],
+        table
+      )
+
+    # Delete matching entries
+    Enum.each(matching_keys, fn key -> :ets.delete(table, key) end)
+
+    count = length(matching_keys)
+    new_stats = %{stats | invalidations: stats.invalidations + count}
+    {:reply, {:ok, count}, %{state | stats: new_stats}}
   end
 
   @impl GenServer

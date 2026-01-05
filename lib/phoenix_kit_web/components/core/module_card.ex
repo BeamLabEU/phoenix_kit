@@ -52,6 +52,7 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
   attr(:enabled, :boolean, required: true, doc: "Whether the module is enabled")
   attr(:toggle_event, :string, required: true, doc: "Phoenix event name for the toggle switch")
   attr :show_toggle, :boolean, default: true, doc: "Whether to show the toggle switch"
+  attr :stats_title, :string, default: "Current Configuration", doc: "Title for the stats section"
 
   slot(:status_badges, required: true, doc: "Status badges to display (left side of actions row)")
 
@@ -112,7 +113,7 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
         <%!-- Optional Stats Section --%>
         <%= if @enabled && @stats != [] do %>
           <div class="bg-base-200 rounded-lg p-3 mt-4">
-            <h4 class="text-sm font-medium text-base-content mb-2">Current Configuration</h4>
+            <h4 class="text-sm font-medium text-base-content mb-2">{@stats_title}</h4>
             {render_slot(@stats)}
           </div>
         <% end %>

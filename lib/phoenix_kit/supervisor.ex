@@ -18,8 +18,16 @@ defmodule PhoenixKit.Supervisor do
       # Loads all settings in handle_continue (after init returns)
       # This ensures OAuth configuration is available before OAuthConfigLoader starts
       # while not blocking supervisor initialization
-      {PhoenixKit.Cache,
-       name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+      Supervisor.child_spec(
+        {PhoenixKit.Cache,
+         name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+        id: :settings_cache
+      ),
+      # Cache rendered blog posts (HTML) to avoid re-rendering markdown on every request
+      Supervisor.child_spec(
+        {PhoenixKit.Cache, name: :blog_posts, ttl: :timer.hours(6)},
+        id: :blog_posts_cache
+      ),
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,
       # OAuth config loader - now guaranteed to have critical settings in cache
@@ -31,7 +39,9 @@ defmodule PhoenixKit.Supervisor do
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
       PhoenixKit.Emails.Supervisor,
       # DB Sync session store for ephemeral connection codes
-      PhoenixKit.DBSync.SessionStore
+      PhoenixKit.Modules.Sync.SessionStore,
+      # DB Explorer listener for PostgreSQL LISTEN/NOTIFY (live table updates)
+      PhoenixKit.Modules.DB.Listener
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

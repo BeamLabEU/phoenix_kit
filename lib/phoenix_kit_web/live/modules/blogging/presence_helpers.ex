@@ -37,6 +37,37 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers do
   end
 
   @doc """
+  Untracks the current LiveView process from a Presence topic.
+
+  Call this when switching languages or versions to release the lock
+  on the previous form before tracking the new one.
+
+  ## Parameters
+
+  - `form_key`: The unique key for the post that was being edited
+  - `socket`: The LiveView socket
+
+  ## Examples
+
+      untrack_editing_session("blog:my-post:en", socket)
+      # => :ok
+  """
+  def untrack_editing_session(form_key, socket) do
+    topic = editing_topic(form_key)
+    Presence.untrack(self(), topic, socket.id)
+  end
+
+  @doc """
+  Unsubscribes from presence events and editor form events for a form.
+
+  Call this when switching languages or versions to clean up subscriptions.
+  """
+  def unsubscribe_from_editing(form_key) do
+    topic = editing_topic(form_key)
+    Phoenix.PubSub.unsubscribe(:phoenix_kit_internal_pubsub, topic)
+  end
+
+  @doc """
   Determines if the current socket is the owner (first in the presence list).
 
   Returns `{:owner, presences}` if this socket is the owner (or same user in different tab), or

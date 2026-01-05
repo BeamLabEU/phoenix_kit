@@ -183,6 +183,339 @@
           <% end %>
         </div>
       </div>
+
+      <%!-- Cache Management Section --%>
+      <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-6">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold text-base-content">
+                <.icon name="hero-bolt" class="w-6 h-6 inline-block mr-2" />
+                {gettext("Listing Cache")}
+              </h2>
+              <p class="text-sm text-base-content/70">
+                {gettext(
+                  "Cached listing data speeds up blog pages. Cache is automatically updated when posts change."
+                )}
+              </p>
+            </div>
+            <%= if @blogs != [] and (@file_cache_enabled or @memory_cache_enabled) do %>
+              <button
+                type="button"
+                phx-click="regenerate_all_caches"
+                class="btn btn-primary btn-sm whitespace-nowrap"
+              >
+                <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                {gettext("Regenerate All")}
+              </button>
+            <% end %>
+          </div>
+
+          <%!-- Cache Settings Toggles --%>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <%!-- File Cache Toggle --%>
+            <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+              <div class="flex items-center gap-3">
+                <.icon name="hero-document" class="w-5 h-5 text-base-content/70" />
+                <div>
+                  <p class="font-medium">{gettext("File Cache")}</p>
+                  <p class="text-xs text-base-content/60">
+                    {gettext("Persist cache to JSON files for fast startup")}
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@file_cache_enabled}
+                phx-click="toggle_file_cache"
+              />
+            </div>
+
+            <%!-- Memory Cache Toggle --%>
+            <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+              <div class="flex items-center gap-3">
+                <.icon name="hero-cpu-chip" class="w-5 h-5 text-base-content/70" />
+                <div>
+                  <p class="font-medium">{gettext("Memory Cache")}</p>
+                  <p class="text-xs text-base-content/60">
+                    {gettext("Store in :persistent_term for sub-microsecond reads")}
+                  </p>
+                </div>
+              </div>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@memory_cache_enabled}
+                phx-click="toggle_memory_cache"
+              />
+            </div>
+          </div>
+
+          <%= if not @file_cache_enabled and not @memory_cache_enabled do %>
+            <div class="alert alert-warning">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+              <span>
+                {gettext(
+                  "Both caches are disabled. Blog listing pages will scan the filesystem on every request."
+                )}
+              </span>
+            </div>
+          <% end %>
+
+          <%= if @blogs == [] do %>
+            <div class="alert">
+              <.icon name="hero-information-circle" class="w-5 h-5" />
+              <span>{gettext("Create a blog to manage its cache.")}</span>
+            </div>
+          <% else %>
+            <%= if @file_cache_enabled or @memory_cache_enabled do %>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Blog")}</th>
+                      <th class="text-center">{gettext("Posts")}</th>
+                      <%= if @file_cache_enabled do %>
+                        <th class="text-center">
+                          <span class="flex items-center justify-center gap-1">
+                            <.icon name="hero-document" class="w-4 h-4" />
+                            {gettext("File")}
+                          </span>
+                        </th>
+                      <% end %>
+                      <%= if @memory_cache_enabled do %>
+                        <th class="text-center">
+                          <span class="flex items-center justify-center gap-1">
+                            <.icon name="hero-cpu-chip" class="w-4 h-4" />
+                            {gettext("Memory")}
+                          </span>
+                        </th>
+                      <% end %>
+                      <th class="text-right">{gettext("Actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for blog <- @blogs do %>
+                      <% cache = @cache_status[blog["slug"]] %>
+                      <tr>
+                        <td class="font-medium">{blog["name"]}</td>
+                        <td class="text-center">
+                          <%= if cache.post_count do %>
+                            <span class="font-mono text-sm">{cache.post_count}</span>
+                          <% else %>
+                            <span class="text-base-content/50">—</span>
+                          <% end %>
+                        </td>
+                        <%= if @file_cache_enabled do %>
+                          <td class="text-center">
+                            <%= if cache.exists do %>
+                              <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                            <% else %>
+                              <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/30" />
+                            <% end %>
+                          </td>
+                        <% end %>
+                        <%= if @memory_cache_enabled do %>
+                          <td class="text-center">
+                            <%= if cache.in_memory do %>
+                              <.icon name="hero-check-circle" class="w-5 h-5 text-success" />
+                            <% else %>
+                              <.icon name="hero-x-circle" class="w-5 h-5 text-base-content/30" />
+                            <% end %>
+                          </td>
+                        <% end %>
+                        <td class="text-right">
+                          <div class="flex justify-end gap-2">
+                            <%= if cache.exists or cache.in_memory do %>
+                              <button
+                                type="button"
+                                phx-click="invalidate_cache"
+                                phx-value-slug={blog["slug"]}
+                                class="btn btn-ghost btn-xs text-error"
+                                title={gettext("Clear cache")}
+                              >
+                                <.icon name="hero-trash" class="w-4 h-4" />
+                              </button>
+                            <% end %>
+                            <button
+                              type="button"
+                              phx-click="regenerate_cache"
+                              phx-value-slug={blog["slug"]}
+                              class="btn btn-ghost btn-xs"
+                              title={gettext("Regenerate cache")}
+                            >
+                              <.icon name="hero-arrow-path" class="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="text-xs text-base-content/50 space-y-1">
+                <p>
+                  <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                  {gettext(
+                    "\"In Memory\" means the cache is loaded into :persistent_term for sub-microsecond reads."
+                  )}
+                </p>
+                <p>
+                  <.icon name="hero-arrow-path" class="w-3 h-3 inline" />
+                  {gettext("Regenerate scans all posts and rebuilds the cache file.")}
+                </p>
+              </div>
+            <% end %>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Render Cache Section --%>
+      <div class="card bg-base-100 shadow-xl border border-base-200">
+        <div class="card-body space-y-4">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-semibold text-base-content">
+                <.icon name="hero-document-text" class="w-6 h-6 inline-block mr-2" />
+                {gettext("Render Cache")}
+              </h2>
+              <p class="text-sm text-base-content/70">
+                {gettext(
+                  "Cached rendered HTML for published posts. Uses content-hash keys so edits auto-invalidate."
+                )}
+              </p>
+            </div>
+            <%= if @render_cache_enabled do %>
+              <button
+                type="button"
+                phx-click="clear_render_cache"
+                class="btn btn-outline btn-error btn-sm whitespace-nowrap"
+                data-confirm={
+                  gettext(
+                    "Clear all cached rendered posts? They will be re-rendered on next view."
+                  )
+                }
+              >
+                <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                {gettext("Clear All")}
+              </button>
+            <% end %>
+          </div>
+
+          <%!-- Global Render Cache Toggle --%>
+          <div class="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+            <div class="flex items-center gap-3">
+              <.icon name="hero-bolt" class="w-5 h-5 text-base-content/70" />
+              <div>
+                <p class="font-medium">{gettext("Render Cache")}</p>
+                <p class="text-xs text-base-content/60">
+                  {gettext("Cache rendered HTML for published posts (6-hour TTL)")}
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary"
+              checked={@render_cache_enabled}
+              phx-click="toggle_render_cache"
+            />
+          </div>
+
+          <%= if not @render_cache_enabled do %>
+            <div class="alert alert-warning">
+              <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+              <span>
+                {gettext("Render cache is disabled. Posts will be rendered on every request.")}
+              </span>
+            </div>
+          <% else %>
+            <%!-- Stats Display --%>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="stat bg-base-200 rounded-lg p-4">
+                <div class="stat-title text-xs">{gettext("Cache Hits")}</div>
+                <div class="stat-value text-lg font-mono">{@render_cache_stats[:hits] || 0}</div>
+              </div>
+              <div class="stat bg-base-200 rounded-lg p-4">
+                <div class="stat-title text-xs">{gettext("Cache Misses")}</div>
+                <div class="stat-value text-lg font-mono">
+                  {@render_cache_stats[:misses] || 0}
+                </div>
+              </div>
+              <div class="stat bg-base-200 rounded-lg p-4">
+                <div class="stat-title text-xs">{gettext("Entries Cached")}</div>
+                <div class="stat-value text-lg font-mono">{@render_cache_stats[:puts] || 0}</div>
+              </div>
+              <div class="stat bg-base-200 rounded-lg p-4">
+                <div class="stat-title text-xs">{gettext("Hit Rate")}</div>
+                <div class="stat-value text-lg font-mono">
+                  <%= if @render_cache_stats[:hit_rate] do %>
+                    {Float.round(@render_cache_stats[:hit_rate] * 100, 1)}%
+                  <% else %>
+                    0%
+                  <% end %>
+                </div>
+              </div>
+            </div>
+
+            <%!-- Per-Blog Render Cache Table --%>
+            <%= if @blogs != [] do %>
+              <div class="overflow-x-auto">
+                <table class="table table-zebra">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Blog")}</th>
+                      <th class="text-center">{gettext("Enabled")}</th>
+                      <th class="text-right">{gettext("Actions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for blog <- @blogs do %>
+                      <% slug = blog["slug"] %>
+                      <% enabled = @render_cache_per_blog[slug] %>
+                      <tr>
+                        <td class="font-medium">{blog["name"]}</td>
+                        <td class="text-center">
+                          <input
+                            type="checkbox"
+                            class="toggle toggle-primary toggle-sm"
+                            checked={enabled}
+                            phx-click="toggle_blog_render_cache"
+                            phx-value-slug={slug}
+                          />
+                        </td>
+                        <td class="text-right">
+                          <%= if enabled do %>
+                            <button
+                              type="button"
+                              phx-click="clear_blog_render_cache"
+                              phx-value-slug={slug}
+                              class="btn btn-ghost btn-xs text-error"
+                              title={gettext("Clear cache for this blog")}
+                            >
+                              <.icon name="hero-trash" class="w-4 h-4" />
+                            </button>
+                          <% end %>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+          <% end %>
+
+          <div class="text-xs text-base-content/50">
+            <p>
+              <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+              {gettext(
+                "Render cache stores pre-rendered HTML for published posts. Cache keys include content hashes, so edits automatically use fresh renders. TTL: 6 hours."
+              )}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

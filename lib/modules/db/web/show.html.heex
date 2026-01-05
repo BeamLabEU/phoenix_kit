@@ -1,0 +1,437 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - #{@schema}.#{@table}"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div>
+        <h1 class="text-3xl font-bold text-base-content">{@schema}.{@table}</h1>
+        <p class="text-base-content/70">
+          <.formatted_number number={@preview.approx_rows} format={:short} />
+          rows • {format_bytes(@preview.size_bytes)}
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity?table=#{@schema}.#{@table}")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          <.icon name="hero-signal" class="w-4 h-4" /> Live Activity
+        </.link>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
+          class="btn btn-outline btn-primary btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables
+        </.link>
+      </div>
+    </header>
+
+    <div class="bg-base-100 rounded-box shadow border border-base-200">
+      <div class="p-4 border-b border-base-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-base-content/70">
+            {@preview.row_count} rows total
+          </span>
+          <.form for={%{}} phx-change="set_per_page" class="flex items-center gap-2">
+            <span class="text-sm text-base-content/70">Show</span>
+            <select
+              class="select select-bordered select-sm w-20"
+              name="per_page"
+            >
+              <%= for option <- [10, 20, 50, 100, 200] do %>
+                <option value={option} selected={option == @per_page}>{option}</option>
+              <% end %>
+            </select>
+            <span class="text-sm text-base-content/70">per page</span>
+          </.form>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="join">
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page="1"
+              disabled={@preview.page <= 1}
+              title="First page"
+            >
+              <.icon name="hero-chevron-double-left" class="w-4 h-4" />
+            </button>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.page - 1}
+              disabled={@preview.page <= 1}
+              title="Previous page"
+            >
+              <.icon name="hero-chevron-left" class="w-4 h-4" />
+            </button>
+            <span class="join-item btn btn-sm btn-disabled !text-base-content">
+              Page {@preview.page} of {@preview.total_pages}
+            </span>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.page + 1}
+              disabled={@preview.page >= @preview.total_pages}
+              title="Next page"
+            >
+              <.icon name="hero-chevron-right" class="w-4 h-4" />
+            </button>
+            <button
+              class="join-item btn btn-sm"
+              phx-click="change_page"
+              phx-value-page={@preview.total_pages}
+              disabled={@preview.page >= @preview.total_pages}
+              title="Last page"
+            >
+              <.icon name="hero-chevron-double-right" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="db-table-scroller"
+        class="relative"
+        phx-hook="DBTableScroller"
+        data-page={@preview.page}
+        data-total-pages={@preview.total_pages}
+      >
+        <%!-- Fake scrollbar container --%>
+        <div class="flex">
+          <%!-- Table content --%>
+          <div id="table-container" class="overflow-x-auto">
+            <table class="table table-zebra table-xs [&_th]:py-1 [&_td]:py-0.5">
+              <thead>
+                <tr>
+                  <%= for column <- @preview.columns do %>
+                    <th class="text-xs uppercase tracking-wide text-base-content/70">
+                      {column.name}
+                    </th>
+                  <% end %>
+                </tr>
+              </thead>
+              <tbody>
+                <%= if Enum.empty?(@preview.rows) do %>
+                  <tr>
+                    <td
+                      colspan={length(@preview.columns)}
+                      class="text-center !py-8 text-base-content/70"
+                    >
+                      No rows found.
+                    </td>
+                  </tr>
+                <% else %>
+                  <%= for row <- @preview.rows do %>
+                    <tr class={row_highlighted?(row, @highlighted_rows) && "animate-highlight"}>
+                      <%= for column <- @preview.columns do %>
+                        <td class="align-middle max-w-xs truncate">
+                          {format_cell(Map.get(row, column.name))}
+                        </td>
+                      <% end %>
+                    </tr>
+                  <% end %>
+                  <%!-- Empty placeholder rows to maintain consistent height --%>
+                  <% empty_rows = @per_page - length(@preview.rows) %>
+                  <%= if empty_rows > 0 do %>
+                    <%= for _i <- 1..empty_rows do %>
+                      <tr class="invisible">
+                        <%= for _column <- @preview.columns do %>
+                          <td class="align-middle">&nbsp;</td>
+                        <% end %>
+                      </tr>
+                    <% end %>
+                  <% end %>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+
+          <%!-- Fake scrollbar with page markers --%>
+          <%= if @preview.total_pages > 1 do %>
+            <div
+              id="scrollbar-container"
+              class="relative flex-shrink-0 self-stretch"
+              style={"--total-pages: #{@preview.total_pages}"}
+            >
+              <%!-- Page markers (hidden until scrolling, fish-eye effect applied via JS) --%>
+              <% zone_offset = 50 / @preview.total_pages %>
+              <div
+                id="page-markers"
+                class="absolute right-5 w-12 pointer-events-none opacity-0 transition-opacity duration-150"
+                style={"top: #{zone_offset}%; bottom: #{zone_offset}%;"}
+              >
+                <%= for page <- 1..@preview.total_pages do %>
+                  <div
+                    class="page-marker absolute right-0 font-medium text-base-content bg-base-100 px-1 rounded shadow-sm border border-base-300 -translate-y-1/2 origin-right transition-transform duration-75"
+                    data-page={page}
+                    style={"top: #{if @preview.total_pages > 1, do: (page - 1) / (@preview.total_pages - 1) * 100, else: 0}%; font-size: 8px;"}
+                  >
+                    {page}
+                  </div>
+                <% end %>
+              </div>
+              <%!-- Scrollbar - height via CSS, content height via CSS variable --%>
+              <div
+                id="fake-scrollbar"
+                class="w-4 h-full bg-base-200 overflow-y-scroll"
+                phx-update="ignore"
+              >
+                <div id="fake-scrollbar-content" style="height: calc(var(--total-pages) * 100%);">
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes row-highlight {
+      0% { background-color: oklch(0.85 0.15 140); }
+      100% { background-color: transparent; }
+    }
+    .animate-highlight {
+      animation: row-highlight 3s ease-out;
+    }
+    .animate-highlight td {
+      background-color: inherit !important;
+    }
+  </style>
+
+  <script>
+    (function() {
+      window.PhoenixKitHooks = window.PhoenixKitHooks || {};
+
+      if (window.PhoenixKitHooks.DBTableScroller) return;
+
+      window.PhoenixKitHooks.DBTableScroller = {
+        mounted() {
+          this.scrollbar = this.el.querySelector('#fake-scrollbar');
+          this.pageMarkers = this.el.querySelector('#page-markers');
+
+          this.pendingPage = null;
+          this.debounceTimer = null;
+          this.markerHideTimer = null;
+          this.isHoldingScrollbar = false;
+          this.isHovering = false;
+          this.page = parseInt(this.el.dataset.page || '1', 10);
+          this.totalPages = parseInt(this.el.dataset.totalPages || '1', 10);
+
+          // Sync scroll position after render
+          requestAnimationFrame(() => this.syncScrollToPage());
+
+          // Set up scroll handler
+          if (this.scrollbar) {
+            this.scrollHandler = this.handleScroll.bind(this);
+            this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
+
+            // Show markers on hover
+            this.scrollbar.addEventListener('mouseenter', () => {
+              this.isHovering = true;
+              this.showMarkers();
+            });
+
+            // Hide markers when leaving
+            this.scrollbar.addEventListener('mouseleave', () => {
+              this.isHovering = false;
+              if (this.isHoldingScrollbar) {
+                this.isHoldingScrollbar = false;
+                this.snapToPage();
+              }
+              this.hideMarkersDelayed();
+            });
+
+            // Track dragging state
+            this.scrollbar.addEventListener('mousedown', () => {
+              this.isHoldingScrollbar = true;
+            });
+            this.scrollbar.addEventListener('mouseup', () => {
+              this.isHoldingScrollbar = false;
+              this.snapToPage();
+            });
+          }
+        },
+
+        updated() {
+          const newPage = parseInt(this.el.dataset.page || '1', 10);
+          const newTotalPages = parseInt(this.el.dataset.totalPages || '1', 10);
+
+          // Re-query elements in case LiveView replaced them
+          const newScrollbar = this.el.querySelector('#fake-scrollbar');
+          if (newScrollbar !== this.scrollbar) {
+            if (this.scrollbar) {
+              this.scrollbar.removeEventListener('scroll', this.scrollHandler);
+            }
+            this.scrollbar = newScrollbar;
+            if (this.scrollbar) {
+              this.scrollbar.addEventListener('scroll', this.scrollHandler, { passive: true });
+              this.scrollbar.addEventListener('mousedown', () => this.showMarkers());
+              this.scrollbar.addEventListener('mouseup', () => this.hideMarkersDelayed());
+              this.scrollbar.addEventListener('mouseleave', () => this.hideMarkersDelayed());
+            }
+          }
+          this.pageMarkers = this.el.querySelector('#page-markers');
+
+          const pageChanged = newPage !== this.page;
+          const totalPagesChanged = newTotalPages !== this.totalPages;
+
+          this.totalPages = newTotalPages;
+          this.page = newPage;
+
+          // Sync scroll position when page or total pages change
+          // CSS variables handle the scrollbar sizing automatically
+          if (pageChanged || totalPagesChanged) {
+            requestAnimationFrame(() => this.syncScrollToPage());
+          }
+        },
+
+        destroyed() {
+          if (this.scrollbar) {
+            this.scrollbar.removeEventListener('scroll', this.scrollHandler);
+          }
+          if (this.debounceTimer) clearTimeout(this.debounceTimer);
+          if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
+        },
+
+        syncScrollToPage() {
+          if (!this.scrollbar || this.totalPages <= 1) return;
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const targetScroll = ((this.page - 1) / (this.totalPages - 1)) * maxScroll;
+          this.scrollbar.scrollTop = targetScroll;
+        },
+
+        snapToPage() {
+          // Snap to the pending page or current page position
+          const page = this.pendingPage || this.page;
+          if (!this.scrollbar || this.totalPages <= 1) return;
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const targetScroll = ((page - 1) / (this.totalPages - 1)) * maxScroll;
+          this.scrollbar.scrollTop = targetScroll;
+        },
+
+        showMarkers() {
+          if (this.markerHideTimer) {
+            clearTimeout(this.markerHideTimer);
+            this.markerHideTimer = null;
+          }
+          if (this.pageMarkers) {
+            this.pageMarkers.style.opacity = '1';
+            this.updateMarkerStyles();
+          }
+        },
+
+        hideMarkersDelayed() {
+          if (this.markerHideTimer) clearTimeout(this.markerHideTimer);
+          this.markerHideTimer = setTimeout(() => {
+            if (this.pageMarkers) {
+              this.pageMarkers.style.opacity = '0';
+            }
+          }, 300);
+        },
+
+        updateMarkerStyles() {
+          if (!this.pageMarkers || !this.scrollbar) return;
+
+          const markers = this.pageMarkers.querySelectorAll('.page-marker');
+          if (!markers.length) return;
+
+          // Calculate current page from scroll position
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const scrollPercent = maxScroll > 0 ? this.scrollbar.scrollTop / maxScroll : 0;
+          const currentPage = scrollPercent * (this.totalPages - 1) + 1;
+          const focusPercent = (currentPage - 1) / (this.totalPages - 1); // 0 to 1
+
+          // Calculate density: pixels available per page marker
+          const markerAreaHeight = this.pageMarkers.offsetHeight || this.scrollbar.clientHeight;
+          const pixelsPerPage = markerAreaHeight / this.totalPages;
+
+          // Density factor: 0 = very crowded (needs strong effect), 1 = spacious (minimal effect)
+          // Effect kicks in when less than ~20px per page, full effect at ~5px per page
+          const densityFactor = Math.min(Math.max((pixelsPerPage - 5) / 15, 0), 1);
+
+          // Scale fish-eye parameters based on density
+          // When spacious (densityFactor=1): minimal effect, larger base font
+          // When crowded (densityFactor=0): full effect, smaller base font
+          const effectStrength = 1 - densityFactor;
+
+          // Base font size scales with available space: 8px when crowded, 14px when spacious
+          const baseFontSize = 8 + 6 * densityFactor;     // 8 to 14
+
+          const maxScale = 1 + 1.2 * effectStrength;      // 1.0 to 2.2
+          const minScale = 1 - 0.6 * effectStrength;      // 1.0 to 0.4
+          const maxOffset = 22 * effectStrength;          // 0 to 22
+          const falloffRange = 3 + 4 * densityFactor;     // 3 to 7
+          const compressionStrength = 0.4 * effectStrength; // 0 to 0.4
+
+          markers.forEach(marker => {
+            const page = parseInt(marker.dataset.page, 10);
+            const distance = Math.abs(page - currentPage);
+
+            // Original position (0 to 1)
+            const originalPos = (page - 1) / (this.totalPages - 1);
+
+            // Apply fish-eye lens distortion to vertical position (only when needed)
+            let newPos = originalPos;
+            if (compressionStrength > 0.01) {
+              const delta = originalPos - focusPercent;
+              const expandedDelta = Math.sign(delta) * Math.pow(Math.abs(delta), 1 - compressionStrength);
+              newPos = focusPercent + expandedDelta;
+            }
+
+            // Calculate scale and offset based on distance
+            const t = Math.min(distance / falloffRange, 1);
+            const scale = maxScale - (maxScale - minScale) * t;
+            const offset = maxOffset * (1 - t);
+
+            // Apply new vertical position, font size, and transforms
+            marker.style.top = `${newPos * 100}%`;
+            marker.style.fontSize = `${baseFontSize}px`;
+            marker.style.transform = `translateY(-50%) translateX(-${offset}px) scale(${scale})`;
+
+            // Distant markers fade more (also scaled by effect strength)
+            const minOpacity = 0.3 + 0.7 * densityFactor; // 0.3 to 1.0
+            marker.style.opacity = minOpacity + (1 - minOpacity) * (1 - t * 0.6);
+          });
+        },
+
+        handleScroll() {
+          if (this.totalPages <= 1) return;
+
+          // Show markers while scrolling (also updates fish-eye effect)
+          this.showMarkers();
+
+          const maxScroll = this.scrollbar.scrollHeight - this.scrollbar.clientHeight;
+          const scrollPercent = this.scrollbar.scrollTop / maxScroll;
+          const newPage = Math.round(scrollPercent * (this.totalPages - 1)) + 1;
+          const clampedPage = Math.max(1, Math.min(newPage, this.totalPages));
+
+          this.pendingPage = clampedPage;
+
+          if (this.debounceTimer) clearTimeout(this.debounceTimer);
+
+          this.debounceTimer = setTimeout(() => {
+            this.debounceTimer = null;
+
+            // Load page if changed
+            if (this.pendingPage !== this.page) {
+              this.page = this.pendingPage;
+              this.pushEvent('change_page', { page: this.pendingPage });
+            }
+
+            // Hide markers after scrolling stops
+            this.hideMarkersDelayed();
+          }, 100);
+        }
+      };
+    })();
+  </script>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

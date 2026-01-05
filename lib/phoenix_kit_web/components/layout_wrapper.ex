@@ -618,27 +618,27 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.DBSync.enabled?() do %>
-                      <%!-- DB Sync section --%>
+                    <%= if PhoenixKit.Modules.Sync.enabled?() do %>
+                      <%!-- Sync section --%>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/db-sync")}
-                        icon="db_sync"
-                        label={gettext("DB Sync")}
+                        href={Routes.locale_aware_path(assigns, "/admin/sync")}
+                        icon="sync"
+                        label={gettext("Sync")}
                         current_path={@current_path || ""}
                         disable_active={true}
                         submenu_open={
                           submenu_open?(@current_path, [
-                            "/admin/db-sync",
-                            "/admin/db-sync/connections",
-                            "/admin/db-sync/history"
+                            "/admin/sync",
+                            "/admin/sync/connections",
+                            "/admin/sync/history"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/db-sync", "/admin/db-sync/connections", "/admin/db-sync/history"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/sync", "/admin/sync/connections", "/admin/sync/history"]) do %>
                         <div class="mt-1">
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/db-sync")}
+                            href={Routes.locale_aware_path(assigns, "/admin/sync")}
                             icon="hero-home"
                             label={gettext("Overview")}
                             current_path={@current_path || ""}
@@ -646,14 +646,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             exact_match_only={true}
                           />
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/db-sync/connections")}
+                            href={Routes.locale_aware_path(assigns, "/admin/sync/connections")}
                             icon="hero-link"
                             label={gettext("Connections")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/db-sync/history")}
+                            href={Routes.locale_aware_path(assigns, "/admin/sync/history")}
                             icon="hero-clock"
                             label={gettext("History")}
                             current_path={@current_path || ""}
@@ -663,7 +663,17 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Posts.enabled?() do %>
+                    <%= if PhoenixKit.Modules.DB.enabled?() do %>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/db")}
+                        icon="hero-table-cells"
+                        label={gettext("DB")}
+                        current_path={@current_path || ""}
+                        exact_match_only={true}
+                      />
+                    <% end %>
+
+                    <%= if PhoenixKit.Modules.Posts.enabled?() do %>
                       <%!-- Posts Section --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/posts")}

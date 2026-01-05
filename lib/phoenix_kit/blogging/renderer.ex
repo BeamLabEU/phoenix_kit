@@ -9,6 +9,7 @@ defmodule PhoenixKit.Blogging.Renderer do
   require Logger
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKit.Settings
   alias PhoenixKitWeb.Components.Blogging.EntityForm
   alias PhoenixKitWeb.Components.Blogging.Image
   alias PhoenixKitWeb.Components.Blogging.Video
@@ -16,6 +17,7 @@ defmodule PhoenixKit.Blogging.Renderer do
 
   @cache_name :blog_posts
   @cache_version "v1"
+  @global_cache_key "blogging_render_cache_enabled"
   @component_regex ~r/<(Image|Hero|CTA|Headline|Subheadline|Video|EntityForm)\s+([^>]*?)\/>/s
   @component_block_regex ~r/<(Hero|CTA|Headline|Subheadline|Video|EntityForm)\s*([^>]*)>(.*?)<\/\1>/s
 
@@ -25,13 +27,16 @@ defmodule PhoenixKit.Blogging.Renderer do
   Caches the result for published posts using content-hash-based keys.
   Lazy-loads cache (only caches after first render).
 
+  Respects `blogging_render_cache_enabled` (global) and
+  `blogging_render_cache_enabled_{blog_slug}` (per-blog) settings.
+
   ## Examples
 
       {:ok, html} = Renderer.render_post(post)
 
   """
   def render_post(post) do
-    if post.metadata.status == "published" do
+    if post.metadata.status == "published" and render_cache_enabled?(post.blog) do
       cache_key = build_cache_key(post)
 
       case get_cached(cache_key) do
@@ -42,9 +47,42 @@ defmodule PhoenixKit.Blogging.Renderer do
           render_and_cache(post, cache_key)
       end
     else
-      # Don't cache drafts or archived posts
+      # Don't cache drafts, archived posts, or when cache is disabled
       {:ok, render_markdown(post.content)}
     end
+  end
+
+  @doc """
+  Returns whether render caching is enabled for a blog.
+
+  Checks both the global setting and per-blog setting.
+  Both must be enabled (or default to enabled) for caching to work.
+  """
+  @spec render_cache_enabled?(String.t()) :: boolean()
+  def render_cache_enabled?(blog_slug) do
+    global_enabled = Settings.get_setting_cached(@global_cache_key, "true") == "true"
+    per_blog_key = "blogging_render_cache_enabled_#{blog_slug}"
+    per_blog_enabled = Settings.get_setting_cached(per_blog_key, "true") == "true"
+
+    global_enabled and per_blog_enabled
+  end
+
+  @doc """
+  Returns whether the global render cache is enabled.
+  """
+  @spec global_render_cache_enabled?() :: boolean()
+  def global_render_cache_enabled? do
+    Settings.get_setting_cached(@global_cache_key, "true") == "true"
+  end
+
+  @doc """
+  Returns whether render cache is enabled for a specific blog.
+  Does not check the global setting.
+  """
+  @spec blog_render_cache_enabled?(String.t()) :: boolean()
+  def blog_render_cache_enabled?(blog_slug) do
+    per_blog_key = "blogging_render_cache_enabled_#{blog_slug}"
+    Settings.get_setting_cached(per_blog_key, "true") == "true"
   end
 
   @doc """
@@ -353,6 +391,35 @@ defmodule PhoenixKit.Blogging.Renderer do
     _ ->
       Logger.warning("Blog cache not available for clearing")
       :ok
+  end
+
+  @doc """
+  Clears the render cache for a specific blog.
+
+  Returns `{:ok, count}` with the number of entries cleared.
+
+  ## Examples
+
+      Renderer.clear_blog_cache("my-blog")
+      # => {:ok, 15}
+
+  """
+  @spec clear_blog_cache(String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
+  def clear_blog_cache(blog_slug) do
+    prefix = "#{@cache_version}:blog_post:#{blog_slug}:"
+
+    case PhoenixKit.Cache.clear_by_prefix(@cache_name, prefix) do
+      {:ok, count} = result ->
+        Logger.info("Cleared #{count} cached posts for blog: #{blog_slug}")
+        result
+
+      {:error, _} = error ->
+        error
+    end
+  rescue
+    _ ->
+      Logger.warning("Blog cache not available for clearing")
+      {:ok, 0}
   end
 
   # Private Functions
