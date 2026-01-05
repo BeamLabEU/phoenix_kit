@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.Presence do
+defmodule PhoenixKit.Modules.Entities.Presence do
   @moduledoc """
   Presence tracking for collaborative entity editing.
 

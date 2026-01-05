@@ -985,7 +985,7 @@
                   <input
                     type="checkbox"
                     class="toggle toggle-primary"
-                    checked={PhoenixKit.Entities.mirror_definitions_enabled?(@entity)}
+                    checked={PhoenixKit.Modules.Entities.mirror_definitions_enabled?(@entity)}
                     phx-click="toggle_backup_definitions"
                     disabled={@readonly?}
                   />
@@ -1001,15 +1001,16 @@
               </div>
 
               <%!-- Records Sync Toggle --%>
-              <div class={"form-control #{unless PhoenixKit.Entities.mirror_definitions_enabled?(@entity), do: "opacity-50"}"}>
+              <div class={"form-control #{unless PhoenixKit.Modules.Entities.mirror_definitions_enabled?(@entity), do: "opacity-50"}"}>
                 <label class="label cursor-pointer justify-start gap-4">
                   <input
                     type="checkbox"
                     class="toggle toggle-primary"
-                    checked={PhoenixKit.Entities.mirror_data_enabled?(@entity)}
+                    checked={PhoenixKit.Modules.Entities.mirror_data_enabled?(@entity)}
                     phx-click="toggle_backup_data"
                     disabled={
-                      @readonly? or not PhoenixKit.Entities.mirror_definitions_enabled?(@entity)
+                      @readonly? or
+                        not PhoenixKit.Modules.Entities.mirror_definitions_enabled?(@entity)
                     }
                   />
                   <div>
@@ -1105,9 +1106,9 @@
                 phx-debounce="300"
                 value={@field_form["type"]}
               >
-                <%= for {category_key, _label} <- PhoenixKit.Entities.FieldTypes.category_list() do %>
+                <%= for {category_key, _label} <- PhoenixKit.Modules.Entities.FieldTypes.category_list() do %>
                   <optgroup label={field_category_label(category_key)}>
-                    <%= for type <- PhoenixKit.Entities.FieldTypes.by_category(category_key) do %>
+                    <%= for type <- PhoenixKit.Modules.Entities.FieldTypes.by_category(category_key) do %>
                       <option value={type.name} selected={@field_form["type"] == type.name}>
                         {field_type_label(type.name)}
                       </option>

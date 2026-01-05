@@ -1,21 +1,21 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.EntityForm do
+defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   @moduledoc """
   LiveView for creating and editing entity schemas.
   Provides form interface for defining entity fields, types, and validation rules.
   """
 
   use PhoenixKitWeb, :live_view
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
   require Logger
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.Events
-  alias PhoenixKit.Entities.FieldTypes
-  alias PhoenixKit.Entities.Mirror.Exporter
-  alias PhoenixKit.Entities.Mirror.Storage
-  alias PhoenixKit.Entities.Presence
-  alias PhoenixKit.Entities.PresenceHelpers
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.FieldTypes
+  alias PhoenixKit.Modules.Entities.Mirror.Exporter
+  alias PhoenixKit.Modules.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities.Presence
+  alias PhoenixKit.Modules.Entities.PresenceHelpers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.HeroIcons
   alias PhoenixKit.Utils.Routes

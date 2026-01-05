@@ -14,9 +14,9 @@ defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
   use Phoenix.Component
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.FormBuilder
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.FormBuilder
 
   attr :content, :string, default: nil
   attr :attributes, :map, default: %{}

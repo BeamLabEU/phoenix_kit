@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.Mirror.Importer do
+defmodule PhoenixKit.Modules.Entities.Mirror.Importer do
   @moduledoc """
   Handles import of entities and entity data from JSON files with conflict resolution.
 
@@ -25,9 +25,9 @@ defmodule PhoenixKit.Entities.Mirror.Importer do
   - Entity data records: matched by `entity_name` + `slug`
   """
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Mirror.Storage
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Slug
 

@@ -1,18 +1,18 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.DataForm do
+defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   @moduledoc """
   LiveView for creating and editing entity data records.
   Provides dynamic form interface based on entity schema definition.
   """
 
   use PhoenixKitWeb, :live_view
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Events
-  alias PhoenixKit.Entities.FormBuilder
-  alias PhoenixKit.Entities.Presence
-  alias PhoenixKit.Entities.PresenceHelpers
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.FormBuilder
+  alias PhoenixKit.Modules.Entities.Presence
+  alias PhoenixKit.Modules.Entities.PresenceHelpers
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Slug

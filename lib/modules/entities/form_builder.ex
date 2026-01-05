@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.FormBuilder do
+defmodule PhoenixKit.Modules.Entities.FormBuilder do
   @moduledoc """
   Dynamic form builder for entity data forms.
 
@@ -8,17 +8,17 @@ defmodule PhoenixKit.Entities.FormBuilder do
   ## Usage
 
       # Generate form fields for an entity
-      fields_html = PhoenixKit.Entities.FormBuilder.build_fields(entity, changeset)
+      fields_html = PhoenixKit.Modules.Entities.FormBuilder.build_fields(entity, changeset)
 
       # Generate a single field
-      field_html = PhoenixKit.Entities.FormBuilder.build_field(field_definition, changeset)
+      field_html = PhoenixKit.Modules.Entities.FormBuilder.build_field(field_definition, changeset)
 
       # Validate entity data against field definitions
-      {:ok, validated_data} = PhoenixKit.Entities.FormBuilder.validate_data(entity, data_params)
+      {:ok, validated_data} = PhoenixKit.Modules.Entities.FormBuilder.validate_data(entity, data_params)
 
   ## Field Type Support
 
-  The FormBuilder supports all field types defined in `PhoenixKit.Entities.FieldTypes`:
+  The FormBuilder supports all field types defined in `PhoenixKit.Modules.Entities.FieldTypes`:
 
   - **Basic Types**: text, textarea, email, url, rich_text
   - **Numeric Types**: number
@@ -63,7 +63,7 @@ defmodule PhoenixKit.Entities.FormBuilder do
       ...>   %{"type" => "text", "key" => "title", "label" => "Title", "required" => true}
       ...> ]}
       iex> changeset = Ecto.Changeset.cast(%{}, %{}, [])
-      iex> PhoenixKit.Entities.FormBuilder.build_fields(entity, changeset)
+      iex> PhoenixKit.Modules.Entities.FormBuilder.build_fields(entity, changeset)
       # Returns Phoenix.Component form HTML
   """
   def build_fields(entity, changeset, opts \\ []) do
@@ -99,7 +99,7 @@ defmodule PhoenixKit.Entities.FormBuilder do
 
       iex> field = %{"type" => "text", "key" => "title", "label" => "Title"}
       iex> changeset = Ecto.Changeset.cast(%{}, %{}, [])
-      iex> PhoenixKit.Entities.FormBuilder.build_field(field, changeset)
+      iex> PhoenixKit.Modules.Entities.FormBuilder.build_field(field, changeset)
       # Returns Phoenix.Component field HTML
   """
   def build_field(field, changeset, opts \\ [])
@@ -528,10 +528,10 @@ defmodule PhoenixKit.Entities.FormBuilder do
       iex> entity = %Entities{fields_definition: [
       ...>   %{"type" => "text", "key" => "title", "required" => true}
       ...> ]}
-      iex> PhoenixKit.Entities.FormBuilder.validate_data(entity, %{"title" => "Test"})
+      iex> PhoenixKit.Modules.Entities.FormBuilder.validate_data(entity, %{"title" => "Test"})
       {:ok, %{"title" => "Test"}}
 
-      iex> PhoenixKit.Entities.FormBuilder.validate_data(entity, %{})
+      iex> PhoenixKit.Modules.Entities.FormBuilder.validate_data(entity, %{})
       {:error, %{"title" => ["is required"]}}
   """
   def validate_data(entity, data_params) do

@@ -477,6 +477,47 @@ defmodule PhoenixKitWeb.Integration do
             as: :sync_history
         end
       end
+
+      # Entities module routes - uses PhoenixKit.Modules.Entities namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_entities,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
+
+          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
+            as: :entities_new
+
+          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
+            as: :entities_edit
+
+          live "/admin/entities/:entity_slug/data",
+               PhoenixKit.Modules.Entities.Web.DataNavigator,
+               :entity,
+               as: :entities_data_entity
+
+          live "/admin/entities/:entity_slug/data/new",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :new,
+               as: :entities_data_new
+
+          live "/admin/entities/:entity_slug/data/:id",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :show,
+               as: :entities_data_show
+
+          live "/admin/entities/:entity_slug/data/:id/edit",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :edit,
+               as: :entities_data_edit
+
+          live "/admin/settings/entities",
+               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
+               :index,
+               as: :entities_settings
+        end
+      end
     end
   end
 
@@ -642,29 +683,8 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
         live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
 
-        # Entities Management
-        live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
-        live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
-
-        live "/admin/entities/:id/edit", Live.Modules.Entities.EntityForm, :edit,
-          as: :entities_edit
-
-        live "/admin/entities/:entity_slug/data", Live.Modules.Entities.DataNavigator, :entity,
-          as: :entities_data_entity
-
-        live "/admin/entities/:entity_slug/data/new", Live.Modules.Entities.DataForm, :new,
-          as: :entities_data_new
-
-        live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataForm, :show,
-          as: :entities_data_show
-
-        live "/admin/entities/:entity_slug/data/:id/edit",
-             Live.Modules.Entities.DataForm,
-             :edit,
-             as: :entities_data_edit
-
-        live "/admin/settings/entities", Live.Modules.Entities.EntitiesSettings, :index,
-          as: :entities_settings
+        # Note: Entities routes are defined in generate_basic_scope/1
+        # using a separate scope without PhoenixKitWeb module prefix
       end
     end
   end

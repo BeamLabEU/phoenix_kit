@@ -539,7 +539,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Entities.enabled?() do %>
+                    <%= if PhoenixKit.Modules.Entities.enabled?() do %>
                       <%!-- Entities section with direct link and conditional submenu --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/entities")}
@@ -563,7 +563,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
                           <%!-- Dynamically list each published entity (one level deeper) --%>
                           <div class="pl-4">
-                            <%= for entity <- PhoenixKit.Entities.list_entities() do %>
+                            <%= for entity <- PhoenixKit.Modules.Entities.list_entities() do %>
                               <%= if entity.status == "published" do %>
                                 <.admin_nav_item
                                   href={
@@ -926,7 +926,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           </div>
                         <% end %>
 
-                        <%= if PhoenixKit.Entities.enabled?() do %>
+                        <%= if PhoenixKit.Modules.Entities.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.path("/admin/settings/entities")}
                             icon="entities"

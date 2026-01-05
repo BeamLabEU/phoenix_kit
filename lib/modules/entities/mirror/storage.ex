@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.Mirror.Storage do
+defmodule PhoenixKit.Modules.Entities.Mirror.Storage do
   @moduledoc """
   Filesystem storage operations for entity mirror/export system.
 

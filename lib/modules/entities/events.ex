@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.Events do
+defmodule PhoenixKit.Modules.Entities.Events do
   @moduledoc """
   PubSub helpers for coordinating real-time entity updates.
 

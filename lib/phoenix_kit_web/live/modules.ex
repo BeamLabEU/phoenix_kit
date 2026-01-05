@@ -7,12 +7,13 @@ defmodule PhoenixKitWeb.Live.Modules do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.AI
-  alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
+  alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Blogging
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.DB
+  alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
@@ -26,7 +27,6 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Settings
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
-  alias PhoenixKitWeb.Live.Modules.Blogging
 
   def mount(_params, _session, socket) do
     # Set locale for LiveView process

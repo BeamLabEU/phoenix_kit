@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.FieldTypes do
+defmodule PhoenixKit.Modules.Entities.FieldTypes do
   @moduledoc """
   Field type definitions and utilities for the Entities system.
 
@@ -31,16 +31,16 @@ defmodule PhoenixKit.Entities.FieldTypes do
   ## Usage Examples
 
       # Get all field types
-      field_types = PhoenixKit.Entities.FieldTypes.all()
+      field_types = PhoenixKit.Modules.Entities.FieldTypes.all()
 
       # Get field type info
-      text_info = PhoenixKit.Entities.FieldTypes.get_type("text")
+      text_info = PhoenixKit.Modules.Entities.FieldTypes.get_type("text")
 
       # Get field types by category
-      basic_types = PhoenixKit.Entities.FieldTypes.by_category(:basic)
+      basic_types = PhoenixKit.Modules.Entities.FieldTypes.by_category(:basic)
 
       # Check if field type requires options
-      PhoenixKit.Entities.FieldTypes.requires_options?("select") # => true
+      PhoenixKit.Modules.Entities.FieldTypes.requires_options?("select") # => true
   """
 
   @type field_type :: String.t()
@@ -180,7 +180,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.all()
+      iex> PhoenixKit.Modules.Entities.FieldTypes.all()
       %{"text" => %{name: "text", ...}, ...}
   """
   def all do
@@ -192,7 +192,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.list_types()
+      iex> PhoenixKit.Modules.Entities.FieldTypes.list_types()
       ["text", "textarea", "number", ...]
   """
   def list_types do
@@ -206,10 +206,10 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.get_type("text")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.get_type("text")
       %{name: "text", label: "Text", ...}
 
-      iex> PhoenixKit.Entities.FieldTypes.get_type("invalid")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.get_type("invalid")
       nil
   """
   def get_type(type_name) when is_binary(type_name) do
@@ -221,10 +221,10 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.valid_type?("text")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.valid_type?("text")
       true
 
-      iex> PhoenixKit.Entities.FieldTypes.valid_type?("invalid")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.valid_type?("invalid")
       false
   """
   def valid_type?(type_name) when is_binary(type_name) do
@@ -236,7 +236,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.by_category(:basic)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.by_category(:basic)
       [%{name: "text", ...}, %{name: "textarea", ...}, ...]
   """
   def by_category(category) when is_atom(category) do
@@ -250,7 +250,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.categories()
+      iex> PhoenixKit.Modules.Entities.FieldTypes.categories()
       %{
         basic: [%{name: "text", ...}, ...],
         numeric: [%{name: "number", ...}],
@@ -268,7 +268,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.category_list()
+      iex> PhoenixKit.Modules.Entities.FieldTypes.category_list()
       [
         {:basic, "Basic"},
         {:numeric, "Numeric"},
@@ -290,10 +290,10 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.requires_options?("select")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.requires_options?("select")
       true
 
-      iex> PhoenixKit.Entities.FieldTypes.requires_options?("text")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.requires_options?("text")
       false
   """
   def requires_options?(type_name) when is_binary(type_name) do
@@ -308,7 +308,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.default_props("text")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.default_props("text")
       %{"placeholder" => "", "max_length" => 255}
   """
   def default_props(type_name) when is_binary(type_name) do
@@ -325,7 +325,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.for_picker()
+      iex> PhoenixKit.Modules.Entities.FieldTypes.for_picker()
       [
         %{value: "text", label: "Text", category: "Basic", icon: "hero-pencil"},
         ...
@@ -357,11 +357,11 @@ defmodule PhoenixKit.Entities.FieldTypes do
   ## Examples
 
       iex> field = %{"type" => "text", "key" => "title", "label" => "Title"}
-      iex> PhoenixKit.Entities.FieldTypes.validate_field(field)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.validate_field(field)
       {:ok, field}
 
       iex> invalid_field = %{"type" => "invalid", "key" => "test"}
-      iex> PhoenixKit.Entities.FieldTypes.validate_field(invalid_field)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.validate_field(invalid_field)
       {:error, "Invalid field type: invalid"}
   """
   def validate_field(field) when is_map(field) do
@@ -409,7 +409,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.new_field("text", "my_field", "My Field")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.new_field("text", "my_field", "My Field")
       %{
         "type" => "text",
         "key" => "my_field",
@@ -422,7 +422,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
       }
 
       # With options for choice fields
-      iex> PhoenixKit.Entities.FieldTypes.new_field("select", "category", "Category", options: ["Tech", "Business"])
+      iex> PhoenixKit.Modules.Entities.FieldTypes.new_field("select", "category", "Category", options: ["Tech", "Business"])
       %{
         "type" => "select",
         "key" => "category",
@@ -433,7 +433,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
       }
 
       # With required flag
-      iex> PhoenixKit.Entities.FieldTypes.new_field("text", "name", "Name", required: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.new_field("text", "name", "Name", required: true)
       %{"type" => "text", "key" => "name", "label" => "Name", "required" => true, ...}
   """
   def new_field(type, key, label, opts \\ [])
@@ -471,10 +471,10 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
+      iex> PhoenixKit.Modules.Entities.FieldTypes.select_field("category", "Category", ["Tech", "Business", "Other"])
       %{"type" => "select", "key" => "category", "label" => "Category", "options" => ["Tech", "Business", "Other"], ...}
 
-      iex> PhoenixKit.Entities.FieldTypes.select_field("status", "Status", ["Active", "Inactive"], required: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.select_field("status", "Status", ["Active", "Inactive"], required: true)
       %{"type" => "select", "key" => "status", "label" => "Status", "options" => ["Active", "Inactive"], "required" => true, ...}
   """
   def select_field(key, label, options, opts \\ []) when is_list(options) do
@@ -486,7 +486,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
+      iex> PhoenixKit.Modules.Entities.FieldTypes.radio_field("priority", "Priority", ["Low", "Medium", "High"])
       %{"type" => "radio", "key" => "priority", "label" => "Priority", "options" => ["Low", "Medium", "High"], ...}
   """
   def radio_field(key, label, options, opts \\ []) when is_list(options) do
@@ -498,7 +498,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
+      iex> PhoenixKit.Modules.Entities.FieldTypes.checkbox_field("tags", "Tags", ["Featured", "Popular", "New"])
       %{"type" => "checkbox", "key" => "tags", "label" => "Tags", "options" => ["Featured", "Popular", "New"], ...}
   """
   def checkbox_field(key, label, options, opts \\ []) when is_list(options) do
@@ -510,7 +510,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.text_field("name", "Full Name", required: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.text_field("name", "Full Name", required: true)
       %{"type" => "text", "key" => "name", "label" => "Full Name", "required" => true, ...}
   """
   def text_field(key, label, opts \\ []) do
@@ -522,7 +522,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.textarea_field("bio", "Biography")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.textarea_field("bio", "Biography")
       %{"type" => "textarea", "key" => "bio", "label" => "Biography", ...}
   """
   def textarea_field(key, label, opts \\ []) do
@@ -534,7 +534,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.email_field("email", "Email Address", required: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.email_field("email", "Email Address", required: true)
       %{"type" => "email", "key" => "email", "label" => "Email Address", "required" => true, ...}
   """
   def email_field(key, label, opts \\ []) do
@@ -546,7 +546,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.number_field("age", "Age")
+      iex> PhoenixKit.Modules.Entities.FieldTypes.number_field("age", "Age")
       %{"type" => "number", "key" => "age", "label" => "Age", ...}
   """
   def number_field(key, label, opts \\ []) do
@@ -558,7 +558,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.boolean_field("active", "Is Active", default: true)
       %{"type" => "boolean", "key" => "active", "label" => "Is Active", "default" => true, ...}
   """
   def boolean_field(key, label, opts \\ []) do
@@ -570,7 +570,7 @@ defmodule PhoenixKit.Entities.FieldTypes do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content", required: true)
+      iex> PhoenixKit.Modules.Entities.FieldTypes.rich_text_field("content", "Content", required: true)
       %{"type" => "rich_text", "key" => "content", "label" => "Content", "required" => true, ...}
   """
   def rich_text_field(key, label, opts \\ []) do

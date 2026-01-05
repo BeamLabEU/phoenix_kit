@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.Mirror.Exporter do
+defmodule PhoenixKit.Modules.Entities.Mirror.Exporter do
   @moduledoc """
   Exports entities and their data to JSON files.
 
@@ -24,9 +24,9 @@ defmodule PhoenixKit.Entities.Mirror.Exporter do
 
   """
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Mirror.Storage
 
   @export_version "1.0"
 

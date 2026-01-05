@@ -70,9 +70,9 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Export do
 
   use Mix.Task
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Mirror.Storage
   alias PhoenixKit.Settings
 
   @export_version "1.0"

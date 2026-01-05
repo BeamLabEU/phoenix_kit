@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.PresenceHelpers do
+defmodule PhoenixKit.Modules.Entities.PresenceHelpers do
   @moduledoc """
   Helper functions for collaborative editing with Phoenix.Presence.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKit.Entities.PresenceHelpers do
   and syncing state between users.
   """
 
-  alias PhoenixKit.Entities.Presence
+  alias PhoenixKit.Modules.Entities.Presence
 
   @doc """
   Tracks the current LiveView process in a Presence topic.

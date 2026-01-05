@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities do
+defmodule PhoenixKit.Modules.Entities do
   @moduledoc """
   Dynamic entity system for PhoenixKit - WordPress ACF equivalent.
 
@@ -53,13 +53,13 @@ defmodule PhoenixKit.Entities do
   ## Usage Examples
 
       # Check if system is enabled
-      if PhoenixKit.Entities.enabled?() do
+      if PhoenixKit.Modules.Entities.enabled?() do
         # System is active
       end
 
       # Create a brand entity
       # Note: fields_definition requires string keys, not atom keys
-      {:ok, entity} = PhoenixKit.Entities.create_entity(%{
+      {:ok, entity} = PhoenixKit.Modules.Entities.create_entity(%{
         name: "brand",
         display_name: "Brand",
         display_name_plural: "Brands",
@@ -78,20 +78,20 @@ defmodule PhoenixKit.Entities do
       })
 
       # Get entity by name
-      entity = PhoenixKit.Entities.get_entity_by_name("brand")
+      entity = PhoenixKit.Modules.Entities.get_entity_by_name("brand")
 
       # List all active entities
-      entities = PhoenixKit.Entities.list_active_entities()
+      entities = PhoenixKit.Modules.Entities.list_active_entities()
   """
 
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Events
-  alias PhoenixKit.Entities.Mirror.Exporter
-  alias PhoenixKit.Entities.Mirror.Storage
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.Mirror.Exporter
+  alias PhoenixKit.Modules.Entities.Mirror.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -128,7 +128,7 @@ defmodule PhoenixKit.Entities do
     field :date_updated, :utc_datetime_usec
 
     belongs_to :creator, User, foreign_key: :created_by, define_field: false
-    has_many :entity_data, PhoenixKit.Entities.EntityData, foreign_key: :entity_id
+    has_many :entity_data, PhoenixKit.Modules.Entities.EntityData, foreign_key: :entity_id
   end
 
   @doc """
@@ -310,7 +310,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.list_entities()
+      iex> PhoenixKit.Modules.Entities.list_entities()
       [%PhoenixKit.Entities{}, ...]
   """
   def list_entities do
@@ -325,7 +325,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.list_active_entities()
+      iex> PhoenixKit.Modules.Entities.list_active_entities()
       [%PhoenixKit.Entities{status: "published"}, ...]
   """
   def list_active_entities do
@@ -344,10 +344,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_entity(123)
+      iex> PhoenixKit.Modules.Entities.get_entity(123)
       %PhoenixKit.Entities{}
 
-      iex> PhoenixKit.Entities.get_entity(456)
+      iex> PhoenixKit.Modules.Entities.get_entity(456)
       nil
   """
   def get_entity(id) do
@@ -364,10 +364,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_entity!(123)
+      iex> PhoenixKit.Modules.Entities.get_entity!(123)
       %PhoenixKit.Entities{}
 
-      iex> PhoenixKit.Entities.get_entity!(456)
+      iex> PhoenixKit.Modules.Entities.get_entity!(456)
       ** (Ecto.NoResultsError)
   """
   def get_entity!(id), do: repo().get!(__MODULE__, id) |> repo().preload(:creator)
@@ -379,10 +379,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_entity_by_name("brand")
+      iex> PhoenixKit.Modules.Entities.get_entity_by_name("brand")
       %PhoenixKit.Entities{}
 
-      iex> PhoenixKit.Entities.get_entity_by_name("invalid")
+      iex> PhoenixKit.Modules.Entities.get_entity_by_name("invalid")
       nil
   """
   def get_entity_by_name(name) when is_binary(name) do
@@ -394,10 +394,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.create_entity(%{name: "brand", display_name: "Brand"})
+      iex> PhoenixKit.Modules.Entities.create_entity(%{name: "brand", display_name: "Brand"})
       {:ok, %PhoenixKit.Entities{}}
 
-      iex> PhoenixKit.Entities.create_entity(%{name: ""})
+      iex> PhoenixKit.Modules.Entities.create_entity(%{name: ""})
       {:error, %Ecto.Changeset{}}
 
   Note: `created_by` is auto-filled with the first admin or user ID if not provided,
@@ -440,10 +440,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.update_entity(entity, %{display_name: "Updated"})
+      iex> PhoenixKit.Modules.Entities.update_entity(entity, %{display_name: "Updated"})
       {:ok, %PhoenixKit.Entities{}}
 
-      iex> PhoenixKit.Entities.update_entity(entity, %{name: ""})
+      iex> PhoenixKit.Modules.Entities.update_entity(entity, %{name: ""})
       {:error, %Ecto.Changeset{}}
   """
   def update_entity(%__MODULE__{} = entity, attrs) do
@@ -461,10 +461,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.delete_entity(entity)
+      iex> PhoenixKit.Modules.Entities.delete_entity(entity)
       {:ok, %PhoenixKit.Entities{}}
 
-      iex> PhoenixKit.Entities.delete_entity(entity)
+      iex> PhoenixKit.Modules.Entities.delete_entity(entity)
       {:error, %Ecto.Changeset{}}
   """
   def delete_entity(%__MODULE__{} = entity) do
@@ -477,7 +477,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.change_entity(entity)
+      iex> PhoenixKit.Modules.Entities.change_entity(entity)
       %Ecto.Changeset{data: %PhoenixKit.Entities{}}
   """
   def change_entity(%__MODULE__{} = entity, attrs \\ %{}) do
@@ -491,12 +491,12 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_system_stats()
+      iex> PhoenixKit.Modules.Entities.get_system_stats()
       %{total_entities: 5, active_entities: 4, total_data_records: 150}
   """
   def get_system_stats do
     entities_query = from(e in __MODULE__)
-    data_query = from(d in PhoenixKit.Entities.EntityData)
+    data_query = from(d in PhoenixKit.Modules.Entities.EntityData)
 
     total_entities = repo().aggregate(entities_query, :count)
 
@@ -517,7 +517,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.count_user_entities(1)
+      iex> PhoenixKit.Modules.Entities.count_user_entities(1)
       5
   """
   def count_user_entities(user_id) when is_integer(user_id) do
@@ -530,7 +530,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.count_entities()
+      iex> PhoenixKit.Modules.Entities.count_entities()
       15
   """
   def count_entities do
@@ -543,11 +543,11 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.count_all_entity_data()
+      iex> PhoenixKit.Modules.Entities.count_all_entity_data()
       243
   """
   def count_all_entity_data do
-    from(d in PhoenixKit.Entities.EntityData, select: count(d.id))
+    from(d in PhoenixKit.Modules.Entities.EntityData, select: count(d.id))
     |> repo().one()
   end
 
@@ -559,10 +559,10 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.validate_user_entity_limit(1)
+      iex> PhoenixKit.Modules.Entities.validate_user_entity_limit(1)
       {:ok, :valid}
 
-      iex> PhoenixKit.Entities.validate_user_entity_limit(1)
+      iex> PhoenixKit.Modules.Entities.validate_user_entity_limit(1)
       {:error, "You have reached the maximum limit of 100 entities"}
   """
   def validate_user_entity_limit(user_id) when is_integer(user_id) do
@@ -583,7 +583,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.enabled?()
+      iex> PhoenixKit.Modules.Entities.enabled?()
       false
   """
   def enabled? do
@@ -597,7 +597,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.enable_system()
+      iex> PhoenixKit.Modules.Entities.enable_system()
       {:ok, %Setting{}}
   """
   def enable_system do
@@ -611,7 +611,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.disable_system()
+      iex> PhoenixKit.Modules.Entities.disable_system()
       {:ok, %Setting{}}
   """
   def disable_system do
@@ -626,7 +626,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_max_per_user()
+      iex> PhoenixKit.Modules.Entities.get_max_per_user()
       100
   """
   def get_max_per_user do
@@ -640,7 +640,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_config()
+      iex> PhoenixKit.Modules.Entities.get_config()
       %{enabled: false, max_per_user: 100, allow_relations: true, file_upload: false, entity_count: 0, total_data_count: 0}
   """
   def get_config do
@@ -666,7 +666,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.get_mirror_settings(entity)
+      iex> PhoenixKit.Modules.Entities.get_mirror_settings(entity)
       %{mirror_definitions: true, mirror_data: false}
   """
   def get_mirror_settings(%__MODULE__{settings: settings}) do
@@ -683,7 +683,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.mirror_definitions_enabled?(entity)
+      iex> PhoenixKit.Modules.Entities.mirror_definitions_enabled?(entity)
       true
   """
   def mirror_definitions_enabled?(%__MODULE__{settings: settings}) do
@@ -696,7 +696,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.mirror_data_enabled?(entity)
+      iex> PhoenixKit.Modules.Entities.mirror_data_enabled?(entity)
       false
   """
   def mirror_data_enabled?(%__MODULE__{settings: settings}) do
@@ -713,7 +713,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.update_mirror_settings(entity, %{"mirror_definitions" => true})
+      iex> PhoenixKit.Modules.Entities.update_mirror_settings(entity, %{"mirror_definitions" => true})
       {:ok, %PhoenixKit.Entities{}}
   """
   def update_mirror_settings(%__MODULE__{} = entity, mirror_settings)
@@ -730,7 +730,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.list_entities_with_mirror_status()
+      iex> PhoenixKit.Modules.Entities.list_entities_with_mirror_status()
       [%{id: 1, name: "test", display_name: "Test", data_count: 8, mirror_definitions: true, mirror_data: false}, ...]
   """
   def list_entities_with_mirror_status do
@@ -758,7 +758,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.enable_all_definitions_mirror()
+      iex> PhoenixKit.Modules.Entities.enable_all_definitions_mirror()
       {:ok, count}
   """
   def enable_all_definitions_mirror do
@@ -778,7 +778,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.disable_all_definitions_mirror()
+      iex> PhoenixKit.Modules.Entities.disable_all_definitions_mirror()
       {:ok, count}
   """
   def disable_all_definitions_mirror do
@@ -798,7 +798,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.enable_all_data_mirror()
+      iex> PhoenixKit.Modules.Entities.enable_all_data_mirror()
       {:ok, count}
   """
   def enable_all_data_mirror do
@@ -818,7 +818,7 @@ defmodule PhoenixKit.Entities do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.disable_all_data_mirror()
+      iex> PhoenixKit.Modules.Entities.disable_all_data_mirror()
       {:ok, count}
   """
   def disable_all_data_mirror do

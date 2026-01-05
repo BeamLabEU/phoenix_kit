@@ -210,7 +210,7 @@ Stores actual content records based on entity blueprints.
 
 ## Field Types System
 
-**File**: `lib/phoenix_kit/entities/field_types.ex`
+**File**: `lib/modules/entities/field_types.ex`
 
 The system supports 11 fully functional field types organized into 5 categories, plus 3 placeholder types for future implementation:
 
@@ -336,7 +336,7 @@ The `FieldTypes.validate_field/1` function validates:
 
 ### 1. PhoenixKit.Entities
 
-**File**: `lib/phoenix_kit/entities/entities.ex`
+**File**: `lib/modules/entities/entities.ex`
 
 Main module for entity management with both Ecto schema and business logic.
 
@@ -412,7 +412,7 @@ PhoenixKit.Entities.disable_system()
 
 ### 2. PhoenixKit.Entities.EntityData
 
-**File**: `lib/phoenix_kit/entities/entity_data.ex`
+**File**: `lib/modules/entities/entity_data.ex`
 
 Module for entity data records with dynamic validation.
 
@@ -471,7 +471,7 @@ The `validate_data_against_entity/1` function validates data records against the
 
 ### 3. PhoenixKit.Entities.FieldTypes
 
-**File**: `lib/phoenix_kit/entities/field_types.ex`
+**File**: `lib/modules/entities/field_types.ex`
 
 Field type definitions and validation.
 
@@ -534,7 +534,7 @@ PhoenixKit.Entities.FieldTypes.rich_text_field("content", "Content")
 
 ### 4. PhoenixKit.Entities.FormBuilder
 
-**File**: `lib/phoenix_kit/entities/form_builder.ex`
+**File**: `lib/modules/entities/form_builder.ex`
 
 Dynamic form generation from entity field definitions.
 
@@ -572,8 +572,8 @@ Media fields (`image`, `file`) and relation fields render "Coming Soon" placehol
 ### 1. Entities Manager
 
 **Route**: `/phoenix_kit/admin/entities`
-**File**: `lib/phoenix_kit_web/live/modules/entities/entities.ex`
-**Template**: `lib/phoenix_kit_web/live/modules/entities/entities.html.heex`
+**File**: `lib/modules/entities/web/entities.ex`
+**Template**: `lib/modules/entities/web/entities.html.heex`
 
 **Features:**
 
@@ -598,8 +598,8 @@ handle_event("delete_entity", %{"id" => id}, socket)
 - Edit: `/phoenix_kit/admin/entities/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/modules/entities/entity_form.ex`
-- `lib/phoenix_kit_web/live/modules/entities/entity_form.html.heex`
+- `lib/modules/entities/web/entity_form.ex`
+- `lib/modules/entities/web/entity_form.html.heex`
 
 **Features:**
 
@@ -659,8 +659,8 @@ handle_event("update_option", %{"index" => index, "value" => value}, socket)
 **Route**: `/phoenix_kit/admin/entities/:entity_slug/data`
 
 **Files**:
-- `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
-- `lib/phoenix_kit_web/live/modules/entities/data_navigator.html.heex`
+- `lib/modules/entities/web/data_navigator.ex`
+- `lib/modules/entities/web/data_navigator.html.heex`
 
 > **Note**: The route requires `:entity_slug`. The LiveView mounts with a nil entity if the slug doesn't resolve to a valid entity.
 
@@ -693,9 +693,9 @@ handle_event("toggle_status", %{"id" => id}, socket)
 - Edit: `/phoenix_kit/admin/entities/:entity_slug/data/:id/edit`
 
 **Files**:
-- `lib/phoenix_kit_web/live/modules/entities/data_form.ex`
-- `lib/phoenix_kit_web/live/modules/entities/data_form.html.heex`
-- `lib/phoenix_kit_web/live/modules/entities/data_view.ex` (for :show action)
+- `lib/modules/entities/web/data_form.ex`
+- `lib/modules/entities/web/data_form.html.heex`
+- `lib/modules/entities/web/data_view.ex` (for :show action)
 
 > **Note**: Routes use `:entity_slug` (not `:entity_id`).
 
@@ -891,7 +891,7 @@ Rich text fields are automatically sanitized to prevent XSS attacks.
 
 ### HtmlSanitizer Module
 
-**File**: `lib/phoenix_kit/entities/html_sanitizer.ex`
+**File**: `lib/modules/entities/html_sanitizer.ex`
 
 The sanitizer removes dangerous content while preserving safe HTML:
 
@@ -944,8 +944,8 @@ The entity form editor supports real-time collaboration with FIFO (First In, Fir
 ### Presence System
 
 **Files**:
-- `lib/phoenix_kit/entities/presence.ex` - Phoenix.Presence wrapper
-- `lib/phoenix_kit/entities/presence_helpers.ex` - Helper functions
+- `lib/modules/entities/presence.ex` - Phoenix.Presence wrapper
+- `lib/modules/entities/presence_helpers.ex` - Helper functions
 
 ### How It Works
 
@@ -985,7 +985,7 @@ The entity form shows:
 
 ### Event Broadcasting
 
-**File**: `lib/phoenix_kit/entities/events.ex`
+**File**: `lib/modules/entities/events.ex`
 
 Changes are broadcast via Phoenix PubSub:
 

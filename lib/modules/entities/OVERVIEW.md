@@ -19,33 +19,35 @@ PhoenixKit’s Entities layer is a WordPress ACF–style content engine. It lets
 ## Folder structure
 
 ```
-lib/phoenix_kit/
-└── entities/
-    ├── entities.ex          # Entity schema + business logic
-    ├── entity_data.ex       # Data record schema + CRUD helpers
-    ├── field_types.ex       # Registry of supported field types
-    ├── form_builder.ex      # Dynamic form rendering + validation helpers
-    ├── html_sanitizer.ex    # XSS prevention for rich_text fields
-    ├── presence.ex          # Phoenix.Presence for real-time collaboration
-    ├── presence_helpers.ex  # FIFO locking and presence utilities
-    └── events.ex            # PubSub event broadcasting
-
-lib/phoenix_kit_web/live/modules/entities/
-├── entities.ex / .html.heex         # Entity dashboard
-├── entity_form.ex / .html.heex      # Create/update entity definitions + public form config
-├── data_navigator.ex / .html.heex   # Browse/filter records per entity
-├── data_form.ex / .html.heex        # Create/update individual records
-└── entities_settings.ex / .html.heex# System configuration
+lib/modules/entities/
+├── entities.ex          # Entity schema + business logic
+├── entity_data.ex       # Data record schema + CRUD helpers
+├── field_types.ex       # Registry of supported field types
+├── form_builder.ex      # Dynamic form rendering + validation helpers
+├── html_sanitizer.ex    # XSS prevention for rich_text fields
+├── presence.ex          # Phoenix.Presence for real-time collaboration
+├── presence_helpers.ex  # FIFO locking and presence utilities
+├── events.ex            # PubSub event broadcasting
+├── OVERVIEW.md          # High-level guide (this file)
+├── DEEP_DIVE.md         # Architectural deep dive
+├── mirror/              # Entity definition/data mirroring to filesystem
+│   ├── exporter.ex
+│   ├── importer.ex
+│   └── storage.ex
+└── web/
+    ├── entities.ex / .html.heex         # Entity dashboard
+    ├── entity_form.ex / .html.heex      # Create/update entity definitions + public form config
+    ├── data_navigator.ex / .html.heex   # Browse/filter records per entity
+    ├── data_form.ex / .html.heex        # Create/update individual records
+    ├── data_view.ex                     # Read-only view component
+    ├── entities_settings.ex / .html.heex# System configuration
+    └── hooks.ex                         # LiveView hooks for entity pages
 
 lib/phoenix_kit_web/controllers/
 └── entity_form_controller.ex        # Public form submission handler
 
 lib/phoenix_kit_web/components/blogging/
 └── entity_form.ex                   # Embeddable public form component
-
-lib/phoenix_kit/entities/
-├── OVERVIEW.md                     # High-level guide (this file)
-└── DEEP_DIVE.md                    # Architectural deep dive
 
 lib/phoenix_kit/migrations/postgres/
 └── v17.ex                           # Creates entities + entity_data tables, seeds settings

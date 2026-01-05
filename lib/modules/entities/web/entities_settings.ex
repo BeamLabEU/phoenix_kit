@@ -1,16 +1,16 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesSettings do
+defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   @moduledoc """
   LiveView for managing entities system settings and configuration.
   Provides interface for enabling/disabling entities module and viewing statistics.
   """
 
   use PhoenixKitWeb, :live_view
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.Events
-  alias PhoenixKit.Entities.Mirror.{Exporter, Importer, Storage}
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.Mirror.{Exporter, Importer, Storage}
   alias PhoenixKit.Settings
 
   def mount(_params, _session, socket) do

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.Hooks do
+defmodule PhoenixKit.Modules.Entities.Web.Hooks do
   @moduledoc """
   LiveView hooks for entity module pages.
 
@@ -7,7 +7,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.Hooks do
 
   import Phoenix.LiveView
   alias PhoenixKit.Admin.Presence
-  alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Modules.Entities.Events
   alias PhoenixKit.Users.Auth.Scope
 
   @doc """
@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.Hooks do
 
   Add this to your entity LiveView with:
 
-      on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+      on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
   This automatically:
   - Subscribes to entity creation, update, and deletion events

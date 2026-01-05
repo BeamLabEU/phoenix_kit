@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
+defmodule PhoenixKit.Modules.Entities.Web.DataView do
   @moduledoc """
   LiveView for viewing entity data records.
   Displays data with public form fields separated from other fields.
@@ -6,11 +6,11 @@ defmodule PhoenixKitWeb.Live.Modules.Entities.DataView do
   """
 
   use PhoenixKitWeb, :live_view
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
-  alias PhoenixKit.Entities.FormBuilder
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
+  alias PhoenixKit.Modules.Entities.FormBuilder
   alias PhoenixKit.Settings
 
   @impl true

@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Entities.EntityData do
+defmodule PhoenixKit.Modules.Entities.EntityData do
   @moduledoc """
   Entity data records for PhoenixKit entities system.
 
@@ -40,7 +40,7 @@ defmodule PhoenixKit.Entities.EntityData do
   ## Usage Examples
 
       # Create a brand data record
-      {:ok, data} = PhoenixKit.Entities.EntityData.create(%{
+      {:ok, data} = PhoenixKit.Modules.Entities.EntityData.create(%{
         entity_id: brand_entity.id,
         title: "Acme Corporation",
         slug: "acme-corporation",
@@ -61,20 +61,20 @@ defmodule PhoenixKit.Entities.EntityData do
       })
 
       # Get all records for an entity
-      records = PhoenixKit.Entities.EntityData.list_by_entity(brand_entity.id)
+      records = PhoenixKit.Modules.Entities.EntityData.list_by_entity(brand_entity.id)
 
       # Search by title
-      results = PhoenixKit.Entities.EntityData.search_by_title("Acme", brand_entity.id)
+      results = PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", brand_entity.id)
   """
 
   use Ecto.Schema
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.Events
-  alias PhoenixKit.Entities.HtmlSanitizer
-  alias PhoenixKit.Entities.Mirror.Exporter
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.Events
+  alias PhoenixKit.Modules.Entities.HtmlSanitizer
+  alias PhoenixKit.Modules.Entities.Mirror.Exporter
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
 
@@ -378,8 +378,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.list_all()
-      [%PhoenixKit.Entities.EntityData{}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.list_all()
+      [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
   def list_all do
     from(d in __MODULE__,
@@ -394,8 +394,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.list_by_entity(1)
-      [%PhoenixKit.Entities.EntityData{entity_id: 1}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity(1)
+      [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1}, ...]
   """
   def list_by_entity(entity_id) when is_integer(entity_id) do
     from(d in __MODULE__,
@@ -411,8 +411,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.list_by_entity_and_status(1, "published")
-      [%PhoenixKit.Entities.EntityData{entity_id: 1, status: "published"}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.list_by_entity_and_status(1, "published")
+      [%PhoenixKit.Modules.Entities.EntityData{entity_id: 1, status: "published"}, ...]
   """
   def list_by_entity_and_status(entity_id, status)
       when is_integer(entity_id) and status in @valid_statuses do
@@ -431,10 +431,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.get(123)
-      %PhoenixKit.Entities.EntityData{}
+      iex> PhoenixKit.Modules.Entities.EntityData.get(123)
+      %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Entities.EntityData.get(456)
+      iex> PhoenixKit.Modules.Entities.EntityData.get(456)
       nil
   """
   def get(id) do
@@ -451,10 +451,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.get!(123)
-      %PhoenixKit.Entities.EntityData{}
+      iex> PhoenixKit.Modules.Entities.EntityData.get!(123)
+      %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Entities.EntityData.get!(456)
+      iex> PhoenixKit.Modules.Entities.EntityData.get!(456)
       ** (Ecto.NoResultsError)
   """
   def get!(id) do
@@ -468,10 +468,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.get_by_slug(1, "acme-corporation")
-      %PhoenixKit.Entities.EntityData{}
+      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(1, "acme-corporation")
+      %PhoenixKit.Modules.Entities.EntityData{}
 
-      iex> PhoenixKit.Entities.EntityData.get_by_slug(1, "invalid")
+      iex> PhoenixKit.Modules.Entities.EntityData.get_by_slug(1, "invalid")
       nil
   """
   def get_by_slug(entity_id, slug) when is_integer(entity_id) and is_binary(slug) do
@@ -484,10 +484,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.create(%{entity_id: 1, title: "Test"})
-      {:ok, %PhoenixKit.Entities.EntityData{}}
+      iex> PhoenixKit.Modules.Entities.EntityData.create(%{entity_id: 1, title: "Test"})
+      {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
-      iex> PhoenixKit.Entities.EntityData.create(%{title: ""})
+      iex> PhoenixKit.Modules.Entities.EntityData.create(%{title: ""})
       {:error, %Ecto.Changeset{}}
 
   Note: `created_by` is auto-filled with the first admin or user ID if not provided,
@@ -530,10 +530,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.update(record, %{title: "Updated"})
-      {:ok, %PhoenixKit.Entities.EntityData{}}
+      iex> PhoenixKit.Modules.Entities.EntityData.update(record, %{title: "Updated"})
+      {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
-      iex> PhoenixKit.Entities.EntityData.update(record, %{title: ""})
+      iex> PhoenixKit.Modules.Entities.EntityData.update(record, %{title: ""})
       {:error, %Ecto.Changeset{}}
   """
   def update(%__MODULE__{} = entity_data, attrs) do
@@ -548,10 +548,10 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.delete(record)
-      {:ok, %PhoenixKit.Entities.EntityData{}}
+      iex> PhoenixKit.Modules.Entities.EntityData.delete(record)
+      {:ok, %PhoenixKit.Modules.Entities.EntityData{}}
 
-      iex> PhoenixKit.Entities.EntityData.delete(record)
+      iex> PhoenixKit.Modules.Entities.EntityData.delete(record)
       {:error, %Ecto.Changeset{}}
   """
   def delete(%__MODULE__{} = entity_data) do
@@ -564,8 +564,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.change(record)
-      %Ecto.Changeset{data: %PhoenixKit.Entities.EntityData{}}
+      iex> PhoenixKit.Modules.Entities.EntityData.change(record)
+      %Ecto.Changeset{data: %PhoenixKit.Modules.Entities.EntityData{}}
   """
   def change(%__MODULE__{} = entity_data, attrs \\ %{}) do
     changeset(entity_data, attrs)
@@ -576,8 +576,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.search_by_title("Acme", 1)
-      [%PhoenixKit.Entities.EntityData{}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.search_by_title("Acme", 1)
+      [%PhoenixKit.Modules.Entities.EntityData{}, ...]
   """
   def search_by_title(search_term, entity_id \\ nil) when is_binary(search_term) do
     search_pattern = "%#{search_term}%"
@@ -604,8 +604,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.published_records(1)
-      [%PhoenixKit.Entities.EntityData{status: "published"}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.published_records(1)
+      [%PhoenixKit.Modules.Entities.EntityData{status: "published"}, ...]
   """
   def published_records(entity_id) when is_integer(entity_id) do
     list_by_entity_and_status(entity_id, "published")
@@ -616,7 +616,7 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.count_by_entity(1)
+      iex> PhoenixKit.Modules.Entities.EntityData.count_by_entity(1)
       42
   """
   def count_by_entity(entity_id) when is_integer(entity_id) do
@@ -629,8 +629,8 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.filter_by_status("draft")
-      [%PhoenixKit.Entities.EntityData{status: "draft"}, ...]
+      iex> PhoenixKit.Modules.Entities.EntityData.filter_by_status("draft")
+      [%PhoenixKit.Modules.Entities.EntityData{status: "draft"}, ...]
   """
   def filter_by_status(status) when status in @valid_statuses do
     from(d in __MODULE__,
@@ -684,7 +684,7 @@ defmodule PhoenixKit.Entities.EntityData do
 
   ## Examples
 
-      iex> PhoenixKit.Entities.EntityData.get_data_stats()
+      iex> PhoenixKit.Modules.Entities.EntityData.get_data_stats()
       %{
         total_records: 150,
         published_records: 120,
@@ -692,7 +692,7 @@ defmodule PhoenixKit.Entities.EntityData do
         archived_records: 5
       }
 
-      iex> PhoenixKit.Entities.EntityData.get_data_stats(1)
+      iex> PhoenixKit.Modules.Entities.EntityData.get_data_stats(1)
       %{
         total_records: 15,
         published_records: 12,

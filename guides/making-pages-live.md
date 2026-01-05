@@ -601,17 +601,17 @@ end
 
 ### Creating Centralized Subscriptions
 
-**File:** `lib/phoenix_kit_web/live/modules/entities/hooks.ex`
+**File:** `lib/modules/entities/web/hooks.ex`
 
 ```elixir
-defmodule PhoenixKitWeb.Live.Modules.Entities.Hooks do
+defmodule PhoenixKit.Modules.Entities.Web.Hooks do
   @moduledoc """
   LiveView hooks for entity module pages.
   Provides common setup and subscriptions for all entity-related LiveViews.
   """
 
   import Phoenix.LiveView
-  alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Modules.Entities.Events
 
   def on_mount(:default, _params, _session, socket) do
     if connected?(socket) do
@@ -626,11 +626,11 @@ end
 ### Using Hooks in LiveViews
 
 ```elixir
-defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesLive do
+defmodule PhoenixKit.Modules.Entities.Web.EntitiesLive do
   use PhoenixKitWeb, :live_view
 
   # Add this line to use the hook
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
   # Now you don't need to call Events.subscribe_to_entities() in mount/3
   # It's handled automatically by the hook!

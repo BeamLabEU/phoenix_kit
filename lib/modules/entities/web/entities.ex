@@ -1,13 +1,13 @@
-defmodule PhoenixKitWeb.Live.Modules.Entities.Entities do
+defmodule PhoenixKit.Modules.Entities.Web.Entities do
   @moduledoc """
   LiveView for listing and managing all entities.
   Provides interface for viewing, publishing, and deleting entity schemas.
   """
 
   use PhoenixKitWeb, :live_view
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
-  alias PhoenixKit.Entities
+  alias PhoenixKit.Modules.Entities
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
