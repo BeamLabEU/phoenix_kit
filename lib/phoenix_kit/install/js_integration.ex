@@ -3,25 +3,28 @@ defmodule PhoenixKit.Install.JsIntegration do
   Handles automatic JavaScript integration for PhoenixKit installation.
 
   This module provides functionality to:
-  - Copy PhoenixKit JS files to the parent app's assets/vendor directory
   - Add PhoenixKit JS import for hooks and interactive features
   - Update liveSocket hooks configuration automatically
   - Ensure idempotent operations (safe to run multiple times)
   - Provide fallback instructions if automatic integration fails
+
+  ## Import Strategy
+
+  PhoenixKit JavaScript is imported directly from the deps directory, similar to CSS.
+  This means updates to PhoenixKit automatically include updated JavaScript without
+  needing to run `phoenix_kit.update`.
+
+  The import path is relative to your app.js location:
+  - `assets/js/app.js` → `import "../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"`
+  - `priv/static/assets/app.js` → `import "../../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"`
   """
   use PhoenixKit.Install.IgniterCompat
 
-  # Mix functions only available at compile-time during installation
-  @dialyzer {:nowarn_function, fallback_phoenix_kit_assets_dir: 0}
-
   @phoenix_kit_js_marker "// PhoenixKit JS - DO NOT REMOVE"
-  @phoenix_kit_import ~s|import "./vendor/phoenix_kit"|
 
-  # Source files in PhoenixKit package
-  @source_files [
-    "phoenix_kit.js",
-    "phoenix_kit_sortable.js"
-  ]
+  # Import paths based on app.js location
+  @import_path_from_assets_js "../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"
+  @import_path_from_priv_assets "../../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"
 
   @doc """
   Automatically integrates PhoenixKit JavaScript with the parent app's app.js.
@@ -43,10 +46,7 @@ defmodule PhoenixKit.Install.JsIntegration do
     case find_app_js(js_paths) do
       {:ok, js_path} ->
         IO.puts("✅ Found app.js at: #{js_path}")
-
-        igniter
-        |> copy_vendor_files(js_path)
-        |> integrate_js_automatically(js_path)
+        integrate_js_automatically(igniter, js_path)
 
       {:error, :not_found} ->
         IO.puts("❌ app.js not found in any expected location")
@@ -74,106 +74,27 @@ defmodule PhoenixKit.Install.JsIntegration do
     end
   end
 
-  # Copy PhoenixKit JS files to parent app's vendor directory
-  # Uses direct File.write! instead of Igniter to ensure files exist before asset rebuild
-  defp copy_vendor_files(igniter, js_path) do
-    # Determine vendor directory based on app.js location
-    vendor_dir =
-      js_path
-      |> Path.dirname()
-      |> Path.join("vendor")
-
-    IO.puts("  📂 Creating vendor directory: #{vendor_dir}")
-
-    # Create vendor directory if it doesn't exist
-    File.mkdir_p!(vendor_dir)
-
-    # Get source directory from PhoenixKit package
-    source_dir = get_phoenix_kit_assets_dir()
-    IO.puts("  📂 Source directory: #{source_dir}")
-
-    # Copy each source file directly (not through Igniter, so they exist immediately)
-    Enum.each(@source_files, fn file ->
-      source_path = Path.join(source_dir, file)
-      dest_path = Path.join(vendor_dir, file)
-
-      IO.puts("  📄 Checking source: #{source_path}")
-
-      if File.exists?(source_path) do
-        content = File.read!(source_path)
-
-        # Only write if different or doesn't exist
-        should_write = !File.exists?(dest_path) or File.read!(dest_path) != content
-
-        if should_write do
-          File.write!(dest_path, content)
-          IO.puts("  ✅ Copied #{file} to #{vendor_dir}/")
-        else
-          IO.puts("  ⏭️  #{file} already up to date")
-        end
-      else
-        IO.puts("  ❌ Source file not found: #{source_path}")
-      end
-    end)
-
-    igniter
-  end
-
-  # Get the path to PhoenixKit's static assets directory
-  defp get_phoenix_kit_assets_dir do
-    # Use :code.priv_dir to get the actual priv directory of the phoenix_kit application
-    # This works for both Hex packages and local path dependencies
-    case :code.priv_dir(:phoenix_kit) do
-      {:error, reason} ->
-        # Fallback: try common locations
-        IO.puts("  ℹ️  :code.priv_dir(:phoenix_kit) returned error: #{inspect(reason)}")
-        fallback_phoenix_kit_assets_dir()
-
-      priv_dir ->
-        assets_path = Path.join([to_string(priv_dir), "static", "assets"])
-        IO.puts("  ℹ️  Checking priv_dir assets at: #{assets_path}")
-
-        if File.dir?(assets_path) do
-          IO.puts("  ✅ Found assets directory via :code.priv_dir")
-          assets_path
-        else
-          IO.puts("  ⚠️  Assets directory not found at priv_dir, trying fallback")
-          fallback_phoenix_kit_assets_dir()
-        end
-    end
-  end
-
-  defp fallback_phoenix_kit_assets_dir do
-    IO.puts("  ℹ️  Trying fallback paths for assets directory...")
-
-    possible_paths = [
-      # Standard deps location
-      "deps/phoenix_kit/priv/static/assets",
-      Path.join([Mix.Project.deps_path(), "phoenix_kit", "priv", "static", "assets"])
-    ]
-
-    IO.puts("  ℹ️  Fallback paths to check:")
-
-    Enum.each(possible_paths, fn path ->
-      exists = File.dir?(path)
-      IO.puts("      #{if exists, do: "✅", else: "❌"} #{path}")
-    end)
-
-    found = Enum.find(possible_paths, &File.dir?/1)
-
-    if found do
-      IO.puts("  ✅ Found assets directory at: #{found}")
-      found
+  # Determine the correct import path based on app.js location
+  defp get_import_path(js_path) do
+    if String.starts_with?(js_path, "priv/") do
+      @import_path_from_priv_assets
     else
-      IO.puts("  ❌ Could not find PhoenixKit assets directory in any location!")
-      List.first(possible_paths)
+      @import_path_from_assets_js
     end
+  end
+
+  # Build the full import statement
+  defp build_import_statement(js_path) do
+    import_path = get_import_path(js_path)
+    ~s|import "#{import_path}"|
   end
 
   # Automatically integrate JS with PhoenixKit requirements
   defp integrate_js_automatically(igniter, js_path) do
+    import_statement = build_import_statement(js_path)
+
     igniter
-    |> Igniter.update_file(js_path, &add_smart_js_integration/1)
+    |> Igniter.update_file(js_path, &add_smart_js_integration(&1, import_statement))
     |> add_integration_success_notice(js_path)
   rescue
     e ->
@@ -182,10 +103,10 @@ defmodule PhoenixKit.Install.JsIntegration do
   end
 
   # Smart integration that handles all cases within Igniter context
-  def add_smart_js_integration(source) do
+  def add_smart_js_integration(source, import_statement \\ nil) do
     content = source.content
 
-    # First, fix any old deps-based import paths
+    # First, fix any old vendor-based import paths to use deps
     content = fix_old_import_paths(content)
     existing = check_existing_integration(content)
 
@@ -194,28 +115,39 @@ defmodule PhoenixKit.Install.JsIntegration do
       Rewrite.Source.update(source, :content, content)
     else
       # Add PhoenixKit JS integration
-      updated = add_phoenix_kit_js(content)
+      # Use provided import statement or default to assets/js path
+      import_stmt = import_statement || ~s|import "#{@import_path_from_assets_js}"|
+      updated = add_phoenix_kit_js(content, import_stmt)
       Rewrite.Source.update(source, :content, updated)
     end
   end
 
-  # Fix old deps-based import paths to use vendor directory
+  # Fix old vendor-based import paths to use deps directory
   defp fix_old_import_paths(content) do
-    # Pattern matches old deps-based imports like:
-    # import "../../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"
-    # import "../../deps/phoenix_kit/priv/static/assets/phoenix_kit.js"
-    old_import_pattern =
+    # Pattern matches old vendor-based imports like:
+    # import "./vendor/phoenix_kit"
+    # import "./vendor/phoenix_kit.js"
+    old_vendor_pattern = ~r/import\s+["'][^"']*vendor\/phoenix_kit[^"']*["']/
+
+    # Pattern matches old deps-based imports with wrong paths
+    old_deps_pattern =
       ~r/import\s+["'][^"']*deps\/phoenix_kit\/priv\/static\/assets\/phoenix_kit[^"']*["']/
 
-    if String.match?(content, old_import_pattern) do
-      String.replace(content, old_import_pattern, @phoenix_kit_import)
+    content
+    |> maybe_replace_pattern(old_vendor_pattern, ~s|import "#{@import_path_from_assets_js}"|)
+    |> maybe_replace_pattern(old_deps_pattern, ~s|import "#{@import_path_from_assets_js}"|)
+  end
+
+  defp maybe_replace_pattern(content, pattern, replacement) do
+    if String.match?(content, pattern) do
+      String.replace(content, pattern, replacement)
     else
       content
     end
   end
 
   # Add PhoenixKit JS import and update hooks
-  defp add_phoenix_kit_js(content) do
+  defp add_phoenix_kit_js(content, import_statement) do
     lines = String.split(content, "\n")
 
     # Find last import line to insert after
@@ -226,7 +158,7 @@ defmodule PhoenixKit.Install.JsIntegration do
     import_lines = [
       "",
       @phoenix_kit_js_marker,
-      @phoenix_kit_import
+      import_statement
     ]
 
     new_lines = before ++ import_lines ++ after_lines
@@ -281,7 +213,8 @@ defmodule PhoenixKit.Install.JsIntegration do
   defp has_phoenix_kit_import?(content) do
     phoenix_kit_patterns = [
       ~r/import\s+["'][^"']*phoenix_kit[^"']*["']/,
-      ~r/import\s+["'][^"']*vendor\/phoenix_kit["']/
+      ~r/import\s+["'][^"']*vendor\/phoenix_kit["']/,
+      ~r/import\s+["'][^"']*deps\/phoenix_kit[^"']*phoenix_kit\.js["']/
     ]
 
     Enum.any?(phoenix_kit_patterns, &String.match?(content, &1))
@@ -289,15 +222,17 @@ defmodule PhoenixKit.Install.JsIntegration do
 
   # Success notice
   defp add_integration_success_notice(igniter, js_path) do
-    vendor_dir = js_path |> Path.dirname() |> Path.join("vendor")
+    import_path = get_import_path(js_path)
 
     notice = """
 
     ✅ PhoenixKit JS Integration Complete!
 
-    • Copied JS files to #{vendor_dir}/
-    • Updated #{js_path} with PhoenixKit hooks
+    • Updated #{js_path} with PhoenixKit import
+    • Import path: #{import_path}
     • Drag-and-drop and other interactive features are now enabled!
+
+    📦 JavaScript updates automatically with package updates (no phoenix_kit.update needed)
     """
 
     Igniter.add_notice(igniter, notice)
@@ -309,23 +244,21 @@ defmodule PhoenixKit.Install.JsIntegration do
 
     ⚠️ Could not automatically locate app.js file.
 
-    Please manually:
+    Please manually add the following to your app.js (after other imports):
 
-    1. Copy PhoenixKit JS files to your assets/js/vendor/ directory:
-       - phoenix_kit.js
-       - phoenix_kit_sortable.js
+    #{@phoenix_kit_js_marker}
+    import "#{@import_path_from_assets_js}"
 
-    2. Add import to your app.js (after other imports):
-       #{@phoenix_kit_js_marker}
-       #{@phoenix_kit_import}
-
-    3. Update liveSocket hooks:
-       let liveSocket = new LiveSocket("/live", Socket, {
-         hooks: { ...window.PhoenixKitHooks, ...Hooks },
-         // ... other options
-       })
+    Then update your liveSocket hooks:
+    let liveSocket = new LiveSocket("/live", Socket, {
+      hooks: { ...window.PhoenixKitHooks, ...Hooks },
+      // ... other options
+    })
 
     Common locations: assets/js/app.js, priv/static/assets/app.js
+
+    Note: If your app.js is at priv/static/assets/app.js, use:
+    import "#{@import_path_from_priv_assets}"
     """
 
     Igniter.add_warning(igniter, notice)
