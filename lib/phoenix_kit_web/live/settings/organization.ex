@@ -8,7 +8,8 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Billing.CountryData
+  alias PhoenixKit.Modules.Billing.CountryData
+  alias PhoenixKit.PubSub.Manager, as: PubSubManager
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -31,6 +32,11 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
   }
 
   def mount(_params, _session, socket) do
+    # Subscribe to organization settings updates for real-time sync
+    if connected?(socket) do
+      PubSubManager.subscribe("organization:settings")
+    end
+
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     socket =
@@ -104,6 +110,9 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
       [] ->
         save_company_info(data, params)
 
+        # Broadcast to all admin sessions
+        broadcast_settings_change(:company_info_updated)
+
         {:noreply,
          socket
          |> load_settings()
@@ -128,6 +137,9 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
       [] ->
         save_bank_details(params, iban, swift)
 
+        # Broadcast to all admin sessions
+        broadcast_settings_change(:bank_details_updated)
+
         {:noreply,
          socket
          |> load_settings()
@@ -136,6 +148,11 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
       errors ->
         {:noreply, put_flash(socket, :error, Enum.join(Enum.reverse(errors), ". "))}
     end
+  end
+
+  # Handle PubSub messages for settings sync
+  def handle_info({:organization_settings_changed, _data}, socket) do
+    {:noreply, load_settings(socket)}
   end
 
   # ===================================
@@ -305,5 +322,16 @@ defmodule PhoenixKitWeb.Live.Settings.Organization do
 
   defp get_current_path(locale) do
     Routes.path("/admin/settings/organization", locale: locale)
+  end
+
+  # Broadcast settings change to all connected admin sessions
+  defp broadcast_settings_change(type) do
+    PubSubManager.broadcast(
+      "organization:settings",
+      {:organization_settings_changed, %{type: type, timestamp: DateTime.utc_now()}}
+    )
+  rescue
+    # PubSub may not be available in all environments
+    _ -> :ok
   end
 end

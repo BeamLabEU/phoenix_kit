@@ -438,7 +438,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if PhoenixKit.Billing.enabled?() do %>
+                    <%= if PhoenixKit.Modules.Billing.enabled?() do %>
                       <%!-- Billing section with submenu --%>
                       <.admin_nav_item
                         href={Routes.locale_aware_path(assigns, "/admin/billing")}
@@ -844,7 +844,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%= if PhoenixKit.Billing.enabled?() do %>
+                        <%= if PhoenixKit.Modules.Billing.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
                             icon="billing"
@@ -884,7 +884,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%= if PhoenixKit.Sitemap.enabled?() do %>
+                        <%= if PhoenixKit.Modules.Sitemap.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/sitemap")}
                             icon="sitemap"

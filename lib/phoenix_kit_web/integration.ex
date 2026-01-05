@@ -217,22 +217,10 @@ defmodule PhoenixKitWeb.Integration do
         # Email webhook endpoint (no authentication required)
         post "/webhooks/email", Controllers.EmailWebhookController, :handle
 
-        # Billing webhook endpoints (no authentication - verified via signature)
-        post "/webhooks/billing/stripe", Controllers.BillingWebhookController, :stripe
-        post "/webhooks/billing/paypal", Controllers.BillingWebhookController, :paypal
-        post "/webhooks/billing/razorpay", Controllers.BillingWebhookController, :razorpay
-
         # Storage API routes (file upload and serving)
         post "/api/upload", UploadController, :create
         get "/file/:file_id/:variant/:token", FileController, :show
         get "/api/files/:file_id/info", FileController, :info
-
-        # Sitemap routes (public, no authentication required)
-        get "/sitemap.xml", SitemapController, :xml
-        get "/sitemap.html", SitemapController, :html
-        get "/sitemaps/:index", SitemapController, :index_part
-        get "/sitemap.xsl", SitemapController, :xsl_stylesheet
-        get "/assets/sitemap/:style", SitemapController, :xsl_stylesheet
 
         # Cookie consent widget config (public API for JS auto-injection)
         get "/api/consent-config", Controllers.ConsentConfigController, :config
@@ -303,6 +291,160 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:phoenix_kit_api]
 
         get "/assets/:file", AssetsController, :serve
+      end
+
+      # Sitemap routes - uses PhoenixKit.Modules.Sitemap namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup]
+
+        get "/sitemap.xml", PhoenixKit.Modules.Sitemap.Web.Controller, :xml
+        get "/sitemap.html", PhoenixKit.Modules.Sitemap.Web.Controller, :html
+        get "/sitemap/version", PhoenixKit.Modules.Sitemap.Web.Controller, :version
+        get "/sitemaps/:index", PhoenixKit.Modules.Sitemap.Web.Controller, :index_part
+        get "/sitemap.xsl", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
+        get "/assets/sitemap/:style", PhoenixKit.Modules.Sitemap.Web.Controller, :xsl_stylesheet
+      end
+
+      # Sitemap admin settings - uses PhoenixKit.Modules.Sitemap namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_sitemap_settings,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/settings/sitemap",
+               PhoenixKit.Modules.Sitemap.Web.Settings,
+               :index,
+               as: :sitemap_settings
+        end
+      end
+
+      # Billing webhook routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:phoenix_kit_api]
+
+        post "/webhooks/billing/stripe",
+             PhoenixKit.Modules.Billing.Web.WebhookController,
+             :stripe
+
+        post "/webhooks/billing/paypal",
+             PhoenixKit.Modules.Billing.Web.WebhookController,
+             :paypal
+
+        post "/webhooks/billing/razorpay",
+             PhoenixKit.Modules.Billing.Web.WebhookController,
+             :razorpay
+      end
+
+      # Billing admin routes - uses PhoenixKit.Modules.Billing namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_billing_admin,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          # Dashboard
+          live "/admin/billing", PhoenixKit.Modules.Billing.Web.Index, :index, as: :billing_index
+
+          # Orders
+          live "/admin/billing/orders", PhoenixKit.Modules.Billing.Web.Orders, :index,
+            as: :billing_orders
+
+          live "/admin/billing/orders/new", PhoenixKit.Modules.Billing.Web.OrderForm, :new,
+            as: :billing_order_new
+
+          live "/admin/billing/orders/:id", PhoenixKit.Modules.Billing.Web.OrderDetail, :show,
+            as: :billing_order_detail
+
+          live "/admin/billing/orders/:id/edit", PhoenixKit.Modules.Billing.Web.OrderForm, :edit,
+            as: :billing_order_edit
+
+          # Invoices
+          live "/admin/billing/invoices", PhoenixKit.Modules.Billing.Web.Invoices, :index,
+            as: :billing_invoices
+
+          live "/admin/billing/invoices/:id", PhoenixKit.Modules.Billing.Web.InvoiceDetail, :show,
+            as: :billing_invoice_detail
+
+          live "/admin/billing/invoices/:id/print",
+               PhoenixKit.Modules.Billing.Web.InvoicePrint,
+               :print,
+               as: :billing_invoice_print
+
+          live "/admin/billing/invoices/:id/receipt",
+               PhoenixKit.Modules.Billing.Web.ReceiptPrint,
+               :receipt,
+               as: :billing_receipt_print
+
+          live "/admin/billing/invoices/:id/credit-note/:transaction_id",
+               PhoenixKit.Modules.Billing.Web.CreditNotePrint,
+               :credit_note,
+               as: :billing_credit_note
+
+          live "/admin/billing/invoices/:id/payment/:transaction_id",
+               PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint,
+               :payment_confirmation,
+               as: :billing_payment_confirmation
+
+          # Transactions
+          live "/admin/billing/transactions", PhoenixKit.Modules.Billing.Web.Transactions, :index,
+            as: :billing_transactions
+
+          # Subscriptions
+          live "/admin/billing/subscriptions",
+               PhoenixKit.Modules.Billing.Web.Subscriptions,
+               :index,
+               as: :billing_subscriptions
+
+          live "/admin/billing/subscriptions/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionForm,
+               :new,
+               as: :billing_subscription_new
+
+          live "/admin/billing/subscriptions/:id",
+               PhoenixKit.Modules.Billing.Web.SubscriptionDetail,
+               :show,
+               as: :billing_subscription_detail
+
+          # Plans
+          live "/admin/billing/plans", PhoenixKit.Modules.Billing.Web.SubscriptionPlans, :index,
+            as: :billing_plans
+
+          live "/admin/billing/plans/new",
+               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+               :new,
+               as: :billing_plan_new
+
+          live "/admin/billing/plans/:id/edit",
+               PhoenixKit.Modules.Billing.Web.SubscriptionPlanForm,
+               :edit,
+               as: :billing_plan_edit
+
+          # Profiles
+          live "/admin/billing/profiles", PhoenixKit.Modules.Billing.Web.BillingProfiles, :index,
+            as: :billing_profiles
+
+          live "/admin/billing/profiles/new",
+               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
+               :new,
+               as: :billing_profile_new
+
+          live "/admin/billing/profiles/:id/edit",
+               PhoenixKit.Modules.Billing.Web.BillingProfileForm,
+               :edit,
+               as: :billing_profile_edit
+
+          # Currencies
+          live "/admin/billing/currencies", PhoenixKit.Modules.Billing.Web.Currencies, :index,
+            as: :billing_currencies
+
+          # Settings
+          live "/admin/settings/billing", PhoenixKit.Modules.Billing.Web.Settings, :settings,
+            as: :billing_settings
+
+          live "/admin/settings/billing/providers",
+               PhoenixKit.Modules.Billing.Web.ProviderSettings,
+               :index,
+               as: :billing_provider_settings
+        end
       end
 
       # DB Explorer routes - uses PhoenixKit.Modules.DB namespace (no PhoenixKitWeb prefix)
@@ -452,7 +594,6 @@ defmodule PhoenixKitWeb.Integration do
              :index
 
         live "/admin/settings/seo", Live.Settings.SEO, :index
-        live "/admin/settings/sitemap", Live.Modules.Sitemaps.Settings, :index
 
         live "/admin/settings/media", Live.Modules.Storage.Settings, :index
         live "/admin/settings/media/buckets/new", Live.Modules.Storage.BucketForm, :new
@@ -490,43 +631,6 @@ defmodule PhoenixKitWeb.Integration do
 
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
-
-        # Billing Management
-        live "/admin/billing", Live.Modules.Billing.Index, :index
-        live "/admin/billing/orders", Live.Modules.Billing.Orders, :index
-        live "/admin/billing/orders/new", Live.Modules.Billing.OrderForm, :new
-        live "/admin/billing/orders/:id", Live.Modules.Billing.OrderDetail, :show
-        live "/admin/billing/orders/:id/edit", Live.Modules.Billing.OrderForm, :edit
-        live "/admin/billing/invoices", Live.Modules.Billing.Invoices, :index
-        live "/admin/billing/invoices/:id", Live.Modules.Billing.InvoiceDetail, :show
-        live "/admin/billing/invoices/:id/print", Live.Modules.Billing.InvoicePrint, :print
-        live "/admin/billing/invoices/:id/receipt", Live.Modules.Billing.ReceiptPrint, :receipt
-
-        live "/admin/billing/invoices/:id/credit-note/:transaction_id",
-             Live.Modules.Billing.CreditNotePrint,
-             :credit_note
-
-        live "/admin/billing/invoices/:id/payment/:transaction_id",
-             Live.Modules.Billing.PaymentConfirmationPrint,
-             :payment_confirmation
-
-        live "/admin/billing/transactions", Live.Modules.Billing.Transactions, :index
-        live "/admin/billing/subscriptions", Live.Modules.Billing.Subscriptions, :index
-        live "/admin/billing/subscriptions/new", Live.Modules.Billing.SubscriptionForm, :new
-
-        live "/admin/billing/subscriptions/:id",
-             Live.Modules.Billing.SubscriptionDetail,
-             :show
-
-        live "/admin/billing/plans", Live.Modules.Billing.SubscriptionPlans, :index
-        live "/admin/billing/plans/new", Live.Modules.Billing.SubscriptionPlanForm, :new
-        live "/admin/billing/plans/:id/edit", Live.Modules.Billing.SubscriptionPlanForm, :edit
-        live "/admin/billing/profiles", Live.Modules.Billing.BillingProfiles, :index
-        live "/admin/billing/profiles/new", Live.Modules.Billing.BillingProfileForm, :new
-        live "/admin/billing/profiles/:id/edit", Live.Modules.Billing.BillingProfileForm, :edit
-        live "/admin/billing/currencies", Live.Modules.Billing.Currencies, :index
-        live "/admin/settings/billing", Live.Modules.Billing.Settings, :settings
-        live "/admin/settings/billing/providers", Live.Modules.Billing.ProviderSettings, :index
 
         # AI Module
         live "/admin/ai", Live.Modules.AI.Endpoints, :index

@@ -8,9 +8,9 @@ defmodule PhoenixKitWeb.Live.Modules do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.AI
-  alias PhoenixKit.Billing
   alias PhoenixKit.Entities
   alias PhoenixKit.Jobs
+  alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.Languages
@@ -18,12 +18,12 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.SEO
+  alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Sync
   alias PhoenixKit.Pages
   alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
-  alias PhoenixKit.Sitemap
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKitWeb.Live.Modules.Blogging
