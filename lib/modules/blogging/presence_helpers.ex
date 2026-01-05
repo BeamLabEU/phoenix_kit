@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers do
+defmodule PhoenixKit.Modules.Blogging.PresenceHelpers do
   @moduledoc """
   Helper functions for collaborative blog post editing with Phoenix.Presence.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers do
   and syncing state between users.
   """
 
-  alias PhoenixKitWeb.Live.Modules.Blogging.Presence
+  alias PhoenixKit.Modules.Blogging.Presence
 
   @doc """
   Tracks the current LiveView process in a Presence topic.

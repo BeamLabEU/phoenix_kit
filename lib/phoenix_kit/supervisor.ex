@@ -35,7 +35,7 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.Workers.OAuthConfigLoader,
       # Presence modules for collaborative editing
       PhoenixKit.Modules.Entities.Presence,
-      PhoenixKitWeb.Live.Modules.Blogging.Presence,
+      PhoenixKit.Modules.Blogging.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
       PhoenixKit.Emails.Supervisor,
       # DB Sync session store for ephemeral connection codes

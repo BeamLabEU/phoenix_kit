@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Presence do
+defmodule PhoenixKit.Modules.Blogging.Presence do
   @moduledoc """
   Presence tracking for collaborative blog post editing.
 

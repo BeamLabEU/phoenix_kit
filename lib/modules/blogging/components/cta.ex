@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.CTA do
+defmodule PhoenixKit.Modules.Blogging.Components.CTA do
   @moduledoc """
   Call-to-action button component.
   """

@@ -7,7 +7,7 @@ The PhoenixKit Blogging module provides a filesystem-based content management sy
 - **Admin Interface**: `/{prefix}/admin/blogging`
 - **Public Blog**: `/{prefix}/{language}/{blog-slug}` (listing) or `/{prefix}/{blog-slug}` (single-language)
 - **Settings**: Configure via `blogging_public_enabled` and `blogging_posts_per_page` in Settings
-- **Enable Module**: Activate via Admin → Modules or run `PhoenixKitWeb.Live.Modules.Blogging.enable_system/0`
+- **Enable Module**: Activate via Admin → Modules or run `PhoenixKit.Modules.Blogging.enable_system/0`
 - **Cache Settings**: Toggle `blogging_file_cache_enabled`, `blogging_memory_cache_enabled`, and `blogging_render_cache_enabled[_<slug>]`
 - **What it ships**: Listing cache, render cache, collaborative editor, public fallback routing, and optional per-post version history
 
@@ -135,12 +135,12 @@ When editing a post in the admin interface:
 
 PhoenixKit ships two cache layers:
 
-1. **Listing cache** – `PhoenixKitWeb.Live.Modules.Blogging.ListingCache` writes summary JSON to
+1. **Listing cache** – `PhoenixKit.Modules.Blogging.ListingCache` writes summary JSON to
    `priv/blogging/<blog>/.listing_cache.json` and mirrors parsed data into `:persistent_term`
    for sub-microsecond reads. File vs memory caching can be toggled via the
    `blogging_file_cache_enabled` / `blogging_memory_cache_enabled` settings or from the Blogging
    Settings UI, which also offers regenerate/clear actions per blog.
-2. **Render cache** – `PhoenixKit.Blogging.Renderer` stores rendered HTML for published posts in the
+2. **Render cache** – `PhoenixKit.Modules.Blogging.Renderer` stores rendered HTML for published posts in the
    `:blog_posts` cache (6-hour TTL) with content-hash keys, a global
    `blogging_render_cache_enabled` toggle, and per-blog overrides (`blogging_render_cache_enabled_<slug>`)
    plus UI buttons to clear stats or individual blog caches.
@@ -150,7 +150,7 @@ Example render cache key: `v1:blog_post:docs:getting-started:en:a1b2c3d4`
 Manual cache operations remain available when scripting:
 
 ```elixir
-alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
+alias PhoenixKit.Modules.Blogging.ListingCache
 
 ListingCache.regenerate("my-blog")
 ListingCache.invalidate("my-blog")
@@ -158,10 +158,10 @@ ListingCache.read("my-blog")
 ListingCache.exists?("my-blog")
 
 # Context helpers that wrap ListingCache
-PhoenixKitWeb.Live.Modules.Blogging.regenerate_cache("my-blog")
-PhoenixKitWeb.Live.Modules.Blogging.invalidate_cache("my-blog")
+PhoenixKit.Modules.Blogging.regenerate_cache("my-blog")
+PhoenixKit.Modules.Blogging.invalidate_cache("my-blog")
 
-alias PhoenixKit.Blogging.Renderer
+alias PhoenixKit.Modules.Blogging.Renderer
 
 Renderer.clear_blog_cache("my-blog")
 Renderer.clear_all_cache()
@@ -171,15 +171,15 @@ Renderer.clear_all_cache()
 
 **Core Modules:**
 
-- **PhoenixKitWeb.Live.Modules.Blogging** – Main context module with mode-aware routing
-- **PhoenixKitWeb.Live.Modules.Blogging.Storage** – Storage layer with CRUD operations for both modes
-- **PhoenixKitWeb.Live.Modules.Blogging.Metadata** – YAML frontmatter parsing and serialization
+- **PhoenixKit.Modules.Blogging** – Main context module with mode-aware routing
+- **PhoenixKit.Modules.Blogging.Storage** – Storage layer with CRUD operations for both modes
+- **PhoenixKit.Modules.Blogging.Metadata** – YAML frontmatter parsing and serialization
 
 **Admin Interfaces:**
 
-- **PhoenixKitWeb.Live.Modules.Blogging.Settings** – Admin interface for blog configuration
-- **PhoenixKitWeb.Live.Modules.Blogging.Editor** – Markdown editor with autosave and featured images
-- **PhoenixKitWeb.Live.Modules.Blogging.Preview** – Live preview for blog posts
+- **PhoenixKit.Modules.Blogging.Settings** – Admin interface for blog configuration
+- **PhoenixKit.Modules.Blogging.Editor** – Markdown editor with autosave and featured images
+- **PhoenixKit.Modules.Blogging.Preview** – Live preview for blog posts
 
 **Public Display:**
 
@@ -188,14 +188,14 @@ Renderer.clear_all_cache()
 
 **Rendering & Caching:**
 
-- **PhoenixKitWeb.Live.Modules.Blogging.ListingCache** – File + memory listing cache
-- **PhoenixKit.Blogging.Renderer** – Markdown/PHK rendering with content-hash caching
+- **PhoenixKit.Modules.Blogging.ListingCache** – File + memory listing cache
+- **PhoenixKit.Modules.Blogging.Renderer** – Markdown/PHK rendering with content-hash caching
 
 **Collaborative Editing:**
 
-- **PhoenixKitWeb.Live.Modules.Blogging.Presence** – Phoenix.Presence for real-time user tracking
-- **PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers** – Owner/spectator logic helpers
-- **PhoenixKitWeb.Live.Modules.Blogging.PubSub** – Real-time change broadcasting
+- **PhoenixKit.Modules.Blogging.Presence** – Phoenix.Presence for real-time user tracking
+- **PhoenixKit.Modules.Blogging.PresenceHelpers** – Owner/spectator logic helpers
+- **PhoenixKit.Modules.Blogging.PubSub** – Real-time change broadcasting
 
 ## Core Features
 
@@ -329,7 +329,7 @@ The main context module (`blogging.ex`) routes operations based on blog mode:
 
 ## Command-Line / IEx Usage
 
-PhoenixKit exposes the entire blogging system through the `PhoenixKitWeb.Live.Modules.Blogging`
+PhoenixKit exposes the entire blogging system through the `PhoenixKit.Modules.Blogging`
 module, so you can manage blogs from IEx or any script without touching the UI. This is extremely
 useful when seeding sample content, migrating posts, or when an AI assistant has CLI access.
 
@@ -337,7 +337,7 @@ useful when seeding sample content, migrating posts, or when an AI assistant has
 
 ```bash
 $ iex -S mix
-iex> alias PhoenixKitWeb.Live.Modules.Blogging, as: Blogging
+iex> alias PhoenixKit.Modules.Blogging, as: Blogging
 iex> alias PhoenixKit.Users.Auth.Scope
 iex> Blogging.enable_system()
 ```
@@ -572,7 +572,7 @@ Slug-mode blogs can expose older published versions directly to visitors.
   accessible when the target version's metadata.status is `"published"` and the live version allows
   history access.
 - The controller always checks the master language's live version to decide if history is enabled,
-  and `PhoenixKitWeb.Live.Modules.Blogging.ListingCache` stores the `allow_version_access` flag +
+  and `PhoenixKit.Modules.Blogging.ListingCache` stores the `allow_version_access` flag +
   live `version` for fast dropdown rendering.
 - When disabled (default), `v/<version>` URLs return `404` to prevent unintended leakage of draft
   content.
@@ -886,7 +886,7 @@ config :phoenix_kit,
 
 ```bash
 # Run all blogging tests (when implemented)
-mix test test/phoenix_kit_web/live/modules/blogging/
+mix test test/modules/blogging/
 ```
 
 ## Configuration
@@ -1258,7 +1258,7 @@ Existing posts would work as-is (all languages default to directory name as slug
 
 ## Getting Help
 
-1. Review storage layer implementation: `lib/phoenix_kit_web/live/modules/blogging/context/storage.ex`
+1. Review storage layer implementation: `lib/modules/blogging/storage.ex`
 2. Inspect post struct in IEx: `{:ok, post} = Blogging.read_post("docs", "slug")` → `IO.inspect(post)`
 3. Enable debug logging: `Logger.configure(level: :debug)`
 4. Search GitHub issues: <https://github.com/phoenixkit/phoenix_kit/issues>

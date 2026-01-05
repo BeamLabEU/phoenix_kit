@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder do
+defmodule PhoenixKit.Modules.Blogging.PageBuilder do
   @moduledoc """
   Rendering pipeline for .phk (PhoenixKit) page files.
 
@@ -11,8 +11,8 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder do
   6. Render to HTML
   """
 
-  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser
-  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer
+  alias PhoenixKit.Modules.Blogging.PageBuilder.Parser
+  alias PhoenixKit.Modules.Blogging.PageBuilder.Renderer
 
   @type assigns :: map()
   @type ast :: map()

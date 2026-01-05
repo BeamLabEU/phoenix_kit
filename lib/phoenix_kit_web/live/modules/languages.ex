@@ -6,11 +6,11 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   """
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.ListingCache
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
 
   def mount(_params, session, socket) do
     # Attach locale hook for automatic locale handling

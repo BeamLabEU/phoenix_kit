@@ -1,17 +1,17 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Settings do
+defmodule PhoenixKit.Modules.Blogging.Web.Settings do
   @moduledoc """
   Admin configuration for site blogs.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.ListingCache
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Renderer
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
 
   @file_cache_key "blogging_file_cache_enabled"
   @memory_cache_key "blogging_memory_cache_enabled"

@@ -550,6 +550,70 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # Helper function to generate blogging routes with locale support
+  # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
+  defp generate_blogging_routes(url_prefix) do
+    quote do
+      # Localized blogging routes (with :locale prefix)
+      scope "#{unquote(url_prefix)}/:locale" do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_blogging_localized,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
+            as: :blogging_index_localized
+
+          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
+            as: :blogging_blog_localized
+
+          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
+            as: :blogging_editor_localized
+
+          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
+            as: :blogging_preview_localized
+
+          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
+            as: :blogging_settings_localized
+
+          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
+            as: :blogging_new_localized
+
+          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
+            as: :blogging_edit_localized
+        end
+      end
+
+      # Non-localized blogging routes (without :locale prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_blogging,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
+            as: :blogging_index
+
+          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
+            as: :blogging_blog
+
+          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
+            as: :blogging_editor
+
+          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
+            as: :blogging_preview
+
+          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
+            as: :blogging_settings
+
+          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
+            as: :blogging_new
+
+          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
+            as: :blogging_edit
+        end
+      end
+    end
+  end
+
   # Helper function to generate catch-all root route for pages
   # This allows accessing pages from the root level (e.g., /test, /blog/post)
   # Must be placed at the end of the router to not interfere with other routes
@@ -636,13 +700,9 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/users", Live.Settings.Users, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
-        live "/admin/blogging", Live.Modules.Blogging.Index, :index
-        live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
-        live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
-        live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
-        live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
-        live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
-        live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
+
+        # Note: Blogging routes are in generate_blogging_routes/1 with separate scopes
+        # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
 
         # Posts module routes
         live "/admin/posts", Live.Modules.Posts.Posts, :index
@@ -828,6 +888,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
+
+      # Generate blogging routes (with locale support)
+      unquote(generate_blogging_routes(url_prefix))
 
       # Generate localized routes
       unquote(generate_localized_routes(url_prefix, pattern))

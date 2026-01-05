@@ -1,15 +1,15 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.New do
+defmodule PhoenixKit.Modules.Blogging.Web.New do
   @moduledoc """
   LiveView for creating a new blog workspace.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   def mount(_params, _session, socket) do
     {initial_params, auto?, last_generated_slug} = normalize_slug_params(%{}, true, "")

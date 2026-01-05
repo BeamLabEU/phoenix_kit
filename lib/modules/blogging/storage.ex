@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
+defmodule PhoenixKit.Modules.Blogging.Storage do
   @moduledoc """
   Filesystem storage helpers for blogging posts.
 
@@ -11,11 +11,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Storage do
   component markup for building pages with swappable design variants.
   """
 
+  alias PhoenixKit.Modules.Blogging.Metadata
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Slug
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
 
   # Suppress dialyzer false positives for pattern matches where dialyzer incorrectly infers types.
   @dialyzer {:nowarn_function, add_language_to_post: 3}

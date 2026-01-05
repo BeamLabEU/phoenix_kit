@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
+defmodule PhoenixKit.Modules.Blogging.Web.Index do
   @moduledoc """
   Blogging module overview dashboard.
   Provides high-level stats, quick actions, and guidance for administrators.
@@ -6,12 +6,12 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Index do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def mount(_params, _session, socket) do

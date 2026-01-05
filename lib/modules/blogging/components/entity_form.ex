@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.EntityForm do
+defmodule PhoenixKit.Modules.Blogging.Components.EntityForm do
   @moduledoc """
   Embeddable entity form component for blogging pages.
   Renders a public submission form based on entity configuration.

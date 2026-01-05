@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging do
+defmodule PhoenixKit.Modules.Blogging do
   @moduledoc """
   Blogging module for managing site blogs and their posts.
 
@@ -6,11 +6,11 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging do
   for creating timestamped markdown blog posts.
   """
 
+  alias PhoenixKit.Modules.Blogging.ListingCache
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Auth.Scope
-  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   # Suppress dialyzer false positives for pattern matches
   @dialyzer :no_match

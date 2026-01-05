@@ -1,19 +1,19 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Blog do
+defmodule PhoenixKit.Modules.Blogging.Web.Blog do
   @moduledoc """
   Lists posts for a blog and provides creation actions.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.ListingCache
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   @impl true
   def mount(params, _session, socket) do

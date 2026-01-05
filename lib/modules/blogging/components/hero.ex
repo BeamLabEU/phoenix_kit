@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.Hero do
+defmodule PhoenixKit.Modules.Blogging.Components.Hero do
   @moduledoc """
   Hero section component with multiple variants.
 
@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Components.Blogging.Hero do
   """
   use Phoenix.Component
 
-  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer
+  alias PhoenixKit.Modules.Blogging.PageBuilder.Renderer
 
   attr :variant, :string, default: "centered"
   attr :children, :list, default: []

@@ -1,10 +1,10 @@
-defmodule PhoenixKitWeb.Components.Blogging.Page do
+defmodule PhoenixKit.Modules.Blogging.Components.Page do
   @moduledoc """
   Root page component wrapper.
   """
   use Phoenix.Component
 
-  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer
+  alias PhoenixKit.Modules.Blogging.PageBuilder.Renderer
 
   attr :children, :list, default: []
   attr :attributes, :map, default: %{}

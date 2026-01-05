@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
+defmodule PhoenixKit.Modules.Blogging.PageBuilder.Renderer do
   @moduledoc """
   Renders AST nodes to HTML by delegating to component modules.
   """
@@ -34,17 +34,20 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Renderer do
   end
 
   # Resolve component type to module
-  defp resolve_component(:page), do: {:ok, PhoenixKitWeb.Components.Blogging.Page}
-  defp resolve_component(:hero), do: {:ok, PhoenixKitWeb.Components.Blogging.Hero}
-  defp resolve_component(:headline), do: {:ok, PhoenixKitWeb.Components.Blogging.Headline}
+  defp resolve_component(:page), do: {:ok, PhoenixKit.Modules.Blogging.Components.Page}
+  defp resolve_component(:hero), do: {:ok, PhoenixKit.Modules.Blogging.Components.Hero}
+  defp resolve_component(:headline), do: {:ok, PhoenixKit.Modules.Blogging.Components.Headline}
 
   defp resolve_component(:subheadline),
-    do: {:ok, PhoenixKitWeb.Components.Blogging.Subheadline}
+    do: {:ok, PhoenixKit.Modules.Blogging.Components.Subheadline}
 
-  defp resolve_component(:cta), do: {:ok, PhoenixKitWeb.Components.Blogging.CTA}
-  defp resolve_component(:image), do: {:ok, PhoenixKitWeb.Components.Blogging.Image}
-  defp resolve_component(:video), do: {:ok, PhoenixKitWeb.Components.Blogging.Video}
-  defp resolve_component(:entityform), do: {:ok, PhoenixKitWeb.Components.Blogging.EntityForm}
+  defp resolve_component(:cta), do: {:ok, PhoenixKit.Modules.Blogging.Components.CTA}
+  defp resolve_component(:image), do: {:ok, PhoenixKit.Modules.Blogging.Components.Image}
+  defp resolve_component(:video), do: {:ok, PhoenixKit.Modules.Blogging.Components.Video}
+
+  defp resolve_component(:entityform),
+    do: {:ok, PhoenixKit.Modules.Blogging.Components.EntityForm}
+
   defp resolve_component(_), do: {:error, :not_found}
 
   # Render using the component module

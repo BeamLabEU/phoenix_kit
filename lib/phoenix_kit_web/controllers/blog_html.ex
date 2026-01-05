@@ -4,11 +4,10 @@ defmodule PhoenixKitWeb.BlogHTML do
   """
   use PhoenixKitWeb, :html
 
-  alias PhoenixKit.Blogging.Renderer
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging.Storage, as: BlogStorage
   alias PhoenixKit.Modules.Languages
-  alias PhoenixKit.Modules.Storage
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   embed_templates("blog_html/*")
 
@@ -284,7 +283,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   # Counts posts on a given date for a blog
   # Used to determine if time should be included in URLs
   defp count_posts_on_date(blog_slug, date) do
-    Storage.count_posts_on_date(blog_slug, date)
+    BlogStorage.count_posts_on_date(blog_slug, date)
   end
 
   @doc """

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.Subheadline do
+defmodule PhoenixKit.Modules.Blogging.Components.Subheadline do
   @moduledoc """
   Subheadline component for supporting text.
   """

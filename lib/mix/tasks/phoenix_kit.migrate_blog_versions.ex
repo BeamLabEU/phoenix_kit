@@ -41,9 +41,9 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
 
   use Mix.Task
 
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.Metadata
+  alias PhoenixKit.Modules.Blogging.Storage
 
   @impl Mix.Task
   def run(args) do

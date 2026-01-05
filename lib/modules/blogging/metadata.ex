@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Metadata do
+defmodule PhoenixKit.Modules.Blogging.Metadata do
   @moduledoc """
   Metadata helpers for .phk (PhoenixKit) blogging posts.
 

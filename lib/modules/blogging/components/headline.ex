@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.Headline do
+defmodule PhoenixKit.Modules.Blogging.Components.Headline do
   @moduledoc """
   Headline component for hero sections.
   """

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.Image do
+defmodule PhoenixKit.Modules.Blogging.Components.Image do
   @moduledoc """
   Image component with lazy loading and responsive sizing.
 

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
+defmodule PhoenixKit.Modules.Blogging.Web.Preview do
   @moduledoc """
   Preview rendering for .phk blogging posts.
   """
@@ -7,9 +7,9 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Preview do
 
   require Logger
   alias Phoenix.HTML
-  alias PhoenixKit.Blogging.Renderer
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  # alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder  # COMMENTED OUT: Component system
+  alias PhoenixKit.Modules.Blogging
+  # alias PhoenixKit.Modules.Blogging.PageBuilder  # COMMENTED OUT: Component system
+  alias PhoenixKit.Modules.Blogging.Renderer
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 

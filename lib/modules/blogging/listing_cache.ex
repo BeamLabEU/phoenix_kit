@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
+defmodule PhoenixKit.Modules.Blogging.ListingCache do
   @moduledoc """
   Caches blog listing metadata to avoid expensive filesystem scans on every request.
 
@@ -43,10 +43,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.ListingCache do
   zero-copy, sub-microsecond reads during runtime.
   """
 
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Settings
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   require Logger
 

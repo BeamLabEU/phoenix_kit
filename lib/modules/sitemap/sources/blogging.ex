@@ -42,9 +42,9 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Blogging do
   require Logger
 
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Blogging
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Sitemap.UrlEntry
-  alias PhoenixKitWeb.Live.Modules.Blogging
 
   @default_locale Config.default_locale()
 

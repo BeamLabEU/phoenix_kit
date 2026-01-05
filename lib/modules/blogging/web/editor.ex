@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
+defmodule PhoenixKit.Modules.Blogging.Web.Editor do
   @moduledoc """
   Markdown editor for blogging posts.
   """
@@ -14,16 +14,16 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Editor do
   @dialyzer {:nowarn_function, handle_post_update_result: 4}
   @dialyzer {:nowarn_function, handle_event: 3}
 
-  alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.Metadata
+  alias PhoenixKit.Modules.Blogging.PresenceHelpers
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
+  alias PhoenixKit.Modules.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.BlogHTML
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
-  alias PhoenixKitWeb.Live.Modules.Blogging.PresenceHelpers
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   require Logger
 

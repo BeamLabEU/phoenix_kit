@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Components.Blogging.Video do
+defmodule PhoenixKit.Modules.Blogging.Components.Video do
   @moduledoc """
   Responsive YouTube embed component.
 

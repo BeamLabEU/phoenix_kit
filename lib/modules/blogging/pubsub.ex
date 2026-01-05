@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PubSub do
+defmodule PhoenixKit.Modules.Blogging.PubSub do
   @moduledoc """
   PubSub integration for real-time blogging updates.
 

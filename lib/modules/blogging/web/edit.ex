@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
+defmodule PhoenixKit.Modules.Blogging.Web.Edit do
   @moduledoc """
   LiveView for editing blog metadata such as display name and slug.
   """
@@ -6,10 +6,10 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.Edit do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias Phoenix.Component
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.PubSub, as: BloggingPubSub
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.PubSub, as: BloggingPubSub
 
   def mount(%{"blog" => blog_slug} = _params, _session, socket) do
     case find_blog(blog_slug) do

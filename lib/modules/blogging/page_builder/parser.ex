@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser do
+defmodule PhoenixKit.Modules.Blogging.PageBuilder.Parser do
   @moduledoc """
   Parses .phk (PhoenixKit) XML-style markup into an AST.
 
@@ -42,7 +42,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser do
 
     case Saxy.parse_string(
            content,
-           PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.SaxHandler,
+           PhoenixKit.Modules.Blogging.PageBuilder.SaxHandler,
            []
          ) do
       {:ok, ast} -> {:ok, ast}
@@ -55,7 +55,7 @@ defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.Parser do
   def parse(_), do: {:error, :invalid_content}
 end
 
-defmodule PhoenixKitWeb.Live.Modules.Blogging.PageBuilder.SaxHandler do
+defmodule PhoenixKit.Modules.Blogging.PageBuilder.SaxHandler do
   @moduledoc false
   @behaviour Saxy.Handler
 

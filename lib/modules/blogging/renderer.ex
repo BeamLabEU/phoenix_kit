@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Blogging.Renderer do
+defmodule PhoenixKit.Modules.Blogging.Renderer do
   @moduledoc """
   Renders blog post markdown to HTML with caching support.
 
@@ -9,11 +9,11 @@ defmodule PhoenixKit.Blogging.Renderer do
   require Logger
 
   alias Phoenix.HTML.Safe
+  alias PhoenixKit.Modules.Blogging.Components.EntityForm
+  alias PhoenixKit.Modules.Blogging.Components.Image
+  alias PhoenixKit.Modules.Blogging.Components.Video
+  alias PhoenixKit.Modules.Blogging.PageBuilder
   alias PhoenixKit.Settings
-  alias PhoenixKitWeb.Components.Blogging.EntityForm
-  alias PhoenixKitWeb.Components.Blogging.Image
-  alias PhoenixKitWeb.Components.Blogging.Video
-  alias PhoenixKitWeb.Live.Modules.Blogging.PageBuilder
 
   @cache_name :blog_posts
   @cache_version "v1"
