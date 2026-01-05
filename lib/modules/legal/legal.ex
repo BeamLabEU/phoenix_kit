@@ -272,25 +272,36 @@ defmodule PhoenixKit.Modules.Legal do
     )
   end
 
+  @default_company_info %{
+    "name" => "",
+    "address_line1" => "",
+    "address_line2" => "",
+    "city" => "",
+    "state" => "",
+    "postal_code" => "",
+    "country" => "",
+    "registration_number" => "",
+    "vat_number" => ""
+  }
+
   @doc """
   Get company information.
+
+  Reads from consolidated `company_info` key with fallback to legacy `legal_company_info`.
   """
   @spec get_company_info() :: map()
   def get_company_info do
-    default = %{
-      "name" => "",
-      "address_line1" => "",
-      "address_line2" => "",
-      "city" => "",
-      "state" => "",
-      "postal_code" => "",
-      "country" => "",
-      "website_url" => "",
-      "registration_number" => "",
-      "vat_number" => ""
-    }
+    case Settings.get_json_setting("company_info", nil) do
+      nil ->
+        # Fallback to legacy legal_company_info key
+        Settings.get_json_setting("legal_company_info", @default_company_info)
 
-    Settings.get_json_setting("legal_company_info", default)
+      info when is_map(info) ->
+        Map.merge(@default_company_info, info)
+
+      _ ->
+        @default_company_info
+    end
   end
 
   @doc """
@@ -817,11 +828,14 @@ defmodule PhoenixKit.Modules.Legal do
     # Format full address from individual fields
     company_address = format_company_address(company)
 
+    # Use site_url from General Settings (consolidated location)
+    website_url = Settings.get_setting("site_url", "")
+
     %{
       company_name: company["name"] || "",
       company_address: company_address,
       company_country: get_country_name(company["country"]),
-      company_website: company["website_url"] || "",
+      company_website: website_url,
       registration_number: company["registration_number"] || "",
       vat_number: company["vat_number"] || "",
       dpo_name: dpo["name"] || "",

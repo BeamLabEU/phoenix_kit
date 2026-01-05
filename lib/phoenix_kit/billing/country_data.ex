@@ -391,12 +391,14 @@ defmodule PhoenixKit.Billing.CountryData do
       "123 Business Street\\nTallinn 10115\\nEstonia"
   """
   def format_company_address do
-    address_line1 = Settings.get_setting("billing_company_address_line1", "")
-    address_line2 = Settings.get_setting("billing_company_address_line2", "")
-    city = Settings.get_setting("billing_company_city", "")
-    state = Settings.get_setting("billing_company_state", "")
-    postal_code = Settings.get_setting("billing_company_postal_code", "")
-    country_code = Settings.get_setting("billing_company_country", "")
+    company_info = get_company_info()
+
+    address_line1 = company_info["address_line1"] || ""
+    address_line2 = company_info["address_line2"] || ""
+    city = company_info["city"] || ""
+    state = company_info["state"] || ""
+    postal_code = company_info["postal_code"] || ""
+    country_code = company_info["country"] || ""
 
     country_name =
       case get_country(country_code) do
@@ -412,6 +414,58 @@ defmodule PhoenixKit.Billing.CountryData do
     [address_line1, address_line2, city_postal, state, country_name]
     |> Enum.filter(&(&1 != "" && &1 != " "))
     |> Enum.join("\n")
+  end
+
+  @doc """
+  Get company information from consolidated Settings.
+
+  Reads from `company_info` JSONB with fallback to legacy `billing_company_*` keys.
+  """
+  def get_company_info do
+    case Settings.get_json_setting("company_info", nil) do
+      nil ->
+        # Fallback to legacy billing_company_* keys
+        %{
+          "name" => Settings.get_setting("billing_company_name", ""),
+          "address_line1" => Settings.get_setting("billing_company_address_line1", ""),
+          "address_line2" => Settings.get_setting("billing_company_address_line2", ""),
+          "city" => Settings.get_setting("billing_company_city", ""),
+          "state" => Settings.get_setting("billing_company_state", ""),
+          "postal_code" => Settings.get_setting("billing_company_postal_code", ""),
+          "country" => Settings.get_setting("billing_company_country", ""),
+          "vat_number" => Settings.get_setting("billing_company_vat", ""),
+          "registration_number" => ""
+        }
+
+      info when is_map(info) ->
+        info
+
+      _ ->
+        %{}
+    end
+  end
+
+  @doc """
+  Get bank details from consolidated Settings.
+
+  Reads from `company_bank_details` JSONB with fallback to legacy `billing_bank_*` keys.
+  """
+  def get_bank_details do
+    case Settings.get_json_setting("company_bank_details", nil) do
+      nil ->
+        # Fallback to legacy billing_bank_* keys
+        %{
+          "bank_name" => Settings.get_setting("billing_bank_name", ""),
+          "iban" => Settings.get_setting("billing_bank_iban", ""),
+          "swift" => Settings.get_setting("billing_bank_swift", "")
+        }
+
+      info when is_map(info) ->
+        info
+
+      _ ->
+        %{}
+    end
   end
 
   # ==========================================================================

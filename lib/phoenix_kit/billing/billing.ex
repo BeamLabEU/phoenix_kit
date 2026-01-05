@@ -43,6 +43,7 @@ defmodule PhoenixKit.Billing do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Billing.BillingProfile
+  alias PhoenixKit.Billing.CountryData
   alias PhoenixKit.Billing.Currency
   alias PhoenixKit.Billing.Invoice
   alias PhoenixKit.Billing.Order
@@ -1282,6 +1283,7 @@ defmodule PhoenixKit.Billing do
     prefix = Settings.get_setting("billing_credit_note_prefix", "CN")
     suffix = transaction.transaction_number |> String.replace(~r/^TXN-/, "")
     credit_note_number = "#{prefix}-#{suffix}"
+    company = get_company_details()
 
     %{
       "user_email" => user && user.email,
@@ -1293,9 +1295,9 @@ defmodule PhoenixKit.Billing do
       "refund_reason" => transaction.description || "Refund issued",
       "transaction_number" => transaction.transaction_number,
       "currency" => transaction.currency,
-      "company_name" => Settings.get_setting("billing_company_name", ""),
-      "company_address" => Settings.get_setting("billing_company_address", ""),
-      "company_vat" => Settings.get_setting("billing_company_vat", ""),
+      "company_name" => company.name,
+      "company_address" => company.address,
+      "company_vat" => company.vat,
       "credit_note_url" => credit_note_url
     }
   end
@@ -1414,6 +1416,7 @@ defmodule PhoenixKit.Billing do
     prefix = Settings.get_setting("billing_payment_confirmation_prefix", "PMT")
     suffix = transaction.transaction_number |> String.replace(~r/^TXN-/, "")
     confirmation_number = "#{prefix}-#{suffix}"
+    company = get_company_details()
 
     # Calculate remaining balance
     remaining_balance = Decimal.sub(invoice.total, invoice.paid_amount || Decimal.new(0))
@@ -1433,8 +1436,8 @@ defmodule PhoenixKit.Billing do
       "remaining_balance" => format_decimal(Decimal.max(remaining_balance, Decimal.new(0))),
       "is_final_payment" => is_final_payment,
       "currency" => invoice.currency,
-      "company_name" => Settings.get_setting("billing_company_name", ""),
-      "company_address" => Settings.get_setting("billing_company_address", ""),
+      "company_name" => company.name,
+      "company_address" => company.address,
       "payment_url" => payment_url
     }
   end
@@ -1442,6 +1445,7 @@ defmodule PhoenixKit.Billing do
   defp build_receipt_email_variables(invoice, user, opts) do
     receipt_url = Keyword.get(opts, :receipt_url, "")
     billing_details = invoice.billing_details || %{}
+    company = get_company_details()
 
     %{
       "user_email" => user.email,
@@ -1456,9 +1460,9 @@ defmodule PhoenixKit.Billing do
       "currency" => invoice.currency,
       "line_items_html" => format_line_items_html(invoice.line_items),
       "line_items_text" => format_line_items_text(invoice.line_items),
-      "company_name" => Settings.get_setting("billing_company_name", ""),
-      "company_address" => Settings.get_setting("billing_company_address", ""),
-      "company_vat" => Settings.get_setting("billing_company_vat", ""),
+      "company_name" => company.name,
+      "company_address" => company.address,
+      "company_vat" => company.vat,
       "receipt_url" => receipt_url
     }
   end
@@ -1474,8 +1478,10 @@ defmodule PhoenixKit.Billing do
 
   defp build_invoice_email_variables(invoice, user, opts) do
     invoice_url = Keyword.get(opts, :invoice_url, "")
-    bank_details = invoice.bank_details || %{}
+    invoice_bank = invoice.bank_details || %{}
     billing_details = invoice.billing_details || %{}
+    company = get_company_details()
+    bank = CountryData.get_bank_details()
 
     %{
       "user_email" => user.email,
@@ -1489,12 +1495,12 @@ defmodule PhoenixKit.Billing do
       "currency" => invoice.currency,
       "line_items_html" => format_line_items_html(invoice.line_items),
       "line_items_text" => format_line_items_text(invoice.line_items),
-      "company_name" => Settings.get_setting("billing_company_name", ""),
-      "company_address" => Settings.get_setting("billing_company_address", ""),
-      "company_vat" => Settings.get_setting("billing_company_vat", ""),
-      "bank_name" => bank_details["bank_name"] || Settings.get_setting("billing_bank_name", ""),
-      "bank_iban" => bank_details["iban"] || Settings.get_setting("billing_bank_iban", ""),
-      "bank_swift" => bank_details["swift"] || Settings.get_setting("billing_bank_swift", ""),
+      "company_name" => company.name,
+      "company_address" => company.address,
+      "company_vat" => company.vat,
+      "bank_name" => invoice_bank["bank_name"] || bank["bank_name"] || "",
+      "bank_iban" => invoice_bank["iban"] || bank["iban"] || "",
+      "bank_swift" => invoice_bank["swift"] || bank["swift"] || "",
       "payment_terms" =>
         invoice.payment_terms ||
           Settings.get_setting("billing_payment_terms", "Payment due within 14 days."),
@@ -2711,16 +2717,29 @@ defmodule PhoenixKit.Billing do
   end
 
   defp get_bank_details do
+    bank = CountryData.get_bank_details()
+
     %{
-      bank_name: Settings.get_setting("billing_bank_name", ""),
-      iban: Settings.get_setting("billing_bank_iban", ""),
-      swift: Settings.get_setting("billing_bank_swift", ""),
+      bank_name: bank["bank_name"] || "",
+      iban: bank["iban"] || "",
+      swift: bank["swift"] || "",
       account_holder: Settings.get_setting("billing_bank_account_holder", "")
     }
   end
 
   defp get_payment_terms do
     Settings.get_setting("billing_payment_terms", "Payment due within 14 days of invoice date.")
+  end
+
+  # Returns company details for email templates using consolidated Settings
+  defp get_company_details do
+    company = CountryData.get_company_info()
+
+    %{
+      name: company["name"] || "",
+      address: CountryData.format_company_address(),
+      vat: company["vat_number"] || ""
+    }
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()

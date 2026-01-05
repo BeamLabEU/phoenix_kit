@@ -3,6 +3,7 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
   Billing settings LiveView for the billing module.
 
   Provides configuration interface for billing module settings.
+  Company and bank information is now managed in Organization Settings.
   """
 
   use PhoenixKitWeb, :live_view
@@ -34,6 +35,11 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
   end
 
   defp load_settings(socket) do
+    # Get company info from consolidated Settings (with fallback to legacy keys)
+    company_info = CountryData.get_company_info()
+    bank_details = CountryData.get_bank_details()
+    company_country = company_info["country"] || ""
+
     socket
     # General settings
     |> assign(:default_currency, Settings.get_setting("billing_default_currency", "EUR"))
@@ -43,26 +49,26 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     |> assign(:invoice_due_days, Settings.get_setting("billing_invoice_due_days", "14"))
     |> assign(:tax_enabled, Settings.get_setting("billing_tax_enabled", "false") == "true")
     |> assign(:tax_rate, Settings.get_setting("billing_default_tax_rate", "0"))
-    # Company information with address breakdown
-    |> assign(:company_name, Settings.get_setting("billing_company_name", ""))
-    |> assign(:company_vat, Settings.get_setting("billing_company_vat", ""))
-    |> assign(:company_address_line1, Settings.get_setting("billing_company_address_line1", ""))
-    |> assign(:company_address_line2, Settings.get_setting("billing_company_address_line2", ""))
-    |> assign(:company_city, Settings.get_setting("billing_company_city", ""))
-    |> assign(:company_state, Settings.get_setting("billing_company_state", ""))
-    |> assign(:company_postal_code, Settings.get_setting("billing_company_postal_code", ""))
-    |> assign(:company_country, Settings.get_setting("billing_company_country", ""))
-    # Country dropdown data
-    |> assign(:countries, CountryData.countries_for_select())
-    |> assign(
-      :subdivision_label,
-      CountryData.get_subdivision_label(Settings.get_setting("billing_company_country", ""))
-    )
+    # Company info (from consolidated source)
+    |> assign(:company_info, company_info)
+    |> assign(:company_address_formatted, CountryData.format_company_address())
+    |> assign(:company_country_name, get_country_name(company_country))
+    |> assign(:company_country, company_country)
+    # For suggested tax rate
     |> assign_suggested_tax_rate()
-    # Bank details
-    |> assign(:bank_name, Settings.get_setting("billing_bank_name", ""))
-    |> assign(:bank_iban, Settings.get_setting("billing_bank_iban", ""))
-    |> assign(:bank_swift, Settings.get_setting("billing_bank_swift", ""))
+    # Bank details (from consolidated source)
+    |> assign(:bank_details, bank_details)
+  end
+
+  # Helper to get country name from code
+  defp get_country_name(""), do: ""
+  defp get_country_name(nil), do: ""
+
+  defp get_country_name(country_code) do
+    case BeamLabCountries.get(country_code) do
+      nil -> country_code
+      country -> country.name
+    end
   end
 
   @impl true
@@ -114,26 +120,6 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
   end
 
   @impl true
-  def handle_event("country_changed", %{"company_country" => country_code}, socket) do
-    current_rate = parse_tax_rate(socket.assigns.tax_rate)
-
-    suggested_rate =
-      if country_code != "" do
-        rate = CountryData.get_standard_vat_percent(country_code)
-        # Hide suggestion if it matches current rate
-        if rate == current_rate, do: nil, else: rate
-      else
-        nil
-      end
-
-    {:noreply,
-     socket
-     |> assign(:company_country, country_code)
-     |> assign(:subdivision_label, CountryData.get_subdivision_label(country_code))
-     |> assign(:suggested_tax_rate, suggested_rate)}
-  end
-
-  @impl true
   def handle_event("tax_rate_changed", %{"tax_rate" => tax_rate}, socket) do
     current_rate = parse_tax_rate(tax_rate)
     country_code = socket.assigns.company_country
@@ -166,114 +152,6 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
     end
   end
 
-  @impl true
-  def handle_event("save_company", params, socket) do
-    data = extract_company_data(params)
-
-    case validate_company_data(data) do
-      [] ->
-        save_company_settings(data, params)
-
-        {:noreply,
-         socket
-         |> load_settings()
-         |> put_flash(:info, "Company information saved")}
-
-      errors ->
-        {:noreply, put_flash(socket, :error, Enum.join(errors, ". "))}
-    end
-  end
-
-  @impl true
-  def handle_event("save_bank", params, socket) do
-    iban = (params["bank_iban"] || "") |> String.trim()
-    swift = (params["bank_swift"] || "") |> String.trim()
-    country_code = socket.assigns.company_country
-
-    errors =
-      []
-      |> validate_bank_iban(iban, country_code)
-      |> validate_bank_swift(swift)
-
-    case errors do
-      [] ->
-        settings = [
-          {"billing_bank_name", params["bank_name"]},
-          {"billing_bank_iban", normalize_iban(iban)},
-          {"billing_bank_swift", String.upcase(swift)}
-        ]
-
-        Enum.each(settings, fn {key, value} ->
-          Settings.update_setting(key, value)
-        end)
-
-        {:noreply,
-         socket
-         |> load_settings()
-         |> put_flash(:info, "Bank details saved")}
-
-      errors ->
-        {:noreply, put_flash(socket, :error, Enum.join(Enum.reverse(errors), ". "))}
-    end
-  end
-
-  # Company data validation helpers
-
-  defp extract_company_data(params) do
-    %{
-      name: (params["company_name"] || "") |> String.trim(),
-      country: params["company_country"] || "",
-      vat: (params["company_vat"] || "") |> String.trim(),
-      address_line1: (params["company_address_line1"] || "") |> String.trim(),
-      city: (params["company_city"] || "") |> String.trim()
-    }
-  end
-
-  defp validate_company_data(data) do
-    []
-    |> validate_required(data.name, "Company name is required")
-    |> validate_required(data.country, "Country is required")
-    |> validate_required(data.vat, "VAT number is required")
-    |> validate_required(data.address_line1, "Street address is required")
-    |> validate_required(data.city, "City is required")
-    |> validate_eu_vat(data.vat, data.country)
-    |> Enum.reverse()
-  end
-
-  defp validate_required(errors, "", message), do: [message | errors]
-  defp validate_required(errors, _value, _message), do: errors
-
-  defp validate_eu_vat(errors, vat, country) when vat != "" and country != "" do
-    if CountryData.eu_member?(country) do
-      if Regex.match?(~r/^[A-Z]{2}[0-9A-Z]{2,12}$/, String.upcase(vat)) do
-        errors
-      else
-        ["VAT number must be in EU format (e.g., #{country}123456789)" | errors]
-      end
-    else
-      errors
-    end
-  end
-
-  defp validate_eu_vat(errors, _vat, _country), do: errors
-
-  defp save_company_settings(data, params) do
-    settings = [
-      {"billing_company_name", data.name},
-      {"billing_company_vat", String.upcase(data.vat)},
-      {"billing_company_address_line1", data.address_line1},
-      {"billing_company_address_line2", params["company_address_line2"] || ""},
-      {"billing_company_city", data.city},
-      {"billing_company_state", params["company_state"] || ""},
-      {"billing_company_postal_code", params["company_postal_code"] || ""},
-      {"billing_company_country", data.country}
-    ]
-
-    Enum.each(settings, fn {key, value} ->
-      Settings.update_setting(key, value)
-    end)
-  end
-
   # Suggested tax rate helper
 
   defp assign_suggested_tax_rate(socket) do
@@ -301,24 +179,4 @@ defmodule PhoenixKitWeb.Live.Modules.Billing.Settings do
 
   defp parse_tax_rate(rate) when is_number(rate), do: rate
   defp parse_tax_rate(_), do: 0
-
-  # Bank validation helpers
-
-  defp validate_bank_iban(errors, iban, country_code) do
-    case CountryData.validate_iban_format(iban, country_code) do
-      :ok -> errors
-      {:error, msg} -> [msg | errors]
-    end
-  end
-
-  defp validate_bank_swift(errors, swift) do
-    case CountryData.validate_swift_format(swift) do
-      :ok -> errors
-      {:error, msg} -> [msg | errors]
-    end
-  end
-
-  defp normalize_iban(iban) do
-    iban |> String.replace(~r/\s/, "") |> String.upcase()
-  end
 end

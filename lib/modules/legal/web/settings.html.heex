@@ -109,171 +109,117 @@
           </div>
         </div>
 
-        <%!-- Section 2: Company Information --%>
+        <%!-- Section 2: Company Information (Preview) --%>
         <div class="card bg-base-100 shadow">
           <div class="card-body">
-            <h2 class="card-title">{gettext("Company Information")}</h2>
+            <div class="flex items-center justify-between">
+              <h2 class="card-title">{gettext("Company Information")}</h2>
+              <div class="flex gap-2">
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/settings/organization",
+                      locale: @current_locale_base
+                    )
+                  }
+                  class="btn btn-sm btn-primary"
+                >
+                  <.icon name="hero-pencil-square" class="w-4 h-4" />
+                  {gettext("Edit Organization")}
+                </.link>
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale_base)
+                  }
+                  class="btn btn-sm btn-outline"
+                >
+                  <.icon name="hero-globe-alt" class="w-4 h-4" />
+                  {gettext("Edit Site URL")}
+                </.link>
+              </div>
+            </div>
             <p class="text-sm text-base-content/60 mb-4">
               {gettext("This information will appear in your legal documents.")}
             </p>
 
-            <form phx-submit="save_company_info">
-              <div class="space-y-4">
-                <%!-- Company Name & Website row --%>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("Company Name")}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="company_name"
-                      value={@company_info["name"]}
-                      class="input input-bordered"
-                      placeholder="Acme Corp"
-                    />
-                  </div>
-
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("Website URL")}</span>
-                    </label>
-                    <input
-                      type="url"
-                      name="company_website"
-                      value={@company_info["website_url"]}
-                      class="input input-bordered"
-                      placeholder="https://example.com"
-                    />
+            <%= if @company_info["name"] == "" do %>
+              <%!-- Not configured warning --%>
+              <div class="alert alert-warning">
+                <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                <div>
+                  <p class="font-medium">{gettext("Company information not configured")}</p>
+                  <p class="text-sm">
+                    {gettext("Go to Settings → Organization to set up your company details.")}
+                  </p>
+                </div>
+              </div>
+            <% else %>
+              <%!-- Company info preview --%>
+              <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                <div class="flex items-start gap-2">
+                  <.icon name="hero-building-office" class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                  <div>
+                    <p class="font-semibold">{@company_info["name"]}</p>
+                    <%= if @company_info["registration_number"] != "" do %>
+                      <p class="text-xs text-base-content/60">
+                        {gettext("Reg. No:")} {@company_info["registration_number"]}
+                      </p>
+                    <% end %>
                   </div>
                 </div>
 
-                <%!-- Address Line 1 --%>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">{gettext("Address Line 1")}</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="company_address_line1"
-                    value={@company_info["address_line1"]}
-                    class="input input-bordered"
-                    placeholder="123 Business Street"
-                  />
-                </div>
-
-                <%!-- Address Line 2 --%>
-                <div class="form-control">
-                  <label class="label">
-                    <span class="label-text">{gettext("Address Line 2")}</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="company_address_line2"
-                    value={@company_info["address_line2"]}
-                    class="input input-bordered"
-                    placeholder={gettext("Suite, Floor, Building (optional)")}
-                  />
-                </div>
-
-                <%!-- City + State row --%>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("City")}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="company_city"
-                      value={@company_info["city"]}
-                      class="input input-bordered"
-                      placeholder="Tallinn"
-                    />
-                  </div>
-
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{@subdivision_label}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="company_state"
-                      value={@company_info["state"]}
-                      class="input input-bordered"
-                      placeholder={gettext("(optional)")}
-                    />
-                  </div>
-                </div>
-
-                <%!-- Postal Code + Country row --%>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("Postal Code")}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="company_postal_code"
-                      value={@company_info["postal_code"]}
-                      class="input input-bordered font-mono"
-                      placeholder="10115"
-                    />
-                  </div>
-
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("Country")}</span>
-                    </label>
-                    <select
-                      name="company_country"
-                      class="select select-bordered"
-                      phx-change="update_country"
-                    >
-                      <option value="">{gettext("Select country...")}</option>
-                      <%= for {name, code} <- @countries do %>
-                        <option value={code} selected={@company_info["country"] == code}>
-                          {name}
-                        </option>
+                <%= if @company_info["address_line1"] != "" do %>
+                  <div class="flex items-start gap-2">
+                    <.icon name="hero-map-pin" class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <div class="text-sm">
+                      <p>{@company_info["address_line1"]}</p>
+                      <%= if @company_info["address_line2"] != "" do %>
+                        <p>{@company_info["address_line2"]}</p>
                       <% end %>
-                    </select>
+                      <p>
+                        {@company_info["city"]}
+                        <%= if @company_info["state"] != "" do %>
+                          , {@company_info["state"]}
+                        <% end %>
+                        {@company_info["postal_code"]}
+                      </p>
+                      <%= if @company_info["country"] != "" do %>
+                        <p>{@company_country_name}</p>
+                      <% end %>
+                    </div>
                   </div>
-                </div>
+                <% end %>
 
-                <%!-- Registration Number + VAT row --%>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("Registration Number")}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="registration_number"
-                      value={@company_info["registration_number"]}
-                      class="input input-bordered"
+                <%= if @company_info["vat_number"] != "" do %>
+                  <div class="flex items-start gap-2">
+                    <.icon name="hero-document-text" class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <div class="text-sm">
+                      <span class="text-base-content/60">{gettext("VAT:")}</span> {@company_info[
+                        "vat_number"
+                      ]}
+                    </div>
+                  </div>
+                <% end %>
+
+                <%= if @site_url != "" do %>
+                  <div class="flex items-start gap-2">
+                    <.icon name="hero-globe-alt" class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <a href={@site_url} target="_blank" class="text-sm link link-primary">
+                      {@site_url}
+                    </a>
+                  </div>
+                <% else %>
+                  <div class="flex items-start gap-2">
+                    <.icon
+                      name="hero-globe-alt"
+                      class="w-5 h-5 text-base-content/40 shrink-0 mt-0.5"
                     />
+                    <span class="text-sm text-base-content/60 italic">
+                      {gettext("Site URL not configured")}
+                    </span>
                   </div>
-
-                  <div class="form-control">
-                    <label class="label">
-                      <span class="label-text">{gettext("VAT Number")}</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="vat_number"
-                      value={@company_info["vat_number"]}
-                      class="input input-bordered"
-                      placeholder="EE123456789"
-                    />
-                  </div>
-                </div>
+                <% end %>
               </div>
-
-              <div class="card-actions justify-end mt-4">
-                <button type="submit" class="btn btn-primary">
-                  {gettext("Save Company Info")}
-                </button>
-              </div>
-            </form>
+            <% end %>
           </div>
         </div>
 
@@ -303,13 +249,32 @@
                   <label class="label">
                     <span class="label-text">{gettext("DPO Email")}</span>
                   </label>
-                  <input
-                    type="email"
-                    name="dpo_email"
-                    value={@dpo_contact["email"]}
-                    class="input input-bordered"
-                    placeholder="dpo@example.com"
-                  />
+                  <div class="join w-full">
+                    <input
+                      type="email"
+                      name="dpo_email"
+                      value={@dpo_contact["email"]}
+                      class="input input-bordered join-item flex-1"
+                      placeholder="dpo@example.com"
+                    />
+                    <%= if @from_email != "" do %>
+                      <button
+                        type="button"
+                        class="btn btn-outline join-item"
+                        phx-click="import_dpo_email"
+                        title={gettext("Import from General Settings")}
+                      >
+                        <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                      </button>
+                    <% end %>
+                  </div>
+                  <%= if @from_email != "" do %>
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/50">
+                        {gettext("Import available:")} {@from_email}
+                      </span>
+                    </label>
+                  <% end %>
                 </div>
 
                 <div class="form-control">
@@ -328,12 +293,31 @@
                   <label class="label">
                     <span class="label-text">{gettext("DPO Address")}</span>
                   </label>
-                  <input
-                    type="text"
-                    name="dpo_address"
-                    value={@dpo_contact["address"]}
-                    class="input input-bordered"
-                  />
+                  <div class="join w-full">
+                    <input
+                      type="text"
+                      name="dpo_address"
+                      value={@dpo_contact["address"]}
+                      class="input input-bordered join-item flex-1"
+                    />
+                    <%= if @company_address_formatted != "" do %>
+                      <button
+                        type="button"
+                        class="btn btn-outline join-item"
+                        phx-click="import_dpo_address"
+                        title={gettext("Import from Company Address")}
+                      >
+                        <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                      </button>
+                    <% end %>
+                  </div>
+                  <%= if @company_address_formatted != "" do %>
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/50">
+                        {gettext("Import available from Organization")}
+                      </span>
+                    </label>
+                  <% end %>
                 </div>
               </div>
 

@@ -198,192 +198,132 @@
         </div>
       </div>
 
-      <%!-- Company Information --%>
-      <div class="card bg-base-100 shadow-xl">
+      <%!-- Company & Bank Information (Preview) --%>
+      <div class="card bg-base-100 shadow-xl lg:col-span-2">
         <div class="card-body">
-          <h2 class="card-title">Company Information</h2>
-          <p class="text-sm text-base-content/60">Shown on invoices and receipts</p>
-          <form phx-submit="save_company" class="space-y-4 mt-4">
-            <%!-- Company Name (required) --%>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Company Name <span class="text-error">*</span></span>
-              </label>
-              <input
-                type="text"
-                name="company_name"
-                value={@company_name}
-                class="input input-bordered"
-                placeholder="Your Company Name"
-                required
-              />
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="card-title">Company & Bank Information</h2>
+              <p class="text-sm text-base-content/60">Shown on invoices and receipts</p>
             </div>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/settings/organization")}
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-pencil-square" class="w-4 h-4" /> Edit in Organization
+            </.link>
+          </div>
 
-            <%!-- VAT Number (required) --%>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">VAT Number <span class="text-error">*</span></span>
-              </label>
-              <input
-                type="text"
-                name="company_vat"
-                value={@company_vat}
-                class="input input-bordered font-mono"
-                placeholder="EE123456789"
-                required
-              />
-            </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+            <%!-- Company Info Preview (same style as Legal Settings) --%>
+            <div>
+              <h3 class="font-semibold text-base-content/80 mb-3">Company</h3>
+              <%= if @company_info["name"] && @company_info["name"] != "" do %>
+                <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                  <div class="flex items-start gap-2">
+                    <.icon
+                      name="hero-building-office"
+                      class="w-5 h-5 text-primary shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p class="font-semibold">{@company_info["name"]}</p>
+                      <%= if @company_info["registration_number"] && @company_info["registration_number"] != "" do %>
+                        <p class="text-xs text-base-content/60">
+                          Reg. No: {@company_info["registration_number"]}
+                        </p>
+                      <% end %>
+                    </div>
+                  </div>
 
-            <div class="divider">Address</div>
-
-            <%!-- Street Address (required) --%>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Street Address <span class="text-error">*</span></span>
-              </label>
-              <input
-                type="text"
-                name="company_address_line1"
-                value={@company_address_line1}
-                class="input input-bordered"
-                placeholder="123 Business Street"
-                required
-              />
-            </div>
-
-            <%!-- Address Line 2 (optional) --%>
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Address Line 2</span>
-              </label>
-              <input
-                type="text"
-                name="company_address_line2"
-                value={@company_address_line2}
-                class="input input-bordered"
-                placeholder="Suite, Floor, Building (optional)"
-              />
-            </div>
-
-            <%!-- City + State row --%>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">City <span class="text-error">*</span></span>
-                </label>
-                <input
-                  type="text"
-                  name="company_city"
-                  value={@company_city}
-                  class="input input-bordered"
-                  placeholder="Tallinn"
-                  required
-                />
-              </div>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">{@subdivision_label}</span>
-                </label>
-                <input
-                  type="text"
-                  name="company_state"
-                  value={@company_state}
-                  class="input input-bordered"
-                  placeholder="(optional)"
-                />
-              </div>
-            </div>
-
-            <%!-- Postal Code + Country row --%>
-            <div class="grid grid-cols-2 gap-4">
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Postal Code</span>
-                </label>
-                <input
-                  type="text"
-                  name="company_postal_code"
-                  value={@company_postal_code}
-                  class="input input-bordered font-mono"
-                  placeholder="10115"
-                />
-              </div>
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">Country <span class="text-error">*</span></span>
-                </label>
-                <select
-                  name="company_country"
-                  class="select select-bordered"
-                  phx-change="country_changed"
-                  required
-                >
-                  <option value="">Select country...</option>
-                  <%= for {name, code} <- @countries do %>
-                    <option value={code} selected={@company_country == code}>
-                      {name}
-                    </option>
+                  <%= if @company_info["address_line1"] && @company_info["address_line1"] != "" do %>
+                    <div class="flex items-start gap-2">
+                      <.icon name="hero-map-pin" class="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div class="text-sm">
+                        <p>{@company_info["address_line1"]}</p>
+                        <%= if @company_info["address_line2"] && @company_info["address_line2"] != "" do %>
+                          <p>{@company_info["address_line2"]}</p>
+                        <% end %>
+                        <p>
+                          {@company_info["city"]}
+                          <%= if @company_info["state"] && @company_info["state"] != "" do %>
+                            , {@company_info["state"]}
+                          <% end %>
+                          {@company_info["postal_code"]}
+                        </p>
+                        <%= if @company_country_name != "" do %>
+                          <p>{@company_country_name}</p>
+                        <% end %>
+                      </div>
+                    </div>
                   <% end %>
-                </select>
-              </div>
+
+                  <%= if @company_info["vat_number"] && @company_info["vat_number"] != "" do %>
+                    <div class="flex items-start gap-2">
+                      <.icon
+                        name="hero-document-text"
+                        class="w-5 h-5 text-primary shrink-0 mt-0.5"
+                      />
+                      <div class="text-sm">
+                        <span class="text-base-content/60">VAT:</span> {@company_info[
+                          "vat_number"
+                        ]}
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="alert alert-warning">
+                  <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+                  <span>Company information not configured</span>
+                </div>
+              <% end %>
             </div>
 
-            <div class="card-actions justify-end mt-4">
-              <button type="submit" class="btn btn-primary btn-sm">Save Company Info</button>
+            <%!-- Bank Details Preview --%>
+            <div>
+              <h3 class="font-semibold text-base-content/80 mb-3">Bank Details</h3>
+              <%= if @bank_details["bank_name"] && @bank_details["bank_name"] != "" do %>
+                <div class="bg-base-200 rounded-lg p-4 space-y-3">
+                  <div class="flex items-start gap-2">
+                    <.icon
+                      name="hero-building-library"
+                      class="w-5 h-5 text-primary shrink-0 mt-0.5"
+                    />
+                    <p class="font-semibold">{@bank_details["bank_name"]}</p>
+                  </div>
+                  <%= if @bank_details["iban"] && @bank_details["iban"] != "" do %>
+                    <div class="flex items-start gap-2">
+                      <.icon
+                        name="hero-credit-card"
+                        class="w-5 h-5 text-primary shrink-0 mt-0.5"
+                      />
+                      <div class="text-sm">
+                        <span class="text-base-content/60">IBAN:</span>
+                        <span class="font-mono">{@bank_details["iban"]}</span>
+                      </div>
+                    </div>
+                  <% end %>
+                  <%= if @bank_details["swift"] && @bank_details["swift"] != "" do %>
+                    <div class="flex items-start gap-2">
+                      <.icon
+                        name="hero-globe-americas"
+                        class="w-5 h-5 text-primary shrink-0 mt-0.5"
+                      />
+                      <div class="text-sm">
+                        <span class="text-base-content/60">SWIFT:</span>
+                        <span class="font-mono">{@bank_details["swift"]}</span>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="alert alert-info">
+                  <.icon name="hero-information-circle" class="w-5 h-5" />
+                  <span>Bank details not configured (optional)</span>
+                </div>
+              <% end %>
             </div>
-          </form>
-        </div>
-      </div>
-
-      <%!-- Bank Details --%>
-      <div class="card bg-base-100 shadow-xl">
-        <div class="card-body">
-          <h2 class="card-title">Bank Details</h2>
-          <p class="text-sm text-base-content/60">For bank transfer payments</p>
-          <form phx-submit="save_bank" class="space-y-4 mt-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">Bank Name</span>
-              </label>
-              <input
-                type="text"
-                name="bank_name"
-                value={@bank_name}
-                class="input input-bordered"
-                placeholder="Bank Name"
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">IBAN</span>
-              </label>
-              <input
-                type="text"
-                name="bank_iban"
-                value={@bank_iban}
-                class="input input-bordered font-mono"
-                placeholder="EE00 0000 0000 0000 0000"
-              />
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text">SWIFT/BIC</span>
-              </label>
-              <input
-                type="text"
-                name="bank_swift"
-                value={@bank_swift}
-                class="input input-bordered font-mono"
-                placeholder="XXXXEEHH"
-              />
-            </div>
-
-            <div class="card-actions justify-end mt-4">
-              <button type="submit" class="btn btn-primary btn-sm">Save Bank Details</button>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>

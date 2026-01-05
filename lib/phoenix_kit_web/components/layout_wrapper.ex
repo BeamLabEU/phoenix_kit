@@ -747,6 +747,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       submenu_open={
                         submenu_open?(@current_path, [
                           "/admin/settings",
+                          "/admin/settings/organization",
                           "/admin/settings/users",
                           "/admin/settings/referral-codes",
                           "/admin/settings/emails",
@@ -764,13 +765,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
                           href={Routes.locale_aware_path(assigns, "/admin/settings")}
                           icon="settings"
                           label={gettext("General")}
+                          current_path={@current_path || ""}
+                          nested={true}
+                        />
+
+                        <.admin_nav_item
+                          href={Routes.locale_aware_path(assigns, "/admin/settings/organization")}
+                          icon="organization"
+                          label={gettext("Organization")}
                           current_path={@current_path || ""}
                           nested={true}
                         />
