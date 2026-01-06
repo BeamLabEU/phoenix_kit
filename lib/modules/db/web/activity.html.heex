@@ -6,44 +6,48 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-4">
-    <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div class="flex items-center gap-3">
-        <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB
+      </.link>
+
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-3 mb-3">
+          <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
+          </div>
+          <h1 class="text-4xl font-bold text-base-content">Live Database Activity</h1>
         </div>
-        <div>
-          <h1 class="text-2xl font-bold text-base-content">Live Database Activity</h1>
-          <p class="text-sm text-base-content/70">
-            <%= if @paused do %>
-              Paused - {length(@activity_log)} events captured
-            <% else %>
-              Monitoring all tables in real-time
-            <% end %>
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          phx-click="toggle_pause"
-          class={"btn btn-sm #{if @paused, do: "btn-warning", else: "btn-ghost"}"}
-        >
+        <p class="text-lg text-base-content">
           <%= if @paused do %>
-            <.icon name="hero-play" class="w-4 h-4" /> Resume
+            Paused - {length(@activity_log)} events captured
           <% else %>
-            <.icon name="hero-pause" class="w-4 h-4" /> Pause
+            Monitoring all tables in real-time
           <% end %>
-        </button>
-        <button phx-click="clear_log" class="btn btn-ghost btn-sm">
-          <.icon name="hero-trash" class="w-4 h-4" /> Clear
-        </button>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables
-        </.link>
+        </p>
       </div>
     </header>
+
+    <%!-- Controls --%>
+    <div class="flex justify-center gap-2 mb-6">
+      <button
+        phx-click="toggle_pause"
+        class={"btn btn-sm #{if @paused, do: "btn-warning", else: "btn-ghost"}"}
+      >
+        <%= if @paused do %>
+          <.icon name="hero-play" class="w-4 h-4 mr-2" /> Resume
+        <% else %>
+          <.icon name="hero-pause" class="w-4 h-4 mr-2" /> Pause
+        <% end %>
+      </button>
+      <button phx-click="clear_log" class="btn btn-ghost btn-sm">
+        <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Clear
+      </button>
+    </div>
 
     <%!-- Filters --%>
     <div class="flex gap-4">
