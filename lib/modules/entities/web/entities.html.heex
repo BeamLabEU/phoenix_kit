@@ -19,7 +19,7 @@
         navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
-        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> {gettext("Back to Modules")}
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Modules")}
       </.link>
 
       <%!-- Title Section --%>
@@ -33,38 +33,38 @@
 
     <%!-- Stats Cards --%>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-      <div class="bg-primary text-primary-content rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-        <div class="flex items-center justify-between mb-4">
-          <div class="p-2 bg-base-100/20 rounded-lg">
-            <.icon name="hero-rectangle-stack" class="w-6 h-6" />
-          </div>
-        </div>
-        <div class="text-3xl font-bold mb-2">{@total_entities}</div>
-        <div class="opacity-90 font-medium">{gettext("Total Entities")}</div>
-        <div class="opacity-70 text-xs mt-1">{gettext("Content types defined")}</div>
-      </div>
+      <.stat_card
+        color="primary"
+        value={@total_entities}
+        title={gettext("Total Entities")}
+        subtitle={gettext("Content types defined")}
+      >
+        <:icon>
+          <.icon name="hero-rectangle-stack" class="w-6 h-6" />
+        </:icon>
+      </.stat_card>
 
-      <div class="bg-success text-success-content rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-        <div class="flex items-center justify-between mb-4">
-          <div class="p-2 bg-base-100/20 rounded-lg">
-            <.icon name="hero-bolt" class="w-6 h-6" />
-          </div>
-        </div>
-        <div class="text-3xl font-bold mb-2">{@active_entities}</div>
-        <div class="opacity-90 font-medium">{gettext("Published")}</div>
-        <div class="opacity-70 text-xs mt-1">{gettext("Ready for data creation")}</div>
-      </div>
+      <.stat_card
+        color="success"
+        value={@active_entities}
+        title={gettext("Published")}
+        subtitle={gettext("Ready for data creation")}
+      >
+        <:icon>
+          <.icon name="hero-bolt" class="w-6 h-6" />
+        </:icon>
+      </.stat_card>
 
-      <div class="bg-secondary text-secondary-content rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105">
-        <div class="flex items-center justify-between mb-4">
-          <div class="p-2 bg-base-100/20 rounded-lg">
-            <.icon name="hero-circle-stack" class="w-6 h-6" />
-          </div>
-        </div>
-        <div class="text-3xl font-bold mb-2">{@total_data_records}</div>
-        <div class="opacity-90 font-medium">{gettext("Data Records")}</div>
-        <div class="opacity-70 text-xs mt-1">{gettext("Across all entities")}</div>
-      </div>
+      <.stat_card
+        color="secondary"
+        value={@total_data_records}
+        title={gettext("Data Records")}
+        subtitle={gettext("Across all entities")}
+      >
+        <:icon>
+          <.icon name="hero-circle-stack" class="w-6 h-6" />
+        </:icon>
+      </.stat_card>
     </div>
 
     <%!-- Action Bar --%>
@@ -270,20 +270,7 @@
                   </.link>
                 </.table_default_cell>
                 <.table_default_cell>
-                  <%= case entity.status do %>
-                    <% "published" -> %>
-                      <span class="badge badge-success badge-sm">
-                        {gettext("Published")}
-                      </span>
-                    <% "draft" -> %>
-                      <span class="badge badge-warning badge-sm">{gettext("Draft")}</span>
-                    <% "archived" -> %>
-                      <span class="badge badge-neutral badge-sm">
-                        {gettext("Archived")}
-                      </span>
-                    <% _ -> %>
-                      <span class="badge badge-ghost badge-sm">{gettext("Unknown")}</span>
-                  <% end %>
+                  <.content_status_badge status={entity.status} />
                 </.table_default_cell>
                 <.table_default_cell>
                   <div class="flex items-center gap-1">
@@ -374,18 +361,7 @@
                   </.link>
 
                   <%!-- Status Badge --%>
-                  <div>
-                    <%= case entity.status do %>
-                      <% "published" -> %>
-                        <span class="badge badge-success badge-sm">{gettext("Published")}</span>
-                      <% "draft" -> %>
-                        <span class="badge badge-warning badge-sm">{gettext("Draft")}</span>
-                      <% "archived" -> %>
-                        <span class="badge badge-neutral badge-sm">{gettext("Archived")}</span>
-                      <% _ -> %>
-                        <span class="badge badge-ghost badge-sm">{gettext("Unknown")}</span>
-                    <% end %>
-                  </div>
+                  <.content_status_badge status={entity.status} />
                 </div>
 
                 <%= if entity.description do %>

@@ -156,22 +156,6 @@ defmodule PhoenixKit.Modules.DB.Web.Show do
     end
   end
 
-  def format_bytes(nil), do: "0 B"
-  def format_bytes(0), do: "0 B"
-  def format_bytes(%Decimal{} = bytes), do: bytes |> Decimal.to_integer() |> format_bytes()
-  def format_bytes(bytes) when is_integer(bytes) and bytes < 1024, do: "#{bytes} B"
-
-  def format_bytes(bytes) when is_integer(bytes) and bytes < 1_048_576,
-    do: "#{Float.round(bytes / 1024, 1)} KB"
-
-  def format_bytes(bytes) when is_integer(bytes) and bytes < 1_073_741_824,
-    do: "#{Float.round(bytes / 1_048_576, 1)} MB"
-
-  def format_bytes(bytes) when is_integer(bytes),
-    do: "#{Float.round(bytes / 1_073_741_824, 2)} GB"
-
-  def format_bytes(_), do: "0 B"
-
   def format_cell(value) when is_map(value), do: Jason.encode!(value)
   def format_cell(value) when is_list(value), do: inspect(value)
   def format_cell(value) when is_binary(value), do: value

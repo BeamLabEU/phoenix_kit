@@ -995,14 +995,14 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
         <header class="w-full relative mb-6">
           <.link
             navigate={Routes.path("/admin/sync", locale: @current_locale)}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to DB Sync
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB Sync
           </.link>
 
           <div class="text-center">
-            <h1 class="text-3xl font-bold text-base-content mb-2">Connections</h1>
-            <p class="text-base-content/70">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Connections</h1>
+            <p class="text-lg text-base-content">
               Manage permanent connections for data sync
             </p>
           </div>

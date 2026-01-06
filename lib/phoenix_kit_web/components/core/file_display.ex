@@ -76,13 +76,18 @@ defmodule PhoenixKitWeb.Components.Core.FileDisplay do
   end
 
   defp format_bytes(nil), do: "Unknown"
+  defp format_bytes(0), do: "0 B"
+
+  defp format_bytes(%Decimal{} = bytes) do
+    bytes |> Decimal.to_integer() |> format_bytes()
+  end
 
   defp format_bytes(bytes) when is_integer(bytes) do
     cond do
       bytes >= 1_073_741_824 -> "#{Float.round(bytes / 1_073_741_824, 1)} GB"
       bytes >= 1_048_576 -> "#{Float.round(bytes / 1_048_576, 1)} MB"
       bytes >= 1024 -> "#{Float.round(bytes / 1024, 1)} KB"
-      true -> "#{bytes} bytes"
+      true -> "#{bytes} B"
     end
   end
 
