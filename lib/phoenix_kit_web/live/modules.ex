@@ -23,8 +23,8 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Sync
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Pages
-  alias PhoenixKit.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Date, as: UtilsDate

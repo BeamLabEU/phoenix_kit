@@ -193,10 +193,10 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   end
 
   defp process_referral_code(user, referral_code) when is_binary(referral_code) do
-    if Code.ensure_loaded?(PhoenixKit.ReferralCodes) do
-      case PhoenixKit.ReferralCodes.get_code_by_string(referral_code) do
+    if Code.ensure_loaded?(PhoenixKit.Modules.ReferralCodes) do
+      case PhoenixKit.Modules.ReferralCodes.get_code_by_string(referral_code) do
         nil -> :ok
-        code -> PhoenixKit.ReferralCodes.use_code(code.code, user.id)
+        code -> PhoenixKit.Modules.ReferralCodes.use_code(code.code, user.id)
       end
     end
 

@@ -5,7 +5,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.MagicLinkRegistration
