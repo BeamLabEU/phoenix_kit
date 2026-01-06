@@ -95,7 +95,7 @@
         </div>
       </.link>
 
-      <%= if PhoenixKit.Emails.enabled?() do %>
+      <%= if PhoenixKit.Modules.Emails.enabled?() do %>
         <.link
           navigate={PhoenixKit.Utils.Routes.path("/admin/emails")}
           class="card bg-purple-500 text-white hover:shadow-lg transition-all"

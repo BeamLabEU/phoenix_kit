@@ -26,8 +26,8 @@ defmodule PhoenixKit.Users.Auth.UserNotifier do
   """
   import Swoosh.Email
 
-  alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Mailer
+  alias PhoenixKit.Modules.Emails.Templates
 
   # Delivers the email using the appropriate mailer.
   # Uses the configured parent application mailer if available,

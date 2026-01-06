@@ -214,8 +214,7 @@ defmodule PhoenixKitWeb.Integration do
         # Magic Link Registration routes
         get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
 
-        # Email webhook endpoint (no authentication required)
-        post "/webhooks/email", Controllers.EmailWebhookController, :handle
+        # Note: Email webhook moved to generate_emails_routes/1 (separate scope)
 
         # Storage API routes (file upload and serving)
         post "/api/upload", UploadController, :create
@@ -276,15 +275,7 @@ defmodule PhoenixKitWeb.Integration do
       # Uses url_prefix to be consistent with API routes
       forward "#{unquote(url_prefix)}/sync/websocket", PhoenixKit.Modules.Sync.Web.SocketPlug
 
-      # Email export routes (require admin or owner role)
-      scope unquote(url_prefix), PhoenixKitWeb do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
-
-        get "/admin/emails/export", Controllers.EmailExportController, :export_logs
-        get "/admin/emails/metrics/export", Controllers.EmailExportController, :export_metrics
-        get "/admin/emails/blocklist/export", Controllers.EmailExportController, :export_blocklist
-        get "/admin/emails/:id/export", Controllers.EmailExportController, :export_email_details
-      end
+      # Note: Email export routes moved to generate_emails_routes/1 (separate scope)
 
       # PhoenixKit static assets (no CSRF protection needed for static files)
       scope unquote(url_prefix), PhoenixKitWeb do
@@ -550,6 +541,79 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # Helper function to generate email routes
+  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
+  defp generate_emails_routes(url_prefix) do
+    quote do
+      # Email webhook endpoint (public - no authentication required)
+      scope unquote(url_prefix) do
+        pipe_through [:browser]
+
+        post "/webhooks/email", PhoenixKit.Modules.Emails.Web.WebhookController, :handle
+      end
+
+      # Email export routes (require admin or owner role)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        get "/admin/emails/export", PhoenixKit.Modules.Emails.Web.ExportController, :export_logs
+
+        get "/admin/emails/metrics/export",
+            PhoenixKit.Modules.Emails.Web.ExportController,
+            :export_metrics
+
+        get "/admin/emails/blocklist/export",
+            PhoenixKit.Modules.Emails.Web.ExportController,
+            :export_blocklist
+
+        get "/admin/emails/:id/export",
+            PhoenixKit.Modules.Emails.Web.ExportController,
+            :export_email_details
+      end
+
+      # Email admin LiveView routes
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_emails,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          # Email Settings
+          live "/admin/settings/emails", PhoenixKit.Modules.Emails.Web.Settings, :index,
+            as: :emails_settings
+
+          # Email Dashboard and Management
+          live "/admin/emails/dashboard", PhoenixKit.Modules.Emails.Web.Metrics, :index,
+            as: :emails_metrics
+
+          live "/admin/emails", PhoenixKit.Modules.Emails.Web.Emails, :index, as: :emails_index
+
+          live "/admin/emails/email/:id", PhoenixKit.Modules.Emails.Web.Details, :show,
+            as: :emails_details
+
+          live "/admin/emails/queue", PhoenixKit.Modules.Emails.Web.Queue, :index,
+            as: :emails_queue
+
+          live "/admin/emails/blocklist", PhoenixKit.Modules.Emails.Web.Blocklist, :index,
+            as: :emails_blocklist
+
+          # Email Templates Management
+          live "/admin/modules/emails/templates", PhoenixKit.Modules.Emails.Web.Templates, :index,
+            as: :emails_templates
+
+          live "/admin/modules/emails/templates/new",
+               PhoenixKit.Modules.Emails.Web.TemplateEditor,
+               :new,
+               as: :emails_template_new
+
+          live "/admin/modules/emails/templates/:id/edit",
+               PhoenixKit.Modules.Emails.Web.TemplateEditor,
+               :edit,
+               as: :emails_template_edit
+        end
+      end
+    end
+  end
+
   # Helper function to generate blogging routes with locale support
   # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
   defp generate_blogging_routes(url_prefix) do
@@ -715,7 +779,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
         live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
-        live "/admin/settings/emails", Live.Modules.Emails.Settings, :index
+        # Note: Email settings moved to generate_emails_routes/1 (separate scope)
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
 
@@ -745,19 +809,9 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
         live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
         live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
-        live "/admin/emails/dashboard", Live.Modules.Emails.Metrics, :index
-        live "/admin/emails", Live.Modules.Emails.Emails, :index
-        live "/admin/emails/email/:id", Live.Modules.Emails.Details, :show
-        live "/admin/emails/queue", Live.Modules.Emails.Queue, :index
-        live "/admin/emails/blocklist", Live.Modules.Emails.Blocklist, :index
 
-        # Email Templates Management
-        live "/admin/modules/emails/templates", Live.Modules.Emails.Templates, :index
-        live "/admin/modules/emails/templates/new", Live.Modules.Emails.TemplateEditor, :new
-
-        live "/admin/modules/emails/templates/:id/edit",
-             Live.Modules.Emails.TemplateEditor,
-             :edit
+        # Note: Email routes moved to generate_emails_routes/1 (separate scope)
+        # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
 
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
@@ -888,6 +942,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
+
+      # Generate email routes (separate scope for PhoenixKit.Modules.* namespace)
+      unquote(generate_emails_routes(url_prefix))
 
       # Generate blogging routes (with locale support)
       unquote(generate_blogging_routes(url_prefix))

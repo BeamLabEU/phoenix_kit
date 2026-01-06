@@ -30,7 +30,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessDlq do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails
+  alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Settings
 
   @default_limit 100

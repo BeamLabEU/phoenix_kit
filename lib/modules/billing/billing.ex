@@ -42,7 +42,6 @@ defmodule PhoenixKit.Modules.Billing do
 
   import Ecto.Query, warn: false
 
-  alias PhoenixKit.Emails.Templates
   alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Modules.Billing.Currency
@@ -50,6 +49,7 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.Order
   alias PhoenixKit.Modules.Billing.Providers
   alias PhoenixKit.Modules.Billing.Transaction
+  alias PhoenixKit.Modules.Emails.Templates
   alias PhoenixKit.Settings
 
   # ============================================

@@ -29,7 +29,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqsQueue do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails
+  alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Settings
 
   @default_limit 50

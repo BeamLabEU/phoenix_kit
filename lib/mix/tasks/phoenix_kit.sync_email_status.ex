@@ -49,8 +49,8 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails
-  alias PhoenixKit.Emails.{Log, SQSProcessor}
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.{Log, SQSProcessor}
 
   @impl Mix.Task
   def run(args) do
@@ -150,7 +150,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   defp find_existing_log(message_id, verbose) do
     case Log.get_log_by_message_id(message_id) do
-      %PhoenixKit.Emails.Log{} = log ->
+      %PhoenixKit.Modules.Emails.Log{} = log ->
         if verbose do
           IO.puts("📧 Found existing email log: ID=#{log.id}, Status=#{log.status}")
         end

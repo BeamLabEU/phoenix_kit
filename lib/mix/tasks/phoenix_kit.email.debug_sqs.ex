@@ -60,8 +60,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
   use Mix.Task
   require Logger
 
-  alias PhoenixKit.Emails
-  alias PhoenixKit.Emails.SQSProcessor
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.SQSProcessor
 
   @impl Mix.Task
   def run(args) do

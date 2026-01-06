@@ -42,7 +42,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Cleanup do
   """
 
   use Mix.Task
-  alias PhoenixKit.Emails
+  alias PhoenixKit.Modules.Emails
 
   @impl Mix.Task
   def run(args) do

@@ -34,7 +34,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqs do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails.SQSProcessor
+  alias PhoenixKit.Modules.Emails.SQSProcessor
   alias PhoenixKit.Settings
 
   @shortdoc "Process AWS SQS email event messages"
