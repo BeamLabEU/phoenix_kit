@@ -140,18 +140,31 @@ defmodule PhoenixKit.Migrations.Postgres.V44 do
     )
 
     # ===========================================
-    # 3. UPDATE TABLE COMMENTS
+    # 3. UPDATE TABLE COMMENTS (only if tables exist)
     # ===========================================
-    prefix_str = if prefix, do: "#{prefix}.", else: ""
 
     execute """
-    COMMENT ON TABLE #{prefix_str}#{@new_connections_table} IS
-    'Permanent connections between PhoenixKit instances for data sync'
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_schema = COALESCE('#{prefix}', 'public')
+                 AND table_name = '#{@new_connections_table}') THEN
+        COMMENT ON TABLE #{prefix_str}#{@new_connections_table} IS
+        'Permanent connections between PhoenixKit instances for data sync';
+      END IF;
+    END $$;
     """
 
     execute """
-    COMMENT ON TABLE #{prefix_str}#{@new_transfers_table} IS
-    'Track all data transfers (uploads and downloads) with approval workflow'
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables
+                 WHERE table_schema = COALESCE('#{prefix}', 'public')
+                 AND table_name = '#{@new_transfers_table}') THEN
+        COMMENT ON TABLE #{prefix_str}#{@new_transfers_table} IS
+        'Track all data transfers (uploads and downloads) with approval workflow';
+      END IF;
+    END $$;
     """
 
     # ===========================================
