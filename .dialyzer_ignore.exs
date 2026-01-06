@@ -64,8 +64,8 @@
   ~r/lib\/mix\/tasks\/phoenix_kit\.configure_aws_ses\.ex:193:.*pattern_match/,
 
   # ExAws library type definition issues (false positives from incomplete type specs)
-  ~r/lib\/phoenix_kit\/emails\/archiver\.ex:.*pattern_match/,
-  ~r/lib\/phoenix_kit\/emails\/archiver\.ex:.*unused_fun/,
+  ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
+  ~r/lib\/modules\/emails\/archiver\.ex:.*unused_fun/,
 
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
