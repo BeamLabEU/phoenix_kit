@@ -86,8 +86,8 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Entities do
 
   require Logger
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Sitemap.RouteResolver
   alias PhoenixKit.Modules.Sitemap.UrlEntry

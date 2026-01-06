@@ -1,0 +1,989 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  phoenix_kit_current_scope={@phoenix_kit_current_scope}
+  current_locale={assigns[:current_locale]}
+>
+  <div class="p-6">
+    <%!-- Header --%>
+    <div class="flex justify-between items-center mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">AI Endpoints</h1>
+        <p class="text-base-content/70 mt-1">
+          Manage AI provider endpoints and view usage statistics
+        </p>
+      </div>
+      <%= if @active_tab == "endpoints" do %>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
+          class="btn btn-primary"
+        >
+          <.icon name="hero-plus" class="w-5 h-5 mr-2" /> New Endpoint
+        </.link>
+      <% end %>
+    </div>
+
+    <%!-- Tabs --%>
+    <div class="tabs tabs-boxed mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints"}
+        class={"tab #{if @active_tab == "endpoints", do: "tab-active"}"}
+      >
+        <.icon name="hero-server-stack" class="w-4 h-4 mr-2" /> Endpoints
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
+        class={"tab #{if @active_tab == "prompts", do: "tab-active"}"}
+      >
+        <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
+        class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
+      >
+        <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Usage
+      </.link>
+    </div>
+
+    <%!-- Content --%>
+    <%= if @active_tab == "setup" do %>
+      <%!-- Setup/Empty State --%>
+      <div class="card bg-base-200 p-8 text-center">
+        <div class="flex flex-col items-center gap-4">
+          <.icon name="hero-cpu-chip" class="w-16 h-16 text-base-content/30" />
+          <h2 class="text-xl font-semibold">No Endpoints Configured</h2>
+          <p class="text-base-content/70 max-w-md">
+            Create your first AI endpoint to start making API calls.
+            Each endpoint combines provider credentials, model selection, and parameters.
+          </p>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
+            class="btn btn-primary mt-4"
+          >
+            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Create First Endpoint
+          </.link>
+        </div>
+      </div>
+    <% end %>
+
+    <%= if @active_tab == "endpoints" do %>
+      <%!-- Endpoints List --%>
+      <%= if @has_endpoints do %>
+        <%!-- Sort Controls --%>
+        <div class="flex items-center gap-2 mb-4 flex-wrap">
+          <span class="text-sm text-base-content/70">Sort by:</span>
+          <%= for {field, label} <- @sort_options do %>
+            <button
+              phx-click="sort"
+              phx-value-by={field}
+              class={"btn btn-xs #{if @sort_by == field, do: "btn-primary", else: "btn-ghost"}"}
+            >
+              {label}
+              <%= if @sort_by == field do %>
+                <.icon
+                  name={if @sort_dir == :asc, do: "hero-chevron-up", else: "hero-chevron-down"}
+                  class="w-3 h-3 ml-1"
+                />
+              <% end %>
+            </button>
+          <% end %>
+        </div>
+
+        <div class="grid gap-4">
+          <%= for endpoint <- @endpoints do %>
+            <% stats =
+              Map.get(@endpoint_stats, endpoint.id, %{
+                request_count: 0,
+                total_tokens: 0,
+                total_cost: 0
+              }) %>
+            <div class={"card bg-base-200 #{if !endpoint.enabled, do: "opacity-60"}"}>
+              <div class="card-body p-4">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center gap-3">
+                      <.link
+                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
+                        class="badge badge-ghost font-mono hover:badge-primary cursor-pointer"
+                      >
+                        #{endpoint.id}
+                      </.link>
+                      <.link
+                        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}
+                        class="font-semibold text-lg hover:text-primary hover:underline"
+                      >
+                        {endpoint.name}
+                      </.link>
+                      <span class={"badge #{if endpoint.enabled, do: "badge-success", else: "badge-neutral"}"}>
+                        {if endpoint.enabled, do: "Active", else: "Disabled"}
+                      </span>
+                      <span class="badge badge-outline">{endpoint.provider}</span>
+                    </div>
+
+                    <div class="mt-2 flex flex-wrap gap-4 text-sm text-base-content/70">
+                      <div class="flex items-center gap-1">
+                        <.icon name="hero-cpu-chip" class="w-4 h-4" />
+                        <span>
+                          {PhoenixKit.Modules.AI.Endpoint.short_model_name(endpoint.model)}
+                        </span>
+                      </div>
+                      <%= if endpoint.temperature do %>
+                        <div class="flex items-center gap-1">
+                          <.icon name="hero-fire" class="w-4 h-4" />
+                          <span>Temp: {endpoint.temperature}</span>
+                        </div>
+                      <% end %>
+                      <%= if endpoint.max_tokens do %>
+                        <div class="flex items-center gap-1">
+                          <.icon name="hero-document-text" class="w-4 h-4" />
+                          <span>Max: {endpoint.max_tokens}</span>
+                        </div>
+                      <% end %>
+                    </div>
+
+                    <%!-- Usage Stats Row --%>
+                    <div class="mt-2 flex flex-wrap gap-4 text-sm">
+                      <div
+                        class="flex items-center gap-1 text-base-content/70"
+                        title="Total requests"
+                      >
+                        <.icon name="hero-arrow-path" class="w-4 h-4" />
+                        <span>{stats.request_count} requests</span>
+                      </div>
+                      <div
+                        class="flex items-center gap-1 text-base-content/70"
+                        title="Total tokens"
+                      >
+                        <.icon name="hero-document-text" class="w-4 h-4" />
+                        <span>
+                          {PhoenixKit.Modules.AI.Request.format_tokens(stats.total_tokens)} tokens
+                        </span>
+                      </div>
+                      <div class="flex items-center gap-1 text-base-content/70" title="Total cost">
+                        <.icon name="hero-currency-dollar" class="w-4 h-4" />
+                        <span>{PhoenixKit.Modules.AI.Request.format_cost(stats.total_cost)}</span>
+                      </div>
+                      <div class="flex items-center gap-1 text-base-content/70" title="Last used">
+                        <.icon name="hero-clock" class="w-4 h-4" />
+                        <span>
+                          <%= if stats[:last_used_at] do %>
+                            <.time_ago datetime={stats.last_used_at} />
+                          <% else %>
+                            Never used
+                          <% end %>
+                        </span>
+                      </div>
+                    </div>
+
+                    <%= if endpoint.description do %>
+                      <p class="mt-2 text-sm text-base-content/60">{endpoint.description}</p>
+                    <% end %>
+                  </div>
+
+                  <%!-- Actions --%>
+                  <div class="dropdown dropdown-end">
+                    <div tabindex="0" role="button" class="btn btn-ghost btn-sm btn-square">
+                      <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
+                    </div>
+                    <ul
+                      tabindex="0"
+                      class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-48"
+                    >
+                      <li>
+                        <.link navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/#{endpoint.id}/edit"}>
+                          <.icon name="hero-pencil" class="w-4 h-4" /> Edit
+                        </.link>
+                      </li>
+                      <li>
+                        <button phx-click="toggle_endpoint" phx-value-id={endpoint.id}>
+                          <.icon
+                            name={if endpoint.enabled, do: "hero-pause", else: "hero-play"}
+                            class="w-4 h-4"
+                          />
+                          {if endpoint.enabled, do: "Disable", else: "Enable"}
+                        </button>
+                      </li>
+                      <li class="divider"></li>
+                      <li>
+                        <button
+                          phx-click="delete_endpoint"
+                          phx-value-id={endpoint.id}
+                          data-confirm="Are you sure you want to delete this endpoint?"
+                          class="text-error"
+                        >
+                          <.icon name="hero-trash" class="w-4 h-4" /> Delete
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          <% end %>
+        </div>
+
+        <%!-- Pagination --%>
+        <% total_pages = ceil(@total_endpoints / @page_size) %>
+        <%= if total_pages > 1 do %>
+          <div class="flex justify-center items-center gap-2 mt-6">
+            <%!-- Previous button --%>
+            <%= if @page > 1 do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={@page - 1}
+                class="btn btn-sm btn-ghost"
+              >
+                <.icon name="hero-chevron-left" class="w-4 h-4" />
+              </button>
+            <% else %>
+              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+                <.icon name="hero-chevron-left" class="w-4 h-4" />
+              </button>
+            <% end %>
+
+            <%!-- Page numbers --%>
+            <%= for page_num <- max(1, @page - 2)..min(total_pages, @page + 2) do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={page_num}
+                class={"btn btn-sm #{if page_num == @page, do: "btn-primary", else: "btn-ghost"}"}
+              >
+                {page_num}
+              </button>
+            <% end %>
+
+            <%!-- Next button --%>
+            <%= if @page < total_pages do %>
+              <button
+                phx-click="goto_page"
+                phx-value-page={@page + 1}
+                class="btn btn-sm btn-ghost"
+              >
+                <.icon name="hero-chevron-right" class="w-4 h-4" />
+              </button>
+            <% else %>
+              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
+                <.icon name="hero-chevron-right" class="w-4 h-4" />
+              </button>
+            <% end %>
+
+            <span class="text-sm text-base-content/70 ml-2">
+              {(@page - 1) * @page_size + 1}-{min(@page * @page_size, @total_endpoints)} of {@total_endpoints}
+            </span>
+          </div>
+        <% end %>
+      <% else %>
+        <div class="card bg-base-200 p-8 text-center">
+          <div class="flex flex-col items-center gap-4">
+            <.icon name="hero-cpu-chip" class="w-16 h-16 text-base-content/30" />
+            <h2 class="text-xl font-semibold">No Endpoints Yet</h2>
+            <p class="text-base-content/70">Create your first AI endpoint to get started.</p>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
+              class="btn btn-primary mt-2"
+            >
+              <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Create Endpoint
+            </.link>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+
+    <%= if @active_tab == "usage" do %>
+      <%!-- Usage Statistics --%>
+      <%= if @usage_loaded do %>
+        <%!-- Usage Stats --%>
+        <div class="card bg-base-200 mb-6">
+          <div class="card-body py-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <%!-- Today --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens today</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.today.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
+                      @usage_stats.today.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors today</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.today.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.today.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency today</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.Modules.AI.Request.format_latency(
+                      @usage_stats.today.avg_latency_ms
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <%!-- 30 Days --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.last_30_days.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
+                      @usage_stats.last_30_days.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.last_30_days.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.last_30_days.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency (30 days)</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.Modules.AI.Request.format_latency(
+                      @usage_stats.last_30_days.avg_latency_ms
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <%!-- All Time --%>
+              <div class="space-y-3">
+                <div>
+                  <div class="text-sm text-base-content/70">Requests / Tokens (all time)</div>
+                  <div class="text-xl font-semibold">
+                    {@usage_stats.all_time.total_requests} / {PhoenixKit.Modules.AI.Request.format_tokens(
+                      @usage_stats.all_time.total_tokens
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Successful / Errors (all time)</div>
+                  <div class="text-xl font-semibold">
+                    <span class="text-success">{@usage_stats.all_time.success_count}</span>
+                    <span class="text-base-content/50"> / </span>
+                    <span class="text-error">{@usage_stats.all_time.error_count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-sm text-base-content/70">Avg Latency (all time)</div>
+                  <div class="text-xl font-semibold">
+                    {PhoenixKit.Modules.AI.Request.format_latency(
+                      @usage_stats.all_time.avg_latency_ms
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Recent Requests --%>
+        <div class="card bg-base-200">
+          <div class="card-body">
+            <h3 class="card-title text-lg mb-4">Recent Requests</h3>
+
+            <%!-- Filters --%>
+            <form phx-change="usage_filter" class="flex flex-wrap items-center gap-2 mb-4">
+              <%!-- Date filter (always visible) --%>
+              <select name="date" class="select select-sm select-bordered">
+                <option value="today" selected={@usage_filter_date == "today"}>Today</option>
+                <option value="7d" selected={@usage_filter_date == "7d"}>Last 7 Days</option>
+                <option value="30d" selected={@usage_filter_date == "30d"}>Last 30 Days</option>
+                <option value="all" selected={@usage_filter_date == "all"}>All Time</option>
+              </select>
+
+              <%!-- Other filters (only show dropdowns with 2+ options) --%>
+              <%= if length(@usage_filter_options.endpoints) > 1 do %>
+                <select name="endpoint" class="select select-sm select-bordered">
+                  <option value="">All Endpoints</option>
+                  <%= for {id, name} <- @usage_filter_options.endpoints do %>
+                    <option value={id} selected={@usage_filter_endpoint == id}>{name}</option>
+                  <% end %>
+                </select>
+              <% end %>
+
+              <%= if length(@usage_filter_options.models) > 1 do %>
+                <select name="model" class="select select-sm select-bordered">
+                  <option value="">All Models</option>
+                  <%= for model <- @usage_filter_options.models do %>
+                    <option value={model} selected={@usage_filter_model == model}>
+                      {PhoenixKit.Modules.AI.Request.short_model_name(model)}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
+
+              <%= if length(@usage_filter_options.statuses) > 1 do %>
+                <select name="status" class="select select-sm select-bordered">
+                  <option value="">All Statuses</option>
+                  <%= for status <- @usage_filter_options.statuses do %>
+                    <option value={status} selected={@usage_filter_status == status}>
+                      {String.capitalize(status)}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
+
+              <%= if length(@usage_filter_options.sources) > 1 do %>
+                <select name="source" class="select select-sm select-bordered">
+                  <option value="">All Sources</option>
+                  <%= for source <- @usage_filter_options.sources do %>
+                    <option value={source} selected={@usage_filter_source == source}>
+                      {source}
+                    </option>
+                  <% end %>
+                </select>
+              <% end %>
+
+              <%= if @usage_filter_endpoint || @usage_filter_model || @usage_filter_status || @usage_filter_source || @usage_filter_date != "7d" do %>
+                <button
+                  type="button"
+                  phx-click="clear_usage_filters"
+                  class="btn btn-ghost btn-sm"
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Clear
+                </button>
+              <% end %>
+            </form>
+
+            <%!-- Results count --%>
+            <div class="text-sm text-base-content/70 mb-2">
+              Showing {length(@usage_requests)} of {@usage_total_requests} requests
+            </div>
+
+            <%= if Enum.empty?(@usage_requests) do %>
+              <p class="text-base-content/70 py-4">No requests match the current filters</p>
+            <% else %>
+              <div class="overflow-x-auto">
+                <table class="table table-sm">
+                  <thead>
+                    <tr>
+                      <%!-- Always visible --%>
+                      <th>
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="inserted_at"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Time
+                          <%= if @usage_sort_by == :inserted_at do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until lg (accounts for sidebar) --%>
+                      <th class="hidden lg:table-cell">
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="endpoint_name"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Endpoint
+                          <%= if @usage_sort_by == :endpoint_name do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until lg - Prompt column --%>
+                      <th class="hidden lg:table-cell">Prompt</th>
+                      <%!-- Always visible --%>
+                      <th>
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="model"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Model
+                          <%= if @usage_sort_by == :model do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until xl (accounts for sidebar) --%>
+                      <th class="hidden xl:table-cell">
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="total_tokens"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Tokens
+                          <%= if @usage_sort_by == :total_tokens do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until xl (accounts for sidebar) --%>
+                      <th class="hidden xl:table-cell">
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="latency_ms"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Latency
+                          <%= if @usage_sort_by == :latency_ms do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until lg (accounts for sidebar) --%>
+                      <th class="hidden lg:table-cell">
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="cost_cents"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Price
+                          <%= if @usage_sort_by == :cost_cents do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Always visible --%>
+                      <th>
+                        <button
+                          phx-click="usage_sort"
+                          phx-value-by="status"
+                          class="flex items-center gap-1 hover:text-primary"
+                        >
+                          Status
+                          <%= if @usage_sort_by == :status do %>
+                            <.icon
+                              name={
+                                if @usage_sort_dir == :asc,
+                                  do: "hero-chevron-up",
+                                  else: "hero-chevron-down"
+                              }
+                              class="w-3 h-3"
+                            />
+                          <% end %>
+                        </button>
+                      </th>
+                      <%!-- Hidden until xl (accounts for sidebar) --%>
+                      <th class="hidden xl:table-cell">Source</th>
+                      <%!-- Always visible --%>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for request <- @usage_requests do %>
+                      <tr>
+                        <%!-- Always visible --%>
+                        <td class="text-sm">
+                          <.time_ago datetime={request.inserted_at} />
+                        </td>
+                        <%!-- Hidden until lg (accounts for sidebar) --%>
+                        <td class="hidden lg:table-cell text-sm">
+                          {request.endpoint_name || "-"}
+                        </td>
+                        <%!-- Hidden until lg - Prompt column --%>
+                        <td class="hidden lg:table-cell text-sm">
+                          <%= if request.prompt_name do %>
+                            <.link
+                              navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{request.prompt_id}/edit"}
+                              class="link link-hover link-primary"
+                            >
+                              {request.prompt_name}
+                            </.link>
+                          <% else %>
+                            <span class="text-base-content/50">-</span>
+                          <% end %>
+                        </td>
+                        <%!-- Always visible --%>
+                        <td class="text-sm font-mono">
+                          {PhoenixKit.Modules.AI.Request.short_model_name(request.model)}
+                        </td>
+                        <%!-- Hidden until xl (accounts for sidebar) --%>
+                        <td class="hidden xl:table-cell text-sm">
+                          {PhoenixKit.Modules.AI.Request.format_tokens(request.total_tokens)}
+                        </td>
+                        <%!-- Hidden until xl (accounts for sidebar) --%>
+                        <td class="hidden xl:table-cell text-sm">
+                          {PhoenixKit.Modules.AI.Request.format_latency(request.latency_ms)}
+                        </td>
+                        <%!-- Hidden until lg (accounts for sidebar) --%>
+                        <td class="hidden lg:table-cell text-sm">
+                          {PhoenixKit.Modules.AI.Request.format_cost(request.cost_cents)}
+                        </td>
+                        <%!-- Always visible --%>
+                        <td>
+                          <span class={"badge badge-sm #{PhoenixKit.Modules.AI.Request.status_color(request.status)}"}>
+                            {PhoenixKit.Modules.AI.Request.status_label(request.status)}
+                          </span>
+                          <%= if request.error_message do %>
+                            <div class="tooltip" data-tip={request.error_message}>
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-error ml-1"
+                              />
+                            </div>
+                          <% end %>
+                        </td>
+                        <%!-- Hidden until xl (accounts for sidebar) --%>
+                        <td
+                          class="hidden xl:table-cell text-sm font-mono text-base-content/70 max-w-[150px] truncate"
+                          title={request.metadata["source"]}
+                        >
+                          {request.metadata["source"] || "-"}
+                        </td>
+                        <%!-- Always visible --%>
+                        <td>
+                          <button
+                            phx-click="show_request_details"
+                            phx-value-id={request.id}
+                            class="btn btn-ghost btn-xs"
+                          >
+                            <.icon name="hero-eye" class="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+
+              <%= if length(@usage_requests) < @usage_total_requests do %>
+                <div class="mt-4 text-center">
+                  <button phx-click="load_more_requests" class="btn btn-outline btn-sm">
+                    Load More
+                  </button>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      <% else %>
+        <div class="flex justify-center py-8">
+          <span class="loading loading-spinner loading-lg"></span>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+
+  <%!-- Request Details Modal --%>
+  <%= if @selected_request do %>
+    <div class="modal modal-open">
+      <div class="modal-box max-w-3xl">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg">Request Details</h3>
+          <button phx-click="close_request_details" class="btn btn-sm btn-circle btn-ghost">
+            ✕
+          </button>
+        </div>
+
+        <%!-- Request Summary --%>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <div class="text-xs text-base-content/70">ID</div>
+            <div class="font-mono text-sm">{@selected_request.id}</div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Status</div>
+            <span class={"badge badge-sm #{PhoenixKit.Modules.AI.Request.status_color(@selected_request.status)}"}>
+              {PhoenixKit.Modules.AI.Request.status_label(@selected_request.status)}
+            </span>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Latency</div>
+            <div class="text-sm">
+              {PhoenixKit.Modules.AI.Request.format_latency(@selected_request.latency_ms)}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Cost</div>
+            <div class="text-sm">
+              {PhoenixKit.Modules.AI.Request.format_cost(@selected_request.cost_cents)}
+            </div>
+          </div>
+        </div>
+
+        <%!-- Model, Endpoint & Prompt Info --%>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <div class="text-xs text-base-content/70">Endpoint</div>
+            <div class="text-sm">{@selected_request.endpoint_name || "-"}</div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Prompt</div>
+            <div class="text-sm">
+              <%= if @selected_request.prompt_name do %>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts/#{@selected_request.prompt_id}/edit"}
+                  class="link link-hover link-primary"
+                >
+                  {@selected_request.prompt_name}
+                </.link>
+              <% else %>
+                <span class="text-base-content/50">-</span>
+              <% end %>
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Model</div>
+            <div class="text-sm font-mono">{@selected_request.model}</div>
+          </div>
+        </div>
+
+        <%!-- Token Usage --%>
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div>
+            <div class="text-xs text-base-content/70">Input Tokens</div>
+            <div class="text-sm">
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.input_tokens)}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Output Tokens</div>
+            <div class="text-sm">
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.output_tokens)}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs text-base-content/70">Total Tokens</div>
+            <div class="text-sm font-semibold">
+              {PhoenixKit.Modules.AI.Request.format_tokens(@selected_request.total_tokens)}
+            </div>
+          </div>
+        </div>
+
+        <%!-- Timestamp --%>
+        <div class="mb-4">
+          <div class="text-xs text-base-content/70">Timestamp</div>
+          <div class="text-sm font-mono">
+            {Calendar.strftime(@selected_request.inserted_at, "%Y-%m-%d %H:%M:%S UTC")}
+          </div>
+        </div>
+
+        <%!-- Error Message (if any) --%>
+        <%= if @selected_request.error_message do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70">Error Message</div>
+            <div class="bg-error/10 text-error p-2 rounded text-sm font-mono">
+              {@selected_request.error_message}
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Messages (Request) --%>
+        <%= if @selected_request.metadata["messages"] do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70 mb-1">Request Messages</div>
+            <div class="space-y-2">
+              <%= for msg <- @selected_request.metadata["messages"] do %>
+                <div class={"p-3 rounded #{if msg["role"] == "user", do: "bg-primary/10 border-l-2 border-primary", else: "bg-base-300 border-l-2 border-base-content/30"}"}>
+                  <div class="text-xs font-semibold text-base-content/70 mb-1 uppercase">
+                    {msg["role"]}
+                  </div>
+                  <div class="text-sm whitespace-pre-wrap">{msg["content"]}</div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Response --%>
+        <%= if @selected_request.metadata["response"] do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70 mb-1">Response</div>
+            <div class="bg-success/10 border-l-2 border-success p-3 rounded">
+              <div class="text-xs font-semibold text-base-content/70 mb-1 uppercase">
+                assistant
+              </div>
+              <div class="text-sm whitespace-pre-wrap">
+                {@selected_request.metadata["response"]}
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Parameters Used --%>
+        <% params_to_show =
+          Map.take(@selected_request.metadata || %{}, ["temperature", "max_tokens"]) %>
+        <%= if params_to_show != %{} do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70 mb-1">Parameters</div>
+            <div class="flex flex-wrap gap-2">
+              <%= for {key, value} <- params_to_show, not is_nil(value) do %>
+                <span class="badge badge-outline badge-sm">{key}: {value}</span>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Source (caller module/function) --%>
+        <%= if @selected_request.metadata["source"] do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70">Source</div>
+            <div class="text-sm font-mono bg-base-200 px-2 py-1 rounded inline-block">
+              {@selected_request.metadata["source"]}
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Caller Context (request ID, node, memory, pid) --%>
+        <%= if ctx = @selected_request.metadata["caller_context"] do %>
+          <div class="mb-4">
+            <div class="text-xs text-base-content/70 mb-1">Caller Context</div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+              <%= if ctx["request_id"] do %>
+                <div>
+                  <span class="text-base-content/70">Request ID:</span>
+                  <span class="font-mono text-xs">{ctx["request_id"]}</span>
+                </div>
+              <% end %>
+              <div>
+                <span class="text-base-content/70">Node:</span>
+                <span class="font-mono text-xs">{ctx["node"]}</span>
+              </div>
+              <div>
+                <span class="text-base-content/70">PID:</span>
+                <span class="font-mono text-xs">{ctx["pid"]}</span>
+              </div>
+              <%= if ctx["memory_bytes"] do %>
+                <div>
+                  <span class="text-base-content/70">Memory:</span>
+                  <span>{format_bytes(ctx["memory_bytes"])}</span>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Stacktrace (collapsible) --%>
+        <%= if @selected_request.metadata["stacktrace"] && length(@selected_request.metadata["stacktrace"]) > 0 do %>
+          <div class="collapse collapse-arrow bg-base-200 mb-2">
+            <input
+              type="checkbox"
+              name="stacktrace-toggle"
+              phx-update="ignore"
+              id="stacktrace-toggle"
+            />
+            <div class="collapse-title text-sm font-medium">
+              <.icon name="hero-queue-list" class="w-4 h-4 inline mr-1" />
+              Stacktrace ({length(@selected_request.metadata["stacktrace"])} frames)
+            </div>
+            <div class="collapse-content">
+              <div class="bg-base-300 p-3 rounded overflow-x-auto">
+                <pre class="text-xs font-mono whitespace-pre-wrap">{Enum.join(@selected_request.metadata["stacktrace"], "\n")}</pre>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Request Payload (what we sent) --%>
+        <%= if @selected_request.metadata["request_payload"] do %>
+          <div class="collapse collapse-arrow bg-base-200 mb-2">
+            <input
+              type="checkbox"
+              name="request-payload-toggle"
+              phx-update="ignore"
+              id="request-payload-toggle"
+            />
+            <div class="collapse-title text-sm font-medium">
+              <.icon name="hero-arrow-up-on-square" class="w-4 h-4 inline mr-1" />
+              Request Payload (sent to API)
+            </div>
+            <div class="collapse-content">
+              <div class="bg-base-300 p-3 rounded overflow-x-auto">
+                <pre class="text-xs font-mono whitespace-pre-wrap"><code>{Jason.encode!(@selected_request.metadata["request_payload"], pretty: true)}</code></pre>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Raw API Response --%>
+        <%= if @selected_request.metadata["raw_response"] do %>
+          <div class="collapse collapse-arrow bg-base-200 mb-2">
+            <input
+              type="checkbox"
+              name="response-json-toggle"
+              phx-update="ignore"
+              id="response-json-toggle"
+            />
+            <div class="collapse-title text-sm font-medium">
+              <.icon name="hero-arrow-down-on-square" class="w-4 h-4 inline mr-1" />
+              API Response (raw)
+            </div>
+            <div class="collapse-content">
+              <div class="bg-base-300 p-3 rounded overflow-x-auto">
+                <pre class="text-xs font-mono whitespace-pre-wrap"><code>{Jason.encode!(@selected_request.metadata["raw_response"], pretty: true)}</code></pre>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
+        <%!-- Database Record --%>
+        <div class="collapse collapse-arrow bg-base-200">
+          <input
+            type="checkbox"
+            name="db-record-toggle"
+            phx-update="ignore"
+            id="db-record-toggle"
+          />
+          <div class="collapse-title text-sm font-medium">
+            <.icon name="hero-circle-stack" class="w-4 h-4 inline mr-1" /> Database Record
+          </div>
+          <div class="collapse-content">
+            <div class="bg-base-300 p-3 rounded overflow-x-auto">
+              <pre class="text-xs font-mono whitespace-pre-wrap"><code>{Jason.encode!(Map.drop(@selected_request, [:metadata]) |> Map.put(:metadata, "...truncated..."), pretty: true)}</code></pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-action">
+          <button phx-click="close_request_details" class="btn">Close</button>
+        </div>
+      </div>
+      <div class="modal-backdrop" phx-click="close_request_details"></div>
+    </div>
+  <% end %>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

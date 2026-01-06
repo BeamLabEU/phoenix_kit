@@ -13,15 +13,15 @@ defmodule PhoenixKitWeb.BlogController do
   use PhoenixKitWeb, :controller
   require Logger
 
-  alias PhoenixKit.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging
+  alias PhoenixKit.Modules.Blogging.ListingCache
+  alias PhoenixKit.Modules.Blogging.Metadata
+  alias PhoenixKit.Modules.Blogging.Renderer
+  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
-  alias PhoenixKitWeb.Live.Modules.Blogging
-  alias PhoenixKitWeb.Live.Modules.Blogging.ListingCache
-  alias PhoenixKitWeb.Live.Modules.Blogging.Metadata
-  alias PhoenixKitWeb.Live.Modules.Blogging.Storage
 
   # Suppress dialyzer false positive for defensive fallback pattern
   @dialyzer {:nowarn_function, render_post_content: 1}

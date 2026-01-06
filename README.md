@@ -471,23 +471,23 @@ Visit `{prefix}/admin/modules` to toggle modules on/off.
 **Enable via Code:**
 ```elixir
 # Check if a module is enabled
-PhoenixKit.AI.enabled?()        # => false (default)
-PhoenixKit.Entities.enabled?()  # => false (default)
+PhoenixKit.Modules.AI.enabled?()        # => false (default)
+PhoenixKit.Modules.Entities.enabled?()  # => false (default)
 
 # Enable modules before use
-PhoenixKit.AI.enable_system()
-PhoenixKit.Entities.enable_system()
-PhoenixKit.Posts.enable_system()
+PhoenixKit.Modules.AI.enable_system()
+PhoenixKit.Modules.Entities.enable_system()
+PhoenixKit.Modules.Posts.enable_system()
 PhoenixKit.Emails.enable_system()
 PhoenixKit.Billing.enable_system()
-PhoenixKit.DBSync.enable_system()
+PhoenixKit.Modules.Sync.enable_system()
 
 # Disable when no longer needed
-PhoenixKit.AI.disable_system()
+PhoenixKit.Modules.AI.disable_system()
 ```
 
 **Important**: Attempting to use a disabled module's API functions or admin pages will result in errors or redirects. Always enable modules before:
-- Calling their API functions (e.g., `PhoenixKit.AI.ask/3`)
+- Calling their API functions (e.g., `PhoenixKit.Modules.AI.ask/3`)
 - Visiting their admin pages (e.g., `/{prefix}/admin/ai/endpoints`)
 
 ### Built-in Admin Interface

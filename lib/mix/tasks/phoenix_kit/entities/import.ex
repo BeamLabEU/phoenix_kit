@@ -64,7 +64,7 @@ defmodule Mix.Tasks.PhoenixKit.Entities.Import do
 
   use Mix.Task
 
-  alias PhoenixKit.Entities.Mirror.{Importer, Storage}
+  alias PhoenixKit.Modules.Entities.Mirror.{Importer, Storage}
   alias PhoenixKit.Settings
 
   @impl Mix.Task

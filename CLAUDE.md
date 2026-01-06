@@ -723,23 +723,23 @@ lib/modules/db/
 
 ```elixir
 # Check if module is enabled
-PhoenixKit.Entities.enabled?()        # => false (default)
-PhoenixKit.AI.enabled?()              # => false (default)
+PhoenixKit.Modules.Entities.enabled?()        # => false (default)
+PhoenixKit.Modules.AI.enabled?()              # => false (default)
 
 # Enable modules before use
-PhoenixKit.Entities.enable_system()   # Enables entities module
-PhoenixKit.AI.enable_system()         # Enables AI module
-PhoenixKit.Posts.enable_system()      # Enables posts module
+PhoenixKit.Modules.Entities.enable_system()   # Enables entities module
+PhoenixKit.Modules.AI.enable_system()         # Enables AI module
+PhoenixKit.Modules.Posts.enable_system()      # Enables posts module
 PhoenixKit.Emails.enable_system()     # Enables email tracking
 PhoenixKit.Billing.enable_system()    # Enables billing module
 PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
-PhoenixKit.DBSync.enable_system()     # Enables DB sync
+PhoenixKit.Modules.Sync.enable_system()     # Enables DB sync
 PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
 PhoenixKit.Pages.enable_system()      # Enables pages module
 PhoenixKit.ReferralCodes.enable_system() # Enables referral codes
 
 # Disable when no longer needed
-PhoenixKit.Entities.disable_system()
+PhoenixKit.Modules.Entities.disable_system()
 ```
 
 **Alternatively, enable via Admin UI:** Navigate to `/{prefix}/admin/modules` or each module's settings page.

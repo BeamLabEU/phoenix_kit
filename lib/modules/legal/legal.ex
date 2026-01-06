@@ -787,7 +787,7 @@ defmodule PhoenixKit.Modules.Legal do
   end
 
   defp blogging_module do
-    PhoenixKitWeb.Live.Modules.Blogging
+    PhoenixKit.Modules.Blogging
   end
 
   defp ensure_legal_blog do

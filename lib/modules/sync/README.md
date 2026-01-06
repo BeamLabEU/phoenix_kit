@@ -103,7 +103,7 @@ The remote site uses the token when making API calls or WebSocket connections to
 ### Connection Management
 
 ```elixir
-alias PhoenixKit.DBSync.Connections
+alias PhoenixKit.Modules.Sync.Connections
 
 # Create a sender connection
 {:ok, connection} = Connections.create_connection(%{
@@ -145,7 +145,7 @@ end
 ### Transfer Tracking
 
 ```elixir
-alias PhoenixKit.DBSync.Transfers
+alias PhoenixKit.Modules.Sync.Transfers
 
 # Record a transfer
 {:ok, transfer} = Transfers.create_transfer(%{

@@ -5,8 +5,8 @@ defmodule PhoenixKitWeb.EntityFormController do
   use PhoenixKitWeb, :controller
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Entities
-  alias PhoenixKit.Entities.EntityData
+  alias PhoenixKit.Modules.Entities
+  alias PhoenixKit.Modules.Entities.EntityData
   alias PhoenixKit.Users.RateLimiter
 
   require Logger

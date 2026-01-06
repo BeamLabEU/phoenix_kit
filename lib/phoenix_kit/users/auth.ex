@@ -302,7 +302,7 @@ defmodule PhoenixKit.Users.Auth do
       nil  # No admin users exist
 
       # Common usage for creating entities
-      PhoenixKit.Entities.create_entity(%{
+      PhoenixKit.Modules.Entities.create_entity(%{
         name: "contact",
         display_name: "Contact",
         created_by: PhoenixKit.Users.Auth.get_first_admin_id()

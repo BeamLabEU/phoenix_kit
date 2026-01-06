@@ -477,6 +477,140 @@ defmodule PhoenixKitWeb.Integration do
             as: :sync_history
         end
       end
+
+      # Entities module routes - uses PhoenixKit.Modules.Entities namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_entities,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/entities", PhoenixKit.Modules.Entities.Web.Entities, :index, as: :entities
+
+          live "/admin/entities/new", PhoenixKit.Modules.Entities.Web.EntityForm, :new,
+            as: :entities_new
+
+          live "/admin/entities/:id/edit", PhoenixKit.Modules.Entities.Web.EntityForm, :edit,
+            as: :entities_edit
+
+          live "/admin/entities/:entity_slug/data",
+               PhoenixKit.Modules.Entities.Web.DataNavigator,
+               :entity,
+               as: :entities_data_entity
+
+          live "/admin/entities/:entity_slug/data/new",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :new,
+               as: :entities_data_new
+
+          live "/admin/entities/:entity_slug/data/:id",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :show,
+               as: :entities_data_show
+
+          live "/admin/entities/:entity_slug/data/:id/edit",
+               PhoenixKit.Modules.Entities.Web.DataForm,
+               :edit,
+               as: :entities_data_edit
+
+          live "/admin/settings/entities",
+               PhoenixKit.Modules.Entities.Web.EntitiesSettings,
+               :index,
+               as: :entities_settings
+        end
+      end
+
+      # AI module routes - uses PhoenixKit.Modules.AI namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_ai,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/ai", PhoenixKit.Modules.AI.Web.Endpoints, :index, as: :ai_index
+
+          live "/admin/ai/endpoints", PhoenixKit.Modules.AI.Web.Endpoints, :endpoints,
+            as: :ai_endpoints
+
+          live "/admin/ai/usage", PhoenixKit.Modules.AI.Web.Endpoints, :usage, as: :ai_usage
+
+          live "/admin/ai/endpoints/new", PhoenixKit.Modules.AI.Web.EndpointForm, :new,
+            as: :ai_endpoint_new
+
+          live "/admin/ai/endpoints/:id/edit", PhoenixKit.Modules.AI.Web.EndpointForm, :edit,
+            as: :ai_endpoint_edit
+
+          live "/admin/ai/prompts", PhoenixKit.Modules.AI.Web.Prompts, :index, as: :ai_prompts
+
+          live "/admin/ai/prompts/new", PhoenixKit.Modules.AI.Web.PromptForm, :new,
+            as: :ai_prompt_new
+
+          live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
+            as: :ai_prompt_edit
+        end
+      end
+    end
+  end
+
+  # Helper function to generate blogging routes with locale support
+  # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
+  defp generate_blogging_routes(url_prefix) do
+    quote do
+      # Localized blogging routes (with :locale prefix)
+      scope "#{unquote(url_prefix)}/:locale" do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_blogging_localized,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
+            as: :blogging_index_localized
+
+          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
+            as: :blogging_blog_localized
+
+          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
+            as: :blogging_editor_localized
+
+          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
+            as: :blogging_preview_localized
+
+          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
+            as: :blogging_settings_localized
+
+          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
+            as: :blogging_new_localized
+
+          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
+            as: :blogging_edit_localized
+        end
+      end
+
+      # Non-localized blogging routes (without :locale prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_blogging,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
+            as: :blogging_index
+
+          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
+            as: :blogging_blog
+
+          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
+            as: :blogging_editor
+
+          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
+            as: :blogging_preview
+
+          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
+            as: :blogging_settings
+
+          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
+            as: :blogging_new
+
+          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
+            as: :blogging_edit
+        end
+      end
     end
   end
 
@@ -566,13 +700,9 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/users", Live.Settings.Users, :index
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
-        live "/admin/blogging", Live.Modules.Blogging.Index, :index
-        live "/admin/blogging/:blog", Live.Modules.Blogging.Blog, :blog
-        live "/admin/blogging/:blog/edit", Live.Modules.Blogging.Editor, :edit
-        live "/admin/blogging/:blog/preview", Live.Modules.Blogging.Preview, :preview
-        live "/admin/settings/blogging", Live.Modules.Blogging.Settings, :index
-        live "/admin/settings/blogging/new", Live.Modules.Blogging.New, :new
-        live "/admin/settings/blogging/:blog/edit", Live.Modules.Blogging.Edit, :edit
+
+        # Note: Blogging routes are in generate_blogging_routes/1 with separate scopes
+        # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
 
         # Posts module routes
         live "/admin/posts", Live.Modules.Posts.Posts, :index
@@ -632,39 +762,8 @@ defmodule PhoenixKitWeb.Integration do
         # Jobs
         live "/admin/jobs", Live.Modules.Jobs.Index, :index
 
-        # AI Module
-        live "/admin/ai", Live.Modules.AI.Endpoints, :index
-        live "/admin/ai/endpoints", Live.Modules.AI.Endpoints, :endpoints
-        live "/admin/ai/usage", Live.Modules.AI.Endpoints, :usage
-        live "/admin/ai/endpoints/new", Live.Modules.AI.EndpointForm, :new
-        live "/admin/ai/endpoints/:id/edit", Live.Modules.AI.EndpointForm, :edit
-        live "/admin/ai/prompts", Live.Modules.AI.Prompts, :index
-        live "/admin/ai/prompts/new", Live.Modules.AI.PromptForm, :new
-        live "/admin/ai/prompts/:id/edit", Live.Modules.AI.PromptForm, :edit
-
-        # Entities Management
-        live "/admin/entities", Live.Modules.Entities.Entities, :index, as: :entities
-        live "/admin/entities/new", Live.Modules.Entities.EntityForm, :new, as: :entities_new
-
-        live "/admin/entities/:id/edit", Live.Modules.Entities.EntityForm, :edit,
-          as: :entities_edit
-
-        live "/admin/entities/:entity_slug/data", Live.Modules.Entities.DataNavigator, :entity,
-          as: :entities_data_entity
-
-        live "/admin/entities/:entity_slug/data/new", Live.Modules.Entities.DataForm, :new,
-          as: :entities_data_new
-
-        live "/admin/entities/:entity_slug/data/:id", Live.Modules.Entities.DataForm, :show,
-          as: :entities_data_show
-
-        live "/admin/entities/:entity_slug/data/:id/edit",
-             Live.Modules.Entities.DataForm,
-             :edit,
-             as: :entities_data_edit
-
-        live "/admin/settings/entities", Live.Modules.Entities.EntitiesSettings, :index,
-          as: :entities_settings
+        # Note: AI, Billing, Blogging, and Entities routes are defined in generate_basic_scope/1
+        # using separate scopes without PhoenixKitWeb module prefix
       end
     end
   end
@@ -789,6 +888,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate basic routes scope
       unquote(generate_basic_scope(url_prefix))
+
+      # Generate blogging routes (with locale support)
+      unquote(generate_blogging_routes(url_prefix))
 
       # Generate localized routes
       unquote(generate_localized_routes(url_prefix, pattern))

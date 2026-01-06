@@ -601,17 +601,17 @@ end
 
 ### Creating Centralized Subscriptions
 
-**File:** `lib/phoenix_kit_web/live/modules/entities/hooks.ex`
+**File:** `lib/modules/entities/web/hooks.ex`
 
 ```elixir
-defmodule PhoenixKitWeb.Live.Modules.Entities.Hooks do
+defmodule PhoenixKit.Modules.Entities.Web.Hooks do
   @moduledoc """
   LiveView hooks for entity module pages.
   Provides common setup and subscriptions for all entity-related LiveViews.
   """
 
   import Phoenix.LiveView
-  alias PhoenixKit.Entities.Events
+  alias PhoenixKit.Modules.Entities.Events
 
   def on_mount(:default, _params, _session, socket) do
     if connected?(socket) do
@@ -626,11 +626,11 @@ end
 ### Using Hooks in LiveViews
 
 ```elixir
-defmodule PhoenixKitWeb.Live.Modules.Entities.EntitiesLive do
+defmodule PhoenixKit.Modules.Entities.Web.EntitiesLive do
   use PhoenixKitWeb, :live_view
 
   # Add this line to use the hook
-  on_mount PhoenixKitWeb.Live.Modules.Entities.Hooks
+  on_mount PhoenixKit.Modules.Entities.Web.Hooks
 
   # Now you don't need to call Events.subscribe_to_entities() in mount/3
   # It's handled automatically by the hook!
@@ -655,7 +655,7 @@ end
 
 ### Pattern 1: List Page with Real-time Updates
 
-**Reference:** `lib/phoenix_kit_web/live/modules/entities/entities.ex`
+**Reference:** `lib/modules/entities/web/entities.ex`
 
 ```elixir
 defmodule MyApp.MyResourcesLive do
@@ -692,7 +692,7 @@ end
 
 ### Pattern 2: Detail Page with Remote Updates
 
-**Reference:** `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
+**Reference:** `lib/modules/entities/web/data_navigator.ex`
 
 ```elixir
 defmodule MyApp.MyResourceDetailLive do
@@ -745,7 +745,7 @@ end
 
 ### Pattern 3: Collaborative Form Editing
 
-**Reference:** `lib/phoenix_kit_web/live/modules/entities/entity_form.ex`
+**Reference:** `lib/modules/entities/web/entity_form.ex`
 
 ```elixir
 defmodule MyApp.MyResourceFormLive do
@@ -1268,21 +1268,21 @@ Key Concepts:
 
 ### LiveView Examples
 
-- **Hooks:** `lib/phoenix_kit_web/live/modules/entities/hooks.ex`
+- **Hooks:** `lib/modules/entities/hooks.ex`
   - Centralized subscriptions with `on_mount`
 
-- **List Page:** `lib/phoenix_kit_web/live/modules/entities/entities.ex`
+- **List Page:** `lib/modules/entities/web/entities.ex`
   - Real-time list updates via Events system
 
-- **Detail Page:** `lib/phoenix_kit_web/live/modules/entities/data_navigator.ex`
+- **Detail Page:** `lib/modules/entities/web/data_navigator.ex`
   - Real-time detail updates and deletion handling
 
-- **Collaborative Form (Entity):** `lib/phoenix_kit_web/live/modules/entities/entity_form.ex`
+- **Collaborative Form (Entity):** `lib/modules/entities/web/entity_form.ex`
   - Full collaborative editing implementation
   - Owner/spectator roles
   - Real-time state synchronization
 
-- **Collaborative Form (Data):** `lib/phoenix_kit_web/live/modules/entities/data_form.ex`
+- **Collaborative Form (Data):** `lib/modules/entities/web/data_form.ex`
   - Data record collaborative editing
   - Same patterns as entity_form.ex
 
