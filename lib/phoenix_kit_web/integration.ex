@@ -614,6 +614,68 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
+  # Helper function to generate referral codes routes
+  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
+  defp generate_referral_codes_routes(url_prefix) do
+    quote do
+      # Referral codes admin LiveView routes (localized)
+      scope "#{unquote(url_prefix)}/:locale" do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_referral_codes_localized,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/settings/referral-codes",
+               PhoenixKit.Modules.ReferralCodes.Web.Settings,
+               :index,
+               as: :referral_codes_settings_localized
+
+          live "/admin/users/referral-codes",
+               PhoenixKit.Modules.ReferralCodes.Web.List,
+               :index,
+               as: :referral_codes_list_localized
+
+          live "/admin/users/referral-codes/new",
+               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               :new,
+               as: :referral_codes_new_localized
+
+          live "/admin/users/referral-codes/edit/:id",
+               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               :edit,
+               as: :referral_codes_edit_localized
+        end
+      end
+
+      # Referral codes admin LiveView routes (non-localized)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_referral_codes,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/settings/referral-codes",
+               PhoenixKit.Modules.ReferralCodes.Web.Settings,
+               :index,
+               as: :referral_codes_settings
+
+          live "/admin/users/referral-codes",
+               PhoenixKit.Modules.ReferralCodes.Web.List,
+               :index,
+               as: :referral_codes_list
+
+          live "/admin/users/referral-codes/new",
+               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               :new,
+               as: :referral_codes_new
+
+          live "/admin/users/referral-codes/edit/:id",
+               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               :edit,
+               as: :referral_codes_edit
+        end
+      end
+    end
+  end
+
   # Helper function to generate blogging routes with locale support
   # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
   defp generate_blogging_routes(url_prefix) do
@@ -778,7 +840,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/posts/:id/edit", Live.Modules.Posts.Edit, :edit
         live "/admin/settings/posts", Live.Modules.Posts.Settings, :index
 
-        live "/admin/settings/referral-codes", Live.Modules.ReferralCodes, :index
+        # Note: Referral codes routes moved to generate_referral_codes_routes/1 (separate scope)
         # Note: Email settings moved to generate_emails_routes/1 (separate scope)
         live "/admin/settings/languages", Live.Modules.Languages, :index
         live "/admin/settings/legal", Live.Modules.Legal.Settings, :index
@@ -806,10 +868,7 @@ defmodule PhoenixKitWeb.Integration do
              Live.Modules.Storage.DimensionForm,
              :edit
 
-        live "/admin/users/referral-codes", Live.Users.ReferralCodes, :index
-        live "/admin/users/referral-codes/new", Live.Users.ReferralCodeForm, :new
-        live "/admin/users/referral-codes/edit/:id", Live.Users.ReferralCodeForm, :edit
-
+        # Note: Referral codes routes moved to generate_referral_codes_routes/1 (separate scope)
         # Note: Email routes moved to generate_emails_routes/1 (separate scope)
         # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
 
@@ -945,6 +1004,9 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate email routes (separate scope for PhoenixKit.Modules.* namespace)
       unquote(generate_emails_routes(url_prefix))
+
+      # Generate referral codes routes (separate scope for PhoenixKit.Modules.* namespace)
+      unquote(generate_referral_codes_routes(url_prefix))
 
       # Generate blogging routes (with locale support)
       unquote(generate_blogging_routes(url_prefix))

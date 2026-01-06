@@ -1,4 +1,4 @@
-defmodule PhoenixKit.ReferralCodeUsage do
+defmodule PhoenixKit.Modules.ReferralCodes.ReferralCodeUsage do
   @moduledoc """
   ReferralCodeUsage schema for tracking referral code usage in PhoenixKit.
 
@@ -34,6 +34,8 @@ defmodule PhoenixKit.ReferralCodeUsage do
   import Ecto.Changeset
   import Ecto.Query
 
+  alias PhoenixKit.Modules.ReferralCodes
+
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_referral_code_usage" do
@@ -41,7 +43,7 @@ defmodule PhoenixKit.ReferralCodeUsage do
     field :used_by, :integer
     field :date_used, :utc_datetime_usec
 
-    belongs_to :referral_code, PhoenixKit.ReferralCodes, foreign_key: :code_id
+    belongs_to :referral_code, ReferralCodes, foreign_key: :code_id
   end
 
   @doc """

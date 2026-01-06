@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Users.ReferralCodeForm do
+defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
   @moduledoc """
   Referral code form LiveView for PhoenixKit admin panel.
 
@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Users.ReferralCodeForm do
 
   require Logger
 
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes

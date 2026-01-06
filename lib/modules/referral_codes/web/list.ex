@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Users.ReferralCodes do
+defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
   @moduledoc """
   User referral codes management LiveView for PhoenixKit admin panel.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKitWeb.Live.Users.ReferralCodes do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Settings
 
   def mount(_params, _session, socket) do

@@ -32,6 +32,8 @@ defmodule PhoenixKit.Migrations.Postgres.V15 do
   def up(%{prefix: prefix} = _opts) do
     # Create email templates table
     create_if_not_exists table(:phoenix_kit_email_templates, prefix: prefix) do
+      # UUID for external references and DB sync
+      add :uuid, :uuid, null: true
       # Template unique name (e.g., "magic_link", "welcome_email")
       add :name, :string, null: false
       # URL-friendly slug for template identification

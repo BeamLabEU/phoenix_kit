@@ -322,7 +322,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           nested={true}
                         />
 
-                        <%= if PhoenixKit.ReferralCodes.enabled?() do %>
+                        <%= if PhoenixKit.Modules.ReferralCodes.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/users/referral-codes")}
                             icon="referral_codes"
@@ -791,7 +791,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           nested={true}
                         />
 
-                        <%= if PhoenixKit.ReferralCodes.enabled?() do %>
+                        <%= if PhoenixKit.Modules.ReferralCodes.enabled?() do %>
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/settings/referral-codes")}
                             icon="referral_codes"

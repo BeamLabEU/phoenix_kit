@@ -1,8 +1,8 @@
-defmodule PhoenixKit.ReferralCodes do
+defmodule PhoenixKit.Modules.ReferralCodes do
   @moduledoc """
   Referral code system for PhoenixKit - complete management in a single module.
 
-  This module provides both the Ecto schema definition and business logic for 
+  This module provides both the Ecto schema definition and business logic for
   managing referral codes. It includes code creation, validation, usage tracking,
   and system configuration.
 
@@ -45,12 +45,12 @@ defmodule PhoenixKit.ReferralCodes do
   ## Usage Examples
 
       # Check if system is enabled
-      if PhoenixKit.ReferralCodes.enabled?() do
+      if PhoenixKit.Modules.ReferralCodes.enabled?() do
         # System is active
       end
 
       # Create a new referral code
-      {:ok, code} = PhoenixKit.ReferralCodes.create_code(%{
+      {:ok, code} = PhoenixKit.Modules.ReferralCodes.create_code(%{
         code: "WELCOME2024",
         description: "Welcome promotion",
         max_uses: 100,
@@ -59,7 +59,7 @@ defmodule PhoenixKit.ReferralCodes do
       })
 
       # Use a referral code during registration
-      case PhoenixKit.ReferralCodes.use_code("WELCOME2024", user.id) do
+      case PhoenixKit.Modules.ReferralCodes.use_code("WELCOME2024", user.id) do
         {:ok, usage} -> # Code used successfully
         {:error, reason} -> # Handle error
       end
@@ -69,6 +69,7 @@ defmodule PhoenixKit.ReferralCodes do
   import Ecto.Changeset
   import Ecto.Query, warn: false
 
+  alias PhoenixKit.Modules.ReferralCodes.ReferralCodeUsage
   alias PhoenixKit.Settings
 
   @primary_key {:id, :id, autogenerate: true}
@@ -91,7 +92,7 @@ defmodule PhoenixKit.ReferralCodes do
       foreign_key: :beneficiary,
       define_field: false
 
-    has_many :usage_records, PhoenixKit.ReferralCodeUsage, foreign_key: :code_id
+    has_many :usage_records, ReferralCodeUsage, foreign_key: :code_id
   end
 
   ## --- Schema Functions ---
@@ -144,7 +145,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.generate_random_code()
+      iex> PhoenixKit.Modules.ReferralCodes.generate_random_code()
       "A7B2K"
   """
   def generate_random_code do
@@ -166,7 +167,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.valid_for_use?(code)
+      iex> PhoenixKit.Modules.ReferralCodes.valid_for_use?(code)
       true
   """
   def valid_for_use?(%__MODULE__{} = code) do
@@ -181,7 +182,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.expired?(code)
+      iex> PhoenixKit.Modules.ReferralCodes.expired?(code)
       false
   """
   def expired?(%__MODULE__{} = code) do
@@ -194,7 +195,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.usage_limit_reached?(code)
+      iex> PhoenixKit.Modules.ReferralCodes.usage_limit_reached?(code)
       false
   """
   def usage_limit_reached?(%__MODULE__{} = code) do
@@ -208,8 +209,8 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.list_codes()
-      [%PhoenixKit.ReferralCodes{}, ...]
+      iex> PhoenixKit.Modules.ReferralCodes.list_codes()
+      [%PhoenixKit.Modules.ReferralCodes{}, ...]
   """
   def list_codes do
     __MODULE__
@@ -225,10 +226,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_code!(123)
-      %PhoenixKit.ReferralCodes{}
+      iex> PhoenixKit.Modules.ReferralCodes.get_code!(123)
+      %PhoenixKit.Modules.ReferralCodes{}
 
-      iex> PhoenixKit.ReferralCodes.get_code!(456)
+      iex> PhoenixKit.Modules.ReferralCodes.get_code!(456)
       ** (Ecto.NoResultsError)
   """
   def get_code!(id), do: repo().get!(__MODULE__, id)
@@ -240,10 +241,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_code_by_string("WELCOME2024")
-      %PhoenixKit.ReferralCodes{}
+      iex> PhoenixKit.Modules.ReferralCodes.get_code_by_string("WELCOME2024")
+      %PhoenixKit.Modules.ReferralCodes{}
 
-      iex> PhoenixKit.ReferralCodes.get_code_by_string("INVALID")
+      iex> PhoenixKit.Modules.ReferralCodes.get_code_by_string("INVALID")
       nil
   """
   def get_code_by_string(code_string) when is_binary(code_string) do
@@ -255,10 +256,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.create_code(%{code: "TEST123", max_uses: 10})
-      {:ok, %PhoenixKit.ReferralCodes{}}
+      iex> PhoenixKit.Modules.ReferralCodes.create_code(%{code: "TEST123", max_uses: 10})
+      {:ok, %PhoenixKit.Modules.ReferralCodes{}}
 
-      iex> PhoenixKit.ReferralCodes.create_code(%{code: ""})
+      iex> PhoenixKit.Modules.ReferralCodes.create_code(%{code: ""})
       {:error, %Ecto.Changeset{}}
   """
   def create_code(attrs \\ %{}) do
@@ -272,10 +273,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.update_code(code, %{description: "Updated"})
-      {:ok, %PhoenixKit.ReferralCodes{}}
+      iex> PhoenixKit.Modules.ReferralCodes.update_code(code, %{description: "Updated"})
+      {:ok, %PhoenixKit.Modules.ReferralCodes{}}
 
-      iex> PhoenixKit.ReferralCodes.update_code(code, %{code: ""})
+      iex> PhoenixKit.Modules.ReferralCodes.update_code(code, %{code: ""})
       {:error, %Ecto.Changeset{}}
   """
   def update_code(%__MODULE__{} = referral_code, attrs) do
@@ -289,10 +290,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.delete_code(code)
-      {:ok, %PhoenixKit.ReferralCodes{}}
+      iex> PhoenixKit.Modules.ReferralCodes.delete_code(code)
+      {:ok, %PhoenixKit.Modules.ReferralCodes{}}
 
-      iex> PhoenixKit.ReferralCodes.delete_code(code)
+      iex> PhoenixKit.Modules.ReferralCodes.delete_code(code)
       {:error, %Ecto.Changeset{}}
   """
   def delete_code(%__MODULE__{} = referral_code) do
@@ -304,8 +305,8 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.change_code(code)
-      %Ecto.Changeset{data: %PhoenixKit.ReferralCodes{}}
+      iex> PhoenixKit.Modules.ReferralCodes.change_code(code)
+      %Ecto.Changeset{data: %PhoenixKit.Modules.ReferralCodes{}}
   """
   def change_code(%__MODULE__{} = referral_code, attrs \\ %{}) do
     changeset(referral_code, attrs)
@@ -319,10 +320,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.use_code("WELCOME2024", user_id)
-      {:ok, %PhoenixKit.ReferralCodeUsage{}}
+      iex> PhoenixKit.Modules.ReferralCodes.use_code("WELCOME2024", user_id)
+      {:ok, %PhoenixKit.Modules.ReferralCodes.ReferralCodeUsage{}}
 
-      iex> PhoenixKit.ReferralCodes.use_code("EXPIRED", user_id)
+      iex> PhoenixKit.Modules.ReferralCodes.use_code("EXPIRED", user_id)
       {:error, :code_not_found}
   """
   def use_code(code_string, user_id) when is_binary(code_string) and is_integer(user_id) do
@@ -345,8 +346,8 @@ defmodule PhoenixKit.ReferralCodes do
 
   defp do_record_usage(code, user_id) do
     usage_result =
-      %PhoenixKit.ReferralCodeUsage{}
-      |> PhoenixKit.ReferralCodeUsage.changeset(%{code_id: code.id, used_by: user_id})
+      %ReferralCodeUsage{}
+      |> ReferralCodeUsage.changeset(%{code_id: code.id, used_by: user_id})
       |> repo().insert()
 
     case usage_result do
@@ -373,11 +374,11 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_usage_stats(code_id)
+      iex> PhoenixKit.Modules.ReferralCodes.get_usage_stats(code_id)
       %{total_uses: 5, unique_users: 3, last_used: ~U[...], recent_users: [...]}
   """
   def get_usage_stats(code_id) when is_integer(code_id) do
-    PhoenixKit.ReferralCodeUsage.get_usage_stats(code_id)
+    ReferralCodeUsage.get_usage_stats(code_id)
   end
 
   @doc """
@@ -385,11 +386,11 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.list_usage_for_code(code_id)
-      [%PhoenixKit.ReferralCodeUsage{}, ...]
+      iex> PhoenixKit.Modules.ReferralCodes.list_usage_for_code(code_id)
+      [%PhoenixKit.Modules.ReferralCodes.ReferralCodeUsage{}, ...]
   """
   def list_usage_for_code(code_id) when is_integer(code_id) do
-    PhoenixKit.ReferralCodeUsage.for_code(code_id)
+    ReferralCodeUsage.for_code(code_id)
     |> repo().all()
   end
 
@@ -398,11 +399,11 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.user_used_code?(user_id, code_id)
+      iex> PhoenixKit.Modules.ReferralCodes.user_used_code?(user_id, code_id)
       false
   """
   def user_used_code?(user_id, code_id) when is_integer(user_id) and is_integer(code_id) do
-    PhoenixKit.ReferralCodeUsage.user_used_code?(user_id, code_id)
+    ReferralCodeUsage.user_used_code?(user_id, code_id)
   end
 
   ## --- System Settings ---
@@ -414,7 +415,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.enabled?()
+      iex> PhoenixKit.Modules.ReferralCodes.enabled?()
       false
   """
   def enabled? do
@@ -428,7 +429,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.required?()
+      iex> PhoenixKit.Modules.ReferralCodes.required?()
       false
   """
   def required? do
@@ -442,7 +443,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.enable_system()
+      iex> PhoenixKit.Modules.ReferralCodes.enable_system()
       {:ok, %Setting{}}
   """
   def enable_system do
@@ -456,7 +457,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.disable_system()
+      iex> PhoenixKit.Modules.ReferralCodes.disable_system()
       {:ok, %Setting{}}
   """
   def disable_system do
@@ -468,10 +469,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.set_required(true)
+      iex> PhoenixKit.Modules.ReferralCodes.set_required(true)
       {:ok, %Setting{}}
 
-      iex> PhoenixKit.ReferralCodes.set_required(false)
+      iex> PhoenixKit.Modules.ReferralCodes.set_required(false)
       {:ok, %Setting{}}
   """
   def set_required(required) when is_boolean(required) do
@@ -490,7 +491,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_max_uses_per_code()
+      iex> PhoenixKit.Modules.ReferralCodes.get_max_uses_per_code()
       100
   """
   def get_max_uses_per_code do
@@ -505,7 +506,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_max_codes_per_user()
+      iex> PhoenixKit.Modules.ReferralCodes.get_max_codes_per_user()
       10
   """
   def get_max_codes_per_user do
@@ -519,7 +520,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.set_max_uses_per_code(50)
+      iex> PhoenixKit.Modules.ReferralCodes.set_max_uses_per_code(50)
       {:ok, %Setting{}}
   """
   def set_max_uses_per_code(max_uses) when is_integer(max_uses) and max_uses > 0 do
@@ -537,7 +538,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.set_max_codes_per_user(5)
+      iex> PhoenixKit.Modules.ReferralCodes.set_max_codes_per_user(5)
       {:ok, %Setting{}}
   """
   def set_max_codes_per_user(max_codes) when is_integer(max_codes) and max_codes > 0 do
@@ -555,7 +556,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_config()
+      iex> PhoenixKit.Modules.ReferralCodes.get_config()
       %{enabled: false, required: false}
   """
   def get_config do
@@ -574,8 +575,8 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.list_valid_codes()
-      [%PhoenixKit.ReferralCodes{}, ...]
+      iex> PhoenixKit.Modules.ReferralCodes.list_valid_codes()
+      [%PhoenixKit.Modules.ReferralCodes{}, ...]
   """
   def list_valid_codes do
     now = DateTime.utc_now()
@@ -596,12 +597,12 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.get_system_stats()
+      iex> PhoenixKit.Modules.ReferralCodes.get_system_stats()
       %{total_codes: 10, active_codes: 8, total_usage: 150, codes_with_usage: 6}
   """
   def get_system_stats do
     codes_query = from(r in __MODULE__)
-    usage_query = from(u in PhoenixKit.ReferralCodeUsage)
+    usage_query = from(u in ReferralCodeUsage)
 
     total_codes = repo().aggregate(codes_query, :count)
     active_codes = repo().aggregate(from(r in codes_query, where: r.status == true), :count)
@@ -695,10 +696,10 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.validate_user_code_limit(1)
+      iex> PhoenixKit.Modules.ReferralCodes.validate_user_code_limit(1)
       {:ok, :valid}
 
-      iex> PhoenixKit.ReferralCodes.validate_user_code_limit(1)
+      iex> PhoenixKit.Modules.ReferralCodes.validate_user_code_limit(1)
       {:error, "You have reached the maximum limit of 10 referral codes"}
   """
   def validate_user_code_limit(user_id) when is_integer(user_id) do
@@ -717,7 +718,7 @@ defmodule PhoenixKit.ReferralCodes do
 
   ## Examples
 
-      iex> PhoenixKit.ReferralCodes.count_user_codes(1)
+      iex> PhoenixKit.Modules.ReferralCodes.count_user_codes(1)
       5
   """
   def count_user_codes(user_id) when is_integer(user_id) do

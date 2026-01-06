@@ -10,7 +10,7 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Config
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -203,10 +203,10 @@ defmodule PhoenixKitWeb.Users.Registration do
           not code.status ->
             {:error, "This referral code is no longer active"}
 
-          PhoenixKit.ReferralCodes.expired?(code) ->
+          ReferralCodes.expired?(code) ->
             {:error, "This referral code has expired"}
 
-          PhoenixKit.ReferralCodes.usage_limit_reached?(code) ->
+          ReferralCodes.usage_limit_reached?(code) ->
             {:error, "This referral code has reached its usage limit"}
 
           true ->
