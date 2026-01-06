@@ -49,12 +49,12 @@
       </div>
       <div class="stat bg-base-100 shadow rounded-box">
         <div class="stat-title">Tables Size</div>
-        <div class="stat-value text-accent">{format_bytes(@stats.total_size_bytes)}</div>
+        <div class="stat-value text-accent"><.file_size bytes={@stats.total_size_bytes} /></div>
         <div class="stat-desc">App data + indexes</div>
       </div>
       <div class="stat bg-base-100 shadow rounded-box">
         <div class="stat-title">Database Size</div>
-        <div class="stat-value text-info">{format_bytes(@stats.database_size_bytes)}</div>
+        <div class="stat-value text-info"><.file_size bytes={@stats.database_size_bytes} /></div>
         <div class="stat-desc">Full pg_database_size</div>
       </div>
     </div>
@@ -106,7 +106,7 @@
                     <.formatted_number number={entry.approx_rows} format={:short} />
                   </td>
                   <td class="text-right text-base-content/70">
-                    {format_bytes(entry.size_bytes)}
+                    <.file_size bytes={entry.size_bytes} />
                   </td>
                   <td class="text-right">
                     <.link

@@ -122,9 +122,7 @@
                     >
                       {prompt.name}
                     </.link>
-                    <span class={"badge #{if prompt.enabled, do: "badge-success", else: "badge-neutral"}"}>
-                      {if prompt.enabled, do: "Active", else: "Disabled"}
-                    </span>
+                    <.enabled_badge enabled={prompt.enabled} />
                     <span class="badge badge-outline font-mono text-xs">{prompt.slug}</span>
                   </div>
 

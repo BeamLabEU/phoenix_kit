@@ -22,13 +22,17 @@
         <%= case @active_tab do %>
           <% "endpoints" -> %>
             <h1 class="text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
-            <p class="text-lg text-base-content">Manage AI provider endpoints and API configurations</p>
+            <p class="text-lg text-base-content">
+              Manage AI provider endpoints and API configurations
+            </p>
           <% "usage" -> %>
             <h1 class="text-4xl font-bold text-base-content mb-3">AI Usage</h1>
             <p class="text-lg text-base-content">Monitor API requests, token usage, and costs</p>
           <% _ -> %>
             <h1 class="text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
-            <p class="text-lg text-base-content">Manage AI provider endpoints and API configurations</p>
+            <p class="text-lg text-base-content">
+              Manage AI provider endpoints and API configurations
+            </p>
         <% end %>
       </div>
     </header>
@@ -139,9 +143,7 @@
                       >
                         {endpoint.name}
                       </.link>
-                      <span class={"badge #{if endpoint.enabled, do: "badge-success", else: "badge-neutral"}"}>
-                        {if endpoint.enabled, do: "Active", else: "Disabled"}
-                      </span>
+                      <.enabled_badge enabled={endpoint.enabled} />
                       <span class="badge badge-outline">{endpoint.provider}</span>
                     </div>
 

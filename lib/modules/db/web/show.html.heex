@@ -19,8 +19,8 @@
       <div class="text-center">
         <h1 class="text-4xl font-bold text-base-content mb-3">{@schema}.{@table}</h1>
         <p class="text-lg text-base-content">
-          <.formatted_number number={@preview.approx_rows} format={:short} />
-          rows • {format_bytes(@preview.size_bytes)}
+          <.formatted_number number={@preview.approx_rows} format={:short} /> rows •
+          <.file_size bytes={@preview.size_bytes} />
         </p>
       </div>
     </header>
