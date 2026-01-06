@@ -546,37 +546,26 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                         icon="entities"
                         label={gettext("Entities")}
                         current_path={@current_path || ""}
-                        disable_active={true}
+                        exact_match_only={true}
                         submenu_open={submenu_open?(@current_path, ["/admin/entities"])}
                       />
 
                       <%= if submenu_open?(@current_path, ["/admin/entities"]) do %>
-                        <%!-- Entities submenu items --%>
+                        <%!-- Dynamically list each published entity --%>
                         <div class="mt-1">
-                          <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/entities")}
-                            icon="entities"
-                            label={gettext("Entities")}
-                            current_path={@current_path || ""}
-                            nested={true}
-                          />
-
-                          <%!-- Dynamically list each published entity (one level deeper) --%>
-                          <div class="pl-4">
-                            <%= for entity <- PhoenixKit.Modules.Entities.list_entities() do %>
-                              <%= if entity.status == "published" do %>
-                                <.admin_nav_item
-                                  href={
-                                    Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")
-                                  }
-                                  icon={entity.icon || "hero-cube"}
-                                  label={entity.display_name_plural || entity.display_name}
-                                  current_path={@current_path || ""}
-                                  nested={true}
-                                />
-                              <% end %>
+                          <%= for entity <- PhoenixKit.Modules.Entities.list_entities() do %>
+                            <%= if entity.status == "published" do %>
+                              <.admin_nav_item
+                                href={
+                                  Routes.locale_aware_path(assigns, "/admin/entities/#{entity.name}/data")
+                                }
+                                icon={entity.icon || "hero-cube"}
+                                label={entity.display_name_plural || entity.display_name}
+                                current_path={@current_path || ""}
+                                nested={true}
+                              />
                             <% end %>
-                          </div>
+                          <% end %>
                         </div>
                       <% end %>
                     <% end %>
