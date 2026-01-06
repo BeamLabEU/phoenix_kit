@@ -12,6 +12,7 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   alias PhoenixKit.RepoHelper, as: Repo
 
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.{User, UserToken}
@@ -193,10 +194,10 @@ defmodule PhoenixKit.Users.MagicLinkRegistration do
   end
 
   defp process_referral_code(user, referral_code) when is_binary(referral_code) do
-    if Code.ensure_loaded?(PhoenixKit.Modules.ReferralCodes) do
-      case PhoenixKit.Modules.ReferralCodes.get_code_by_string(referral_code) do
+    if Code.ensure_loaded?(ReferralCodes) do
+      case ReferralCodes.get_code_by_string(referral_code) do
         nil -> :ok
-        code -> PhoenixKit.Modules.ReferralCodes.use_code(code.code, user.id)
+        code -> ReferralCodes.use_code(code.code, user.id)
       end
     end
 
