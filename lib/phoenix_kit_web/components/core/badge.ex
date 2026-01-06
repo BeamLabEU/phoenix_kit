@@ -180,6 +180,32 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
     """
   end
 
+  @doc """
+  Renders a generic status badge for content items (entities, posts, etc.).
+
+  ## Attributes
+  - `status` - Item status: "published", "draft", "archived"
+  - `size` - Badge size (default: :sm)
+  - `class` - Additional CSS classes
+
+  ## Examples
+
+      <.content_status_badge status="published" />
+      <.content_status_badge status="draft" size={:md} />
+      <.content_status_badge status="archived" class="ml-2" />
+  """
+  attr :status, :string, required: true
+  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
+  attr :class, :string, default: ""
+
+  def content_status_badge(assigns) do
+    ~H"""
+    <div class={["badge", content_status_class(@status), size_class(@size), @class]}>
+      {String.capitalize(@status)}
+    </div>
+    """
+  end
+
   # Template category classes
   defp category_class("system"), do: "badge-info"
   defp category_class("marketing"), do: "badge-secondary"
@@ -191,6 +217,40 @@ defmodule PhoenixKitWeb.Components.Core.Badge do
   defp template_status_class("draft"), do: "badge-warning"
   defp template_status_class("archived"), do: "badge-ghost"
   defp template_status_class(_), do: "badge-neutral"
+
+  # Content status classes (for entities, posts, etc.)
+  defp content_status_class("published"), do: "badge-success"
+  defp content_status_class("draft"), do: "badge-warning"
+  defp content_status_class("archived"), do: "badge-ghost"
+  defp content_status_class(_), do: "badge-neutral"
+
+  @doc """
+  Renders an enabled/disabled status badge.
+
+  ## Attributes
+  - `enabled` - Boolean enabled status
+  - `size` - Badge size (default: :sm)
+  - `class` - Additional CSS classes
+
+  ## Examples
+
+      <.enabled_badge enabled={endpoint.enabled} />
+      <.enabled_badge enabled={false} size={:md} />
+  """
+  attr :enabled, :boolean, required: true
+  attr :size, :atom, default: :sm, values: [:xs, :sm, :md, :lg]
+  attr :class, :string, default: ""
+
+  def enabled_badge(assigns) do
+    ~H"""
+    <span class={["badge", enabled_class(@enabled), size_class(@size), @class]}>
+      {if @enabled, do: "Active", else: "Disabled"}
+    </span>
+    """
+  end
+
+  defp enabled_class(true), do: "badge-success"
+  defp enabled_class(false), do: "badge-neutral"
 
   # Size classes
   defp size_class(:xs), do: "badge-xs"

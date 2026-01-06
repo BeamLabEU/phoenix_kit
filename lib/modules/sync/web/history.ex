@@ -203,14 +203,14 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
         <header class="w-full relative mb-6">
           <.link
             navigate={Routes.path("/admin/sync", locale: @current_locale)}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to DB Sync
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB Sync
           </.link>
 
           <div class="text-center">
-            <h1 class="text-3xl font-bold text-base-content mb-2">Transfer History</h1>
-            <p class="text-base-content/70">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Transfer History</h1>
+            <p class="text-lg text-base-content">
               View and manage data transfers
             </p>
           </div>
@@ -351,7 +351,7 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
                         <% end %>
                       </td>
                       <td class="text-sm text-base-content/70">
-                        <.relative_time datetime={transfer.inserted_at} />
+                        <.time_ago datetime={transfer.inserted_at} />
                       </td>
                       <td>
                         <%= if transfer.status == "pending_approval" do %>
@@ -485,30 +485,6 @@ defmodule PhoenixKit.Modules.Sync.Web.History do
       <% end %>
     </div>
     """
-  end
-
-  defp relative_time(assigns) do
-    time_ago = format_time_ago(assigns.datetime)
-    assigns = assign(assigns, :time_ago, time_ago)
-
-    ~H"""
-    <span title={Calendar.strftime(@datetime, "%Y-%m-%d %H:%M:%S UTC")}>
-      {@time_ago}
-    </span>
-    """
-  end
-
-  defp format_time_ago(datetime) do
-    now = DateTime.utc_now()
-    diff = DateTime.diff(now, datetime, :second)
-
-    cond do
-      diff < 60 -> "just now"
-      diff < 3600 -> "#{div(diff, 60)}m ago"
-      diff < 86_400 -> "#{div(diff, 3600)}h ago"
-      diff < 604_800 -> "#{div(diff, 86_400)}d ago"
-      true -> Calendar.strftime(datetime, "%b %d")
-    end
   end
 
   defp transfer_modal(assigns) do

@@ -84,12 +84,12 @@ defmodule PhoenixKit.Modules.Sync.Web.Index do
     >
       <div class="container flex flex-col mx-auto px-4 py-6">
         <%!-- Header Section --%>
-        <header class="w-full relative mb-8">
+        <header class="w-full relative mb-6">
           <.link
-            navigate={Routes.path("/admin/modules")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+            navigate={Routes.path("/admin")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
           >
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Modules
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
           </.link>
 
           <div class="text-center">

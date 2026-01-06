@@ -6,27 +6,31 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-6">
-    <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-base-content">DB</h1>
-        <p class="text-base-content/70">Explore database tables and their contents.</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-signal" class="w-4 h-4" /> Live Activity
-        </.link>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Modules
-        </.link>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+      </.link>
+
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">DB</h1>
+        <p class="text-lg text-base-content">Explore database tables and their contents</p>
       </div>
     </header>
+
+    <%!-- Actions --%>
+    <div class="flex justify-end mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-signal" class="w-4 h-4 mr-2" /> Live Activity
+      </.link>
+    </div>
 
     <div class="grid gap-4 md:grid-cols-4">
       <div class="stat bg-base-100 shadow rounded-box">
@@ -45,12 +49,12 @@
       </div>
       <div class="stat bg-base-100 shadow rounded-box">
         <div class="stat-title">Tables Size</div>
-        <div class="stat-value text-accent">{format_bytes(@stats.total_size_bytes)}</div>
+        <div class="stat-value text-accent"><.file_size bytes={@stats.total_size_bytes} /></div>
         <div class="stat-desc">App data + indexes</div>
       </div>
       <div class="stat bg-base-100 shadow rounded-box">
         <div class="stat-title">Database Size</div>
-        <div class="stat-value text-info">{format_bytes(@stats.database_size_bytes)}</div>
+        <div class="stat-value text-info"><.file_size bytes={@stats.database_size_bytes} /></div>
         <div class="stat-desc">Full pg_database_size</div>
       </div>
     </div>
@@ -102,7 +106,7 @@
                     <.formatted_number number={entry.approx_rows} format={:short} />
                   </td>
                   <td class="text-right text-base-content/70">
-                    {format_bytes(entry.size_bytes)}
+                    <.file_size bytes={entry.size_bytes} />
                   </td>
                   <td class="text-right">
                     <.link

@@ -6,740 +6,754 @@
   phoenix_kit_current_scope={@phoenix_kit_current_scope}
   current_locale={assigns[:current_locale]}
 >
-  <div class="max-w-3xl mx-auto p-6">
-    <%!-- Header --%>
-    <div class="mb-6">
-      <.link navigate={Routes.ai_path()} class="btn btn-ghost btn-sm gap-2 mb-4">
-        <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Endpoints
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.ai_path() <> "/endpoints"}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Endpoints
       </.link>
 
-      <h1 class="text-2xl font-bold">{@page_title}</h1>
-      <p class="text-base-content/70 mt-1">
-        <%= if @endpoint do %>
-          Update your AI endpoint configuration.
-        <% else %>
-          Create a new AI endpoint with provider credentials, model selection, and parameters.
-        <% end %>
-      </p>
-    </div>
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
+        <p class="text-lg text-base-content">
+          <%= if @endpoint do %>
+            Update your AI endpoint configuration
+          <% else %>
+            Create a new AI endpoint with provider credentials, model selection, and parameters
+          <% end %>
+        </p>
+      </div>
+    </header>
 
-    <%!-- Form --%>
-    <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
-      <%!-- Basic Info Card --%>
-      <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-          <h2 class="card-title text-lg">Basic Information</h2>
+    <%!-- Form Content (constrained width) --%>
+    <div class="max-w-3xl mx-auto">
+      <%!-- Form --%>
+      <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+        <%!-- Basic Info Card --%>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Basic Information</h2>
 
-          <div class="space-y-4 mt-4">
-            <div>
+            <div class="space-y-4 mt-4">
+              <div>
+                <label class="label">
+                  <span class="label-text font-medium">Name *</span>
+                </label>
+                <input
+                  type="text"
+                  name="endpoint[name]"
+                  value={@form.params["name"] || (@endpoint && @endpoint.name) || ""}
+                  class={["input input-bordered w-full", @form.errors[:name] && "input-error"]}
+                  placeholder="e.g., Claude Fast"
+                  required
+                />
+                <%= if @form.errors[:name] do %>
+                  <p class="text-error text-sm mt-1">{translate_error(@form.errors[:name])}</p>
+                <% end %>
+              </div>
+
+              <div>
+                <label class="label">
+                  <span class="label-text font-medium">Description</span>
+                </label>
+                <textarea
+                  name="endpoint[description]"
+                  class="textarea textarea-bordered w-full"
+                  placeholder="Optional description of this endpoint's purpose"
+                  rows="2"
+                >{@form.params["description"] || (@endpoint && @endpoint.description) || ""}</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Provider & API Key Card --%>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Provider Configuration</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Provider</span>
+                </label>
+                <select name="endpoint[provider]" class="select select-bordered">
+                  <%= for {label, value} <- Endpoint.provider_options() do %>
+                    <option
+                      value={value}
+                      selected={
+                        (@form.params["provider"] || (@endpoint && @endpoint.provider) ||
+                           "openrouter") == value
+                      }
+                    >
+                      {label}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-control mt-4">
               <label class="label">
-                <span class="label-text font-medium">Name *</span>
+                <span class="label-text font-medium">API Key *</span>
               </label>
-              <input
-                type="text"
-                name="endpoint[name]"
-                value={@form.params["name"] || (@endpoint && @endpoint.name) || ""}
-                class={["input input-bordered w-full", @form.errors[:name] && "input-error"]}
-                placeholder="e.g., Claude Fast"
-                required
-              />
-              <%= if @form.errors[:name] do %>
-                <p class="text-error text-sm mt-1">{translate_error(@form.errors[:name])}</p>
+              <div class="join w-full">
+                <input
+                  type="password"
+                  name="endpoint[api_key]"
+                  value={@form.params["api_key"] || (@endpoint && @endpoint.api_key) || ""}
+                  class={[
+                    "input input-bordered join-item flex-1",
+                    @form.errors[:api_key] && "input-error"
+                  ]}
+                  placeholder="sk-or-v1-..."
+                  required
+                />
+                <button
+                  type="button"
+                  class={["btn join-item", @validating_api_key && "loading"]}
+                  phx-click="validate_api_key"
+                  disabled={@validating_api_key}
+                >
+                  {if @validating_api_key, do: "Validating...", else: "Validate & Load Models"}
+                </button>
+              </div>
+
+              <%= if @api_key_valid == true do %>
+                <label class="label">
+                  <span class="label-text-alt text-success flex items-center gap-1">
+                    <.icon name="hero-check-circle" class="w-4 h-4" /> API key is valid
+                  </span>
+                </label>
+              <% end %>
+
+              <%= if @api_key_error do %>
+                <label class="label">
+                  <span class="label-text-alt text-error flex items-center gap-1">
+                    <.icon name="hero-x-circle" class="w-4 h-4" /> {@api_key_error}
+                  </span>
+                </label>
               <% end %>
             </div>
-
-            <div>
-              <label class="label">
-                <span class="label-text font-medium">Description</span>
-              </label>
-              <textarea
-                name="endpoint[description]"
-                class="textarea textarea-bordered w-full"
-                placeholder="Optional description of this endpoint's purpose"
-                rows="2"
-              >{@form.params["description"] || (@endpoint && @endpoint.description) || ""}</textarea>
-            </div>
           </div>
         </div>
-      </div>
 
-      <%!-- Provider & API Key Card --%>
-      <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-          <h2 class="card-title text-lg">Provider Configuration</h2>
+        <%!-- Model Selection Card --%>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <h2 class="card-title text-lg">Model Selection</h2>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div class="form-control">
+            <% current_model_id = @form.params["model"] || (@endpoint && @endpoint.model)
+            has_model = current_model_id && current_model_id != "" %>
+
+            <%!-- Current Model Display Box --%>
+            <div class="form-control mt-4">
               <label class="label">
-                <span class="label-text font-medium">Provider</span>
+                <span class="label-text font-medium">Current Model *</span>
               </label>
-              <select name="endpoint[provider]" class="select select-bordered">
-                <%= for {label, value} <- Endpoint.provider_options() do %>
-                  <option
-                    value={value}
-                    selected={
-                      (@form.params["provider"] || (@endpoint && @endpoint.provider) ||
-                         "openrouter") == value
-                    }
-                  >
-                    {label}
-                  </option>
-                <% end %>
-              </select>
-            </div>
-          </div>
 
-          <div class="form-control mt-4">
-            <label class="label">
-              <span class="label-text font-medium">API Key *</span>
-            </label>
-            <div class="join w-full">
-              <input
-                type="password"
-                name="endpoint[api_key]"
-                value={@form.params["api_key"] || (@endpoint && @endpoint.api_key) || ""}
-                class={[
-                  "input input-bordered join-item flex-1",
-                  @form.errors[:api_key] && "input-error"
-                ]}
-                placeholder="sk-or-v1-..."
-                required
-              />
-              <button
-                type="button"
-                class={["btn join-item", @validating_api_key && "loading"]}
-                phx-click="validate_api_key"
-                disabled={@validating_api_key}
-              >
-                {if @validating_api_key, do: "Validating...", else: "Validate & Load Models"}
-              </button>
-            </div>
+              <%!-- Hidden input to store the actual model value --%>
+              <input type="hidden" name="endpoint[model]" value={current_model_id || ""} />
 
-            <%= if @api_key_valid == true do %>
-              <label class="label">
-                <span class="label-text-alt text-success flex items-center gap-1">
-                  <.icon name="hero-check-circle" class="w-4 h-4" /> API key is valid
-                </span>
-              </label>
-            <% end %>
+              <%= if has_model do %>
+                <div class={[
+                  "rounded-lg border p-4",
+                  @form.errors[:model] && "border-error",
+                  !@form.errors[:model] && "border-base-300 bg-base-200"
+                ]}>
+                  <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                      <%!-- Model Name --%>
+                      <div class="font-semibold text-lg">
+                        <%= if @selected_model do %>
+                          {@selected_model["name"] || current_model_id}
+                        <% else %>
+                          {current_model_id}
+                        <% end %>
+                      </div>
 
-            <%= if @api_key_error do %>
-              <label class="label">
-                <span class="label-text-alt text-error flex items-center gap-1">
-                  <.icon name="hero-x-circle" class="w-4 h-4" /> {@api_key_error}
-                </span>
-              </label>
-            <% end %>
-          </div>
-        </div>
-      </div>
-
-      <%!-- Model Selection Card --%>
-      <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-          <h2 class="card-title text-lg">Model Selection</h2>
-
-          <% current_model_id = @form.params["model"] || (@endpoint && @endpoint.model)
-          has_model = current_model_id && current_model_id != "" %>
-
-          <%!-- Current Model Display Box --%>
-          <div class="form-control mt-4">
-            <label class="label">
-              <span class="label-text font-medium">Current Model *</span>
-            </label>
-
-            <%!-- Hidden input to store the actual model value --%>
-            <input type="hidden" name="endpoint[model]" value={current_model_id || ""} />
-
-            <%= if has_model do %>
-              <div class={[
-                "rounded-lg border p-4",
-                @form.errors[:model] && "border-error",
-                !@form.errors[:model] && "border-base-300 bg-base-200"
-              ]}>
-                <div class="flex items-start justify-between">
-                  <div class="flex-1">
-                    <%!-- Model Name --%>
-                    <div class="font-semibold text-lg">
-                      <%= if @selected_model do %>
-                        {@selected_model["name"] || current_model_id}
-                      <% else %>
+                      <%!-- Model ID --%>
+                      <div class="text-sm font-mono text-base-content/60 mt-1">
                         {current_model_id}
+                      </div>
+
+                      <%!-- Model Details --%>
+                      <%= if @selected_model do %>
+                        <div class="flex flex-wrap gap-2 mt-3">
+                          <%!-- Provider --%>
+                          <% provider = current_model_id |> String.split("/") |> List.first() %>
+                          <span class="badge badge-outline badge-sm">
+                            <.icon name="hero-building-office-2" class="w-3 h-3 mr-1" />
+                            {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)}
+                          </span>
+
+                          <%!-- Context Length --%>
+                          <%= if @selected_model["context_length"] do %>
+                            <span class="badge badge-outline badge-sm">
+                              <.icon name="hero-document-text" class="w-3 h-3 mr-1" />
+                              {format_number(@selected_model["context_length"])} ctx
+                            </span>
+                          <% end %>
+
+                          <%!-- Max Completion Tokens --%>
+                          <%= if @selected_model["max_completion_tokens"] do %>
+                            <span class="badge badge-outline badge-sm">
+                              <.icon name="hero-pencil" class="w-3 h-3 mr-1" />
+                              {format_number(@selected_model["max_completion_tokens"])} max output
+                            </span>
+                          <% end %>
+
+                          <%!-- Pricing --%>
+                          <%= if @selected_model["pricing"] do %>
+                            <% pricing = @selected_model["pricing"] %>
+                            <%= if pricing["prompt"] do %>
+                              <span class="badge badge-success badge-outline badge-sm">
+                                <% prompt_price =
+                                  if is_binary(pricing["prompt"]),
+                                    do: String.to_float(pricing["prompt"]),
+                                    else: pricing["prompt"] %> ${Float.round(
+                                  prompt_price * 1_000_000,
+                                  2
+                                )}/M in
+                              </span>
+                            <% end %>
+                            <%= if pricing["completion"] do %>
+                              <span class="badge badge-warning badge-outline badge-sm">
+                                <% completion_price =
+                                  if is_binary(pricing["completion"]),
+                                    do: String.to_float(pricing["completion"]),
+                                    else: pricing["completion"] %> ${Float.round(
+                                  completion_price * 1_000_000,
+                                  2
+                                )}/M out
+                              </span>
+                            <% end %>
+                          <% end %>
+                        </div>
+                      <% else %>
+                        <%!-- Model not in current list --%>
+                        <div class="mt-3">
+                          <span class="badge badge-warning badge-sm gap-1">
+                            <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
+                            Not in current model list
+                          </span>
+                        </div>
                       <% end %>
                     </div>
 
-                    <%!-- Model ID --%>
-                    <div class="text-sm font-mono text-base-content/60 mt-1">
-                      {current_model_id}
-                    </div>
-
-                    <%!-- Model Details --%>
-                    <%= if @selected_model do %>
-                      <div class="flex flex-wrap gap-2 mt-3">
-                        <%!-- Provider --%>
-                        <% provider = current_model_id |> String.split("/") |> List.first() %>
-                        <span class="badge badge-outline badge-sm">
-                          <.icon name="hero-building-office-2" class="w-3 h-3 mr-1" />
-                          {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)}
-                        </span>
-
-                        <%!-- Context Length --%>
-                        <%= if @selected_model["context_length"] do %>
-                          <span class="badge badge-outline badge-sm">
-                            <.icon name="hero-document-text" class="w-3 h-3 mr-1" />
-                            {format_number(@selected_model["context_length"])} ctx
-                          </span>
-                        <% end %>
-
-                        <%!-- Max Completion Tokens --%>
-                        <%= if @selected_model["max_completion_tokens"] do %>
-                          <span class="badge badge-outline badge-sm">
-                            <.icon name="hero-pencil" class="w-3 h-3 mr-1" />
-                            {format_number(@selected_model["max_completion_tokens"])} max output
-                          </span>
-                        <% end %>
-
-                        <%!-- Pricing --%>
-                        <%= if @selected_model["pricing"] do %>
-                          <% pricing = @selected_model["pricing"] %>
-                          <%= if pricing["prompt"] do %>
-                            <span class="badge badge-success badge-outline badge-sm">
-                              <% prompt_price =
-                                if is_binary(pricing["prompt"]),
-                                  do: String.to_float(pricing["prompt"]),
-                                  else: pricing["prompt"] %> ${Float.round(
-                                prompt_price * 1_000_000,
-                                2
-                              )}/M in
-                            </span>
-                          <% end %>
-                          <%= if pricing["completion"] do %>
-                            <span class="badge badge-warning badge-outline badge-sm">
-                              <% completion_price =
-                                if is_binary(pricing["completion"]),
-                                  do: String.to_float(pricing["completion"]),
-                                  else: pricing["completion"] %> ${Float.round(
-                                completion_price * 1_000_000,
-                                2
-                              )}/M out
-                            </span>
-                          <% end %>
-                        <% end %>
-                      </div>
-                    <% else %>
-                      <%!-- Model not in current list --%>
-                      <div class="mt-3">
-                        <span class="badge badge-warning badge-sm gap-1">
-                          <.icon name="hero-exclamation-triangle" class="w-3 h-3" />
-                          Not in current model list
-                        </span>
-                      </div>
-                    <% end %>
+                    <%!-- Clear button --%>
+                    <button
+                      type="button"
+                      phx-click="clear_model"
+                      class="btn btn-ghost btn-sm btn-square"
+                      title="Clear model"
+                    >
+                      <.icon name="hero-x-mark" class="w-4 h-4" />
+                    </button>
                   </div>
-
-                  <%!-- Clear button --%>
-                  <button
-                    type="button"
-                    phx-click="clear_model"
-                    class="btn btn-ghost btn-sm btn-square"
-                    title="Clear model"
-                  >
-                    <.icon name="hero-x-mark" class="w-4 h-4" />
-                  </button>
                 </div>
-              </div>
-            <% else %>
-              <%!-- No model selected placeholder --%>
-              <div class={[
-                "rounded-lg border border-dashed p-6 text-center",
-                @form.errors[:model] && "border-error bg-error/5",
-                !@form.errors[:model] && "border-base-300"
-              ]}>
-                <.icon name="hero-cube" class="w-8 h-8 mx-auto text-base-content/30" />
-                <p class="text-base-content/50 mt-2">No model selected</p>
-                <p class="text-sm text-base-content/40">Choose a model from the dropdown below</p>
-              </div>
-            <% end %>
+              <% else %>
+                <%!-- No model selected placeholder --%>
+                <div class={[
+                  "rounded-lg border border-dashed p-6 text-center",
+                  @form.errors[:model] && "border-error bg-error/5",
+                  !@form.errors[:model] && "border-base-300"
+                ]}>
+                  <.icon name="hero-cube" class="w-8 h-8 mx-auto text-base-content/30" />
+                  <p class="text-base-content/50 mt-2">No model selected</p>
+                  <p class="text-sm text-base-content/40">
+                    Choose a model from the dropdown below
+                  </p>
+                </div>
+              <% end %>
 
-            <%= if @form.errors[:model] do %>
+              <%= if @form.errors[:model] do %>
+                <label class="label">
+                  <span class="label-text-alt text-error">
+                    {translate_error(@form.errors[:model])}
+                  </span>
+                </label>
+              <% end %>
+            </div>
+
+            <%!-- Model Selection (Waterfall: Provider → Model) --%>
+            <div class="form-control mt-4">
               <label class="label">
-                <span class="label-text-alt text-error">
-                  {translate_error(@form.errors[:model])}
+                <span class="label-text font-medium">
+                  <%= if has_model do %>
+                    Change Model
+                  <% else %>
+                    Select Model
+                  <% end %>
                 </span>
               </label>
-            <% end %>
-          </div>
 
-          <%!-- Model Selection (Waterfall: Provider → Model) --%>
-          <div class="form-control mt-4">
-            <label class="label">
-              <span class="label-text font-medium">
-                <%= if has_model do %>
-                  Change Model
-                <% else %>
-                  Select Model
-                <% end %>
-              </span>
-            </label>
-
-            <%= if @models_loading do %>
-              <div class="flex items-center gap-2 py-2">
-                <span class="loading loading-spinner loading-sm"></span>
-                <span class="text-base-content/70">Loading models...</span>
-              </div>
-            <% else %>
-              <%= if Enum.empty?(@models_grouped) do %>
-                <%!-- Fallback to text input when no models loaded --%>
-                <div class="join w-full">
-                  <input
-                    type="text"
-                    id="manual_model_input"
-                    class="input input-bordered join-item flex-1"
-                    placeholder="Enter model ID (e.g., anthropic/claude-3-haiku)"
-                  />
-                  <button
-                    type="button"
-                    phx-click="set_manual_model"
-                    onclick="
+              <%= if @models_loading do %>
+                <div class="flex items-center gap-2 py-2">
+                  <span class="loading loading-spinner loading-sm"></span>
+                  <span class="text-base-content/70">Loading models...</span>
+                </div>
+              <% else %>
+                <%= if Enum.empty?(@models_grouped) do %>
+                  <%!-- Fallback to text input when no models loaded --%>
+                  <div class="join w-full">
+                    <input
+                      type="text"
+                      id="manual_model_input"
+                      class="input input-bordered join-item flex-1"
+                      placeholder="Enter model ID (e.g., anthropic/claude-3-haiku)"
+                    />
+                    <button
+                      type="button"
+                      phx-click="set_manual_model"
+                      onclick="
                       const input = document.getElementById('manual_model_input');
                       this.setAttribute('phx-value-model', input.value);
                     "
-                    class="btn btn-primary join-item"
-                  >
-                    Set Model
-                  </button>
-                </div>
-                <label class="label">
-                  <span class="label-text-alt text-base-content/50">
-                    Validate API key to load available models from OpenRouter
-                  </span>
-                </label>
-              <% else %>
-                <%!-- Provider Selection --%>
-                <div>
-                  <select
-                    id="provider_picker"
-                    name="provider"
-                    phx-change="select_provider"
-                    phx-hook="ResetSelect"
-                    class="select select-bordered w-full"
-                  >
-                    <option value="" selected>
-                      — Select provider ({length(@models_grouped)} available) —
-                    </option>
-                    <%= for {provider, models} <- @models_grouped do %>
-                      <option value={provider} selected={@selected_provider == provider}>
-                        {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)} ({length(
-                          models
-                        )} models)
+                      class="btn btn-primary join-item"
+                    >
+                      Set Model
+                    </button>
+                  </div>
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/50">
+                      Validate API key to load available models from OpenRouter
+                    </span>
+                  </label>
+                <% else %>
+                  <%!-- Provider Selection --%>
+                  <div>
+                    <select
+                      id="provider_picker"
+                      name="provider"
+                      phx-change="select_provider"
+                      phx-hook="ResetSelect"
+                      class="select select-bordered w-full"
+                    >
+                      <option value="" selected>
+                        — Select provider ({length(@models_grouped)} available) —
                       </option>
-                    <% end %>
-                  </select>
-                </div>
+                      <%= for {provider, models} <- @models_grouped do %>
+                        <option value={provider} selected={@selected_provider == provider}>
+                          {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(provider)} ({length(
+                            models
+                          )} models)
+                        </option>
+                      <% end %>
+                    </select>
+                  </div>
 
-                <%!-- Model Cards (shown after provider selected) --%>
-                <%= if @selected_provider do %>
-                  <div class="mt-4">
-                    <div class="flex items-center justify-between mb-2">
-                      <span class="text-sm text-base-content/70">
-                        {length(@provider_models)} models from {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(
-                          @selected_provider
-                        )}
-                      </span>
-                      <button
-                        type="button"
-                        phx-click="select_provider"
-                        phx-value-provider=""
-                        class="btn btn-ghost btn-xs"
-                      >
-                        <.icon name="hero-x-mark" class="w-3 h-3" /> Clear
-                      </button>
-                    </div>
-
-                    <div class="grid gap-2 max-h-80 overflow-y-auto pr-1">
-                      <%= for model <- @provider_models do %>
-                        <% pricing = model["pricing"] || %{} %>
-                        <% is_selected = current_model_id == model["id"] %>
+                  <%!-- Model Cards (shown after provider selected) --%>
+                  <%= if @selected_provider do %>
+                    <div class="mt-4">
+                      <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm text-base-content/70">
+                          {length(@provider_models)} models from {PhoenixKit.Modules.AI.OpenRouterClient.humanize_provider(
+                            @selected_provider
+                          )}
+                        </span>
                         <button
                           type="button"
-                          phx-click="select_model"
-                          phx-value-model={model["id"]}
-                          class={[
-                            "rounded-lg border p-3 transition-colors cursor-pointer text-left w-full",
-                            is_selected && "border-primary bg-primary/10 ring-2 ring-primary/20",
-                            !is_selected &&
-                              "border-base-300 bg-base-200 hover:border-primary hover:bg-base-100"
-                          ]}
+                          phx-click="select_provider"
+                          phx-value-provider=""
+                          class="btn btn-ghost btn-xs"
                         >
-                          <div class="flex items-start justify-between gap-2">
-                            <div class="flex-1 min-w-0">
-                              <%!-- Model Name --%>
-                              <div class="font-semibold truncate">
-                                {model["name"] || model["id"]}
-                              </div>
-
-                              <%!-- Model ID --%>
-                              <div class="text-xs font-mono text-base-content/50 truncate">
-                                {model["id"]}
-                              </div>
-
-                              <%!-- Badges --%>
-                              <div class="flex flex-wrap gap-1 mt-2">
-                                <%!-- Context Length --%>
-                                <%= if model["context_length"] do %>
-                                  <span class="badge badge-outline badge-xs">
-                                    {format_number(model["context_length"])} ctx
-                                  </span>
-                                <% end %>
-
-                                <%!-- Max Output --%>
-                                <%= if model["max_completion_tokens"] do %>
-                                  <span class="badge badge-outline badge-xs">
-                                    {format_number(model["max_completion_tokens"])} out
-                                  </span>
-                                <% end %>
-
-                                <%!-- Pricing --%>
-                                <%= if pricing["prompt"] do %>
-                                  <% prompt_price =
-                                    if is_binary(pricing["prompt"]),
-                                      do: String.to_float(pricing["prompt"]),
-                                      else: pricing["prompt"] %>
-                                  <span class="badge badge-success badge-outline badge-xs">
-                                    ${Float.round(prompt_price * 1_000_000, 2)}/M in
-                                  </span>
-                                <% end %>
-                                <%= if pricing["completion"] do %>
-                                  <% completion_price =
-                                    if is_binary(pricing["completion"]),
-                                      do: String.to_float(pricing["completion"]),
-                                      else: pricing["completion"] %>
-                                  <span class="badge badge-warning badge-outline badge-xs">
-                                    ${Float.round(completion_price * 1_000_000, 2)}/M out
-                                  </span>
-                                <% end %>
-                              </div>
-                            </div>
-
-                            <%!-- Select indicator --%>
-                            <%= if is_selected do %>
-                              <.icon
-                                name="hero-check-circle-solid"
-                                class="w-5 h-5 text-primary flex-shrink-0 mt-1"
-                              />
-                            <% else %>
-                              <.icon
-                                name="hero-chevron-right"
-                                class="w-4 h-4 text-base-content/30 flex-shrink-0 mt-1"
-                              />
-                            <% end %>
-                          </div>
+                          <.icon name="hero-x-mark" class="w-3 h-3" /> Clear
                         </button>
+                      </div>
+
+                      <div class="grid gap-2 max-h-80 overflow-y-auto pr-1">
+                        <%= for model <- @provider_models do %>
+                          <% pricing = model["pricing"] || %{} %>
+                          <% is_selected = current_model_id == model["id"] %>
+                          <button
+                            type="button"
+                            phx-click="select_model"
+                            phx-value-model={model["id"]}
+                            class={[
+                              "rounded-lg border p-3 transition-colors cursor-pointer text-left w-full",
+                              is_selected &&
+                                "border-primary bg-primary/10 ring-2 ring-primary/20",
+                              !is_selected &&
+                                "border-base-300 bg-base-200 hover:border-primary hover:bg-base-100"
+                            ]}
+                          >
+                            <div class="flex items-start justify-between gap-2">
+                              <div class="flex-1 min-w-0">
+                                <%!-- Model Name --%>
+                                <div class="font-semibold truncate">
+                                  {model["name"] || model["id"]}
+                                </div>
+
+                                <%!-- Model ID --%>
+                                <div class="text-xs font-mono text-base-content/50 truncate">
+                                  {model["id"]}
+                                </div>
+
+                                <%!-- Badges --%>
+                                <div class="flex flex-wrap gap-1 mt-2">
+                                  <%!-- Context Length --%>
+                                  <%= if model["context_length"] do %>
+                                    <span class="badge badge-outline badge-xs">
+                                      {format_number(model["context_length"])} ctx
+                                    </span>
+                                  <% end %>
+
+                                  <%!-- Max Output --%>
+                                  <%= if model["max_completion_tokens"] do %>
+                                    <span class="badge badge-outline badge-xs">
+                                      {format_number(model["max_completion_tokens"])} out
+                                    </span>
+                                  <% end %>
+
+                                  <%!-- Pricing --%>
+                                  <%= if pricing["prompt"] do %>
+                                    <% prompt_price =
+                                      if is_binary(pricing["prompt"]),
+                                        do: String.to_float(pricing["prompt"]),
+                                        else: pricing["prompt"] %>
+                                    <span class="badge badge-success badge-outline badge-xs">
+                                      ${Float.round(prompt_price * 1_000_000, 2)}/M in
+                                    </span>
+                                  <% end %>
+                                  <%= if pricing["completion"] do %>
+                                    <% completion_price =
+                                      if is_binary(pricing["completion"]),
+                                        do: String.to_float(pricing["completion"]),
+                                        else: pricing["completion"] %>
+                                    <span class="badge badge-warning badge-outline badge-xs">
+                                      ${Float.round(completion_price * 1_000_000, 2)}/M out
+                                    </span>
+                                  <% end %>
+                                </div>
+                              </div>
+
+                              <%!-- Select indicator --%>
+                              <%= if is_selected do %>
+                                <.icon
+                                  name="hero-check-circle-solid"
+                                  class="w-5 h-5 text-primary flex-shrink-0 mt-1"
+                                />
+                              <% else %>
+                                <.icon
+                                  name="hero-chevron-right"
+                                  class="w-4 h-4 text-base-content/30 flex-shrink-0 mt-1"
+                                />
+                              <% end %>
+                            </div>
+                          </button>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% else %>
+                    <p class="text-sm text-base-content/50 mt-2">
+                      Select a provider to see available models with pricing details
+                    </p>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Parameters Card - Only shown when model is selected --%>
+        <% supported_params =
+          PhoenixKit.Modules.AI.Web.EndpointForm.get_supported_params(@selected_model) %>
+        <% basic_params = supported_params[:basic] || [] %>
+        <% advanced_params = supported_params[:advanced] || [] %>
+
+        <%= if @selected_model || (@form.params["model"] && @form.params["model"] != "") || (@endpoint && @endpoint.model) do %>
+          <div class="card bg-base-100 shadow-lg">
+            <div class="card-body">
+              <h2 class="card-title text-lg">Generation Parameters</h2>
+
+              <%!-- Model Info Banner --%>
+              <%= if @selected_model do %>
+                <div class="alert alert-info py-2 mt-2">
+                  <.icon name="hero-information-circle" class="w-4 h-4" />
+                  <span class="text-sm">
+                    Context: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
+                      @selected_model["context_length"]
+                    )} tokens
+                    <%= if @selected_model["max_completion_tokens"] do %>
+                      • Max output: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
+                        @selected_model["max_completion_tokens"]
+                      )} tokens
+                    <% end %>
+                  </span>
+                </div>
+              <% end %>
+
+              <%!-- Basic Parameters --%>
+              <%= if basic_params != [] do %>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                  <%= for {param_key, param_def} <- basic_params do %>
+                    <.param_input
+                      key={param_key}
+                      definition={param_def}
+                      form={@form}
+                      endpoint={@endpoint}
+                      selected_model={@selected_model}
+                    />
+                  <% end %>
+                </div>
+              <% end %>
+
+              <%!-- Enable Thinking Checkbox --%>
+              <% reasoning_enabled =
+                @form.params["reasoning_enabled"] == "true" ||
+                  @form.params["reasoning_enabled"] == true ||
+                  (@endpoint && @endpoint.reasoning_enabled == true) %>
+
+              <div class="bg-base-200 rounded-lg p-4 mt-4">
+                <div class="form-control">
+                  <label class="label cursor-pointer justify-start gap-3">
+                    <input
+                      type="checkbox"
+                      name="endpoint[reasoning_enabled]"
+                      value="true"
+                      checked={reasoning_enabled}
+                      class="checkbox checkbox-primary"
+                      phx-click="toggle_reasoning"
+                    />
+                    <div>
+                      <span class="label-text font-medium">
+                        <.icon name="hero-light-bulb" class="w-4 h-4 inline mr-1" />
+                        Enable Thinking
+                      </span>
+                      <span class="block text-xs text-base-content/50">
+                        For models like DeepSeek R1, Qwen QwQ that support chain-of-thought reasoning
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                <%!-- Reasoning Options (shown when enabled) --%>
+                <%= if reasoning_enabled do %>
+                  <div class="border-t border-base-300 mt-3 pt-3">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <%!-- Reasoning Effort --%>
+                      <div class="form-control">
+                        <label class="label py-1">
+                          <span class="label-text text-sm">Effort Level</span>
+                        </label>
+                        <select
+                          name="endpoint[reasoning_effort]"
+                          class="select select-bordered select-sm"
+                        >
+                          <option value="">Default (medium)</option>
+                          <%= for {label, value} <- PhoenixKit.Modules.AI.Endpoint.reasoning_effort_options() do %>
+                            <option
+                              value={value}
+                              selected={
+                                @form.params["reasoning_effort"] == value ||
+                                  (@endpoint && @endpoint.reasoning_effort == value)
+                              }
+                            >
+                              {label}
+                            </option>
+                          <% end %>
+                        </select>
+                      </div>
+
+                      <%!-- Reasoning Max Tokens --%>
+                      <div class="form-control">
+                        <label class="label py-1">
+                          <span class="label-text text-sm">Token Limit</span>
+                        </label>
+                        <input
+                          type="number"
+                          name="endpoint[reasoning_max_tokens]"
+                          value={
+                            @form.params["reasoning_max_tokens"] ||
+                              (@endpoint && @endpoint.reasoning_max_tokens) || ""
+                          }
+                          min="1024"
+                          max="32000"
+                          step="1024"
+                          class="input input-bordered input-sm"
+                          placeholder="1024-32000"
+                        />
+                      </div>
+
+                      <%!-- Hide Reasoning Toggle --%>
+                      <div class="form-control">
+                        <label class="label py-1">
+                          <span class="label-text text-sm">Visibility</span>
+                        </label>
+                        <label class="label cursor-pointer justify-start gap-2 py-0">
+                          <input
+                            type="checkbox"
+                            name="endpoint[reasoning_exclude]"
+                            value="true"
+                            checked={
+                              @form.params["reasoning_exclude"] == "true" ||
+                                @form.params["reasoning_exclude"] == true ||
+                                (@endpoint && @endpoint.reasoning_exclude == true)
+                            }
+                            class="checkbox checkbox-sm"
+                          />
+                          <span class="label-text text-sm">Hide from response</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+
+              <%!-- Advanced Parameters --%>
+              <%= if advanced_params != [] do %>
+                <div class="collapse collapse-arrow bg-base-200 mt-4">
+                  <input
+                    type="checkbox"
+                    name="_advanced_open"
+                    phx-update="ignore"
+                    id="advanced-params-toggle"
+                  />
+                  <div class="collapse-title font-medium">Advanced Parameters</div>
+                  <div class="collapse-content">
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+                      <%= for {param_key, param_def} <- advanced_params do %>
+                        <.param_input
+                          key={param_key}
+                          definition={param_def}
+                          form={@form}
+                          endpoint={@endpoint}
+                          selected_model={@selected_model}
+                          size="sm"
+                        />
                       <% end %>
                     </div>
                   </div>
-                <% else %>
-                  <p class="text-sm text-base-content/50 mt-2">
-                    Select a provider to see available models with pricing details
-                  </p>
-                <% end %>
+                </div>
               <% end %>
-            <% end %>
+            </div>
           </div>
-        </div>
-      </div>
+        <% else %>
+          <%!-- Placeholder when no model selected --%>
+          <div class="card bg-base-100 shadow-lg opacity-60">
+            <div class="card-body">
+              <h2 class="card-title text-lg text-base-content/50">Generation Parameters</h2>
+              <p class="text-base-content/50 text-sm">
+                Select a model above to configure generation parameters.
+                Available parameters depend on the selected model.
+              </p>
+            </div>
+          </div>
+        <% end %>
 
-      <%!-- Parameters Card - Only shown when model is selected --%>
-      <% supported_params =
-        PhoenixKit.Modules.AI.Web.EndpointForm.get_supported_params(@selected_model) %>
-      <% basic_params = supported_params[:basic] || [] %>
-      <% advanced_params = supported_params[:advanced] || [] %>
-
-      <%= if @selected_model || (@form.params["model"] && @form.params["model"] != "") || (@endpoint && @endpoint.model) do %>
+        <%!-- Optional Settings Card --%>
         <div class="card bg-base-100 shadow-lg">
           <div class="card-body">
-            <h2 class="card-title text-lg">Generation Parameters</h2>
+            <h2 class="card-title text-lg">Optional Provider Settings</h2>
 
-            <%!-- Model Info Banner --%>
-            <%= if @selected_model do %>
-              <div class="alert alert-info py-2 mt-2">
-                <.icon name="hero-information-circle" class="w-4 h-4" />
-                <span class="text-sm">
-                  Context: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
-                    @selected_model["context_length"]
-                  )} tokens
-                  <%= if @selected_model["max_completion_tokens"] do %>
-                    • Max output: {PhoenixKit.Modules.AI.Web.EndpointForm.format_number(
-                      @selected_model["max_completion_tokens"]
-                    )} tokens
-                  <% end %>
-                </span>
-              </div>
-            <% end %>
-
-            <%!-- Basic Parameters --%>
-            <%= if basic_params != [] do %>
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                <%= for {param_key, param_def} <- basic_params do %>
-                  <.param_input
-                    key={param_key}
-                    definition={param_def}
-                    form={@form}
-                    endpoint={@endpoint}
-                    selected_model={@selected_model}
-                  />
-                <% end %>
-              </div>
-            <% end %>
-
-            <%!-- Enable Thinking Checkbox --%>
-            <% reasoning_enabled =
-              @form.params["reasoning_enabled"] == "true" ||
-                @form.params["reasoning_enabled"] == true ||
-                (@endpoint && @endpoint.reasoning_enabled == true) %>
-
-            <div class="bg-base-200 rounded-lg p-4 mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
               <div class="form-control">
-                <label class="label cursor-pointer justify-start gap-3">
-                  <input
-                    type="checkbox"
-                    name="endpoint[reasoning_enabled]"
-                    value="true"
-                    checked={reasoning_enabled}
-                    class="checkbox checkbox-primary"
-                    phx-click="toggle_reasoning"
-                  />
-                  <div>
-                    <span class="label-text font-medium">
-                      <.icon name="hero-light-bulb" class="w-4 h-4 inline mr-1" /> Enable Thinking
-                    </span>
-                    <span class="block text-xs text-base-content/50">
-                      For models like DeepSeek R1, Qwen QwQ that support chain-of-thought reasoning
-                    </span>
-                  </div>
+                <label class="label">
+                  <span class="label-text font-medium">HTTP Referer</span>
+                </label>
+                <input
+                  type="url"
+                  name="endpoint[provider_settings][http_referer]"
+                  value={
+                    get_in(@form.params, ["provider_settings", "http_referer"]) ||
+                      (@endpoint && get_in(@endpoint.provider_settings || %{}, ["http_referer"])) ||
+                      ""
+                  }
+                  class="input input-bordered"
+                  placeholder="https://yourapp.com"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/50">For OpenRouter rankings</span>
                 </label>
               </div>
 
-              <%!-- Reasoning Options (shown when enabled) --%>
-              <%= if reasoning_enabled do %>
-                <div class="border-t border-base-300 mt-3 pt-3">
-                  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <%!-- Reasoning Effort --%>
-                    <div class="form-control">
-                      <label class="label py-1">
-                        <span class="label-text text-sm">Effort Level</span>
-                      </label>
-                      <select
-                        name="endpoint[reasoning_effort]"
-                        class="select select-bordered select-sm"
-                      >
-                        <option value="">Default (medium)</option>
-                        <%= for {label, value} <- PhoenixKit.Modules.AI.Endpoint.reasoning_effort_options() do %>
-                          <option
-                            value={value}
-                            selected={
-                              @form.params["reasoning_effort"] == value ||
-                                (@endpoint && @endpoint.reasoning_effort == value)
-                            }
-                          >
-                            {label}
-                          </option>
-                        <% end %>
-                      </select>
-                    </div>
-
-                    <%!-- Reasoning Max Tokens --%>
-                    <div class="form-control">
-                      <label class="label py-1">
-                        <span class="label-text text-sm">Token Limit</span>
-                      </label>
-                      <input
-                        type="number"
-                        name="endpoint[reasoning_max_tokens]"
-                        value={
-                          @form.params["reasoning_max_tokens"] ||
-                            (@endpoint && @endpoint.reasoning_max_tokens) || ""
-                        }
-                        min="1024"
-                        max="32000"
-                        step="1024"
-                        class="input input-bordered input-sm"
-                        placeholder="1024-32000"
-                      />
-                    </div>
-
-                    <%!-- Hide Reasoning Toggle --%>
-                    <div class="form-control">
-                      <label class="label py-1">
-                        <span class="label-text text-sm">Visibility</span>
-                      </label>
-                      <label class="label cursor-pointer justify-start gap-2 py-0">
-                        <input
-                          type="checkbox"
-                          name="endpoint[reasoning_exclude]"
-                          value="true"
-                          checked={
-                            @form.params["reasoning_exclude"] == "true" ||
-                              @form.params["reasoning_exclude"] == true ||
-                              (@endpoint && @endpoint.reasoning_exclude == true)
-                          }
-                          class="checkbox checkbox-sm"
-                        />
-                        <span class="label-text text-sm">Hide from response</span>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              <% end %>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">X-Title</span>
+                </label>
+                <input
+                  type="text"
+                  name="endpoint[provider_settings][x_title]"
+                  value={
+                    get_in(@form.params, ["provider_settings", "x_title"]) ||
+                      (@endpoint && get_in(@endpoint.provider_settings || %{}, ["x_title"])) || ""
+                  }
+                  class="input input-bordered"
+                  placeholder="My Application"
+                />
+                <label class="label">
+                  <span class="label-text-alt text-base-content/50">App name for OpenRouter</span>
+                </label>
+              </div>
             </div>
 
-            <%!-- Advanced Parameters --%>
-            <%= if advanced_params != [] do %>
-              <div class="collapse collapse-arrow bg-base-200 mt-4">
+            <%!-- Enabled Toggle --%>
+            <div class="form-control mt-4">
+              <label class="label cursor-pointer justify-start gap-4">
                 <input
                   type="checkbox"
-                  name="_advanced_open"
-                  phx-update="ignore"
-                  id="advanced-params-toggle"
+                  name="endpoint[enabled]"
+                  value="true"
+                  checked={
+                    @form.params["enabled"] == "true" || (@endpoint && @endpoint.enabled) ||
+                      !@endpoint
+                  }
+                  class="checkbox checkbox-primary"
                 />
-                <div class="collapse-title font-medium">Advanced Parameters</div>
-                <div class="collapse-content">
-                  <div class="grid grid-cols-2 md:grid-cols-3 gap-4 pt-2">
-                    <%= for {param_key, param_def} <- advanced_params do %>
-                      <.param_input
-                        key={param_key}
-                        definition={param_def}
-                        form={@form}
-                        endpoint={@endpoint}
-                        selected_model={@selected_model}
-                        size="sm"
-                      />
-                    <% end %>
-                  </div>
-                </div>
-              </div>
-            <% end %>
+                <span class="label-text font-medium">Endpoint Enabled</span>
+              </label>
+            </div>
           </div>
         </div>
-      <% else %>
-        <%!-- Placeholder when no model selected --%>
-        <div class="card bg-base-100 shadow-lg opacity-60">
+
+        <%!-- Actions --%>
+        <div class="flex justify-end gap-3">
+          <.link navigate={Routes.ai_path()} class="btn btn-ghost">
+            Cancel
+          </.link>
+          <button type="submit" class="btn btn-primary">
+            {if @endpoint, do: "Update Endpoint", else: "Create Endpoint"}
+          </button>
+        </div>
+      </.form>
+
+      <%!-- Help Section (only for new endpoints) --%>
+      <%= unless @endpoint do %>
+        <div class="card bg-base-100 shadow-lg mt-6">
           <div class="card-body">
-            <h2 class="card-title text-lg text-base-content/50">Generation Parameters</h2>
-            <p class="text-base-content/50 text-sm">
-              Select a model above to configure generation parameters.
-              Available parameters depend on the selected model.
-            </p>
+            <h3 class="card-title text-lg">
+              <.icon name="hero-question-mark-circle" class="w-5 h-5" /> How to get an API key
+            </h3>
+            <ol class="list-decimal list-inside space-y-2 text-base-content/70 mt-2">
+              <li>
+                Visit
+                <a href="https://openrouter.ai" target="_blank" class="link link-primary">
+                  openrouter.ai
+                </a>
+              </li>
+              <li>Create an account or sign in</li>
+              <li>
+                Go to
+                <a
+                  href="https://openrouter.ai/settings/keys"
+                  target="_blank"
+                  class="link link-primary"
+                >
+                  Keys
+                </a>
+                section
+              </li>
+              <li>Click "Create Key" and copy your new API key</li>
+            </ol>
           </div>
         </div>
       <% end %>
-
-      <%!-- Optional Settings Card --%>
-      <div class="card bg-base-100 shadow-lg">
-        <div class="card-body">
-          <h2 class="card-title text-lg">Optional Provider Settings</h2>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">HTTP Referer</span>
-              </label>
-              <input
-                type="url"
-                name="endpoint[provider_settings][http_referer]"
-                value={
-                  get_in(@form.params, ["provider_settings", "http_referer"]) ||
-                    (@endpoint && get_in(@endpoint.provider_settings || %{}, ["http_referer"])) ||
-                    ""
-                }
-                class="input input-bordered"
-                placeholder="https://yourapp.com"
-              />
-              <label class="label">
-                <span class="label-text-alt text-base-content/50">For OpenRouter rankings</span>
-              </label>
-            </div>
-
-            <div class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">X-Title</span>
-              </label>
-              <input
-                type="text"
-                name="endpoint[provider_settings][x_title]"
-                value={
-                  get_in(@form.params, ["provider_settings", "x_title"]) ||
-                    (@endpoint && get_in(@endpoint.provider_settings || %{}, ["x_title"])) || ""
-                }
-                class="input input-bordered"
-                placeholder="My Application"
-              />
-              <label class="label">
-                <span class="label-text-alt text-base-content/50">App name for OpenRouter</span>
-              </label>
-            </div>
-          </div>
-
-          <%!-- Enabled Toggle --%>
-          <div class="form-control mt-4">
-            <label class="label cursor-pointer justify-start gap-4">
-              <input
-                type="checkbox"
-                name="endpoint[enabled]"
-                value="true"
-                checked={
-                  @form.params["enabled"] == "true" || (@endpoint && @endpoint.enabled) ||
-                    !@endpoint
-                }
-                class="checkbox checkbox-primary"
-              />
-              <span class="label-text font-medium">Endpoint Enabled</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <%!-- Actions --%>
-      <div class="flex justify-end gap-3">
-        <.link navigate={Routes.ai_path()} class="btn btn-ghost">
-          Cancel
-        </.link>
-        <button type="submit" class="btn btn-primary">
-          {if @endpoint, do: "Update Endpoint", else: "Create Endpoint"}
-        </button>
-      </div>
-    </.form>
-
-    <%!-- Help Section (only for new endpoints) --%>
-    <%= unless @endpoint do %>
-      <div class="card bg-base-100 shadow-lg mt-6">
-        <div class="card-body">
-          <h3 class="card-title text-lg">
-            <.icon name="hero-question-mark-circle" class="w-5 h-5" /> How to get an API key
-          </h3>
-          <ol class="list-decimal list-inside space-y-2 text-base-content/70 mt-2">
-            <li>
-              Visit
-              <a href="https://openrouter.ai" target="_blank" class="link link-primary">
-                openrouter.ai
-              </a>
-            </li>
-            <li>Create an account or sign in</li>
-            <li>
-              Go to
-              <a
-                href="https://openrouter.ai/settings/keys"
-                target="_blank"
-                class="link link-primary"
-              >
-                Keys
-              </a>
-              section
-            </li>
-            <li>Click "Create Key" and copy your new API key</li>
-          </ol>
-        </div>
-      </div>
-    <% end %>
+    </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

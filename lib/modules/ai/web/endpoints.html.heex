@@ -6,45 +6,72 @@
   phoenix_kit_current_scope={@phoenix_kit_current_scope}
   current_locale={assigns[:current_locale]}
 >
-  <div class="p-6">
-    <%!-- Header --%>
-    <div class="flex justify-between items-center mb-6">
-      <div>
-        <h1 class="text-2xl font-bold">AI Endpoints</h1>
-        <p class="text-base-content/70 mt-1">
-          Manage AI provider endpoints and view usage statistics
-        </p>
-      </div>
-      <%= if @active_tab == "endpoints" do %>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
-          class="btn btn-primary"
-        >
-          <.icon name="hero-plus" class="w-5 h-5 mr-2" /> New Endpoint
-        </.link>
-      <% end %>
-    </div>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+      </.link>
 
-    <%!-- Tabs --%>
-    <div class="tabs tabs-boxed mb-6">
-      <.link
-        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints"}
-        class={"tab #{if @active_tab == "endpoints", do: "tab-active"}"}
-      >
-        <.icon name="hero-server-stack" class="w-4 h-4 mr-2" /> Endpoints
-      </.link>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
-        class={"tab #{if @active_tab == "prompts", do: "tab-active"}"}
-      >
-        <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
-      </.link>
-      <.link
-        navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
-        class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
-      >
-        <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Usage
-      </.link>
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <%= case @active_tab do %>
+          <% "endpoints" -> %>
+            <h1 class="text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
+            <p class="text-lg text-base-content">
+              Manage AI provider endpoints and API configurations
+            </p>
+          <% "usage" -> %>
+            <h1 class="text-4xl font-bold text-base-content mb-3">AI Usage</h1>
+            <p class="text-lg text-base-content">Monitor API requests, token usage, and costs</p>
+          <% _ -> %>
+            <h1 class="text-4xl font-bold text-base-content mb-3">AI Endpoints</h1>
+            <p class="text-lg text-base-content">
+              Manage AI provider endpoints and API configurations
+            </p>
+        <% end %>
+      </div>
+    </header>
+
+    <%!-- Controls --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <%!-- Tabs --%>
+        <div class="tabs tabs-boxed">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints"}
+            class={"tab #{if @active_tab == "endpoints", do: "tab-active"}"}
+          >
+            <.icon name="hero-server-stack" class="w-4 h-4 mr-2" /> Endpoints
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/prompts"}
+            class={"tab #{if @active_tab == "prompts", do: "tab-active"}"}
+          >
+            <.icon name="hero-document-text" class="w-4 h-4 mr-2" /> Prompts
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/usage"}
+            class={"tab #{if @active_tab == "usage", do: "tab-active"}"}
+          >
+            <.icon name="hero-chart-bar" class="w-4 h-4 mr-2" /> Usage
+          </.link>
+        </div>
+
+        <%!-- Quick Actions --%>
+        <%= if @active_tab == "endpoints" do %>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.ai_path() <> "/endpoints/new"}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> New Endpoint
+          </.link>
+        <% end %>
+      </div>
     </div>
 
     <%!-- Content --%>
@@ -116,9 +143,7 @@
                       >
                         {endpoint.name}
                       </.link>
-                      <span class={"badge #{if endpoint.enabled, do: "badge-success", else: "badge-neutral"}"}>
-                        {if endpoint.enabled, do: "Active", else: "Disabled"}
-                      </span>
+                      <.enabled_badge enabled={endpoint.enabled} />
                       <span class="badge badge-outline">{endpoint.provider}</span>
                     </div>
 
@@ -227,51 +252,18 @@
         <%!-- Pagination --%>
         <% total_pages = ceil(@total_endpoints / @page_size) %>
         <%= if total_pages > 1 do %>
-          <div class="flex justify-center items-center gap-2 mt-6">
-            <%!-- Previous button --%>
-            <%= if @page > 1 do %>
-              <button
-                phx-click="goto_page"
-                phx-value-page={@page - 1}
-                class="btn btn-sm btn-ghost"
-              >
-                <.icon name="hero-chevron-left" class="w-4 h-4" />
-              </button>
-            <% else %>
-              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
-                <.icon name="hero-chevron-left" class="w-4 h-4" />
-              </button>
-            <% end %>
-
-            <%!-- Page numbers --%>
-            <%= for page_num <- max(1, @page - 2)..min(total_pages, @page + 2) do %>
-              <button
-                phx-click="goto_page"
-                phx-value-page={page_num}
-                class={"btn btn-sm #{if page_num == @page, do: "btn-primary", else: "btn-ghost"}"}
-              >
-                {page_num}
-              </button>
-            <% end %>
-
-            <%!-- Next button --%>
-            <%= if @page < total_pages do %>
-              <button
-                phx-click="goto_page"
-                phx-value-page={@page + 1}
-                class="btn btn-sm btn-ghost"
-              >
-                <.icon name="hero-chevron-right" class="w-4 h-4" />
-              </button>
-            <% else %>
-              <button class="btn btn-sm btn-ghost btn-disabled" disabled>
-                <.icon name="hero-chevron-right" class="w-4 h-4" />
-              </button>
-            <% end %>
-
-            <span class="text-sm text-base-content/70 ml-2">
-              {(@page - 1) * @page_size + 1}-{min(@page * @page_size, @total_endpoints)} of {@total_endpoints}
-            </span>
+          <div class="flex justify-center p-4 border-t border-base-300">
+            <div class="join">
+              <%= for page_num <- 1..total_pages do %>
+                <button
+                  class={"join-item btn btn-sm #{if page_num == @page, do: "btn-active", else: ""}"}
+                  phx-click="goto_page"
+                  phx-value-page={page_num}
+                >
+                  {page_num}
+                </button>
+              <% end %>
+            </div>
           </div>
         <% end %>
       <% else %>

@@ -6,30 +6,34 @@
   project_title={@project_title}
   current_locale={@current_locale}
 >
-  <div class="container mx-auto px-4 py-6 space-y-6">
-    <header class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold text-base-content">{@schema}.{@table}</h1>
-        <p class="text-base-content/70">
-          <.formatted_number number={@preview.approx_rows} format={:short} />
-          rows • {format_bytes(@preview.size_bytes)}
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB
+      </.link>
+
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{@schema}.{@table}</h1>
+        <p class="text-lg text-base-content">
+          <.formatted_number number={@preview.approx_rows} format={:short} /> rows •
+          <.file_size bytes={@preview.size_bytes} />
         </p>
       </div>
-      <div class="flex items-center gap-2">
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity?table=#{@schema}.#{@table}")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-signal" class="w-4 h-4" /> Live Activity
-        </.link>
-        <.link
-          navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
-          class="btn btn-outline btn-primary btn-sm"
-        >
-          <.icon name="hero-arrow-left" class="w-4 h-4" /> Back to Tables
-        </.link>
-      </div>
     </header>
+
+    <%!-- Actions --%>
+    <div class="flex justify-end mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity?table=#{@schema}.#{@table}")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-signal" class="w-4 h-4 mr-2" /> Live Activity
+      </.link>
+    </div>
 
     <div class="bg-base-100 rounded-box shadow border border-base-200">
       <div class="p-4 border-b border-base-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">

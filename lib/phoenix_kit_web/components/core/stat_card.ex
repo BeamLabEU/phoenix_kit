@@ -20,29 +20,30 @@ defmodule PhoenixKitWeb.Components.Core.StatCard do
         subtitle="Currently logged in"
       >
         <:icon>
-          <PhoenixKitWeb.Components.Core.Icons.icon_activity />
+          <.icon name="hero-signal" class="w-6 h-6" />
         </:icon>
       </.stat_card>
 
       <.stat_card
-        rounded="2xl"
+        color="primary"
         value={@stats.active_users}
         title="Active Users"
         subtitle="Currently online"
       >
         <:icon>
-          <PhoenixKitWeb.Components.Core.Icons.icon_check_circle_filled />
+          <.icon name="hero-users" class="w-6 h-6" />
         </:icon>
       </.stat_card>
 
       <.stat_card
+        color="success"
         compact={true}
         value={@stats.total_users}
         title="Total Users"
         subtitle="Registered accounts"
       >
         <:icon>
-          <.icon name="hero-users" class="w-5 h-5" />
+          <.icon name="hero-check-circle" class="w-5 h-5" />
         </:icon>
       </.stat_card>
   """
@@ -52,12 +53,19 @@ defmodule PhoenixKitWeb.Components.Core.StatCard do
   attr :title, :string, required: true, doc: "The card title text"
   attr :subtitle, :string, required: true, doc: "The smaller descriptive text"
 
+  attr :color, :string,
+    default: "info",
+    values: ["info", "primary", "success", "secondary", "warning", "error", "accent", "neutral"],
+    doc:
+      "Background color theme (info, primary, success, secondary, warning, error, accent, neutral)"
+
   slot :icon, required: true, doc: "Icon to display in the card header"
 
   def stat_card(assigns) do
     ~H"""
     <div class={[
-      "bg-info text-info-content rounded-box shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105",
+      color_classes(@color),
+      "rounded-box shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105",
       if(@compact, do: "p-4", else: "p-6")
     ]}>
       <%= if @compact do %>
@@ -68,8 +76,8 @@ defmodule PhoenixKitWeb.Components.Core.StatCard do
           </div>
           <div class="flex-1">
             <div class="text-2xl font-bold mb-1">{@value}</div>
-            <div class="text-info-content/90 font-medium text-sm">{@title}</div>
-            <div class="text-info-content/70 text-xs">{@subtitle}</div>
+            <div class="opacity-90 font-medium text-sm">{@title}</div>
+            <div class="opacity-70 text-xs">{@subtitle}</div>
           </div>
         </div>
       <% else %>
@@ -80,12 +88,23 @@ defmodule PhoenixKitWeb.Components.Core.StatCard do
           </div>
         </div>
         <div class="text-3xl font-bold mb-2">{@value}</div>
-        <div class="text-info-content/90 font-medium">{@title}</div>
-        <div class="text-info-content/70 text-xs mt-1">
+        <div class="opacity-90 font-medium">{@title}</div>
+        <div class="opacity-70 text-xs mt-1">
           {@subtitle}
         </div>
       <% end %>
     </div>
     """
   end
+
+  # Color class helpers
+  defp color_classes("info"), do: "bg-info text-info-content"
+  defp color_classes("primary"), do: "bg-primary text-primary-content"
+  defp color_classes("success"), do: "bg-success text-success-content"
+  defp color_classes("secondary"), do: "bg-secondary text-secondary-content"
+  defp color_classes("warning"), do: "bg-warning text-warning-content"
+  defp color_classes("error"), do: "bg-error text-error-content"
+  defp color_classes("accent"), do: "bg-accent text-accent-content"
+  defp color_classes("neutral"), do: "bg-neutral text-neutral-content"
+  defp color_classes(_), do: "bg-info text-info-content"
 end
