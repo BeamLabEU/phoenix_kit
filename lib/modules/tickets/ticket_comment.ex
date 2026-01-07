@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Tickets.TicketComment do
+defmodule PhoenixKit.Modules.Tickets.TicketComment do
   @moduledoc """
   Schema for ticket comments with internal notes support.
 
@@ -65,11 +65,12 @@ defmodule PhoenixKit.Tickets.TicketComment do
           content: String.t(),
           is_internal: boolean(),
           depth: integer(),
-          ticket: PhoenixKit.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t(),
+          ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t(),
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           parent: t() | Ecto.Association.NotLoaded.t() | nil,
           children: [t()] | Ecto.Association.NotLoaded.t(),
-          attachments: [PhoenixKit.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
+          attachments:
+            [PhoenixKit.Modules.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -79,12 +80,12 @@ defmodule PhoenixKit.Tickets.TicketComment do
     field :is_internal, :boolean, default: false
     field :depth, :integer, default: 0
 
-    belongs_to :ticket, PhoenixKit.Tickets.Ticket, type: UUIDv7
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket, type: UUIDv7
     belongs_to :user, PhoenixKit.Users.Auth.User, type: :integer
     belongs_to :parent, __MODULE__, type: UUIDv7
 
     has_many :children, __MODULE__, foreign_key: :parent_id
-    has_many :attachments, PhoenixKit.Tickets.TicketAttachment, foreign_key: :comment_id
+    has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment, foreign_key: :comment_id
 
     timestamps(type: :naive_datetime)
   end

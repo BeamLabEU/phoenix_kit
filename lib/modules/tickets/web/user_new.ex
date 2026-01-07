@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Tickets.New do
+defmodule PhoenixKit.Modules.Tickets.Web.UserNew do
   @moduledoc """
   LiveView for creating new support tickets with file attachments.
 
@@ -10,9 +10,9 @@ defmodule PhoenixKitWeb.Live.Tickets.New do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.Tickets.Ticket
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
-  alias PhoenixKit.Tickets.Ticket
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 

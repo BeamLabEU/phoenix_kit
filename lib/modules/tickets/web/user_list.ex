@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Tickets.Tickets do
+defmodule PhoenixKit.Modules.Tickets.Web.UserList do
   @moduledoc """
   LiveView for displaying user's support tickets.
 
@@ -7,8 +7,8 @@ defmodule PhoenixKitWeb.Live.Tickets.Tickets do
   """
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Utils.Routes
 
   @impl true

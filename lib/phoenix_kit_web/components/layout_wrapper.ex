@@ -729,6 +729,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       />
                     <% end %>
 
+                    <%!-- Tickets (only shown when module is enabled) --%>
+                    <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/tickets")}
+                        icon="hero-ticket"
+                        label={gettext("Tickets")}
+                        current_path={@current_path || ""}
+                      />
+                    <% end %>
+
                     <.admin_nav_item
                       href={Routes.locale_aware_path(assigns, "/admin/modules")}
                       icon="modules"
@@ -758,13 +768,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/blogging",
                           "/admin/settings/seo",
                           "/admin/settings/posts",
+                          "/admin/settings/tickets",
                           "/admin/settings/billing",
                           "/admin/settings/billing/providers"
                         ])
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -816,6 +827,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/posts")}
                             icon="document"
                             label={gettext("Posts")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/tickets")}
+                            icon="hero-ticket"
+                            label={gettext("Tickets")}
                             current_path={@current_path || ""}
                             nested={true}
                           />

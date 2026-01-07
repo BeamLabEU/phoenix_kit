@@ -109,7 +109,7 @@
                 <% end %>
 
                 <%!-- My Tickets Link --%>
-                <%= if PhoenixKit.Tickets.enabled?() do %>
+                <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
                   <%= if String.contains?(assigns[:url_path] || "", "/dashboard/tickets") do %>
                     <.link
                       navigate={
@@ -172,7 +172,7 @@
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> {gettext("Settings")}
                   </.link>
                 </li>
-                <%= if PhoenixKit.Tickets.enabled?() do %>
+                <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
                   <li>
                     <.link
                       navigate={

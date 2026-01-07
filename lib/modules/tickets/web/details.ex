@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Tickets.Details do
+defmodule PhoenixKit.Modules.Tickets.Web.Details do
   @moduledoc """
   LiveView for displaying ticket details with comments and status management.
 
@@ -15,8 +15,8 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Details do
 
   require Logger
 
+  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
