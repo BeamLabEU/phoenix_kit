@@ -10,17 +10,17 @@ defmodule PhoenixKit.Modules.Blogging do
 
   @deprecated "Use PhoenixKit.Modules.Publishing instead"
 
-  # Core functions
+  # Core functions - delegate to new names
   defdelegate enabled?(), to: PhoenixKit.Modules.Publishing
   defdelegate enable_system(), to: PhoenixKit.Modules.Publishing
   defdelegate disable_system(), to: PhoenixKit.Modules.Publishing
-  defdelegate list_blogs(), to: PhoenixKit.Modules.Publishing
-  defdelegate blog_name(slug), to: PhoenixKit.Modules.Publishing
-  defdelegate get_blog_mode(slug), to: PhoenixKit.Modules.Publishing
-  defdelegate add_blog(name, opts \\ []), to: PhoenixKit.Modules.Publishing
-  defdelegate remove_blog(slug), to: PhoenixKit.Modules.Publishing
-  defdelegate update_blog(slug, params), to: PhoenixKit.Modules.Publishing
-  defdelegate trash_blog(slug), to: PhoenixKit.Modules.Publishing
+  defdelegate list_blogs(), to: PhoenixKit.Modules.Publishing, as: :list_groups
+  defdelegate blog_name(slug), to: PhoenixKit.Modules.Publishing, as: :group_name
+  defdelegate get_blog_mode(slug), to: PhoenixKit.Modules.Publishing, as: :get_group_mode
+  defdelegate add_blog(name, opts \\ []), to: PhoenixKit.Modules.Publishing, as: :add_group
+  defdelegate remove_blog(slug), to: PhoenixKit.Modules.Publishing, as: :remove_group
+  defdelegate update_blog(slug, params), to: PhoenixKit.Modules.Publishing, as: :update_group
+  defdelegate trash_blog(slug), to: PhoenixKit.Modules.Publishing, as: :trash_group
   defdelegate slugify(text), to: PhoenixKit.Modules.Publishing
   defdelegate valid_slug?(slug), to: PhoenixKit.Modules.Publishing
   defdelegate preset_types(), to: PhoenixKit.Modules.Publishing
@@ -88,8 +88,8 @@ defmodule PhoenixKit.Modules.Blogging do
   defdelegate get_version_metadata(blog_slug, post_slug, version, language),
     to: PhoenixKit.Modules.Publishing
 
-  # Storage migration functions
-  defdelegate legacy_blog?(blog_slug), to: PhoenixKit.Modules.Publishing
-  defdelegate migrate_blog(blog_slug), to: PhoenixKit.Modules.Publishing
-  defdelegate has_legacy_blogs?(), to: PhoenixKit.Modules.Publishing
+  # Storage migration functions - delegate to new names
+  defdelegate legacy_blog?(blog_slug), to: PhoenixKit.Modules.Publishing, as: :legacy_group?
+  defdelegate migrate_blog(blog_slug), to: PhoenixKit.Modules.Publishing, as: :migrate_group
+  defdelegate has_legacy_blogs?(), to: PhoenixKit.Modules.Publishing, as: :has_legacy_groups?
 end
