@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
 
   - **users** - User management (magic_link, password_reset, email_confirmation)
   - **billing** - Billing module (invoices, receipts, payment notifications)
-  - **blogging** - Blog module (new posts, comments)
+  - **publishing** - Publishing module (new posts, comments)
   - **entities** - Entities module (entity notifications)
   - **admin** - Admin functions (test emails, manual sends)
   - **custom** - Custom/user-defined emails
@@ -100,7 +100,7 @@ defmodule PhoenixKit.Modules.Emails.Template do
   @valid_statuses ["active", "draft", "archived"]
 
   # Valid source modules for email templates
-  @valid_source_modules ["users", "billing", "blogging", "entities", "admin", "custom"]
+  @valid_source_modules ["users", "billing", "publishing", "entities", "admin", "custom"]
 
   # Common template variables that can be used
   @common_variables [

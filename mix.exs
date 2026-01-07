@@ -168,7 +168,7 @@ defmodule PhoenixKit.MixProject do
         "guides/oauth_and_magic_link_setup.md",
         "guides/aws_email_setup.md",
         "guides/making-pages-live.md",
-        "guides/phk_blogging_format.md",
+        "guides/phk_publishing_format.md",
         "guides/AUTH_HEADER_INTEGRATION.md",
         "guides/draggable_list_component.md",
         "guides/README.md"

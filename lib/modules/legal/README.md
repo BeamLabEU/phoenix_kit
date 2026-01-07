@@ -15,7 +15,7 @@ Comprehensive legal compliance module for PhoenixKit with GDPR/CCPA compliant le
 - Multi-framework compliance (GDPR, CCPA, LGPD, PIPEDA, etc.)
 - Company information management
 - DPO (Data Protection Officer) contact
-- Automated legal page generation via Blogging module
+- Automated legal page generation via Publishing module
 - Page publishing workflow
 
 ### Phase 2: Cookie Consent Widget
@@ -94,8 +94,8 @@ Stores consent records for audit trail (if enabled).
 ### Enable the Module
 
 ```elixir
-# Blogging module must be enabled first
-PhoenixKit.Modules.Blogging.enable_system()
+# Publishing module must be enabled first
+PhoenixKit.Modules.Publishing.enable_system()
 
 # Then enable Legal module
 PhoenixKit.Modules.Legal.enable_system()
@@ -340,7 +340,7 @@ Access at: `/{prefix}/admin/settings/legal`
 
 ## Dependencies
 
-- **Blogging Module**: Required for page storage
+- **Publishing Module**: Required for page storage
 - **PhoenixKit.UUID**: For UUIDv7 generation
 - **Settings Module**: For configuration storage
 
@@ -437,7 +437,7 @@ Legal.get_consent_widget_config()
 
 ### Pages not generating
 
-1. Verify Blogging module enabled
+1. Verify Publishing module enabled
 2. Check "legal" blog exists
 3. Review company info is filled
 4. Check scope permissions

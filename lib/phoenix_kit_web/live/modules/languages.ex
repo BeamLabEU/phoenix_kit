@@ -6,9 +6,9 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.Blogging
-  alias PhoenixKit.Modules.Blogging.ListingCache
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -291,8 +291,8 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
 
   # Regenerate listing caches for all blogs when language settings change
   defp regenerate_all_blog_caches do
-    if Blogging.enabled?() do
-      Blogging.list_blogs()
+    if Publishing.enabled?() do
+      Publishing.list_groups()
       |> Enum.each(fn blog ->
         ListingCache.regenerate(blog["slug"])
       end)

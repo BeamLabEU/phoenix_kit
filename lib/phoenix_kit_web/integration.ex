@@ -676,66 +676,112 @@ defmodule PhoenixKitWeb.Integration do
     end
   end
 
-  # Helper function to generate blogging routes with locale support
+  # Helper function to generate publishing routes with locale support
   # Uses separate scopes because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
-  defp generate_blogging_routes(url_prefix) do
+  # Includes both new /admin/publishing/* routes and legacy /admin/blogging/* redirects
+  defp generate_publishing_routes(url_prefix) do
     quote do
-      # Localized blogging routes (with :locale prefix)
+      # =======================================================================
+      # NEW Publishing Routes (Primary)
+      # =======================================================================
+
+      # Localized publishing routes (with :locale prefix)
       scope "#{unquote(url_prefix)}/:locale" do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
-        live_session :phoenix_kit_blogging_localized,
+        live_session :phoenix_kit_publishing_localized,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
-            as: :blogging_index_localized
+          live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
+            as: :publishing_index_localized
 
-          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
-            as: :blogging_blog_localized
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+            as: :publishing_blog_localized
 
-          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
-            as: :blogging_editor_localized
+          live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
+            as: :publishing_editor_localized
 
-          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
-            as: :blogging_preview_localized
+          live "/admin/publishing/:blog/preview",
+               PhoenixKit.Modules.Publishing.Web.Preview,
+               :preview,
+               as: :publishing_preview_localized
 
-          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
-            as: :blogging_settings_localized
+          live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
+            as: :publishing_settings_localized
 
-          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
-            as: :blogging_new_localized
+          live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
+            as: :publishing_new_localized
 
-          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
-            as: :blogging_edit_localized
+          live "/admin/settings/publishing/:blog/edit",
+               PhoenixKit.Modules.Publishing.Web.Edit,
+               :edit,
+               as: :publishing_edit_localized
         end
       end
 
-      # Non-localized blogging routes (without :locale prefix)
+      # Non-localized publishing routes (without :locale prefix)
       scope unquote(url_prefix) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
 
-        live_session :phoenix_kit_blogging,
+        live_session :phoenix_kit_publishing,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
-          live "/admin/blogging", PhoenixKit.Modules.Blogging.Web.Index, :index,
-            as: :blogging_index
+          live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
+            as: :publishing_index
 
-          live "/admin/blogging/:blog", PhoenixKit.Modules.Blogging.Web.Blog, :blog,
-            as: :blogging_blog
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+            as: :publishing_blog
 
-          live "/admin/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Editor, :edit,
-            as: :blogging_editor
+          live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
+            as: :publishing_editor
 
-          live "/admin/blogging/:blog/preview", PhoenixKit.Modules.Blogging.Web.Preview, :preview,
-            as: :blogging_preview
+          live "/admin/publishing/:blog/preview",
+               PhoenixKit.Modules.Publishing.Web.Preview,
+               :preview,
+               as: :publishing_preview
 
-          live "/admin/settings/blogging", PhoenixKit.Modules.Blogging.Web.Settings, :index,
-            as: :blogging_settings
+          live "/admin/settings/publishing", PhoenixKit.Modules.Publishing.Web.Settings, :index,
+            as: :publishing_settings
 
-          live "/admin/settings/blogging/new", PhoenixKit.Modules.Blogging.Web.New, :new,
-            as: :blogging_new
+          live "/admin/settings/publishing/new", PhoenixKit.Modules.Publishing.Web.New, :new,
+            as: :publishing_new
 
-          live "/admin/settings/blogging/:blog/edit", PhoenixKit.Modules.Blogging.Web.Edit, :edit,
-            as: :blogging_edit
+          live "/admin/settings/publishing/:blog/edit",
+               PhoenixKit.Modules.Publishing.Web.Edit,
+               :edit,
+               as: :publishing_edit
         end
+      end
+
+      # =======================================================================
+      # LEGACY Blogging Routes (Redirects to new publishing routes)
+      # These provide backward compatibility for bookmarked URLs
+      # =======================================================================
+
+      alias PhoenixKitWeb.Controllers.Redirects.PublishingRedirectController
+
+      # Localized legacy redirects
+      scope "#{unquote(url_prefix)}/:locale" do
+        pipe_through [:browser]
+
+        get "/admin/blogging", PublishingRedirectController, :index
+        get "/admin/blogging/:blog", PublishingRedirectController, :blog
+        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
+        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
+        get "/admin/settings/blogging", PublishingRedirectController, :settings
+        get "/admin/settings/blogging/new", PublishingRedirectController, :new
+        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
+      end
+
+      # Non-localized legacy redirects
+      scope unquote(url_prefix) do
+        pipe_through [:browser]
+
+        get "/admin/blogging", PublishingRedirectController, :index
+        get "/admin/blogging/:blog", PublishingRedirectController, :blog
+        get "/admin/blogging/:blog/edit", PublishingRedirectController, :edit
+        get "/admin/blogging/:blog/preview", PublishingRedirectController, :preview
+        get "/admin/settings/blogging", PublishingRedirectController, :settings
+        get "/admin/settings/blogging/new", PublishingRedirectController, :new
+        get "/admin/settings/blogging/:blog/edit", PublishingRedirectController, :settings_edit
       end
     end
   end
@@ -906,7 +952,7 @@ defmodule PhoenixKitWeb.Integration do
         live "/admin/settings/organization", Live.Settings.Organization, :index
         live "/admin/modules", Live.Modules, :index
 
-        # Note: Blogging routes are in generate_blogging_routes/1 with separate scopes
+        # Note: Publishing routes are in generate_publishing_routes/1 with separate scopes
         # because PhoenixKit.Modules.* namespace can't be used inside PhoenixKitWeb scope
 
         # Posts module routes
@@ -1087,8 +1133,8 @@ defmodule PhoenixKitWeb.Integration do
       # Generate referral codes routes (separate scope for PhoenixKit.Modules.* namespace)
       unquote(generate_referral_codes_routes(url_prefix))
 
-      # Generate blogging routes (with locale support)
-      unquote(generate_blogging_routes(url_prefix))
+      # Generate publishing routes (with locale support)
+      unquote(generate_publishing_routes(url_prefix))
 
       # Generate tickets routes (with locale support)
       unquote(generate_tickets_routes(url_prefix))

@@ -116,8 +116,8 @@ This will automatically:
     ✅ Local and cloud multiple storages
     ✅ Image resizing 
     ✅ Video resizing
-✅ Blogging Module
-     ✅ 2 type of bloggin supported: timed and slug based
+✅ Publishing Module
+     ✅ 2 types supported: timed and slug based
      ✅ Multilingual publishing
      ✅ Timezone support
 
@@ -500,7 +500,7 @@ PhoenixKit.Modules.AI.disable_system()
 - `{prefix}/admin/settings` - System settings (timezone, date/time formats)
 
 **Content & Data:**
-- `{prefix}/admin/blogging` - Blog posts and articles management
+- `{prefix}/admin/publishing` - Blog posts and articles management
 - `{prefix}/admin/posts` - User-generated content (social posts)
 - `{prefix}/admin/entities` - Dynamic content types (WordPress ACF-like)
 

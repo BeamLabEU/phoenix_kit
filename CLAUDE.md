@@ -710,7 +710,7 @@ lib/modules/db/
 
 - **AI module:** See `lib/modules/ai/README.md` for API usage, endpoint management, prompts, and usage tracking.
 - **Emails module:** See `lib/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
-- **Blogging module:** See `lib/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
+- **Publishing module:** See `lib/modules/publishing/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
 - **Sync module:** See `lib/modules/sync/README.md` for peer-to-peer data sync, programmatic API, conflict strategies, and remote operations.
 - **Entities module:** See `lib/modules/entities/README.md` for dynamic content types (WordPress ACF-like).
 - **Billing module:** See `lib/modules/billing/README.md` for payment providers, subscriptions, invoices.

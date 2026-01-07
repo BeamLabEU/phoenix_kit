@@ -1,5 +1,5 @@
 defmodule PhoenixKit.Modules.Storage.URLSigner do
-  # NOTE: Temporarily supporting the blogging component system until the storage/media team ships their replacement.
+  # NOTE: Temporarily supporting the Publishing component system until the storage/media team ships their replacement.
   import Bitwise
 
   alias PhoenixKit.Config

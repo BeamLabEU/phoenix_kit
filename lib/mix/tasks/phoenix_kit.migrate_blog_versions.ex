@@ -41,9 +41,9 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
 
   use Mix.Task
 
-  alias PhoenixKit.Modules.Blogging
-  alias PhoenixKit.Modules.Blogging.Metadata
-  alias PhoenixKit.Modules.Blogging.Storage
+  alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.Metadata
+  alias PhoenixKit.Modules.Publishing.Storage
 
   @impl Mix.Task
   def run(args) do
@@ -100,7 +100,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
   end
 
   defp get_blogs_to_migrate(opts) do
-    all_blogs = Blogging.list_blogs()
+    all_blogs = Publishing.list_groups()
 
     case opts[:blog] do
       nil ->
@@ -145,7 +145,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
   end
 
   defp migrate_slug_mode_blog(blog_slug, opts, stats) do
-    blog_path = Path.join(Storage.root_path(), blog_slug)
+    blog_path = Storage.group_path(blog_slug)
 
     case File.ls(blog_path) do
       {:ok, entries} ->
@@ -169,7 +169,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
   end
 
   defp migrate_post(blog_slug, post_slug, opts, stats) do
-    post_path = Path.join([Storage.root_path(), blog_slug, post_slug])
+    post_path = Path.join(Storage.group_path(blog_slug), post_slug)
 
     # Check the post structure
     case Storage.detect_post_structure(post_path) do
@@ -208,7 +208,7 @@ defmodule Mix.Tasks.PhoenixKit.MigrateBlogVersions do
   end
 
   defp migrate_legacy_post(blog_slug, post_slug, opts) do
-    post_path = Path.join([Storage.root_path(), blog_slug, post_slug])
+    post_path = Path.join(Storage.group_path(blog_slug), post_slug)
     v1_path = Path.join(post_path, "v1")
 
     with {:ok, phk_files} <- list_phk_files_for_migration(post_path),

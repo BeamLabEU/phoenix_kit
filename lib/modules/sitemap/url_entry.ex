@@ -13,7 +13,7 @@ defmodule PhoenixKit.Modules.Sitemap.UrlEntry do
   - `priority` - Priority value 0.0-1.0
   - `title` - Display title for HTML sitemap
   - `category` - Category/group for organizing HTML sitemap
-  - `source` - Source module that generated this entry (:entities, :blogging, etc.)
+  - `source` - Source module that generated this entry (:entities, :publishing, etc.)
   - `alternates` - List of alternate language versions for hreflang (optional)
   - `canonical_path` - Canonical path without language prefix (for grouping alternates)
 
@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Sitemap.UrlEntry do
         priority: 0.8,
         title: "My Blog Post",
         category: "Blog",
-        source: :blogging,
+        source: :publishing,
         alternates: [
           %{hreflang: "en", href: "https://example.com/blog/my-post"},
           %{hreflang: "et", href: "https://example.com/et/blog/my-post"},
