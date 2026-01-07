@@ -13,13 +13,13 @@ defmodule PhoenixKitWeb.BlogController do
   use PhoenixKitWeb, :controller
   require Logger
 
-  alias PhoenixKit.Modules.Blogging
-  alias PhoenixKit.Modules.Blogging.ListingCache
-  alias PhoenixKit.Modules.Blogging.Metadata
-  alias PhoenixKit.Modules.Blogging.Renderer
-  alias PhoenixKit.Modules.Blogging.Storage
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
+  alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.ListingCache
+  alias PhoenixKit.Modules.Publishing.Metadata
+  alias PhoenixKit.Modules.Publishing.Renderer
+  alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKitWeb.BlogHTML
 
@@ -43,7 +43,7 @@ defmodule PhoenixKitWeb.BlogController do
 
     conn = assign(conn, :current_language, language)
 
-    if Blogging.enabled?() and public_enabled?() do
+    if Publishing.enabled?() and public_enabled?() do
       case build_segments(adjusted_params) do
         [] ->
           handle_not_found(conn, :invalid_path)
@@ -77,7 +77,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Fallback for routes without language parameter
   # This handles the non-localized route where :blog might actually be a language code
   def show(conn, params) do
-    if Blogging.enabled?() and public_enabled?() do
+    if Publishing.enabled?() and public_enabled?() do
       # Check if the first segment (blog) is actually a language with content
       case detect_language_in_blog_param(params) do
         {:language_detected, language, adjusted_params} ->
@@ -189,7 +189,7 @@ defmodule PhoenixKitWeb.BlogController do
 
       {:error, _} ->
         # Cache miss - fall back to filesystem scan
-        posts = Blogging.list_posts(blog_slug, nil)
+        posts = Publishing.list_posts(blog_slug, nil)
 
         Enum.any?(posts, fn post ->
           language in (post.available_languages || [])
@@ -446,7 +446,7 @@ defmodule PhoenixKitWeb.BlogController do
         )
 
         # Cache miss - scan filesystem and regenerate cache for next request
-        all_posts = Blogging.list_posts(blog_slug, nil)
+        all_posts = Publishing.list_posts(blog_slug, nil)
 
         elapsed_us = System.monotonic_time(:microsecond) - start_time
         elapsed_ms = Float.round(elapsed_us / 1000, 1)
@@ -516,7 +516,7 @@ defmodule PhoenixKitWeb.BlogController do
     # Each post controls its own version access - no global setting required
     if post_allows_version_access?(blog_slug, post_slug, language) do
       # Fetch the specific version
-      case Blogging.read_post(blog_slug, post_slug, language, version) do
+      case Publishing.read_post(blog_slug, post_slug, language, version) do
         {:ok, post} ->
           # Check if version is published
           if post.metadata.status == "published" do
@@ -526,8 +526,9 @@ defmodule PhoenixKitWeb.BlogController do
             # Render markdown (cached for published posts)
             html_content = render_post_content(post)
 
-            # Build translation links
-            translations = build_translation_links(blog_slug, post, canonical_language)
+            # Build translation links (preserve version in URLs)
+            translations =
+              build_translation_links(blog_slug, post, canonical_language, version: version)
 
             # Build breadcrumbs
             breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
@@ -610,7 +611,7 @@ defmodule PhoenixKitWeb.BlogController do
   defp fetch_blog(blog_slug) do
     blog_slug = blog_slug |> to_string() |> String.trim()
 
-    case Enum.find(Blogging.list_blogs(), fn blog ->
+    case Enum.find(Publishing.list_groups(), fn blog ->
            case blog["slug"] do
              slug when is_binary(slug) ->
                String.downcase(slug) == String.downcase(blog_slug)
@@ -644,7 +645,7 @@ defmodule PhoenixKitWeb.BlogController do
 
       {:error, _} ->
         # Cache miss - fall back to filesystem scan
-        post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+        post_dir = Path.join([Storage.group_path(blog_slug), date, time])
 
         case Storage.detect_post_structure(post_dir) do
           :versioned ->
@@ -661,7 +662,7 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp find_published_slug_post(blog_slug, post_slug, versions, language) do
     master_language = Storage.get_master_language()
-    post_dir = Path.join([Storage.root_path(), blog_slug, post_slug])
+    post_dir = Path.join([Storage.group_path(blog_slug), post_slug])
 
     published_result =
       versions
@@ -687,7 +688,7 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp try_read_published_post(blog_slug, post_slug, lang, version) do
-    case Blogging.read_post(blog_slug, post_slug, lang, version) do
+    case Publishing.read_post(blog_slug, post_slug, lang, version) do
       {:ok, post} when post.metadata.status == "published" -> {:ok, post}
       _ -> nil
     end
@@ -789,7 +790,7 @@ defmodule PhoenixKitWeb.BlogController do
         Enum.find_value(languages_to_try, fn lang ->
           path = "#{blog_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
 
-          case Blogging.read_post(blog_slug, path) do
+          case Publishing.read_post(blog_slug, path) do
             {:ok, post} when post.metadata.status == "published" -> {:ok, post}
             _ -> nil
           end
@@ -816,7 +817,7 @@ defmodule PhoenixKitWeb.BlogController do
       # Build legacy path: blog/date/time/language.phk
       path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
 
-      case Blogging.read_post(blog_slug, path) do
+      case Publishing.read_post(blog_slug, path) do
         {:ok, post} -> {:ok, post}
         _ -> nil
       end
@@ -1027,7 +1028,9 @@ defmodule PhoenixKitWeb.BlogController do
     end)
   end
 
-  defp build_translation_links(blog_slug, post, current_language) do
+  defp build_translation_links(blog_slug, post, current_language, opts \\ []) do
+    version = Keyword.get(opts, :version)
+
     # Get enabled languages
     enabled_languages =
       try do
@@ -1066,12 +1069,20 @@ defmodule PhoenixKitWeb.BlogController do
       is_enabled = language_enabled_for_public?(lang, enabled_languages)
       is_known = Languages.get_predefined_language(lang) != nil
 
+      # Build URL with version if viewing a specific version
+      url =
+        if version do
+          build_version_url(blog_slug, post, display_code, version)
+        else
+          BlogHTML.build_post_url(blog_slug, post, display_code)
+        end
+
       %{
         code: display_code,
         display_code: display_code,
         name: get_language_name(lang),
         flag: get_language_flag(lang),
-        url: BlogHTML.build_post_url(blog_slug, post, display_code),
+        url: url,
         current: DialectMapper.extract_base(lang) == current_base,
         enabled: is_enabled,
         known: is_known
@@ -1218,7 +1229,7 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp default_blog_listing(language) do
-    case Blogging.list_blogs() do
+    case Publishing.list_groups() do
       [%{"slug" => slug} | _] -> BlogHTML.blog_listing_path(language, slug)
       _ -> nil
     end
@@ -1247,18 +1258,25 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp get_per_page_setting do
-    case Settings.get_setting_cached("blogging_posts_per_page") do
+    # Check new key first, fallback to legacy
+    value =
+      case Settings.get_setting_cached("publishing_posts_per_page") do
+        nil -> Settings.get_setting_cached("blogging_posts_per_page")
+        v -> v
+      end
+
+    case value do
       nil ->
         20
 
-      value when is_binary(value) ->
-        case Integer.parse(value) do
+      v when is_binary(v) ->
+        case Integer.parse(v) do
           {num, _} when num > 0 -> num
           _ -> 20
         end
 
-      value when is_integer(value) and value > 0 ->
-        value
+      v when is_integer(v) and v > 0 ->
+        v
 
       _ ->
         20
@@ -1266,7 +1284,13 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp public_enabled? do
-    Settings.get_boolean_setting("blogging_public_enabled", true)
+    # Check new key first, fallback to legacy
+    case Settings.get_setting("publishing_public_enabled") do
+      nil -> Settings.get_boolean_setting("blogging_public_enabled", true)
+      "true" -> true
+      "false" -> false
+      _ -> true
+    end
   end
 
   # Checks if a specific post allows public access to older versions
@@ -1276,7 +1300,7 @@ defmodule PhoenixKitWeb.BlogController do
     master_language = Storage.get_master_language()
 
     # Read the live version (version: nil means get latest/live)
-    case Blogging.read_post(blog_slug, post_slug, master_language, nil) do
+    case Publishing.read_post(blog_slug, post_slug, master_language, nil) do
       {:ok, post} ->
         Map.get(post.metadata, :allow_version_access, false)
 
@@ -1355,7 +1379,7 @@ defmodule PhoenixKitWeb.BlogController do
     if current_post.language == master_language do
       Map.get(current_post.metadata, :allow_version_access, false)
     else
-      case Blogging.read_post(blog_slug, current_post.slug, master_language, nil) do
+      case Publishing.read_post(blog_slug, current_post.slug, master_language, nil) do
         {:ok, master_post} -> Map.get(master_post.metadata, :allow_version_access, false)
         {:error, _} -> false
       end
@@ -1465,7 +1489,7 @@ defmodule PhoenixKitWeb.BlogController do
 
     if blog_exists?(blog_slug) do
       # Step 1: Try other languages for this exact time
-      post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+      post_dir = Path.join([Storage.group_path(blog_slug), date, time])
       # Use version-aware language detection (handles both versioned and legacy)
       available = detect_available_languages_in_timestamp_dir(post_dir)
 
@@ -1523,7 +1547,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Find the first published post at any of the given times
   defp find_first_published_time(blog_slug, date, times, preferred_lang) do
     Enum.find_value(times, fn time ->
-      post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+      post_dir = Path.join([Storage.group_path(blog_slug), date, time])
       # Use version-aware language detection (handles both versioned and legacy)
       available = detect_available_languages_in_timestamp_dir(post_dir)
 
@@ -1544,7 +1568,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Tries each language for timestamp mode until finding a published version
   # Handles both versioned and legacy structures
   defp find_first_published_timestamp_version(blog_slug, date, time, languages) do
-    post_dir = Path.join([Storage.root_path(), blog_slug, date, time])
+    post_dir = Path.join([Storage.group_path(blog_slug), date, time])
 
     case Storage.detect_post_structure(post_dir) do
       :versioned ->
@@ -1576,7 +1600,7 @@ defmodule PhoenixKitWeb.BlogController do
       Enum.find_value(languages_to_try, fn lang ->
         path = "#{blog_slug}/#{date}/#{time}/v#{version}/#{lang}.phk"
 
-        case Blogging.read_post(blog_slug, path) do
+        case Publishing.read_post(blog_slug, path) do
           {:ok, post} when post.metadata.status == "published" ->
             {:ok, build_timestamp_url(blog_slug, date, time, lang)}
 
@@ -1592,7 +1616,7 @@ defmodule PhoenixKitWeb.BlogController do
     Enum.find_value(languages, fn lang ->
       path = "#{blog_slug}/#{date}/#{time}/#{lang}.phk"
 
-      case Blogging.read_post(blog_slug, path) do
+      case Publishing.read_post(blog_slug, path) do
         {:ok, post} when post.metadata.status == "published" ->
           {:ok, build_timestamp_url(blog_slug, date, time, lang)}
 
@@ -1657,7 +1681,7 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Finds a post by its slug from the blog's post list
   defp find_post_by_slug(blog_slug, post_slug) do
-    posts = Blogging.list_posts(blog_slug, nil)
+    posts = Publishing.list_posts(blog_slug, nil)
 
     case Enum.find(posts, fn p -> p.slug == post_slug end) do
       nil -> :not_found

@@ -295,18 +295,18 @@
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
 
       <PhoenixKitWeb.Components.Core.ModuleCard.module_card
-        title="Blogging"
+        title="Publishing"
         description="Publish date-based blog posts and company updates with multi-language support"
         icon="📰"
-        enabled={@blogging_enabled}
-        toggle_event="toggle_blogging"
+        enabled={@publishing_enabled}
+        toggle_event="toggle_publishing"
       >
         <:status_badges>
           <span class={[
             "badge",
-            if(@blogging_enabled, do: "badge-success", else: "badge-neutral")
+            if(@publishing_enabled, do: "badge-success", else: "badge-neutral")
           ]}>
-            {if @blogging_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
+            {if @publishing_enabled, do: gettext("Enabled"), else: gettext("Disabled")}
           </span>
         </:status_badges>
 
@@ -314,15 +314,15 @@
           <div class="flex flex-col gap-2 w-full">
             <.link
               navigate={
-                PhoenixKit.Utils.Routes.path("/admin/blogging", locale: @current_locale || "en")
+                PhoenixKit.Utils.Routes.path("/admin/publishing", locale: @current_locale || "en")
               }
-              class={"btn btn-sm #{if @blogging_enabled, do: "btn-primary", else: "btn-outline"}"}
+              class={"btn btn-sm #{if @publishing_enabled, do: "btn-primary", else: "btn-outline"}"}
             >
               <.icon name="hero-document-text" class="w-4 h-4 mr-1" /> {gettext("Open")}
             </.link>
             <.link
               navigate={
-                PhoenixKit.Utils.Routes.path("/admin/settings/blogging",
+                PhoenixKit.Utils.Routes.path("/admin/settings/publishing",
                   locale: @current_locale || "en"
                 )
               }
@@ -356,7 +356,7 @@
                 {gettext("Post files on disk:")}
               </span>
               <code class="font-mono text-xs bg-base-300/60 rounded px-2 py-0.5 break-all">
-                priv/blogging/&lt;blog&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
+                priv/publishing/&lt;group&gt;/&lt;slug&gt;/&lt;locale&gt;.phk
               </code>
             </div>
             <%= if @languages_enabled && default_lang_code do %>
@@ -1038,8 +1038,8 @@
           ]}>
             {if @legal_enabled, do: "Enabled", else: "Disabled"}
           </span>
-          <%= if @legal_enabled and @blogging_enabled_for_legal do %>
-            <span class="badge badge-info ml-2">Blogging Ready</span>
+          <%= if @legal_enabled and @publishing_enabled_for_legal do %>
+            <span class="badge badge-info ml-2">Publishing Ready</span>
           <% end %>
         </:status_badges>
 

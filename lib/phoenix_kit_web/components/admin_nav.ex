@@ -653,9 +653,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   defp locale_candidate?(locale) do
-    # Only match base language codes (2 letters, no hyphen)
-    # Full dialect codes (en-US) are no longer used in URLs
-    String.length(locale) == 2 and Regex.match?(~r/^[a-z]{2}$/i, locale)
+    # Match both base language codes (en) and full dialect codes (en-US)
+    Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/i, locale)
   end
 
   # Helper function to get admin languages from settings

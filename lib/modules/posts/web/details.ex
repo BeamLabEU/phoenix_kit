@@ -23,11 +23,10 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
 
   require Logger
 
-  alias PhoenixKit.Users.Roles
-
-  alias PhoenixKit.Modules.Blogging.Renderer
   alias PhoenixKit.Modules.Posts
+  alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
   @impl true

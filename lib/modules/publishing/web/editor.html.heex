@@ -1,0 +1,693 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={
+    PhoenixKit.Utils.Routes.path("/admin/publishing/#{@blog_slug}/edit", locale: @current_locale)
+  }
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <% nonce = assigns[:script_csp_nonce] || assigns[:csp_nonce] || "" %>
+
+  <%!-- Unsaved changes tracking and navigation protection --%>
+  <script nonce={nonce}>
+    (function() {
+      // Track unsaved changes state
+      window.editorUnsavedChanges = false;
+
+      // Browser exit protection
+      window.addEventListener("beforeunload", function(e) {
+        if (window.editorUnsavedChanges) {
+          e.preventDefault();
+          e.returnValue = "";
+          return "";
+        }
+      });
+
+      // Intercept navigation links
+      document.addEventListener("click", function(e) {
+        if (window.editorUnsavedChanges) {
+          const link = e.target.closest("a[href], a[data-phx-link]");
+          if (link && !link.hasAttribute("data-confirm")) {
+            const href = link.getAttribute("href") || link.getAttribute("data-phx-link");
+            // Don't block external links or hash links
+            if (href && !href.startsWith("http") && !href.startsWith("#")) {
+              e.preventDefault();
+              e.stopPropagation();
+              document.getElementById("confirm-cancel-btn").click();
+            }
+          }
+        }
+      }, true);
+
+      // Listen for changes status from LiveView
+      window.addEventListener("phx:changes-status", function(e) {
+        window.editorUnsavedChanges = e.detail.has_changes;
+      });
+
+      // Listen for confirm navigation event
+      window.addEventListener("phx:confirm-navigation", function(_e) {
+        if (confirm("You have unsaved changes. Are you sure you want to leave?")) {
+          document.getElementById("confirm-cancel-btn").click();
+        }
+      });
+
+      // Listen for slug update event from LiveView
+      window.addEventListener("phx:update-slug", function(e) {
+        const slugInput = document.getElementById("slug-input");
+        if (slugInput && e.detail.slug) {
+          slugInput.value = e.detail.slug;
+        }
+      });
+
+      // Listen for exec-js events from LiveView (for media insertion)
+      window.addEventListener("phx:exec-js", (e) => {
+        try {
+          eval(e.detail.js);
+        } catch (err) {
+          console.error("[ContentEditor] Error executing JS:", err);
+        }
+      });
+
+      // Listen for video prompt event
+      window.addEventListener("phx:prompt-and-insert", (e) => {
+        const url = window.prompt("Enter YouTube URL:", "https://youtu.be/dQw4w9WgXcQ");
+        if (url && url.trim()) {
+          window.publishingEditorInsertMedia(null, 'video', url.trim());
+        }
+      });
+
+      // Function to insert standard markdown media syntax at cursor position
+      window.publishingEditorInsertMedia = function(fileUrl, mediaType, videoUrl) {
+        const textarea = document.getElementById('content-editor-textarea');
+        if (!textarea) return;
+
+        // Build standard markdown syntax: ![alt](url)
+        let template;
+        if (mediaType === 'image' && fileUrl) {
+          template = '\n![Image description](' + fileUrl + ')\n';
+        } else if (mediaType === 'video') {
+          const url = videoUrl || fileUrl || '';
+          template = '\n![Video](' + url + ')\n';
+        } else {
+          return;
+        }
+
+        const start = textarea.selectionStart || 0;
+        const currentValue = textarea.value;
+        const newValue = currentValue.substring(0, start) + template + currentValue.substring(start);
+        textarea.value = newValue;
+
+        // Move cursor after inserted text
+        const newPos = start + template.length;
+        textarea.selectionStart = textarea.selectionEnd = newPos;
+        textarea.focus();
+
+        // Trigger input event to update LiveView
+        textarea.dispatchEvent(new Event("input", { bubbles: true }));
+      };
+    })();
+  </script>
+  <%!-- Hidden confirmation button for JavaScript --%>
+  <button
+    id="confirm-cancel-btn"
+    type="button"
+    phx-click="cancel"
+    class="hidden"
+    aria-hidden="true"
+  >
+  </button>
+
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <div class="flex items-center justify-between">
+      <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="back_to_list">
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to %{blog}",
+          blog: @blog_name || gettext("Blog")
+        )}
+      </button>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="btn btn-outline btn-sm shadow-none"
+          phx-click="preview"
+        >
+          <.icon name="hero-eye" class="w-4 h-4 mr-1" /> {gettext("Preview")}
+        </button>
+        <%= if @form["status"] == "published" && @public_url do %>
+          <a
+            href={if @has_pending_changes, do: "#", else: @public_url}
+            target="_blank"
+            class={[
+              "btn btn-outline btn-sm shadow-none",
+              !@has_pending_changes && "btn-success",
+              @has_pending_changes && "btn-disabled pointer-events-none opacity-60"
+            ]}
+            aria-disabled={@has_pending_changes}
+            tabindex={if @has_pending_changes, do: "-1", else: "0"}
+            title={
+              if(@has_pending_changes,
+                do: "Save the post before viewing the public page",
+                else: "View this post on the public site"
+              )
+            }
+          >
+            <.icon name="hero-globe-alt" class="w-4 h-4 mr-1" /> View Public
+          </a>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Language and Version Switchers --%>
+    <div class="flex flex-wrap items-center gap-4">
+      <%!-- Language Switcher --%>
+      <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
+          <.blog_language_switcher
+            languages={
+              build_editor_languages(
+                @post,
+                @blog_slug,
+                @all_enabled_languages,
+                @current_language
+              )
+            }
+            current_language={@current_language}
+            show_status={true}
+            show_add={true}
+            on_click="switch_language"
+            size={:sm}
+          />
+        </div>
+      <% end %>
+
+      <%!-- Version Switcher (when multiple versions exist) --%>
+      <%= if length(@available_versions) > 1 do %>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
+          <.blog_version_switcher
+            versions={@available_versions}
+            version_statuses={@version_statuses}
+            version_dates={@version_dates}
+            current_version={@current_version}
+            on_click="switch_version"
+            size={:sm}
+          />
+        </div>
+      <% end %>
+    </div>
+
+    <%!-- Warning banner when viewing an older version (newer version exists) --%>
+    <%= if @viewing_older_version do %>
+      <% latest_version =
+        if @available_versions != [], do: Enum.max(@available_versions), else: @current_version %>
+      <div class="alert alert-warning shadow-sm">
+        <.icon name="hero-lock-closed" class="w-5 h-5" />
+        <div class="flex-1">
+          <span class="font-medium">{gettext("Read-only version:")}</span>
+          <span>
+            {gettext(
+              "v%{current} cannot be edited because v%{latest} exists. You can change the status or switch to v%{latest} to edit.",
+              current: @current_version,
+              latest: latest_version
+            )}
+          </span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          phx-click="switch_version"
+          phx-value-version={latest_version}
+        >
+          {gettext("Go to v%{version}", version: latest_version)}
+        </button>
+      </div>
+    <% end %>
+
+    <%!-- Spectator mode banner - someone else is editing --%>
+    <%= if @readonly? do %>
+      <div class="alert alert-warning shadow-sm">
+        <.icon name="hero-eye" class="w-5 h-5" />
+        <div class="flex-1">
+          <span class="font-medium">{gettext("View only mode:")}</span>
+          <span>
+            <%= if @lock_owner_user do %>
+              {gettext(
+                "%{email} is currently editing this post. You can view but not make changes.",
+                email: @lock_owner_user.email
+              )}
+            <% else %>
+              {gettext(
+                "Another user is currently editing this post. You can view but not make changes."
+              )}
+            <% end %>
+          </span>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Info banner when editing a published version (only for versioned structure, master language, not older versions) --%>
+    <%!-- Translations don't create new versions, so this warning doesn't apply to them --%>
+    <%!-- Legacy structure posts save in-place, so this doesn't apply to them --%>
+    <%= if @post && not @post.is_legacy_structure and @editing_published_version and not @viewing_older_version and @is_master_language do %>
+      <div class="alert alert-info shadow-sm">
+        <.icon name="hero-information-circle" class="w-5 h-5" />
+        <div>
+          <span class="font-medium">{gettext("Editing published content:")}</span>
+          <span>
+            {gettext(
+              "Saving content changes will create a new draft version. Status changes are saved to this version."
+            )}
+          </span>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Warning for disabled or unknown language --%>
+    <%= if not @current_language_enabled or not @current_language_known do %>
+      <div class="alert alert-warning shadow-sm">
+        <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        <div>
+          <%= if not @current_language_known do %>
+            <span class="font-medium">{gettext("Unknown language file:")}</span>
+            <span>
+              {gettext(
+                "This file (%{code}.phk) doesn't match a recognized language code. The publishing status will still be respected.",
+                code: @current_language
+              )}
+            </span>
+          <% else %>
+            <span class="font-medium">{gettext("Disabled language:")}</span>
+            <span>
+              {gettext(
+                "This language (%{code}) is no longer enabled in the Languages module. The publishing status will still be respected for legacy content.",
+                code: @current_language
+              )}
+            </span>
+          <% end %>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- Legacy structure migration banner --%>
+    <%= if @post && @post.is_legacy_structure do %>
+      <div class="alert alert-info shadow-sm">
+        <.icon name="hero-arrow-up-circle" class="w-5 h-5" />
+        <div class="flex-1">
+          <span class="font-medium">{gettext("Legacy file structure detected:")}</span>
+          <span>
+            {gettext(
+              "This post uses the legacy flat file structure. Migrate to enable versioning features like version history and editing published content safely."
+            )}
+          </span>
+        </div>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          phx-click="migrate_to_versioned"
+          phx-disable-with={gettext("Migrating...")}
+        >
+          <.icon name="hero-arrow-up-circle" class="w-4 h-4" />
+          {gettext("Migrate to v1")}
+        </button>
+      </div>
+    <% end %>
+
+    <div class="card bg-base-100 shadow-xl border border-base-200">
+      <div class="card-body space-y-6">
+        <div class="flex flex-col lg:flex-row gap-6">
+          <div class="lg:w-80 space-y-4">
+            <.form for={@form} id="publishing-meta" phx-change="update_meta" phx-submit="noop">
+              <div class="space-y-4">
+                <%!-- Title is extracted from markdown content (first # Heading) --%>
+                <%= if @blog_mode == "slug" do %>
+                  <div>
+                    <label class="label">
+                      <span class="label-text text-sm font-semibold text-base-content">
+                        {gettext("Slug")}
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      name="slug"
+                      id="slug-input"
+                      value={@form["slug"]}
+                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                      class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                      placeholder={gettext("auto-generated from first heading")}
+                      title={
+                        gettext(
+                          "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
+                        )
+                      }
+                      readonly={@readonly? or @viewing_older_version}
+                    />
+                    <p class="text-xs text-base-content/60 mt-1">
+                      {gettext("Use lowercase letters, numbers, and hyphens only.")}
+                    </p>
+                  </div>
+                <% end %>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Featured Image")}
+                    </span>
+                  </label>
+
+                  <%= if preview_url = featured_image_preview_url(@form["featured_image_id"]) do %>
+                    <%!-- Image Preview with Actions --%>
+                    <div class="space-y-3">
+                      <div class="relative group">
+                        <img
+                          src={preview_url}
+                          alt={
+                            Map.get(@post.metadata, :title) ||
+                              Map.get(@post.metadata, "title") ||
+                              gettext("Featured image")
+                          }
+                          class="w-full rounded-lg border-2 border-base-300 object-cover max-h-56"
+                          loading="lazy"
+                        />
+                        <%!-- Desktop: Hover overlay (hidden when readonly or viewing older version) --%>
+                        <%= if not (@readonly? or @viewing_older_version) do %>
+                          <div class="hidden md:flex absolute inset-0 bg-base-content/0 group-hover:bg-base-content/60 transition-all rounded-lg items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                            <button
+                              type="button"
+                              phx-click="open_media_selector"
+                              class="btn btn-primary btn-sm shadow-lg"
+                            >
+                              <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                              {gettext("Change")}
+                            </button>
+                            <button
+                              type="button"
+                              phx-click="clear_featured_image"
+                              class="btn btn-error btn-sm shadow-lg"
+                            >
+                              <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                              {gettext("Remove")}
+                            </button>
+                          </div>
+                        <% end %>
+                      </div>
+                      <%!-- Mobile: Always visible buttons (hidden when readonly or viewing older version) --%>
+                      <%= if not (@readonly? or @viewing_older_version) do %>
+                        <div class="flex md:hidden gap-2">
+                          <button
+                            type="button"
+                            phx-click="open_media_selector"
+                            class="btn btn-primary btn-sm flex-1"
+                          >
+                            <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" />
+                            {gettext("Change")}
+                          </button>
+                          <button
+                            type="button"
+                            phx-click="clear_featured_image"
+                            class="btn btn-error btn-sm flex-1"
+                          >
+                            <.icon name="hero-trash" class="w-4 h-4 mr-1" />
+                            {gettext("Remove")}
+                          </button>
+                        </div>
+                      <% end %>
+                    </div>
+                  <% else %>
+                    <%!-- No Image Selected - Show Upload Area --%>
+                    <button
+                      type="button"
+                      phx-click="open_media_selector"
+                      class={"w-full border-2 border-dashed border-base-300 rounded-lg p-8 transition-all group #{if @readonly? or @viewing_older_version, do: "opacity-50 cursor-not-allowed", else: "hover:border-primary hover:bg-primary/5"}"}
+                      disabled={@readonly? or @viewing_older_version}
+                    >
+                      <div class="flex flex-col items-center gap-3 text-base-content/60 group-hover:text-primary transition-colors">
+                        <.icon name="hero-photo" class="w-12 h-12" />
+                        <div class="text-center">
+                          <p class="font-semibold text-sm">
+                            {gettext("Select Featured Image")}
+                          </p>
+                          <p class="text-xs mt-1">
+                            {gettext("Click to choose from media library")}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  <% end %>
+
+                  <%!-- Advanced: Manual ID Entry (Collapsed by default) --%>
+                  <details
+                    class="bg-base-200/50 mt-3 rounded-lg border border-base-300"
+                    open={false}
+                  >
+                    <summary class="cursor-pointer select-none px-3 py-2 rounded-lg hover:bg-base-300/50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                      <div class="flex items-center gap-2">
+                        <.icon
+                          name="hero-chevron-right"
+                          class="w-3 h-3 transition-transform [[open]>&]:rotate-90"
+                        />
+                        <span class="text-xs font-medium text-base-content/70">
+                          {gettext("Advanced: Manual File ID")}
+                        </span>
+                      </div>
+                    </summary>
+                    <div class="px-3 pb-3 pt-2">
+                      <input
+                        type="text"
+                        name="featured_image_id"
+                        value={@form["featured_image_id"]}
+                        class={"input input-bordered input-sm w-full font-mono text-xs #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        placeholder="018e3c4a-9f6b-7890-abcd-ef1234567890"
+                        readonly={@readonly? or @viewing_older_version}
+                      />
+                      <p class="text-xs text-base-content/60 mt-2">
+                        {gettext("Paste a Phoenix Kit Media ID if you know it.")}
+                      </p>
+                    </div>
+                  </details>
+                </div>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Status")}
+                    </span>
+                  </label>
+                  <select
+                    class={"select select-bordered w-full #{if @readonly?, do: "select-disabled bg-base-200"}"}
+                    name="status"
+                    disabled={@readonly?}
+                  >
+                    <%= if @viewing_older_version do %>
+                      <%!-- Older versions can only be published or archived, not draft --%>
+                      <option
+                        value="published"
+                        selected={@form["status"] in ["draft", "published"]}
+                      >
+                        {gettext("Published")}
+                      </option>
+                      <option value="archived" selected={@form["status"] == "archived"}>
+                        {gettext("Archived")}
+                      </option>
+                    <% else %>
+                      <option value="draft" selected={@form["status"] == "draft"}>
+                        {gettext("Draft")}
+                      </option>
+                      <option value="published" selected={@form["status"] == "published"}>
+                        {gettext("Published")}
+                      </option>
+                      <option value="archived" selected={@form["status"] == "archived"}>
+                        {gettext("Archived")}
+                      </option>
+                    <% end %>
+                  </select>
+                  <%!-- Version info for versioned posts only (not legacy) --%>
+                  <%!-- Translations don't trigger versioning, so hide version messages for non-master languages --%>
+                  <% is_legacy = @post && @post.is_legacy_structure %>
+                  <%= cond do %>
+                    <% is_legacy -> %>
+                      <%!-- Legacy post - no versioning messages, works as before --%>
+                    <% not @is_master_language -> %>
+                      <%!-- Translation file - no versioning messages since translations don't create versions --%>
+                    <% @viewing_older_version -> %>
+                      <%!-- Older version - no "will make live" messages since newer version exists --%>
+                    <% @is_new_post -> %>
+                      <%!-- New post that hasn't been saved yet --%>
+                      <p class="text-xs text-info mt-2 flex items-center gap-1">
+                        <.icon name="hero-information-circle" class="w-3.5 h-3.5 shrink-0" />
+                        <span>{gettext("First save will create v1 as draft.")}</span>
+                      </p>
+                    <% @form["status"] == "draft" -> %>
+                      <%!-- Existing draft (v1 or higher) - this is the latest version --%>
+                      <p class="text-xs text-info mt-2 flex items-center gap-1">
+                        <.icon name="hero-information-circle" class="w-3.5 h-3.5 shrink-0" />
+                        <span>
+                          {gettext("Publishing will make v%{version} the live version.",
+                            version: @current_version
+                          )}
+                        </span>
+                      </p>
+                    <% @editing_published_version -> %>
+                      <%!-- Viewing latest published version --%>
+                      <p class="text-xs text-info mt-2 flex items-start gap-1">
+                        <.icon name="hero-information-circle" class="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span>
+                          {gettext(
+                            "Editing content will create a v%{next_version} draft. v%{current_version} will remain visible until you change its status.",
+                            next_version: @current_version + 1,
+                            current_version: @current_version
+                          )}
+                        </span>
+                      </p>
+                    <% true -> %>
+                  <% end %>
+                </div>
+
+                <div>
+                  <label class="label">
+                    <span class="label-text text-sm font-semibold text-base-content">
+                      {gettext("Publication Date & Time (UTC)")}
+                    </span>
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="published_at"
+                    value={datetime_local_value(@form["published_at"])}
+                    class={"input input-bordered w-full #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                    readonly={@readonly? or @viewing_older_version}
+                  />
+                  <p class="text-xs text-base-content/60 mt-1">
+                    {gettext(
+                      "Updating the publication time moves the file to the matching folder."
+                    )}
+                  </p>
+                </div>
+
+                <%!-- Version Access Toggle (only for versioned posts on master language, not older versions) --%>
+                <% is_versioned_post = @post && not Map.get(@post, :is_legacy_structure, true) %>
+                <% can_toggle_version_access =
+                  is_versioned_post && @is_master_language && not @viewing_older_version %>
+                <%= if can_toggle_version_access do %>
+                  <div class="border-t border-base-200 pt-4 mt-4">
+                    <div class="flex items-center justify-between">
+                      <div class="space-y-0.5">
+                        <span class="text-sm font-semibold text-base-content">
+                          {gettext("Show Version History")}
+                        </span>
+                        <p class="text-xs text-base-content/60">
+                          {gettext("Display a version dropdown on the public post")}
+                        </p>
+                      </div>
+                      <label class={"swap #{if @readonly?, do: "opacity-50 pointer-events-none"}"}>
+                        <input
+                          type="checkbox"
+                          checked={Map.get(@post.metadata, :allow_version_access, false)}
+                          phx-click="toggle_version_access"
+                          phx-value-enabled={
+                            if Map.get(@post.metadata, :allow_version_access, false),
+                              do: "false",
+                              else: "true"
+                          }
+                          disabled={@readonly?}
+                        />
+                        <span class="swap-on">
+                          <span class="badge badge-success badge-sm">{gettext("On")}</span>
+                        </span>
+                        <span class="swap-off">
+                          <span class="badge badge-ghost badge-sm">{gettext("Off")}</span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </.form>
+          </div>
+
+          <div class="flex-1 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <h2 class="text-xl font-semibold text-base-content">{gettext("Content")}</h2>
+              <div class="flex items-center gap-2">
+                <%!-- Other viewers indicator --%>
+                <%= if @other_viewers != [] do %>
+                  <div
+                    class="tooltip tooltip-bottom"
+                    data-tip={Enum.map_join(@other_viewers, ", ", & &1.user_email)}
+                  >
+                    <span class="badge badge-info badge-sm gap-1">
+                      <.icon name="hero-eye" class="w-3 h-3" />
+                      {ngettext(
+                        "1 other viewing",
+                        "%{count} others viewing",
+                        length(@other_viewers),
+                        count: length(@other_viewers)
+                      )}
+                    </span>
+                  </div>
+                <% end %>
+                <%= cond do %>
+                  <% @is_autosaving -> %>
+                    <span class="badge badge-info badge-sm gap-1">
+                      <span class="loading loading-spinner loading-xs"></span>
+                      {gettext("Saving...")}
+                    </span>
+                  <% @has_pending_changes -> %>
+                    <span class="badge badge-warning badge-sm">{gettext("Unsaved changes")}</span>
+                  <% true -> %>
+                    <span class="badge badge-success badge-sm gap-1">
+                      <.icon name="hero-check" class="w-3 h-3" />
+                      {gettext("Saved")}
+                    </span>
+                <% end %>
+                <button
+                  type="button"
+                  phx-click="save"
+                  class={[
+                    "btn btn-primary btn-xs shadow-none gap-1",
+                    (@readonly? || @is_autosaving || !@has_pending_changes) &&
+                      "btn-disabled pointer-events-none opacity-60"
+                  ]}
+                  disabled={@readonly? || @is_autosaving || !@has_pending_changes}
+                >
+                  <span class="hidden phx-click-loading:inline-flex items-center gap-1">
+                    <span class="loading loading-spinner loading-2xs"></span>
+                    {gettext("Saving...")}
+                  </span>
+                  <span class="inline-flex items-center gap-1 phx-click-loading:hidden">
+                    <.icon name="hero-arrow-down-tray" class="w-3 h-3" /> {gettext("Save now")}
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <%!-- Markdown Editor Component --%>
+            <.live_component
+              module={PhoenixKitWeb.Components.Core.MarkdownEditor}
+              id="content-editor"
+              content={@content}
+              placeholder={gettext("Write your content here...")}
+              height="480px"
+              debounce={400}
+              toolbar={[:image, :video]}
+              show_formatting_toolbar={not (@readonly? or @viewing_older_version)}
+              protect_navigation={false}
+              script_nonce={nonce}
+              readonly={@readonly? or @viewing_older_version}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <%!-- Media Selector Modal --%>
+  <.live_component
+    module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+    id="media-selector-modal"
+    show={@show_media_selector}
+    mode={@media_selection_mode}
+    selected_ids={@media_selected_ids}
+    phoenix_kit_current_user={assigns[:phoenix_kit_current_user]}
+  />
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

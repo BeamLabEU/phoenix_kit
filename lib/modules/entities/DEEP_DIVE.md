@@ -734,7 +734,7 @@ The Entities system includes a Public Form Builder that allows administrators to
 
 The Public Form Builder provides:
 
-- **Embeddable Forms**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Embeddable Forms**: Use `<EntityForm entity_slug="contact" />` in publishing pages
 - **Field Selection**: Choose which entity fields appear on the public form
 - **Security Options**: Honeypot, time-based validation, and rate limiting
 - **Configurable Actions**: Choose what happens when security checks trigger
@@ -834,7 +834,7 @@ When `public_form_collect_metadata` is enabled, each submission includes:
 
 ### Embedding Forms
 
-Use the `<EntityForm>` component in blogging pages:
+Use the `<EntityForm>` component in publishing pages:
 
 ```heex
 <EntityForm entity_slug="contact" />

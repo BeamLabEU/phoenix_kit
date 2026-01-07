@@ -221,7 +221,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
         {:editor_content_changed, %{content: content, editor_id: "post-content-editor"}},
         socket
       ) do
-    # Store content as a separate assign (like blogging editor does)
+    # Store content as a separate assign (like Publishing editor does)
     {:noreply, assign(socket, :content, content)}
   end
 

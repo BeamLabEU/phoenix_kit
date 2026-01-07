@@ -46,7 +46,7 @@ lib/modules/entities/
 lib/phoenix_kit_web/controllers/
 └── entity_form_controller.ex        # Public form submission handler
 
-lib/phoenix_kit_web/components/blogging/
+lib/modules/publishing/components/
 └── entity_form.ex                   # Embeddable public form component
 
 lib/phoenix_kit/migrations/postgres/
@@ -296,7 +296,7 @@ The Entities system includes a public form builder for creating embeddable forms
 
 ### Features
 
-- **Embeddable Component**: Use `<EntityForm entity_slug="contact" />` in blogging pages
+- **Embeddable Component**: Use `<EntityForm entity_slug="contact" />` in publishing pages
 - **Field Selection**: Choose which entity fields appear on the public form
 - **Security Options**: Honeypot, time-based validation (3s minimum), rate limiting (5/min)
 - **Configurable Actions**: reject_silent, reject_error, save_suspicious, save_log

@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.Legal do
   - Compliance framework selection (GDPR, CCPA, etc.)
   - Company information management
   - Legal page generation (Privacy Policy, Terms, Cookie Policy)
-  - Integration with Blogging module for page storage
+  - Integration with Publishing module for page storage
 
   ## Phase 2: Cookie Consent Widget (prepared infrastructure)
   - Cookie consent banner
@@ -14,11 +14,11 @@ defmodule PhoenixKit.Modules.Legal do
   - Google Consent Mode v2 integration
 
   ## Dependencies
-  - Blogging module must be enabled before Legal module
+  - Publishing module must be enabled before Legal module
 
   ## Usage
 
-      # Enable the module (requires Blogging to be enabled)
+      # Enable the module (requires Publishing to be enabled)
       PhoenixKit.Modules.Legal.enable_system()
 
       # Check if enabled
@@ -166,17 +166,17 @@ defmodule PhoenixKit.Modules.Legal do
   @doc """
   Enable the Legal module.
 
-  Requires Blogging module to be enabled first.
-  Creates the "legal" blog if it doesn't exist.
+  Requires Publishing module to be enabled first.
+  Creates the "legal" publishing group if it doesn't exist.
 
   ## Returns
   - `{:ok, :enabled}` - Successfully enabled
-  - `{:error, :blogging_required}` - Blogging module must be enabled first
+  - `{:error, :publishing_required}` - Publishing module must be enabled first
   """
-  @spec enable_system() :: {:ok, :enabled} | {:error, :blogging_required | term()}
+  @spec enable_system() :: {:ok, :enabled} | {:error, :publishing_required | term()}
   def enable_system do
-    # Check Blogging dependency
-    if blogging_enabled?() do
+    # Check Publishing dependency
+    if publishing_enabled?() do
       case Settings.update_boolean_setting_with_module(@enabled_key, true, @module_name) do
         {:ok, _} ->
           # Ensure legal blog exists
@@ -187,7 +187,7 @@ defmodule PhoenixKit.Modules.Legal do
           error
       end
     else
-      {:error, :blogging_required}
+      {:error, :publishing_required}
     end
   end
 
@@ -218,7 +218,7 @@ defmodule PhoenixKit.Modules.Legal do
   def get_config do
     %{
       enabled: enabled?(),
-      blogging_enabled: blogging_enabled?(),
+      publishing_enabled: publishing_enabled?(),
       frameworks: get_selected_frameworks(),
       company_info: get_company_info(),
       dpo_contact: get_dpo_contact(),
@@ -671,9 +671,9 @@ defmodule PhoenixKit.Modules.Legal do
   def publish_page(page_slug, opts \\ []) do
     scope = Keyword.get(opts, :scope, nil)
 
-    case blogging_module().read_post(@legal_blog_slug, page_slug) do
+    case publishing_module().read_post(@legal_blog_slug, page_slug) do
       {:ok, post} ->
-        blogging_module().update_post(
+        publishing_module().update_post(
           @legal_blog_slug,
           post,
           %{"status" => "published"},
@@ -727,8 +727,8 @@ defmodule PhoenixKit.Modules.Legal do
   """
   @spec list_generated_pages() :: list(map())
   def list_generated_pages do
-    if blogging_enabled?() do
-      posts = blogging_module().list_posts(@legal_blog_slug)
+    if publishing_enabled?() do
+      posts = publishing_module().list_posts(@legal_blog_slug)
 
       Enum.map(posts, fn post ->
         %{
@@ -780,25 +780,29 @@ defmodule PhoenixKit.Modules.Legal do
   # PRIVATE HELPERS
   # ===================================
 
-  defp blogging_enabled? do
-    blogging_module().enabled?()
+  defp publishing_enabled? do
+    publishing_module().enabled?()
   rescue
     _ -> false
   end
 
-  defp blogging_module do
-    PhoenixKit.Modules.Blogging
+  defp publishing_module do
+    PhoenixKit.Modules.Publishing
   end
 
   defp ensure_legal_blog do
     # First check if legal blog already exists
-    case blogging_module().get_blog(@legal_blog_slug) do
+    case publishing_module().get_group(@legal_blog_slug) do
       {:ok, _existing_blog} ->
         {:ok, :exists}
 
       {:error, :not_found} ->
         # Blog doesn't exist, create it
-        case blogging_module().add_blog("Legal", "slug", @legal_blog_slug) do
+        case publishing_module().add_group("Legal",
+               mode: "slug",
+               slug: @legal_blog_slug,
+               type: "legal"
+             ) do
           {:ok, _blog} -> {:ok, :created}
           {:error, :already_exists} -> {:ok, :exists}
           {:error, reason} -> {:error, reason}
@@ -876,10 +880,10 @@ defmodule PhoenixKit.Modules.Legal do
     full_content = "# #{page_config.title}\n\n#{content}"
 
     # Check if post already exists
-    case blogging_module().read_post(@legal_blog_slug, page_config.slug) do
+    case publishing_module().read_post(@legal_blog_slug, page_config.slug) do
       {:ok, existing_post} ->
         # Update existing post (keep current status)
-        blogging_module().update_post(
+        publishing_module().update_post(
           @legal_blog_slug,
           existing_post,
           %{
@@ -890,7 +894,7 @@ defmodule PhoenixKit.Modules.Legal do
 
       {:error, :not_found} ->
         # Create new post as draft (user must publish manually)
-        blogging_module().create_post(@legal_blog_slug, %{
+        publishing_module().create_post(@legal_blog_slug, %{
           title: page_config.title,
           slug: page_config.slug,
           scope: scope
@@ -898,7 +902,7 @@ defmodule PhoenixKit.Modules.Legal do
         |> case do
           {:ok, post} ->
             # Update with content (stays as draft)
-            blogging_module().update_post(
+            publishing_module().update_post(
               @legal_blog_slug,
               post,
               %{"content" => full_content, "status" => "draft"},

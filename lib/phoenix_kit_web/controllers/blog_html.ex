@@ -5,9 +5,9 @@ defmodule PhoenixKitWeb.BlogHTML do
   use PhoenixKitWeb, :html
 
   alias PhoenixKit.Config
-  alias PhoenixKit.Modules.Blogging.Renderer
-  alias PhoenixKit.Modules.Blogging.Storage, as: BlogStorage
   alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Publishing.Renderer
+  alias PhoenixKit.Modules.Publishing.Storage, as: BlogStorage
 
   embed_templates("blog_html/*")
 

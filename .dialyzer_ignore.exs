@@ -4,6 +4,7 @@
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :unknown_function},
   # Conditional compilation pattern match in update.ex (Code.ensure_loaded?)
   {"lib/mix/tasks/phoenix_kit.update.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :unknown_function},
@@ -56,10 +57,12 @@
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :callback_info_missing, 1},
+  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :pattern_match_cov},
+  {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :pattern_match_cov},
   # Dialyzer incorrectly thinks 'false' pattern is unreachable after 'true' in boolean case
   ~r/lib\/mix\/tasks\/phoenix_kit\.configure_aws_ses\.ex:193:.*pattern_match/,
 

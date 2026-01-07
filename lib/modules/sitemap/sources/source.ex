@@ -4,7 +4,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Source do
 
   Each source module must implement this behaviour to provide URL entries
   for sitemap generation. Sources can collect data from various PhoenixKit
-  modules like Entities, Blogging, Pages, etc.
+  modules like Entities, Publishing, Pages, etc.
 
   ## Implementing a Source
 

@@ -10,7 +10,6 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Jobs
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Billing
-  alias PhoenixKit.Modules.Blogging
   alias PhoenixKit.Modules.Connections
   alias PhoenixKit.Modules.DB
   alias PhoenixKit.Modules.Emails
@@ -19,6 +18,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Legal
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.Posts
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Sitemap
@@ -41,7 +41,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     languages_config = Languages.get_config()
     entities_config = Entities.get_config()
     pages_enabled = Pages.enabled?()
-    blogging_enabled = Blogging.enabled?()
+    publishing_enabled = Publishing.enabled?()
     under_construction_config = Maintenance.get_config()
     seo_config = SEO.get_config()
     storage_config = Storage.get_config()
@@ -76,7 +76,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:entities_count, entities_config.entity_count)
       |> assign(:entities_total_data, entities_config.total_data_count)
       |> assign(:pages_enabled, pages_enabled)
-      |> assign(:blogging_enabled, blogging_enabled)
+      |> assign(:publishing_enabled, publishing_enabled)
       |> assign(:under_construction_module_enabled, under_construction_config.module_enabled)
       |> assign(:under_construction_enabled, under_construction_config.enabled)
       |> assign(:under_construction_header, under_construction_config.header)
@@ -114,7 +114,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:jobs_enabled, jobs_config.enabled)
       |> assign(:jobs_stats, jobs_config.stats)
       |> assign(:legal_enabled, legal_config.enabled)
-      |> assign(:blogging_enabled_for_legal, legal_config.blogging_enabled)
+      |> assign(:publishing_enabled_for_legal, legal_config.publishing_enabled)
       |> assign(:db_explorer_enabled, db_explorer_config.enabled)
       |> assign(:db_explorer_table_count, db_explorer_config.table_count)
       |> assign(:db_explorer_total_rows, db_explorer_config.approx_rows)
@@ -303,33 +303,33 @@ defmodule PhoenixKitWeb.Live.Modules do
     end
   end
 
-  def handle_event("toggle_blogging", _params, socket) do
-    new_enabled = !socket.assigns.blogging_enabled
+  def handle_event("toggle_publishing", _params, socket) do
+    new_enabled = !socket.assigns.publishing_enabled
 
     result =
       if new_enabled do
-        Blogging.enable_system()
+        Publishing.enable_system()
       else
-        Blogging.disable_system()
+        Publishing.disable_system()
       end
 
     case result do
       {:ok, _} ->
         socket =
           socket
-          |> assign(:blogging_enabled, new_enabled)
+          |> assign(:publishing_enabled, new_enabled)
           |> put_flash(
             :info,
             if(new_enabled,
-              do: "Blogging module enabled",
-              else: "Blogging module disabled"
+              do: "Publishing module enabled",
+              else: "Publishing module disabled"
             )
           )
 
         {:noreply, socket}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Failed to update blogging module")}
+        {:noreply, put_flash(socket, :error, "Failed to update publishing module")}
     end
   end
 
@@ -736,8 +736,8 @@ defmodule PhoenixKitWeb.Live.Modules do
            |> assign(:legal_enabled, true)
            |> put_flash(:info, gettext("Legal module enabled"))}
 
-        {:error, :blogging_required} ->
-          {:noreply, put_flash(socket, :error, gettext("Please enable Blogging module first"))}
+        {:error, :publishing_required} ->
+          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}

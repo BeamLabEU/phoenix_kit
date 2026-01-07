@@ -36,10 +36,10 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
 
   alias Phoenix.HTML
   alias PhoenixKit.Config
-  alias PhoenixKit.Modules.Blogging
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Legal
+  alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.ThemeConfig
   alias PhoenixKit.Users.Auth.Scope
@@ -94,7 +94,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
             PhoenixKit.Settings.get_content_language()
         end
       end)
-      |> assign_new(:blogging_blogs, fn -> load_blogging_blogs() end)
+      |> assign_new(:publishing_groups, fn -> load_publishing_groups() end)
       |> assign_new(:seo_no_index, fn -> SEO.no_index_enabled?() end)
 
     # Handle both inner_content (Phoenix 1.7-) and inner_block (Phoenix 1.8+)
@@ -173,7 +173,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
               project_title: assigns[:project_title] || "PhoenixKit",
               current_locale: assigns[:current_locale],
-              blogging_blogs: assigns[:blogging_blogs] || []
+              publishing_groups: assigns[:publishing_groups] || []
             }
 
             assigns = template_assigns
@@ -694,21 +694,21 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
-                    <%= if Blogging.enabled?() do %>
+                    <%= if Publishing.enabled?() do %>
                       <.admin_nav_item
-                        href={Routes.locale_aware_path(assigns, "/admin/blogging")}
+                        href={Routes.locale_aware_path(assigns, "/admin/publishing")}
                         icon="document"
-                        label={gettext("Blogging")}
+                        label={gettext("Publishing")}
                         current_path={@current_path || ""}
                         exact_match_only={true}
-                        submenu_open={submenu_open?(@current_path, ["/admin/blogging"])}
+                        submenu_open={submenu_open?(@current_path, ["/admin/publishing", "/admin/blogging"])}
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/blogging"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/publishing", "/admin/blogging"]) do %>
                         <div class="mt-1">
-                          <%= for blog <- @blogging_blogs do %>
+                          <%= for blog <- @publishing_groups do %>
                             <.admin_nav_item
-                              href={Routes.locale_aware_path(assigns, "/admin/blogging/#{blog["slug"]}")}
+                              href={Routes.locale_aware_path(assigns, "/admin/publishing/#{blog["slug"]}")}
                               icon="hero-document-text"
                               label={blog["name"]}
                               current_path={@current_path || ""}
@@ -765,6 +765,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/media",
                           "/admin/settings/storage/dimensions",
                           "/admin/settings/maintenance",
+                          "/admin/settings/publishing",
                           "/admin/settings/blogging",
                           "/admin/settings/seo",
                           "/admin/settings/posts",
@@ -775,7 +776,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/publishing", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -812,11 +813,11 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           />
                         <% end %>
 
-                        <%= if Blogging.enabled?() do %>
+                        <%= if Publishing.enabled?() do %>
                           <.admin_nav_item
-                            href={Routes.locale_aware_path(assigns, "/admin/settings/blogging")}
+                            href={Routes.locale_aware_path(assigns, "/admin/settings/publishing")}
                             icon="document"
-                            label={gettext("Blogging")}
+                            label={gettext("Publishing")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
@@ -1413,22 +1414,37 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
     end
   end
 
-  # Load blogging blogs configuration with legacy migration support
-  defp load_blogging_blogs do
-    if Blogging.enabled?() do
+  # Load publishing groups configuration with dual-key support (new key first, legacy fallback)
+  defp load_publishing_groups do
+    if Publishing.enabled?() do
+      # Check new key first, then fallback to legacy keys
       json_settings = %{
+        "publishing_groups" =>
+          PhoenixKit.Settings.get_json_setting_cached("publishing_groups", nil),
         "blogging_blogs" => PhoenixKit.Settings.get_json_setting_cached("blogging_blogs", nil),
         "blogging_categories" =>
           PhoenixKit.Settings.get_json_setting_cached("blogging_categories", %{"types" => []})
       }
 
-      extract_and_normalize_blogs(json_settings)
+      extract_and_normalize_groups(json_settings)
     else
       []
     end
   end
 
-  defp extract_and_normalize_blogs(json_settings) do
+  defp extract_and_normalize_groups(json_settings) do
+    # Try new publishing_groups key first
+    case json_settings["publishing_groups"] do
+      %{"publishing_groups" => groups} when is_list(groups) ->
+        normalize_blogs(groups)
+
+      # Fallback to legacy blogging_blogs key
+      _ ->
+        extract_legacy_blogs(json_settings)
+    end
+  end
+
+  defp extract_legacy_blogs(json_settings) do
     case json_settings["blogging_blogs"] do
       %{"blogs" => blogs} when is_list(blogs) ->
         normalize_blogs(blogs)
@@ -1456,7 +1472,8 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
   defp migrate_legacy_categories_if_present([]), do: :ok
 
   defp migrate_legacy_categories_if_present(legacy) do
-    PhoenixKit.Settings.update_json_setting("blogging_blogs", %{"blogs" => legacy})
+    # Migrate to new publishing_groups key
+    PhoenixKit.Settings.update_json_setting("publishing_groups", %{"publishing_groups" => legacy})
   end
 
   # Normalize blogs list to ensure consistent structure

@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   ## Usage
 
       # Navigate to selector with query params
-      /admin/media/selector?return_to=/admin/blogging/edit&mode=single&filter=image
+      /admin/media/selector?return_to=/admin/publishing/edit&mode=single&filter=image
 
   ## Query Parameters
 

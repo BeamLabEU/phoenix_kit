@@ -5,7 +5,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   Route: {prefix}/admin/settings/legal
 
   Sections:
-  1. Module enable/disable (with Blogging dependency check)
+  1. Module enable/disable (with Publishing dependency check)
   2. Compliance framework selection
   3. Company information form
   4. DPO contact form
@@ -39,7 +39,7 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
         :current_path,
         Routes.path("/admin/settings/legal", locale: socket.assigns[:current_locale_base])
       )
-      |> assign(:blogging_enabled, config.blogging_enabled)
+      |> assign(:publishing_enabled, config.publishing_enabled)
       |> assign(:legal_enabled, config.enabled)
       |> assign(:available_frameworks, Legal.available_frameworks())
       |> assign(:available_page_types, Legal.available_page_types())
@@ -89,8 +89,8 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
            |> assign(:legal_enabled, true)
            |> put_flash(:info, gettext("Legal module enabled"))}
 
-        {:error, :blogging_required} ->
-          {:noreply, put_flash(socket, :error, gettext("Please enable Blogging module first"))}
+        {:error, :publishing_required} ->
+          {:noreply, put_flash(socket, :error, gettext("Please enable Publishing module first"))}
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
@@ -303,10 +303,10 @@ defmodule PhoenixKitWeb.Live.Modules.Legal.Settings do
   defp get_edit_url(page_slug, generated_pages) do
     case Enum.find(generated_pages, fn p -> p.slug == page_slug end) do
       nil ->
-        Routes.path("/admin/blogging/legal")
+        Routes.path("/admin/publishing/legal")
 
       page ->
-        Routes.path("/admin/blogging/legal/edit?path=#{URI.encode(page.path)}")
+        Routes.path("/admin/publishing/legal/edit?path=#{URI.encode(page.path)}")
     end
   end
 

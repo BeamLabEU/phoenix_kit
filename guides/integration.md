@@ -344,11 +344,11 @@ PhoenixKit.Entities.update_entity(entity, %{
 The EntityForm is a function component (not a LiveComponent), so use it directly:
 
 ```heex
-<%# In .phk blogging pages (recommended) %>
+<%# In .phk publishing pages (recommended) %>
 <EntityForm entity_slug="contact_form" />
 
 <%# Or call the render function directly in regular .heex templates %>
-<PhoenixKitWeb.Components.Blogging.EntityForm.render
+<PhoenixKit.Modules.Publishing.Components.EntityForm.render
   attributes={%{"entity_slug" => "contact_form"}}
 />
 ```
@@ -719,7 +719,7 @@ When working with PhoenixKit source (for debugging or understanding):
 | Entity data schema | `deps/phoenix_kit/lib/phoenix_kit/entities/entity_data.ex` |
 | Field types | `deps/phoenix_kit/lib/phoenix_kit/entities/field_types.ex` |
 | Public form controller | `deps/phoenix_kit/lib/phoenix_kit_web/controllers/entity_form_controller.ex` |
-| Public form component | `deps/phoenix_kit/lib/phoenix_kit_web/components/blogging/entity_form.ex` |
+| Public form component | `deps/phoenix_kit/lib/modules/publishing/components/entity_form.ex` |
 | Authentication | `deps/phoenix_kit/lib/phoenix_kit/users/auth.ex` |
 | User schema | `deps/phoenix_kit/lib/phoenix_kit/users/auth/user.ex` |
 | Roles | `deps/phoenix_kit/lib/phoenix_kit/users/roles.ex` |

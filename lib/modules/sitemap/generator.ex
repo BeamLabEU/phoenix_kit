@@ -3,7 +3,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   Main sitemap generator for PhoenixKit.
 
   Generates XML and HTML sitemaps by collecting URL entries from all enabled
-  sources (Entities, Blogging, Pages, etc.) and formatting them according to
+  sources (Entities, Publishing, Pages, etc.) and formatting them according to
   sitemaps.org protocol.
 
   ## Features
@@ -46,7 +46,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
         max_urls_per_file: 50_000,
         sources: [
           PhoenixKit.Modules.Sitemap.Sources.Static,
-          PhoenixKit.Modules.Sitemap.Sources.Blogging
+          PhoenixKit.Modules.Sitemap.Sources.Publishing
         ]
   """
 
@@ -862,7 +862,7 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
     [
       PhoenixKit.Modules.Sitemap.Sources.RouterDiscovery,
       PhoenixKit.Modules.Sitemap.Sources.Static,
-      PhoenixKit.Modules.Sitemap.Sources.Blogging,
+      PhoenixKit.Modules.Sitemap.Sources.Publishing,
       PhoenixKit.Modules.Sitemap.Sources.Entities,
       PhoenixKit.Modules.Sitemap.Sources.Posts
     ]
