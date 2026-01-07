@@ -29,5 +29,11 @@ defmodule PhoenixKit.Install.BasicConfiguration do
       [:parent_module],
       parent_module
     )
+    |> Config.configure_new(
+      "config.exs",
+      :phoenix_kit,
+      [:url_prefix],
+      "/phoenix_kit"
+    )
   end
 end
