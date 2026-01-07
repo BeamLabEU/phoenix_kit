@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
+defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   @moduledoc """
   LiveView for creating and editing support tickets.
   """
@@ -6,9 +6,9 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Edit do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Tickets
+  alias PhoenixKit.Modules.Tickets.Ticket
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
-  alias PhoenixKit.Tickets.Ticket
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes

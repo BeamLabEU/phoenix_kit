@@ -519,6 +519,14 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
     # Handle tasks that need to run after igniter completes
     defp post_igniter_tasks(opts) do
+      prefix = Keyword.get(opts, :prefix, "public")
+
+      # CRITICAL: Run UUID repair BEFORE migrations
+      # This fixes upgrade path from PhoenixKit < 1.7.0 where uuid columns
+      # were not present in some tables, but later migrations use Ecto schemas
+      # that expect the uuid column to exist.
+      run_uuid_repair(prefix)
+
       # Update CSS integration (enables daisyUI themes if disabled)
       update_css_integration()
 
@@ -532,6 +540,45 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
       # Handle interactive migration execution
       run_interactive_migration_update(opts)
+    end
+
+    # Run UUID column repair for upgrades from pre-1.7.0 installations
+    defp run_uuid_repair(prefix) do
+      alias PhoenixKit.Migrations.UUIDRepair
+
+      case UUIDRepair.maybe_repair(prefix: prefix) do
+        {:ok, :not_needed} ->
+          # No repair needed, continue silently
+          :ok
+
+        {:ok, :repaired} ->
+          Mix.shell().info("""
+
+          ✅ UUID columns repaired successfully!
+             This ensures compatibility with migrations that use Ecto schemas.
+          """)
+
+        {:error, reason} ->
+          Mix.shell().info("""
+
+          ⚠️  UUID repair encountered an issue: #{inspect(reason)}
+             You may need to add uuid columns manually before running migrations.
+
+             Manual fix (run in psql or your database client):
+               ALTER TABLE phoenix_kit_settings
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+
+               ALTER TABLE phoenix_kit_email_templates
+               ADD COLUMN IF NOT EXISTS uuid UUID DEFAULT gen_random_uuid();
+          """)
+      end
+    rescue
+      error ->
+        Mix.shell().info("""
+
+        ⚠️  UUID repair check failed: #{inspect(error)}
+           If migrations fail, you may need to add uuid columns manually.
+        """)
     end
 
     # Run interactive migration for updates

@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Tickets.Details do
+defmodule PhoenixKit.Modules.Tickets.Web.UserDetails do
   @moduledoc """
   LiveView for displaying ticket details to the ticket owner.
 
@@ -15,8 +15,8 @@ defmodule PhoenixKitWeb.Live.Tickets.Details do
   require Logger
 
   alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 

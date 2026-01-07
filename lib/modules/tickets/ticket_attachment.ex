@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Tickets.TicketAttachment do
+defmodule PhoenixKit.Modules.Tickets.TicketAttachment do
   @moduledoc """
   Junction schema for ticket and comment attachments.
 
@@ -49,8 +49,9 @@ defmodule PhoenixKit.Tickets.TicketAttachment do
           file_id: UUIDv7.t(),
           position: integer(),
           caption: String.t() | nil,
-          ticket: PhoenixKit.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t() | nil,
-          comment: PhoenixKit.Tickets.TicketComment.t() | Ecto.Association.NotLoaded.t() | nil,
+          ticket: PhoenixKit.Modules.Tickets.Ticket.t() | Ecto.Association.NotLoaded.t() | nil,
+          comment:
+            PhoenixKit.Modules.Tickets.TicketComment.t() | Ecto.Association.NotLoaded.t() | nil,
           file: PhoenixKit.Modules.Storage.File.t() | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -60,8 +61,8 @@ defmodule PhoenixKit.Tickets.TicketAttachment do
     field :position, :integer
     field :caption, :string
 
-    belongs_to :ticket, PhoenixKit.Tickets.Ticket
-    belongs_to :comment, PhoenixKit.Tickets.TicketComment
+    belongs_to :ticket, PhoenixKit.Modules.Tickets.Ticket
+    belongs_to :comment, PhoenixKit.Modules.Tickets.TicketComment
     belongs_to :file, PhoenixKit.Modules.Storage.File
 
     timestamps(type: :naive_datetime)

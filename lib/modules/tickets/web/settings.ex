@@ -1,12 +1,12 @@
-defmodule PhoenixKitWeb.Live.Modules.Tickets.Settings do
+defmodule PhoenixKit.Modules.Tickets.Web.Settings do
   @moduledoc """
   LiveView for configuring the Tickets module settings.
   """
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 

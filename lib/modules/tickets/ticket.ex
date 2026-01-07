@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Tickets.Ticket do
+defmodule PhoenixKit.Modules.Tickets.Ticket do
   @moduledoc """
   Schema for support tickets.
 
@@ -91,10 +91,12 @@ defmodule PhoenixKit.Tickets.Ticket do
           closed_at: DateTime.t() | nil,
           user: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t(),
           assigned_to: PhoenixKit.Users.Auth.User.t() | Ecto.Association.NotLoaded.t() | nil,
-          comments: [PhoenixKit.Tickets.TicketComment.t()] | Ecto.Association.NotLoaded.t(),
-          attachments: [PhoenixKit.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
+          comments:
+            [PhoenixKit.Modules.Tickets.TicketComment.t()] | Ecto.Association.NotLoaded.t(),
+          attachments:
+            [PhoenixKit.Modules.Tickets.TicketAttachment.t()] | Ecto.Association.NotLoaded.t(),
           status_history:
-            [PhoenixKit.Tickets.TicketStatusHistory.t()] | Ecto.Association.NotLoaded.t(),
+            [PhoenixKit.Modules.Tickets.TicketStatusHistory.t()] | Ecto.Association.NotLoaded.t(),
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -115,9 +117,9 @@ defmodule PhoenixKit.Tickets.Ticket do
       type: :integer,
       foreign_key: :assigned_to_id
 
-    has_many :comments, PhoenixKit.Tickets.TicketComment
-    has_many :attachments, PhoenixKit.Tickets.TicketAttachment
-    has_many :status_history, PhoenixKit.Tickets.TicketStatusHistory
+    has_many :comments, PhoenixKit.Modules.Tickets.TicketComment
+    has_many :attachments, PhoenixKit.Modules.Tickets.TicketAttachment
+    has_many :status_history, PhoenixKit.Modules.Tickets.TicketStatusHistory
 
     timestamps(type: :naive_datetime)
   end

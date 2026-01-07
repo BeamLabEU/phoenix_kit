@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Tickets do
+defmodule PhoenixKit.Modules.Tickets do
   @moduledoc """
   Context for managing support tickets, comments, and attachments.
 
@@ -54,7 +54,7 @@ defmodule PhoenixKit.Tickets do
 
   alias PhoenixKit.Settings
 
-  alias PhoenixKit.Tickets.{
+  alias PhoenixKit.Modules.Tickets.{
     Ticket,
     TicketAttachment,
     TicketComment,

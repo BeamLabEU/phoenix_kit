@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.Live.Modules.Tickets.Tickets do
+defmodule PhoenixKit.Modules.Tickets.Web.List do
   @moduledoc """
   LiveView for displaying and managing support tickets in PhoenixKit admin panel.
 
@@ -27,8 +27,8 @@ defmodule PhoenixKitWeb.Live.Modules.Tickets.Tickets do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Tickets
   alias PhoenixKit.Settings
-  alias PhoenixKit.Tickets
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Routes
 
