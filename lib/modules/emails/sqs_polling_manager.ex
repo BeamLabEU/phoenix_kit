@@ -108,6 +108,8 @@ defmodule PhoenixKit.Modules.Emails.SQSPollingManager do
 
     case Emails.set_sqs_polling(false) do
       {:ok, _setting} ->
+        # Cancel any scheduled polling jobs
+        SQSPollingJob.cancel_scheduled()
         Logger.info("SQS Polling Manager: Polling disabled")
         :ok
 

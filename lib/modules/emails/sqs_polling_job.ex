@@ -72,6 +72,8 @@ defmodule PhoenixKit.Modules.Emails.SQSPollingJob do
 
   require Logger
 
+  import Ecto.Query
+
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Modules.Emails.SQSProcessor
 
@@ -99,6 +101,38 @@ defmodule PhoenixKit.Modules.Emails.SQSPollingJob do
       Logger.debug("SQS Polling Job: Polling disabled, skipping cycle")
       :ok
     end
+  end
+
+  @doc """
+  Cancels all scheduled SQS polling jobs.
+
+  Called when polling is disabled to immediately clean up pending jobs.
+
+  ## Returns
+
+  - `{:ok, count}` - Number of cancelled jobs
+
+  ## Examples
+
+      iex> PhoenixKit.Modules.Emails.SQSPollingJob.cancel_scheduled()
+      {:ok, 2}
+  """
+  @spec cancel_scheduled() :: {:ok, non_neg_integer()}
+  def cancel_scheduled do
+    worker_name = inspect(__MODULE__)
+
+    {count, _} =
+      Oban.Job
+      |> where([j], j.worker == ^worker_name)
+      |> where([j], j.state in ["available", "scheduled"])
+      |> get_repo().delete_all()
+
+    Logger.info("SQSPollingJob: Cancelled #{count} scheduled jobs")
+    {:ok, count}
+  end
+
+  defp get_repo do
+    PhoenixKit.RepoHelper.repo()
   end
 
   ## --- Private Functions ---

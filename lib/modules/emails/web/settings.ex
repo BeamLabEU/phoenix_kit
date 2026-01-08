@@ -254,6 +254,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
   end
 
   def handle_event("toggle_sqs_polling", _params, socket) do
+    alias PhoenixKit.Modules.Emails.SQSPollingJob
+
     # Toggle SQS polling
     new_sqs_polling = !socket.assigns.sqs_polling_enabled
 
@@ -261,6 +263,11 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
     case result do
       {:ok, _setting} ->
+        # Cancel scheduled jobs when disabling
+        unless new_sqs_polling do
+          SQSPollingJob.cancel_scheduled()
+        end
+
         socket =
           socket
           |> assign(:sqs_polling_enabled, new_sqs_polling)

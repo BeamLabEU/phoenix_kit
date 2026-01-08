@@ -175,7 +175,19 @@ defmodule PhoenixKit.Modules.Sitemap do
   """
   @spec disable_system() :: {:ok, any()} | {:error, any()}
   def disable_system do
-    settings_call(:update_boolean_setting, [@enabled_key, false])
+    alias PhoenixKit.Modules.Sitemap.SchedulerWorker
+
+    result = settings_call(:update_boolean_setting, [@enabled_key, false])
+
+    case result do
+      {:ok, _} = success ->
+        # Cancel any scheduled sitemap generation jobs
+        SchedulerWorker.cancel_scheduled()
+        success
+
+      error ->
+        error
+    end
   end
 
   ## Configuration Functions

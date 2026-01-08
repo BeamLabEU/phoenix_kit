@@ -149,10 +149,17 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
 
   @impl true
   def handle_event("toggle_schedule", _params, socket) do
+    alias PhoenixKit.Modules.Sitemap.SchedulerWorker
+
     current = socket.assigns.config.schedule_enabled
 
     case Settings.update_boolean_setting("sitemap_schedule_enabled", !current) do
       {:ok, _} ->
+        # Cancel scheduled jobs when disabling
+        unless current == false do
+          SchedulerWorker.cancel_scheduled()
+        end
+
         config = Sitemap.get_config()
         new_version = DateTime.utc_now() |> DateTime.to_unix()
 
