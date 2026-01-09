@@ -29,7 +29,11 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate get_version_status(group_slug, post_slug, version, language), to: Storage
 
   # Deprecated: Use get_published_version/2 instead
-  defdelegate get_live_version(group_slug, post_slug), to: Storage
+  @doc false
+  @deprecated "Use get_published_version/2 instead"
+  def get_live_version(group_slug, post_slug),
+    do: Storage.get_published_version(group_slug, post_slug)
+
   defdelegate detect_post_structure(post_path), to: Storage
   defdelegate content_changed?(post, params), to: Storage
   defdelegate status_change_only?(post, params), to: Storage
@@ -667,7 +671,7 @@ defmodule PhoenixKit.Modules.Publishing do
   @deprecated "Use publish_version/3 instead"
   @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
   def set_version_live(group_slug, post_slug, version) do
-    result = Storage.set_version_live(group_slug, post_slug, version)
+    result = Storage.publish_version(group_slug, post_slug, version)
 
     # Regenerate listing cache and broadcast on success
     if result == :ok do

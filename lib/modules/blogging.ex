@@ -47,7 +47,9 @@ defmodule PhoenixKit.Modules.Blogging do
   defdelegate get_latest_published_version(blog_slug, post_slug),
     to: PhoenixKit.Modules.Publishing
 
-  defdelegate get_live_version(blog_slug, post_slug), to: PhoenixKit.Modules.Publishing
+  defdelegate get_live_version(blog_slug, post_slug),
+    to: PhoenixKit.Modules.Publishing,
+    as: :get_published_version
 
   defdelegate get_version_status(blog_slug, post_slug, version, language),
     to: PhoenixKit.Modules.Publishing
