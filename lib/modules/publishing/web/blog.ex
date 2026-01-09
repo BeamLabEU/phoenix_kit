@@ -693,36 +693,38 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
   # (available_versions, language_slugs, version_statuses, etc.)
   defp update_post_in_list(socket, updated_post) do
     post_slug = updated_post[:slug] || updated_post["slug"]
+    can_update? = post_slug && socket.assigns[:posts] && socket.assigns[:blog_slug]
 
-    if post_slug && socket.assigns[:posts] && socket.assigns[:blog_slug] do
-      # Fetch fresh post data from storage to get all fields
-      case Publishing.read_post(
-             socket.assigns.blog_slug,
-             post_slug,
-             socket.assigns.current_locale_base,
-             nil
-           ) do
-        {:ok, fresh_post} ->
-          updated_posts =
-            Enum.map(socket.assigns.posts, fn post ->
-              if post[:slug] == post_slug do
-                # Replace with fresh post data, preserving list-specific position
-                fresh_post
-              else
-                post
-              end
-            end)
-
-          assign(socket, :posts, updated_posts)
-
-        {:error, _} ->
-          # Post may have been deleted or unreadable - full refresh
-          refresh_posts(socket)
-      end
+    if can_update? do
+      fetch_and_update_post(socket, post_slug)
     else
-      # Fallback to full refresh if we can't do incremental update
       refresh_posts(socket)
     end
+  end
+
+  defp fetch_and_update_post(socket, post_slug) do
+    case Publishing.read_post(
+           socket.assigns.blog_slug,
+           post_slug,
+           socket.assigns.current_locale_base,
+           nil
+         ) do
+      {:ok, fresh_post} ->
+        replace_post_in_list(socket, post_slug, fresh_post)
+
+      {:error, _} ->
+        # Post may have been deleted or unreadable - full refresh
+        refresh_posts(socket)
+    end
+  end
+
+  defp replace_post_in_list(socket, post_slug, fresh_post) do
+    updated_posts =
+      Enum.map(socket.assigns.posts, fn post ->
+        if post[:slug] == post_slug, do: fresh_post, else: post
+      end)
+
+    assign(socket, :posts, updated_posts)
   end
 
   # Remove a post from the list by path
