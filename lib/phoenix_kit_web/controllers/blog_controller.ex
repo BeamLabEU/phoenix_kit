@@ -536,11 +536,13 @@ defmodule PhoenixKitWeb.BlogController do
             # Build canonical URL (points to main post URL, not versioned URL)
             canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
 
-            # Check if this is the live version
-            is_live = Map.get(post.metadata, :is_live, false)
-
-            # Build version dropdown data
+            # Build version dropdown data (also gives us the live version)
             version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
+
+            # Check if this is the live version by comparing to the published version
+            # (is_live field was removed from metadata, now derived from status)
+            {_allow_access, live_version} = get_cached_version_info(blog_slug, post)
+            is_live = version == live_version
 
             conn
             |> assign(:page_title, post.metadata.title)
@@ -744,7 +746,7 @@ defmodule PhoenixKitWeb.BlogController do
   # Merge cached metadata with fresh content
   defp merge_cache_with_content(cached_post, content, language) do
     %{
-      blog: cached_post.blog,
+      group: cached_post.group,
       slug: cached_post.slug,
       date: cached_post.date,
       time: cached_post.time,
@@ -1386,9 +1388,9 @@ defmodule PhoenixKitWeb.BlogController do
     end
   end
 
-  # Fallback: Gets live version from file when cache misses
+  # Fallback: Gets published version from file when cache misses
   defp get_live_version_from_file(blog_slug, post_slug) do
-    case Storage.get_live_version(blog_slug, post_slug) do
+    case Storage.get_published_version(blog_slug, post_slug) do
       {:ok, version} -> version
       {:error, _} -> nil
     end

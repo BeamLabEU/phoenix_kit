@@ -8,9 +8,9 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   ## Display Format
 
   Admin mode: v1 (●) | v2 (●) | v3 (○)
-  - Green dot (●): Published (and live)
+  - Green dot (●): Published (this IS the live version)
   - Yellow dot (●): Draft
-  - Gray dot (●): Published (not live)
+  - Gray dot (●): Archived
   - Current version is highlighted
 
   ## Examples
@@ -33,20 +33,20 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   ## Attributes
 
   - `versions` - List of version numbers (integers)
-  - `version_statuses` - Map of version number => status string
+  - `version_statuses` - Map of version number => status string ("published", "draft", "archived")
   - `version_dates` - Map of version number => ISO 8601 date string (shown in tooltip)
   - `current_version` - Currently active version number
-  - `live_version` - The version that is currently live (optional)
   - `on_click` - Event name for click handler
   - `phx_target` - Target for the event
   - `class` - Additional CSS classes
   - `size` - Size variant: :xs, :sm, :md (default: :sm)
+
+  Note: Only ONE version can have status "published" at a time. This is the live version.
   """
   attr :versions, :list, required: true
   attr :version_statuses, :map, default: %{}
   attr :version_dates, :map, default: %{}
   attr :current_version, :integer, default: nil
-  attr :live_version, :integer, default: nil
   attr :on_click, :string, default: nil
   attr :phx_target, :any, default: nil
   attr :class, :string, default: ""
@@ -55,7 +55,18 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   def blog_version_switcher(assigns) do
     # Sort versions in ascending order
     sorted_versions = Enum.sort(assigns.versions)
-    assigns = assign(assigns, :sorted_versions, sorted_versions)
+
+    # Determine which version is actually "live" (highest published version)
+    # Only ONE version should show as live - the one users will see publicly
+    live_version =
+      sorted_versions
+      |> Enum.filter(fn v -> Map.get(assigns.version_statuses, v) == "published" end)
+      |> Enum.max(fn -> nil end)
+
+    assigns =
+      assigns
+      |> assign(:sorted_versions, sorted_versions)
+      |> assign(:live_version, live_version)
 
     ~H"""
     <div class={["flex items-center flex-wrap", size_gap_class(@size), @class]}>
@@ -143,7 +154,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
     """
   end
 
-  # Status dot styling
+  # Status dot styling - live = green, published (not live) = blue, draft = yellow, archived = gray
   defp status_dot_classes(status, is_live, size) do
     base = ["rounded-full", "inline-block", dot_size_class(size)]
 
@@ -208,7 +219,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   defp version_title(version, status, is_live, date) do
     status_text =
       cond do
-        is_live -> gettext("Live")
+        is_live -> gettext("Published (Live)")
         status == "published" -> gettext("Published")
         status == "draft" -> gettext("Draft")
         status == "archived" -> gettext("Archived")

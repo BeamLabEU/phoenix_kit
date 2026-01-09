@@ -31,7 +31,8 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           version: integer() | nil,
           version_created_at: String.t() | nil,
           version_created_from: integer() | nil,
-          is_live: boolean() | nil,
+          # Translation status override (true = manually set, won't inherit from master)
+          status_manual: boolean() | nil,
           # Per-post version access control (allows public access to older versions)
           allow_version_access: boolean() | nil
         }
@@ -76,14 +77,14 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         :version,
         :version_created_at,
         :version_created_from,
-        :is_live,
+        :status_manual,
         :allow_version_access
       ]
       |> Enum.flat_map(fn key ->
         case metadata_value(metadata, key) do
           nil -> []
           "" -> []
-          # Handle boolean values for is_live
+          # Handle boolean values for status_manual and allow_version_access
           true -> ["#{Atom.to_string(key)}: true"]
           false -> ["#{Atom.to_string(key)}: false"]
           value -> ["#{Atom.to_string(key)}: #{value}"]
@@ -130,8 +131,9 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: DateTime.to_iso8601(now),
       version_created_from: nil,
-      is_live: false,
-      # Per-post version access - defaults to false (only live version accessible)
+      # Translation status - false means inherit from master language
+      status_manual: false,
+      # Per-post version access - defaults to false (only published version accessible)
       allow_version_access: false
     }
   end
@@ -340,13 +342,22 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: parse_integer(Map.get(metadata, "version"), default.version),
       version_created_at: Map.get(metadata, "version_created_at", default.version_created_at),
       version_created_from: parse_integer(Map.get(metadata, "version_created_from"), nil),
-      is_live: parse_boolean(Map.get(metadata, "is_live"), default.is_live),
+      # Translation status manual override
+      status_manual: parse_boolean(Map.get(metadata, "status_manual"), default.status_manual),
       # Per-post version access control
       allow_version_access:
         parse_boolean(Map.get(metadata, "allow_version_access"), default.allow_version_access)
     }
 
-    metadata_map
+    # For backward compatibility, also read legacy is_live field if present
+    # This allows migration to detect old posts
+    legacy_is_live = parse_boolean(Map.get(metadata, "is_live"), nil)
+
+    if legacy_is_live != nil do
+      Map.put(metadata_map, :legacy_is_live, legacy_is_live)
+    else
+      metadata_map
+    end
   end
 
   # Parse integer from string, returning default if nil or invalid
@@ -396,7 +407,8 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: nil,
       version_created_from: nil,
-      is_live: false
+      status_manual: false,
+      allow_version_access: false
     }
   end
 

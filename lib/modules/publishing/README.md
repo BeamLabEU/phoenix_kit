@@ -289,8 +289,8 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `published_at` – Publication timestamp (ISO8601 format)
 - `featured_image_id` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
-- `version`, `version_created_at`, `version_created_from`, `is_live` – Managed automatically when
-  slug-mode posts create drafts, go live, or get copied to new versions
+- `version`, `version_created_at`, `version_created_from` – Managed automatically for versioned posts
+- `status_manual` – When `true`, translation status won't inherit from master language on publish
 - `allow_version_access` – Enables public viewing of historical versions when set to `true`
 
 **Audit Fields (optional):**
@@ -393,14 +393,14 @@ iex> {:ok, updated} = Publishing.update_post("docs", post, %{"content" => "# v2"
 ### Versioning and translations
 
 ```elixir
-iex> {:ok, draft_v2} = Publishing.create_new_version("docs", post, %{"content" => "..."})
-iex> :ok = Publishing.set_version_live("docs", post.slug, 2)
+iex> {:ok, draft_v2} = Publishing.create_version_from("docs", "getting-started", 1, %{"content" => "..."})
+iex> :ok = Publishing.publish_version("docs", "getting-started", 2)
 iex> {:ok, spanish} = Publishing.add_language_to_post("docs", "getting-started", "es")
 iex> :ok = Publishing.delete_language("docs", "getting-started", "fr")
 iex> :ok = Publishing.delete_version("docs", "getting-started", 1)
 ```
 
-- `create_new_version/4` clones metadata/content into a draft; promote it with `set_version_live/3`.
+- `create_version_from/5` creates a new version by copying from source (or blank if `nil`); publish with `publish_version/3`.
 - Languages live beside each other (`en.phk`, `es.phk`, etc.) and share cache + slug metadata.
 
 ### Filesystem + cache helpers
@@ -540,44 +540,118 @@ versions = Publishing.list_versions("docs", "getting-started")
 
 # Get specific version info
 {:ok, 3} = Publishing.get_latest_version("docs", "getting-started")
-{:ok, 2} = Publishing.get_latest_published_version("docs", "getting-started")
-{:ok, 2} = Publishing.get_live_version("docs", "getting-started")
+{:ok, 2} = Publishing.get_published_version("docs", "getting-started")
 
 # Get version metadata
 {:ok, metadata} = Publishing.get_version_metadata("docs", "getting-started", 1, "en")
 
 # Create new version from existing post
-{:ok, new_post} = Publishing.create_new_version("docs", source_post, %{
+# Create a new version from an existing version (branching)
+{:ok, new_post} = Publishing.create_version_from("docs", "getting-started", 1, %{
   "content" => "Updated content..."
 }, scope: current_user_scope)
 
-# Set a version as live (public-facing)
-:ok = Publishing.set_version_live("docs", "getting-started", 2)
+# Create a blank new version
+{:ok, new_post} = Publishing.create_version_from("docs", "getting-started", nil, %{},
+  scope: current_user_scope)
+
+# For timestamp mode, use the date/time path as identifier
+{:ok, new_post} = Publishing.create_version_from("news", "2025-01-15/14:30", 1, %{},
+  scope: current_user_scope)
+
+# Publish a version (archives all other published versions)
+:ok = Publishing.publish_version("docs", "getting-started", 2)
+
+# Get the currently published version
+{:ok, version} = Publishing.get_published_version("docs", "getting-started")
 
 # Check version structure and migration
 :versioned = Publishing.detect_post_structure("/path/to/post")
 {:ok, post} = Publishing.migrate_post_to_versioned(legacy_post)
 
-# Helpers for version creation logic
+# Helpers for version logic
 Publishing.content_changed?(post, params)  # => true/false
 Publishing.status_change_only?(post, params)  # => true/false
-Publishing.should_create_new_version?(post, params, "en")  # => true/false
 ```
 
-### Version History & Public URLs
+### Variant Versioning System
 
-Slug-mode blogs can expose older published versions directly to visitors.
+Both slug-mode and timestamp-mode posts support **variant versioning** - versions are independent
+attempts or drafts rather than sequential history. Only ONE version can be published at a time.
 
-- In the editor, toggle **Show Version History** (master language only) to set
-  `allow_version_access: true` in frontmatter. This adds a version dropdown to the public page.
-- Public URLs follow the pattern `/{prefix}/{language}/{blog}/{post}/v/{version}` and are only
-  accessible when the target version's metadata.status is `"published"` and the live version allows
-  history access.
-- The controller always checks the master language's live version to decide if history is enabled,
-  and `PhoenixKit.Modules.Publishing.ListingCache` stores the `allow_version_access` flag +
-  live `version` for fast dropdown rendering.
-- When disabled (default), `v/<version>` URLs return `404` to prevent unintended leakage of draft
-  content.
+**Key Concepts:**
+
+- **Radio-style publishing**: When you publish a version, all other published versions are
+  automatically archived. Only the newly published version is visible to the public.
+- **Versions are editable**: Unlike historical versioning, all versions remain editable regardless
+  of status. You can modify drafts, archived versions, or even the published version.
+- **Branching**: Create new versions by copying from an existing version or starting blank.
+- **Translation inheritance**: When publishing, translations inherit the master language's status
+  unless `status_manual: true` is set.
+
+**Creating New Versions:**
+
+1. Open any post in the editor
+2. Click the **"New Version"** button next to the version switcher
+3. Choose to copy from an existing version or start blank
+4. The new version is created as a draft
+
+**Publishing a Version:**
+
+1. Open the version you want to publish
+2. Change status to "Published" and save
+3. All other published versions are automatically archived
+4. The public URL now shows this version's content
+
+**Version Statuses:**
+
+- `published` - The live version visible to the public (only ONE per post)
+- `draft` - Work in progress, not visible publicly
+- `archived` - Previously published or intentionally hidden versions
+
+**Editor UI:**
+
+The editor provides a complete version management interface:
+
+- **Version Switcher** - Dropdown showing all versions with status indicators (green=published, yellow=draft, gray=archived)
+- **New Version Button** - Opens a modal to create a new version
+- **New Version Modal** - Choose to start blank or copy from any existing version
+- **Status Dropdown** - Change status directly in the metadata panel
+
+**Translation Status Overrides:**
+
+Translations can maintain their own status independently of the master language:
+
+- By default, translations inherit the master language's status when published
+- When a translator manually changes a translation's status, `status_manual: true` is set
+- Translations with `status_manual: true` keep their status even when the master is republished
+- This allows keeping a translation as "draft" while the master is published (e.g., awaiting review)
+
+Example workflow:
+1. Master (English) is published with v2
+2. French translation is still being reviewed, translator sets it to "draft"
+3. `status_manual: true` is automatically set on the French file
+4. Later, when English v3 is published, French keeps its "draft" status
+
+**Public URLs:**
+
+Public URLs always show the published version's content:
+- `/{prefix}/{language}/{group}/{post}` - Shows the published version
+
+**Version Browsing (Opt-in):**
+
+By default, only the published version is accessible. To enable public access to older
+published versions, set `allow_version_access: true` in the post's metadata:
+
+```yaml
+allow_version_access: true
+```
+
+When enabled, versioned URLs become accessible:
+- `/{prefix}/{language}/{group}/{post}/v/{version}` - Direct version access
+
+The version dropdown appears on the public post page, showing all published versions.
+This is useful for documentation sites where users may need to reference older versions.
 
 ### Cache Operations
 
@@ -771,7 +845,7 @@ The editor uses Phoenix.Presence to coordinate multiple users editing the same p
 
 **How It Works:**
 
-- Users join a Presence topic (e.g., `blog_edit:blog:post-slug`)
+- Users join a Presence topic (e.g., `blog_edit:group-slug:post-slug`)
 - Users sorted by `joined_at` timestamp (FIFO ordering)
 - First user in sorted list = owner (`readonly?: false`)
 - All other users = spectators (`readonly?: true`)
@@ -813,24 +887,32 @@ docs/
 
 ```elixir
 %{
-  blog: "docs",
+  group: "docs",                    # Publishing group slug
   slug: "getting-started",          # Slug mode only
   date: ~D[2025-01-15],             # Timestamp mode only
   time: ~T[09:30:00],               # Timestamp mode only
-  path: "docs/getting-started/en.phk",
-  full_path: "/var/app/content/docs/getting-started/en.phk",
+  path: "docs/getting-started/v1/en.phk",
+  full_path: "/var/app/content/docs/getting-started/v1/en.phk",
   metadata: %{
     title: "Getting Started",
-    status: "published",
+    status: "published",            # "published", "draft", or "archived"
     slug: "getting-started",
     published_at: "2025-01-15T09:30:00Z",
-    created_at: "2025-01-15T09:30:00Z"
+    created_at: "2025-01-15T09:30:00Z",
+    version: 1,
+    version_created_at: "2025-01-15T09:30:00Z",
+    version_created_from: nil,      # Source version when branching
+    status_manual: false            # True if translation status was manually set
   },
   content: "# Markdown content...",
   language: "en",
   available_languages: ["en", "es", "fr"],
   language_statuses: %{"en" => "published", "es" => "draft", "fr" => "published"},
-  mode: :slug  # or :timestamp
+  mode: :slug,                      # :slug or :timestamp
+  version: 1,                       # Current version number
+  available_versions: [1, 2, 3],    # All versions for this post
+  version_statuses: %{1 => "archived", 2 => "archived", 3 => "published"},
+  is_legacy_structure: false        # True for pre-versioned posts
 }
 ```
 
@@ -1151,11 +1233,11 @@ The version you're trying to delete is currently the live (public-facing) versio
 
 **Solution:**
 
-Set a different version as live first:
+Publish a different version first:
 
 ```elixir
-# Make another version live
-:ok = Publishing.set_version_live("docs", "post", 2)
+# Publish another version (this archives the current published version)
+:ok = Publishing.publish_version("docs", "post", 2)
 # Now delete the old version
 :ok = Publishing.delete_version("docs", "post", 1)
 ```

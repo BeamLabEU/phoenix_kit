@@ -25,8 +25,11 @@ defmodule PhoenixKit.Modules.Publishing do
   defdelegate list_versions(group_slug, post_slug), to: Storage
   defdelegate get_latest_version(group_slug, post_slug), to: Storage
   defdelegate get_latest_published_version(group_slug, post_slug), to: Storage
-  defdelegate get_live_version(group_slug, post_slug), to: Storage
+  defdelegate get_published_version(group_slug, post_slug), to: Storage
   defdelegate get_version_status(group_slug, post_slug, version, language), to: Storage
+
+  # Deprecated: Use get_published_version/2 instead
+  defdelegate get_live_version(group_slug, post_slug), to: Storage
   defdelegate detect_post_structure(post_path), to: Storage
   defdelegate content_changed?(post, params), to: Storage
   defdelegate status_change_only?(post, params), to: Storage
@@ -481,10 +484,15 @@ defmodule PhoenixKit.Modules.Publishing do
   @spec update_post(String.t(), Storage.post(), map(), map() | keyword()) ::
           {:ok, Storage.post()} | {:error, any()}
   def update_post(group_slug, post, params, opts \\ %{}) do
+    # Normalize opts to map (callers may pass keyword list or map)
+    opts_map = if Keyword.keyword?(opts), do: Map.new(opts), else: opts
+
     audit_meta =
-      opts
+      opts_map
       |> fetch_option(:scope)
       |> audit_metadata(:update)
+      # Include is_master_language so storage can set status_manual correctly
+      |> Map.put(:is_master_language, Map.get(opts_map, :is_master_language, true))
 
     mode =
       Map.get(post, :mode) ||
@@ -512,10 +520,12 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Creates a new version of a slug-mode post by copying from the source version.
+  Creates a new version of a slug-mode post by copying from the latest version.
 
-  The new version starts as draft with is_live: false.
+  The new version starts as draft with status: "draft".
   Content and metadata updates from params are applied to the new version.
+
+  Note: For more control over which version to branch from, use `create_version_from/5`.
   """
   @spec create_new_version(String.t(), Storage.post(), map(), map() | keyword()) ::
           {:ok, Storage.post()} | {:error, any()}
@@ -527,9 +537,9 @@ defmodule PhoenixKit.Modules.Publishing do
 
     result = Storage.create_new_version(group_slug, source_post, params, audit_meta)
 
-    # Note: New versions start as drafts (is_live: false), so we don't
+    # Note: New versions start as drafts (status: "draft"), so we don't
     # regenerate the cache here. Cache will be regenerated when the
-    # version is set live or published.
+    # version is published via publish_version/3.
     # Always broadcast so all viewers see the new version exists
     with {:ok, new_version} <- result do
       PublishingPubSub.broadcast_version_created(group_slug, new_version)
@@ -539,9 +549,103 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   @doc """
-  Sets a version as the live version for a post.
-  Clears is_live from all other versions.
+  Publishes a version, making it the only published version.
+
+  Sets the target version's master language to `status: "published"`.
+  Archives ALL other versions (`status: "archived"`).
+
+  Translation status logic:
+  - If `status_manual: true` → keep translation's current status
+  - If `status_manual: false` AND has content → inherit master status
+  - If no content → remain unchanged
+
+  ## Examples
+
+      iex> Publishing.publish_version("blog", "my-post", 2)
+      :ok
+
+      iex> Publishing.publish_version("blog", "nonexistent", 1)
+      {:error, :not_found}
   """
+  @spec publish_version(String.t(), String.t(), integer()) :: :ok | {:error, any()}
+  def publish_version(group_slug, post_slug, version) do
+    result = Storage.publish_version(group_slug, post_slug, version)
+
+    # Regenerate listing cache and broadcast on success
+    if result == :ok do
+      ListingCache.regenerate(group_slug)
+      PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
+    end
+
+    result
+  end
+
+  @doc """
+  Creates a new version from an existing version or blank.
+
+  ## Parameters
+
+    * `group_slug` - The publishing group slug
+    * `post_slug` - The post slug
+    * `source_version` - Version to copy from, or `nil` for blank version
+    * `params` - Optional parameters for the new version
+    * `opts` - Options including `:scope` for audit metadata
+
+  ## Examples
+
+      # Create blank version
+      iex> Publishing.create_version_from("blog", "my-post", nil, %{}, scope: scope)
+      {:ok, %{version: 3, ...}}
+
+      # Branch from version 1
+      iex> Publishing.create_version_from("blog", "my-post", 1, %{}, scope: scope)
+      {:ok, %{version: 3, ...}}
+  """
+  @spec create_version_from(String.t(), String.t(), integer() | nil, map(), map() | keyword()) ::
+          {:ok, Storage.post()} | {:error, any()}
+  def create_version_from(group_slug, post_slug, source_version, params \\ %{}, opts \\ %{}) do
+    audit_meta =
+      opts
+      |> fetch_option(:scope)
+      |> audit_metadata(:create)
+
+    result =
+      Storage.create_version_from(group_slug, post_slug, source_version, params, audit_meta)
+
+    # Broadcast on success so all viewers see the new version exists
+    with {:ok, new_version} <- result do
+      PublishingPubSub.broadcast_version_created(group_slug, new_version)
+    end
+
+    result
+  end
+
+  @doc """
+  Sets a translation's status and marks it as manually overridden.
+
+  When a translation status is set manually, it will NOT inherit status
+  changes from the master language when publishing.
+
+  ## Examples
+
+      iex> Publishing.set_translation_status("blog", "my-post", 2, "es", "draft")
+      :ok
+  """
+  @spec set_translation_status(String.t(), String.t(), integer(), String.t(), String.t()) ::
+          :ok | {:error, any()}
+  def set_translation_status(group_slug, post_slug, version, language, status) do
+    result = Storage.set_translation_status(group_slug, post_slug, version, language, status)
+
+    # Regenerate cache if setting to published
+    if result == :ok and status == "published" do
+      ListingCache.regenerate(group_slug)
+    end
+
+    result
+  end
+
+  @doc false
+  @deprecated "Use publish_version/3 instead"
   @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
   def set_version_live(group_slug, post_slug, version) do
     result = Storage.set_version_live(group_slug, post_slug, version)
@@ -717,12 +821,12 @@ defmodule PhoenixKit.Modules.Publishing do
   end
 
   # Determines if a post update should trigger cache regeneration.
-  # For versioned posts (slug mode with version info), only regenerate if the post is live.
+  # For versioned posts (slug mode with version info), only regenerate if the post is published.
   # For non-versioned posts (timestamp mode or legacy), always regenerate.
   defp should_regenerate_cache?(post) do
     mode = Map.get(post, :mode)
     metadata = Map.get(post, :metadata, %{})
-    is_live = Map.get(metadata, :is_live)
+    status = Map.get(metadata, :status)
     version = Map.get(metadata, :version) || Map.get(post, :version)
 
     cond do
@@ -730,9 +834,9 @@ defmodule PhoenixKit.Modules.Publishing do
       mode == :timestamp -> true
       # Slug mode posts without version info (legacy) always regenerate
       is_nil(version) -> true
-      # Slug mode posts: only regenerate if this is the live version
-      is_live == true -> true
-      # Non-live versioned posts don't affect public listings
+      # Slug mode posts: only regenerate if this is the published version
+      status == "published" -> true
+      # Non-published versioned posts don't affect public listings
       true -> false
     end
   end
