@@ -310,112 +310,120 @@
           </div>
         </div>
 
-        <%= if @posts == [] do %>
-          <div class="card bg-base-100 shadow-sm border border-base-200">
-            <div class="card-body">
-              <h3 class="text-lg font-semibold text-base-content">{gettext("No posts yet")}</h3>
-              <p class="text-sm text-base-content/70">
-                {gettext("Create your first post to start sharing content.")}
-              </p>
-            </div>
+        <%= if @loading do %>
+          <div class="flex justify-center items-center py-12">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
           </div>
         <% else %>
-          <div class="grid gap-4">
-            <%= for post <- @posts do %>
-              <% blog_slug =
-                post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
-                  "blog" %>
-              <% master_lang = @master_language %>
-              <% default_lang = List.first(post.available_languages) || @current_locale_base %>
-              <% default_lang_path =
-                Path.join([
-                  Path.dirname(post.path),
-                  "#{master_lang}.phk"
-                ]) %>
-              <% files_path = "priv/publishing/" <> post.path %>
-              <%!-- Use post's actual language, falling back to first available language for this post --%>
-              <% public_url =
-                BlogHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
-              <% full_public_url = @endpoint_url <> public_url %>
-              <%!-- Version info (only for slug-mode posts) --%>
-              <% version_count = length(Map.get(post, :available_versions) || []) %>
-              <% is_versioned =
-                post.mode == :slug and not Map.get(post, :is_legacy_structure, true) %>
-              <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
-                <div class="card-body p-4 md:p-5 min-w-0">
-                  <%!-- Post info section --%>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
-                      <span>
-                        {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
-                      </span>
-                      <%!-- Version badge (only show when multiple versions exist) --%>
-                      <%= if is_versioned and version_count > 1 do %>
-                        <span class="badge badge-ghost badge-xs">
-                          {ngettext("%{count} version", "%{count} versions", version_count,
-                            count: version_count
-                          )}
+          <%= if @posts == [] do %>
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+              <div class="card-body">
+                <h3 class="text-lg font-semibold text-base-content">{gettext("No posts yet")}</h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext("Create your first post to start sharing content.")}
+                </p>
+              </div>
+            </div>
+          <% else %>
+            <div class="grid gap-4">
+              <%= for post <- @posts do %>
+                <% blog_slug =
+                  post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
+                    "blog" %>
+                <% master_lang = @master_language %>
+                <% default_lang = List.first(post.available_languages) || @current_locale_base %>
+                <% default_lang_path =
+                  Path.join([
+                    Path.dirname(post.path),
+                    "#{master_lang}.phk"
+                  ]) %>
+                <% files_path = "priv/publishing/" <> post.path %>
+                <%!-- Use post's actual language, falling back to first available language for this post --%>
+                <% public_url =
+                  BlogHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
+                <% full_public_url = @endpoint_url <> public_url %>
+                <%!-- Version info (only for slug-mode posts) --%>
+                <% version_count = length(Map.get(post, :available_versions) || []) %>
+                <% is_versioned =
+                  post.mode == :slug and not Map.get(post, :is_legacy_structure, true) %>
+                <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+                  <div class="card-body p-4 md:p-5 min-w-0">
+                    <%!-- Post info section --%>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
+                        <span>
+                          {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
                         </span>
-                      <% end %>
+                        <%!-- Version badge (only show when multiple versions exist) --%>
+                        <%= if is_versioned and version_count > 1 do %>
+                          <span class="badge badge-ghost badge-xs">
+                            {ngettext("%{count} version", "%{count} versions", version_count,
+                              count: version_count
+                            )}
+                          </span>
+                        <% end %>
+                      </div>
+                      <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
+                        <a
+                          href={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
+                              locale: @current_locale_base
+                            )
+                          }
+                          class="hover:text-primary transition-colors"
+                        >
+                          {post.metadata.title || gettext("Untitled post")}
+                        </a>
+                      </h3>
+                      <p class="text-xs text-base-content/50 mt-1">
+                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
+                        <code class="font-mono break-all">{files_path}</code>
+                      </p>
+                      <p class="text-xs text-base-content/50">
+                        <span class="font-medium text-base-content">
+                          {gettext("Public URL")}: 
+                        </span>
+                        <a
+                          href={full_public_url}
+                          target="_blank"
+                          class="link link-hover font-mono break-all text-xs"
+                        >
+                          {full_public_url}
+                        </a>
+                      </p>
                     </div>
-                    <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
-                      <a
-                        href={
-                          PhoenixKit.Utils.Routes.path(
-                            "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
-                            locale: @current_locale_base
+                    <%!-- Languages section --%>
+                    <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
+                      <%!-- Master language label --%>
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="text-base-content/60">{gettext("Master")}:</span>
+                        <span class="font-bold text-base-content uppercase">
+                          {String.upcase(@master_language)}
+                        </span>
+                      </div>
+                      <%!-- All translations --%>
+                      <.blog_language_switcher
+                        languages={
+                          build_post_languages(
+                            post,
+                            @blog_slug,
+                            @enabled_languages,
+                            @current_locale,
+                            @master_language
                           )
                         }
-                        class="hover:text-primary transition-colors"
-                      >
-                        {post.metadata.title || gettext("Untitled post")}
-                      </a>
-                    </h3>
-                    <p class="text-xs text-base-content/50 mt-1">
-                      <span class="font-medium text-base-content">{gettext("Files")}: </span>
-                      <code class="font-mono break-all">{files_path}</code>
-                    </p>
-                    <p class="text-xs text-base-content/50">
-                      <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
-                      <a
-                        href={full_public_url}
-                        target="_blank"
-                        class="link link-hover font-mono break-all text-xs"
-                      >
-                        {full_public_url}
-                      </a>
-                    </p>
-                  </div>
-                  <%!-- Languages section --%>
-                  <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
-                    <%!-- Master language label --%>
-                    <div class="flex items-center gap-2 text-xs">
-                      <span class="text-base-content/60">{gettext("Master")}:</span>
-                      <span class="font-bold text-base-content uppercase">
-                        {String.upcase(@master_language)}
-                      </span>
+                        show_status={true}
+                        show_add={true}
+                        on_click="language_action"
+                        size={:sm}
+                      />
                     </div>
-                    <%!-- All translations --%>
-                    <.blog_language_switcher
-                      languages={
-                        build_post_languages(
-                          post,
-                          @blog_slug,
-                          @enabled_languages,
-                          @current_locale,
-                          @master_language
-                        )
-                      }
-                      show_status={true}
-                      show_add={true}
-                      on_click="language_action"
-                      size={:sm}
-                    />
                   </div>
                 </div>
-              </div>
-            <% end %>
-          </div>
+              <% end %>
+            </div>
+          <% end %>
         <% end %>
       </div>
     </div>
