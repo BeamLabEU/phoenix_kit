@@ -584,51 +584,50 @@ defmodule PhoenixKitWeb.BlogController do
   defp find_slug_in_filesystem(blog_slug, url_slug, language) do
     group_path = Publishing.Storage.group_path(blog_slug)
 
-    if File.dir?(group_path) do
-      # Scan all post directories
-      result =
-        group_path
-        |> File.ls!()
-        |> Enum.find_value(fn post_dir ->
-          post_path = Path.join(group_path, post_dir)
-
-          if File.dir?(post_path) do
-            # Check if this post has a matching url_slug or previous_url_slugs
-            case read_slug_data_from_post(post_path, language) do
-              {:ok, current_slug, previous_slugs} ->
-                cond do
-                  # Check if it matches current url_slug
-                  current_slug == url_slug ->
-                    {:current, post_dir}
-
-                  # Check if it's in previous_url_slugs
-                  url_slug in (previous_slugs || []) ->
-                    # Return redirect info: internal slug and current url_slug
-                    effective_current = current_slug || post_dir
-                    {:previous, post_dir, effective_current}
-
-                  true ->
-                    nil
-                end
-
-              _ ->
-                nil
-            end
-          else
-            nil
-          end
-        end)
-
-      case result do
-        nil -> {:error, :not_found}
-        {:current, internal_slug} -> {:current, internal_slug}
-        {:previous, internal_slug, current_slug} -> {:previous, internal_slug, current_slug}
-      end
+    with true <- File.dir?(group_path),
+         dirs <- File.ls!(group_path),
+         result when not is_nil(result) <-
+           scan_posts_for_slug(group_path, dirs, url_slug, language) do
+      result
     else
-      {:error, :group_not_found}
+      false -> {:error, :group_not_found}
+      nil -> {:error, :not_found}
     end
   rescue
     _ -> {:error, :scan_failed}
+  end
+
+  defp scan_posts_for_slug(group_path, dirs, url_slug, language) do
+    Enum.find_value(dirs, fn post_dir ->
+      post_path = Path.join(group_path, post_dir)
+
+      if File.dir?(post_path) do
+        check_post_for_slug(post_path, post_dir, url_slug, language)
+      end
+    end)
+  end
+
+  defp check_post_for_slug(post_path, post_dir, url_slug, language) do
+    case read_slug_data_from_post(post_path, language) do
+      {:ok, current_slug, previous_slugs} ->
+        match_slug_data(post_dir, url_slug, current_slug, previous_slugs)
+
+      _ ->
+        nil
+    end
+  end
+
+  defp match_slug_data(post_dir, url_slug, current_slug, previous_slugs) do
+    cond do
+      current_slug == url_slug ->
+        {:current, post_dir}
+
+      url_slug in (previous_slugs || []) ->
+        {:previous, post_dir, current_slug || post_dir}
+
+      true ->
+        nil
+    end
   end
 
   # Legacy function for resolve_url_slug_to_internal (only needs current slug)
