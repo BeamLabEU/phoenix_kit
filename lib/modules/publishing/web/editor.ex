@@ -81,6 +81,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:version_dates, %{})
       |> assign(:editing_published_version, false)
       |> assign(:viewing_older_version, false)
+      # New Version modal assigns
+      |> assign(:show_new_version_modal, false)
+      |> assign(:new_version_source, nil)
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit",
@@ -237,7 +240,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             sock =
               socket
               |> assign(:blog_mode, blog_mode)
-              |> assign(:post, %{post | blog: blog_slug})
+              |> assign(:post, %{post | group: blog_slug})
               |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
               |> assign_form_with_tracking(form)
               |> assign(:content, post.content)
@@ -707,7 +710,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
           socket =
             socket
-            |> assign(:post, %{version_post | blog: blog_slug})
+            |> assign(:post, %{version_post | group: blog_slug})
             |> assign_form_with_tracking(form)
             |> assign(:content, version_post.content)
             |> assign(:current_version, version)
@@ -747,6 +750,98 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  # ============================================================================
+  # New Version Modal Handlers
+  # ============================================================================
+
+  def handle_event("open_new_version_modal", _params, socket) do
+    # Only allow opening if we're not a spectator and post exists
+    if socket.assigns[:readonly?] or socket.assigns[:is_new_post] do
+      {:noreply, socket}
+    else
+      {:noreply,
+       socket
+       |> assign(:show_new_version_modal, true)
+       |> assign(:new_version_source, nil)}
+    end
+  end
+
+  def handle_event("close_new_version_modal", _params, socket) do
+    {:noreply,
+     socket
+     |> assign(:show_new_version_modal, false)
+     |> assign(:new_version_source, nil)}
+  end
+
+  def handle_event("set_new_version_source", %{"source" => "blank"}, socket) do
+    {:noreply, assign(socket, :new_version_source, nil)}
+  end
+
+  def handle_event("set_new_version_source", %{"source" => version_str}, socket) do
+    case Integer.parse(version_str) do
+      {version, _} -> {:noreply, assign(socket, :new_version_source, version)}
+      :error -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("create_version_from_source", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+    source_version = socket.assigns.new_version_source
+    scope = socket.assigns[:phoenix_kit_current_scope]
+
+    # For timestamp mode, construct the date/time path identifier
+    # For slug mode, use the slug directly
+    post_identifier =
+      case post.mode do
+        :timestamp ->
+          date_str = Date.to_iso8601(post.date)
+          time_str = format_time_folder(post.time)
+          "#{date_str}/#{time_str}"
+
+        _ ->
+          post.slug
+      end
+
+    case Publishing.create_version_from(blog_slug, post_identifier, source_version, %{}, scope: scope) do
+      {:ok, new_version_post} ->
+        # Navigate to the new version
+        new_path = new_version_post.path
+
+        flash_msg =
+          if source_version do
+            gettext("Created new version %{version} from v%{source}",
+              version: new_version_post.version,
+              source: source_version
+            )
+          else
+            gettext("Created new blank version %{version}", version: new_version_post.version)
+          end
+
+        {:noreply,
+         socket
+         |> assign(:show_new_version_modal, false)
+         |> assign(:new_version_source, nil)
+         |> put_flash(:info, flash_msg)
+         |> push_navigate(
+           to:
+             Routes.path(
+               "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
+               locale: socket.assigns.current_locale_base
+             )
+         )}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:show_new_version_modal, false)
+         |> put_flash(
+           :error,
+           gettext("Failed to create new version: %{reason}", reason: inspect(reason))
+         )}
+    end
+  end
+
   def handle_event("migrate_to_versioned", _params, socket) do
     post = socket.assigns.post
 
@@ -760,7 +855,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
           socket =
             socket
-            |> assign(:post, %{migrated_post | blog: socket.assigns.blog_slug})
+            |> assign(:post, %{migrated_post | group: socket.assigns.blog_slug})
             |> assign_form_with_tracking(form)
             |> assign(:content, migrated_post.content)
             |> assign(:current_version, migrated_post.version)
@@ -945,7 +1040,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               form = post_form(post)
 
               socket
-              |> assign(:post, %{post | blog: socket.assigns.blog_slug})
+              |> assign(:post, %{post | group: socket.assigns.blog_slug})
               |> assign_form_with_tracking(form)
               |> assign(:content, post.content)
               |> assign(:has_pending_changes, false)
@@ -1285,103 +1380,161 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp update_post_in_place(socket, params, scope, old_path) do
-    case Publishing.update_post(socket.assigns.blog_slug, socket.assigns.post, params, %{
-           scope: scope
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+    current_version = socket.assigns[:current_version]
+    current_status = Map.get(post.metadata, :status)
+    new_status = Map.get(params, "status")
+
+    # Check if this is a status change TO published for a versioned post
+    # If so, we need to use publish_version which archives other versions
+    # IMPORTANT: Only trigger for master language - translation status changes
+    # should not archive other versions
+    is_master_language = socket.assigns[:is_master_language] == true
+
+    is_publishing =
+      is_master_language and
+        new_status == "published" and
+        current_status != "published" and
+        current_version != nil and
+        not Map.get(post, :is_legacy_structure, false)
+
+    # First update the post content/metadata
+    # Pass is_master_language so storage can set status_manual when translator changes status
+    case Publishing.update_post(blog_slug, post, params, %{
+           scope: scope,
+           is_master_language: is_master_language
          }) do
-      {:ok, post} ->
-        # Invalidate cache for this post
-        invalidate_post_cache(socket.assigns.blog_slug, post)
+      {:ok, updated_post} ->
+        # If publishing, call publish_version to archive other versions
+        if is_publishing do
+          # For timestamp mode, construct the date/time path identifier
+          # For slug mode, use the slug directly
+          post_identifier =
+            case post.mode do
+              :timestamp ->
+                date_str = Date.to_iso8601(post.date)
+                time_str = format_time_folder(post.time)
+                "#{date_str}/#{time_str}"
 
-        # Note: Post list broadcast is now handled in Publishing.update_post/4
+              _ ->
+                post.slug
+            end
 
-        # Broadcast save to other tabs/users so they can reload (for editor sync)
-        if socket.assigns[:form_key] do
-          Logger.debug(
-            "BROADCASTING editor_saved from update_existing_post: " <>
-              "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
-          )
+          case Publishing.publish_version(blog_slug, post_identifier, current_version) do
+            :ok ->
+              handle_post_save_success(socket, updated_post, old_path)
 
-          PublishingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
+            {:error, reason} ->
+              {:noreply,
+               put_flash(
+                 socket,
+                 :warning,
+                 gettext("Post saved but failed to archive other versions: %{reason}",
+                   reason: inspect(reason)
+                 )
+               )}
+          end
+        else
+          handle_post_save_success(socket, updated_post, old_path)
         end
 
-        flash_message =
-          if socket.assigns.is_autosaving,
-            do: nil,
-            else: gettext("Post saved")
-
-        # Re-read post from disk to get fresh cross-version statuses
-        # (language_statuses and version_statuses are calculated on read)
-        # IMPORTANT: Pass the current version to avoid jumping to latest version
-        current_version = socket.assigns[:current_version]
-        current_language = socket.assigns[:current_language]
-
-        refreshed_post =
-          case Publishing.read_post(
-                 socket.assigns.blog_slug,
-                 post.path,
-                 current_language,
-                 current_version
-               ) do
-            {:ok, fresh_post} -> fresh_post
-            {:error, _} -> post
-          end
-
-        form = post_form(refreshed_post)
-
-        # Check if post is now published (for versioning message updates)
-        is_published = Map.get(refreshed_post.metadata, :status) == "published"
-
-        socket =
-          socket
-          |> assign(:post, refreshed_post)
-          |> assign_form_with_tracking(form)
-          |> assign(:content, refreshed_post.content)
-          |> assign(:has_pending_changes, false)
-          |> assign(:editing_published_version, is_published)
-          |> assign(:language_statuses, refreshed_post.language_statuses)
-          |> assign(:version_statuses, refreshed_post.version_statuses)
-          |> assign(:version_dates, Map.get(refreshed_post, :version_dates, %{}))
-          |> push_event("changes-status", %{has_changes: false})
-          |> maybe_update_current_path(old_path, refreshed_post.path)
-
-        {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
-
-      {:error, :invalid_format} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext(
-             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-           )
-         )}
-
-      {:error, :reserved_language_code} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext(
-             "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
-           )
-         )}
-
-      {:error, :invalid_slug} ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           gettext(
-             "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
-           )
-         )}
-
-      {:error, :slug_already_exists} ->
-        {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
-
-      {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
+      {:error, error} ->
+        handle_post_in_place_error(socket, error)
     end
+  end
+
+  defp handle_post_save_success(socket, post, old_path) do
+    blog_slug = socket.assigns.blog_slug
+
+    # Invalidate cache for this post
+    invalidate_post_cache(blog_slug, post)
+
+    # Broadcast save to other tabs/users so they can reload (for editor sync)
+    if socket.assigns[:form_key] do
+      Logger.debug(
+        "BROADCASTING editor_saved from update_existing_post: " <>
+          "form_key=#{inspect(socket.assigns.form_key)}, source=#{inspect(socket.id)}"
+      )
+
+      PublishingPubSub.broadcast_editor_saved(socket.assigns.form_key, socket.id)
+    end
+
+    flash_message =
+      if socket.assigns.is_autosaving,
+        do: nil,
+        else: gettext("Post saved")
+
+    # Re-read post from disk to get fresh cross-version statuses
+    current_version = socket.assigns[:current_version]
+    current_language = socket.assigns[:current_language]
+
+    refreshed_post =
+      case Publishing.read_post(blog_slug, post.path, current_language, current_version) do
+        {:ok, fresh_post} -> fresh_post
+        {:error, _} -> post
+      end
+
+    form = post_form(refreshed_post)
+
+    # Check if post is now published (for versioning message updates)
+    is_published = Map.get(refreshed_post.metadata, :status) == "published"
+
+    socket =
+      socket
+      |> assign(:post, refreshed_post)
+      |> assign_form_with_tracking(form)
+      |> assign(:content, refreshed_post.content)
+      |> assign(:has_pending_changes, false)
+      |> assign(:editing_published_version, is_published)
+      |> assign(:language_statuses, refreshed_post.language_statuses)
+      |> assign(:version_statuses, refreshed_post.version_statuses)
+      |> assign(:version_dates, Map.get(refreshed_post, :version_dates, %{}))
+      |> push_event("changes-status", %{has_changes: false})
+      |> maybe_update_current_path(old_path, refreshed_post.path)
+
+    {:noreply, if(flash_message, do: put_flash(socket, :info, flash_message), else: socket)}
+  end
+
+  defp handle_post_in_place_error(socket, :invalid_format) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
+     )}
+  end
+
+  defp handle_post_in_place_error(socket, :reserved_language_code) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "This slug is reserved because it's a language code (like 'en', 'es', 'fr'). Please choose a different slug to avoid routing conflicts."
+       )
+     )}
+  end
+
+  defp handle_post_in_place_error(socket, :invalid_slug) do
+    {:noreply,
+     put_flash(
+       socket,
+       :error,
+       gettext(
+         "Invalid slug format. Please use only lowercase letters, numbers, and hyphens (e.g. my-post-title)"
+       )
+     )}
+  end
+
+  defp handle_post_in_place_error(socket, :slug_already_exists) do
+    {:noreply, put_flash(socket, :error, gettext("A post with that slug already exists"))}
+  end
+
+  defp handle_post_in_place_error(socket, _reason) do
+    {:noreply, put_flash(socket, :error, gettext("Failed to save post"))}
   end
 
   # Helper function to handle post update results and reduce cyclomatic complexity
@@ -1812,7 +1965,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
     %{
-      blog: blog_slug,
+      group: blog_slug,
       slug: metadata[:slug],
       date: date,
       time: time,
@@ -1943,7 +2096,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defp build_virtual_post(blog_slug, "slug", primary_language, now) do
     %{
-      blog: blog_slug,
+      group: blog_slug,
       date: nil,
       time: nil,
       path: nil,
@@ -1972,7 +2125,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       "#{String.pad_leading(to_string(time.hour), 2, "0")}:#{String.pad_leading(to_string(time.minute), 2, "0")}"
 
     %{
-      blog: blog_slug,
+      group: blog_slug,
       date: date,
       time: time,
       path:
@@ -2027,7 +2180,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp build_url_for_mode(post, language) do
-    blog_slug = post.blog || "blog"
+    blog_slug = post.group || "blog"
 
     case Map.get(post, :mode) do
       :slug -> build_slug_mode_url(blog_slug, post, language)
@@ -2430,7 +2583,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         form = post_form(updated_post)
 
         socket
-        |> assign(:post, %{updated_post | blog: blog_slug})
+        |> assign(:post, %{updated_post | group: blog_slug})
         |> assign_form_with_tracking(form)
         |> assign(:content, updated_post.content)
         |> assign(:available_languages, updated_post.available_languages)
@@ -2449,27 +2602,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Check if viewing an older version AND editing master language
-  # Returns true only if:
-  # 1. current_version < max(available_versions) (newer version exists)
-  # 2. current_language is the master language (explicit content language setting)
-  # Translations on older versions can still be edited freely
-  defp viewing_older_version?(current_version, available_versions, current_language)
-       when is_integer(current_version) and is_list(available_versions) do
-    case available_versions do
-      [] ->
-        false
-
-      versions ->
-        is_older_version = current_version < Enum.max(versions)
-        # Use explicit content language setting for master language detection
-        master_language = Storage.get_master_language()
-        is_master_language = current_language == master_language
-
-        # Only lock if older version AND master language
-        is_older_version and is_master_language
-    end
-  end
-
+  # With variant versioning, all versions are editable since they're independent attempts.
+  # This function always returns false - no version locking.
   defp viewing_older_version?(_current_version, _available_versions, _current_language), do: false
 end

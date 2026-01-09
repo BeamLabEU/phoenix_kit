@@ -323,7 +323,7 @@
           <div class="grid gap-4">
             <%= for post <- @posts do %>
               <% blog_slug =
-                post.blog || (@current_blog && @current_blog["slug"]) || @blog_slug ||
+                post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
                   "blog" %>
               <% master_lang = @master_language %>
               <% default_lang = List.first(post.available_languages) || @current_locale_base %>

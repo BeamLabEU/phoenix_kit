@@ -641,7 +641,7 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   defp serialize_post(post) do
     %{
-      "blog" => post[:blog],
+      "group" => post[:group],
       "slug" => post[:slug],
       "date" => serialize_date(post[:date]),
       "time" => serialize_time(post[:time]),
@@ -705,9 +705,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "status" => Map.get(metadata, :status),
       "published_at" => Map.get(metadata, :published_at),
       "featured_image_id" => Map.get(metadata, :featured_image_id),
-      "is_live" => Map.get(metadata, :is_live),
       "version" => Map.get(metadata, :version),
-      "allow_version_access" => Map.get(metadata, :allow_version_access)
+      "allow_version_access" => Map.get(metadata, :allow_version_access),
+      "status_manual" => Map.get(metadata, :status_manual)
     }
   end
 
@@ -728,7 +728,8 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
 
   defp normalize_post(post) when is_map(post) do
     %{
-      blog: post["blog"],
+      # Support both "group" (new) and "blog" (old cache) keys
+      group: post["group"] || post["blog"],
       slug: post["slug"],
       date: parse_date(post["date"]),
       time: parse_time(post["time"]),
@@ -760,9 +761,9 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       status: metadata["status"],
       published_at: metadata["published_at"],
       featured_image_id: metadata["featured_image_id"],
-      is_live: metadata["is_live"],
       version: metadata["version"],
-      allow_version_access: metadata["allow_version_access"]
+      allow_version_access: metadata["allow_version_access"],
+      status_manual: metadata["status_manual"]
     }
   end
 
