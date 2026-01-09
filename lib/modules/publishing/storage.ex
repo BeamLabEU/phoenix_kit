@@ -350,6 +350,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   defp url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) do
     # Use cache to check for existing URL slugs
     alias PhoenixKit.Modules.Publishing.ListingCache
+
     case ListingCache.read(group_slug) do
       {:ok, posts} ->
         Enum.any?(posts, fn post ->
@@ -1461,32 +1462,32 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       # Collect all file updates, then apply atomically
       results =
         Enum.flat_map(versions, fn version ->
-        version_dir =
-          case detect_post_structure(post_path) do
-            :versioned -> Path.join(post_path, "v#{version}")
-            :legacy -> post_path
+          version_dir =
+            case detect_post_structure(post_path) do
+              :versioned -> Path.join(post_path, "v#{version}")
+              :legacy -> post_path
+            end
+
+          case File.ls(version_dir) do
+            {:ok, files} ->
+              files
+              |> Enum.filter(&String.ends_with?(&1, ".phk"))
+              |> Enum.map(fn file ->
+                file_path = Path.join(version_dir, file)
+                language = Path.rootname(file)
+                is_master = language == master_language
+                is_target_version = version == version_to_publish
+
+                update_file_for_publish(file_path, %{
+                  is_master: is_master,
+                  is_target_version: is_target_version
+                })
+              end)
+
+            {:error, _} ->
+              []
           end
-
-        case File.ls(version_dir) do
-          {:ok, files} ->
-            files
-            |> Enum.filter(&String.ends_with?(&1, ".phk"))
-            |> Enum.map(fn file ->
-              file_path = Path.join(version_dir, file)
-              language = Path.rootname(file)
-              is_master = language == master_language
-              is_target_version = version == version_to_publish
-
-              update_file_for_publish(file_path, %{
-                is_master: is_master,
-                is_target_version: is_target_version
-              })
-            end)
-
-          {:error, _} ->
-            []
-        end
-      end)
+        end)
 
       # Check if any updates failed
       case Enum.find(results, fn result -> result != :ok end) do

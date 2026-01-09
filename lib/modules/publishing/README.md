@@ -918,6 +918,159 @@ docs/
 
 **Note on `language_statuses`:** This field is preloaded when posts are fetched via `list_posts` or `read_post` to avoid redundant file reads. It maps each available language code to its publication status.
 
+## AI Translation
+
+The Publishing module integrates with the AI module to provide automated translation of posts to multiple languages using an Oban background job.
+
+### Prerequisites
+
+1. **AI Module Enabled**: The AI module must be enabled (`PhoenixKit.Modules.AI.enable_system()`)
+2. **AI Endpoint Configured**: At least one AI endpoint must be configured with a capable model
+3. **Languages Enabled**: The Languages module should have multiple languages enabled
+
+### Editor UI
+
+When prerequisites are met, a collapsible **AI Translation** panel appears in the post editor (for master language posts only):
+
+1. Open any post in the master language
+2. Expand the "AI Translation" section (marked with Beta badge)
+3. Select an AI endpoint from the dropdown
+4. Click one of the translation buttons:
+   - **Translate All Languages** - Translates to ALL enabled languages
+   - **Translate Missing Only** - Only translates languages that don't have a translation file yet
+
+The translation runs as a background job. Progress can be monitored in the Oban dashboard or via logs.
+
+### Quick Start (Programmatic)
+
+```elixir
+# Translate a post to all enabled languages
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1
+)
+
+# Translate to specific languages only
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1,
+  target_languages: ["es", "fr", "de"]
+)
+
+# Translate a specific version
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1,
+  version: 2
+)
+```
+
+### Configuration
+
+Set a default AI endpoint for translations (optional):
+
+```elixir
+PhoenixKit.Settings.update_setting("publishing_translation_endpoint_id", "1")
+```
+
+With a default endpoint configured, you can omit the `endpoint_id` option:
+
+```elixir
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started")
+```
+
+### How It Works
+
+1. **Job Enqueued**: An Oban job is created in the `:default` queue
+2. **Source Read**: The master language content is read from the specified post
+3. **AI Translation**: For each target language, the content is sent to the AI with a translation prompt
+4. **Files Created**: Translation files are created or updated (e.g., `es.phk`, `fr.phk`)
+5. **Cache Updated**: The listing cache is regenerated to include new translations
+
+### Translation Features
+
+**Format Preservation:**
+- The AI preserves the EXACT formatting of the original content
+- If the original has `# headings`, translations keep them; if not, they don't add them
+- All Markdown formatting is preserved (bold, italic, lists, code blocks, links)
+- Line breaks and spacing are maintained
+- Code blocks and inline code are NOT translated
+
+**URL Slug Translation:**
+- The AI generates a localized URL slug for each translation
+- Example: `getting-started` → `primeros-pasos` (Spanish)
+- Slugs are automatically sanitized (lowercase, hyphens, no special characters)
+- See [Per-Language URL Slugs](#per-language-url-slugs) for more details
+
+**Title Extraction:**
+- The AI extracts and translates the title separately
+- Title is stored in metadata for listings and SEO
+- Original document structure is preserved
+
+### Translation Prompt
+
+The worker uses a built-in translation prompt that instructs the AI to:
+- Preserve exact formatting (headings, spacing, structure)
+- Keep Markdown syntax intact
+- Not translate code blocks or inline code
+- Translate naturally and idiomatically
+- Generate SEO-friendly URL slugs in the target language
+
+### Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `endpoint_id` | integer | AI endpoint ID (required if not set in settings) |
+| `source_language` | string | Source language code (defaults to master language) |
+| `target_languages` | list | Target language codes (defaults to all enabled except source) |
+| `version` | integer | Version number to translate (defaults to latest) |
+| `user_id` | integer | User ID for audit trail |
+
+### Job Monitoring
+
+Translation jobs can be monitored via:
+- **Oban Dashboard**: View job status, retries, and errors
+- **Jobs Module**: Enable at `/{prefix}/admin/modules` → Jobs
+- **Logs**: Jobs log progress and errors with `[TranslatePostWorker]` prefix
+
+Example log output:
+```
+[TranslatePostWorker] Starting translation of docs/getting-started from en to 5 languages
+[TranslatePostWorker] Translating to es (Spanish)...
+[TranslatePostWorker] AI call for es completed in 2341ms
+[TranslatePostWorker] Got translated slug for es: primeros-pasos
+[TranslatePostWorker] Creating new es translation
+[TranslatePostWorker] Successfully translated to es
+...
+[TranslatePostWorker] Completed: 5 succeeded, 0 failed
+```
+
+### Error Handling
+
+- **Partial Failures**: If some languages fail, the job reports which languages succeeded and which failed
+- **Retries**: Jobs retry up to 3 times with exponential backoff
+- **Timeout**: Jobs have a 10-minute timeout for large posts or many languages
+- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language file (prevents overwriting master)
+
+### Programmatic Usage
+
+```elixir
+alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
+
+# Create a job without inserting
+job = TranslatePostWorker.create_job("docs", "getting-started", endpoint_id: 1)
+
+# Insert the job
+{:ok, oban_job} = Oban.insert(job)
+
+# Or use the convenience function
+{:ok, oban_job} = TranslatePostWorker.enqueue("docs", "getting-started", endpoint_id: 1)
+
+# Translate only missing languages
+missing_langs = ["de", "ja", "zh"]  # Languages without translation files
+{:ok, job} = TranslatePostWorker.enqueue("docs", "getting-started",
+  endpoint_id: 1,
+  target_languages: missing_langs
+)
+```
+
 ## Migration Path
 
 ### Existing Blogs (Pre-Dual-Mode)

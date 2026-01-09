@@ -298,6 +298,113 @@
       </div>
     <% end %>
 
+    <%!-- AI Translation Section --%>
+    <%= if @ai_enabled and @is_master_language and not @is_new_post and length(@ai_endpoints) > 0 do %>
+      <div class="collapse collapse-arrow bg-base-100 shadow-xl border border-base-200">
+        <input
+          type="checkbox"
+          checked={@show_ai_translation}
+          phx-click="toggle_ai_translation"
+        />
+        <div class="collapse-title">
+          <div class="flex items-center gap-2">
+            <.icon name="hero-language" class="w-5 h-5 text-primary" />
+            <span class="font-semibold">{gettext("AI Translation")}</span>
+            <span class="badge badge-primary badge-sm">{gettext("Beta")}</span>
+          </div>
+        </div>
+        <div class="collapse-content">
+          <div class="pt-2 space-y-4">
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "Automatically translate this post to other languages using AI. The translation will be queued as a background job."
+              )}
+            </p>
+
+            <%!-- Endpoint Selection --%>
+            <form phx-change="select_ai_endpoint" class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">{gettext("AI Endpoint")}</span>
+              </label>
+              <select
+                class="select select-bordered w-full max-w-xs"
+                name="endpoint_id"
+              >
+                <option value="">{gettext("Select an endpoint...")}</option>
+                <%= for {id, name} <- @ai_endpoints do %>
+                  <option value={id} selected={@ai_selected_endpoint_id == id}>
+                    {name}
+                  </option>
+                <% end %>
+              </select>
+              <label class="label">
+                <span class="label-text-alt text-base-content/60">
+                  {gettext("Configure endpoints in")}
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai", locale: @current_locale)}
+                    class="link link-primary"
+                  >
+                    {gettext("AI Settings")}
+                  </.link>
+                </span>
+              </label>
+            </form>
+
+            <%!-- Translation Status --%>
+            <%= if @ai_translation_status == :enqueued do %>
+              <div class="alert alert-success">
+                <.icon name="hero-check-circle" class="w-5 h-5" />
+                <span>
+                  {gettext(
+                    "Translation job has been queued. You can monitor progress in the Jobs module."
+                  )}
+                </span>
+              </div>
+            <% end %>
+
+            <%!-- Action Buttons --%>
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="button"
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil, do: "btn-disabled"}"}
+                phx-click="translate_to_all_languages"
+                disabled={@ai_selected_endpoint_id == nil}
+              >
+                <.icon name="hero-language" class="w-4 h-4" />
+                {gettext("Translate to All Languages")}
+              </button>
+
+              <button
+                type="button"
+                class={"btn btn-outline btn-sm #{if @ai_selected_endpoint_id == nil, do: "btn-disabled"}"}
+                phx-click="translate_missing_languages"
+                disabled={@ai_selected_endpoint_id == nil}
+              >
+                <.icon name="hero-plus" class="w-4 h-4" />
+                {gettext("Translate Missing Only")}
+              </button>
+            </div>
+
+            <%!-- Language Info --%>
+            <div class="text-xs text-base-content/50 space-y-1">
+              <p>
+                <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                {gettext(
+                  "\"Translate to All\" will create or overwrite translations for all enabled languages."
+                )}
+              </p>
+              <p>
+                <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                {gettext(
+                  "\"Translate Missing\" will only create translations for languages that don't have one yet."
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
     <div class="card bg-base-100 shadow-xl border border-base-200">
       <div class="card-body space-y-6">
         <div class="flex flex-col lg:flex-row gap-6">
