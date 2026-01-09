@@ -542,7 +542,17 @@ defmodule PhoenixKit.Modules.Publishing do
     # version is published via publish_version/3.
     # Always broadcast so all viewers see the new version exists
     with {:ok, new_version} <- result do
+      post_slug = new_version[:slug]
       PublishingPubSub.broadcast_version_created(group_slug, new_version)
+      # Also broadcast to post-level topic for editors
+      if post_slug do
+        version_info = %{
+          version: new_version[:current_version],
+          available_versions: new_version[:available_versions] || []
+        }
+
+        PublishingPubSub.broadcast_post_version_created(group_slug, post_slug, version_info)
+      end
     end
 
     result
@@ -575,6 +585,8 @@ defmodule PhoenixKit.Modules.Publishing do
     if result == :ok do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
+      # Also broadcast to post-level topic for editors
+      PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version)
     end
 
     result
@@ -615,6 +627,13 @@ defmodule PhoenixKit.Modules.Publishing do
     # Broadcast on success so all viewers see the new version exists
     with {:ok, new_version} <- result do
       PublishingPubSub.broadcast_version_created(group_slug, new_version)
+      # Also broadcast to post-level topic for editors
+      version_info = %{
+        version: new_version[:current_version],
+        available_versions: new_version[:available_versions] || []
+      }
+
+      PublishingPubSub.broadcast_post_version_created(group_slug, post_slug, version_info)
     end
 
     result
@@ -654,6 +673,8 @@ defmodule PhoenixKit.Modules.Publishing do
     if result == :ok do
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_version_live_changed(group_slug, post_slug, version)
+      # Also broadcast to post-level topic for editors
+      PublishingPubSub.broadcast_post_version_published(group_slug, post_slug, version)
     end
 
     result
@@ -763,6 +784,8 @@ defmodule PhoenixKit.Modules.Publishing do
       # (but we already prevent deleting live version, so this is just for safety)
       ListingCache.regenerate(group_slug)
       PublishingPubSub.broadcast_version_deleted(group_slug, post_identifier, version)
+      # Also broadcast to post-level topic for editors
+      PublishingPubSub.broadcast_post_version_deleted(group_slug, post_identifier, version)
     end
 
     result

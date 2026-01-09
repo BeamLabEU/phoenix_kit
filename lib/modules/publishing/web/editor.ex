@@ -67,6 +67,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:lock_owner_user, nil)
       |> assign(:spectators, [])
       |> assign(:other_viewers, [])
+      # Lock expiration tracking
+      |> assign(:last_activity_at, System.monotonic_time(:second))
+      |> assign(:lock_expiration_timer, nil)
+      |> assign(:lock_warning_shown, false)
       # Default editor form/content assigns (will be overridden by handle_params)
       |> assign(:form, %{})
       |> assign(:post, nil)
@@ -109,6 +113,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   @impl true
+  def terminate(_reason, socket) do
+    # Clean up when the LiveView terminates (tab closed, navigated away, etc.)
+    # This ensures the blog listing removes stale editor entries
+
+    # Broadcast editor left to blog listing (only for owners)
+    if socket.assigns[:blog_slug] && socket.assigns[:post] && socket.assigns[:lock_owner?] do
+      broadcast_editor_activity(socket, :left)
+    end
+
+    # Unsubscribe from post-specific topics to prevent leaks
+    unsubscribe_from_old_post_topics(socket)
+
+    # Cancel any pending timers
+    cancel_lock_expiration_timer(socket)
+
+    :ok
+  end
+
+  @impl true
   def handle_params(%{"preview_token" => token} = params, uri, socket) do
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
 
@@ -142,6 +165,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Generate form key for new post (for collaborative editing)
     form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :new)
 
+    # Capture old form_key and post_slug BEFORE updating socket for proper cleanup
+    old_form_key = socket.assigns[:form_key]
+    old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
     socket =
       socket
       |> assign(:blog_mode, blog_mode)
@@ -171,7 +198,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> push_event("changes-status", %{has_changes: false})
 
     # Set up collaborative editing for new posts
-    socket = setup_collaborative_editing(socket, form_key)
+    socket =
+      setup_collaborative_editing(socket, form_key,
+        old_form_key: old_form_key,
+        old_post_slug: old_post_slug
+      )
 
     {:noreply, socket}
   end
@@ -185,6 +216,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:ok, post} ->
         all_enabled_languages = Storage.enabled_language_codes()
         switch_to_lang = Map.get(params, "switch_to")
+
+        # Capture old form_key and post_slug BEFORE updating socket for proper cleanup
+        old_form_key = socket.assigns[:form_key]
+        old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
         {socket, form_key} =
           if switch_to_lang && switch_to_lang not in post.available_languages do
@@ -291,7 +326,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           end
 
         # Set up collaborative editing
-        socket = setup_collaborative_editing(socket, form_key)
+        socket =
+          setup_collaborative_editing(socket, form_key,
+            old_form_key: old_form_key,
+            old_post_slug: old_post_slug
+          )
 
         {:noreply, socket}
 
@@ -378,6 +417,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         else
           socket
         end
+
+      # Broadcast form change to spectators for real-time sync
+      broadcast_form_change(socket, :meta, new_form)
+
+      # Touch activity for lock expiration tracking
+      socket = touch_activity(socket)
 
       {:noreply, socket}
     end
@@ -490,6 +535,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         else
           socket
         end
+
+      # Broadcast content change to spectators for real-time sync
+      broadcast_form_change(socket, :content, %{content: content, form: new_form})
+
+      # Touch activity for lock expiration tracking
+      socket = touch_activity(socket)
 
       {:noreply, socket}
     end
@@ -770,8 +821,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       # Generate new form_key for the new language
       new_form_key = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
-      # Save old form_key BEFORE assigning new one (for presence cleanup)
+      # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
       old_form_key = socket.assigns[:form_key]
+      old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
       socket =
         socket
@@ -789,8 +841,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         |> assign(:form_key, new_form_key)
         |> push_event("changes-status", %{has_changes: false})
 
-      # Clean up old presence and set up new (pass old_form_key explicitly)
-      socket = cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key)
+      # Clean up old presence and set up new (pass old_form_key and old_post_slug explicitly)
+      socket =
+        cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
+          old_post_slug: old_post_slug
+        )
 
       # Update the URL to reflect the new language using switch_to parameter
       # (since the new translation file doesn't exist yet)
@@ -862,8 +917,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           # Generate new form_key for the new version
           new_form_key = PublishingPubSub.generate_form_key(blog_slug, version_post, :edit)
 
-          # Save old form_key BEFORE assigning new one (for presence cleanup)
+          # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
           old_form_key = socket.assigns[:form_key]
+          old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
 
           socket =
             socket
@@ -887,8 +943,11 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             |> push_event("changes-status", %{has_changes: false})
             |> push_event("set-content", %{content: version_post.content})
 
-          # Clean up old presence and set up new (pass old_form_key explicitly)
-          socket = cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key)
+          # Clean up old presence and set up new (pass old_form_key and old_post_slug explicitly)
+          socket =
+            cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
+              old_post_slug: old_post_slug
+            )
 
           # Update URL to reflect the new version's path
           {:noreply,
@@ -1204,10 +1263,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> assign(:content, post.content)
               |> assign(:has_pending_changes, false)
               |> push_event("changes-status", %{has_changes: false})
+              |> maybe_start_lock_expiration_timer()
 
             {:error, _} ->
               socket
           end
+
+        # Broadcast that we're now the editor (with role: :owner)
+        # so the blog listing shows us as editing
+        broadcast_editor_activity(socket, :joined)
 
         {:noreply, socket}
       else
@@ -1242,6 +1306,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       {:noreply, socket}
     else
       {:noreply, socket}
+    end
+  end
+
+  # Handle real-time form changes from the owner (for spectators)
+  def handle_info({:editor_form_change, form_key, payload, source}, socket) do
+    cond do
+      # Ignore if no form_key or different form
+      socket.assigns[:form_key] != form_key ->
+        {:noreply, socket}
+
+      # Ignore our own broadcasts
+      source == socket.id ->
+        {:noreply, socket}
+
+      # Only spectators should apply changes (owners shouldn't overwrite their own edits)
+      socket.assigns[:readonly?] != true ->
+        {:noreply, socket}
+
+      # Apply the remote changes
+      true ->
+        socket = apply_remote_form_change(socket, payload)
+        {:noreply, socket}
     end
   end
 
@@ -1294,6 +1380,137 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       {:noreply, socket}
     else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle version created events (from other editors)
+  def handle_info({:post_version_created, blog_slug, post_slug, version_info}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      # Update available versions list
+      available_versions =
+        version_info[:available_versions] || socket.assigns[:available_versions]
+
+      socket =
+        socket
+        |> assign(:available_versions, available_versions)
+        |> assign(:post, Map.put(socket.assigns.post, :available_versions, available_versions))
+        |> put_flash(:info, gettext("A new version was created by another editor"))
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle version deleted events (from other editors)
+  def handle_info({:post_version_deleted, blog_slug, post_slug, deleted_version}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      # Remove deleted version from available versions
+      available_versions = socket.assigns[:available_versions] || []
+      updated_versions = Enum.reject(available_versions, fn v -> v == deleted_version end)
+
+      # Check if we were viewing the deleted version
+      current_version = socket.assigns[:post][:current_version]
+
+      socket =
+        if current_version == deleted_version do
+          # We need to switch to a surviving version
+          case updated_versions do
+            [surviving_version | _] ->
+              # Reload the post with the surviving version
+              current_language = editor_language(socket.assigns)
+
+              case Publishing.read_post(blog_slug, post_slug, current_language, surviving_version) do
+                {:ok, fresh_post} ->
+                  form = post_form(fresh_post)
+
+                  socket
+                  |> assign(:post, %{fresh_post | group: blog_slug})
+                  |> assign(:available_versions, updated_versions)
+                  |> assign(:current_version, surviving_version)
+                  |> assign_form_with_tracking(form)
+                  |> assign(:content, fresh_post.content)
+                  |> assign(:has_pending_changes, false)
+                  |> push_event("changes-status", %{has_changes: false})
+                  |> put_flash(
+                    :warning,
+                    gettext(
+                      "The version you were editing was deleted. Switched to version %{version}.",
+                      version: surviving_version
+                    )
+                  )
+
+                {:error, _} ->
+                  # Can't load surviving version - set readonly to prevent data loss
+                  socket
+                  |> assign(:readonly?, true)
+                  |> put_flash(
+                    :error,
+                    gettext(
+                      "The version you were editing was deleted and no other versions are available."
+                    )
+                  )
+              end
+
+            [] ->
+              # No versions left - this post is effectively deleted
+              # Reset state to prevent saving to deleted paths
+              socket
+              |> assign(:readonly?, true)
+              |> assign(:current_version, nil)
+              |> assign(:available_versions, [])
+              |> assign(:post, %{socket.assigns.post | path: nil, current_version: nil})
+              |> assign(:has_pending_changes, false)
+              |> put_flash(
+                :error,
+                gettext("All versions of this post have been deleted. Please navigate away.")
+              )
+          end
+        else
+          # We weren't viewing the deleted version, just update the list
+          socket
+          |> assign(:available_versions, updated_versions)
+          |> assign(:post, Map.put(socket.assigns.post, :available_versions, updated_versions))
+        end
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle version published events (from other editors)
+  def handle_info({:post_version_published, blog_slug, post_slug, published_version}, socket) do
+    if socket.assigns[:blog_slug] == blog_slug &&
+         socket.assigns[:post] &&
+         socket.assigns.post[:slug] == post_slug do
+      socket =
+        socket
+        |> put_flash(
+          :info,
+          gettext("Version %{version} was published by another editor",
+            version: published_version
+          )
+        )
+
+      {:noreply, socket}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle lock expiration check timer
+  def handle_info(:check_lock_expiration, socket) do
+    # Only owners need lock expiration (spectators don't hold locks)
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      socket = check_lock_expiration(socket)
       {:noreply, socket}
     end
   end
@@ -2694,8 +2911,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # ============================================================================
 
   # Used when we know the old form_key (e.g., when switching languages/versions)
-  defp cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key) do
+  defp cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key, opts) do
     current_user = socket.assigns[:phoenix_kit_current_user]
+    old_post_slug = Keyword.get(opts, :old_post_slug)
 
     if connected?(socket) && new_form_key && current_user do
       try do
@@ -2704,6 +2922,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           PresenceHelpers.untrack_editing_session(old_form_key, socket)
           PresenceHelpers.unsubscribe_from_editing(old_form_key)
           PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+
+          # Unsubscribe from old post's translation and version topics
+          blog_slug = socket.assigns[:blog_slug]
+
+          if blog_slug && old_post_slug do
+            PublishingPubSub.unsubscribe_from_post_translations(blog_slug, old_post_slug)
+            PublishingPubSub.unsubscribe_from_post_versions(blog_slug, old_post_slug)
+          end
+
+          # Broadcast editor left for the old post to update blog dashboard
+          broadcast_editor_left_for_post(socket, old_post_slug)
         end
 
         # Track this user in Presence
@@ -2716,15 +2945,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         PresenceHelpers.subscribe_to_editing(new_form_key)
         PublishingPubSub.subscribe_to_editor_form(new_form_key)
 
-        # Determine our role (owner or spectator)
-        socket = assign_editing_role(socket, new_form_key)
+        # Subscribe to post-level topics for real-time translation/version updates
+        subscribe_to_post_translations(socket)
+        subscribe_to_post_versions(socket)
 
-        # Load spectator state if we're not the owner
-        if socket.assigns.readonly? do
-          load_spectator_state(socket, new_form_key)
-        else
-          socket
-        end
+        # Determine our role (owner or spectator) and broadcast if owner
+        socket
+        |> assign_editing_role(new_form_key)
+        |> maybe_broadcast_editor_joined()
+        |> maybe_load_spectator_state(new_form_key)
+        |> maybe_start_lock_expiration_timer()
       rescue
         ArgumentError ->
           socket
@@ -2744,28 +2974,33 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  # Used for initial setup (reads old_form_key from socket.assigns)
-  defp setup_collaborative_editing(socket, form_key) do
+  # Used for initial setup
+  # old_form_key and old_post_slug should be captured BEFORE the socket is updated
+  defp setup_collaborative_editing(socket, form_key, opts) do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     if connected?(socket) && form_key && current_user do
-      do_setup_collaborative_editing(socket, form_key, current_user)
+      do_setup_collaborative_editing(socket, form_key, current_user, opts)
     else
       assign_default_editing_state(socket)
     end
   end
 
-  defp do_setup_collaborative_editing(socket, form_key, current_user) do
-    old_form_key = socket.assigns[:form_key]
+  defp do_setup_collaborative_editing(socket, form_key, current_user, opts) do
+    old_form_key = Keyword.get(opts, :old_form_key)
+    old_post_slug = Keyword.get(opts, :old_post_slug)
 
     try do
-      cleanup_old_presence(old_form_key, form_key, socket)
+      cleanup_old_presence(old_form_key, form_key, socket, old_post_slug)
       track_and_subscribe(form_key, socket, current_user)
       subscribe_to_post_translations(socket)
+      subscribe_to_post_versions(socket)
 
       socket
       |> assign_editing_role(form_key)
+      |> maybe_broadcast_editor_joined()
       |> maybe_load_spectator_state(form_key)
+      |> maybe_start_lock_expiration_timer()
     rescue
       ArgumentError ->
         Logger.warning(
@@ -2777,11 +3012,43 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
-  defp cleanup_old_presence(old_form_key, form_key, socket) do
+  defp cleanup_old_presence(old_form_key, form_key, socket, old_post_slug) do
     if old_form_key && old_form_key != form_key do
       PresenceHelpers.untrack_editing_session(old_form_key, socket)
       PresenceHelpers.unsubscribe_from_editing(old_form_key)
       PublishingPubSub.unsubscribe_from_editor_form(old_form_key)
+
+      # Unsubscribe from old post's translation and version topics using the OLD slug
+      blog_slug = socket.assigns[:blog_slug]
+
+      if blog_slug && old_post_slug do
+        PublishingPubSub.unsubscribe_from_post_translations(blog_slug, old_post_slug)
+        PublishingPubSub.unsubscribe_from_post_versions(blog_slug, old_post_slug)
+      end
+
+      # Broadcast editor left to blog listing for the OLD post
+      broadcast_editor_left_for_post(socket, old_post_slug)
+    end
+  end
+
+  # Broadcast editor left for a specific post slug (used when we've already switched posts)
+  defp broadcast_editor_left_for_post(socket, post_slug) do
+    blog_slug = socket.assigns[:blog_slug]
+
+    if blog_slug && post_slug do
+      user_info = build_user_info(socket, nil)
+      PublishingPubSub.broadcast_editor_left(blog_slug, post_slug, user_info)
+    end
+  end
+
+  # Unsubscribe from current post's topics (used in terminate when LiveView closes)
+  defp unsubscribe_from_old_post_topics(socket) do
+    blog_slug = socket.assigns[:blog_slug]
+    post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
+    if blog_slug && post_slug do
+      PublishingPubSub.unsubscribe_from_post_translations(blog_slug, post_slug)
+      PublishingPubSub.unsubscribe_from_post_versions(blog_slug, post_slug)
     end
   end
 
@@ -2793,12 +3060,25 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     PresenceHelpers.subscribe_to_editing(form_key)
     PublishingPubSub.subscribe_to_editor_form(form_key)
+
+    # Note: editor_joined broadcast moved to after role assignment
+    # so the correct role is included in the payload
   end
 
   defp subscribe_to_post_translations(socket) do
     case socket.assigns[:post] && socket.assigns.post[:slug] do
       post_slug when is_binary(post_slug) ->
         PublishingPubSub.subscribe_to_post_translations(socket.assigns.blog_slug, post_slug)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp subscribe_to_post_versions(socket) do
+    case socket.assigns[:post] && socket.assigns.post[:slug] do
+      post_slug when is_binary(post_slug) ->
+        PublishingPubSub.subscribe_to_post_versions(socket.assigns.blog_slug, post_slug)
 
       _ ->
         :ok
@@ -2938,6 +3218,199 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # With variant versioning, all versions are editable since they're independent attempts.
   # This function always returns false - no version locking.
   defp viewing_older_version?(_current_version, _available_versions, _current_language), do: false
+
+  # ============================================================================
+  # Real-Time Form Sync Helpers
+  # ============================================================================
+
+  # Broadcast form changes to spectators (only owners broadcast)
+  defp broadcast_form_change(socket, type, payload) do
+    form_key = socket.assigns[:form_key]
+    is_owner = socket.assigns[:lock_owner?]
+
+    if form_key && is_owner do
+      PublishingPubSub.broadcast_editor_form_change(
+        form_key,
+        %{type: type, data: payload},
+        source: socket.id
+      )
+    end
+  end
+
+  # Apply remote form changes (for spectators receiving updates)
+  defp apply_remote_form_change(socket, %{type: :meta, data: new_form}) do
+    socket
+    |> assign(:form, new_form)
+    |> push_event("form-updated", %{form: new_form})
+  end
+
+  defp apply_remote_form_change(socket, %{type: :content, data: %{content: content, form: form}}) do
+    socket
+    |> assign(:content, content)
+    |> assign(:form, form)
+    |> push_event("set-content", %{content: content})
+    |> push_event("form-updated", %{form: form})
+  end
+
+  defp apply_remote_form_change(socket, _payload) do
+    # Ignore unrecognized payload types
+    socket
+  end
+
+  # Only broadcast editor_joined if user is the owner (not a spectator)
+  # This ensures spectators don't show up as "editing" in the blog dashboard
+  defp maybe_broadcast_editor_joined(socket) do
+    if socket.assigns[:lock_owner?] do
+      broadcast_editor_activity(socket, :joined)
+    end
+
+    socket
+  end
+
+  # Broadcast editor activity to blog listing (for showing who's editing)
+  defp broadcast_editor_activity(socket, action, user \\ nil) do
+    blog_slug = socket.assigns[:blog_slug]
+    post = socket.assigns[:post]
+
+    if blog_slug && post && post[:slug] do
+      user_info = build_user_info(socket, user)
+
+      case action do
+        :joined ->
+          PublishingPubSub.broadcast_editor_joined(blog_slug, post.slug, user_info)
+
+        :left ->
+          PublishingPubSub.broadcast_editor_left(blog_slug, post.slug, user_info)
+      end
+    end
+  end
+
+  defp build_user_info(socket, user) do
+    user = user || socket.assigns[:phoenix_kit_current_user]
+    # Include role to distinguish editors from spectators
+    role = if socket.assigns[:lock_owner?], do: :owner, else: :spectator
+
+    if user do
+      %{
+        id: user.id,
+        email: user.email,
+        socket_id: socket.id,
+        role: role
+      }
+    else
+      %{socket_id: socket.id, role: role}
+    end
+  end
+
+  # ============================================================================
+  # Lock Expiration Helpers
+  # ============================================================================
+
+  # Lock expires after 30 minutes of inactivity
+  @lock_timeout_seconds 30 * 60
+  # Warn 5 minutes before expiration
+  @lock_warning_seconds 25 * 60
+  # Check every minute
+  @lock_check_interval_ms 60_000
+
+  # Update activity timestamp on user interactions
+  defp touch_activity(socket) do
+    socket
+    |> assign(:last_activity_at, System.monotonic_time(:second))
+    |> assign(:lock_warning_shown, false)
+  end
+
+  # Conditionally start lock expiration timer after role assignment
+  defp maybe_start_lock_expiration_timer(socket) do
+    if socket.assigns[:lock_owner?] && !socket.assigns[:readonly?] do
+      socket
+      |> touch_activity()
+      |> start_lock_expiration_timer()
+    else
+      socket
+    end
+  end
+
+  # Start lock expiration timer (only for owners)
+  defp start_lock_expiration_timer(socket) do
+    if socket.assigns[:lock_owner?] do
+      cancel_lock_expiration_timer(socket)
+      timer_ref = Process.send_after(self(), :check_lock_expiration, @lock_check_interval_ms)
+      assign(socket, :lock_expiration_timer, timer_ref)
+    else
+      socket
+    end
+  end
+
+  # Cancel lock expiration timer
+  defp cancel_lock_expiration_timer(socket) do
+    if socket.assigns[:lock_expiration_timer] do
+      Process.cancel_timer(socket.assigns.lock_expiration_timer)
+    end
+
+    assign(socket, :lock_expiration_timer, nil)
+  end
+
+  # Check if lock should expire or warn user
+  defp check_lock_expiration(socket) do
+    if socket.assigns[:lock_owner?] do
+      now = System.monotonic_time(:second)
+      last_activity = socket.assigns[:last_activity_at] || now
+      inactive_seconds = now - last_activity
+
+      cond do
+        # Lock expired - release it
+        inactive_seconds >= @lock_timeout_seconds ->
+          release_lock_due_to_inactivity(socket)
+
+        # Approaching expiration - warn user
+        inactive_seconds >= @lock_warning_seconds && !socket.assigns[:lock_warning_shown] ->
+          minutes_left = div(@lock_timeout_seconds - inactive_seconds, 60)
+
+          socket
+          |> assign(:lock_warning_shown, true)
+          |> put_flash(
+            :warning,
+            gettext("Your editing lock will expire in %{minutes} minutes due to inactivity",
+              minutes: minutes_left
+            )
+          )
+          |> start_lock_expiration_timer()
+
+        # Still active - schedule next check
+        true ->
+          start_lock_expiration_timer(socket)
+      end
+    else
+      socket
+    end
+  end
+
+  # Release lock due to inactivity
+  defp release_lock_due_to_inactivity(socket) do
+    form_key = socket.assigns[:form_key]
+
+    if form_key do
+      # Untrack from presence to release lock
+      PresenceHelpers.untrack_editing_session(form_key, socket)
+
+      # Broadcast editor left
+      broadcast_editor_activity(socket, :left)
+
+      # Keep subscribed but become a spectator
+      socket
+      |> assign(:lock_owner?, false)
+      |> assign(:readonly?, true)
+      |> assign(:lock_warning_shown, false)
+      |> cancel_lock_expiration_timer()
+      |> put_flash(
+        :error,
+        gettext("Your editing lock was released due to inactivity. Reload to reclaim it.")
+      )
+    else
+      socket
+    end
+  end
 
   # ============================================================================
   # AI Translation Helpers

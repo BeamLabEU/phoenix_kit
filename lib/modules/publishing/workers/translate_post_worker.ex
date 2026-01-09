@@ -65,6 +65,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
+  alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Storage
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
@@ -146,8 +147,17 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
   # Translate to all target languages sequentially
   defp translate_to_languages(source_post, target_languages, endpoint, source_language, user_id) do
+    group_slug = source_post.group
+    post_slug = source_post.slug
+
+    # Broadcast that translation has started
+    PublishingPubSub.broadcast_translation_started(group_slug, post_slug, target_languages)
+
     results =
-      Enum.map(target_languages, fn target_language ->
+      target_languages
+      |> Enum.map(fn target_language ->
+        # Note: Per-language progress broadcasts were removed as nothing subscribes to them.
+        # The blog listing uses translation_started/completed events on posts_topic instead.
         case translate_single_language(
                source_post,
                target_language,
@@ -157,7 +167,6 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
              ) do
           :ok ->
             Logger.info("[TranslatePostWorker] Successfully translated to #{target_language}")
-
             {:ok, target_language}
 
           {:error, reason} ->
@@ -178,6 +187,14 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
 
     success_count = length(successes)
     failure_count = length(failures)
+
+    # Broadcast completion
+    PublishingPubSub.broadcast_translation_completed(group_slug, post_slug, %{
+      succeeded: Enum.map(successes, fn {:ok, lang} -> lang end),
+      failed: Enum.map(failures, fn {:error, lang, _} -> lang end),
+      success_count: success_count,
+      failure_count: failure_count
+    })
 
     Logger.info(
       "[TranslatePostWorker] Completed: #{success_count} succeeded, #{failure_count} failed"
