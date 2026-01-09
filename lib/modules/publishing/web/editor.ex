@@ -51,6 +51,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:autosave_timer, nil)
       |> assign(:slug_manually_set, false)
       |> assign(:last_auto_slug, "")
+      # URL slug tracking for translations
+      |> assign(:url_slug_manually_set, false)
+      |> assign(:last_auto_url_slug, "")
       # Collaborative editing assigns
       |> assign(:live_source, live_source)
       |> assign(:form_key, nil)
@@ -309,6 +312,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         params
         |> Map.drop(["_target"])
 
+      # Preserve auto-generated url_slug when browser sends empty value
+      # This handles race condition where JS hasn't updated the input yet
+      params = preserve_auto_url_slug(params, socket)
+
       # No real-time validation - accept any input, validation happens on save
       new_form =
         socket.assigns.form
@@ -321,6 +328,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           slug_value != "" && slug_value != socket.assigns.last_auto_slug
         else
           socket.assigns.slug_manually_set
+        end
+
+      # Track manual url_slug changes for translations
+      url_slug_manually_set =
+        if Map.has_key?(params, "url_slug") do
+          url_slug_value = Map.get(new_form, "url_slug", "")
+          url_slug_value != "" && url_slug_value != socket.assigns.last_auto_url_slug
+        else
+          socket.assigns.url_slug_manually_set
         end
 
       has_changes = dirty?(socket.assigns.post, new_form, socket.assigns.content)
@@ -338,6 +354,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         socket
         |> assign(:form, new_form)
         |> assign(:slug_manually_set, slug_manually_set)
+        |> assign(:url_slug_manually_set, url_slug_manually_set)
         |> assign(:has_pending_changes, has_changes)
         |> assign(:public_url, public_url)
         |> clear_flash()
@@ -1202,7 +1219,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp perform_save(socket) do
     params =
       socket.assigns.form
-      |> Map.take(["status", "published_at", "slug", "featured_image_id"])
+      |> Map.take(["status", "published_at", "slug", "featured_image_id", "url_slug"])
       |> Map.put("content", socket.assigns.content)
 
     params =
@@ -1217,6 +1234,52 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           Map.delete(params, "slug")
       end
 
+    # Validate url_slug before saving (for translations)
+    case validate_url_slug_for_save(socket, params) do
+      {:ok, validated_params} ->
+        do_perform_save(socket, validated_params)
+
+      {:error, reason} ->
+        error_message = url_slug_error_message(reason)
+        {:noreply, put_flash(socket, :error, error_message)}
+    end
+  end
+
+  # Validates url_slug if present and non-empty
+  defp validate_url_slug_for_save(socket, params) do
+    url_slug = Map.get(params, "url_slug", "")
+
+    # Only validate if url_slug is non-empty (empty means use default)
+    if url_slug != "" do
+      blog_slug = socket.assigns.blog_slug
+      language = editor_language(socket.assigns)
+      post_slug = socket.assigns.post.slug
+
+      case Storage.validate_url_slug(blog_slug, url_slug, language, post_slug) do
+        {:ok, _} -> {:ok, params}
+        {:error, reason} -> {:error, reason}
+      end
+    else
+      {:ok, params}
+    end
+  end
+
+  defp url_slug_error_message(:invalid_format),
+    do: gettext("URL slug must be lowercase letters, numbers, and hyphens only")
+
+  defp url_slug_error_message(:reserved_language_code),
+    do: gettext("URL slug cannot be a language code")
+
+  defp url_slug_error_message(:reserved_route_word),
+    do: gettext("URL slug cannot be a reserved word (admin, api, assets, etc.)")
+
+  defp url_slug_error_message(:slug_already_exists),
+    do: gettext("URL slug is already in use for this language")
+
+  defp url_slug_error_message(_),
+    do: gettext("Invalid URL slug")
+
+  defp do_perform_save(socket, params) do
     is_new_post = Map.get(socket.assigns, :is_new_post, false)
     is_new_translation = Map.get(socket.assigns, :is_new_translation, false)
 
@@ -1666,6 +1729,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp post_form(post) do
+    # Get url_slug from metadata (frontmatter) first, fall back to top-level post.url_slug
+    # The top-level url_slug defaults to post.slug if metadata doesn't have one
+    url_slug_from_metadata = Map.get(post.metadata, :url_slug)
+    url_slug_from_post = Map.get(post, :url_slug)
+
+    # Only use explicit url_slug if it's different from the directory slug
+    url_slug =
+      cond do
+        url_slug_from_metadata not in [nil, ""] -> url_slug_from_metadata
+        url_slug_from_post not in [nil, ""] and url_slug_from_post != post.slug ->
+          url_slug_from_post
+        true -> ""
+      end
+
     base = %{
       "status" => post.metadata.status || "draft",
       "published_at" =>
@@ -1673,7 +1750,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           DateTime.utc_now()
           |> floor_datetime_to_minute()
           |> DateTime.to_iso8601(),
-      "featured_image_id" => Map.get(post.metadata, :featured_image_id, "")
+      "featured_image_id" => Map.get(post.metadata, :featured_image_id, ""),
+      # Per-language URL slug for SEO-friendly localized URLs
+      "url_slug" => url_slug
     }
 
     form =
@@ -1711,11 +1790,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> to_string()
       |> String.trim()
 
+    # Normalize url_slug: trim and downcase, empty string if nil
+    url_slug =
+      form
+      |> Map.get("url_slug", "")
+      |> to_string()
+      |> String.trim()
+      |> String.downcase()
+
     base =
       %{
         "status" => Map.get(form, "status", "draft") || "draft",
         "published_at" => normalize_published_at(Map.get(form, "published_at")),
-        "featured_image_id" => featured_image_id
+        "featured_image_id" => featured_image_id,
+        "url_slug" => url_slug
       }
 
     case Map.fetch(form, "slug") do
@@ -1734,7 +1822,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       "status" => "draft",
       "published_at" => "",
       "slug" => "",
-      "featured_image_id" => ""
+      "featured_image_id" => "",
+      "url_slug" => ""
     }
 
   defp datetime_local_value(nil), do: ""
@@ -2249,7 +2338,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defp assign_form_with_tracking(socket, form, opts \\ []) do
     slug = Map.get(form, "slug", "")
+    url_slug = Map.get(form, "url_slug", "")
+    post_slug = Map.get(socket.assigns.post || %{}, :slug, "")
 
+    # Track slug (for master language)
     slug_manually_set =
       case Keyword.fetch(opts, :slug_manually_set) do
         {:ok, value} -> value
@@ -2262,28 +2354,67 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         :error -> slug
       end
 
+    # Track url_slug (for translations)
+    # If url_slug is set and different from the directory slug, it was manually set
+    url_slug_manually_set =
+      case Keyword.fetch(opts, :url_slug_manually_set) do
+        {:ok, value} ->
+          value
+
+        :error ->
+          # If there's an existing url_slug that differs from post.slug, treat as manually set
+          existing = Map.get(socket.assigns, :url_slug_manually_set, false)
+
+          if existing do
+            true
+          else
+            # On initial load, if url_slug exists and differs from post slug, it was manually set
+            url_slug != "" and url_slug != post_slug
+          end
+      end
+
+    last_auto_url_slug =
+      case Keyword.fetch(opts, :last_auto_url_slug) do
+        {:ok, value} -> value
+        :error -> Map.get(socket.assigns, :last_auto_url_slug, "")
+      end
+
     socket
     |> assign(:form, form)
     |> assign(:last_auto_slug, last_auto_slug)
     |> assign(:slug_manually_set, slug_manually_set)
+    |> assign(:last_auto_url_slug, last_auto_url_slug)
+    |> assign(:url_slug_manually_set, url_slug_manually_set)
   end
 
   defp maybe_update_slug_from_content(socket, content, opts \\ []) do
     force? = Keyword.get(opts, :force, false)
     content = content || ""
+    is_master = Map.get(socket.assigns, :is_master_language, true)
 
     cond do
       socket.assigns.blog_mode != "slug" ->
         no_slug_update(socket)
 
-      not force? && Map.get(socket.assigns, :slug_manually_set, false) ->
-        no_slug_update(socket)
-
       String.trim(content) == "" ->
         no_slug_update(socket)
 
-      true ->
+      # Master language: auto-generate directory slug
+      is_master and not force? and Map.get(socket.assigns, :slug_manually_set, false) ->
+        no_slug_update(socket)
+
+      is_master ->
         update_slug_from_content(socket, content)
+
+      # Translation: auto-generate url_slug instead
+      not is_master and not force? and Map.get(socket.assigns, :url_slug_manually_set, false) ->
+        no_slug_update(socket)
+
+      not is_master ->
+        update_url_slug_from_content(socket, content)
+
+      true ->
+        no_slug_update(socket)
     end
   end
 
@@ -2307,6 +2438,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  # Auto-generate url_slug for translations from content title
+  defp update_url_slug_from_content(socket, content) do
+    title = Metadata.extract_title_from_content(content)
+    current_url_slug = Map.get(socket.assigns.form, "url_slug", "")
+
+    # Generate a slug from the title (without uniqueness check - url_slugs can match directory slugs)
+    new_url_slug = PhoenixKit.Utils.Slug.slugify(title) || ""
+
+    if new_url_slug == "" do
+      no_slug_update(socket)
+    else
+      apply_new_url_slug(socket, new_url_slug, current_url_slug)
+    end
+  end
+
   defp apply_new_slug(socket, new_slug) do
     current_slug = Map.get(socket.assigns.form, "slug", "")
 
@@ -2327,6 +2473,47 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         socket
         |> assign(:last_auto_slug, new_slug)
         |> assign(:slug_manually_set, false)
+
+      {socket, socket.assigns.form, []}
+    end
+  end
+
+  # Preserve auto-generated url_slug when browser sends empty value
+  # This handles race condition where phx-change fires before JS updates the input
+  defp preserve_auto_url_slug(params, socket) do
+    browser_url_slug = Map.get(params, "url_slug", "")
+    last_auto = Map.get(socket.assigns, :last_auto_url_slug, "")
+    manually_set = Map.get(socket.assigns, :url_slug_manually_set, false)
+
+    # If browser sends empty but we have an auto-generated value and user hasn't manually set one,
+    # restore the auto-generated value
+    if browser_url_slug == "" and last_auto != "" and not manually_set do
+      Map.put(params, "url_slug", last_auto)
+    else
+      params
+    end
+  end
+
+  # Apply auto-generated url_slug for translations
+  defp apply_new_url_slug(socket, new_url_slug, current_url_slug) do
+    if new_url_slug != current_url_slug do
+      form =
+        socket.assigns.form
+        |> Map.put("url_slug", new_url_slug)
+        |> normalize_form()
+
+      socket =
+        socket
+        |> assign(:last_auto_url_slug, new_url_slug)
+        |> assign(:url_slug_manually_set, false)
+
+      # Push event to update the browser input field
+      {socket, form, [{"update-url-slug", %{url_slug: new_url_slug}}]}
+    else
+      socket =
+        socket
+        |> assign(:last_auto_url_slug, new_url_slug)
+        |> assign(:url_slug_manually_set, false)
 
       {socket, socket.assigns.form, []}
     end

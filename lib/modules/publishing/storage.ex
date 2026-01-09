@@ -302,6 +302,102 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
+  # Reserved route words that cannot be used as URL slugs
+  @reserved_route_words ~w(admin api assets phoenix_kit auth login logout register settings)
+
+  @doc """
+  Validates a per-language URL slug for uniqueness within a group+language combination.
+
+  URL slugs have the same format requirements as directory slugs, plus:
+  - Cannot be reserved route words (admin, api, assets, etc.)
+  - Must be unique within the group+language combination
+
+  ## Parameters
+  - `group_slug` - The publishing group
+  - `url_slug` - The URL slug to validate
+  - `language` - The language code
+  - `exclude_post_slug` - Optional post slug to exclude from uniqueness check (for updates)
+
+  ## Returns
+  - `{:ok, url_slug}` - Valid and unique
+  - `{:error, :invalid_format}` - Invalid format
+  - `{:error, :reserved_language_code}` - Is a language code
+  - `{:error, :reserved_route_word}` - Is a reserved route word
+  - `{:error, :slug_already_exists}` - Already in use for this language
+  """
+  @spec validate_url_slug(String.t(), String.t(), String.t(), String.t() | nil) ::
+          {:ok, String.t()} | {:error, atom()}
+  def validate_url_slug(group_slug, url_slug, language, exclude_post_slug \\ nil) do
+    cond do
+      not Regex.match?(@slug_pattern, url_slug) ->
+        {:error, :invalid_format}
+
+      reserved_language_code?(url_slug) ->
+        {:error, :reserved_language_code}
+
+      url_slug in @reserved_route_words ->
+        {:error, :reserved_route_word}
+
+      url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) ->
+        {:error, :slug_already_exists}
+
+      true ->
+        {:ok, url_slug}
+    end
+  end
+
+  # Check if a URL slug already exists for a language within a group
+  defp url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) do
+    # Use cache to check for existing URL slugs
+    alias PhoenixKit.Modules.Publishing.ListingCache
+    case ListingCache.read(group_slug) do
+      {:ok, posts} ->
+        Enum.any?(posts, fn post ->
+          # Skip the post we're updating
+          post.slug != exclude_post_slug and
+            Map.get(post.language_slugs || %{}, language) == url_slug
+        end)
+
+      {:error, _} ->
+        # Cache miss - fall back to filesystem scan
+        url_slug_exists_in_filesystem?(group_slug, url_slug, language, exclude_post_slug)
+    end
+  end
+
+  # Fallback: scan filesystem for URL slug conflicts
+  defp url_slug_exists_in_filesystem?(group_slug, url_slug, language, exclude_post_slug) do
+    group_path = group_path(group_slug)
+
+    if File.dir?(group_path) do
+      group_path
+      |> File.ls!()
+      |> Enum.filter(&File.dir?(Path.join(group_path, &1)))
+      |> Enum.reject(&(&1 == exclude_post_slug))
+      |> Enum.any?(fn post_slug ->
+        # Check if this post has the url_slug for this language
+        case read_post_url_slug(group_slug, post_slug, language) do
+          {:ok, existing_url_slug} -> existing_url_slug == url_slug
+          _ -> false
+        end
+      end)
+    else
+      false
+    end
+  end
+
+  # Read the url_slug from a post's language file
+  defp read_post_url_slug(group_slug, post_slug, language) do
+    # Try versioned structure first, then legacy
+    case read_post_slug_mode(group_slug, post_slug, language, nil) do
+      {:ok, post} ->
+        url_slug = Map.get(post.metadata, :url_slug) || post_slug
+        {:ok, url_slug}
+
+      error ->
+        error
+    end
+  end
+
   # Check if slug is a reserved language code
   defp reserved_language_code?(slug) do
     language_codes =
@@ -2643,6 +2739,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
          %{
            group: group_slug,
            slug: post_slug,
+           url_slug: post_slug,
            date: nil,
            time: nil,
            path:
@@ -2756,10 +2853,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     is_legacy = detect_post_structure(post_path) == :legacy
 
+    # Get url_slug from metadata, default to directory slug
+    url_slug = metadata_value(metadata, :url_slug) || post_slug
+
     [
       %{
         group: group_slug,
         slug: post_slug,
+        url_slug: url_slug,
         date: nil,
         time: nil,
         path: relative_path,
@@ -2875,10 +2976,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       # Check if this is a legacy structure
       is_legacy = structure == :legacy
 
+      # Get url_slug from metadata, default to directory slug
+      url_slug = metadata_value(metadata, :url_slug) || post_slug
+
       {:ok,
        %{
          group: group_slug,
          slug: post_slug,
+         url_slug: url_slug,
          date: nil,
          time: nil,
          path: relative_path,
@@ -3037,9 +3142,58 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     |> Map.put(:version_created_from, Map.get(post.metadata, :version_created_from))
     |> Map.put(:status_manual, status_manual)
     |> Map.put(:allow_version_access, resolve_allow_version_access(params, post.metadata))
+    |> Map.put(:url_slug, resolve_url_slug(params, post.metadata))
+    |> Map.put(:previous_url_slugs, resolve_previous_url_slugs(params, post.metadata))
     |> Map.delete(:is_live)
     |> Map.delete(:legacy_is_live)
     |> apply_update_audit_metadata(audit_meta)
+  end
+
+  # Resolves url_slug from params or existing metadata
+  # Empty string clears the custom slug (uses default directory slug)
+  defp resolve_url_slug(params, metadata) do
+    case Map.get(params, "url_slug") do
+      nil -> Map.get(metadata, :url_slug)
+      "" -> nil
+      slug when is_binary(slug) -> String.trim(slug)
+      _ -> Map.get(metadata, :url_slug)
+    end
+  end
+
+  # Resolves previous_url_slugs, tracking old slugs for 301 redirects
+  # When url_slug changes, the old value is added to previous_url_slugs
+  defp resolve_previous_url_slugs(params, metadata) do
+    current_slugs = Map.get(metadata, :previous_url_slugs) || []
+    old_url_slug = Map.get(metadata, :url_slug)
+    new_url_slug = Map.get(params, "url_slug")
+
+    cond do
+      # No change to url_slug
+      new_url_slug == nil ->
+        current_slugs
+
+      # Clearing url_slug - add old value to previous_slugs if it existed
+      new_url_slug == "" and old_url_slug not in [nil, ""] ->
+        add_to_previous_slugs(current_slugs, old_url_slug)
+
+      # Setting new url_slug - add old value to previous_slugs if different
+      is_binary(new_url_slug) and new_url_slug != "" and old_url_slug not in [nil, ""] and
+          String.trim(new_url_slug) != old_url_slug ->
+        add_to_previous_slugs(current_slugs, old_url_slug)
+
+      # No previous slug to track
+      true ->
+        current_slugs
+    end
+  end
+
+  # Adds a slug to the previous_url_slugs list, avoiding duplicates
+  defp add_to_previous_slugs(current_slugs, slug) do
+    if slug in current_slugs do
+      current_slugs
+    else
+      current_slugs ++ [slug]
+    end
   end
 
   defp resolve_allow_version_access(params, metadata) do

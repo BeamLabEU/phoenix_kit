@@ -61,6 +61,14 @@
         }
       });
 
+      // Listen for url_slug update event from LiveView (for translations)
+      window.addEventListener("phx:update-url-slug", function(e) {
+        const urlSlugInput = document.getElementById("url-slug-input");
+        if (urlSlugInput && e.detail.url_slug) {
+          urlSlugInput.value = e.detail.url_slug;
+        }
+      });
+
       // Listen for exec-js events from LiveView (for media insertion)
       window.addEventListener("phx:exec-js", (e) => {
         try {
@@ -298,31 +306,79 @@
               <div class="space-y-4">
                 <%!-- Title is extracted from markdown content (first # Heading) --%>
                 <%= if @blog_mode == "slug" do %>
-                  <div>
-                    <label class="label">
-                      <span class="label-text text-sm font-semibold text-base-content">
-                        {gettext("Slug")}
-                      </span>
-                    </label>
-                    <input
-                      type="text"
-                      name="slug"
-                      id="slug-input"
-                      value={@form["slug"]}
-                      pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                      class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
-                      placeholder={gettext("auto-generated from first heading")}
-                      title={
-                        gettext(
-                          "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
-                        )
-                      }
-                      readonly={@readonly? or @viewing_older_version}
-                    />
-                    <p class="text-xs text-base-content/60 mt-1">
-                      {gettext("Use lowercase letters, numbers, and hyphens only.")}
-                    </p>
-                  </div>
+                  <%= if @is_master_language do %>
+                    <%!-- Master language: editable slug that sets the directory name --%>
+                    <div>
+                      <label class="label">
+                        <span class="label-text text-sm font-semibold text-base-content">
+                          {gettext("Slug")}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        name="slug"
+                        id="slug-input"
+                        value={@form["slug"]}
+                        pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                        class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        placeholder={gettext("auto-generated from first heading")}
+                        title={
+                          gettext(
+                            "Use lowercase letters, numbers, and hyphens only. No spaces or special characters."
+                          )
+                        }
+                        readonly={@readonly? or @viewing_older_version}
+                      />
+                      <p class="text-xs text-base-content/60 mt-1">
+                        {gettext("Use lowercase letters, numbers, and hyphens only.")}
+                        {gettext("This will be the default URL for all languages.")}
+                      </p>
+                    </div>
+                  <% else %>
+                    <%!-- Translation: URL Slug field for per-language SEO-friendly URLs --%>
+                    <div>
+                      <label class="label">
+                        <span class="label-text text-sm font-semibold text-base-content">
+                          {gettext("URL Slug")}
+                          <span class="text-base-content/60 font-normal ml-1">
+                            ({gettext("optional")})
+                          </span>
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        name="url_slug"
+                        id="url-slug-input"
+                        value={@form["url_slug"] || ""}
+                        pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                        class={"input input-bordered w-full lowercase #{if @readonly? or @viewing_older_version, do: "input-disabled bg-base-200"}"}
+                        placeholder={@form["slug"] || ""}
+                        title={
+                          gettext(
+                            "Use lowercase letters, numbers, and hyphens only. Leave empty to use the default slug."
+                          )
+                        }
+                        readonly={@readonly? or @viewing_older_version}
+                      />
+                      <p class="text-xs text-base-content/60 mt-1">
+                        {gettext(
+                          "Custom URL for this language. Leave empty to use default: %{slug}",
+                          slug: @form["slug"]
+                        )}
+                      </p>
+                      <p class="text-xs text-base-content/50 mt-0.5">
+                        {gettext("Preview: /%{language}/%{group}/%{slug}",
+                          language: @current_language,
+                          group: @blog_slug,
+                          slug:
+                            if(@form["url_slug"] != "",
+                              do: @form["url_slug"],
+                              else: @form["slug"]
+                            )
+                        )}
+                      </p>
+                    </div>
+                  <% end %>
                 <% end %>
 
                 <div>
