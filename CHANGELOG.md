@@ -1,3 +1,9 @@
+## 1.7.20 - 2026-01-09
+- Fix user avatar fallback when Gravatar is unavailable
+- Fixed issues with phx_kit install
+- Add scheduled job cancellation when disabling modules
+- Fix race condition in file controller for parallel requests
+
 ## 1.7.19 - 2026-01-07
 We are doing code cleanup and refactoring to move forward with more new modules and more features:
 - Moved referral_codes module to correct location lib/modules and fixed issue with install not working
