@@ -45,10 +45,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     blogs = Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
 
-    posts =
-      if blog_slug,
-        do: Publishing.list_posts(blog_slug, socket.assigns.current_locale_base),
-        else: []
+    # Don't load posts here - handle_params will load them with proper endpoint_url
+    # This prevents double rendering where first render has nil endpoint_url
 
     current_path =
       case blog_slug do
@@ -69,8 +67,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:master_language, Storage.get_master_language())
-      |> assign(:posts, posts)
-      |> assign(:endpoint_url, nil)
+      |> assign(:posts, [])
+      |> assign(:loading, true)
+      |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
       |> assign(:cache_info, get_cache_info(blog_slug))
       |> assign(:active_editors, %{})
@@ -117,18 +116,28 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     blogs = socket.assigns[:blogs] || Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == new_blog_slug end)
 
-    posts =
-      case new_blog_slug do
-        nil -> []
-        slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
-      end
-
     endpoint_url = extract_endpoint_url(uri)
+
+    # Only load posts when connected to avoid double render flicker
+    # During disconnected render, show loading state
+    {posts, loading} =
+      if connected?(socket) do
+        posts =
+          case new_blog_slug do
+            nil -> []
+            slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+          end
+
+        {posts, false}
+      else
+        {[], true}
+      end
 
     socket =
       socket
       |> assign(:current_blog, current_blog)
       |> assign(:posts, posts)
+      |> assign(:loading, loading)
       |> assign(:endpoint_url, endpoint_url)
       |> assign(:cache_info, get_cache_info(new_blog_slug))
 
