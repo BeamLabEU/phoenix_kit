@@ -1453,48 +1453,76 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   def publish_version(group_slug, post_slug, version_to_publish) do
     post_path = Path.join([group_path(group_slug), post_slug])
     versions = list_versions(group_slug, post_slug)
-    master_language = get_master_language()
 
-    # Validate that the version to publish actually exists
     if version_to_publish in versions do
-      # Collect all file updates, then apply atomically
-      results =
-        Enum.flat_map(versions, fn version ->
-          version_dir =
-            case detect_post_structure(post_path) do
-              :versioned -> Path.join(post_path, "v#{version}")
-              :legacy -> post_path
-            end
-
-          case File.ls(version_dir) do
-            {:ok, files} ->
-              files
-              |> Enum.filter(&String.ends_with?(&1, ".phk"))
-              |> Enum.map(fn file ->
-                file_path = Path.join(version_dir, file)
-                language = Path.rootname(file)
-                is_master = language == master_language
-                is_target_version = version == version_to_publish
-
-                update_file_for_publish(file_path, %{
-                  is_master: is_master,
-                  is_target_version: is_target_version
-                })
-              end)
-
-            {:error, _} ->
-              []
-          end
-        end)
-
-      # Check if any updates failed
-      case Enum.find(results, fn result -> result != :ok end) do
-        nil -> :ok
-        error -> error
-      end
+      do_publish_version(post_path, versions, version_to_publish)
     else
       {:error, :version_not_found}
     end
+  end
+
+  defp do_publish_version(post_path, versions, version_to_publish) do
+    master_language = get_master_language()
+
+    results =
+      Enum.flat_map(versions, fn version ->
+        version_dir = get_version_dir(post_path, version)
+
+        update_version_files_for_publish(
+          version_dir,
+          version,
+          version_to_publish,
+          master_language
+        )
+      end)
+
+    case Enum.find(results, &(&1 != :ok)) do
+      nil -> :ok
+      error -> error
+    end
+  end
+
+  defp get_version_dir(post_path, version) do
+    case detect_post_structure(post_path) do
+      :versioned -> Path.join(post_path, "v#{version}")
+      :legacy -> post_path
+    end
+  end
+
+  defp update_version_files_for_publish(version_dir, version, version_to_publish, master_language) do
+    case File.ls(version_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.map(
+          &update_phk_file_for_publish(
+            &1,
+            version_dir,
+            version,
+            version_to_publish,
+            master_language
+          )
+        )
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp update_phk_file_for_publish(
+         file,
+         version_dir,
+         version,
+         version_to_publish,
+         master_language
+       ) do
+    file_path = Path.join(version_dir, file)
+    language = Path.rootname(file)
+
+    update_file_for_publish(file_path, %{
+      is_master: language == master_language,
+      is_target_version: version == version_to_publish
+    })
   end
 
   # Updates a single file's status for publishing
@@ -1776,100 +1804,118 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   defp collect_migration_changes(post_path, versions, primary_lang) do
-    # First pass: find which version should be published
-    version_info =
-      Enum.map(versions, fn version ->
-        file_path = Path.join([post_path, "v#{version}", language_filename(primary_lang)])
+    version_info = collect_version_info(post_path, versions, primary_lang)
+    target_version = determine_target_version(version_info, post_path)
 
-        case File.read(file_path) do
-          {:ok, content} ->
-            {:ok, metadata, _body} = Metadata.parse_with_content(content)
-            has_is_live = Map.get(metadata, :legacy_is_live) == true
-            status = Map.get(metadata, :status, "draft")
-            %{version: version, has_is_live: has_is_live, status: status}
-
-          {:error, _} ->
-            %{version: version, has_is_live: false, status: "draft"}
-        end
-      end)
-
-    # Determine which version to publish
-    # Priority: is_live (highest version if multiple), then status published (highest)
-    target_version =
-      case Enum.filter(version_info, & &1.has_is_live) do
-        [] ->
-          # No is_live, check for published status
-          case Enum.filter(version_info, &(&1.status == "published")) do
-            [] -> nil
-            published -> published |> Enum.max_by(& &1.version) |> Map.get(:version)
-          end
-
-        [single] ->
-          single.version
-
-        multiple ->
-          Logger.warning(
-            "[Storage] Multiple versions have is_live=true for #{post_path}, using highest: #{Enum.map_join(multiple, ", ", & &1.version)}"
-          )
-
-          multiple |> Enum.max_by(& &1.version) |> Map.get(:version)
-      end
-
-    # Second pass: collect all file changes for all versions and languages
     Enum.flat_map(versions, fn version ->
-      version_dir = Path.join(post_path, "v#{version}")
-      is_target = version == target_version
-
-      case File.ls(version_dir) do
-        {:ok, files} ->
-          files
-          |> Enum.filter(&String.ends_with?(&1, ".phk"))
-          |> Enum.map(fn filename ->
-            file_path = Path.join(version_dir, filename)
-            lang = String.trim_trailing(filename, ".phk")
-            is_master = lang == primary_lang
-
-            case File.read(file_path) do
-              {:ok, content} ->
-                {:ok, metadata, body} = Metadata.parse_with_content(content)
-
-                old_status = Map.get(metadata, :status, "draft")
-                had_is_live = Map.get(metadata, :legacy_is_live) == true
-
-                new_status =
-                  cond do
-                    is_master and is_target -> "published"
-                    is_master -> if(old_status == "published", do: "archived", else: old_status)
-                    # Translations: keep their status unless they were inheriting
-                    Map.get(metadata, :status_manual, false) -> old_status
-                    String.trim(body) == "" -> old_status
-                    is_target -> "published"
-                    old_status == "published" -> "archived"
-                    true -> old_status
-                  end
-
-                %{
-                  file_path: file_path,
-                  version: version,
-                  language: lang,
-                  is_master: is_master,
-                  had_is_live: had_is_live,
-                  old_status: old_status,
-                  new_status: new_status,
-                  body: body,
-                  metadata: metadata
-                }
-
-              {:error, _} ->
-                nil
-            end
-          end)
-          |> Enum.reject(&is_nil/1)
-
-        {:error, _} ->
-          []
-      end
+      collect_version_file_changes(post_path, version, target_version, primary_lang)
     end)
+  end
+
+  defp collect_version_info(post_path, versions, primary_lang) do
+    Enum.map(versions, fn version ->
+      file_path = Path.join([post_path, "v#{version}", language_filename(primary_lang)])
+      read_version_metadata(file_path, version)
+    end)
+  end
+
+  defp read_version_metadata(file_path, version) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, _body} = Metadata.parse_with_content(content)
+
+        %{
+          version: version,
+          has_is_live: Map.get(metadata, :legacy_is_live) == true,
+          status: Map.get(metadata, :status, "draft")
+        }
+
+      {:error, _} ->
+        %{version: version, has_is_live: false, status: "draft"}
+    end
+  end
+
+  defp determine_target_version(version_info, post_path) do
+    live_versions = Enum.filter(version_info, & &1.has_is_live)
+    published_versions = Enum.filter(version_info, &(&1.status == "published"))
+
+    cond do
+      live_versions == [] and published_versions == [] ->
+        nil
+
+      live_versions == [] ->
+        published_versions |> Enum.max_by(& &1.version) |> Map.get(:version)
+
+      length(live_versions) == 1 ->
+        hd(live_versions).version
+
+      true ->
+        Logger.warning(
+          "[Storage] Multiple versions have is_live=true for #{post_path}, using highest: #{Enum.map_join(live_versions, ", ", & &1.version)}"
+        )
+
+        live_versions |> Enum.max_by(& &1.version) |> Map.get(:version)
+    end
+  end
+
+  defp collect_version_file_changes(post_path, version, target_version, primary_lang) do
+    version_dir = Path.join(post_path, "v#{version}")
+    is_target = version == target_version
+
+    case File.ls(version_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.map(&build_file_change(&1, version_dir, version, is_target, primary_lang))
+        |> Enum.reject(&is_nil/1)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp build_file_change(filename, version_dir, version, is_target, primary_lang) do
+    file_path = Path.join(version_dir, filename)
+    lang = String.trim_trailing(filename, ".phk")
+    is_master = lang == primary_lang
+
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, body} = Metadata.parse_with_content(content)
+        old_status = Map.get(metadata, :status, "draft")
+        new_status = calculate_migration_status(metadata, body, is_master, is_target, old_status)
+
+        %{
+          file_path: file_path,
+          version: version,
+          language: lang,
+          is_master: is_master,
+          had_is_live: Map.get(metadata, :legacy_is_live) == true,
+          old_status: old_status,
+          new_status: new_status,
+          body: body,
+          metadata: metadata
+        }
+
+      {:error, _} ->
+        nil
+    end
+  end
+
+  defp calculate_migration_status(metadata, body, is_master, is_target, old_status) do
+    has_manual_status = Map.get(metadata, :status_manual, false)
+    has_content = String.trim(body) != ""
+
+    cond do
+      is_master and is_target -> "published"
+      is_master and old_status == "published" -> "archived"
+      is_master -> old_status
+      has_manual_status -> old_status
+      not has_content -> old_status
+      is_target -> "published"
+      old_status == "published" -> "archived"
+      true -> old_status
+    end
   end
 
   defp apply_migration_changes(changes) do

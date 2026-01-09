@@ -549,24 +549,22 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_url_slug(group_slug, language, url_slug) do
     case read(group_slug) do
-      {:ok, posts} ->
-        # Search by language_slugs map first
-        case Enum.find(posts, fn p ->
-               Map.get(p.language_slugs || %{}, language) == url_slug
-             end) do
-          nil ->
-            # Fallback: match by directory slug (backward compatibility)
-            case Enum.find(posts, fn p -> p.slug == url_slug end) do
-              nil -> {:error, :not_found}
-              post -> {:ok, post}
-            end
+      {:ok, posts} -> find_post_by_url_slug(posts, language, url_slug)
+      {:error, _} -> {:error, :cache_miss}
+    end
+  end
 
-          post ->
-            {:ok, post}
-        end
+  defp find_post_by_url_slug(posts, language, url_slug) do
+    # Search by language_slugs map first
+    by_language_slug =
+      Enum.find(posts, &(Map.get(&1.language_slugs || %{}, language) == url_slug))
 
-      {:error, _} ->
-        {:error, :cache_miss}
+    # Fallback: match by directory slug (backward compatibility)
+    by_directory_slug = Enum.find(posts, &(&1.slug == url_slug))
+
+    case by_language_slug || by_directory_slug do
+      nil -> {:error, :not_found}
+      post -> {:ok, post}
     end
   end
 
@@ -585,28 +583,27 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
           {:ok, map()} | {:error, :not_found | :cache_miss}
   def find_by_previous_url_slug(group_slug, language, url_slug) do
     case read(group_slug) do
-      {:ok, posts} ->
-        # Search for posts that have this slug in their per-language previous_url_slugs
-        case Enum.find(posts, fn p ->
-               # Check the per-language previous slugs map first
-               lang_previous_slugs = Map.get(p, :language_previous_slugs) || %{}
-               previous_for_lang = Map.get(lang_previous_slugs, language) || []
-
-               if url_slug in previous_for_lang do
-                 true
-               else
-                 # Fallback: check metadata.previous_url_slugs for backward compatibility
-                 metadata_previous = Map.get(p.metadata || %{}, :previous_url_slugs) || []
-                 url_slug in metadata_previous
-               end
-             end) do
-          nil -> {:error, :not_found}
-          post -> {:ok, post}
-        end
-
-      {:error, _} ->
-        {:error, :cache_miss}
+      {:ok, posts} -> find_post_by_previous_slug(posts, language, url_slug)
+      {:error, _} -> {:error, :cache_miss}
     end
+  end
+
+  defp find_post_by_previous_slug(posts, language, url_slug) do
+    case Enum.find(posts, &post_has_previous_slug?(&1, language, url_slug)) do
+      nil -> {:error, :not_found}
+      post -> {:ok, post}
+    end
+  end
+
+  defp post_has_previous_slug?(post, language, url_slug) do
+    # Check the per-language previous slugs map first
+    lang_previous_slugs = Map.get(post, :language_previous_slugs) || %{}
+    previous_for_lang = Map.get(lang_previous_slugs, language) || []
+
+    # Fallback: check metadata.previous_url_slugs for backward compatibility
+    metadata_previous = Map.get(post.metadata || %{}, :previous_url_slugs) || []
+
+    url_slug in previous_for_lang or url_slug in metadata_previous
   end
 
   @doc """

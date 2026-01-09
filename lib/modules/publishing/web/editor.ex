@@ -615,110 +615,73 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   def handle_event("translate_to_all_languages", _params, socket) do
-    post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
-    endpoint_id = socket.assigns.ai_selected_endpoint_id
-    user = socket.assigns[:phoenix_kit_current_scope]
-
-    cond do
-      socket.assigns.is_new_post ->
-        {:noreply,
-         put_flash(socket, :error, gettext("Please save the post first before translating"))}
-
-      is_nil(endpoint_id) ->
-        {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
-
-      true ->
-        target_languages = get_all_target_languages()
-
-        if target_languages == [] do
-          {:noreply,
-           put_flash(socket, :warning, gettext("No other languages enabled to translate to"))}
-        else
-          user_id = if user, do: user.user.id, else: nil
-
-          case TranslatePostWorker.enqueue(blog_slug, post.slug,
-                 endpoint_id: endpoint_id,
-                 version: socket.assigns.current_version,
-                 user_id: user_id,
-                 target_languages: target_languages
-               ) do
-            {:ok, _job} ->
-              lang_names =
-                Enum.map_join(target_languages, ", ", fn code ->
-                  info = Storage.get_language_info(code)
-                  info[:name] || code
-                end)
-
-              {:noreply,
-               socket
-               |> assign(:ai_translation_status, :enqueued)
-               |> put_flash(
-                 :info,
-                 gettext("Translation job enqueued for: %{languages}", languages: lang_names)
-               )}
-
-            {:error, _reason} ->
-              {:noreply,
-               socket
-               |> assign(:ai_translation_status, :error)
-               |> put_flash(:error, gettext("Failed to enqueue translation job"))}
-          end
-        end
-    end
+    target_languages = get_all_target_languages()
+    empty_message = gettext("No other languages enabled to translate to")
+    enqueue_translation(socket, target_languages, empty_message)
   end
 
   def handle_event("translate_missing_languages", _params, socket) do
-    post = socket.assigns.post
-    blog_slug = socket.assigns.blog_slug
-    endpoint_id = socket.assigns.ai_selected_endpoint_id
-    user = socket.assigns[:phoenix_kit_current_scope]
+    target_languages = get_target_languages_for_translation(socket)
+    empty_message = gettext("All languages already have translations")
+    enqueue_translation(socket, target_languages, empty_message)
+  end
 
+  defp enqueue_translation(socket, target_languages, empty_message) do
     cond do
       socket.assigns.is_new_post ->
         {:noreply,
          put_flash(socket, :error, gettext("Please save the post first before translating"))}
 
-      is_nil(endpoint_id) ->
+      is_nil(socket.assigns.ai_selected_endpoint_id) ->
         {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
 
+      target_languages == [] ->
+        {:noreply, put_flash(socket, :info, empty_message)}
+
       true ->
-        target_languages = get_target_languages_for_translation(socket)
-
-        if target_languages == [] do
-          {:noreply, put_flash(socket, :info, gettext("All languages already have translations"))}
-        else
-          user_id = if user, do: user.user.id, else: nil
-
-          case TranslatePostWorker.enqueue(blog_slug, post.slug,
-                 endpoint_id: endpoint_id,
-                 version: socket.assigns.current_version,
-                 user_id: user_id,
-                 target_languages: target_languages
-               ) do
-            {:ok, _job} ->
-              lang_names =
-                Enum.map_join(target_languages, ", ", fn code ->
-                  info = Storage.get_language_info(code)
-                  info[:name] || code
-                end)
-
-              {:noreply,
-               socket
-               |> assign(:ai_translation_status, :enqueued)
-               |> put_flash(
-                 :info,
-                 gettext("Translation job enqueued for: %{languages}", languages: lang_names)
-               )}
-
-            {:error, _reason} ->
-              {:noreply,
-               socket
-               |> assign(:ai_translation_status, :error)
-               |> put_flash(:error, gettext("Failed to enqueue translation job"))}
-          end
-        end
+        do_enqueue_translation(socket, target_languages)
     end
+  end
+
+  defp do_enqueue_translation(socket, target_languages) do
+    user = socket.assigns[:phoenix_kit_current_scope]
+    user_id = if user, do: user.user.id, else: nil
+
+    case TranslatePostWorker.enqueue(
+           socket.assigns.blog_slug,
+           socket.assigns.post.slug,
+           endpoint_id: socket.assigns.ai_selected_endpoint_id,
+           version: socket.assigns.current_version,
+           user_id: user_id,
+           target_languages: target_languages
+         ) do
+      {:ok, _job} ->
+        {:noreply, translation_success_socket(socket, target_languages)}
+
+      {:error, _reason} ->
+        {:noreply, translation_error_socket(socket)}
+    end
+  end
+
+  defp translation_success_socket(socket, target_languages) do
+    lang_names =
+      Enum.map_join(target_languages, ", ", fn code ->
+        info = Storage.get_language_info(code)
+        info[:name] || code
+      end)
+
+    socket
+    |> assign(:ai_translation_status, :enqueued)
+    |> put_flash(
+      :info,
+      gettext("Translation job enqueued for: %{languages}", languages: lang_names)
+    )
+  end
+
+  defp translation_error_socket(socket) do
+    socket
+    |> assign(:ai_translation_status, :error)
+    |> put_flash(:error, gettext("Failed to enqueue translation job"))
   end
 
   def handle_event("preview", _params, socket) do
@@ -861,105 +824,89 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("switch_version", %{"version" => version_str}, socket) do
     version = String.to_integer(version_str)
-    current_version = socket.assigns.current_version
 
-    if version == current_version do
+    if version == socket.assigns.current_version do
       {:noreply, socket}
     else
-      blog_slug = socket.assigns.blog_slug
-      post = socket.assigns.post
-      language = socket.assigns.current_language
-      blog_mode = socket.assigns.blog_mode
-      master_language = Storage.get_master_language()
-
-      # Read the specified version based on blog mode
-      # Try current language first, then fall back to master language
-      read_result =
-        case blog_mode do
-          "slug" ->
-            case Publishing.read_post(blog_slug, post.slug, language, version) do
-              {:ok, _} = result ->
-                result
-
-              {:error, _} when language != master_language ->
-                # Fall back to master language
-                Publishing.read_post(blog_slug, post.slug, master_language, version)
-
-              error ->
-                error
-            end
-
-          _ ->
-            # For timestamp mode, build the versioned path
-            case read_timestamp_version(blog_slug, post, language, version) do
-              {:ok, _} = result ->
-                result
-
-              {:error, _} when language != master_language ->
-                # Fall back to master language
-                read_timestamp_version(blog_slug, post, master_language, version)
-
-              error ->
-                error
-            end
-        end
-
-      case read_result do
+      case read_version_post(socket, version) do
         {:ok, version_post} ->
-          form = post_form(version_post)
-          is_published = Map.get(version_post.metadata, :status) == "published"
-          actual_language = version_post.language
-
-          # Generate new form_key for the new version
-          new_form_key = PublishingPubSub.generate_form_key(blog_slug, version_post, :edit)
-
-          # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
-          old_form_key = socket.assigns[:form_key]
-          old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
-
-          socket =
-            socket
-            |> assign(:post, %{version_post | group: blog_slug})
-            |> assign_form_with_tracking(form)
-            |> assign(:content, version_post.content)
-            |> assign(:current_version, version)
-            |> assign(:available_versions, version_post.available_versions)
-            |> assign(:version_statuses, version_post.version_statuses)
-            |> assign(:version_dates, Map.get(version_post, :version_dates, %{}))
-            |> assign(:available_languages, version_post.available_languages)
-            |> assign(:editing_published_version, is_published)
-            |> assign(
-              :viewing_older_version,
-              viewing_older_version?(version, version_post.available_versions, actual_language)
-            )
-            |> assign(:has_pending_changes, false)
-            |> assign(:public_url, build_public_url(version_post, actual_language))
-            |> assign_current_language(actual_language)
-            |> assign(:form_key, new_form_key)
-            |> push_event("changes-status", %{has_changes: false})
-            |> push_event("set-content", %{content: version_post.content})
-
-          # Clean up old presence and set up new (pass old_form_key and old_post_slug explicitly)
-          socket =
-            cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
-              old_post_slug: old_post_slug
-            )
-
-          # Update URL to reflect the new version's path
-          {:noreply,
-           push_patch(socket,
-             to:
-               Routes.path(
-                 "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}",
-                 locale: socket.assigns.current_locale_base
-               ),
-             replace: true
-           )}
+          {:noreply, apply_version_switch(socket, version, version_post)}
 
         {:error, _reason} ->
           {:noreply, put_flash(socket, :error, gettext("Version not found"))}
       end
     end
+  end
+
+  defp read_version_post(socket, version) do
+    blog_slug = socket.assigns.blog_slug
+    post = socket.assigns.post
+    language = socket.assigns.current_language
+    master_language = Storage.get_master_language()
+
+    read_fn =
+      if socket.assigns.blog_mode == "slug" do
+        fn lang -> Publishing.read_post(blog_slug, post.slug, lang, version) end
+      else
+        fn lang -> read_timestamp_version(blog_slug, post, lang, version) end
+      end
+
+    # Try current language first, fall back to master if different
+    case read_fn.(language) do
+      {:ok, _} = result -> result
+      {:error, _} when language != master_language -> read_fn.(master_language)
+      error -> error
+    end
+  end
+
+  defp apply_version_switch(socket, version, version_post) do
+    blog_slug = socket.assigns.blog_slug
+    form = post_form(version_post)
+    is_published = Map.get(version_post.metadata, :status) == "published"
+    actual_language = version_post.language
+    new_form_key = PublishingPubSub.generate_form_key(blog_slug, version_post, :edit)
+
+    # Save old form_key and post slug BEFORE assigning new one (for presence cleanup)
+    old_form_key = socket.assigns[:form_key]
+    old_post_slug = socket.assigns[:post] && socket.assigns.post[:slug]
+
+    socket =
+      socket
+      |> assign(:post, %{version_post | group: blog_slug})
+      |> assign_form_with_tracking(form)
+      |> assign(:content, version_post.content)
+      |> assign(:current_version, version)
+      |> assign(:available_versions, version_post.available_versions)
+      |> assign(:version_statuses, version_post.version_statuses)
+      |> assign(:version_dates, Map.get(version_post, :version_dates, %{}))
+      |> assign(:available_languages, version_post.available_languages)
+      |> assign(:editing_published_version, is_published)
+      |> assign(
+        :viewing_older_version,
+        viewing_older_version?(version, version_post.available_versions, actual_language)
+      )
+      |> assign(:has_pending_changes, false)
+      |> assign(:public_url, build_public_url(version_post, actual_language))
+      |> assign_current_language(actual_language)
+      |> assign(:form_key, new_form_key)
+      |> push_event("changes-status", %{has_changes: false})
+      |> push_event("set-content", %{content: version_post.content})
+
+    # Clean up old presence and set up new
+    socket =
+      cleanup_and_setup_collaborative_editing(socket, old_form_key, new_form_key,
+        old_post_slug: old_post_slug
+      )
+
+    # Update URL to reflect the new version's path
+    push_patch(socket,
+      to:
+        Routes.path(
+          "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}",
+          locale: socket.assigns.current_locale_base
+        ),
+      replace: true
+    )
   end
 
   # ============================================================================
@@ -1403,81 +1350,86 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   # Handle version deleted events (from other editors)
   def handle_info({:post_version_deleted, blog_slug, post_slug, deleted_version}, socket) do
-    if socket.assigns[:blog_slug] == blog_slug &&
-         socket.assigns[:post] &&
-         socket.assigns.post[:slug] == post_slug do
-      # Remove deleted version from available versions
-      available_versions = socket.assigns[:available_versions] || []
-      updated_versions = Enum.reject(available_versions, fn v -> v == deleted_version end)
+    is_our_post =
+      socket.assigns[:blog_slug] == blog_slug &&
+        socket.assigns[:post] &&
+        socket.assigns.post[:slug] == post_slug
 
-      # Check if we were viewing the deleted version
-      current_version = socket.assigns[:post][:current_version]
-
-      socket =
-        if current_version == deleted_version do
-          # We need to switch to a surviving version
-          case updated_versions do
-            [surviving_version | _] ->
-              # Reload the post with the surviving version
-              current_language = editor_language(socket.assigns)
-
-              case Publishing.read_post(blog_slug, post_slug, current_language, surviving_version) do
-                {:ok, fresh_post} ->
-                  form = post_form(fresh_post)
-
-                  socket
-                  |> assign(:post, %{fresh_post | group: blog_slug})
-                  |> assign(:available_versions, updated_versions)
-                  |> assign(:current_version, surviving_version)
-                  |> assign_form_with_tracking(form)
-                  |> assign(:content, fresh_post.content)
-                  |> assign(:has_pending_changes, false)
-                  |> push_event("changes-status", %{has_changes: false})
-                  |> put_flash(
-                    :warning,
-                    gettext(
-                      "The version you were editing was deleted. Switched to version %{version}.",
-                      version: surviving_version
-                    )
-                  )
-
-                {:error, _} ->
-                  # Can't load surviving version - set readonly to prevent data loss
-                  socket
-                  |> assign(:readonly?, true)
-                  |> put_flash(
-                    :error,
-                    gettext(
-                      "The version you were editing was deleted and no other versions are available."
-                    )
-                  )
-              end
-
-            [] ->
-              # No versions left - this post is effectively deleted
-              # Reset state to prevent saving to deleted paths
-              socket
-              |> assign(:readonly?, true)
-              |> assign(:current_version, nil)
-              |> assign(:available_versions, [])
-              |> assign(:post, %{socket.assigns.post | path: nil, current_version: nil})
-              |> assign(:has_pending_changes, false)
-              |> put_flash(
-                :error,
-                gettext("All versions of this post have been deleted. Please navigate away.")
-              )
-          end
-        else
-          # We weren't viewing the deleted version, just update the list
-          socket
-          |> assign(:available_versions, updated_versions)
-          |> assign(:post, Map.put(socket.assigns.post, :available_versions, updated_versions))
-        end
-
-      {:noreply, socket}
+    if is_our_post do
+      {:noreply, handle_version_deleted(socket, blog_slug, post_slug, deleted_version)}
     else
       {:noreply, socket}
     end
+  end
+
+  defp handle_version_deleted(socket, blog_slug, post_slug, deleted_version) do
+    available_versions = socket.assigns[:available_versions] || []
+    updated_versions = Enum.reject(available_versions, &(&1 == deleted_version))
+    current_version = socket.assigns[:post][:current_version]
+
+    if current_version == deleted_version do
+      switch_to_surviving_version(socket, blog_slug, post_slug, updated_versions)
+    else
+      # We weren't viewing the deleted version, just update the list
+      socket
+      |> assign(:available_versions, updated_versions)
+      |> assign(:post, Map.put(socket.assigns.post, :available_versions, updated_versions))
+    end
+  end
+
+  defp switch_to_surviving_version(
+         socket,
+         blog_slug,
+         post_slug,
+         [surviving_version | _] = versions
+       ) do
+    current_language = editor_language(socket.assigns)
+
+    case Publishing.read_post(blog_slug, post_slug, current_language, surviving_version) do
+      {:ok, fresh_post} ->
+        apply_surviving_version(socket, blog_slug, fresh_post, versions, surviving_version)
+
+      {:error, _} ->
+        socket
+        |> assign(:readonly?, true)
+        |> put_flash(
+          :error,
+          gettext("The version you were editing was deleted and no other versions are available.")
+        )
+    end
+  end
+
+  defp switch_to_surviving_version(socket, _blog_slug, _post_slug, []) do
+    # No versions left - this post is effectively deleted
+    socket
+    |> assign(:readonly?, true)
+    |> assign(:current_version, nil)
+    |> assign(:available_versions, [])
+    |> assign(:post, %{socket.assigns.post | path: nil, current_version: nil})
+    |> assign(:has_pending_changes, false)
+    |> put_flash(
+      :error,
+      gettext("All versions of this post have been deleted. Please navigate away.")
+    )
+  end
+
+  defp apply_surviving_version(socket, blog_slug, fresh_post, updated_versions, surviving_version) do
+    form = post_form(fresh_post)
+
+    socket
+    |> assign(:post, %{fresh_post | group: blog_slug})
+    |> assign(:available_versions, updated_versions)
+    |> assign(:current_version, surviving_version)
+    |> assign_form_with_tracking(form)
+    |> assign(:content, fresh_post.content)
+    |> assign(:has_pending_changes, false)
+    |> push_event("changes-status", %{has_changes: false})
+    |> put_flash(
+      :warning,
+      gettext("The version you were editing was deleted. Switched to version %{version}.",
+        version: surviving_version
+      )
+    )
   end
 
   # Handle version published events (from other editors)
@@ -2081,53 +2033,56 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp post_form(post) do
-    # Get url_slug from metadata (frontmatter) first, fall back to top-level post.url_slug
-    # The top-level url_slug defaults to post.slug if metadata doesn't have one
+    base_form(post)
+    |> add_slug_field_if_needed(post)
+    |> normalize_form()
+  end
+
+  defp base_form(post) do
+    %{
+      "status" => post.metadata.status || "draft",
+      "published_at" => get_published_at(post),
+      "featured_image_id" => Map.get(post.metadata, :featured_image_id, ""),
+      "url_slug" => get_url_slug_for_form(post)
+    }
+  end
+
+  defp get_published_at(post) do
+    post.metadata.published_at ||
+      DateTime.utc_now()
+      |> floor_datetime_to_minute()
+      |> DateTime.to_iso8601()
+  end
+
+  defp get_url_slug_for_form(post) do
     url_slug_from_metadata = Map.get(post.metadata, :url_slug)
     url_slug_from_post = Map.get(post, :url_slug)
 
-    # Only use explicit url_slug if it's different from the directory slug
-    url_slug =
-      cond do
-        url_slug_from_metadata not in [nil, ""] ->
-          url_slug_from_metadata
+    cond do
+      url_slug_from_metadata not in [nil, ""] ->
+        url_slug_from_metadata
 
-        url_slug_from_post not in [nil, ""] and url_slug_from_post != post.slug ->
-          url_slug_from_post
+      url_slug_from_post not in [nil, ""] and url_slug_from_post != post.slug ->
+        url_slug_from_post
 
-        true ->
-          ""
-      end
+      true ->
+        ""
+    end
+  end
 
-    base = %{
-      "status" => post.metadata.status || "draft",
-      "published_at" =>
-        post.metadata.published_at ||
-          DateTime.utc_now()
-          |> floor_datetime_to_minute()
-          |> DateTime.to_iso8601(),
-      "featured_image_id" => Map.get(post.metadata, :featured_image_id, ""),
-      # Per-language URL slug for SEO-friendly localized URLs
-      "url_slug" => url_slug
-    }
+  defp add_slug_field_if_needed(form, post) do
+    case get_post_mode(post) do
+      :slug -> Map.put(form, "slug", get_post_slug(post))
+      _ -> form
+    end
+  end
 
-    form =
-      cond do
-        Map.get(post, :mode) == :slug ->
-          Map.put(base, "slug", post.slug || Map.get(post.metadata, :slug) || "")
+  defp get_post_mode(post) do
+    Map.get(post, :mode) || Map.get(post, "mode")
+  end
 
-        Map.get(post, "mode") == :slug ->
-          Map.put(
-            base,
-            "slug",
-            post["slug"] || Map.get(post, :slug) || Map.get(post.metadata, :slug) || ""
-          )
-
-        true ->
-          base
-      end
-
-    normalize_form(form)
+  defp get_post_slug(post) do
+    post.slug || post["slug"] || Map.get(post.metadata, :slug) || ""
   end
 
   defp floor_datetime_to_minute(%DateTime{} = datetime) do
@@ -2744,33 +2699,43 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp maybe_update_slug_from_content(socket, content, opts \\ []) do
-    force? = Keyword.get(opts, :force, false)
     content = content || ""
-    is_master = Map.get(socket.assigns, :is_master_language, true)
 
     cond do
-      socket.assigns.blog_mode != "slug" ->
+      not slug_update_applicable?(socket, content) ->
         no_slug_update(socket)
 
-      String.trim(content) == "" ->
-        no_slug_update(socket)
-
-      # Master language: auto-generate directory slug
-      is_master and not force? and Map.get(socket.assigns, :slug_manually_set, false) ->
-        no_slug_update(socket)
-
-      is_master ->
-        update_slug_from_content(socket, content)
-
-      # Translation: auto-generate url_slug instead
-      not is_master and not force? and Map.get(socket.assigns, :url_slug_manually_set, false) ->
-        no_slug_update(socket)
-
-      not is_master ->
-        update_url_slug_from_content(socket, content)
+      Map.get(socket.assigns, :is_master_language, true) ->
+        maybe_update_master_slug(socket, content, opts)
 
       true ->
-        no_slug_update(socket)
+        maybe_update_translation_url_slug(socket, content, opts)
+    end
+  end
+
+  defp slug_update_applicable?(socket, content) do
+    socket.assigns.blog_mode == "slug" and String.trim(content) != ""
+  end
+
+  defp maybe_update_master_slug(socket, content, opts) do
+    force? = Keyword.get(opts, :force, false)
+    slug_manually_set? = Map.get(socket.assigns, :slug_manually_set, false)
+
+    if not force? and slug_manually_set? do
+      no_slug_update(socket)
+    else
+      update_slug_from_content(socket, content)
+    end
+  end
+
+  defp maybe_update_translation_url_slug(socket, content, opts) do
+    force? = Keyword.get(opts, :force, false)
+    url_slug_manually_set? = Map.get(socket.assigns, :url_slug_manually_set, false)
+
+    if not force? and url_slug_manually_set? do
+      no_slug_update(socket)
+    else
+      update_url_slug_from_content(socket, content)
     end
   end
 
