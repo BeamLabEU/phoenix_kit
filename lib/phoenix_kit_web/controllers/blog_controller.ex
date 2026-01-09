@@ -500,8 +500,12 @@ defmodule PhoenixKitWeb.BlogController do
         case ListingCache.find_by_previous_url_slug(blog_slug, language, url_slug) do
           {:ok, cached_post} ->
             # Found in previous slugs - redirect to current URL
-            current_url_slug = Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
-            redirect_url = build_post_redirect_url(blog_slug, cached_post, language, current_url_slug)
+            current_url_slug =
+              Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
+
+            redirect_url =
+              build_post_redirect_url(blog_slug, cached_post, language, current_url_slug)
+
             {:redirect, redirect_url}
 
           {:error, _} ->
@@ -532,7 +536,9 @@ defmodule PhoenixKitWeb.BlogController do
 
       {:previous, internal_slug, current_url_slug} ->
         # Found in previous_url_slugs - redirect to current URL
-        redirect_url = build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug)
+        redirect_url =
+          build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug)
+
         {:redirect, redirect_url}
 
       {:error, _} ->

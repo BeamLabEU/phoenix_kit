@@ -13,16 +13,21 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   @dialyzer {:nowarn_function, handle_post_update_error: 2}
   @dialyzer {:nowarn_function, handle_post_update_result: 4}
   @dialyzer {:nowarn_function, handle_event: 3}
+  @dialyzer {:nowarn_function, reload_post_from_disk: 1}
+  @dialyzer {:nowarn_function, list_ai_endpoints: 0}
 
+  alias PhoenixKit.Modules.AI
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.PresenceHelpers
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Utils.Slug
   alias PhoenixKitWeb.BlogHTML
 
   require Logger
@@ -87,6 +92,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       # New Version modal assigns
       |> assign(:show_new_version_modal, false)
       |> assign(:new_version_source, nil)
+      # AI Translation assigns
+      |> assign(:show_ai_translation, false)
+      |> assign(:ai_enabled, ai_translation_available?())
+      |> assign(:ai_endpoints, list_ai_endpoints())
+      |> assign(:ai_selected_endpoint_id, get_default_ai_endpoint_id())
+      |> assign(:ai_translation_status, nil)
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit",
@@ -534,6 +545,135 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     end
   end
 
+  # ============================================================================
+  # AI Translation Event Handlers
+  # ============================================================================
+
+  def handle_event("toggle_ai_translation", _params, socket) do
+    {:noreply, assign(socket, :show_ai_translation, !socket.assigns.show_ai_translation)}
+  end
+
+  def handle_event("select_ai_endpoint", %{"endpoint_id" => endpoint_id}, socket) do
+    endpoint_id =
+      case endpoint_id do
+        "" -> nil
+        id -> String.to_integer(id)
+      end
+
+    {:noreply, assign(socket, :ai_selected_endpoint_id, endpoint_id)}
+  end
+
+  def handle_event("translate_to_all_languages", _params, socket) do
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+    endpoint_id = socket.assigns.ai_selected_endpoint_id
+    user = socket.assigns[:phoenix_kit_current_scope]
+
+    cond do
+      socket.assigns.is_new_post ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Please save the post first before translating"))}
+
+      is_nil(endpoint_id) ->
+        {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
+
+      true ->
+        target_languages = get_all_target_languages()
+
+        if target_languages == [] do
+          {:noreply,
+           put_flash(socket, :warning, gettext("No other languages enabled to translate to"))}
+        else
+          user_id = if user, do: user.user.id, else: nil
+
+          case TranslatePostWorker.enqueue(blog_slug, post.slug,
+                 endpoint_id: endpoint_id,
+                 version: socket.assigns.current_version,
+                 user_id: user_id,
+                 target_languages: target_languages
+               ) do
+            {:ok, _job} ->
+              lang_names =
+                target_languages
+                |> Enum.map(fn code ->
+                  info = Storage.get_language_info(code)
+                  info[:name] || code
+                end)
+                |> Enum.join(", ")
+
+              {:noreply,
+               socket
+               |> assign(:ai_translation_status, :enqueued)
+               |> put_flash(
+                 :info,
+                 gettext("Translation job enqueued for: %{languages}", languages: lang_names)
+               )}
+
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> assign(:ai_translation_status, :error)
+               |> put_flash(:error, gettext("Failed to enqueue translation job"))}
+          end
+        end
+    end
+  end
+
+  def handle_event("translate_missing_languages", _params, socket) do
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+    endpoint_id = socket.assigns.ai_selected_endpoint_id
+    user = socket.assigns[:phoenix_kit_current_scope]
+
+    cond do
+      socket.assigns.is_new_post ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Please save the post first before translating"))}
+
+      is_nil(endpoint_id) ->
+        {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
+
+      true ->
+        target_languages = get_target_languages_for_translation(socket)
+
+        if target_languages == [] do
+          {:noreply, put_flash(socket, :info, gettext("All languages already have translations"))}
+        else
+          user_id = if user, do: user.user.id, else: nil
+
+          case TranslatePostWorker.enqueue(blog_slug, post.slug,
+                 endpoint_id: endpoint_id,
+                 version: socket.assigns.current_version,
+                 user_id: user_id,
+                 target_languages: target_languages
+               ) do
+            {:ok, _job} ->
+              lang_names =
+                target_languages
+                |> Enum.map(fn code ->
+                  info = Storage.get_language_info(code)
+                  info[:name] || code
+                end)
+                |> Enum.join(", ")
+
+              {:noreply,
+               socket
+               |> assign(:ai_translation_status, :enqueued)
+               |> put_flash(
+                 :info,
+                 gettext("Translation job enqueued for: %{languages}", languages: lang_names)
+               )}
+
+            {:error, _reason} ->
+              {:noreply,
+               socket
+               |> assign(:ai_translation_status, :error)
+               |> put_flash(:error, gettext("Failed to enqueue translation job"))}
+          end
+        end
+    end
+  end
+
   def handle_event("preview", _params, socket) do
     preview_payload = build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
@@ -820,7 +960,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           post.slug
       end
 
-    case Publishing.create_version_from(blog_slug, post_identifier, source_version, %{}, scope: scope) do
+    case Publishing.create_version_from(blog_slug, post_identifier, source_version, %{},
+           scope: scope
+         ) do
       {:ok, new_version_post} ->
         # Navigate to the new version
         new_path = new_version_post.path
@@ -1737,10 +1879,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Only use explicit url_slug if it's different from the directory slug
     url_slug =
       cond do
-        url_slug_from_metadata not in [nil, ""] -> url_slug_from_metadata
+        url_slug_from_metadata not in [nil, ""] ->
+          url_slug_from_metadata
+
         url_slug_from_post not in [nil, ""] and url_slug_from_post != post.slug ->
           url_slug_from_post
-        true -> ""
+
+        true ->
+          ""
       end
 
     base = %{
@@ -2444,7 +2590,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     current_url_slug = Map.get(socket.assigns.form, "url_slug", "")
 
     # Generate a slug from the title (without uniqueness check - url_slugs can match directory slugs)
-    new_url_slug = PhoenixKit.Utils.Slug.slugify(title) || ""
+    new_url_slug = Slug.slugify(title) || ""
 
     if new_url_slug == "" do
       no_slug_update(socket)
@@ -2792,4 +2938,47 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   # With variant versioning, all versions are editable since they're independent attempts.
   # This function always returns false - no version locking.
   defp viewing_older_version?(_current_version, _available_versions, _current_language), do: false
+
+  # ============================================================================
+  # AI Translation Helpers
+  # ============================================================================
+
+  defp ai_translation_available? do
+    AI.enabled?() and list_ai_endpoints() != []
+  end
+
+  defp list_ai_endpoints do
+    if AI.enabled?() do
+      case AI.list_endpoints(enabled: true) do
+        {endpoints, _total} -> Enum.map(endpoints, &{&1.id, &1.name})
+        endpoints when is_list(endpoints) -> Enum.map(endpoints, &{&1.id, &1.name})
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  defp get_default_ai_endpoint_id do
+    case Settings.get_setting("publishing_translation_endpoint_id") do
+      nil -> nil
+      "" -> nil
+      id -> String.to_integer(id)
+    end
+  end
+
+  defp get_target_languages_for_translation(socket) do
+    master_language = Storage.get_master_language()
+    available_languages = socket.assigns.post.available_languages || []
+
+    Storage.enabled_language_codes()
+    |> Enum.reject(&(&1 == master_language or &1 in available_languages))
+  end
+
+  defp get_all_target_languages do
+    master_language = Storage.get_master_language()
+
+    Storage.enabled_language_codes()
+    |> Enum.reject(&(&1 == master_language))
+  end
 end

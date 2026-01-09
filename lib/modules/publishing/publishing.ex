@@ -1189,6 +1189,62 @@ defmodule PhoenixKit.Modules.Publishing do
   defp drop_group_prefix(list, _), do: list
 
   # ============================================================================
+  # AI Translation
+  # ============================================================================
+
+  alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
+
+  @doc """
+  Enqueues an Oban job to translate a post to all enabled languages using AI.
+
+  This creates a background job that will:
+  1. Read the source post in the master language
+  2. Translate the content to each target language using the AI module
+  3. Create or update translation files for each language
+
+  ## Options
+
+  - `:endpoint_id` - AI endpoint ID to use for translation (required if not set in settings)
+  - `:source_language` - Source language to translate from (defaults to master language)
+  - `:target_languages` - List of target language codes (defaults to all enabled except source)
+  - `:version` - Version number to translate (defaults to latest/published)
+  - `:user_id` - User ID for audit trail
+
+  ## Configuration
+
+  Set the default AI endpoint for translations:
+
+      PhoenixKit.Settings.update_setting("publishing_translation_endpoint_id", "1")
+
+  ## Examples
+
+      # Translate to all enabled languages using default endpoint
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started")
+
+      # Translate with specific endpoint
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+        endpoint_id: 1
+      )
+
+      # Translate to specific languages only
+      {:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+        endpoint_id: 1,
+        target_languages: ["es", "fr", "de"]
+      )
+
+  ## Returns
+
+  - `{:ok, %Oban.Job{}}` - Job was successfully enqueued
+  - `{:error, changeset}` - Failed to enqueue job
+
+  """
+  @spec translate_post_to_all_languages(String.t(), String.t(), keyword()) ::
+          {:ok, Oban.Job.t()} | {:error, Ecto.Changeset.t()}
+  def translate_post_to_all_languages(group_slug, post_slug, opts \\ []) do
+    TranslatePostWorker.enqueue(group_slug, post_slug, opts)
+  end
+
+  # ============================================================================
   # Backward compatibility aliases (deprecated)
   # These functions delegate to the new "group" terminology functions
   # ============================================================================
