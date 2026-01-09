@@ -645,12 +645,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
                ) do
             {:ok, _job} ->
               lang_names =
-                target_languages
-                |> Enum.map(fn code ->
+                Enum.map_join(target_languages, ", ", fn code ->
                   info = Storage.get_language_info(code)
                   info[:name] || code
                 end)
-                |> Enum.join(", ")
 
               {:noreply,
                socket
@@ -700,12 +698,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
                ) do
             {:ok, _job} ->
               lang_names =
-                target_languages
-                |> Enum.map(fn code ->
+                Enum.map_join(target_languages, ", ", fn code ->
                   info = Storage.get_language_info(code)
                   info[:name] || code
                 end)
-                |> Enum.join(", ")
 
               {:noreply,
                socket
@@ -1634,9 +1630,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defp url_slug_error_message(:slug_already_exists),
     do: gettext("URL slug is already in use for this language")
-
-  defp url_slug_error_message(_),
-    do: gettext("Invalid URL slug")
 
   defp do_perform_save(socket, params) do
     is_new_post = Map.get(socket.assigns, :is_new_post, false)
@@ -2807,7 +2800,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     current_url_slug = Map.get(socket.assigns.form, "url_slug", "")
 
     # Generate a slug from the title (without uniqueness check - url_slugs can match directory slugs)
-    new_url_slug = Slug.slugify(title) || ""
+    new_url_slug = Slug.slugify(title)
 
     if new_url_slug == "" do
       no_slug_update(socket)

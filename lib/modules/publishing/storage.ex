@@ -990,10 +990,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     post_path = Path.join([group_path(group_slug), post_slug])
     source_dir = Path.join(post_path, "v#{source_version}")
 
-    unless File.dir?(source_dir) do
-      {:error, :source_version_not_found}
-    else
+    if File.dir?(source_dir) do
       create_version_from_source(group_slug, post_slug, source_version, params, audit_meta)
+    else
+      {:error, :source_version_not_found}
     end
   end
 
@@ -1456,9 +1456,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     master_language = get_master_language()
 
     # Validate that the version to publish actually exists
-    if version_to_publish not in versions do
-      {:error, :version_not_found}
-    else
+    if version_to_publish in versions do
       # Collect all file updates, then apply atomically
       results =
         Enum.flat_map(versions, fn version ->
@@ -1494,6 +1492,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         nil -> :ok
         error -> error
       end
+    else
+      {:error, :version_not_found}
     end
   end
 
@@ -1809,7 +1809,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
         multiple ->
           Logger.warning(
-            "[Storage] Multiple versions have is_live=true for #{post_path}, using highest: #{Enum.map(multiple, & &1.version) |> Enum.join(", ")}"
+            "[Storage] Multiple versions have is_live=true for #{post_path}, using highest: #{Enum.map_join(multiple, ", ", & &1.version)}"
           )
 
           multiple |> Enum.max_by(& &1.version) |> Map.get(:version)
@@ -3123,9 +3123,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     # Set status_manual: true when a translator manually changes status
     status_manual =
-      cond do
-        status_changing and not is_master_language -> true
-        true -> Map.get(post.metadata, :status_manual, false)
+      if status_changing and not is_master_language do
+        true
+      else
+        Map.get(post.metadata, :status_manual, false)
       end
 
     post.metadata
@@ -3783,9 +3784,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     # Set status_manual: true when a translator manually changes status
     status_manual =
-      cond do
-        status_changing and not is_master_language -> true
-        true -> Map.get(post.metadata, :status_manual, false)
+      if status_changing and not is_master_language do
+        true
+      else
+        Map.get(post.metadata, :status_manual, false)
       end
 
     new_metadata =
