@@ -616,17 +616,19 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   def handle_event("translate_to_all_languages", _params, socket) do
     target_languages = get_all_target_languages()
-    empty_message = gettext("No other languages enabled to translate to")
-    enqueue_translation(socket, target_languages, empty_message)
+    # Use :warning because no other languages indicates a configuration issue
+    empty_opts = {:warning, gettext("No other languages enabled to translate to")}
+    enqueue_translation(socket, target_languages, empty_opts)
   end
 
   def handle_event("translate_missing_languages", _params, socket) do
     target_languages = get_target_languages_for_translation(socket)
-    empty_message = gettext("All languages already have translations")
-    enqueue_translation(socket, target_languages, empty_message)
+    # Use :info because all translated is an informational status
+    empty_opts = {:info, gettext("All languages already have translations")}
+    enqueue_translation(socket, target_languages, empty_opts)
   end
 
-  defp enqueue_translation(socket, target_languages, empty_message) do
+  defp enqueue_translation(socket, target_languages, {empty_level, empty_message}) do
     cond do
       socket.assigns.is_new_post ->
         {:noreply,
@@ -636,7 +638,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
 
       target_languages == [] ->
-        {:noreply, put_flash(socket, :info, empty_message)}
+        {:noreply, put_flash(socket, empty_level, empty_message)}
 
       true ->
         do_enqueue_translation(socket, target_languages)
