@@ -88,26 +88,31 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
     ~H"""
     <div class={["avatar", if(@avatar_url, do: "", else: "placeholder")]}>
       <div class={[
-        "rounded-full overflow-hidden flex items-center justify-center",
+        "rounded-full overflow-hidden relative flex items-center justify-center",
         if(@avatar_url, do: "bg-neutral", else: ["bg-gradient-to-br", @gradient]),
         "text-white font-bold",
         @size_classes,
         @class
       ]}>
         <%= if @avatar_url do %>
+          <%!-- Fallback initials (always rendered, shown when image fails) --%>
+          <span
+            class={[
+              "absolute inset-0 flex items-center justify-center",
+              "bg-gradient-to-br",
+              @gradient
+            ]}
+            data-fallback="true"
+          >
+            {@initial}
+          </span>
+          <%!-- Image overlay (hides fallback when loaded successfully) --%>
           <img
             src={@avatar_url}
             alt="Avatar"
-            class="w-full h-full object-cover"
-            onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+            class="absolute inset-0 w-full h-full object-cover"
+            onerror="this.style.display='none';"
           />
-          <span class={[
-            "hidden w-full h-full items-center justify-center",
-            "bg-gradient-to-br",
-            @gradient
-          ]}>
-            {@initial}
-          </span>
         <% else %>
           <span>{@initial}</span>
         <% end %>
@@ -158,12 +163,14 @@ defmodule PhoenixKitWeb.Components.Core.UserInfo do
   defp get_email(_), do: nil
 
   # Gravatar URL generation
+  # Using d=blank returns a transparent image when no Gravatar exists,
+  # allowing the fallback initials to show through
   defp gravatar_url(email, pixel_size) do
     hash =
       :crypto.hash(:md5, String.downcase(String.trim(email)))
       |> Base.encode16(case: :lower)
 
-    "https://www.gravatar.com/avatar/#{hash}?s=#{pixel_size}&d=404"
+    "https://www.gravatar.com/avatar/#{hash}?s=#{pixel_size}&d=blank"
   end
 
   defp gravatar_pixel_size(size) do

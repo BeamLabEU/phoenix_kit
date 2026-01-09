@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "tidewave": {
+      "command": "mix",
+      "args": ["tidewave.server"],
+      "cwd": "/root/projects/hydroforce"
+    }
+  }
+}
