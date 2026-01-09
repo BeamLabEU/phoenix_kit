@@ -1264,78 +1264,153 @@ Either create a new version first, or trash the entire post:
 {:ok, _} = Publishing.trash_post("docs", "post")
 ```
 
-### Future: Per-Language Slugs
+## Per-Language URL Slugs
 
-Currently, all language translations of a post share the same URL slug (the directory name). For better SEO in multilingual sites, each language could have its own unique URL slug.
+Each language translation can have its own SEO-friendly URL slug, enabling localized URLs for better search engine optimization and user experience.
 
-**Current Behavior:**
+**Example:**
 ```
-# All languages share same slug
-/en/docs/getting-started  →  docs/getting-started/en.phk
-/es/docs/getting-started  →  docs/getting-started/es.phk
-/fr/docs/getting-started  →  docs/getting-started/fr.phk
-```
-
-**Proposed Per-Language Slugs:**
-```
-# Each language has its own SEO-friendly slug
-/en/docs/getting-started   →  docs/getting-started/en.phk  (slug: "getting-started")
-/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (slug: "primeros-pasos")
-/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (slug: "prise-en-main")
+# Each language has its own URL slug
+/en/docs/getting-started   →  docs/getting-started/en.phk  (url_slug: "getting-started")
+/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (url_slug: "primeros-pasos")
+/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (url_slug: "prise-en-main")
 ```
 
-**Implementation Approach:**
+**Key Concepts:**
 
-1. **Directory = Master Slug (Internal Identifier)**
-   - The post directory name becomes the internal ID (e.g., `getting-started/`)
-   - This never changes and ties all language versions together
+1. **Directory = Internal Identifier** - The post directory name (e.g., `getting-started/`) is the internal ID that ties all translations together. This never changes.
 
-2. **Frontmatter = Per-Language Slug**
-   - Each `.phk` file stores its own `slug` in frontmatter
-   - English: `slug: getting-started`
-   - Spanish: `slug: primeros-pasos`
-   - Slug can be edited independently per language
+2. **url_slug = Public URL** - Each translation's `.phk` file can specify its own `url_slug` in frontmatter for the public-facing URL.
 
-3. **ListingCache Indexes Language Slugs**
-   ```json
-   {
-     "posts": [{
-       "master_slug": "getting-started",
-       "language_slugs": {
-         "en": "getting-started",
-         "es": "primeros-pasos",
-         "fr": "prise-en-main"
-       }
-     }]
-   }
-   ```
+3. **Backward Compatible** - If no `url_slug` is set, the directory name is used (existing behavior).
 
-4. **O(1) Lookup via Cache**
-   ```elixir
-   # Instead of filesystem scan, lookup in memory cache
-   ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
-   # => {:ok, %{master_slug: "getting-started", language: "es", ...}}
-   ```
+### Setting Up Per-Language Slugs
 
-**Components to Update:**
+**In the Editor:**
 
-| Component | Changes Required |
-|-----------|-----------------|
-| `metadata.ex` | Slug field already exists (no change) |
-| `listing_cache.ex` | Add `language_slugs` map to cache structure, add `find_by_url_slug/3` |
-| `blog_controller.ex` | Use cache lookup instead of direct path construction |
-| `editor.ex` | Allow editing slug per-language (currently shared) |
-| `blog_html.ex` | `build_post_url/4` uses language-specific slug from post struct |
+1. Open a translation (non-master language) in the editor
+2. Find the "URL Slug" field in the metadata panel (only visible for translations)
+3. Enter a localized slug (e.g., `primeros-pasos` for Spanish)
+4. Save - the URL immediately updates
 
-**Migration Path:**
+**In Frontmatter:**
 
-Existing posts would work as-is (all languages default to directory name as slug). Per-language slugs would be opt-in by editing the slug field for specific translations.
+```yaml
+---
+slug: getting-started
+status: published
+published_at: 2025-01-15T09:30:00Z
+url_slug: primeros-pasos
+---
 
-**Why This Matters:**
+# Primeros Pasos
 
-- **SEO Benefits**: Search engines prefer localized URLs (`/es/blog/primeros-pasos` vs `/es/blog/getting-started`)
-- **User Experience**: Native speakers see URLs in their language
-- **Link Sharing**: Localized URLs are more shareable in non-English communities
+Contenido en español...
+```
+
+**Auto-Generation:**
+
+When creating or editing a translation, the URL slug is automatically generated from the content title (first `# Heading`). You can override this by manually typing in the URL Slug field.
+
+### URL Slug Validation
+
+URL slugs are validated before saving:
+
+| Rule | Example | Error |
+|------|---------|-------|
+| Lowercase, numbers, hyphens only | `Hello-World` | Invalid format |
+| Cannot be a language code | `en`, `es`, `fr-CA` | Reserved language code |
+| Cannot be a reserved route | `admin`, `api`, `assets` | Reserved route word |
+| Must be unique per language | Duplicate in same group+language | Already in use |
+
+**Reserved Route Words:** `admin`, `api`, `assets`, `phoenix_kit`, `auth`, `login`, `logout`, `register`, `settings`
+
+### 301 Redirects for Changed Slugs
+
+When you change a URL slug, the old slug is automatically stored in `previous_url_slugs` for 301 redirects:
+
+```yaml
+---
+url_slug: nuevo-slug
+previous_url_slugs: antiguo-slug,otro-slug-viejo
+---
+```
+
+**Redirect Behavior:**
+- Old URLs automatically 301 redirect to the new URL
+- Multiple previous slugs are supported (comma-separated)
+- Works even on cold starts (no cache) via filesystem fallback
+
+**Example:**
+```
+# User changed Spanish slug from "empezando" to "primeros-pasos"
+GET /es/docs/empezando
+→ 301 Redirect to /es/docs/primeros-pasos
+```
+
+### Language Switcher Integration
+
+The language switcher automatically shows localized URLs for each language:
+
+```html
+<!-- Language switcher shows different URLs per language -->
+<a href="/en/docs/getting-started">English</a>
+<a href="/es/docs/primeros-pasos">Español</a>
+<a href="/fr/docs/prise-en-main">Français</a>
+```
+
+### Cache Structure
+
+The listing cache stores per-language slug mappings for O(1) lookups:
+
+```json
+{
+  "slug": "getting-started",
+  "language_slugs": {
+    "en": "getting-started",
+    "es": "primeros-pasos",
+    "fr": "prise-en-main"
+  },
+  "language_previous_slugs": {
+    "es": ["empezando", "comenzar"],
+    "fr": ["demarrage"]
+  }
+}
+```
+
+### Programmatic API
+
+```elixir
+# Find post by URL slug (any language)
+{:ok, post} = ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
+# => Returns post with slug: "getting-started"
+
+# Find post by previous URL slug (for redirects)
+{:ok, post} = ListingCache.find_by_previous_url_slug("docs", "es", "empezando")
+# => Returns post so you can build redirect URL
+
+# Validate URL slug before saving
+{:ok, "primeros-pasos"} = Storage.validate_url_slug("docs", "primeros-pasos", "es", "getting-started")
+{:error, :slug_already_exists} = Storage.validate_url_slug("docs", "existing-slug", "es", nil)
+```
+
+### Filesystem Fallback
+
+On cold starts (no cache), the system scans the filesystem to resolve URL slugs:
+
+1. Scans all post directories in the group
+2. Reads each language file's metadata
+3. Checks both `url_slug` and `previous_url_slugs`
+4. Returns redirect for previous slugs, resolution for current slugs
+
+This ensures localized URLs work immediately after deployment without waiting for cache warm-up.
+
+### SEO Benefits
+
+- **Localized URLs**: Search engines prefer URLs in the user's language
+- **Better Click-Through**: Users are more likely to click localized URLs in search results
+- **Proper Hreflang**: The `<link rel="alternate" hreflang="xx">` tags use language-specific URLs
+- **Canonical URLs**: Each translation has its own canonical URL with its localized slug
 
 ## Getting Help
 

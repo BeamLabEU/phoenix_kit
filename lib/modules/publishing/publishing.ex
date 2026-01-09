@@ -834,9 +834,13 @@ defmodule PhoenixKit.Modules.Publishing do
       mode == :timestamp -> true
       # Slug mode posts without version info (legacy) always regenerate
       is_nil(version) -> true
-      # Slug mode posts: only regenerate if this is the published version
+      # Slug mode posts: always regenerate to keep language_slugs current
+      # The cache stores url_slugs for ALL translations, so any edit
+      # (even to drafts) should update the cache for URL generation
+      mode == :slug -> true
+      # Published posts always regenerate
       status == "published" -> true
-      # Non-published versioned posts don't affect public listings
+      # Fallback: don't regenerate for unknown modes with non-published status
       true -> false
     end
   end

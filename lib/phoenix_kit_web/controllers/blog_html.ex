@@ -33,6 +33,9 @@ defmodule PhoenixKitWeb.BlogHTML do
   When multiple languages are enabled, always includes locale prefix.
   When languages module is off or only one language, uses clean URLs.
 
+  For slug mode posts, uses the language-specific URL slug (from post.url_slug
+  or post.language_slugs[language]) for SEO-friendly localized URLs.
+
   For timestamp mode posts:
   - If only one post exists on the date, uses date-only URL (e.g., /blog/2025-12-09)
   - If multiple posts exist on the date, includes time (e.g., /blog/2025-12-09/16:26)
@@ -40,10 +43,13 @@ defmodule PhoenixKitWeb.BlogHTML do
   def build_post_url(blog_slug, post, language) do
     case post.mode do
       :slug ->
+        # Use language-specific URL slug for SEO-friendly localized URLs
+        url_slug = get_url_slug_for_language(post, language)
+
         segments =
           if single_language_mode?(),
-            do: [blog_slug, post.slug],
-            else: [language, blog_slug, post.slug]
+            do: [blog_slug, url_slug],
+            else: [language, blog_slug, url_slug]
 
         build_public_path(segments)
 
@@ -71,12 +77,41 @@ defmodule PhoenixKitWeb.BlogHTML do
         build_public_path(segments)
 
       _ ->
+        # Use language-specific URL slug for fallback mode as well
+        url_slug = get_url_slug_for_language(post, language)
+
         segments =
           if single_language_mode?(),
-            do: [blog_slug, post.slug],
-            else: [language, blog_slug, post.slug]
+            do: [blog_slug, url_slug],
+            else: [language, blog_slug, url_slug]
 
         build_public_path(segments)
+    end
+  end
+
+  # Gets the URL slug for a specific language
+  # Priority:
+  # 1. Direct url_slug field on post (set by controller for specific language)
+  # 2. language_slugs map (from cache, contains all languages)
+  # 3. metadata.url_slug (from file, current language only)
+  # 4. post.slug (directory name fallback)
+  defp get_url_slug_for_language(post, language) do
+    cond do
+      # Direct url_slug on post (highest priority, set by controller)
+      Map.get(post, :url_slug) not in [nil, ""] ->
+        post.url_slug
+
+      # language_slugs map from cache
+      map_size(Map.get(post, :language_slugs, %{})) > 0 ->
+        Map.get(post.language_slugs, language, post.slug)
+
+      # metadata.url_slug
+      is_map(Map.get(post, :metadata)) and Map.get(post.metadata, :url_slug) not in [nil, ""] ->
+        post.metadata.url_slug
+
+      # Default to directory slug
+      true ->
+        post.slug
     end
   end
 

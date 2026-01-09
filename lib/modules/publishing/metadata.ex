@@ -34,7 +34,11 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           # Translation status override (true = manually set, won't inherit from master)
           status_manual: boolean() | nil,
           # Per-post version access control (allows public access to older versions)
-          allow_version_access: boolean() | nil
+          allow_version_access: boolean() | nil,
+          # Per-language URL slug (optional, defaults to directory slug)
+          url_slug: String.t() | nil,
+          # Previous URL slugs for 301 redirects (list of old slugs)
+          previous_url_slugs: [String.t()] | nil
         }
 
   @doc """
@@ -78,7 +82,9 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
         :version_created_at,
         :version_created_from,
         :status_manual,
-        :allow_version_access
+        :allow_version_access,
+        # Per-language URL slug
+        :url_slug
       ]
       |> Enum.flat_map(fn key ->
         case metadata_value(metadata, key) do
@@ -90,6 +96,17 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           value -> ["#{Atom.to_string(key)}: #{value}"]
         end
       end)
+
+    # Handle previous_url_slugs as a comma-separated list
+    previous_slugs_line =
+      case metadata_value(metadata, :previous_url_slugs) do
+        nil -> []
+        [] -> []
+        slugs when is_list(slugs) -> ["previous_url_slugs: #{Enum.join(slugs, ",")}"]
+        _ -> []
+      end
+
+    optional_lines = optional_lines ++ previous_slugs_line
 
     lines =
       [
@@ -134,7 +151,11 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       # Translation status - false means inherit from master language
       status_manual: false,
       # Per-post version access - defaults to false (only published version accessible)
-      allow_version_access: false
+      allow_version_access: false,
+      # Per-language URL slug - nil means use directory slug
+      url_slug: nil,
+      # Previous URL slugs for 301 redirects
+      previous_url_slugs: nil
     }
   end
 
@@ -346,7 +367,11 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       status_manual: parse_boolean(Map.get(metadata, "status_manual"), default.status_manual),
       # Per-post version access control
       allow_version_access:
-        parse_boolean(Map.get(metadata, "allow_version_access"), default.allow_version_access)
+        parse_boolean(Map.get(metadata, "allow_version_access"), default.allow_version_access),
+      # Per-language URL slug (optional)
+      url_slug: parse_url_slug(Map.get(metadata, "url_slug")),
+      # Previous URL slugs for 301 redirects (comma-separated list)
+      previous_url_slugs: parse_previous_url_slugs(Map.get(metadata, "previous_url_slugs"))
     }
 
     # For backward compatibility, also read legacy is_live field if present
@@ -381,6 +406,28 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
   defp parse_boolean(value, _default) when is_boolean(value), do: value
   defp parse_boolean(_, default), do: default
 
+  # Parse url_slug - returns nil if empty
+  defp parse_url_slug(nil), do: nil
+  defp parse_url_slug(""), do: nil
+  defp parse_url_slug(value) when is_binary(value), do: String.trim(value)
+
+  # Parse previous_url_slugs as comma-separated list
+  defp parse_previous_url_slugs(nil), do: nil
+  defp parse_previous_url_slugs(""), do: nil
+
+  defp parse_previous_url_slugs(value) when is_binary(value) do
+    value
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+    |> case do
+      [] -> nil
+      slugs -> slugs
+    end
+  end
+
+  defp parse_previous_url_slugs(value) when is_list(value), do: value
+
   # Extract metadata from <Page> element attributes (legacy XML format)
   defp extract_metadata_from_xml(content) do
     default = default_metadata()
@@ -408,7 +455,9 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version_created_at: nil,
       version_created_from: nil,
       status_manual: false,
-      allow_version_access: false
+      allow_version_access: false,
+      url_slug: nil,
+      previous_url_slugs: nil
     }
   end
 

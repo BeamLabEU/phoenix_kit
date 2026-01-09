@@ -463,6 +463,248 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   defp render_post(conn, blog_slug, identifier, language) do
+    # For slug mode, resolve URL slug to internal slug first
+    # This enables per-language URL slugs and 301 redirects for old slugs
+    case resolve_url_slug(blog_slug, identifier, language) do
+      {:redirect, redirect_url} ->
+        # Old URL slug - 301 redirect to current URL
+        conn
+        |> put_status(301)
+        |> redirect(to: redirect_url)
+
+      {:ok, resolved_identifier} ->
+        render_resolved_post(conn, blog_slug, resolved_identifier, language)
+
+      :passthrough ->
+        render_resolved_post(conn, blog_slug, identifier, language)
+    end
+  end
+
+  # Resolves URL slug to internal slug using cache
+  # Returns {:redirect, url} for 301, {:ok, identifier} for resolved, :passthrough for direct
+  defp resolve_url_slug(blog_slug, {:slug, url_slug}, language) do
+    case ListingCache.find_by_url_slug(blog_slug, language, url_slug) do
+      {:ok, cached_post} ->
+        internal_slug = cached_post.slug
+
+        if internal_slug == url_slug do
+          # URL slug matches internal slug - no resolution needed
+          :passthrough
+        else
+          # URL slug differs from internal slug - use resolved identifier
+          {:ok, {:slug, internal_slug}}
+        end
+
+      {:error, :not_found} ->
+        # Not found in current slugs - check previous slugs for 301 redirect
+        case ListingCache.find_by_previous_url_slug(blog_slug, language, url_slug) do
+          {:ok, cached_post} ->
+            # Found in previous slugs - redirect to current URL
+            current_url_slug = Map.get(cached_post.language_slugs || %{}, language, cached_post.slug)
+            redirect_url = build_post_redirect_url(blog_slug, cached_post, language, current_url_slug)
+            {:redirect, redirect_url}
+
+          {:error, _} ->
+            # Not found in cache - try filesystem fallback
+            resolve_url_slug_from_filesystem(blog_slug, url_slug, language)
+        end
+
+      {:error, :cache_miss} ->
+        # Cache not available - try filesystem fallback
+        resolve_url_slug_from_filesystem(blog_slug, url_slug, language)
+    end
+  end
+
+  # Non-slug modes pass through directly
+  defp resolve_url_slug(_blog_slug, _identifier, _language), do: :passthrough
+
+  # Filesystem fallback for URL slug resolution when cache is unavailable
+  # Also handles 301 redirects for previous_url_slugs
+  defp resolve_url_slug_from_filesystem(blog_slug, url_slug, language) do
+    case find_slug_in_filesystem(blog_slug, url_slug, language) do
+      {:current, internal_slug} when internal_slug != url_slug ->
+        # Found as current url_slug - resolve to internal slug
+        {:ok, {:slug, internal_slug}}
+
+      {:current, _same_slug} ->
+        # URL slug matches internal slug - passthrough
+        :passthrough
+
+      {:previous, internal_slug, current_url_slug} ->
+        # Found in previous_url_slugs - redirect to current URL
+        redirect_url = build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug)
+        {:redirect, redirect_url}
+
+      {:error, _} ->
+        # Not found - passthrough for normal handling
+        :passthrough
+    end
+  end
+
+  # Builds redirect URL when we only have slug data (no full post struct)
+  defp build_redirect_url_from_slugs(blog_slug, internal_slug, language, current_url_slug) do
+    # Build minimal post struct for URL generation
+    post = %{
+      slug: internal_slug,
+      url_slug: current_url_slug,
+      mode: :slug,
+      language_slugs: %{language => current_url_slug}
+    }
+
+    BlogHTML.build_post_url(blog_slug, post, language)
+  end
+
+  # Resolves a URL slug to the internal directory slug
+  # Used by versioned URL handler and other places that need the internal slug
+  defp resolve_url_slug_to_internal(blog_slug, url_slug, language) do
+    case ListingCache.find_by_url_slug(blog_slug, language, url_slug) do
+      {:ok, cached_post} ->
+        cached_post.slug
+
+      {:error, _} ->
+        # Fallback: try filesystem scan for custom slug
+        case find_internal_slug_from_filesystem(blog_slug, url_slug, language) do
+          {:ok, internal_slug} -> internal_slug
+          {:error, _} -> url_slug
+        end
+    end
+  end
+
+  # Scans filesystem to find a post with matching url_slug or previous_url_slugs
+  # Returns:
+  #   {:current, internal_slug} - found as current url_slug
+  #   {:previous, internal_slug, current_url_slug} - found in previous_url_slugs (for redirect)
+  #   {:error, reason} - not found
+  defp find_slug_in_filesystem(blog_slug, url_slug, language) do
+    group_path = Publishing.Storage.group_path(blog_slug)
+
+    if File.dir?(group_path) do
+      # Scan all post directories
+      result =
+        group_path
+        |> File.ls!()
+        |> Enum.find_value(fn post_dir ->
+          post_path = Path.join(group_path, post_dir)
+
+          if File.dir?(post_path) do
+            # Check if this post has a matching url_slug or previous_url_slugs
+            case read_slug_data_from_post(post_path, language) do
+              {:ok, current_slug, previous_slugs} ->
+                cond do
+                  # Check if it matches current url_slug
+                  current_slug == url_slug ->
+                    {:current, post_dir}
+
+                  # Check if it's in previous_url_slugs
+                  url_slug in (previous_slugs || []) ->
+                    # Return redirect info: internal slug and current url_slug
+                    effective_current = current_slug || post_dir
+                    {:previous, post_dir, effective_current}
+
+                  true ->
+                    nil
+                end
+
+              _ ->
+                nil
+            end
+          else
+            nil
+          end
+        end)
+
+      case result do
+        nil -> {:error, :not_found}
+        {:current, internal_slug} -> {:current, internal_slug}
+        {:previous, internal_slug, current_slug} -> {:previous, internal_slug, current_slug}
+      end
+    else
+      {:error, :group_not_found}
+    end
+  rescue
+    _ -> {:error, :scan_failed}
+  end
+
+  # Legacy function for resolve_url_slug_to_internal (only needs current slug)
+  defp find_internal_slug_from_filesystem(blog_slug, url_slug, language) do
+    case find_slug_in_filesystem(blog_slug, url_slug, language) do
+      {:current, internal_slug} -> {:ok, internal_slug}
+      {:previous, internal_slug, _current} -> {:ok, internal_slug}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Reads url_slug and previous_url_slugs from a post's language file metadata
+  defp read_slug_data_from_post(post_path, language) do
+    # Try versioned structure first, then legacy
+    content_dir =
+      case find_latest_version_dir(post_path) do
+        {:ok, version_dir} -> version_dir
+        {:error, _} -> post_path
+      end
+
+    file_path = Path.join(content_dir, "#{language}.phk")
+
+    if File.exists?(file_path) do
+      case File.read(file_path) do
+        {:ok, content} ->
+          case Publishing.Metadata.parse_with_content(content) do
+            {:ok, metadata, _content} ->
+              url_slug = Map.get(metadata, :url_slug)
+              previous_slugs = Map.get(metadata, :previous_url_slugs) || []
+              {:ok, url_slug, previous_slugs}
+
+            _ ->
+              {:error, :parse_failed}
+          end
+
+        _ ->
+          {:error, :read_failed}
+      end
+    else
+      {:error, :file_not_found}
+    end
+  end
+
+  # Finds the latest version directory in a versioned post structure
+  defp find_latest_version_dir(post_path) do
+    versions =
+      post_path
+      |> File.ls!()
+      |> Enum.filter(&String.starts_with?(&1, "v"))
+      |> Enum.map(fn dir ->
+        case Integer.parse(String.trim_leading(dir, "v")) do
+          {num, ""} -> num
+          _ -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sort(:desc)
+
+    case versions do
+      [latest | _] -> {:ok, Path.join(post_path, "v#{latest}")}
+      [] -> {:error, :no_versions}
+    end
+  rescue
+    _ -> {:error, :scan_failed}
+  end
+
+  # Builds redirect URL for 301 redirects
+  defp build_post_redirect_url(blog_slug, cached_post, language, url_slug) do
+    # Build post struct with minimal fields needed for URL generation
+    post = %{
+      slug: cached_post.slug,
+      url_slug: url_slug,
+      mode: cached_post.mode,
+      date: cached_post.date,
+      time: cached_post.time,
+      language_slugs: cached_post.language_slugs
+    }
+
+    BlogHTML.build_post_url(blog_slug, post, language)
+  end
+
+  defp render_resolved_post(conn, blog_slug, identifier, language) do
     case fetch_post(blog_slug, identifier, language) do
       {:ok, post} ->
         # Check if published
@@ -511,12 +753,15 @@ defmodule PhoenixKitWeb.BlogController do
   end
 
   # Renders a specific version of a post (for version browsing feature)
-  defp render_versioned_post(conn, blog_slug, post_slug, version, language) do
+  defp render_versioned_post(conn, blog_slug, url_slug, version, language) do
+    # Resolve URL slug to internal slug (handles per-language custom slugs)
+    internal_slug = resolve_url_slug_to_internal(blog_slug, url_slug, language)
+
     # Check per-post version access setting (from the live version's metadata)
     # Each post controls its own version access - no global setting required
-    if post_allows_version_access?(blog_slug, post_slug, language) do
+    if post_allows_version_access?(blog_slug, internal_slug, language) do
       # Fetch the specific version
-      case Publishing.read_post(blog_slug, post_slug, language, version) do
+      case Publishing.read_post(blog_slug, internal_slug, language, version) do
         {:ok, post} ->
           # Check if version is published
           if post.metadata.status == "published" do
@@ -559,12 +804,12 @@ defmodule PhoenixKitWeb.BlogController do
             |> assign(:version_dropdown, version_dropdown)
             |> render(:show)
           else
-            log_404(conn, blog_slug, {:slug, post_slug, version}, language, :unpublished)
+            log_404(conn, blog_slug, {:slug, internal_slug, version}, language, :unpublished)
             handle_not_found(conn, :unpublished)
           end
 
         {:error, reason} ->
-          log_404(conn, blog_slug, {:slug, post_slug, version}, language, reason)
+          log_404(conn, blog_slug, {:slug, internal_slug, version}, language, reason)
           handle_not_found(conn, reason)
       end
     else
@@ -1047,6 +1292,10 @@ defmodule PhoenixKitWeb.BlogController do
     # Get the primary/default language
     primary_language = List.first(enabled_languages) || "en"
 
+    # Fetch language_slugs from cache for per-language URL slugs
+    # Falls back to using post.slug for all languages if cache miss
+    language_slugs = fetch_language_slugs_from_cache(blog_slug, post)
+
     # Include ALL available languages that are published
     # This allows legacy/disabled languages to still show in the public switcher
     # (they'll be styled differently by the component based on enabled/known flags)
@@ -1071,12 +1320,17 @@ defmodule PhoenixKitWeb.BlogController do
       is_enabled = language_enabled_for_public?(lang, enabled_languages)
       is_known = Languages.get_predefined_language(lang) != nil
 
+      # Get the URL slug for this specific language
+      # This enables SEO-friendly localized URLs (e.g., /es/docs/primeros-pasos)
+      url_slug_for_lang = Map.get(language_slugs, lang, post.slug)
+      post_with_url_slug = Map.put(post, :url_slug, url_slug_for_lang)
+
       # Build URL with version if viewing a specific version
       url =
         if version do
-          build_version_url(blog_slug, post, display_code, version)
+          build_version_url(blog_slug, post_with_url_slug, display_code, version)
         else
-          BlogHTML.build_post_url(blog_slug, post, display_code)
+          BlogHTML.build_post_url(blog_slug, post_with_url_slug, display_code)
         end
 
       %{
@@ -1122,6 +1376,19 @@ defmodule PhoenixKitWeb.BlogController do
 
     # Return dialect codes plus any base codes that don't have dialect alternatives
     dialect_codes ++ filtered_base_codes
+  end
+
+  # Fetches language_slugs map from cache for per-language URL slugs
+  # Returns a map of language -> url_slug for each available language
+  defp fetch_language_slugs_from_cache(blog_slug, post) do
+    case ListingCache.find_post(blog_slug, post.slug) do
+      {:ok, cached_post} ->
+        cached_post.language_slugs || %{}
+
+      {:error, _} ->
+        # Cache miss - return empty map (will fall back to post.slug)
+        %{}
+    end
   end
 
   defp normalize_languages([], current_language), do: [current_language]
