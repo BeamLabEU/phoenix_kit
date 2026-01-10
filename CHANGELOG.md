@@ -1,3 +1,8 @@
+## 1.7.21 - 2026-01-10
+- Publishing Module: Versioning, AI Translation, Per-Language URLs & Real-time Updates
+- Fixed referralcodes to referrals for more universal code
+- Consolidate OAuth config through Config.UeberAuth abstraction
+
 ## 1.7.20 - 2026-01-09
 - Fix user avatar fallback when Gravatar is unavailable
 - Fixed issues with phx_kit install
