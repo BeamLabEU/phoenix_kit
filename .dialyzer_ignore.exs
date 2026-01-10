@@ -105,5 +105,14 @@
 
   # Publishing Controller - with-chain type inference false positives
   ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/
+  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
+
+  # Dashboard tab system - keyword list spec inference false positives
+  # Functions accept keyword() but Dialyzer infers broader types from pattern matching
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*invalid_contract/,
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*exact_compare/,
+  ~r/lib\/phoenix_kit\/dashboard\/dashboard\.ex:.*invalid_contract/,
+  # Legacy warning about nil check - path field can be nil for dividers/headers
+  # This is a false positive - dividers and group headers have nil paths by design
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:256.*can never evaluate to/
 ]

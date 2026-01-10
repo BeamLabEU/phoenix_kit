@@ -30,7 +30,65 @@ defmodule PhoenixKit.Config do
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
   - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
+  - `:user_dashboard_tabs` - List of custom tabs for the user dashboard sidebar
+  - `:user_dashboard_tab_groups` - List of tab groups for organizing dashboard tabs
+  - `:dashboard_presence` - Presence tracking settings for dashboard tabs
   - `:admin_dashboard_categories` - List of custom admin dashboard categories with subsections
+
+  ## User Dashboard Tabs
+
+  Configure custom tabs in the user dashboard sidebar:
+
+      config :phoenix_kit, :user_dashboard_tabs, [
+        %{
+          id: :orders,
+          label: "My Orders",
+          icon: "hero-shopping-bag",
+          path: "/dashboard/orders",
+          priority: 100
+        },
+        %{
+          id: :notifications,
+          label: "Notifications",
+          icon: "hero-bell",
+          path: "/dashboard/notifications",
+          priority: 200,
+          badge: %{type: :count, value: 0, color: :error}
+        }
+      ]
+
+  Tab options:
+  - `:id` - Unique atom identifier (required)
+  - `:label` - Display text (required)
+  - `:icon` - Heroicon name, e.g., "hero-home" (optional)
+  - `:path` - URL path (required)
+  - `:priority` - Sort order, lower = higher (default: 500)
+  - `:group` - Group ID for organizing (optional)
+  - `:match` - Path matching: :exact, :prefix (default: :prefix)
+  - `:visible` - Boolean or function(scope) -> boolean (default: true)
+  - `:badge` - Badge config map (optional)
+  - `:tooltip` - Hover text (optional)
+  - `:attention` - Animation: :pulse, :bounce, :shake, :glow (optional)
+
+  ## User Dashboard Tab Groups
+
+  Organize tabs into labeled sections:
+
+      config :phoenix_kit, :user_dashboard_tab_groups, [
+        %{id: :main, label: nil, priority: 100},
+        %{id: :farm, label: "Farm Management", priority: 200, icon: "hero-cube"},
+        %{id: :account, label: "Account", priority: 900}
+      ]
+
+  ## Dashboard Presence
+
+  Configure presence tracking for dashboard tabs:
+
+      config :phoenix_kit, :dashboard_presence,
+        enabled: true,
+        show_user_count: true,
+        show_user_names: false,
+        track_anonymous: false
 
   ## Admin Dashboard Categories
 
@@ -74,6 +132,17 @@ defmodule PhoenixKit.Config do
     blogging_settings_module: PhoenixKit.Settings,
     # Dashboard settings
     user_dashboard_enabled: true,
+    # User dashboard tabs - list of tab configs for the user dashboard sidebar
+    user_dashboard_tabs: [],
+    # User dashboard tab groups - list of group configs for organizing tabs
+    user_dashboard_tab_groups: [],
+    # Dashboard presence settings
+    dashboard_presence: [
+      enabled: true,
+      show_user_count: true,
+      show_user_names: false,
+      track_anonymous: false
+    ],
     # Admin dashboard categories
     admin_dashboard_categories: []
   ]
