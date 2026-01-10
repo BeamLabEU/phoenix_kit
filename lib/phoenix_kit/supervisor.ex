@@ -14,6 +14,8 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.PubSub.Manager,
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
+      # Dashboard tab registry for user dashboard navigation
+      PhoenixKit.Dashboard.Registry,
       # Settings cache with synchronous initialization
       # Loads all settings in handle_continue (after init returns)
       # This ensures OAuth configuration is available before OAuthConfigLoader starts

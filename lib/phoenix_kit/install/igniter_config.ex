@@ -291,6 +291,123 @@ defmodule PhoenixKit.Install.IgniterConfig do
   end
 
   @doc """
+  Adds a tab to a user dashboard category, creating the category if it doesn't exist.
+
+  This function is similar to `add_to_admin_category/4` but for user dashboard tabs.
+  It uses `:tabs` instead of `:subsections` to match the user dashboard category format.
+
+  ## Parameters
+
+  - `igniter` - The Igniter project struct
+  - `category_title` - The title of the category (e.g., "Farm Management")
+  - `tab` - A map with tab properties: `:title`, `:url`, `:icon`, `:description`
+  - `category_opts` - Options for creating a new category:
+    - `:icon` - Icon for the new category (default: "hero-folder")
+
+  ## Examples
+
+      iex> igniter = Igniter.new()
+      iex> new_tab = %{title: "History", url: "/dashboard/history", icon: "hero-chart-bar"}
+      iex> igniter = PhoenixKit.Install.IgniterConfig.add_to_user_dashboard_category(
+      ...>   igniter, "Farm Management", new_tab, icon: "hero-cube"
+      ...> )
+  """
+  @spec add_to_user_dashboard_category(Igniter.t(), String.t(), map(), keyword()) :: Igniter.t()
+  def add_to_user_dashboard_category(igniter, category_title, tab, category_opts \\ []) do
+    add_to_category_with_tabs(
+      igniter,
+      :phoenix_kit,
+      [:user_dashboard_categories],
+      category_title,
+      tab,
+      category_opts
+    )
+  end
+
+  @doc """
+  Adds a tab to a category within a list configuration (using :tabs key).
+
+  Similar to `add_to_category/7` but uses `:tabs` instead of `:subsections`.
+  Designed for user dashboard categories.
+  """
+  @spec add_to_category_with_tabs(
+          Igniter.t(),
+          atom(),
+          list(atom()),
+          String.t(),
+          map(),
+          keyword(),
+          String.t()
+        ) :: Igniter.t()
+  def add_to_category_with_tabs(
+        igniter,
+        app_name,
+        key_path,
+        category_title,
+        tab,
+        category_opts \\ [],
+        config_file \\ "config.exs"
+      ) do
+    default_icon = Keyword.get(category_opts, :icon, "hero-folder")
+
+    igniter
+    |> Config.configure(
+      config_file,
+      app_name,
+      key_path,
+      # Default value if config doesn't exist
+      [
+        %{
+          title: category_title,
+          icon: default_icon,
+          tabs: [tab]
+        }
+      ],
+      updater: fn zipper ->
+        case extract_current_value(zipper) do
+          {:ok, existing_categories} when is_list(existing_categories) ->
+            # Find if category already exists
+            case Enum.find_index(existing_categories, &(&1.title == category_title)) do
+              nil ->
+                # Category doesn't exist, create new one
+                new_category = %{
+                  title: category_title,
+                  icon: default_icon,
+                  tabs: [tab]
+                }
+
+                updated_categories = existing_categories ++ [new_category]
+                {:ok, Common.replace_code(zipper, updated_categories)}
+
+              category_index ->
+                # Category exists, add to its tabs
+                updated_categories =
+                  existing_categories
+                  |> List.update_at(category_index, fn category_config ->
+                    existing_tabs = Map.get(category_config, :tabs, [])
+                    updated_tabs = existing_tabs ++ [tab]
+
+                    %{category_config | tabs: updated_tabs}
+                  end)
+
+                {:ok, Common.replace_code(zipper, updated_categories)}
+            end
+
+          _ ->
+            # Config doesn't exist or is not a list, create new
+            new_category = %{
+              title: category_title,
+              icon: default_icon,
+              tabs: [tab]
+            }
+
+            {:ok, Common.replace_code(zipper, [new_category])}
+        end
+      end
+    )
+  end
+
+  @doc """
   Adds an item to a category within a list configuration, creating the category if needed.
 
   This function is designed for configurations that contain a list of categories,
