@@ -69,7 +69,7 @@ defmodule PhoenixKit.MixProject do
     [
       # Database
       {:ecto_sql, "~> 3.10"},
-      {:postgrex, "~> 0.21.1"},
+      {:postgrex, "~> 0.22"},
 
       # Phoenix web layer
       {:phoenix, "~> 1.8.1"},
