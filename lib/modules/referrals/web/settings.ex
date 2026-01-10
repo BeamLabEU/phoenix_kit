@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
+defmodule PhoenixKit.Modules.Referrals.Web.Settings do
   @moduledoc """
   Referral codes module settings LiveView for PhoenixKit admin panel.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
 
   def mount(_params, _session, socket) do
@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     # Load referral codes configuration
-    referral_codes_config = ReferralCodes.get_config()
+    referral_codes_config = Referrals.get_config()
 
     socket =
       socket
@@ -36,9 +36,9 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
 
     result =
       if new_enabled do
-        ReferralCodes.enable_system()
+        Referrals.enable_system()
       else
-        ReferralCodes.disable_system()
+        Referrals.disable_system()
       end
 
     case result do
@@ -66,7 +66,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
     # Since we're sending "toggle", we just flip the current state
     new_required = !socket.assigns.referral_codes_required
 
-    result = ReferralCodes.set_required(new_required)
+    result = Referrals.set_required(new_required)
 
     case result do
       {:ok, _setting} ->
@@ -92,7 +92,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
   def handle_event("update_max_uses_per_code", %{"max_uses_per_code" => value}, socket) do
     case Integer.parse(value) do
       {max_uses, _} when max_uses > 0 and max_uses <= 10_000 ->
-        case ReferralCodes.set_max_uses_per_code(max_uses) do
+        case Referrals.set_max_uses_per_code(max_uses) do
           {:ok, _setting} ->
             socket =
               socket
@@ -115,7 +115,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Settings do
   def handle_event("update_max_codes_per_user", %{"max_codes_per_user" => value}, socket) do
     case Integer.parse(value) do
       {max_codes, _} when max_codes > 0 and max_codes <= 1000 ->
-        case ReferralCodes.set_max_codes_per_user(max_codes) do
+        case Referrals.set_max_codes_per_user(max_codes) do
           {:ok, _setting} ->
             socket =
               socket
