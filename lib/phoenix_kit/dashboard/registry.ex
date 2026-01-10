@@ -564,7 +564,10 @@ defmodule PhoenixKit.Dashboard.Registry do
   end
 
   defp load_from_config_internal do
-    # Load tab configuration
+    # Load from user_dashboard_categories (admin-style config)
+    load_from_categories_config()
+
+    # Load tab configuration (flat list style)
     case Application.get_env(:phoenix_kit, :user_dashboard_tabs) do
       nil ->
         :ok
@@ -591,6 +594,49 @@ defmodule PhoenixKit.Dashboard.Registry do
       groups when is_list(groups) ->
         :ets.insert(@ets_table, {:groups, groups})
     end
+  end
+
+  # Load from user_dashboard_categories config (admin-style format)
+  defp load_from_categories_config do
+    alias PhoenixKit.Config.UserDashboardCategories
+
+    categories = UserDashboardCategories.get_categories()
+
+    if categories != [] do
+      # Convert categories to tabs and register them
+      tabs = UserDashboardCategories.to_tabs(categories)
+
+      Enum.each(tabs, fn tab_config ->
+        case Tab.new(tab_config) do
+          {:ok, tab} ->
+            :ets.insert(@ets_table, {{:tab, tab.id}, tab})
+            :ets.insert(@ets_table, {{:namespace, :categories, tab.id}, true})
+
+          {:error, _reason} ->
+            # Log error but continue
+            :ok
+        end
+      end)
+
+      # Convert categories to groups and register them
+      groups = UserDashboardCategories.to_groups(categories)
+      existing_groups = get_groups()
+      merged_groups = merge_groups(existing_groups, groups)
+      :ets.insert(@ets_table, {:groups, merged_groups})
+    end
+  end
+
+  # Merge groups, preferring existing groups with same ID
+  defp merge_groups(existing, new) do
+    existing_ids = MapSet.new(Enum.map(existing, & &1.id))
+
+    new_groups =
+      Enum.reject(new, fn group ->
+        MapSet.member?(existing_ids, group.id)
+      end)
+
+    (existing ++ new_groups)
+    |> Enum.sort_by(& &1.priority)
   end
 
   defp tickets_enabled? do
