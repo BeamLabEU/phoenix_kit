@@ -17,7 +17,62 @@ A comprehensive, extensible navigation system for the PhoenixKit user dashboard 
 
 ## Quick Start
 
-### 1. Configure Tabs in config.exs
+### Using the Mix Generator (Recommended)
+
+The easiest way to add tabs is using the Mix generator:
+
+```bash
+# Add a History tab to Farm Management category
+mix phoenix_kit.gen.dashboard_tab "Farm Management" "History" \
+  --url="/dashboard/history" \
+  --icon="hero-chart-bar" \
+  --category-icon="hero-cube"
+
+# Add a Settings tab to Account category
+mix phoenix_kit.gen.dashboard_tab "Account" "Settings" \
+  --url="/dashboard/settings" \
+  --icon="hero-cog-6-tooth" \
+  --description="Manage your account settings"
+```
+
+This will automatically add the tab configuration to your `config/config.exs`.
+
+### Configure Categories in config.exs
+
+For category-based organization (similar to admin dashboard):
+
+```elixir
+config :phoenix_kit, :user_dashboard_categories, [
+  %{
+    title: "Farm Management",
+    icon: "hero-cube",
+    tabs: [
+      %{
+        title: "Printers",
+        url: "/dashboard/printers",
+        icon: "hero-printer",
+        description: "Manage your 3D printers"
+      },
+      %{
+        title: "History",
+        url: "/dashboard/history",
+        icon: "hero-chart-bar"
+      }
+    ]
+  },
+  %{
+    title: "Account",
+    icon: "hero-user",
+    tabs: [
+      %{title: "Settings", url: "/dashboard/settings", icon: "hero-cog-6-tooth"}
+    ]
+  }
+]
+```
+
+### Configure Flat Tabs in config.exs
+
+For simpler flat tab configuration:
 
 ```elixir
 config :phoenix_kit, :user_dashboard_tabs, [
@@ -39,7 +94,7 @@ config :phoenix_kit, :user_dashboard_tabs, [
 ]
 ```
 
-### 2. Register Tabs at Runtime (Optional)
+### Register Tabs at Runtime (Optional)
 
 ```elixir
 # In your application startup or a module
@@ -58,7 +113,7 @@ PhoenixKit.Dashboard.register_tabs(:my_app, [
 ])
 ```
 
-### 3. Update Badges Live
+### Update Badges Live
 
 ```elixir
 # From anywhere in your app
@@ -70,7 +125,7 @@ PhoenixKit.Dashboard.increment_badge(:notifications)
 PhoenixKit.Dashboard.decrement_badge(:notifications)
 ```
 
-### 4. Trigger Attention
+### Trigger Attention
 
 ```elixir
 # Make a tab pulse to draw attention

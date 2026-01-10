@@ -3,6 +3,7 @@
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.gen.dashboard_tab.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :unknown_function},
   # Conditional compilation pattern match in update.ex (Code.ensure_loaded?)
@@ -37,6 +38,7 @@
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},
   {"lib/mix/tasks/phoenix_kit.update.ex", :callback_info_missing, 3},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :callback_info_missing},
+  {"lib/mix/tasks/phoenix_kit.gen.dashboard_tab.ex", :callback_info_missing},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.status.ex", :callback_info_missing, 1},
