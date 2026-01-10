@@ -162,8 +162,60 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   # ============================================================================
-  # Post-Level Updates (translation changes)
+  # Post-Level Updates (version and translation changes)
   # ============================================================================
+
+  @doc """
+  Returns the topic for a specific post's version updates.
+  This allows editors to receive notifications when versions are created/deleted.
+  """
+  def post_versions_topic(blog_slug, post_slug) do
+    "#{@topic_prefix}:#{blog_slug}:post:#{post_slug}:versions"
+  end
+
+  @doc """
+  Subscribes to version updates for a specific post.
+  """
+  def subscribe_to_post_versions(blog_slug, post_slug) do
+    Manager.subscribe(post_versions_topic(blog_slug, post_slug))
+  end
+
+  @doc """
+  Unsubscribes from version updates for a specific post.
+  """
+  def unsubscribe_from_post_versions(blog_slug, post_slug) do
+    Manager.unsubscribe(post_versions_topic(blog_slug, post_slug))
+  end
+
+  @doc """
+  Broadcasts that a new version was created for a post (to post-level topic).
+  """
+  def broadcast_post_version_created(blog_slug, post_slug, version_info) do
+    Manager.broadcast(
+      post_versions_topic(blog_slug, post_slug),
+      {:post_version_created, blog_slug, post_slug, version_info}
+    )
+  end
+
+  @doc """
+  Broadcasts that a version was deleted from a post (to post-level topic).
+  """
+  def broadcast_post_version_deleted(blog_slug, post_slug, version) do
+    Manager.broadcast(
+      post_versions_topic(blog_slug, post_slug),
+      {:post_version_deleted, blog_slug, post_slug, version}
+    )
+  end
+
+  @doc """
+  Broadcasts that the live/published version changed (to post-level topic).
+  """
+  def broadcast_post_version_published(blog_slug, post_slug, version) do
+    Manager.broadcast(
+      post_versions_topic(blog_slug, post_slug),
+      {:post_version_published, blog_slug, post_slug, version}
+    )
+  end
 
   @doc """
   Returns the topic for a specific post's translation updates.
@@ -323,6 +375,123 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   """
   def broadcast_cache_changed(blog_slug) do
     Manager.broadcast(cache_topic(blog_slug), {:cache_changed, blog_slug})
+  end
+
+  @doc """
+  Broadcasts detailed cache operation info.
+  """
+  def broadcast_cache_operation(blog_slug, operation, metadata \\ %{}) do
+    Manager.broadcast(cache_topic(blog_slug), {:cache_operation, blog_slug, operation, metadata})
+  end
+
+  # ============================================================================
+  # AI Translation Progress
+  # ============================================================================
+
+  @doc """
+  Broadcasts that AI translation has started.
+  Sent to posts_topic for blog listing UI indicator.
+  """
+  def broadcast_translation_started(blog_slug, post_slug, target_languages) do
+    Manager.broadcast(
+      posts_topic(blog_slug),
+      {:translation_started, post_slug, length(target_languages)}
+    )
+  end
+
+  @doc """
+  Broadcasts that AI translation has completed (success or partial failure).
+  Sent to posts_topic to clear blog listing UI indicator.
+  """
+  def broadcast_translation_completed(blog_slug, post_slug, results) do
+    Manager.broadcast(
+      posts_topic(blog_slug),
+      {:translation_completed, post_slug, results}
+    )
+  end
+
+  # ============================================================================
+  # Editor Presence for Blog Listing
+  # ============================================================================
+
+  @doc """
+  Returns the global topic for editor activity across a blog.
+  Used by blog listing to show who's editing what.
+  """
+  def blog_editors_topic(blog_slug) do
+    "#{@topic_prefix}:#{blog_slug}:editors"
+  end
+
+  @doc """
+  Subscribes to editor activity for a blog (used by blog listing).
+  """
+  def subscribe_to_blog_editors(blog_slug) do
+    Manager.subscribe(blog_editors_topic(blog_slug))
+  end
+
+  @doc """
+  Unsubscribes from editor activity for a blog.
+  """
+  def unsubscribe_from_blog_editors(blog_slug) do
+    Manager.unsubscribe(blog_editors_topic(blog_slug))
+  end
+
+  @doc """
+  Broadcasts that a user started editing a post.
+  """
+  def broadcast_editor_joined(blog_slug, post_slug, user_info) do
+    Manager.broadcast(
+      blog_editors_topic(blog_slug),
+      {:editor_joined, post_slug, user_info}
+    )
+  end
+
+  @doc """
+  Broadcasts that a user stopped editing a post.
+  """
+  def broadcast_editor_left(blog_slug, post_slug, user_info) do
+    Manager.broadcast(
+      blog_editors_topic(blog_slug),
+      {:editor_left, post_slug, user_info}
+    )
+  end
+
+  # ============================================================================
+  # Bulk Operations Progress
+  # ============================================================================
+
+  @doc """
+  Returns the topic for bulk operation progress.
+  """
+  def bulk_operation_topic(blog_slug) do
+    "#{@topic_prefix}:#{blog_slug}:bulk_operations"
+  end
+
+  @doc """
+  Subscribes to bulk operation progress for a blog.
+  """
+  def subscribe_to_bulk_operations(blog_slug) do
+    Manager.subscribe(bulk_operation_topic(blog_slug))
+  end
+
+  @doc """
+  Broadcasts bulk operation progress.
+  """
+  def broadcast_bulk_operation_progress(blog_slug, operation_id, operation_type, completed, total) do
+    Manager.broadcast(
+      bulk_operation_topic(blog_slug),
+      {:bulk_operation_progress, operation_id, operation_type, completed, total}
+    )
+  end
+
+  @doc """
+  Broadcasts bulk operation completion.
+  """
+  def broadcast_bulk_operation_completed(blog_slug, operation_id, operation_type, results) do
+    Manager.broadcast(
+      bulk_operation_topic(blog_slug),
+      {:bulk_operation_completed, operation_id, operation_type, results}
+    )
   end
 
   # ============================================================================

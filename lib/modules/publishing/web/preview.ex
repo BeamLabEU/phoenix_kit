@@ -63,8 +63,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
             {:noreply,
              socket
              |> assign(:post, post)
-             |> assign(:blog_slug, post.blog)
-             |> assign(:blog_name, Publishing.group_name(post.blog) || post.blog)
+             |> assign(:blog_slug, post.group)
+             |> assign(:blog_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, rendered_html)
              |> assign(:preview_token, token)
              |> assign(:preview_data, data)
@@ -75,8 +75,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
             {:noreply,
              socket
              |> assign(:post, post)
-             |> assign(:blog_slug, post.blog)
-             |> assign(:blog_name, Publishing.group_name(post.blog) || post.blog)
+             |> assign(:blog_slug, post.group)
+             |> assign(:blog_name, Publishing.group_name(post.group) || post.group)
              |> assign(:rendered_content, nil)
              |> assign(:preview_token, token)
              |> assign(:preview_data, data)
@@ -176,7 +176,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       [language | available_languages] |> Enum.reject(&is_nil/1) |> Enum.uniq()
 
     %{
-      blog: blog_slug,
+      group: blog_slug,
       slug: metadata[:slug],
       date: nil,
       time: nil,

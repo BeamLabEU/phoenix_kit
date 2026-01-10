@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   """
   def render_post(post) do
-    if post.metadata.status == "published" and render_cache_enabled?(post.blog) do
+    if post.metadata.status == "published" and render_cache_enabled?(post.group) do
       cache_key = build_cache_key(post)
 
       case get_cached(cache_key) do
@@ -469,7 +469,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
     identifier = post.slug || extract_identifier_from_path(post.path)
 
-    "#{@cache_version}:blog_post:#{post.blog}:#{identifier}:#{post.language}:#{content_hash}"
+    "#{@cache_version}:blog_post:#{post.group}:#{identifier}:#{post.language}:#{content_hash}"
   end
 
   defp extract_identifier_from_path(path) when is_binary(path) do

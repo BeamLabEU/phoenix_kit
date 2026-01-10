@@ -530,6 +530,83 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   @doc """
+  Finds a post by URL slug for a specific language.
+
+  This enables O(1) lookup from URL slug to internal identifier, supporting
+  per-language URL slugs for SEO-friendly localized URLs.
+
+  ## Parameters
+  - `group_slug` - The publishing group
+  - `language` - The language code to search in
+  - `url_slug` - The URL slug to find
+
+  ## Returns
+  - `{:ok, cached_post}` - Found post (includes internal `slug` for file lookup)
+  - `{:error, :not_found}` - No post with this URL slug for this language
+  - `{:error, :cache_miss}` - Cache not available
+  """
+  @spec find_by_url_slug(String.t(), String.t(), String.t()) ::
+          {:ok, map()} | {:error, :not_found | :cache_miss}
+  def find_by_url_slug(group_slug, language, url_slug) do
+    case read(group_slug) do
+      {:ok, posts} -> find_post_by_url_slug(posts, language, url_slug)
+      {:error, _} -> {:error, :cache_miss}
+    end
+  end
+
+  defp find_post_by_url_slug(posts, language, url_slug) do
+    # Search by language_slugs map first
+    by_language_slug =
+      Enum.find(posts, &(Map.get(&1.language_slugs || %{}, language) == url_slug))
+
+    # Fallback: match by directory slug (backward compatibility)
+    by_directory_slug = Enum.find(posts, &(&1.slug == url_slug))
+
+    case by_language_slug || by_directory_slug do
+      nil -> {:error, :not_found}
+      post -> {:ok, post}
+    end
+  end
+
+  @doc """
+  Finds a post by a previous URL slug for 301 redirects.
+
+  When a URL slug changes, the old slug is stored in `previous_url_slugs`.
+  This function finds posts that previously used the given URL slug.
+
+  ## Returns
+  - `{:ok, cached_post}` - Found post that previously used this slug
+  - `{:error, :not_found}` - No post with this previous slug
+  - `{:error, :cache_miss}` - Cache not available
+  """
+  @spec find_by_previous_url_slug(String.t(), String.t(), String.t()) ::
+          {:ok, map()} | {:error, :not_found | :cache_miss}
+  def find_by_previous_url_slug(group_slug, language, url_slug) do
+    case read(group_slug) do
+      {:ok, posts} -> find_post_by_previous_slug(posts, language, url_slug)
+      {:error, _} -> {:error, :cache_miss}
+    end
+  end
+
+  defp find_post_by_previous_slug(posts, language, url_slug) do
+    case Enum.find(posts, &post_has_previous_slug?(&1, language, url_slug)) do
+      nil -> {:error, :not_found}
+      post -> {:ok, post}
+    end
+  end
+
+  defp post_has_previous_slug?(post, language, url_slug) do
+    # Check the per-language previous slugs map first
+    lang_previous_slugs = Map.get(post, :language_previous_slugs) || %{}
+    previous_for_lang = Map.get(lang_previous_slugs, language) || []
+
+    # Fallback: check metadata.previous_url_slugs for backward compatibility
+    metadata_previous = Map.get(post.metadata || %{}, :previous_url_slugs) || []
+
+    url_slug in previous_for_lang or url_slug in metadata_previous
+  end
+
+  @doc """
   Returns the cache file path for a publishing group.
   """
   @spec cache_path(String.t()) :: String.t()
@@ -640,9 +717,13 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   defp serialize_post(post) do
+    # Build both current and previous slugs for all languages
+    {language_slugs, language_previous_slugs} = build_all_language_slugs(post)
+
     %{
-      "blog" => post[:blog],
+      "group" => post[:group],
       "slug" => post[:slug],
+      "url_slug" => post[:url_slug] || post[:slug],
       "date" => serialize_date(post[:date]),
       "time" => serialize_time(post[:time]),
       "path" => post[:path],
@@ -651,6 +732,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "language" => post[:language],
       "available_languages" => post[:available_languages] || [],
       "language_statuses" => post[:language_statuses] || %{},
+      # Per-language URL slugs for SEO-friendly localized URLs
+      "language_slugs" => language_slugs,
+      # Per-language previous URL slugs for 301 redirects
+      "language_previous_slugs" => language_previous_slugs,
       "version" => post[:version],
       "available_versions" => post[:available_versions] || [],
       "version_statuses" => serialize_version_statuses(post[:version_statuses]),
@@ -660,6 +745,53 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       # Pre-compute excerpt for listing page (avoids needing full content)
       "excerpt" => extract_excerpt(post[:content], post[:metadata])
     }
+  end
+
+  # Build both language_slugs and language_previous_slugs maps
+  # Returns {language_slugs, language_previous_slugs}
+  # language_slugs: language -> current url_slug
+  # language_previous_slugs: language -> [previous_url_slugs]
+  defp build_all_language_slugs(post) do
+    current_lang = post[:language]
+    current_url_slug = post[:url_slug] || post[:slug]
+    current_previous = Map.get(post[:metadata] || %{}, :previous_url_slugs) || []
+    available_langs = post[:available_languages] || []
+    group_slug = post[:group] || post[:blog]
+    post_slug = post[:slug]
+
+    # Start with the current language's data
+    base_slugs = %{current_lang => current_url_slug}
+    base_previous = %{current_lang => current_previous}
+
+    # For each available language, read its url_slug and previous_url_slugs
+    {final_slugs, final_previous} =
+      Enum.reduce(available_langs, {base_slugs, base_previous}, fn lang, {slugs_acc, prev_acc} ->
+        if Map.has_key?(slugs_acc, lang) do
+          {slugs_acc, prev_acc}
+        else
+          # Read both url_slug and previous_url_slugs from this language's file
+          {url_slug, prev_slugs} = get_slugs_for_language(group_slug, post_slug, lang, post)
+          {Map.put(slugs_acc, lang, url_slug), Map.put(prev_acc, lang, prev_slugs)}
+        end
+      end)
+
+    {final_slugs, final_previous}
+  end
+
+  # Gets both url_slug and previous_url_slugs for a specific language
+  defp get_slugs_for_language(group_slug, post_slug, lang, post) do
+    case Storage.read_post_slug_mode(group_slug, post_slug, lang, nil) do
+      {:ok, lang_post} ->
+        url_slug = lang_post.url_slug
+        previous = Map.get(lang_post.metadata, :previous_url_slugs) || []
+        {url_slug, previous}
+
+      {:error, _} ->
+        # File doesn't exist or can't be read - use defaults
+        {post_slug, []}
+    end
+  rescue
+    _ -> {post[:slug] || post_slug, []}
   end
 
   # Extract excerpt: use description if available, otherwise extract from content
@@ -705,9 +837,11 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       "status" => Map.get(metadata, :status),
       "published_at" => Map.get(metadata, :published_at),
       "featured_image_id" => Map.get(metadata, :featured_image_id),
-      "is_live" => Map.get(metadata, :is_live),
       "version" => Map.get(metadata, :version),
-      "allow_version_access" => Map.get(metadata, :allow_version_access)
+      "allow_version_access" => Map.get(metadata, :allow_version_access),
+      "status_manual" => Map.get(metadata, :status_manual),
+      "url_slug" => Map.get(metadata, :url_slug),
+      "previous_url_slugs" => Map.get(metadata, :previous_url_slugs)
     }
   end
 
@@ -727,9 +861,13 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
   end
 
   defp normalize_post(post) when is_map(post) do
+    slug = post["slug"]
+
     %{
-      blog: post["blog"],
-      slug: post["slug"],
+      # Support both "group" (new) and "blog" (old cache) keys
+      group: post["group"] || post["blog"],
+      slug: slug,
+      url_slug: post["url_slug"] || slug,
       date: parse_date(post["date"]),
       time: parse_time(post["time"]),
       path: post["path"],
@@ -738,6 +876,10 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       language: post["language"],
       available_languages: post["available_languages"] || [],
       language_statuses: post["language_statuses"] || %{},
+      # Per-language URL slugs for SEO-friendly localized URLs
+      language_slugs: post["language_slugs"] || %{},
+      # Per-language previous URL slugs for 301 redirects
+      language_previous_slugs: post["language_previous_slugs"] || %{},
       version: post["version"],
       available_versions: post["available_versions"] || [],
       version_statuses: parse_version_statuses(post["version_statuses"]),
@@ -760,9 +902,11 @@ defmodule PhoenixKit.Modules.Publishing.ListingCache do
       status: metadata["status"],
       published_at: metadata["published_at"],
       featured_image_id: metadata["featured_image_id"],
-      is_live: metadata["is_live"],
       version: metadata["version"],
-      allow_version_access: metadata["allow_version_access"]
+      allow_version_access: metadata["allow_version_access"],
+      status_manual: metadata["status_manual"],
+      url_slug: metadata["url_slug"],
+      previous_url_slugs: metadata["previous_url_slugs"]
     }
   end
 
