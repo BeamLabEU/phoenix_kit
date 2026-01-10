@@ -308,6 +308,28 @@ defmodule PhoenixKit.Config.UeberAuth do
     end
   end
 
+  @doc """
+  Sets OAuth configuration for a specific provider strategy.
+
+  This configures the credentials (client_id, client_secret, etc.) for
+  individual OAuth provider strategies like Ueberauth.Strategy.Google.OAuth.
+
+  ## Examples
+
+      PhoenixKit.Config.UeberAuth.set_provider_strategy_config(
+        :google,
+        Ueberauth.Strategy.Google.OAuth,
+        [client_id: "...", client_secret: "..."]
+      )
+      :ok
+
+  """
+  @spec set_provider_strategy_config(atom(), module(), Keyword.t()) :: :ok
+  def set_provider_strategy_config(_provider, strategy_module, opts) when is_list(opts) do
+    Application.put_env(:ueberauth, strategy_module, opts)
+    :ok
+  end
+
   # Helper function to get the default base path based on URL prefix
   defp get_default_base_path do
     url_prefix = Config.get_url_prefix()

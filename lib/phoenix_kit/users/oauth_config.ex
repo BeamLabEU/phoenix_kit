@@ -135,7 +135,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.client_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :google,
+          Ueberauth.Strategy.Google.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Google OAuth provider")
       else
         Logger.warning("OAuth: Google enabled but credentials not configured")
@@ -160,7 +165,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           private_key: credentials.private_key
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Apple.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :apple,
+          Ueberauth.Strategy.Apple.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Apple OAuth provider")
       else
         Logger.warning("OAuth: Apple enabled but credentials not fully configured")
@@ -180,7 +190,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.client_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Github.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :github,
+          Ueberauth.Strategy.Github.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured GitHub OAuth provider")
       else
         Logger.warning("OAuth: GitHub enabled but credentials not configured")
@@ -200,7 +215,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.app_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :facebook,
+          Ueberauth.Strategy.Facebook.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Facebook OAuth provider")
       else
         Logger.warning("OAuth: Facebook enabled but credentials not configured")
