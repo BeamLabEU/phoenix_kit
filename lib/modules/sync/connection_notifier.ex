@@ -810,40 +810,9 @@ defmodule PhoenixKit.Modules.Sync.ConnectionNotifier do
   end
 
   defp get_our_site_url do
-    # Try to get our public URL from config
-    # Fall back to endpoint URL if available
     case Application.get_env(:phoenix_kit, :public_url) do
-      nil ->
-        # Try to detect from endpoint config
-        case get_endpoint_url() do
-          nil -> "http://localhost:4000"
-          url -> url
-        end
-
-      url ->
-        url
-    end
-  end
-
-  defp get_endpoint_url do
-    # Try to get URL from various common endpoint configurations
-    otp_app = Application.get_env(:phoenix_kit, :otp_app)
-
-    if otp_app do
-      endpoint = Module.concat([Macro.camelize("#{otp_app}"), "Web", "Endpoint"])
-
-      try do
-        endpoint_config = Application.get_env(otp_app, endpoint, [])
-        url_config = Keyword.get(endpoint_config, :url, [])
-        host = Keyword.get(url_config, :host, "localhost")
-        port = Keyword.get(url_config, :port, 4000)
-        scheme = Keyword.get(url_config, :scheme, "http")
-        "#{scheme}://#{host}:#{port}"
-      rescue
-        _ -> nil
-      end
-    else
-      nil
+      nil -> PhoenixKit.Config.get_dynamic_base_url()
+      url -> url
     end
   end
 
