@@ -84,9 +84,26 @@
   # Dialyzer can't infer types through blogging_module() helper
   ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
   ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match_cov/,
+  # Legal settings - read_post type inference false positives
+  ~r/lib\/modules\/legal\/web\/settings\.ex:.*pattern_match/,
 
   # ConsentLog schema - changeset type spec with empty struct
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*invalid_contract/,
   ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*no_return/,
-  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/
+  ~r/lib\/modules\/legal\/schemas\/consent_log\.ex:.*call/,
+
+  # Publishing module - with-chain type inference false positives
+  # Dialyzer incorrectly infers read_post/update_post only return errors in certain contexts
+  # The actual functions return both {:ok, post} and {:error, reason} at runtime
+  ~r/lib\/modules\/publishing\/storage\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
+
+  # BlogController - with-chain type inference false positives
+  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match/,
+  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match_cov/
 ]

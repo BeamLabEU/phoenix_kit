@@ -17,6 +17,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Slug
 
+  require Logger
+
   # Suppress dialyzer false positives for pattern matches where dialyzer incorrectly infers types.
   @dialyzer {:nowarn_function, add_language_to_post: 3}
   @dialyzer {:nowarn_function, add_language_to_post_slug_mode: 4}
@@ -300,6 +302,103 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
+  # Reserved route words that cannot be used as URL slugs
+  @reserved_route_words ~w(admin api assets phoenix_kit auth login logout register settings)
+
+  @doc """
+  Validates a per-language URL slug for uniqueness within a group+language combination.
+
+  URL slugs have the same format requirements as directory slugs, plus:
+  - Cannot be reserved route words (admin, api, assets, etc.)
+  - Must be unique within the group+language combination
+
+  ## Parameters
+  - `group_slug` - The publishing group
+  - `url_slug` - The URL slug to validate
+  - `language` - The language code
+  - `exclude_post_slug` - Optional post slug to exclude from uniqueness check (for updates)
+
+  ## Returns
+  - `{:ok, url_slug}` - Valid and unique
+  - `{:error, :invalid_format}` - Invalid format
+  - `{:error, :reserved_language_code}` - Is a language code
+  - `{:error, :reserved_route_word}` - Is a reserved route word
+  - `{:error, :slug_already_exists}` - Already in use for this language
+  """
+  @spec validate_url_slug(String.t(), String.t(), String.t(), String.t() | nil) ::
+          {:ok, String.t()} | {:error, atom()}
+  def validate_url_slug(group_slug, url_slug, language, exclude_post_slug \\ nil) do
+    cond do
+      not Regex.match?(@slug_pattern, url_slug) ->
+        {:error, :invalid_format}
+
+      reserved_language_code?(url_slug) ->
+        {:error, :reserved_language_code}
+
+      url_slug in @reserved_route_words ->
+        {:error, :reserved_route_word}
+
+      url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) ->
+        {:error, :slug_already_exists}
+
+      true ->
+        {:ok, url_slug}
+    end
+  end
+
+  # Check if a URL slug already exists for a language within a group
+  defp url_slug_exists?(group_slug, url_slug, language, exclude_post_slug) do
+    # Use cache to check for existing URL slugs
+    alias PhoenixKit.Modules.Publishing.ListingCache
+
+    case ListingCache.read(group_slug) do
+      {:ok, posts} ->
+        Enum.any?(posts, fn post ->
+          # Skip the post we're updating
+          post.slug != exclude_post_slug and
+            Map.get(post.language_slugs || %{}, language) == url_slug
+        end)
+
+      {:error, _} ->
+        # Cache miss - fall back to filesystem scan
+        url_slug_exists_in_filesystem?(group_slug, url_slug, language, exclude_post_slug)
+    end
+  end
+
+  # Fallback: scan filesystem for URL slug conflicts
+  defp url_slug_exists_in_filesystem?(group_slug, url_slug, language, exclude_post_slug) do
+    group_path = group_path(group_slug)
+
+    if File.dir?(group_path) do
+      group_path
+      |> File.ls!()
+      |> Enum.filter(&File.dir?(Path.join(group_path, &1)))
+      |> Enum.reject(&(&1 == exclude_post_slug))
+      |> Enum.any?(fn post_slug ->
+        # Check if this post has the url_slug for this language
+        case read_post_url_slug(group_slug, post_slug, language) do
+          {:ok, existing_url_slug} -> existing_url_slug == url_slug
+          _ -> false
+        end
+      end)
+    else
+      false
+    end
+  end
+
+  # Read the url_slug from a post's language file
+  defp read_post_url_slug(group_slug, post_slug, language) do
+    # Try versioned structure first, then legacy
+    case read_post_slug_mode(group_slug, post_slug, language, nil) do
+      {:ok, post} ->
+        url_slug = Map.get(post.metadata, :url_slug) || post_slug
+        {:ok, url_slug}
+
+      error ->
+        error
+    end
+  end
+
   # Check if slug is a reserved language code
   defp reserved_language_code?(slug) do
     language_codes =
@@ -395,7 +494,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   - `version_statuses`: Map of version => status for quick lookup
   """
   @type post :: %{
-          blog: String.t() | nil,
+          group: String.t() | nil,
           slug: String.t() | nil,
           date: Date.t() | nil,
           time: Time.t() | nil,
@@ -720,31 +819,47 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   @doc """
-  Gets the live version number for a post (the one with is_live: true).
-  Falls back to latest published if no version is explicitly marked as live.
+  Gets the published version number for a post.
+  Only ONE version can have status: "published" at a time in the variant versioning model.
+  Falls back to checking legacy is_live field for unmigrated posts.
   """
-  @spec get_live_version(String.t(), String.t()) :: {:ok, integer()} | {:error, :not_found}
-  def get_live_version(group_slug, post_slug) do
+  @spec get_published_version(String.t(), String.t()) :: {:ok, integer()} | {:error, :not_found}
+  def get_published_version(group_slug, post_slug) do
     versions = list_versions(group_slug, post_slug)
     primary_language = get_master_language()
 
-    # Find version marked as live
-    live_version =
+    # Find version with status: "published"
+    published_version =
       Enum.find(versions, fn version ->
         case get_version_metadata(group_slug, post_slug, version, primary_language) do
-          {:ok, metadata} -> metadata[:is_live] == true
+          {:ok, metadata} -> Map.get(metadata, :status) == "published"
           _ -> false
         end
       end)
 
-    case live_version do
-      nil ->
-        # Fall back to latest published
-        get_latest_published_version(group_slug, post_slug)
+    # Fall back to legacy is_live for unmigrated posts
+    published_version =
+      published_version ||
+        Enum.find(versions, fn version ->
+          case get_version_metadata(group_slug, post_slug, version, primary_language) do
+            {:ok, metadata} -> Map.get(metadata, :legacy_is_live) == true
+            _ -> false
+          end
+        end)
 
-      version ->
-        {:ok, version}
+    case published_version do
+      nil -> {:error, :not_found}
+      version -> {:ok, version}
     end
+  end
+
+  @doc """
+  Deprecated: Use get_published_version/2 instead.
+  """
+  @deprecated "Use get_published_version/2 instead"
+  @spec get_live_version(String.t(), String.t()) :: {:ok, integer()} | {:error, :not_found}
+  def get_live_version(group_slug, post_slug) do
+    get_published_version(group_slug, post_slug)
   end
 
   @doc """
@@ -842,12 +957,220 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   @doc """
+  Creates a new version of a post from a specified source version or blank.
+
+  ## Parameters
+  - group_slug: The publishing group
+  - post_slug: The post identifier
+  - source_version: Version to copy from (nil for blank new version)
+  - params: Content/metadata updates to apply
+  - audit_meta: Audit metadata (created_by, etc.)
+
+  ## Behavior
+  - If source_version is nil: Creates blank version with only default metadata
+  - If source_version is integer: Copies all language files from that version
+  - New version always starts as draft
+  - version_created_from records the source version (nil if blank)
+
+  ## Returns
+  {:ok, post} with the new version's primary language file
+  {:error, reason} on failure
+  """
+  @spec create_version_from(String.t(), String.t(), integer() | nil, map(), map()) ::
+          {:ok, post()} | {:error, any()}
+  def create_version_from(group_slug, post_slug, source_version, params \\ %{}, audit_meta \\ %{})
+
+  def create_version_from(group_slug, post_slug, nil, params, audit_meta) do
+    # Create blank new version
+    create_blank_version(group_slug, post_slug, params, audit_meta)
+  end
+
+  def create_version_from(group_slug, post_slug, source_version, params, audit_meta)
+      when is_integer(source_version) do
+    post_path = Path.join([group_path(group_slug), post_slug])
+    source_dir = Path.join(post_path, "v#{source_version}")
+
+    if File.dir?(source_dir) do
+      create_version_from_source(group_slug, post_slug, source_version, params, audit_meta)
+    else
+      {:error, :source_version_not_found}
+    end
+  end
+
+  defp create_blank_version(group_slug, post_slug, params, audit_meta) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    # Get next version number
+    versions = list_versions(group_slug, post_slug)
+    new_version = if versions == [], do: 1, else: Enum.max(versions) + 1
+
+    new_version_dir = Path.join(post_path, "v#{new_version}")
+    master_language = get_master_language()
+
+    case File.mkdir(new_version_dir) do
+      :ok ->
+        # Create blank master language file
+        metadata =
+          %{
+            status: "draft",
+            slug: post_slug,
+            title: Map.get(params, "title", ""),
+            published_at: DateTime.to_iso8601(now),
+            version: new_version,
+            version_created_at: DateTime.to_iso8601(now),
+            version_created_from: nil,
+            status_manual: false,
+            allow_version_access: false
+          }
+          |> apply_creation_audit_metadata(audit_meta)
+
+        content = Map.get(params, "content", "")
+        serialized = Metadata.serialize(metadata) <> "\n\n" <> String.trim_leading(content)
+
+        master_file = Path.join(new_version_dir, language_filename(master_language))
+        File.write!(master_file, serialized <> "\n")
+
+        # Return the new post - use appropriate read function based on mode
+        read_new_version(group_slug, post_slug, master_language, new_version)
+
+      {:error, :eexist} ->
+        # Race condition, retry
+        create_blank_version(group_slug, post_slug, params, audit_meta)
+
+      {:error, :enoent} ->
+        # Post directory doesn't exist yet
+        File.mkdir_p!(post_path)
+        create_blank_version(group_slug, post_slug, params, audit_meta)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  # Read a newly created version, detecting mode from the identifier
+  defp read_new_version(group_slug, identifier, language, version) do
+    if timestamp_mode_identifier?(identifier) do
+      # Timestamp mode: identifier is "YYYY-MM-DD/HH:MM"
+      [date_str, time_str] = String.split(identifier, "/", parts: 2)
+      path = "#{group_slug}/#{date_str}/#{time_str}/v#{version}/#{language}.phk"
+      read_post(group_slug, path)
+    else
+      # Slug mode
+      read_post_slug_mode(group_slug, identifier, language, version)
+    end
+  end
+
+  # Check if identifier is a timestamp mode path (contains date/time pattern)
+  defp timestamp_mode_identifier?(identifier) do
+    case String.split(identifier, "/", parts: 2) do
+      [date_part, _time_part] ->
+        # Check if first part looks like a date (YYYY-MM-DD)
+        case Date.from_iso8601(date_part) do
+          {:ok, _} -> true
+          _ -> false
+        end
+
+      _ ->
+        false
+    end
+  end
+
+  defp create_version_from_source(group_slug, post_slug, source_version, params, audit_meta) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    post_path = Path.join([group_path(group_slug), post_slug])
+    source_dir = Path.join(post_path, "v#{source_version}")
+
+    # Get next version number
+    versions = list_versions(group_slug, post_slug)
+    new_version = Enum.max(versions) + 1
+
+    new_version_dir = Path.join(post_path, "v#{new_version}")
+    master_language = get_master_language()
+
+    case File.mkdir(new_version_dir) do
+      :ok ->
+        # Copy all language files from source
+        {:ok, files} = File.ls(source_dir)
+        phk_files = Enum.filter(files, &String.ends_with?(&1, ".phk"))
+
+        Enum.each(phk_files, fn file ->
+          source_file = Path.join(source_dir, file)
+          target_file = Path.join(new_version_dir, file)
+          language = Path.rootname(file)
+          is_master = language == master_language
+
+          copy_file_for_branching(
+            source_file,
+            target_file,
+            new_version,
+            source_version,
+            now,
+            is_master,
+            params,
+            audit_meta
+          )
+        end)
+
+        # Return the new post - use appropriate read function based on mode
+        read_new_version(group_slug, post_slug, master_language, new_version)
+
+      {:error, :eexist} ->
+        # Race condition, retry
+        create_version_from_source(group_slug, post_slug, source_version, params, audit_meta)
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp copy_file_for_branching(
+         source,
+         target,
+         new_ver,
+         source_ver,
+         now,
+         is_master,
+         params,
+         audit_meta
+       ) do
+    {:ok, content} = File.read(source)
+    {:ok, metadata, body} = Metadata.parse_with_content(content)
+
+    new_metadata =
+      metadata
+      |> Map.put(:version, new_ver)
+      |> Map.put(:version_created_at, DateTime.to_iso8601(now))
+      |> Map.put(:version_created_from, source_ver)
+      |> Map.put(:status, "draft")
+      |> Map.put(:status_manual, false)
+      |> Map.delete(:is_live)
+      |> Map.delete(:legacy_is_live)
+      |> apply_creation_audit_metadata(audit_meta)
+
+    # Only apply content/title changes to master language
+    new_metadata =
+      if is_master do
+        new_metadata
+        |> Map.put(:title, Map.get(params, "title", Map.get(metadata, :title, "")))
+        |> Map.put(:featured_image_id, resolve_featured_image_id(params, metadata))
+      else
+        new_metadata
+      end
+
+    new_content = if is_master, do: Map.get(params, "content", body), else: body
+
+    serialized = Metadata.serialize(new_metadata) <> "\n\n" <> String.trim_leading(new_content)
+    File.write!(target, serialized <> "\n")
+  end
+
+  @doc """
   Creates a new version of a slug-mode post by copying from the source version.
 
   The new version:
   - Gets the next version number
   - Copies all language files from the source version
-  - Starts as draft (is_live: false)
+  - Starts as draft
   - Applies any content/metadata updates from params
 
   Returns the new post struct for the primary language.
@@ -1086,8 +1409,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         |> Map.put(:version, new_version)
         |> Map.put(:version_created_at, DateTime.to_iso8601(now))
         |> Map.put(:version_created_from, source_post.version || 1)
-        |> Map.put(:is_live, false)
         |> Map.put(:status, "draft")
+        |> Map.put(:status_manual, false)
+        |> Map.delete(:is_live)
+        |> Map.delete(:legacy_is_live)
         |> then(fn meta ->
           if editing_master? do
             meta
@@ -1110,37 +1435,161 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   @doc """
-  Sets a version as the live version, clearing is_live from all other versions.
-  Called when publishing a new version.
+  Publishes a version, atomically archiving all other versions.
+
+  Only ONE version can have status: "published" at a time. Publishing a version:
+  1. Sets this version's master language status to "published"
+  2. Archives any other version that was previously published (status: "archived")
+  3. Updates translation statuses based on inheritance rules
+
+  Translation status inheritance:
+  - If translation has status_manual: true, keep its current status
+  - If translation has status_manual: false AND has content, inherit master status
+  - If translation has no content, remain at its current status
+
+  Returns :ok on success, {:error, reason} on failure.
   """
-  @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
-  def set_version_live(group_slug, post_slug, live_version) do
+  @spec publish_version(String.t(), String.t(), integer()) :: :ok | {:error, any()}
+  def publish_version(group_slug, post_slug, version_to_publish) do
     post_path = Path.join([group_path(group_slug), post_slug])
     versions = list_versions(group_slug, post_slug)
 
-    Enum.each(versions, fn version ->
-      version_dir =
-        case detect_post_structure(post_path) do
-          :versioned -> Path.join(post_path, "v#{version}")
-          :legacy -> post_path
-        end
+    if version_to_publish in versions do
+      do_publish_version(post_path, versions, version_to_publish)
+    else
+      {:error, :version_not_found}
+    end
+  end
 
-      # Update is_live for all language files in this version
-      case File.ls(version_dir) do
-        {:ok, files} ->
-          files
-          |> Enum.filter(&String.ends_with?(&1, ".phk"))
-          |> Enum.each(fn file ->
-            file_path = Path.join(version_dir, file)
-            update_is_live_in_file(file_path, version == live_version)
-          end)
+  defp do_publish_version(post_path, versions, version_to_publish) do
+    master_language = get_master_language()
 
-        {:error, _} ->
-          :ok
-      end
-    end)
+    results =
+      Enum.flat_map(versions, fn version ->
+        version_dir = get_version_dir(post_path, version)
 
-    :ok
+        update_version_files_for_publish(
+          version_dir,
+          version,
+          version_to_publish,
+          master_language
+        )
+      end)
+
+    case Enum.find(results, &(&1 != :ok)) do
+      nil -> :ok
+      error -> error
+    end
+  end
+
+  defp get_version_dir(post_path, version) do
+    case detect_post_structure(post_path) do
+      :versioned -> Path.join(post_path, "v#{version}")
+      :legacy -> post_path
+    end
+  end
+
+  defp update_version_files_for_publish(version_dir, version, version_to_publish, master_language) do
+    case File.ls(version_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.map(
+          &update_phk_file_for_publish(
+            &1,
+            version_dir,
+            version,
+            version_to_publish,
+            master_language
+          )
+        )
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp update_phk_file_for_publish(
+         file,
+         version_dir,
+         version,
+         version_to_publish,
+         master_language
+       ) do
+    file_path = Path.join(version_dir, file)
+    language = Path.rootname(file)
+
+    update_file_for_publish(file_path, %{
+      is_master: language == master_language,
+      is_target_version: version == version_to_publish
+    })
+  end
+
+  # Updates a single file's status for publishing
+  defp update_file_for_publish(file_path, opts) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, body} = Metadata.parse_with_content(content)
+
+        new_status = calculate_publish_status(metadata, body, opts)
+
+        updated_metadata =
+          metadata
+          |> Map.put(:status, new_status)
+          |> Map.delete(:is_live)
+          |> Map.delete(:legacy_is_live)
+
+        serialized =
+          Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
+
+        File.write(file_path, serialized <> "\n")
+
+      {:error, reason} ->
+        {:error, {:read_failed, reason}}
+    end
+  end
+
+  defp calculate_publish_status(metadata, body, opts) do
+    current_status = Map.get(metadata, :status, "draft")
+
+    cond do
+      # Target version's master file gets published
+      opts.is_master and opts.is_target_version ->
+        "published"
+
+      # Other versions' master files: only archive if currently published, leave drafts alone
+      opts.is_master ->
+        if current_status == "published", do: "archived", else: current_status
+
+      # Translation with manual override keeps its status
+      Map.get(metadata, :status_manual, false) ->
+        current_status
+
+      # Translation without content stays at current status
+      String.trim(body) == "" ->
+        current_status
+
+      # Translation with content on target version inherits "published"
+      opts.is_target_version ->
+        "published"
+
+      # Translation with content on other versions: only archive if currently published
+      current_status == "published" ->
+        "archived"
+
+      # Leave drafts and archived translations alone
+      true ->
+        current_status
+    end
+  end
+
+  @doc """
+  Deprecated: Use publish_version/3 instead.
+  """
+  @deprecated "Use publish_version/3 instead"
+  @spec set_version_live(String.t(), String.t(), integer()) :: :ok | {:error, any()}
+  def set_version_live(group_slug, post_slug, version) do
+    publish_version(group_slug, post_slug, version)
   end
 
   @doc """
@@ -1218,7 +1667,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp migrate_single_file_to_v1(post_dir, v1_dir, filename, now, source_metadata) do
+  defp migrate_single_file_to_v1(post_dir, v1_dir, filename, now, _source_metadata) do
     source_path = Path.join(post_dir, filename)
     target_path = Path.join(v1_dir, filename)
 
@@ -1232,7 +1681,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
           |> Map.put_new(:version, 1)
           |> Map.put_new(:version_created_at, DateTime.to_iso8601(now))
           |> Map.put_new(:version_created_from, nil)
-          |> Map.put_new(:is_live, Map.get(source_metadata, :status) == "published")
+          |> Map.put_new(:status_manual, false)
+          |> Map.delete(:is_live)
+          |> Map.delete(:legacy_is_live)
 
         # Serialize and write to v1/
         serialized = Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
@@ -1254,17 +1705,276 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  # Update is_live field in a single file
-  defp update_is_live_in_file(file_path, is_live) do
+  @doc """
+  Sets the status of a translation file, marking it as manually overridden.
+
+  When status_manual is true, the translation's status won't be changed by
+  publish_version/3 operations - it keeps its independent status.
+  """
+  @spec set_translation_status(String.t(), String.t(), integer(), String.t(), String.t()) ::
+          :ok | {:error, any()}
+  def set_translation_status(group_slug, post_slug, version, language, status) do
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    file_path =
+      case detect_post_structure(post_path) do
+        :versioned -> Path.join([post_path, "v#{version}", language_filename(language)])
+        :legacy -> Path.join([post_path, language_filename(language)])
+      end
+
     case File.read(file_path) do
       {:ok, content} ->
         {:ok, metadata, body} = Metadata.parse_with_content(content)
-        updated_metadata = Map.put(metadata, :is_live, is_live)
-        serialized = Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
-        File.write!(file_path, serialized <> "\n")
+
+        updated_metadata =
+          metadata
+          |> Map.put(:status, status)
+          |> Map.put(:status_manual, true)
+          |> Map.delete(:is_live)
+          |> Map.delete(:legacy_is_live)
+
+        serialized =
+          Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(body)
+
+        File.write(file_path, serialized <> "\n")
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Migrates a versioned post from the old `is_live` field system to the new status-only system.
+
+  This function:
+  1. Scans all versions to find which should be published
+  2. If multiple versions have `is_live: true`, uses the highest version (logs warning)
+  3. If no `is_live` found, uses the version with `status: "published"`
+  4. If no published version, leaves all as-is (all drafts)
+  5. Sets the chosen version to `status: "published"`
+  6. Archives all other versions that were `status: "published"`
+  7. Removes `is_live` field from ALL version files
+  8. Initializes `status_manual: false` on all translation files
+
+  Returns `:ok` on success, `{:error, :already_migrated}` if no `is_live` fields found,
+  or `{:error, reason}` on failure.
+
+  ## Options
+
+    * `:dry_run` - If true, returns proposed changes without writing (default: false)
+  """
+  @spec migrate_post_to_status_only(String.t(), String.t(), keyword()) ::
+          :ok | {:ok, list()} | {:error, any()}
+  def migrate_post_to_status_only(group_slug, post_slug, opts \\ []) do
+    dry_run = Keyword.get(opts, :dry_run, false)
+    post_path = Path.join([group_path(group_slug), post_slug])
+
+    case detect_post_structure(post_path) do
+      :versioned ->
+        versions = list_versions(group_slug, post_slug)
+        do_migrate_post_to_status_only(post_path, versions, dry_run)
+
+      :legacy ->
+        # Legacy posts don't have versioning yet, skip
+        {:error, :legacy_structure}
+    end
+  end
+
+  defp do_migrate_post_to_status_only(post_path, versions, dry_run) do
+    if Enum.empty?(versions) do
+      {:error, :no_versions}
+    else
+      primary_lang = get_master_language()
+      changes = collect_migration_changes(post_path, versions, primary_lang)
+
+      # Check if any files actually have is_live
+      has_is_live = Enum.any?(changes, fn c -> c.had_is_live end)
+
+      cond do
+        not has_is_live and not dry_run ->
+          {:error, :already_migrated}
+
+        dry_run ->
+          {:ok, changes}
+
+        true ->
+          apply_migration_changes(changes)
+      end
+    end
+  end
+
+  defp collect_migration_changes(post_path, versions, primary_lang) do
+    version_info = collect_version_info(post_path, versions, primary_lang)
+    target_version = determine_target_version(version_info, post_path)
+
+    Enum.flat_map(versions, fn version ->
+      collect_version_file_changes(post_path, version, target_version, primary_lang)
+    end)
+  end
+
+  defp collect_version_info(post_path, versions, primary_lang) do
+    Enum.map(versions, fn version ->
+      file_path = Path.join([post_path, "v#{version}", language_filename(primary_lang)])
+      read_version_metadata(file_path, version)
+    end)
+  end
+
+  defp read_version_metadata(file_path, version) do
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, _body} = Metadata.parse_with_content(content)
+
+        %{
+          version: version,
+          has_is_live: Map.get(metadata, :legacy_is_live) == true,
+          status: Map.get(metadata, :status, "draft")
+        }
 
       {:error, _} ->
-        :ok
+        %{version: version, has_is_live: false, status: "draft"}
+    end
+  end
+
+  defp determine_target_version(version_info, post_path) do
+    live_versions = Enum.filter(version_info, & &1.has_is_live)
+    published_versions = Enum.filter(version_info, &(&1.status == "published"))
+
+    cond do
+      live_versions == [] and published_versions == [] ->
+        nil
+
+      live_versions == [] ->
+        published_versions |> Enum.max_by(& &1.version) |> Map.get(:version)
+
+      length(live_versions) == 1 ->
+        hd(live_versions).version
+
+      true ->
+        Logger.warning(
+          "[Storage] Multiple versions have is_live=true for #{post_path}, using highest: #{Enum.map_join(live_versions, ", ", & &1.version)}"
+        )
+
+        live_versions |> Enum.max_by(& &1.version) |> Map.get(:version)
+    end
+  end
+
+  defp collect_version_file_changes(post_path, version, target_version, primary_lang) do
+    version_dir = Path.join(post_path, "v#{version}")
+    is_target = version == target_version
+
+    case File.ls(version_dir) do
+      {:ok, files} ->
+        files
+        |> Enum.filter(&String.ends_with?(&1, ".phk"))
+        |> Enum.map(&build_file_change(&1, version_dir, version, is_target, primary_lang))
+        |> Enum.reject(&is_nil/1)
+
+      {:error, _} ->
+        []
+    end
+  end
+
+  defp build_file_change(filename, version_dir, version, is_target, primary_lang) do
+    file_path = Path.join(version_dir, filename)
+    lang = String.trim_trailing(filename, ".phk")
+    is_master = lang == primary_lang
+
+    case File.read(file_path) do
+      {:ok, content} ->
+        {:ok, metadata, body} = Metadata.parse_with_content(content)
+        old_status = Map.get(metadata, :status, "draft")
+        new_status = calculate_migration_status(metadata, body, is_master, is_target, old_status)
+
+        %{
+          file_path: file_path,
+          version: version,
+          language: lang,
+          is_master: is_master,
+          had_is_live: Map.get(metadata, :legacy_is_live) == true,
+          old_status: old_status,
+          new_status: new_status,
+          body: body,
+          metadata: metadata
+        }
+
+      {:error, _} ->
+        nil
+    end
+  end
+
+  defp calculate_migration_status(metadata, body, is_master, is_target, old_status) do
+    has_manual_status = Map.get(metadata, :status_manual, false)
+    has_content = String.trim(body) != ""
+
+    cond do
+      is_master and is_target -> "published"
+      is_master and old_status == "published" -> "archived"
+      is_master -> old_status
+      has_manual_status -> old_status
+      not has_content -> old_status
+      is_target -> "published"
+      old_status == "published" -> "archived"
+      true -> old_status
+    end
+  end
+
+  defp apply_migration_changes(changes) do
+    results =
+      Enum.map(changes, fn change ->
+        updated_metadata =
+          change.metadata
+          |> Map.put(:status, change.new_status)
+          |> Map.put_new(:status_manual, false)
+          |> Map.delete(:is_live)
+          |> Map.delete(:legacy_is_live)
+
+        serialized =
+          Metadata.serialize(updated_metadata) <> "\n\n" <> String.trim_leading(change.body)
+
+        case File.write(change.file_path, serialized <> "\n") do
+          :ok -> :ok
+          {:error, reason} -> {:error, {change.file_path, reason}}
+        end
+      end)
+
+    errors = Enum.reject(results, &(&1 == :ok))
+
+    if Enum.empty?(errors) do
+      :ok
+    else
+      {:error, {:partial_failure, errors}}
+    end
+  end
+
+  @doc """
+  Migrates all posts in a group from `is_live` to status-only system.
+
+  Returns a map of post_slug => result for each post.
+
+  ## Examples
+
+      iex> Storage.migrate_group_to_status_only("blog")
+      %{"post-1" => :ok, "post-2" => {:error, :already_migrated}, ...}
+  """
+  @spec migrate_group_to_status_only(String.t()) :: map()
+  def migrate_group_to_status_only(group_slug) do
+    group_dir = group_path(group_slug)
+
+    case File.ls(group_dir) do
+      {:ok, entries} ->
+        entries
+        |> Enum.filter(fn entry ->
+          path = Path.join(group_dir, entry)
+          File.dir?(path) and not String.starts_with?(entry, ".")
+        end)
+        |> Enum.map(fn post_slug ->
+          result = migrate_post_to_status_only(group_slug, post_slug)
+          {post_slug, result}
+        end)
+        |> Map.new()
+
+      {:error, reason} ->
+        %{error: reason}
     end
   end
 
@@ -1311,25 +2021,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   @doc """
   Determines if a new version should be created based on the edit context.
 
-  A new version is created when:
-  1. The post is published (status == "published")
-  2. Content or title is being changed (not just status change)
-  3. This is the master language (translations don't trigger new versions)
+  With variant versioning, new versions are created explicitly via the "New Version" button.
+  Auto-version creation is disabled - edits save directly to the current version.
   """
   @spec should_create_new_version?(post(), map(), String.t()) :: boolean()
-  def should_create_new_version?(post, params, editing_language) do
-    # Check if post is currently published
-    is_published? = Map.get(post.metadata, :status) == "published"
-
-    # Check if this is the master language (uses explicit content language setting)
-    master_language = get_master_language()
-    is_master_language? = editing_language == master_language
-
-    # Check if content is changing (not just status)
-    content_is_changing? = content_changed?(post, params)
-
-    # Only create new version if all conditions are met
-    is_published? and is_master_language? and content_is_changing?
+  def should_create_new_version?(_post, _params, _editing_language) do
+    # Auto-version creation disabled - users create new versions explicitly
+    false
   end
 
   @doc """
@@ -1584,8 +2282,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       not File.dir?(version_dir) ->
         {:error, :version_not_found}
 
-      version_is_live?(group_slug, post_identifier, version) ->
-        {:error, :cannot_delete_live_version}
+      version_is_published?(group_slug, post_identifier, version) ->
+        {:error, :cannot_delete_published_version}
 
       only_version?(post_dir) ->
         {:error, :cannot_delete_last_version}
@@ -1608,8 +2306,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp version_is_live?(group_slug, post_identifier, version) do
-    case get_live_version(group_slug, post_identifier) do
+  defp version_is_published?(group_slug, post_identifier, version) do
+    case get_published_version(group_slug, post_identifier) do
       {:ok, ^version} -> true
       _ -> false
     end
@@ -1777,7 +2475,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
               [
                 %{
-                  blog: group_slug,
+                  group: group_slug,
                   slug: Map.get(metadata, :slug, format_time_folder(time)),
                   date: date,
                   time: time,
@@ -1831,7 +2529,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
               [
                 %{
-                  blog: group_slug,
+                  group: group_slug,
                   slug: Map.get(metadata, :slug, format_time_folder(time)),
                   date: date,
                   time: time,
@@ -2074,7 +2772,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         version: version,
         version_created_at: DateTime.to_iso8601(now),
         version_created_from: nil,
-        is_live: false
+        status_manual: false,
+        allow_version_access: false
       }
       |> apply_creation_audit_metadata(audit_meta)
 
@@ -2085,8 +2784,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       :ok ->
         {:ok,
          %{
-           blog: group_slug,
+           group: group_slug,
            slug: post_slug,
+           url_slug: post_slug,
            date: nil,
            time: nil,
            path:
@@ -2200,10 +2900,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     is_legacy = detect_post_structure(post_path) == :legacy
 
+    # Get url_slug from metadata, default to directory slug
+    url_slug = metadata_value(metadata, :url_slug) || post_slug
+
     [
       %{
-        blog: group_slug,
+        group: group_slug,
         slug: post_slug,
+        url_slug: url_slug,
         date: nil,
         time: nil,
         path: relative_path,
@@ -2319,10 +3023,14 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       # Check if this is a legacy structure
       is_legacy = structure == :legacy
 
+      # Get url_slug from metadata, default to directory slug
+      url_slug = metadata_value(metadata, :url_slug) || post_slug
+
       {:ok,
        %{
-         blog: group_slug,
+         group: group_slug,
          slug: post_slug,
+         url_slug: url_slug,
          date: nil,
          time: nil,
          path: relative_path,
@@ -2422,13 +3130,13 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     update_post_slug_in_place(group_slug, post, params, Map.new(audit_meta))
   end
 
-  def update_post_slug_in_place(group_slug, post, params, audit_meta) do
+  def update_post_slug_in_place(_group_slug, post, params, audit_meta) do
     audit_meta = Map.new(audit_meta)
 
     current_status = metadata_value(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
     becoming_published? = current_status != "published" and new_status == "published"
-    version = Map.get(post.metadata, :version, 1)
+    _version = Map.get(post.metadata, :version, 1)
 
     metadata = build_update_metadata(post, params, audit_meta, becoming_published?)
     content = Map.get(params, "content", post.content)
@@ -2436,7 +3144,10 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     case File.write(post.full_path, serialized <> "\n") do
       :ok ->
-        if becoming_published?, do: set_version_live(group_slug, post.slug, version)
+        # NOTE: We no longer automatically call publish_version here.
+        # The LiveView is responsible for calling publish_version when the master
+        # language is published, which properly archives other versions.
+        # This allows translations to update their status independently.
         {:ok, %{post | metadata: metadata, content: content}}
 
       {:error, reason} ->
@@ -2444,14 +3155,25 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp build_update_metadata(post, params, audit_meta, becoming_published?) do
+  defp build_update_metadata(post, params, audit_meta, _becoming_published?) do
     current_title =
       metadata_value(post.metadata, :title) ||
         Metadata.extract_title_from_content(post.content || "")
 
     current_status = metadata_value(post.metadata, :status, "draft")
     new_status = Map.get(params, "status", current_status)
-    is_live = if becoming_published?, do: true, else: Map.get(post.metadata, :is_live, false)
+
+    # Check if status is being changed by a non-master language editor
+    is_master_language = Map.get(audit_meta, :is_master_language, true)
+    status_changing = new_status != current_status
+
+    # Set status_manual: true when a translator manually changes status
+    status_manual =
+      if status_changing and not is_master_language do
+        true
+      else
+        Map.get(post.metadata, :status_manual, false)
+      end
 
     post.metadata
     |> Map.put(:title, Map.get(params, "title", current_title))
@@ -2466,9 +3188,60 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     |> Map.put(:version, Map.get(post.metadata, :version, 1))
     |> Map.put(:version_created_at, Map.get(post.metadata, :version_created_at))
     |> Map.put(:version_created_from, Map.get(post.metadata, :version_created_from))
-    |> Map.put(:is_live, is_live)
+    |> Map.put(:status_manual, status_manual)
     |> Map.put(:allow_version_access, resolve_allow_version_access(params, post.metadata))
+    |> Map.put(:url_slug, resolve_url_slug(params, post.metadata))
+    |> Map.put(:previous_url_slugs, resolve_previous_url_slugs(params, post.metadata))
+    |> Map.delete(:is_live)
+    |> Map.delete(:legacy_is_live)
     |> apply_update_audit_metadata(audit_meta)
+  end
+
+  # Resolves url_slug from params or existing metadata
+  # Empty string clears the custom slug (uses default directory slug)
+  defp resolve_url_slug(params, metadata) do
+    case Map.get(params, "url_slug") do
+      nil -> Map.get(metadata, :url_slug)
+      "" -> nil
+      slug when is_binary(slug) -> String.trim(slug)
+      _ -> Map.get(metadata, :url_slug)
+    end
+  end
+
+  # Resolves previous_url_slugs, tracking old slugs for 301 redirects
+  # When url_slug changes, the old value is added to previous_url_slugs
+  defp resolve_previous_url_slugs(params, metadata) do
+    current_slugs = Map.get(metadata, :previous_url_slugs) || []
+    old_url_slug = Map.get(metadata, :url_slug)
+    new_url_slug = Map.get(params, "url_slug")
+
+    cond do
+      # No change to url_slug
+      new_url_slug == nil ->
+        current_slugs
+
+      # Clearing url_slug - add old value to previous_slugs if it existed
+      new_url_slug == "" and old_url_slug not in [nil, ""] ->
+        add_to_previous_slugs(current_slugs, old_url_slug)
+
+      # Setting new url_slug - add old value to previous_slugs if different
+      is_binary(new_url_slug) and new_url_slug != "" and old_url_slug not in [nil, ""] and
+          String.trim(new_url_slug) != old_url_slug ->
+        add_to_previous_slugs(current_slugs, old_url_slug)
+
+      # No previous slug to track
+      true ->
+        current_slugs
+    end
+  end
+
+  # Adds a slug to the previous_url_slugs list, avoiding duplicates
+  defp add_to_previous_slugs(current_slugs, slug) do
+    if slug in current_slugs do
+      current_slugs
+    else
+      current_slugs ++ [slug]
+    end
   end
 
   defp resolve_allow_version_access(params, metadata) do
@@ -2729,7 +3502,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         |> Map.put(:description, nil)
         |> Map.put(:featured_image_id, nil)
         |> Map.put(:status, "draft")
-        |> Map.put(:is_live, false)
+        |> Map.put(:status_manual, false)
         |> Map.put(:published_at, nil)
 
       serialized = Metadata.serialize(metadata) <> "\n\n"
@@ -2794,7 +3567,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       |> Map.put(:slug, format_time_folder(time))
       |> Map.put(:version, 1)
       |> Map.put(:version_created_at, DateTime.to_iso8601(now))
-      |> Map.put(:is_live, false)
       |> apply_creation_audit_metadata(audit_meta)
 
     content = Metadata.serialize(metadata) <> "\n\n"
@@ -2819,7 +3591,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
         {:ok,
          %{
-           blog: group_slug_for_path,
+           group: group_slug_for_path,
            slug: metadata.slug,
            date: date,
            time: time,
@@ -2882,7 +3654,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
       {:ok,
        %{
-         blog: group_slug,
+         group: group_slug,
          slug: Map.get(metadata, :slug, Path.basename(Path.dirname(relative_path))),
          date: date,
          time: time,
@@ -2996,7 +3768,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
         original_post.metadata
         |> Map.put(:title, "")
         |> Map.put(:status, "draft")
-        |> Map.put(:is_live, false)
+        |> Map.put(:status_manual, false)
         |> Map.put(:published_at, nil)
 
       content = Metadata.serialize(metadata) <> "\n\n"
@@ -3050,12 +3822,27 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
     featured_image_id = resolve_featured_image_id(params, post.metadata)
 
+    # Check if status is being changed by a non-master language editor
+    current_status = Map.get(post.metadata, :status, "draft")
+    new_status = Map.get(params, "status", current_status)
+    is_master_language = Map.get(audit_meta, :is_master_language, true)
+    status_changing = new_status != current_status
+
+    # Set status_manual: true when a translator manually changes status
+    status_manual =
+      if status_changing and not is_master_language do
+        true
+      else
+        Map.get(post.metadata, :status_manual, false)
+      end
+
     new_metadata =
       post.metadata
       |> Map.put(:title, Map.get(params, "title", post.metadata.title))
-      |> Map.put(:status, Map.get(params, "status", post.metadata.status))
+      |> Map.put(:status, new_status)
       |> Map.put(:published_at, Map.get(params, "published_at", post.metadata.published_at))
       |> Map.put(:featured_image_id, featured_image_id)
+      |> Map.put(:status_manual, status_manual)
       |> apply_update_audit_metadata(audit_meta)
 
     new_content = Map.get(params, "content", post.content)
