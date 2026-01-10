@@ -40,7 +40,7 @@
       <div class="flex flex-wrap items-center gap-4 mt-4">
         <%!-- Language Switcher --%>
         <%= if length(@translations) > 1 do %>
-          <.blog_language_switcher
+          <.publishing_language_switcher
             languages={build_public_translations(@translations, @current_language)}
             current_language={@current_language}
             show_status={false}

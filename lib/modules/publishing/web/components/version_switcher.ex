@@ -1,9 +1,9 @@
-defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
+defmodule PhoenixKit.Modules.Publishing.Web.Components.VersionSwitcher do
   @moduledoc """
-  Version switcher component for blog posts.
+  Version switcher component for publishing posts.
 
   Displays available versions as a compact inline list with status indicators.
-  Used in the blog editor to navigate between different versions of a post.
+  Used in the publishing editor to navigate between different versions of a post.
 
   ## Display Format
 
@@ -16,7 +16,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   ## Examples
 
       # Editor: switch between versions
-      <.blog_version_switcher
+      <.publishing_version_switcher
         versions={@available_versions}
         version_statuses={@version_statuses}
         current_version={@current_version}
@@ -52,7 +52,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogVersionSwitcher do
   attr :class, :string, default: ""
   attr :size, :atom, default: :sm, values: [:xs, :sm, :md]
 
-  def blog_version_switcher(assigns) do
+  def publishing_version_switcher(assigns) do
     # Sort versions in ascending order
     sorted_versions = Enum.sort(assigns.versions)
 
