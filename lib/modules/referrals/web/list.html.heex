@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="{@project_title} Referral Codes"
+  page_title="{@project_title} Referrals"
   current_path={@url_path}
   project_title={@project_title}
 >
@@ -18,8 +18,8 @@
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Referral Codes</h1>
-        <p class="text-lg text-base-content">Manage referral codes for user registration</p>
+        <h1 class="text-4xl font-bold text-base-content mb-3">Referrals</h1>
+        <p class="text-lg text-base-content">Manage referrals for user registration</p>
       </div>
     </header>
 
@@ -30,7 +30,7 @@
         rounded="xl"
         value={@system_stats.total_codes}
         title="Total Codes"
-        subtitle="All referral codes"
+        subtitle="All referrals"
       >
         <:icon>
           <.icon name="hero-ticket" class="w-5 h-5" />
@@ -103,7 +103,7 @@
             </.link>
           <% else %>
             <div class="text-sm text-base-content/50">
-              Enable referral codes in Modules to create codes
+              Enable referrals in Modules to create codes
             </div>
           <% end %>
         </div>
@@ -111,16 +111,16 @@
     </div>
 
     <%= if @config.enabled do %>
-      <%!-- Referral Codes Table --%>
+      <%!-- Referrals Table --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <h2 class="card-title text-xl mb-4">Referral Codes</h2>
+          <h2 class="card-title text-xl mb-4">Referrals</h2>
 
           <%= if @codes == [] do %>
             <div class="text-center py-12">
               <.icon name="hero-ticket" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
 
-              <h3 class="text-xl font-semibold text-base-content mb-2">No Referral Codes</h3>
+              <h3 class="text-xl font-semibold text-base-content mb-2">No Referrals</h3>
               <p class="text-base-content/70 max-w-md mx-auto mb-4">
                 Create your first referral code to start tracking user registrations.
               </p>
@@ -237,10 +237,10 @@
         <div class="card-body text-center py-12">
           <.icon name="hero-lock-closed" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
           <h3 class="text-xl font-semibold text-base-content mb-2">
-            Referral Codes Disabled
+            Referrals Disabled
           </h3>
           <p class="text-base-content/70 max-w-md mx-auto mb-4">
-            Referral codes are currently disabled. Enable them in the Modules page to start creating and managing referral codes.
+            Referrals are currently disabled. Enable them in the Modules page to start creating and managing referrals.
           </p>
           <.link
             navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}

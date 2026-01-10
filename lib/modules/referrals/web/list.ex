@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
+defmodule PhoenixKit.Modules.Referrals.Web.List do
   @moduledoc """
   User referral codes management LiveView for PhoenixKit admin panel.
 
@@ -6,7 +6,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
   """
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.Modules.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
 
   def mount(_params, _session, socket) do
@@ -14,9 +14,9 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
     project_title = Settings.get_setting("project_title", "PhoenixKit")
 
     # Load referral codes and stats
-    codes = ReferralCodes.list_codes()
-    system_stats = ReferralCodes.get_system_stats()
-    config = ReferralCodes.get_config()
+    codes = Referrals.list_codes()
+    system_stats = Referrals.get_system_stats()
+    config = Referrals.get_config()
 
     socket =
       socket
@@ -30,15 +30,15 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
   end
 
   def handle_event("delete_code", %{"id" => id}, socket) do
-    code = ReferralCodes.get_code!(String.to_integer(id))
+    code = Referrals.get_code!(String.to_integer(id))
 
-    case ReferralCodes.delete_code(code) do
+    case Referrals.delete_code(code) do
       {:ok, _code} ->
         socket =
           socket
           |> put_flash(:info, "Referral code deleted successfully")
-          |> assign(:codes, ReferralCodes.list_codes())
-          |> assign(:system_stats, ReferralCodes.get_system_stats())
+          |> assign(:codes, Referrals.list_codes())
+          |> assign(:system_stats, Referrals.get_system_stats())
 
         {:noreply, socket}
 
@@ -49,18 +49,18 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.List do
   end
 
   def handle_event("toggle_code_status", %{"id" => id}, socket) do
-    code = ReferralCodes.get_code!(String.to_integer(id))
+    code = Referrals.get_code!(String.to_integer(id))
     new_status = !code.status
 
-    case ReferralCodes.update_code(code, %{status: new_status}) do
+    case Referrals.update_code(code, %{status: new_status}) do
       {:ok, _code} ->
         status_text = if new_status, do: "activated", else: "deactivated"
 
         socket =
           socket
           |> put_flash(:info, "Referral code #{status_text}")
-          |> assign(:codes, ReferralCodes.list_codes())
-          |> assign(:system_stats, ReferralCodes.get_system_stats())
+          |> assign(:codes, Referrals.list_codes())
+          |> assign(:system_stats, Referrals.get_system_stats())
 
         {:noreply, socket}
 

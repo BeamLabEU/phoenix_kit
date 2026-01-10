@@ -736,7 +736,7 @@ PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
 PhoenixKit.Modules.Sync.enable_system()     # Enables DB sync
 PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
 PhoenixKit.Pages.enable_system()      # Enables pages module
-PhoenixKit.ReferralCodes.enable_system() # Enables referral codes
+PhoenixKit.Modules.Referrals.enable_system() # Enables referrals
 
 # Disable when no longer needed
 PhoenixKit.Modules.Entities.disable_system()

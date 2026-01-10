@@ -1,4 +1,4 @@
-defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
+defmodule PhoenixKit.Modules.Referrals.Web.Form do
   @moduledoc """
   Referral code form LiveView for PhoenixKit admin panel.
 
@@ -8,7 +8,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
 
   require Logger
 
-  alias PhoenixKit.Modules.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
@@ -48,8 +48,8 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
     # Create changeset for validation
     changeset =
       case socket.assigns.mode do
-        :new -> ReferralCodes.changeset(%ReferralCodes{}, updated_params)
-        :edit -> ReferralCodes.changeset(socket.assigns.code, updated_params)
+        :new -> Referrals.changeset(%Referrals{}, updated_params)
+        :edit -> Referrals.changeset(socket.assigns.code, updated_params)
       end
       |> Map.put(:action, :validate)
 
@@ -78,7 +78,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
   end
 
   def handle_event("generate_code", _params, socket) do
-    random_code = ReferralCodes.generate_random_code()
+    random_code = Referrals.generate_random_code()
 
     # Get current changeset changes and add the generated code
     current_changes = socket.assigns.changeset.changes
@@ -93,8 +93,8 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
 
     changeset =
       case socket.assigns.mode do
-        :new -> ReferralCodes.changeset(%ReferralCodes{}, final_changes)
-        :edit -> ReferralCodes.changeset(socket.assigns.code, final_changes)
+        :new -> Referrals.changeset(%Referrals{}, final_changes)
+        :edit -> Referrals.changeset(socket.assigns.code, final_changes)
       end
 
     socket =
@@ -132,8 +132,8 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
 
     changeset =
       case socket.assigns.mode do
-        :new -> ReferralCodes.changeset(%ReferralCodes{}, updated_changes)
-        :edit -> ReferralCodes.changeset(socket.assigns.code, updated_changes)
+        :new -> Referrals.changeset(%Referrals{}, updated_changes)
+        :edit -> Referrals.changeset(socket.assigns.code, updated_changes)
       end
 
     socket =
@@ -152,8 +152,8 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
 
     changeset =
       case socket.assigns.mode do
-        :new -> ReferralCodes.changeset(%ReferralCodes{}, updated_changes)
-        :edit -> ReferralCodes.changeset(socket.assigns.code, updated_changes)
+        :new -> Referrals.changeset(%Referrals{}, updated_changes)
+        :edit -> Referrals.changeset(socket.assigns.code, updated_changes)
       end
 
     socket =
@@ -176,12 +176,12 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
   end
 
   defp load_code_data(socket, :edit, code_id) do
-    code = ReferralCodes.get_code!(code_id)
+    code = Referrals.get_code!(code_id)
     assign(socket, :code, code)
   end
 
   defp load_form_data(socket) do
-    code = socket.assigns.code || %ReferralCodes{}
+    code = socket.assigns.code || %Referrals{}
 
     # For new codes, initialize with empty changeset
     # For edit mode, initialize changeset with current code data to pre-populate form
@@ -200,7 +200,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
           }
       end
 
-    changeset = ReferralCodes.changeset(code, initial_params)
+    changeset = Referrals.changeset(code, initial_params)
 
     # Load selected beneficiary if editing existing code with beneficiary ID
     selected_beneficiary =
@@ -252,10 +252,10 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
   end
 
   defp validate_user_limit(nil), do: nil
-  defp validate_user_limit(user_id), do: ReferralCodes.validate_user_code_limit(user_id)
+  defp validate_user_limit(user_id), do: Referrals.validate_user_code_limit(user_id)
 
   defp do_create_code(socket, code_params_with_creator) do
-    case ReferralCodes.create_code(code_params_with_creator) do
+    case Referrals.create_code(code_params_with_creator) do
       {:ok, _code} ->
         socket
         |> put_flash(:info, "Referral code created successfully!")
@@ -269,7 +269,7 @@ defmodule PhoenixKit.Modules.ReferralCodes.Web.Form do
   end
 
   defp update_code(socket, code_params) do
-    case ReferralCodes.update_code(socket.assigns.code, code_params) do
+    case Referrals.update_code(socket.assigns.code, code_params) do
       {:ok, _code} ->
         socket
         |> put_flash(:info, "Referral code updated successfully!")
