@@ -5,6 +5,7 @@ A comprehensive, extensible navigation system for the PhoenixKit user dashboard 
 ## Features
 
 - **Dynamic Tabs**: Configure tabs via config or register at runtime
+- **Subtabs**: Hierarchical parent/child tab relationships with conditional visibility
 - **Live Badges**: Real-time badge updates via PubSub
 - **Badge Types**: Count, dot, status, "new", and custom text badges
 - **Grouping**: Organize tabs into sections with headers and dividers
@@ -136,6 +137,102 @@ Then assign tabs to groups:
 
 ```elixir
 %{id: :printers, label: "Printers", path: "/dashboard/printers", group: :farm}
+```
+
+## Subtabs
+
+Create hierarchical navigation with parent/child relationships:
+
+### Basic Subtabs
+
+```elixir
+config :phoenix_kit, :user_dashboard_tabs, [
+  # Parent tab
+  %{
+    id: :orders,
+    label: "Orders",
+    icon: "hero-shopping-bag",
+    path: "/dashboard/orders",
+    priority: 100,
+    subtab_display: :when_active  # Show subtabs only when parent is active
+  },
+  # Subtabs
+  %{
+    id: :pending_orders,
+    label: "Pending",
+    path: "/dashboard/orders/pending",
+    priority: 110,
+    parent: :orders  # Links this tab to the parent
+  },
+  %{
+    id: :completed_orders,
+    label: "Completed",
+    path: "/dashboard/orders/completed",
+    priority: 120,
+    parent: :orders
+  },
+  %{
+    id: :cancelled_orders,
+    label: "Cancelled",
+    path: "/dashboard/orders/cancelled",
+    priority: 130,
+    parent: :orders
+  }
+]
+```
+
+### Subtab Display Options
+
+- `:when_active` (default) - Subtabs only appear when the parent tab is active
+- `:always` - Subtabs are always visible
+
+```elixir
+# Always show subtabs
+%{
+  id: :settings,
+  label: "Settings",
+  path: "/dashboard/settings",
+  subtab_display: :always
+}
+```
+
+### Subtab Appearance
+
+- Subtabs are automatically indented with a left border
+- Subtabs have smaller icons and slightly different styling
+- Subtabs maintain their own badges and attention states
+
+### Dynamic Subtab Registration
+
+```elixir
+# Register parent and subtabs at runtime
+PhoenixKit.Dashboard.register_tabs(:my_app, [
+  %{id: :printers, label: "Printers", path: "/dashboard/printers", subtab_display: :when_active},
+  %{id: :active_printers, label: "Active", path: "/dashboard/printers/active", parent: :printers},
+  %{id: :idle_printers, label: "Idle", path: "/dashboard/printers/idle", parent: :printers}
+])
+```
+
+### Subtab API
+
+```elixir
+# Get all subtabs for a parent
+PhoenixKit.Dashboard.get_subtabs(:orders)
+# => [%Tab{id: :pending_orders, ...}, %Tab{id: :completed_orders, ...}]
+
+# Get only top-level tabs
+PhoenixKit.Dashboard.get_top_level_tabs()
+
+# Check if a tab has subtabs
+PhoenixKit.Dashboard.has_subtabs?(:orders)
+# => true
+
+# Check if a tab is a subtab
+PhoenixKit.Dashboard.subtab?(tab)
+# => true
+
+# Check if subtabs should be shown
+PhoenixKit.Dashboard.show_subtabs?(parent_tab, is_active)
 ```
 
 ## Badge Types
@@ -325,6 +422,13 @@ get_tabs_with_active(path, opts)    # Get tabs with active state
 # Groups
 register_groups(groups)             # Register tab groups
 get_groups()                        # Get all groups
+
+# Subtabs
+get_subtabs(parent_id, opts)        # Get subtabs for a parent
+get_top_level_tabs(opts)            # Get only top-level tabs
+has_subtabs?(tab_id)                # Check if tab has subtabs
+subtab?(tab)                        # Check if tab is a subtab
+show_subtabs?(tab, active)          # Check if subtabs should be shown
 
 # Badges
 update_badge(tab_id, value)         # Update a tab's badge

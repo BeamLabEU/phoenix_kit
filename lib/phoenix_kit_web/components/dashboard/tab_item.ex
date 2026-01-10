@@ -60,7 +60,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
   defp render_tab(assigns) do
     path = build_path(assigns.tab.path, assigns.locale)
-    assigns = assign(assigns, :path, path)
+    is_subtab = Tab.subtab?(assigns.tab)
+
+    assigns =
+      assigns
+      |> assign(:path, path)
+      |> assign(:is_subtab, is_subtab)
 
     ~H"""
     <%= if @tab.external do %>
@@ -68,11 +73,18 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
         href={@path}
         target={if @tab.new_tab, do: "_blank", else: nil}
         rel={if @tab.new_tab, do: "noopener noreferrer", else: nil}
-        class={tab_classes(@active, @tab.attention, @class)}
+        class={tab_classes(@active, @tab.attention, @is_subtab, @class)}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
+        data-parent-id={@tab.parent}
       >
-        <.tab_content tab={@tab} active={@active} viewer_count={@viewer_count} compact={@compact} />
+        <.tab_content
+          tab={@tab}
+          active={@active}
+          viewer_count={@viewer_count}
+          compact={@compact}
+          is_subtab={@is_subtab}
+        />
         <%= if @tab.external do %>
           <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3 ml-auto opacity-50" />
         <% end %>
@@ -80,11 +92,18 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     <% else %>
       <.link
         navigate={@path}
-        class={tab_classes(@active, @tab.attention, @class)}
+        class={tab_classes(@active, @tab.attention, @is_subtab, @class)}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
+        data-parent-id={@tab.parent}
       >
-        <.tab_content tab={@tab} active={@active} viewer_count={@viewer_count} compact={@compact} />
+        <.tab_content
+          tab={@tab}
+          active={@active}
+          viewer_count={@viewer_count}
+          compact={@compact}
+          is_subtab={@is_subtab}
+        />
       </.link>
     <% end %>
     """
@@ -149,15 +168,16 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   attr :active, :boolean, default: false
   attr :viewer_count, :integer, default: 0
   attr :compact, :boolean, default: false
+  attr :is_subtab, :boolean, default: false
 
   def tab_content(assigns) do
     ~H"""
     <div class="flex items-center gap-3 flex-1 min-w-0">
       <%= if @tab.icon do %>
-        <.icon name={@tab.icon} class={icon_classes(@active, @tab.attention)} />
+        <.icon name={@tab.icon} class={icon_classes(@active, @tab.attention, @is_subtab)} />
       <% end %>
       <%= unless @compact do %>
-        <span class="truncate">{@tab.label}</span>
+        <span class={["truncate", @is_subtab && "text-sm"]}>{@tab.label}</span>
       <% end %>
     </div>
     <div class="flex items-center gap-2 ml-auto">
@@ -217,26 +237,38 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     Routes.path(path, locale: locale)
   end
 
-  defp tab_classes(active, attention, extra_class) do
+  defp tab_classes(active, attention, is_subtab, extra_class) do
     base =
-      "flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+      "flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200"
+
+    # Subtabs are indented with more left padding
+    padding_class = if is_subtab, do: "pl-9 pr-3", else: "px-3"
 
     active_class =
       if active do
-        "bg-primary text-primary-content"
+        if is_subtab do
+          "bg-primary/80 text-primary-content"
+        else
+          "bg-primary text-primary-content"
+        end
       else
-        "text-base-content hover:bg-base-200"
+        if is_subtab do
+          "text-base-content/70 hover:bg-base-200 hover:text-base-content"
+        else
+          "text-base-content hover:bg-base-200"
+        end
       end
 
     attention_class = attention_animation_class(attention)
 
-    [base, active_class, attention_class, extra_class]
+    [base, padding_class, active_class, attention_class, extra_class]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" ")
   end
 
-  defp icon_classes(_active, attention) do
-    base = "w-5 h-5 shrink-0"
+  defp icon_classes(_active, attention, is_subtab) do
+    # Subtabs have smaller icons
+    base = if is_subtab, do: "w-4 h-4 shrink-0", else: "w-5 h-5 shrink-0"
 
     attention_class =
       case attention do

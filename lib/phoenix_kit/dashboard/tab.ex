@@ -8,6 +8,7 @@ defmodule PhoenixKit.Dashboard.Tab do
   - Badge indicators with live updates via PubSub
   - Attention animations (pulse, bounce, shake)
   - Grouping with headers and dividers
+  - Subtabs with parent/child relationships
   - Custom path matching logic
   - Tooltips and accessibility features
 
@@ -53,6 +54,38 @@ defmodule PhoenixKit.Dashboard.Tab do
         path: "/dashboard/admin",
         visible: fn scope -> PhoenixKit.Users.Roles.has_role?(scope.user, "admin") end
       }
+
+  ## Subtabs
+
+  Tabs can have parent/child relationships. Subtabs appear indented under their parent:
+
+      # Parent tab
+      %Tab{
+        id: :orders,
+        label: "Orders",
+        icon: "hero-shopping-bag",
+        path: "/dashboard/orders",
+        subtab_display: :when_active  # Show subtabs only when this tab is active
+      }
+
+      # Subtabs
+      %Tab{
+        id: :pending_orders,
+        label: "Pending",
+        path: "/dashboard/orders/pending",
+        parent: :orders
+      }
+
+      %Tab{
+        id: :completed_orders,
+        label: "Completed",
+        path: "/dashboard/orders/completed",
+        parent: :orders
+      }
+
+  Subtab display modes:
+  - `:when_active` - Show subtabs only when parent tab is active (default)
+  - `:always` - Always show subtabs regardless of parent state
   """
 
   alias PhoenixKit.Dashboard.Badge
@@ -61,6 +94,8 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   @type visibility :: boolean() | (map() -> boolean())
 
+  @type subtab_display :: :when_active | :always
+
   @type t :: %__MODULE__{
           id: atom(),
           label: String.t(),
@@ -68,6 +103,8 @@ defmodule PhoenixKit.Dashboard.Tab do
           path: String.t(),
           priority: integer(),
           group: atom() | nil,
+          parent: atom() | nil,
+          subtab_display: subtab_display(),
           match: match_type(),
           visible: visibility(),
           badge: Badge.t() | nil,
@@ -85,11 +122,13 @@ defmodule PhoenixKit.Dashboard.Tab do
     :icon,
     :path,
     :group,
+    :parent,
     :badge,
     :tooltip,
     :attention,
     :inserted_at,
     priority: 500,
+    subtab_display: :when_active,
     match: :prefix,
     visible: true,
     external: false,
@@ -108,6 +147,8 @@ defmodule PhoenixKit.Dashboard.Tab do
   - `:path` - URL path for the tab (required)
   - `:priority` - Sort order, lower numbers appear first (default: 500)
   - `:group` - Group identifier for organizing tabs (optional, atom)
+  - `:parent` - Parent tab ID for subtabs (optional, atom)
+  - `:subtab_display` - When to show subtabs: :when_active or :always (default: :when_active)
   - `:match` - Path matching strategy: :exact, :prefix, :regex, or function (default: :prefix)
   - `:visible` - Boolean or function(scope) -> boolean for conditional visibility (default: true)
   - `:badge` - Badge struct or map for displaying indicators (optional)
@@ -140,6 +181,8 @@ defmodule PhoenixKit.Dashboard.Tab do
         path: attrs[:path] || attrs["path"],
         priority: attrs[:priority] || attrs["priority"] || 500,
         group: attrs[:group] || attrs["group"],
+        parent: attrs[:parent] || attrs["parent"],
+        subtab_display: parse_subtab_display(attrs[:subtab_display] || attrs["subtab_display"]),
         match: parse_match(attrs[:match] || attrs["match"] || :prefix),
         visible: attrs[:visible] || attrs["visible"] || true,
         badge: badge,
@@ -255,6 +298,48 @@ defmodule PhoenixKit.Dashboard.Tab do
   def navigable?(%__MODULE__{} = tab) do
     not divider?(tab) and not group_header?(tab) and is_binary(tab.path)
   end
+
+  @doc """
+  Checks if this tab is a subtab (has a parent).
+  """
+  @spec subtab?(t()) :: boolean()
+  def subtab?(%__MODULE__{parent: nil}), do: false
+  def subtab?(%__MODULE__{parent: parent}) when is_atom(parent), do: true
+  def subtab?(_), do: false
+
+  @doc """
+  Checks if this tab is a top-level tab (not a subtab).
+  """
+  @spec top_level?(t()) :: boolean()
+  def top_level?(%__MODULE__{} = tab), do: not subtab?(tab)
+
+  @doc """
+  Gets the parent ID of a subtab, or nil if it's a top-level tab.
+  """
+  @spec parent_id(t()) :: atom() | nil
+  def parent_id(%__MODULE__{parent: parent}), do: parent
+
+  @doc """
+  Checks if subtabs should be shown for this tab based on its display setting and active state.
+
+  ## Examples
+
+      iex> tab = %Tab{subtab_display: :always}
+      iex> Tab.show_subtabs?(tab, false)
+      true
+
+      iex> tab = %Tab{subtab_display: :when_active}
+      iex> Tab.show_subtabs?(tab, false)
+      false
+
+      iex> tab = %Tab{subtab_display: :when_active}
+      iex> Tab.show_subtabs?(tab, true)
+      true
+  """
+  @spec show_subtabs?(t(), boolean()) :: boolean()
+  def show_subtabs?(%__MODULE__{subtab_display: :always}, _active), do: true
+  def show_subtabs?(%__MODULE__{subtab_display: :when_active}, active), do: active
+  def show_subtabs?(_, _), do: false
 
   @doc """
   Checks if the current path matches this tab's path according to its match strategy.
@@ -417,6 +502,13 @@ defmodule PhoenixKit.Dashboard.Tab do
   defp parse_attention("shake"), do: :shake
   defp parse_attention("glow"), do: :glow
   defp parse_attention(_), do: nil
+
+  defp parse_subtab_display(nil), do: :when_active
+  defp parse_subtab_display(:when_active), do: :when_active
+  defp parse_subtab_display(:always), do: :always
+  defp parse_subtab_display("when_active"), do: :when_active
+  defp parse_subtab_display("always"), do: :always
+  defp parse_subtab_display(_), do: :when_active
 
   defp normalize_path(path) when is_binary(path) do
     path

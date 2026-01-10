@@ -248,6 +248,68 @@ defmodule PhoenixKit.Dashboard do
   defdelegate get_groups(), to: Registry
 
   # ============================================================================
+  # Subtab Management
+  # ============================================================================
+
+  @doc """
+  Gets all subtabs for a given parent tab ID.
+
+  ## Examples
+
+      PhoenixKit.Dashboard.get_subtabs(:orders)
+      # => [%Tab{id: :pending_orders, parent: :orders, ...}, ...]
+  """
+  @spec get_subtabs(atom(), keyword()) :: [Tab.t()]
+  defdelegate get_subtabs(parent_id, opts \\ []), to: Registry
+
+  @doc """
+  Gets only top-level tabs (tabs without a parent).
+
+  ## Examples
+
+      PhoenixKit.Dashboard.get_top_level_tabs()
+      # => [%Tab{id: :orders, parent: nil, ...}, ...]
+  """
+  @spec get_top_level_tabs(keyword()) :: [Tab.t()]
+  defdelegate get_top_level_tabs(opts \\ []), to: Registry
+
+  @doc """
+  Checks if a tab has any subtabs.
+
+  ## Examples
+
+      PhoenixKit.Dashboard.has_subtabs?(:orders)
+      # => true
+  """
+  @spec has_subtabs?(atom()) :: boolean()
+  defdelegate has_subtabs?(tab_id), to: Registry
+
+  @doc """
+  Checks if a tab is a subtab (has a parent).
+
+  ## Examples
+
+      PhoenixKit.Dashboard.subtab?(:pending_orders)
+      # => true
+  """
+  @spec subtab?(Tab.t()) :: boolean()
+  defdelegate subtab?(tab), to: Tab
+
+  @doc """
+  Checks if subtabs should be shown for a tab based on its display setting and active state.
+
+  ## Examples
+
+      PhoenixKit.Dashboard.show_subtabs?(tab, true)  # parent is active
+      # => true (for :when_active or :always)
+
+      PhoenixKit.Dashboard.show_subtabs?(tab, false)  # parent not active
+      # => true (only for :always)
+  """
+  @spec show_subtabs?(Tab.t(), boolean()) :: boolean()
+  defdelegate show_subtabs?(tab, active), to: Tab
+
+  # ============================================================================
   # Badge Management
   # ============================================================================
 

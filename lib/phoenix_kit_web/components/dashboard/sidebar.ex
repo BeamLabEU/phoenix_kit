@@ -110,11 +110,11 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
       <% end %>
 
       <%!-- Render ungrouped tabs --%>
-      <%= for tab <- Map.get(@grouped_tabs, nil, []) do %>
-        <TabItem.tab_item
+      <%= for tab <- filter_top_level(Map.get(@grouped_tabs, nil, [])) do %>
+        <.tab_with_subtabs
           tab={tab}
-          active={tab.active}
-          viewer_count={Map.get(@viewer_counts, tab.id, 0)}
+          all_tabs={Map.get(@grouped_tabs, nil, [])}
+          viewer_counts={@viewer_counts}
           locale={@locale}
           compact={@compact}
         />
@@ -168,16 +168,70 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
       <%!-- Group Tabs --%>
       <div class={[@collapsed && "hidden"]}>
-        <%= for tab <- @tabs do %>
-          <TabItem.tab_item
+        <%= for tab <- filter_top_level(@tabs) do %>
+          <.tab_with_subtabs
             tab={tab}
-            active={tab.active}
-            viewer_count={Map.get(@viewer_counts, tab.id, 0)}
+            all_tabs={@tabs}
+            viewer_counts={@viewer_counts}
             locale={@locale}
             compact={@compact}
           />
         <% end %>
       </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a tab along with its subtabs (if any).
+
+  Subtabs are shown based on the parent tab's `subtab_display` setting:
+  - `:when_active` - Subtabs only shown when parent is active
+  - `:always` - Subtabs always visible
+  """
+  attr :tab, :any, required: true
+  attr :all_tabs, :list, required: true
+  attr :viewer_counts, :map, default: %{}
+  attr :locale, :string, default: nil
+  attr :compact, :boolean, default: false
+
+  def tab_with_subtabs(assigns) do
+    subtabs = get_subtabs_for(assigns.tab.id, assigns.all_tabs)
+
+    show_subtabs =
+      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or any_subtab_active?(subtabs)
+
+    assigns =
+      assigns
+      |> assign(:subtabs, subtabs)
+      |> assign(:show_subtabs, show_subtabs)
+      |> assign(:has_subtabs, subtabs != [])
+
+    ~H"""
+    <div class="tab-with-subtabs" data-tab-id={@tab.id} data-has-subtabs={@has_subtabs}>
+      <%!-- Parent Tab --%>
+      <TabItem.tab_item
+        tab={@tab}
+        active={@tab.active}
+        viewer_count={Map.get(@viewer_counts, @tab.id, 0)}
+        locale={@locale}
+        compact={@compact}
+      />
+
+      <%!-- Subtabs --%>
+      <%= if @has_subtabs and @show_subtabs do %>
+        <div class="subtabs pl-2 border-l-2 border-base-300 ml-4 mt-1 space-y-0.5">
+          <%= for subtab <- @subtabs do %>
+            <TabItem.tab_item
+              tab={subtab}
+              active={subtab.active}
+              viewer_count={Map.get(@viewer_counts, subtab.id, 0)}
+              locale={@locale}
+              compact={@compact}
+            />
+          <% end %>
+        </div>
+      <% end %>
     </div>
     """
   end
@@ -355,5 +409,23 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   defp build_path(path, locale) do
     Routes.path(path, locale: locale)
+  end
+
+  # Filter to only top-level tabs (no parent)
+  defp filter_top_level(tabs) do
+    Enum.filter(tabs, &Tab.top_level?/1)
+  end
+
+  # Get subtabs for a given parent tab ID
+  defp get_subtabs_for(parent_id, all_tabs) do
+    Enum.filter(all_tabs, fn tab ->
+      tab.parent == parent_id
+    end)
+    |> Enum.sort_by(& &1.priority)
+  end
+
+  # Check if any subtab is currently active
+  defp any_subtab_active?(subtabs) do
+    Enum.any?(subtabs, & &1.active)
   end
 end

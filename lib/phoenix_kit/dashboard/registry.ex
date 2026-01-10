@@ -191,6 +191,51 @@ defmodule PhoenixKit.Dashboard.Registry do
   end
 
   @doc """
+  Gets all subtabs for a given parent tab ID.
+
+  ## Examples
+
+      Registry.get_subtabs(:orders)
+      # => [%Tab{id: :pending_orders, parent: :orders, ...}, ...]
+  """
+  @spec get_subtabs(atom(), keyword()) :: [Tab.t()]
+  def get_subtabs(parent_id, opts \\ []) when is_atom(parent_id) do
+    get_tabs(opts)
+    |> Enum.filter(&(&1.parent == parent_id))
+  end
+
+  @doc """
+  Gets only top-level tabs (tabs without a parent).
+
+  ## Options
+
+  Same as `get_tabs/1`.
+
+  ## Examples
+
+      Registry.get_top_level_tabs()
+      # => [%Tab{id: :orders, parent: nil, ...}, ...]
+  """
+  @spec get_top_level_tabs(keyword()) :: [Tab.t()]
+  def get_top_level_tabs(opts \\ []) do
+    get_tabs(opts)
+    |> Enum.filter(&Tab.top_level?/1)
+  end
+
+  @doc """
+  Checks if a tab has any subtabs.
+
+  ## Examples
+
+      Registry.has_subtabs?(:orders)
+      # => true
+  """
+  @spec has_subtabs?(atom()) :: boolean()
+  def has_subtabs?(tab_id) when is_atom(tab_id) do
+    get_subtabs(tab_id) |> Enum.any?()
+  end
+
+  @doc """
   Gets all registered groups, sorted by priority.
   """
   @spec get_groups() :: [map()]
