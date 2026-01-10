@@ -21,6 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.ReferralCodes
   alias PhoenixKit.Modules.SEO
+  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Sitemap
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Sync
@@ -55,6 +56,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     jobs_config = Jobs.get_config()
     legal_config = Legal.get_config()
     db_explorer_config = DB.get_config()
+    shop_config = Shop.get_config()
 
     socket =
       socket
@@ -120,6 +122,9 @@ defmodule PhoenixKitWeb.Live.Modules do
       |> assign(:db_explorer_total_rows, db_explorer_config.approx_rows)
       |> assign(:db_explorer_total_size, db_explorer_config.total_size_bytes)
       |> assign(:db_explorer_database_size, db_explorer_config.database_size_bytes)
+      |> assign(:shop_enabled, shop_config.enabled)
+      |> assign(:shop_products_count, shop_config.products_count)
+      |> assign(:shop_categories_count, shop_config.categories_count)
 
     {:ok, socket}
   end
@@ -741,6 +746,42 @@ defmodule PhoenixKitWeb.Live.Modules do
 
         {:error, _} ->
           {:noreply, put_flash(socket, :error, gettext("Failed to enable Legal module"))}
+      end
+    end
+  end
+
+  def handle_event("toggle_shop", _params, socket) do
+    if socket.assigns.shop_enabled do
+      # Disabling
+      case Shop.disable_system() do
+        {:ok, _} ->
+          {:noreply,
+           socket
+           |> assign(:shop_enabled, false)
+           |> put_flash(:info, gettext("E-Commerce module disabled"))}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, gettext("Failed to disable E-Commerce module"))}
+      end
+    else
+      # Enabling - check if Billing is enabled first
+      if socket.assigns.billing_enabled do
+        case Shop.enable_system() do
+          {:ok, _} ->
+            shop_config = Shop.get_config()
+
+            {:noreply,
+             socket
+             |> assign(:shop_enabled, true)
+             |> assign(:shop_products_count, shop_config.products_count)
+             |> assign(:shop_categories_count, shop_config.categories_count)
+             |> put_flash(:info, gettext("E-Commerce module enabled"))}
+
+          {:error, _} ->
+            {:noreply, put_flash(socket, :error, gettext("Failed to enable E-Commerce module"))}
+        end
+      else
+        {:noreply, put_flash(socket, :error, gettext("Please enable Billing module first"))}
       end
     end
   end

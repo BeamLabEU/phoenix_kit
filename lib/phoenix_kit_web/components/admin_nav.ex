@@ -160,6 +160,8 @@ defmodule PhoenixKitWeb.Components.AdminNav do
           <.icon name="hero-photo" class="w-5 h-5" />
         <% "jobs" -> %>
           <.icon name="hero-queue-list" class="w-5 h-5" />
+        <% "shop" -> %>
+          <.icon name="hero-shopping-bag" class="w-5 h-5" />
         <% _ -> %>
           <.icon name="hero-squares-2x2" class="w-5 h-5" />
       <% end %>

@@ -510,6 +510,40 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
+      # Shop module routes - uses PhoenixKit.Modules.Shop namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_shop,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
+
+          live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
+            as: :shop_products
+
+          live "/admin/shop/products/new", PhoenixKit.Modules.Shop.Web.ProductForm, :new,
+            as: :shop_product_new
+
+          live "/admin/shop/products/:id", PhoenixKit.Modules.Shop.Web.ProductDetail, :show,
+            as: :shop_product_detail
+
+          live "/admin/shop/products/:id/edit", PhoenixKit.Modules.Shop.Web.ProductForm, :edit,
+            as: :shop_product_edit
+
+          live "/admin/shop/categories", PhoenixKit.Modules.Shop.Web.Categories, :index,
+            as: :shop_categories
+
+          live "/admin/shop/categories/new", PhoenixKit.Modules.Shop.Web.CategoryForm, :new,
+            as: :shop_category_new
+
+          live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
+            as: :shop_category_edit
+
+          live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
+            as: :shop_settings
+        end
+      end
+
       # AI module routes - uses PhoenixKit.Modules.AI namespace (no PhoenixKitWeb prefix)
       scope unquote(url_prefix) do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]

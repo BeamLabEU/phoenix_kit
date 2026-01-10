@@ -321,12 +321,19 @@ defmodule PhoenixKit.Migrations.Postgres do
     - legal_dpo_contact, legal_consent_widget_enabled
     - legal_cookie_banner_position
 
-  ### V44 - Sync Table Rename ⚡ LATEST
+  ### V44 - Sync Table Rename
   - Rename phoenix_kit_db_sync_connections → phoenix_kit_sync_connections
   - Rename phoenix_kit_db_sync_transfers → phoenix_kit_sync_transfers
   - Rename all related indexes to match new table names
   - Rename settings keys: db_sync_* → sync_*
   - Matches module rename from DBSync to Sync
+
+  ### V45 - E-commerce Shop Module ⚡ LATEST
+  - Phoenix_kit_shop_categories for product organization with nesting
+  - Phoenix_kit_shop_products for physical and digital products
+  - JSONB fields for tags, images, option_names, metadata
+  - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
+  - Future: variants, inventory, carts, shipping_methods (incremental additions)
 
   ## Migration Paths
 
@@ -386,7 +393,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 44
+  @current_version 45
   @default_prefix "public"
 
   @doc false
