@@ -973,8 +973,8 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   - version_created_from records the source version (nil if blank)
 
   ## Returns
-  {:ok, post} with the new version's primary language file
-  {:error, reason} on failure
+  - `{:ok, post}` - with the new version's primary language file
+  - `{:error, reason}` - on failure
   """
   @spec create_version_from(String.t(), String.t(), integer() | nil, map(), map()) ::
           {:ok, post()} | {:error, any()}
