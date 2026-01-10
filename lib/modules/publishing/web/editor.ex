@@ -23,12 +23,16 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
   alias PhoenixKit.Utils.Slug
-  alias PhoenixKitWeb.BlogHTML
+
+  # Import publishing-specific components
+  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+  import PhoenixKit.Modules.Publishing.Web.Components.VersionSwitcher
 
   require Logger
 
@@ -2185,7 +2189,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         nil
 
       file_id ->
-        BlogHTML.featured_image_url(%{metadata: %{featured_image_id: file_id}}, "medium")
+        PublishingHTML.featured_image_url(%{metadata: %{featured_image_id: file_id}}, "medium")
     end
   end
 
@@ -2201,7 +2205,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp sanitize_featured_image_id(_), do: nil
 
   @doc """
-  Builds language data for the blog_language_switcher component in the editor.
+  Builds language data for the publishing_language_switcher component in the editor.
   Returns a list of language maps with status, exists flag, enabled flag, and code.
 
   The `enabled` field indicates if the language is currently active in the Languages module.
@@ -2591,7 +2595,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
   defp build_slug_mode_url(blog_slug, post, language) do
     if post.slug do
-      BlogHTML.build_post_url(blog_slug, post, language)
+      PublishingHTML.build_post_url(blog_slug, post, language)
     else
       nil
     end
@@ -2600,7 +2604,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp build_timestamp_mode_url(blog_slug, post, language) do
     if post.metadata.published_at do
       case DateTime.from_iso8601(post.metadata.published_at) do
-        {:ok, _datetime, _} -> BlogHTML.build_post_url(blog_slug, post, language)
+        {:ok, _datetime, _} -> PublishingHTML.build_post_url(blog_slug, post, language)
         _ -> nil
       end
     else

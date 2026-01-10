@@ -97,13 +97,13 @@
   # The actual functions return both {:ok, post} and {:error, reason} at runtime
   ~r/lib\/modules\/publishing\/storage\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
 
-  # BlogController - with-chain type inference false positives
-  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match/,
-  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match_cov/
+  # Publishing Controller - with-chain type inference false positives
+  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/
 ]

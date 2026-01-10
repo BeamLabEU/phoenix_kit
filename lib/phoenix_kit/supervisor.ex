@@ -25,8 +25,8 @@ defmodule PhoenixKit.Supervisor do
       ),
       # Cache rendered blog posts (HTML) to avoid re-rendering markdown on every request
       Supervisor.child_spec(
-        {PhoenixKit.Cache, name: :blog_posts, ttl: :timer.hours(6)},
-        id: :blog_posts_cache
+        {PhoenixKit.Cache, name: :publishing_posts, ttl: :timer.hours(6)},
+        id: :publishing_posts_cache
       ),
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,

@@ -457,7 +457,7 @@ defmodule PhoenixKit.Modules.Sitemap.Sources.Publishing do
 
   # Check if we're in single language mode (no locale prefix needed)
   # Returns true when languages module is off OR only one language is enabled
-  # Mirrors BlogHTML.single_language_mode?/0 logic
+  # Mirrors PublishingHTML.single_language_mode?/0 logic
   defp single_language_mode? do
     not Languages.enabled?() or length(Languages.get_enabled_languages()) <= 1
   rescue

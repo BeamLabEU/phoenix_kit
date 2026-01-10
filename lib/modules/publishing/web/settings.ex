@@ -201,7 +201,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   end
 
   def handle_event("clear_blog_render_cache", %{"slug" => slug}, socket) do
-    case Renderer.clear_blog_cache(slug) do
+    case Renderer.clear_group_cache(slug) do
       {:ok, count} ->
         {:noreply,
          socket
@@ -228,8 +228,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
   def handle_event("toggle_blog_render_cache", %{"slug" => slug}, socket) do
     # Use Renderer helper to get the new key for writes
-    per_blog_key = Renderer.per_blog_cache_key(slug)
-    current_value = Renderer.blog_render_cache_enabled?(slug)
+    per_blog_key = Renderer.per_group_cache_key(slug)
+    current_value = Renderer.group_render_cache_enabled?(slug)
     new_value = !current_value
     Settings.update_setting(per_blog_key, to_string(new_value))
 
@@ -302,7 +302,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   end
 
   defp get_render_cache_stats do
-    PhoenixKit.Cache.stats(:blog_posts)
+    PhoenixKit.Cache.stats(:publishing_posts)
   rescue
     _ -> %{hits: 0, misses: 0, puts: 0, invalidations: 0, hit_rate: 0.0}
   end
@@ -310,7 +310,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
   defp build_render_cache_per_blog(blogs) do
     Map.new(blogs, fn blog ->
       slug = blog["slug"]
-      {slug, Renderer.blog_render_cache_enabled?(slug)}
+      {slug, Renderer.group_render_cache_enabled?(slug)}
     end)
   end
 

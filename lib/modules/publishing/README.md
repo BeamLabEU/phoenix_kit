@@ -112,7 +112,7 @@ PhoenixKit.Settings.update_setting("publishing_public_enabled", "true")
 PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 ```
 
-`publishing_public_enabled` gates the entire `PhoenixKitWeb.BlogController` – set it to `"false"` to return a 404 for every public blog route. `publishing_posts_per_page` drives listing pagination.
+`publishing_public_enabled` gates the entire `PhoenixKit.Modules.Publishing.Web.Controller` – set it to `"false"` to return a 404 for every public blog route. `publishing_posts_per_page` drives listing pagination.
 
 **Note:** Legacy `blogging_*` settings keys are still supported for backward compatibility. The module checks `publishing_*` keys first, then falls back to `blogging_*`.
 
@@ -122,8 +122,8 @@ PhoenixKit.Settings.update_setting("publishing_posts_per_page", "20")
 
 Public blog templates are located in:
 
-- `lib/phoenix_kit_web/controllers/blog_html/show.html.heex` - Single post view
-- `lib/phoenix_kit_web/controllers/blog_html/index.html.heex` - Blog listing
+- `lib/modules/publishing/web/templates/show.html.heex` - Single post view
+- `lib/modules/publishing/web/templates/index.html.heex` - Blog listing
 
 ### Admin Integration
 
@@ -143,7 +143,7 @@ PhoenixKit ships two cache layers:
    `publishing_file_cache_enabled` / `publishing_memory_cache_enabled` settings (with legacy `blogging_*` fallback) or from the Publishing
    Settings UI, which also offers regenerate/clear actions per group.
 2. **Render cache** – `PhoenixKit.Modules.Publishing.Renderer` stores rendered HTML for published posts in the
-   `:blog_posts` cache (6-hour TTL) with content-hash keys, a global
+   `:publishing_posts` cache (6-hour TTL) with content-hash keys, a global
    `publishing_render_cache_enabled` toggle (with legacy `blogging_render_cache_enabled` fallback), and per-group overrides (`publishing_render_cache_enabled_<slug>`)
    plus UI buttons to clear stats or individual group caches.
 
@@ -165,7 +165,7 @@ PhoenixKit.Modules.Publishing.invalidate_cache("my-blog")
 
 alias PhoenixKit.Modules.Publishing.Renderer
 
-Renderer.clear_blog_cache("my-blog")
+Renderer.clear_group_cache("my-blog")
 Renderer.clear_all_cache()
 ```
 
@@ -179,14 +179,14 @@ Renderer.clear_all_cache()
 
 **Admin Interfaces:**
 
-- **PhoenixKit.Modules.Publishing.Settings** – Admin interface for blog configuration
-- **PhoenixKit.Modules.Publishing.Editor** – Markdown editor with autosave and featured images
-- **PhoenixKit.Modules.Publishing.Preview** – Live preview for blog posts
+- **PhoenixKit.Modules.Publishing.Web.Settings** – Admin interface for blog configuration
+- **PhoenixKit.Modules.Publishing.Web.Editor** – Markdown editor with autosave and featured images
+- **PhoenixKit.Modules.Publishing.Web.Preview** – Live preview for blog posts
 
 **Public Display:**
 
-- **PhoenixKitWeb.BlogController** – Public-facing routes for blog listings and posts
-- **PhoenixKitWeb.BlogHTML** – HTML helpers and view functions for public blog
+- **PhoenixKit.Modules.Publishing.Web.Controller** – Public-facing routes for blog listings and posts
+- **PhoenixKit.Modules.Publishing.Web.HTML** – HTML helpers and view functions for public blog
 
 **Rendering & Caching:**
 

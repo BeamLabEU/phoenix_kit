@@ -694,7 +694,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index_localized
 
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
             as: :publishing_blog_localized
 
           live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
@@ -727,7 +727,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index
 
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
             as: :publishing_blog
 
           live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
@@ -1069,12 +1069,15 @@ defmodule PhoenixKitWeb.Integration do
           prefix -> "#{prefix}/:language"
         end
 
-      scope blog_scope_multi, PhoenixKitWeb do
+      scope blog_scope_multi do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
-        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
-        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
+
+        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
       end
 
       # Non-localized blog routes (for when url_prefix is "/")
@@ -1084,13 +1087,16 @@ defmodule PhoenixKitWeb.Integration do
           prefix -> prefix
         end
 
-      scope blog_scope_non_localized, PhoenixKitWeb do
+      scope blog_scope_non_localized do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
         # Language detection is handled in the controller by checking if content exists
-        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
-        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
+
+        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
       end
     end
   end
