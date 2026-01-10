@@ -62,6 +62,9 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   alias PhoenixKit.Dashboard.{Badge, Tab}
 
+  # Suppress warnings about optional Tickets module (loaded conditionally)
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Tickets}
+
   @ets_table :phoenix_kit_dashboard_tabs
   @pubsub_topic "phoenix_kit:dashboard:tabs"
 
@@ -642,8 +645,11 @@ defmodule PhoenixKit.Dashboard.Registry do
   defp tickets_enabled? do
     Code.ensure_loaded?(PhoenixKit.Modules.Tickets) and
       function_exported?(PhoenixKit.Modules.Tickets, :enabled?, 0) and
-      apply(PhoenixKit.Modules.Tickets, :enabled?, [])
+      call_tickets_enabled()
   rescue
     _ -> false
   end
+
+  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+  defp call_tickets_enabled, do: PhoenixKit.Modules.Tickets.enabled?()
 end

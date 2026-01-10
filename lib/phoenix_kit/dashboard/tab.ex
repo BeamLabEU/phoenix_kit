@@ -174,29 +174,33 @@ defmodule PhoenixKit.Dashboard.Tab do
          :ok <- validate_id(attrs),
          :ok <- validate_path(attrs),
          {:ok, badge} <- parse_badge(attrs) do
-      tab = %__MODULE__{
-        id: attrs[:id] || attrs["id"],
-        label: attrs[:label] || attrs["label"],
-        icon: attrs[:icon] || attrs["icon"],
-        path: attrs[:path] || attrs["path"],
-        priority: attrs[:priority] || attrs["priority"] || 500,
-        group: attrs[:group] || attrs["group"],
-        parent: attrs[:parent] || attrs["parent"],
-        subtab_display: parse_subtab_display(attrs[:subtab_display] || attrs["subtab_display"]),
-        match: parse_match(attrs[:match] || attrs["match"] || :prefix),
-        visible: attrs[:visible] || attrs["visible"] || true,
-        badge: badge,
-        tooltip: attrs[:tooltip] || attrs["tooltip"],
-        external: attrs[:external] || attrs["external"] || false,
-        new_tab: attrs[:new_tab] || attrs["new_tab"] || false,
-        attention: parse_attention(attrs[:attention] || attrs["attention"]),
-        metadata: attrs[:metadata] || attrs["metadata"] || %{},
-        inserted_at: DateTime.utc_now()
-      }
-
-      {:ok, tab}
+      {:ok, build_tab_struct(attrs, badge)}
     end
   end
+
+  defp build_tab_struct(attrs, badge) do
+    %__MODULE__{
+      id: get_attr(attrs, :id),
+      label: get_attr(attrs, :label),
+      icon: get_attr(attrs, :icon),
+      path: get_attr(attrs, :path),
+      priority: get_attr(attrs, :priority) || 500,
+      group: get_attr(attrs, :group),
+      parent: get_attr(attrs, :parent),
+      subtab_display: parse_subtab_display(get_attr(attrs, :subtab_display)),
+      match: parse_match(get_attr(attrs, :match) || :prefix),
+      visible: get_attr(attrs, :visible) || true,
+      badge: badge,
+      tooltip: get_attr(attrs, :tooltip),
+      external: get_attr(attrs, :external) || false,
+      new_tab: get_attr(attrs, :new_tab) || false,
+      attention: parse_attention(get_attr(attrs, :attention)),
+      metadata: get_attr(attrs, :metadata) || %{},
+      inserted_at: DateTime.utc_now()
+    }
+  end
+
+  defp get_attr(attrs, key), do: attrs[key] || attrs[Atom.to_string(key)]
 
   @doc """
   Creates a new Tab struct, raising on error.

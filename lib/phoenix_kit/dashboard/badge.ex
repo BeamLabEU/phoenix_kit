@@ -116,36 +116,41 @@ defmodule PhoenixKit.Dashboard.Badge do
   def new(attrs) when is_list(attrs), do: new(Map.new(attrs))
 
   def new(attrs) when is_map(attrs) do
-    type = parse_type(attrs[:type] || attrs["type"])
-    color = parse_color(attrs[:color] || attrs["color"])
+    type = parse_type(get_attr(attrs, :type))
+    color = parse_color(get_attr(attrs, :color))
 
-    if type in @valid_types and color in @valid_colors do
-      badge = %__MODULE__{
-        type: type,
-        value: attrs[:value] || attrs["value"],
-        color: color,
-        max: attrs[:max] || attrs["max"],
-        pulse: attrs[:pulse] || attrs["pulse"] || false,
-        animate: Map.get(attrs, :animate, Map.get(attrs, "animate", true)),
-        hidden_when_zero:
-          Map.get(attrs, :hidden_when_zero, Map.get(attrs, "hidden_when_zero", true)),
-        subscribe: parse_subscribe(attrs[:subscribe] || attrs["subscribe"]),
-        format: attrs[:format] || attrs["format"],
-        metadata: attrs[:metadata] || attrs["metadata"] || %{}
-      }
+    cond do
+      type not in @valid_types ->
+        {:error, "Invalid badge type: #{inspect(type)}. Must be one of #{inspect(@valid_types)}"}
 
-      {:ok, badge}
-    else
-      cond do
-        type not in @valid_types ->
-          {:error,
-           "Invalid badge type: #{inspect(type)}. Must be one of #{inspect(@valid_types)}"}
+      color not in @valid_colors ->
+        {:error,
+         "Invalid badge color: #{inspect(color)}. Must be one of #{inspect(@valid_colors)}"}
 
-        color not in @valid_colors ->
-          {:error,
-           "Invalid badge color: #{inspect(color)}. Must be one of #{inspect(@valid_colors)}"}
-      end
+      true ->
+        {:ok, build_badge_struct(attrs, type, color)}
     end
+  end
+
+  defp build_badge_struct(attrs, type, color) do
+    %__MODULE__{
+      type: type,
+      value: get_attr(attrs, :value),
+      color: color,
+      max: get_attr(attrs, :max),
+      pulse: get_attr(attrs, :pulse) || false,
+      animate: get_attr_with_default(attrs, :animate, true),
+      hidden_when_zero: get_attr_with_default(attrs, :hidden_when_zero, true),
+      subscribe: parse_subscribe(get_attr(attrs, :subscribe)),
+      format: get_attr(attrs, :format),
+      metadata: get_attr(attrs, :metadata) || %{}
+    }
+  end
+
+  defp get_attr(attrs, key), do: attrs[key] || attrs[Atom.to_string(key)]
+
+  defp get_attr_with_default(attrs, key, default) do
+    Map.get(attrs, key, Map.get(attrs, Atom.to_string(key), default))
   end
 
   @doc """

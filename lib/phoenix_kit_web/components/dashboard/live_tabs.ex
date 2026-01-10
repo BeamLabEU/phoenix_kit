@@ -68,47 +68,45 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   end
 
   @doc false
+  # credo:disable-for-lines:60 Credo.Check.Refactor.CyclomaticComplexity
   defmacro __before_compile__(_env) do
     quote do
-      # Handle tab updates
       def handle_info({:tab_updated, tab}, socket) do
         tabs = update_tab_in_list(socket.assigns[:dashboard_tabs] || [], tab)
         {:noreply, assign(socket, :dashboard_tabs, tabs)}
       end
 
-      # Handle full tab refresh
       def handle_info(:tabs_refreshed, socket) do
-        tabs = load_dashboard_tabs(socket)
-        {:noreply, assign(socket, :dashboard_tabs, tabs)}
+        {:noreply, assign(socket, :dashboard_tabs, load_dashboard_tabs(socket))}
       end
 
-      # Handle presence updates
       def handle_info({:tab_viewers_updated, tab_id, count}, socket) do
         viewer_counts = Map.put(socket.assigns[:tab_viewer_counts] || %{}, tab_id, count)
         {:noreply, assign(socket, :tab_viewer_counts, viewer_counts)}
       end
 
-      # Handle badge PubSub updates
       def handle_info({:badge_update, tab_id, value}, socket) do
         Dashboard.update_badge(tab_id, value)
         {:noreply, socket}
       end
 
-      # Handle group toggle
       def handle_event("toggle_dashboard_group", %{"group" => group_id}, socket) do
-        group_atom = String.to_existing_atom(group_id)
-        collapsed_groups = socket.assigns[:collapsed_dashboard_groups] || MapSet.new()
-
-        collapsed_groups =
-          if MapSet.member?(collapsed_groups, group_atom) do
-            MapSet.delete(collapsed_groups, group_atom)
-          else
-            MapSet.put(collapsed_groups, group_atom)
-          end
-
-        {:noreply, assign(socket, :collapsed_dashboard_groups, collapsed_groups)}
+        {:noreply, toggle_collapsed_group(socket, group_id)}
       rescue
         _ -> {:noreply, socket}
+      end
+
+      defp toggle_collapsed_group(socket, group_id) do
+        group_atom = String.to_existing_atom(group_id)
+        collapsed = socket.assigns[:collapsed_dashboard_groups] || MapSet.new()
+        updated = toggle_group_membership(collapsed, group_atom)
+        assign(socket, :collapsed_dashboard_groups, updated)
+      end
+
+      defp toggle_group_membership(set, item) do
+        if MapSet.member?(set, item),
+          do: MapSet.delete(set, item),
+          else: MapSet.put(set, item)
       end
 
       defp update_tab_in_list(tabs, updated_tab) do
@@ -119,9 +117,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
       defp load_dashboard_tabs(socket) do
         scope = socket.assigns[:phoenix_kit_current_scope]
-        current_path = socket.assigns[:url_path] || "/dashboard"
-
-        Registry.get_tabs_with_active(current_path, scope: scope)
+        path = socket.assigns[:url_path] || "/dashboard"
+        Registry.get_tabs_with_active(path, scope: scope)
       end
     end
   end

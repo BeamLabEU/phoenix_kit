@@ -89,12 +89,13 @@ defmodule PhoenixKit.Dashboard.Presence do
             track_via_pubsub(socket, topic, meta)
 
           presence_mod when is_atom(presence_mod) ->
-            apply(presence_mod, :track, [
+            call_presence_track(
+              presence_mod,
               socket.assigns.live_socket_id || socket.id,
               topic,
               user_key(user),
               meta
-            ])
+            )
         end
       else
         {:ok, "anonymous_tracking_disabled"}
@@ -120,11 +121,12 @@ defmodule PhoenixKit.Dashboard.Presence do
           Phoenix.PubSub.broadcast(PhoenixKit.PubSub, topic, {:presence_leave, user_key(user)})
 
         presence_mod when is_atom(presence_mod) ->
-          apply(presence_mod, :untrack, [
+          call_presence_untrack(
+            presence_mod,
             socket.assigns.live_socket_id || socket.id,
             topic,
             user_key(user)
-          ])
+          )
       end
     end
 
@@ -161,7 +163,7 @@ defmodule PhoenixKit.Dashboard.Presence do
           []
 
         presence_mod when is_atom(presence_mod) ->
-          apply(presence_mod, :list, [topic])
+          call_presence_list(presence_mod, topic)
           |> Enum.flat_map(fn {_key, %{metas: metas}} -> metas end)
       end
 
@@ -322,5 +324,18 @@ defmodule PhoenixKit.Dashboard.Presence do
     {:ok, socket_id}
   rescue
     _ -> {:error, :pubsub_unavailable}
+  end
+
+  # Wrapper functions to avoid apply/3 with known argument counts
+  defp call_presence_track(mod, socket_id, topic, key, meta) do
+    mod.track(socket_id, topic, key, meta)
+  end
+
+  defp call_presence_untrack(mod, socket_id, topic, key) do
+    mod.untrack(socket_id, topic, key)
+  end
+
+  defp call_presence_list(mod, topic) do
+    mod.list(topic)
   end
 end
