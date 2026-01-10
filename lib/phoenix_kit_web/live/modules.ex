@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules do
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Modules.Posts
   alias PhoenixKit.Modules.Publishing
-  alias PhoenixKit.Modules.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Modules.SEO
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Sitemap
@@ -37,7 +37,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
 
     # Load module states
-    referral_codes_config = ReferralCodes.get_config()
+    referral_codes_config = Referrals.get_config()
     email_config = Emails.get_config()
     languages_config = Languages.get_config()
     entities_config = Entities.get_config()
@@ -135,9 +135,9 @@ defmodule PhoenixKitWeb.Live.Modules do
 
     result =
       if new_enabled do
-        ReferralCodes.enable_system()
+        Referrals.enable_system()
       else
-        ReferralCodes.disable_system()
+        Referrals.disable_system()
       end
 
     case result do

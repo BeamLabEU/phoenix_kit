@@ -20,9 +20,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     blog_slug = params["blog"] || params["category"] || params["type"]
 
     # Subscribe to PubSub for live updates when connected
-    if connected?(socket) && blog_slug do
-      PublishingPubSub.subscribe_to_posts(blog_slug)
-      PublishingPubSub.subscribe_to_cache(blog_slug)
+    if connected?(socket) do
+      # Global group updates (for sidebar)
+      PublishingPubSub.subscribe_to_groups()
+
+      if blog_slug do
+        PublishingPubSub.subscribe_to_posts(blog_slug)
+        PublishingPubSub.subscribe_to_cache(blog_slug)
+        PublishingPubSub.subscribe_to_blog_editors(blog_slug)
+      end
     end
 
     # Load date/time format settings once for performance
@@ -39,10 +45,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     blogs = Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
 
-    posts =
-      if blog_slug,
-        do: Publishing.list_posts(blog_slug, socket.assigns.current_locale_base),
-        else: []
+    # Don't load posts here - handle_params will load them with proper endpoint_url
+    # This prevents double rendering where first render has nil endpoint_url
 
     current_path =
       case blog_slug do
@@ -63,31 +67,79 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
       |> assign(:blog_slug, blog_slug)
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:master_language, Storage.get_master_language())
-      |> assign(:posts, posts)
-      |> assign(:endpoint_url, nil)
+      |> assign(:posts, [])
+      |> assign(:loading, true)
+      |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
       |> assign(:cache_info, get_cache_info(blog_slug))
+      |> assign(:active_editors, %{})
+      |> assign(:translating_posts, %{})
+      # Debounce timers for post updates (prevents disk hammering on rapid saves)
+      |> assign(:pending_post_updates, %{})
 
     {:ok, redirect_if_missing(socket)}
   end
 
   @impl true
-  def handle_params(_params, uri, socket) do
-    blog_slug = socket.assigns.blog_slug
+  def handle_params(params, uri, socket) do
+    new_blog_slug = params["blog"] || params["category"] || params["type"]
+    old_blog_slug = socket.assigns[:blog_slug]
 
-    posts =
-      case blog_slug do
-        nil -> []
-        slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+    # Handle subscription changes when switching blogs
+    socket =
+      if connected?(socket) && new_blog_slug != old_blog_slug do
+        # Unsubscribe from old blog's topics
+        if old_blog_slug do
+          PublishingPubSub.unsubscribe_from_posts(old_blog_slug)
+          PublishingPubSub.unsubscribe_from_cache(old_blog_slug)
+          PublishingPubSub.unsubscribe_from_blog_editors(old_blog_slug)
+        end
+
+        # Subscribe to new blog's topics
+        if new_blog_slug do
+          PublishingPubSub.subscribe_to_posts(new_blog_slug)
+          PublishingPubSub.subscribe_to_cache(new_blog_slug)
+          PublishingPubSub.subscribe_to_blog_editors(new_blog_slug)
+        end
+
+        # Reset editor tracking state for new blog
+        socket
+        |> assign(:blog_slug, new_blog_slug)
+        |> assign(:active_editors, %{})
+        |> assign(:translating_posts, %{})
+        |> assign(:pending_post_updates, %{})
+      else
+        assign(socket, :blog_slug, new_blog_slug)
       end
+
+    # Update current blog
+    blogs = socket.assigns[:blogs] || Publishing.list_groups()
+    current_blog = Enum.find(blogs, fn blog -> blog["slug"] == new_blog_slug end)
 
     endpoint_url = extract_endpoint_url(uri)
 
+    # Only load posts when connected to avoid double render flicker
+    # During disconnected render, show loading state
+    {posts, loading} =
+      if connected?(socket) do
+        posts =
+          case new_blog_slug do
+            nil -> []
+            slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+          end
+
+        {posts, false}
+      else
+        {[], true}
+      end
+
     socket =
       socket
+      |> assign(:current_blog, current_blog)
       |> assign(:posts, posts)
+      |> assign(:loading, loading)
       |> assign(:endpoint_url, endpoint_url)
-      |> assign(:cache_info, get_cache_info(blog_slug))
+      |> assign(:cache_info, get_cache_info(new_blog_slug))
 
     {:noreply, redirect_if_missing(socket)}
   end
@@ -236,6 +288,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
 
     case ListingCache.regenerate_file_only(blog_slug) do
       :ok ->
+        # Notify other dashboards about cache change
+        PublishingPubSub.broadcast_cache_changed(blog_slug)
+
         {:noreply,
          socket
          |> assign(:cache_info, get_cache_info(blog_slug))
@@ -256,6 +311,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
       _ -> :ok
     end
 
+    # Notify other dashboards about cache change
+    PublishingPubSub.broadcast_cache_changed(blog_slug)
+
     {:noreply,
      socket
      |> assign(:cache_info, get_cache_info(blog_slug))
@@ -270,6 +328,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     if ListingCache.file_cache_enabled?() do
       case ListingCache.load_into_memory(blog_slug) do
         :ok ->
+          # Notify other dashboards about cache change
+          PublishingPubSub.broadcast_cache_changed(blog_slug)
+
           {:noreply,
            socket
            |> assign(:cache_info, get_cache_info(blog_slug))
@@ -285,6 +346,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
       # File cache disabled - scan posts directly into memory
       case ListingCache.regenerate(blog_slug) do
         :ok ->
+          # Notify other dashboards about cache change
+          PublishingPubSub.broadcast_cache_changed(blog_slug)
+
           {:noreply,
            socket
            |> assign(:cache_info, get_cache_info(blog_slug))
@@ -317,6 +381,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     rescue
       ArgumentError -> :ok
     end
+
+    # Notify other dashboards about cache change
+    PublishingPubSub.broadcast_cache_changed(blog_slug)
 
     {:noreply,
      socket
@@ -408,38 +475,180 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
   # PubSub handlers for live updates
   @impl true
   def handle_info({:post_created, _post}, socket) do
-    # Refresh the posts list when a new post is created
+    # Add new post to the list (at beginning since sorted by published_at desc)
+    # We do a full refresh since the new post needs to be in the right position
+    # based on sorting and the broadcast post may not have all required fields
     {:noreply, refresh_posts(socket)}
   end
 
-  def handle_info({:post_updated, _post}, socket) do
-    # Refresh the posts list when a post is updated
-    {:noreply, refresh_posts(socket)}
+  def handle_info({:post_updated, updated_post}, socket) do
+    # Debounce post updates to prevent disk hammering on rapid saves
+    socket = schedule_debounced_update(socket, updated_post)
+    {:noreply, socket}
   end
 
-  def handle_info({:post_status_changed, _post}, socket) do
-    # Refresh the posts list when a post status changes
-    {:noreply, refresh_posts(socket)}
+  def handle_info({:post_status_changed, updated_post}, socket) do
+    # Debounce status changes as well
+    socket = schedule_debounced_update(socket, updated_post)
+    {:noreply, socket}
   end
 
-  def handle_info({:post_deleted, _post_path}, socket) do
-    # Refresh the posts list when a post is deleted
-    {:noreply, refresh_posts(socket)}
+  def handle_info({:debounced_post_update, post_slug}, socket) do
+    # Timer fired - now do the actual update
+    socket = do_debounced_update(socket, post_slug)
+    {:noreply, socket}
   end
 
-  def handle_info({:version_created, _post}, socket) do
-    # Refresh the posts list when a new version is created
-    {:noreply, refresh_posts(socket)}
+  def handle_info({:post_deleted, post_path}, socket) do
+    # Remove the deleted post from the list
+    socket = remove_post_from_list(socket, post_path)
+    {:noreply, socket}
   end
 
-  def handle_info({:version_live_changed, _post_slug, _version}, socket) do
-    # Refresh the posts list when the live version changes
-    {:noreply, refresh_posts(socket)}
+  def handle_info({:version_created, updated_post}, socket) do
+    # Incrementally update the post with new version info
+    socket = update_post_in_list(socket, updated_post)
+    {:noreply, socket}
+  end
+
+  def handle_info({:version_live_changed, post_slug, _version}, socket) do
+    # Refresh the specific post since live version change affects displayed content
+    socket = refresh_post_by_slug(socket, post_slug)
+    {:noreply, socket}
+  end
+
+  def handle_info({:version_deleted, post_slug, _version}, socket) do
+    # Refresh the specific post since version deletion affects available versions
+    socket = refresh_post_by_slug(socket, post_slug)
+    {:noreply, socket}
   end
 
   def handle_info({:cache_changed, blog_slug}, socket) do
     # Refresh cache info when cache state changes (from visitor loading it, etc.)
     {:noreply, assign(socket, :cache_info, get_cache_info(blog_slug))}
+  end
+
+  # Editor presence handlers - show who's currently editing posts
+  def handle_info({:editor_joined, post_slug, user_info}, socket) do
+    # Only show actual editors (owners), not spectators
+    if user_info[:role] == :owner do
+      active_editors = socket.assigns.active_editors
+      post_editors = Map.get(active_editors, post_slug, [])
+
+      # Add user if not already in the list
+      updated_editors =
+        if Enum.any?(post_editors, fn e -> e.socket_id == user_info.socket_id end) do
+          post_editors
+        else
+          [user_info | post_editors]
+        end
+
+      {:noreply,
+       assign(socket, :active_editors, Map.put(active_editors, post_slug, updated_editors))}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info({:editor_left, post_slug, user_info}, socket) do
+    active_editors = socket.assigns.active_editors
+    post_editors = Map.get(active_editors, post_slug, [])
+
+    # Remove user from the list
+    updated_editors = Enum.reject(post_editors, fn e -> e.socket_id == user_info.socket_id end)
+
+    updated_active_editors =
+      if updated_editors == [] do
+        Map.delete(active_editors, post_slug)
+      else
+        Map.put(active_editors, post_slug, updated_editors)
+      end
+
+    {:noreply, assign(socket, :active_editors, updated_active_editors)}
+  end
+
+  # Translation progress handlers - show translation status on posts
+  def handle_info({:translation_started, post_slug, language_count}, socket) do
+    translating =
+      Map.put(socket.assigns.translating_posts, post_slug, %{
+        total: language_count,
+        completed: 0,
+        status: :in_progress
+      })
+
+    {:noreply, assign(socket, :translating_posts, translating)}
+  end
+
+  def handle_info({:translation_completed, post_slug, results}, socket) do
+    # Mark translation as complete, then remove after a delay
+    translating =
+      Map.put(socket.assigns.translating_posts, post_slug, %{
+        status: :completed,
+        success_count: results.success_count,
+        failure_count: results.failure_count
+      })
+
+    socket = assign(socket, :translating_posts, translating)
+
+    # Also refresh posts to show new translations
+    socket = refresh_posts(socket)
+
+    # Clear the status after 5 seconds
+    Process.send_after(self(), {:clear_translation_status, post_slug}, 5000)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:clear_translation_status, post_slug}, socket) do
+    translating = Map.delete(socket.assigns.translating_posts, post_slug)
+    {:noreply, assign(socket, :translating_posts, translating)}
+  end
+
+  # Group change handlers - keep sidebar in sync
+  def handle_info({:group_created, _group}, socket) do
+    {:noreply, assign(socket, :blogs, Publishing.list_groups())}
+  end
+
+  def handle_info({:group_updated, group}, socket) do
+    blogs = Publishing.list_groups()
+    current_blog = Enum.find(blogs, fn b -> b["slug"] == socket.assigns.blog_slug end)
+
+    socket =
+      socket
+      |> assign(:blogs, blogs)
+      |> assign(:current_blog, current_blog || group)
+
+    {:noreply, socket}
+  end
+
+  def handle_info({:group_deleted, deleted_slug}, socket) do
+    blogs = Publishing.list_groups()
+
+    socket =
+      if socket.assigns.blog_slug == deleted_slug do
+        # Current group was deleted - redirect to first available
+        case blogs do
+          [%{"slug" => slug} | _] ->
+            push_navigate(socket,
+              to:
+                Routes.path("/admin/publishing/#{slug}",
+                  locale: socket.assigns.current_locale_base
+                )
+            )
+
+          [] ->
+            push_navigate(socket,
+              to:
+                Routes.path("/admin/settings/publishing",
+                  locale: socket.assigns.current_locale_base
+                )
+            )
+        end
+      else
+        assign(socket, :blogs, blogs)
+      end
+
+    {:noreply, socket}
   end
 
   defp refresh_posts(socket) do
@@ -452,6 +661,124 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
         assign(socket, :posts, posts)
     end
   end
+
+  # Debounce interval for post updates (500ms)
+  @update_debounce_ms 500
+
+  # Schedule a debounced update for a post
+  defp schedule_debounced_update(socket, updated_post) do
+    post_slug = updated_post[:slug] || updated_post["slug"]
+
+    if post_slug do
+      pending = socket.assigns[:pending_post_updates] || %{}
+
+      # Cancel existing timer for this post if any
+      if timer_ref = Map.get(pending, post_slug) do
+        Process.cancel_timer(timer_ref)
+      end
+
+      # Schedule new debounced update
+      timer_ref =
+        Process.send_after(self(), {:debounced_post_update, post_slug}, @update_debounce_ms)
+
+      assign(socket, :pending_post_updates, Map.put(pending, post_slug, timer_ref))
+    else
+      socket
+    end
+  end
+
+  # Execute debounced update when timer fires
+  defp do_debounced_update(socket, post_slug) do
+    # Clear the timer from pending
+    pending = socket.assigns[:pending_post_updates] || %{}
+    socket = assign(socket, :pending_post_updates, Map.delete(pending, post_slug))
+
+    # Do the actual update
+    refresh_post_by_slug(socket, post_slug)
+  end
+
+  # Incrementally update a single post in the list by slug
+  # We refresh the full post from storage to ensure all fields are current
+  # (available_versions, language_slugs, version_statuses, etc.)
+  defp update_post_in_list(socket, updated_post) do
+    post_slug = updated_post[:slug] || updated_post["slug"]
+    can_update? = post_slug && socket.assigns[:posts] && socket.assigns[:blog_slug]
+
+    if can_update? do
+      fetch_and_update_post(socket, post_slug)
+    else
+      refresh_posts(socket)
+    end
+  end
+
+  defp fetch_and_update_post(socket, post_slug) do
+    case Publishing.read_post(
+           socket.assigns.blog_slug,
+           post_slug,
+           socket.assigns.current_locale_base,
+           nil
+         ) do
+      {:ok, fresh_post} ->
+        replace_post_in_list(socket, post_slug, fresh_post)
+
+      {:error, _} ->
+        # Post may have been deleted or unreadable - full refresh
+        refresh_posts(socket)
+    end
+  end
+
+  defp replace_post_in_list(socket, post_slug, fresh_post) do
+    updated_posts =
+      Enum.map(socket.assigns.posts, fn post ->
+        if post[:slug] == post_slug, do: fresh_post, else: post
+      end)
+
+    assign(socket, :posts, updated_posts)
+  end
+
+  # Remove a post from the list by path
+  defp remove_post_from_list(socket, post_path) do
+    if socket.assigns[:posts] do
+      # Extract slug from path (e.g., "blog/my-post/v1/en.phk" -> "my-post")
+      post_slug = extract_slug_from_path(post_path)
+
+      updated_posts =
+        Enum.reject(socket.assigns.posts, fn post ->
+          post[:slug] == post_slug || post[:path] == post_path
+        end)
+
+      assign(socket, :posts, updated_posts)
+    else
+      socket
+    end
+  end
+
+  # Refresh a single post by slug (used when we need fresh data from storage)
+  defp refresh_post_by_slug(socket, post_slug) do
+    case socket.assigns.blog_slug do
+      nil ->
+        socket
+
+      blog_slug ->
+        case Publishing.read_post(blog_slug, post_slug, socket.assigns.current_locale_base, nil) do
+          {:ok, fresh_post} ->
+            update_post_in_list(socket, fresh_post)
+
+          {:error, _} ->
+            # Post might have been deleted - refresh all
+            refresh_posts(socket)
+        end
+    end
+  end
+
+  # Extract post slug from a full path
+  defp extract_slug_from_path(path) when is_binary(path) do
+    path
+    |> String.split("/")
+    |> Enum.at(1)
+  end
+
+  defp extract_slug_from_path(_), do: nil
 
   defp redirect_if_missing(%{assigns: %{current_blog: nil}} = socket) do
     case socket.assigns.blogs do

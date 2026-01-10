@@ -289,8 +289,8 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `published_at` – Publication timestamp (ISO8601 format)
 - `featured_image_id` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
-- `version`, `version_created_at`, `version_created_from`, `is_live` – Managed automatically when
-  slug-mode posts create drafts, go live, or get copied to new versions
+- `version`, `version_created_at`, `version_created_from` – Managed automatically for versioned posts
+- `status_manual` – When `true`, translation status won't inherit from master language on publish
 - `allow_version_access` – Enables public viewing of historical versions when set to `true`
 
 **Audit Fields (optional):**
@@ -393,14 +393,14 @@ iex> {:ok, updated} = Publishing.update_post("docs", post, %{"content" => "# v2"
 ### Versioning and translations
 
 ```elixir
-iex> {:ok, draft_v2} = Publishing.create_new_version("docs", post, %{"content" => "..."})
-iex> :ok = Publishing.set_version_live("docs", post.slug, 2)
+iex> {:ok, draft_v2} = Publishing.create_version_from("docs", "getting-started", 1, %{"content" => "..."})
+iex> :ok = Publishing.publish_version("docs", "getting-started", 2)
 iex> {:ok, spanish} = Publishing.add_language_to_post("docs", "getting-started", "es")
 iex> :ok = Publishing.delete_language("docs", "getting-started", "fr")
 iex> :ok = Publishing.delete_version("docs", "getting-started", 1)
 ```
 
-- `create_new_version/4` clones metadata/content into a draft; promote it with `set_version_live/3`.
+- `create_version_from/5` creates a new version by copying from source (or blank if `nil`); publish with `publish_version/3`.
 - Languages live beside each other (`en.phk`, `es.phk`, etc.) and share cache + slug metadata.
 
 ### Filesystem + cache helpers
@@ -540,44 +540,118 @@ versions = Publishing.list_versions("docs", "getting-started")
 
 # Get specific version info
 {:ok, 3} = Publishing.get_latest_version("docs", "getting-started")
-{:ok, 2} = Publishing.get_latest_published_version("docs", "getting-started")
-{:ok, 2} = Publishing.get_live_version("docs", "getting-started")
+{:ok, 2} = Publishing.get_published_version("docs", "getting-started")
 
 # Get version metadata
 {:ok, metadata} = Publishing.get_version_metadata("docs", "getting-started", 1, "en")
 
 # Create new version from existing post
-{:ok, new_post} = Publishing.create_new_version("docs", source_post, %{
+# Create a new version from an existing version (branching)
+{:ok, new_post} = Publishing.create_version_from("docs", "getting-started", 1, %{
   "content" => "Updated content..."
 }, scope: current_user_scope)
 
-# Set a version as live (public-facing)
-:ok = Publishing.set_version_live("docs", "getting-started", 2)
+# Create a blank new version
+{:ok, new_post} = Publishing.create_version_from("docs", "getting-started", nil, %{},
+  scope: current_user_scope)
+
+# For timestamp mode, use the date/time path as identifier
+{:ok, new_post} = Publishing.create_version_from("news", "2025-01-15/14:30", 1, %{},
+  scope: current_user_scope)
+
+# Publish a version (archives all other published versions)
+:ok = Publishing.publish_version("docs", "getting-started", 2)
+
+# Get the currently published version
+{:ok, version} = Publishing.get_published_version("docs", "getting-started")
 
 # Check version structure and migration
 :versioned = Publishing.detect_post_structure("/path/to/post")
 {:ok, post} = Publishing.migrate_post_to_versioned(legacy_post)
 
-# Helpers for version creation logic
+# Helpers for version logic
 Publishing.content_changed?(post, params)  # => true/false
 Publishing.status_change_only?(post, params)  # => true/false
-Publishing.should_create_new_version?(post, params, "en")  # => true/false
 ```
 
-### Version History & Public URLs
+### Variant Versioning System
 
-Slug-mode blogs can expose older published versions directly to visitors.
+Both slug-mode and timestamp-mode posts support **variant versioning** - versions are independent
+attempts or drafts rather than sequential history. Only ONE version can be published at a time.
 
-- In the editor, toggle **Show Version History** (master language only) to set
-  `allow_version_access: true` in frontmatter. This adds a version dropdown to the public page.
-- Public URLs follow the pattern `/{prefix}/{language}/{blog}/{post}/v/{version}` and are only
-  accessible when the target version's metadata.status is `"published"` and the live version allows
-  history access.
-- The controller always checks the master language's live version to decide if history is enabled,
-  and `PhoenixKit.Modules.Publishing.ListingCache` stores the `allow_version_access` flag +
-  live `version` for fast dropdown rendering.
-- When disabled (default), `v/<version>` URLs return `404` to prevent unintended leakage of draft
-  content.
+**Key Concepts:**
+
+- **Radio-style publishing**: When you publish a version, all other published versions are
+  automatically archived. Only the newly published version is visible to the public.
+- **Versions are editable**: Unlike historical versioning, all versions remain editable regardless
+  of status. You can modify drafts, archived versions, or even the published version.
+- **Branching**: Create new versions by copying from an existing version or starting blank.
+- **Translation inheritance**: When publishing, translations inherit the master language's status
+  unless `status_manual: true` is set.
+
+**Creating New Versions:**
+
+1. Open any post in the editor
+2. Click the **"New Version"** button next to the version switcher
+3. Choose to copy from an existing version or start blank
+4. The new version is created as a draft
+
+**Publishing a Version:**
+
+1. Open the version you want to publish
+2. Change status to "Published" and save
+3. All other published versions are automatically archived
+4. The public URL now shows this version's content
+
+**Version Statuses:**
+
+- `published` - The live version visible to the public (only ONE per post)
+- `draft` - Work in progress, not visible publicly
+- `archived` - Previously published or intentionally hidden versions
+
+**Editor UI:**
+
+The editor provides a complete version management interface:
+
+- **Version Switcher** - Dropdown showing all versions with status indicators (green=published, yellow=draft, gray=archived)
+- **New Version Button** - Opens a modal to create a new version
+- **New Version Modal** - Choose to start blank or copy from any existing version
+- **Status Dropdown** - Change status directly in the metadata panel
+
+**Translation Status Overrides:**
+
+Translations can maintain their own status independently of the master language:
+
+- By default, translations inherit the master language's status when published
+- When a translator manually changes a translation's status, `status_manual: true` is set
+- Translations with `status_manual: true` keep their status even when the master is republished
+- This allows keeping a translation as "draft" while the master is published (e.g., awaiting review)
+
+Example workflow:
+1. Master (English) is published with v2
+2. French translation is still being reviewed, translator sets it to "draft"
+3. `status_manual: true` is automatically set on the French file
+4. Later, when English v3 is published, French keeps its "draft" status
+
+**Public URLs:**
+
+Public URLs always show the published version's content:
+- `/{prefix}/{language}/{group}/{post}` - Shows the published version
+
+**Version Browsing (Opt-in):**
+
+By default, only the published version is accessible. To enable public access to older
+published versions, set `allow_version_access: true` in the post's metadata:
+
+```yaml
+allow_version_access: true
+```
+
+When enabled, versioned URLs become accessible:
+- `/{prefix}/{language}/{group}/{post}/v/{version}` - Direct version access
+
+The version dropdown appears on the public post page, showing all published versions.
+This is useful for documentation sites where users may need to reference older versions.
 
 ### Cache Operations
 
@@ -771,7 +845,7 @@ The editor uses Phoenix.Presence to coordinate multiple users editing the same p
 
 **How It Works:**
 
-- Users join a Presence topic (e.g., `blog_edit:blog:post-slug`)
+- Users join a Presence topic (e.g., `blog_edit:group-slug:post-slug`)
 - Users sorted by `joined_at` timestamp (FIFO ordering)
 - First user in sorted list = owner (`readonly?: false`)
 - All other users = spectators (`readonly?: true`)
@@ -813,28 +887,189 @@ docs/
 
 ```elixir
 %{
-  blog: "docs",
+  group: "docs",                    # Publishing group slug
   slug: "getting-started",          # Slug mode only
   date: ~D[2025-01-15],             # Timestamp mode only
   time: ~T[09:30:00],               # Timestamp mode only
-  path: "docs/getting-started/en.phk",
-  full_path: "/var/app/content/docs/getting-started/en.phk",
+  path: "docs/getting-started/v1/en.phk",
+  full_path: "/var/app/content/docs/getting-started/v1/en.phk",
   metadata: %{
     title: "Getting Started",
-    status: "published",
+    status: "published",            # "published", "draft", or "archived"
     slug: "getting-started",
     published_at: "2025-01-15T09:30:00Z",
-    created_at: "2025-01-15T09:30:00Z"
+    created_at: "2025-01-15T09:30:00Z",
+    version: 1,
+    version_created_at: "2025-01-15T09:30:00Z",
+    version_created_from: nil,      # Source version when branching
+    status_manual: false            # True if translation status was manually set
   },
   content: "# Markdown content...",
   language: "en",
   available_languages: ["en", "es", "fr"],
   language_statuses: %{"en" => "published", "es" => "draft", "fr" => "published"},
-  mode: :slug  # or :timestamp
+  mode: :slug,                      # :slug or :timestamp
+  version: 1,                       # Current version number
+  available_versions: [1, 2, 3],    # All versions for this post
+  version_statuses: %{1 => "archived", 2 => "archived", 3 => "published"},
+  is_legacy_structure: false        # True for pre-versioned posts
 }
 ```
 
 **Note on `language_statuses`:** This field is preloaded when posts are fetched via `list_posts` or `read_post` to avoid redundant file reads. It maps each available language code to its publication status.
+
+## AI Translation
+
+The Publishing module integrates with the AI module to provide automated translation of posts to multiple languages using an Oban background job.
+
+### Prerequisites
+
+1. **AI Module Enabled**: The AI module must be enabled (`PhoenixKit.Modules.AI.enable_system()`)
+2. **AI Endpoint Configured**: At least one AI endpoint must be configured with a capable model
+3. **Languages Enabled**: The Languages module should have multiple languages enabled
+
+### Editor UI
+
+When prerequisites are met, a collapsible **AI Translation** panel appears in the post editor (for master language posts only):
+
+1. Open any post in the master language
+2. Expand the "AI Translation" section (marked with Beta badge)
+3. Select an AI endpoint from the dropdown
+4. Click one of the translation buttons:
+   - **Translate All Languages** - Translates to ALL enabled languages
+   - **Translate Missing Only** - Only translates languages that don't have a translation file yet
+
+The translation runs as a background job. Progress can be monitored in the Oban dashboard or via logs.
+
+### Quick Start (Programmatic)
+
+```elixir
+# Translate a post to all enabled languages
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1
+)
+
+# Translate to specific languages only
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1,
+  target_languages: ["es", "fr", "de"]
+)
+
+# Translate a specific version
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started",
+  endpoint_id: 1,
+  version: 2
+)
+```
+
+### Configuration
+
+Set a default AI endpoint for translations (optional):
+
+```elixir
+PhoenixKit.Settings.update_setting("publishing_translation_endpoint_id", "1")
+```
+
+With a default endpoint configured, you can omit the `endpoint_id` option:
+
+```elixir
+{:ok, job} = Publishing.translate_post_to_all_languages("docs", "getting-started")
+```
+
+### How It Works
+
+1. **Job Enqueued**: An Oban job is created in the `:default` queue
+2. **Source Read**: The master language content is read from the specified post
+3. **AI Translation**: For each target language, the content is sent to the AI with a translation prompt
+4. **Files Created**: Translation files are created or updated (e.g., `es.phk`, `fr.phk`)
+5. **Cache Updated**: The listing cache is regenerated to include new translations
+
+### Translation Features
+
+**Format Preservation:**
+- The AI preserves the EXACT formatting of the original content
+- If the original has `# headings`, translations keep them; if not, they don't add them
+- All Markdown formatting is preserved (bold, italic, lists, code blocks, links)
+- Line breaks and spacing are maintained
+- Code blocks and inline code are NOT translated
+
+**URL Slug Translation:**
+- The AI generates a localized URL slug for each translation
+- Example: `getting-started` → `primeros-pasos` (Spanish)
+- Slugs are automatically sanitized (lowercase, hyphens, no special characters)
+- See [Per-Language URL Slugs](#per-language-url-slugs) for more details
+
+**Title Extraction:**
+- The AI extracts and translates the title separately
+- Title is stored in metadata for listings and SEO
+- Original document structure is preserved
+
+### Translation Prompt
+
+The worker uses a built-in translation prompt that instructs the AI to:
+- Preserve exact formatting (headings, spacing, structure)
+- Keep Markdown syntax intact
+- Not translate code blocks or inline code
+- Translate naturally and idiomatically
+- Generate SEO-friendly URL slugs in the target language
+
+### Options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `endpoint_id` | integer | AI endpoint ID (required if not set in settings) |
+| `source_language` | string | Source language code (defaults to master language) |
+| `target_languages` | list | Target language codes (defaults to all enabled except source) |
+| `version` | integer | Version number to translate (defaults to latest) |
+| `user_id` | integer | User ID for audit trail |
+
+### Job Monitoring
+
+Translation jobs can be monitored via:
+- **Oban Dashboard**: View job status, retries, and errors
+- **Jobs Module**: Enable at `/{prefix}/admin/modules` → Jobs
+- **Logs**: Jobs log progress and errors with `[TranslatePostWorker]` prefix
+
+Example log output:
+```
+[TranslatePostWorker] Starting translation of docs/getting-started from en to 5 languages
+[TranslatePostWorker] Translating to es (Spanish)...
+[TranslatePostWorker] AI call for es completed in 2341ms
+[TranslatePostWorker] Got translated slug for es: primeros-pasos
+[TranslatePostWorker] Creating new es translation
+[TranslatePostWorker] Successfully translated to es
+...
+[TranslatePostWorker] Completed: 5 succeeded, 0 failed
+```
+
+### Error Handling
+
+- **Partial Failures**: If some languages fail, the job reports which languages succeeded and which failed
+- **Retries**: Jobs retry up to 3 times with exponential backoff
+- **Timeout**: Jobs have a 10-minute timeout for large posts or many languages
+- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language file (prevents overwriting master)
+
+### Programmatic Usage
+
+```elixir
+alias PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker
+
+# Create a job without inserting
+job = TranslatePostWorker.create_job("docs", "getting-started", endpoint_id: 1)
+
+# Insert the job
+{:ok, oban_job} = Oban.insert(job)
+
+# Or use the convenience function
+{:ok, oban_job} = TranslatePostWorker.enqueue("docs", "getting-started", endpoint_id: 1)
+
+# Translate only missing languages
+missing_langs = ["de", "ja", "zh"]  # Languages without translation files
+{:ok, job} = TranslatePostWorker.enqueue("docs", "getting-started",
+  endpoint_id: 1,
+  target_languages: missing_langs
+)
+```
 
 ## Migration Path
 
@@ -1151,11 +1386,11 @@ The version you're trying to delete is currently the live (public-facing) versio
 
 **Solution:**
 
-Set a different version as live first:
+Publish a different version first:
 
 ```elixir
-# Make another version live
-:ok = Publishing.set_version_live("docs", "post", 2)
+# Publish another version (this archives the current published version)
+:ok = Publishing.publish_version("docs", "post", 2)
 # Now delete the old version
 :ok = Publishing.delete_version("docs", "post", 1)
 ```
@@ -1182,78 +1417,153 @@ Either create a new version first, or trash the entire post:
 {:ok, _} = Publishing.trash_post("docs", "post")
 ```
 
-### Future: Per-Language Slugs
+## Per-Language URL Slugs
 
-Currently, all language translations of a post share the same URL slug (the directory name). For better SEO in multilingual sites, each language could have its own unique URL slug.
+Each language translation can have its own SEO-friendly URL slug, enabling localized URLs for better search engine optimization and user experience.
 
-**Current Behavior:**
+**Example:**
 ```
-# All languages share same slug
-/en/docs/getting-started  →  docs/getting-started/en.phk
-/es/docs/getting-started  →  docs/getting-started/es.phk
-/fr/docs/getting-started  →  docs/getting-started/fr.phk
-```
-
-**Proposed Per-Language Slugs:**
-```
-# Each language has its own SEO-friendly slug
-/en/docs/getting-started   →  docs/getting-started/en.phk  (slug: "getting-started")
-/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (slug: "primeros-pasos")
-/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (slug: "prise-en-main")
+# Each language has its own URL slug
+/en/docs/getting-started   →  docs/getting-started/en.phk  (url_slug: "getting-started")
+/es/docs/primeros-pasos    →  docs/getting-started/es.phk  (url_slug: "primeros-pasos")
+/fr/docs/prise-en-main     →  docs/getting-started/fr.phk  (url_slug: "prise-en-main")
 ```
 
-**Implementation Approach:**
+**Key Concepts:**
 
-1. **Directory = Master Slug (Internal Identifier)**
-   - The post directory name becomes the internal ID (e.g., `getting-started/`)
-   - This never changes and ties all language versions together
+1. **Directory = Internal Identifier** - The post directory name (e.g., `getting-started/`) is the internal ID that ties all translations together. This never changes.
 
-2. **Frontmatter = Per-Language Slug**
-   - Each `.phk` file stores its own `slug` in frontmatter
-   - English: `slug: getting-started`
-   - Spanish: `slug: primeros-pasos`
-   - Slug can be edited independently per language
+2. **url_slug = Public URL** - Each translation's `.phk` file can specify its own `url_slug` in frontmatter for the public-facing URL.
 
-3. **ListingCache Indexes Language Slugs**
-   ```json
-   {
-     "posts": [{
-       "master_slug": "getting-started",
-       "language_slugs": {
-         "en": "getting-started",
-         "es": "primeros-pasos",
-         "fr": "prise-en-main"
-       }
-     }]
-   }
-   ```
+3. **Backward Compatible** - If no `url_slug` is set, the directory name is used (existing behavior).
 
-4. **O(1) Lookup via Cache**
-   ```elixir
-   # Instead of filesystem scan, lookup in memory cache
-   ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
-   # => {:ok, %{master_slug: "getting-started", language: "es", ...}}
-   ```
+### Setting Up Per-Language Slugs
 
-**Components to Update:**
+**In the Editor:**
 
-| Component | Changes Required |
-|-----------|-----------------|
-| `metadata.ex` | Slug field already exists (no change) |
-| `listing_cache.ex` | Add `language_slugs` map to cache structure, add `find_by_url_slug/3` |
-| `blog_controller.ex` | Use cache lookup instead of direct path construction |
-| `editor.ex` | Allow editing slug per-language (currently shared) |
-| `blog_html.ex` | `build_post_url/4` uses language-specific slug from post struct |
+1. Open a translation (non-master language) in the editor
+2. Find the "URL Slug" field in the metadata panel (only visible for translations)
+3. Enter a localized slug (e.g., `primeros-pasos` for Spanish)
+4. Save - the URL immediately updates
 
-**Migration Path:**
+**In Frontmatter:**
 
-Existing posts would work as-is (all languages default to directory name as slug). Per-language slugs would be opt-in by editing the slug field for specific translations.
+```yaml
+---
+slug: getting-started
+status: published
+published_at: 2025-01-15T09:30:00Z
+url_slug: primeros-pasos
+---
 
-**Why This Matters:**
+# Primeros Pasos
 
-- **SEO Benefits**: Search engines prefer localized URLs (`/es/blog/primeros-pasos` vs `/es/blog/getting-started`)
-- **User Experience**: Native speakers see URLs in their language
-- **Link Sharing**: Localized URLs are more shareable in non-English communities
+Contenido en español...
+```
+
+**Auto-Generation:**
+
+When creating or editing a translation, the URL slug is automatically generated from the content title (first `# Heading`). You can override this by manually typing in the URL Slug field.
+
+### URL Slug Validation
+
+URL slugs are validated before saving:
+
+| Rule | Example | Error |
+|------|---------|-------|
+| Lowercase, numbers, hyphens only | `Hello-World` | Invalid format |
+| Cannot be a language code | `en`, `es`, `fr-CA` | Reserved language code |
+| Cannot be a reserved route | `admin`, `api`, `assets` | Reserved route word |
+| Must be unique per language | Duplicate in same group+language | Already in use |
+
+**Reserved Route Words:** `admin`, `api`, `assets`, `phoenix_kit`, `auth`, `login`, `logout`, `register`, `settings`
+
+### 301 Redirects for Changed Slugs
+
+When you change a URL slug, the old slug is automatically stored in `previous_url_slugs` for 301 redirects:
+
+```yaml
+---
+url_slug: nuevo-slug
+previous_url_slugs: antiguo-slug,otro-slug-viejo
+---
+```
+
+**Redirect Behavior:**
+- Old URLs automatically 301 redirect to the new URL
+- Multiple previous slugs are supported (comma-separated)
+- Works even on cold starts (no cache) via filesystem fallback
+
+**Example:**
+```
+# User changed Spanish slug from "empezando" to "primeros-pasos"
+GET /es/docs/empezando
+→ 301 Redirect to /es/docs/primeros-pasos
+```
+
+### Language Switcher Integration
+
+The language switcher automatically shows localized URLs for each language:
+
+```html
+<!-- Language switcher shows different URLs per language -->
+<a href="/en/docs/getting-started">English</a>
+<a href="/es/docs/primeros-pasos">Español</a>
+<a href="/fr/docs/prise-en-main">Français</a>
+```
+
+### Cache Structure
+
+The listing cache stores per-language slug mappings for O(1) lookups:
+
+```json
+{
+  "slug": "getting-started",
+  "language_slugs": {
+    "en": "getting-started",
+    "es": "primeros-pasos",
+    "fr": "prise-en-main"
+  },
+  "language_previous_slugs": {
+    "es": ["empezando", "comenzar"],
+    "fr": ["demarrage"]
+  }
+}
+```
+
+### Programmatic API
+
+```elixir
+# Find post by URL slug (any language)
+{:ok, post} = ListingCache.find_by_url_slug("docs", "es", "primeros-pasos")
+# => Returns post with slug: "getting-started"
+
+# Find post by previous URL slug (for redirects)
+{:ok, post} = ListingCache.find_by_previous_url_slug("docs", "es", "empezando")
+# => Returns post so you can build redirect URL
+
+# Validate URL slug before saving
+{:ok, "primeros-pasos"} = Storage.validate_url_slug("docs", "primeros-pasos", "es", "getting-started")
+{:error, :slug_already_exists} = Storage.validate_url_slug("docs", "existing-slug", "es", nil)
+```
+
+### Filesystem Fallback
+
+On cold starts (no cache), the system scans the filesystem to resolve URL slugs:
+
+1. Scans all post directories in the group
+2. Reads each language file's metadata
+3. Checks both `url_slug` and `previous_url_slugs`
+4. Returns redirect for previous slugs, resolution for current slugs
+
+This ensures localized URLs work immediately after deployment without waiting for cache warm-up.
+
+### SEO Benefits
+
+- **Localized URLs**: Search engines prefer URLs in the user's language
+- **Better Click-Through**: Users are more likely to click localized URLs in search results
+- **Proper Hreflang**: The `<link rel="alternate" hreflang="xx">` tags use language-specific URLs
+- **Canonical URLs**: Each translation has its own canonical URL with its localized slug
 
 ## Getting Help
 

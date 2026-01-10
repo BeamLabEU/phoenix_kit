@@ -1,7 +1,7 @@
 <PhoenixKitWeb.Components.LayoutWrapper.app_layout
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
-  page_title="{@project_title} Referral Codes"
+  page_title="{@project_title} Referrals"
   current_path={@url_path}
   project_title={@project_title}
   current_locale={@current_locale}
@@ -19,9 +19,9 @@
 
       <%!-- Title Section --%>
       <div class="text-center">
-        <h1 class="text-4xl font-bold text-base-content mb-3">Referral Codes Settings</h1>
+        <h1 class="text-4xl font-bold text-base-content mb-3">Referrals Settings</h1>
         <p class="text-lg text-base-content">
-          Configure referral codes behavior and limits
+          Configure referrals behavior and limits
         </p>
       </div>
     </header>
@@ -38,9 +38,9 @@
           <div class="form-control">
             <label class="label cursor-pointer">
               <span class="label-text text-lg">
-                <span class="font-semibold">Enable Referral Codes</span>
+                <span class="font-semibold">Enable Referrals</span>
                 <div class="text-sm text-base-content/70 mt-1">
-                  Allow users to create and use referral codes for registration
+                  Allow users to create and use referrals for registration
                 </div>
               </span>
               <input
@@ -58,9 +58,9 @@
             <div class="form-control">
               <label class="label cursor-pointer">
                 <span class="label-text text-lg">
-                  <span class="font-semibold">Require Referral Codes</span>
+                  <span class="font-semibold">Require Referrals</span>
                   <div class="text-sm text-base-content/70 mt-1">
-                    Make referral codes mandatory for user registration
+                    Make referrals mandatory for user registration
                   </div>
                 </span>
                 <input
@@ -167,9 +167,9 @@
         <div class="alert alert-warning">
           <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
           <div>
-            <h3 class="font-bold">Referral Codes Disabled</h3>
+            <h3 class="font-bold">Referrals Disabled</h3>
             <p class="text-sm mt-1">
-              Enable referral codes above to access configuration options and allow users to create referral codes.
+              Enable referrals above to access configuration options and allow users to create referrals.
             </p>
           </div>
         </div>

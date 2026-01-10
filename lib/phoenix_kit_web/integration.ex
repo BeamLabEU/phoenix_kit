@@ -659,22 +659,22 @@ defmodule PhoenixKitWeb.Integration do
         live_session :phoenix_kit_referral_codes_localized,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.ReferralCodes.Web.Settings,
+               PhoenixKit.Modules.Referrals.Web.Settings,
                :index,
                as: :referral_codes_settings_localized
 
           live "/admin/users/referral-codes",
-               PhoenixKit.Modules.ReferralCodes.Web.List,
+               PhoenixKit.Modules.Referrals.Web.List,
                :index,
                as: :referral_codes_list_localized
 
           live "/admin/users/referral-codes/new",
-               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               PhoenixKit.Modules.Referrals.Web.Form,
                :new,
                as: :referral_codes_new_localized
 
           live "/admin/users/referral-codes/edit/:id",
-               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit_localized
         end
@@ -687,22 +687,22 @@ defmodule PhoenixKitWeb.Integration do
         live_session :phoenix_kit_referral_codes,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
           live "/admin/settings/referral-codes",
-               PhoenixKit.Modules.ReferralCodes.Web.Settings,
+               PhoenixKit.Modules.Referrals.Web.Settings,
                :index,
                as: :referral_codes_settings
 
           live "/admin/users/referral-codes",
-               PhoenixKit.Modules.ReferralCodes.Web.List,
+               PhoenixKit.Modules.Referrals.Web.List,
                :index,
                as: :referral_codes_list
 
           live "/admin/users/referral-codes/new",
-               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               PhoenixKit.Modules.Referrals.Web.Form,
                :new,
                as: :referral_codes_new
 
           live "/admin/users/referral-codes/edit/:id",
-               PhoenixKit.Modules.ReferralCodes.Web.Form,
+               PhoenixKit.Modules.Referrals.Web.Form,
                :edit,
                as: :referral_codes_edit
         end
