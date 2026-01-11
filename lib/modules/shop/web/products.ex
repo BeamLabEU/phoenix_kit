@@ -5,6 +5,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Utils.Routes
 
@@ -13,6 +14,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   @impl true
   def mount(_params, _session, socket) do
     {products, total} = Shop.list_products_with_count(per_page: @per_page, preload: [:category])
+    currency = Shop.get_default_currency()
 
     socket =
       socket
@@ -24,6 +26,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:search, "")
       |> assign(:status_filter, nil)
       |> assign(:type_filter, nil)
+      |> assign(:currency, currency)
 
     {:ok, socket}
   end
@@ -243,7 +246,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                         <% end %>
                       </td>
                       <td class="text-right font-mono">
-                        {format_price(product.price, product.currency)}
+                        {format_price(product.price, @currency)}
                       </td>
                       <td class="text-right">
                         <div class="dropdown dropdown-end">
@@ -318,17 +321,12 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   defp format_price(nil, _currency), do: "—"
 
-  defp format_price(price, currency) do
-    symbol =
-      case currency do
-        "USD" -> "$"
-        "EUR" -> "€"
-        "GBP" -> "£"
-        "JPY" -> "¥"
-        "RUB" -> "₽"
-        _ -> currency <> " "
-      end
+  defp format_price(price, %Currency{} = currency) do
+    Currency.format_amount(price, currency)
+  end
 
-    "#{symbol}#{Decimal.round(price, 2)}"
+  defp format_price(price, nil) do
+    # Fallback if no currency configured
+    "$#{Decimal.round(price, 2)}"
   end
 end

@@ -539,8 +539,31 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
             as: :shop_category_edit
 
+          live "/admin/shop/shipping", PhoenixKit.Modules.Shop.Web.ShippingMethods, :index,
+            as: :shop_shipping_methods
+
+          live "/admin/shop/shipping/new", PhoenixKit.Modules.Shop.Web.ShippingMethodForm, :new,
+            as: :shop_shipping_new
+
+          live "/admin/shop/shipping/:id/edit",
+               PhoenixKit.Modules.Shop.Web.ShippingMethodForm,
+               :edit,
+               as: :shop_shipping_edit
+
+          live "/admin/shop/carts", PhoenixKit.Modules.Shop.Web.Carts, :index, as: :shop_carts
+
           live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
             as: :shop_settings
+        end
+      end
+
+      # Shop public routes (cart page, no admin auth required)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup]
+
+        live_session :phoenix_kit_shop_public,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
         end
       end
 

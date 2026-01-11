@@ -5,17 +5,20 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     product = Shop.get_product!(id, preload: [:category])
+    currency = Shop.get_default_currency()
 
     socket =
       socket
       |> assign(:page_title, product.title)
       |> assign(:product, product)
+      |> assign(:currency, currency)
 
     {:ok, socket}
   end
@@ -118,7 +121,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                   <div class="stat p-0">
                     <div class="stat-title">Price</div>
                     <div class="stat-value text-2xl">
-                      {format_price(@product.price, @product.currency)}
+                      {format_price(@product.price, @currency)}
                     </div>
                   </div>
 
@@ -126,7 +129,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                     <div class="stat p-0">
                       <div class="stat-title">Compare At</div>
                       <div class="stat-value text-2xl text-base-content/50 line-through">
-                        {format_price(@product.compare_at_price, @product.currency)}
+                        {format_price(@product.compare_at_price, @currency)}
                       </div>
                     </div>
                   <% end %>
@@ -135,7 +138,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                     <div class="stat p-0">
                       <div class="stat-title">Cost</div>
                       <div class="stat-value text-2xl text-base-content/70">
-                        {format_price(@product.cost_per_item, @product.currency)}
+                        {format_price(@product.cost_per_item, @currency)}
                       </div>
                     </div>
                   <% end %>
@@ -204,17 +207,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   defp format_price(nil, _currency), do: "—"
 
-  defp format_price(price, currency) do
-    symbol =
-      case currency do
-        "USD" -> "$"
-        "EUR" -> "€"
-        "GBP" -> "£"
-        "JPY" -> "¥"
-        "RUB" -> "₽"
-        _ -> currency <> " "
-      end
+  defp format_price(price, %Currency{} = currency) do
+    Currency.format_amount(price, currency)
+  end
 
-    "#{symbol}#{Decimal.round(price, 2)}"
+  defp format_price(price, nil) do
+    "$#{Decimal.round(price, 2)}"
   end
 end

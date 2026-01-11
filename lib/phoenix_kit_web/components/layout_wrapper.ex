@@ -552,12 +552,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             "/admin/shop",
                             "/admin/shop/products",
                             "/admin/shop/categories",
+                            "/admin/shop/shipping",
+                            "/admin/shop/carts",
                             "/admin/shop/settings"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/shop", "/admin/shop/products", "/admin/shop/categories", "/admin/shop/settings"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/shop", "/admin/shop/products", "/admin/shop/categories", "/admin/shop/shipping", "/admin/shop/carts", "/admin/shop/settings"]) do %>
                         <div class="mt-1">
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/shop")}
@@ -580,6 +582,22 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/shop/categories")}
                             icon="hero-folder"
                             label={gettext("Categories")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/shipping")}
+                            icon="hero-truck"
+                            label={gettext("Shipping")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/carts")}
+                            icon="hero-shopping-cart"
+                            label={gettext("Carts")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
