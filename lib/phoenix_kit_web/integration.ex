@@ -557,12 +557,20 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
-      # Shop public routes (cart page, no admin auth required)
+      # Shop public routes (catalog, cart - no admin auth required)
       scope unquote(url_prefix) do
         pipe_through [:browser, :phoenix_kit_auto_setup]
 
         live_session :phoenix_kit_shop_public,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
+
+          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+            as: :shop_category
+
+          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+            as: :shop_product
+
           live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
         end
       end

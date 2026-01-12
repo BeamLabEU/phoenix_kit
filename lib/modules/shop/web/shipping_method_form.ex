@@ -118,7 +118,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
                 <%= if @changeset.errors[:name] do %>
                   <label class="label">
                     <span class="label-text-alt text-error">
-                      {elem(hd(@changeset.errors[:name] || [{"", []}]), 0)}
+                      {elem(@changeset.errors[:name], 0)}
                     </span>
                   </label>
                 <% end %>
@@ -289,6 +289,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
 
                 <div class="form-control md:col-span-2">
                   <label class="label cursor-pointer justify-start gap-3">
+                    <input type="hidden" name="shipping_method[tracking_supported]" value="false" />
                     <input
                       type="checkbox"
                       name="shipping_method[tracking_supported]"
@@ -311,6 +312,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="form-control">
                   <label class="label cursor-pointer justify-start gap-3">
+                    <input type="hidden" name="shipping_method[active]" value="false" />
                     <input
                       type="checkbox"
                       name="shipping_method[active]"

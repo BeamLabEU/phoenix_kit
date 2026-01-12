@@ -84,6 +84,8 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
   Changeset for shipping method creation and updates.
   """
   def changeset(method, attrs) do
+    attrs = normalize_booleans(attrs, [:active, :tracking_supported])
+
     method
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
@@ -238,4 +240,32 @@ defmodule PhoenixKit.Modules.Shop.ShippingMethod do
     |> String.replace(~r/-+/, "-")
     |> String.trim("-")
   end
+
+  defp normalize_booleans(attrs, fields) when is_map(attrs) do
+    Enum.reduce(fields, attrs, fn field, acc ->
+      str_key = to_string(field)
+
+      cond do
+        Map.has_key?(acc, field) ->
+          Map.update!(acc, field, &to_boolean/1)
+
+        Map.has_key?(acc, str_key) ->
+          Map.update!(acc, str_key, &to_boolean/1)
+
+        true ->
+          acc
+      end
+    end)
+  end
+
+  defp to_boolean(true), do: true
+  defp to_boolean(false), do: false
+  defp to_boolean("true"), do: true
+  defp to_boolean("false"), do: false
+  defp to_boolean(1), do: true
+  defp to_boolean(0), do: false
+  defp to_boolean("1"), do: true
+  defp to_boolean("0"), do: false
+  defp to_boolean(nil), do: nil
+  defp to_boolean(other), do: other
 end
