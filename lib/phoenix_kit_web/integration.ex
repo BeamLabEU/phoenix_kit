@@ -207,6 +207,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/log-out", Users.Session, :get_logout
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
 
+        # Dashboard context switching
+        post "/context/:id", ContextController, :set
+
         # OAuth routes for external provider authentication
         get "/users/auth/:provider", Users.OAuth, :request
         get "/users/auth/:provider/callback", Users.OAuth, :callback
@@ -1013,7 +1016,10 @@ defmodule PhoenixKitWeb.Integration do
     quote do
       if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
         live_session unquote(session_name),
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+          on_mount: [
+            {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+            {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+          ] do
           live "/dashboard", Live.Dashboard.Index, :index
           live "/dashboard/settings", Live.Dashboard.Settings, :edit
 

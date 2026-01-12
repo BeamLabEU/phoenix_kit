@@ -124,7 +124,7 @@ defmodule PhoenixKit.Dashboard do
   The sidebar will show "2 viewing" indicators.
   """
 
-  alias PhoenixKit.Dashboard.{Badge, Presence, Registry, Tab}
+  alias PhoenixKit.Dashboard.{Badge, ContextSelector, Presence, Registry, Tab}
 
   # ============================================================================
   # Tab Registration
@@ -503,6 +503,77 @@ defmodule PhoenixKit.Dashboard do
   """
   @spec get_all_viewer_counts() :: map()
   defdelegate get_all_viewer_counts(), to: Presence, as: :get_all_tab_counts
+
+  # ============================================================================
+  # Context Selector
+  # ============================================================================
+
+  @doc """
+  Gets the current context from socket assigns.
+
+  Returns nil if context selector is not configured or no context is selected.
+
+  ## Examples
+
+      context = PhoenixKit.Dashboard.current_context(socket)
+      # => %MyApp.Farm{id: 1, name: "My Farm"}
+
+      context = PhoenixKit.Dashboard.current_context(socket.assigns)
+      # => %MyApp.Farm{id: 1, name: "My Farm"}
+  """
+  @spec current_context(Phoenix.LiveView.Socket.t() | map()) :: any() | nil
+  def current_context(%Phoenix.LiveView.Socket{assigns: assigns}), do: current_context(assigns)
+  def current_context(%{current_context: context}), do: context
+  def current_context(_), do: nil
+
+  @doc """
+  Gets the current context ID from socket assigns.
+
+  Convenience function that extracts just the ID.
+
+  ## Examples
+
+      context_id = PhoenixKit.Dashboard.current_context_id(socket)
+      # => 1
+  """
+  @spec current_context_id(Phoenix.LiveView.Socket.t() | map()) :: any() | nil
+  def current_context_id(socket_or_assigns) do
+    case current_context(socket_or_assigns) do
+      nil -> nil
+      context -> ContextSelector.get_id(context)
+    end
+  end
+
+  @doc """
+  Checks if the user has multiple contexts available.
+
+  Returns true only if context selector is enabled and user has 2+ contexts.
+
+  ## Examples
+
+      if PhoenixKit.Dashboard.has_multiple_contexts?(socket) do
+        # Show context-specific UI
+      end
+  """
+  @spec has_multiple_contexts?(Phoenix.LiveView.Socket.t() | map()) :: boolean()
+  def has_multiple_contexts?(%Phoenix.LiveView.Socket{assigns: assigns}) do
+    has_multiple_contexts?(assigns)
+  end
+
+  def has_multiple_contexts?(%{show_context_selector: true}), do: true
+  def has_multiple_contexts?(_), do: false
+
+  @doc """
+  Checks if the context selector feature is enabled.
+
+  ## Examples
+
+      if PhoenixKit.Dashboard.context_selector_enabled?() do
+        # Context switching is available
+      end
+  """
+  @spec context_selector_enabled?() :: boolean()
+  defdelegate context_selector_enabled?(), to: ContextSelector, as: :enabled?
 
   # ============================================================================
   # Helpers

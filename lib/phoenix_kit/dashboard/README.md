@@ -641,3 +641,160 @@ config :phoenix_kit, :user_dashboard_tabs, [
   }
 ]
 ```
+
+## Context Selector
+
+For multi-tenant applications where users can switch between organizations, farms, teams, or workspaces.
+
+### Configuration
+
+```elixir
+config :phoenix_kit, :dashboard_context_selector,
+  # Required: Function to load contexts for a user
+  loader: {MyApp.Farms, :list_for_user},
+
+  # Required: Function to get display name from context item
+  display_name: fn farm -> farm.name end,
+
+  # Optional settings with defaults shown
+  id_field: :id,                    # Field or function to get ID
+  label: "Farm",                    # UI label (e.g., "Switch Farm")
+  icon: "hero-building-office",     # Heroicon name
+  position: :sidebar,               # :header or :sidebar
+  sub_position: :end,               # :start, :end, or {:priority, N}
+  separator: "/",                   # Header separator (false to disable)
+  empty_behavior: :hide,            # :hide, :show_empty, or {:redirect, "/setup"}
+  session_key: "dashboard_context_id",
+
+  # Optional: Dynamic tabs based on context
+  tab_loader: {MyApp.Farms, :get_tabs_for_context}
+```
+
+### Dynamic Tabs Based on Context
+
+The `tab_loader` option allows tabs to change based on the selected context:
+
+```elixir
+# In your context module
+def get_tabs_for_context(%{type: :personal}) do
+  [
+    %{id: :overview, label: "Overview", path: "/dashboard", icon: "hero-home"},
+    %{id: :settings, label: "Settings", path: "/dashboard/settings", icon: "hero-cog-6-tooth"}
+  ]
+end
+
+def get_tabs_for_context(%{type: :team}) do
+  [
+    %{id: :overview, label: "Overview", path: "/dashboard", icon: "hero-home"},
+    %{id: :projects, label: "Projects", path: "/dashboard/projects", icon: "hero-folder"},
+    %{id: :settings, label: "Settings", path: "/dashboard/settings", icon: "hero-cog-6-tooth"}
+  ]
+end
+```
+
+### LiveView Integration
+
+Add the ContextProvider to your live_session:
+
+```elixir
+live_session :dashboard,
+  on_mount: [
+    {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+    {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+  ] do
+  live "/dashboard", DashboardLive.Index
+end
+```
+
+### Accessing Current Context
+
+```elixir
+defmodule MyAppWeb.DashboardLive do
+  def mount(_params, _session, socket) do
+    # Context is loaded by on_mount hook
+    context = socket.assigns.current_context
+
+    if context do
+      items = MyApp.Items.list_for_context(context.id)
+      {:ok, assign(socket, items: items)}
+    else
+      {:ok, assign(socket, items: [])}
+    end
+  end
+end
+
+# Or use helper functions
+context = PhoenixKit.Dashboard.current_context(socket)
+context_id = PhoenixKit.Dashboard.current_context_id(socket)
+has_multiple = PhoenixKit.Dashboard.has_multiple_contexts?(socket)
+```
+
+### Socket Assigns Set by ContextProvider
+
+- `@dashboard_contexts` - List of all contexts available to the user
+- `@current_context` - The currently selected context item
+- `@show_context_selector` - Boolean, true only if user has 2+ contexts
+- `@context_selector_config` - The configuration struct
+- `@dashboard_tabs` - (Optional) List of Tab structs when `tab_loader` is configured
+
+### Position Options
+
+The context selector position is controlled by two options: `position` and `sub_position`.
+
+**Position (which area):**
+- `:header` - Shows in the page header
+- `:sidebar` - Shows in the sidebar navigation
+
+**Sub-position (where within the area):**
+
+For `:header`:
+- `:start` - Left side, after the logo (default)
+- `:end` - Right side, before the user menu
+- `{:priority, N}` - Sorted among other header items by priority
+
+For `:sidebar`:
+- `:start` - At the top of the sidebar (default)
+- `:end` - Pinned to the very bottom of the sidebar (sticky footer style)
+- `{:priority, N}` - Sorted among tabs by priority number
+
+**Examples:**
+
+```elixir
+# Header, left side
+position: :header, sub_position: :start
+
+# Header, right side
+position: :header, sub_position: :end
+
+# Sidebar, at the top
+position: :sidebar, sub_position: :start
+
+# Sidebar, pinned to the very bottom
+position: :sidebar, sub_position: :end
+
+# Sidebar, between tabs with priority 150
+position: :sidebar, sub_position: {:priority, 150}
+```
+
+**Header Separator:**
+
+When using `position: :header, sub_position: :start`, a separator character is shown
+between the logo/title and the context selector. Configure with:
+
+```elixir
+separator: "/"      # Default - shows a forward slash
+separator: "›"      # Use a chevron
+separator: "|"      # Use a pipe
+separator: false    # Disable separator entirely
+```
+
+> **Note:** The separator may appear slightly off-center visually. This is due to
+> internal padding in the selector dropdown creating an optical illusion of uneven
+> spacing. If precise alignment is required, customize the layout template directly.
+
+### Behavior
+
+- **Single context**: Selector is hidden, user doesn't know multi-context exists
+- **Multiple contexts**: Dropdown appears based on position setting
+- **Context switch**: POST to `/phoenix_kit/context/:id`, session updated, page redirects back
+- **Persistence**: Selection stored in session, survives navigation
