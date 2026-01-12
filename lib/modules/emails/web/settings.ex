@@ -36,6 +36,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
   alias PhoenixKit.AWS.CredentialsVerifier
   alias PhoenixKit.AWS.InfrastructureSetup
+  alias PhoenixKit.Config.AWS
   alias PhoenixKit.Modules.Emails
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -456,7 +457,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
     # Get AWS credentials from current settings
     aws_config = socket.assigns.aws_settings
-    region = aws_config.region || PhoenixKit.Config.AWS.region()
+    region = aws_config.region || AWS.region()
 
     # Check if credentials are configured
     access_key_id =
@@ -578,7 +579,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
       "aws_secret_access_key" => aws_params["secret_access_key"] || "",
       "aws_region" =>
         if(aws_params["region"] in [nil, ""],
-          do: PhoenixKit.Config.AWS.region(),
+          do: AWS.region(),
           else: aws_params["region"]
         ),
       "aws_sqs_queue_url" => aws_params["sqs_queue_url"] || "",
