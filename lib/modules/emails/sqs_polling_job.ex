@@ -321,7 +321,8 @@ defmodule PhoenixKit.Modules.Emails.SQSPollingJob do
 
   # Build AWS configuration
   defp build_aws_config(config) do
-    if config.aws_access_key_id && config.aws_secret_access_key && config.aws_region do
+    if config.aws_access_key_id != "" and config.aws_secret_access_key != "" and
+         config.aws_region != "" do
       [
         access_key_id: config.aws_access_key_id,
         secret_access_key: config.aws_secret_access_key,

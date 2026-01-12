@@ -59,6 +59,7 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   alias ExAws.SQS
   alias ExAws.STS
   alias PhoenixKit.AWS.SESv2
+  alias PhoenixKit.Config.AWS
   alias PhoenixKit.Settings
 
   @dialyzer {:nowarn_function,
@@ -104,18 +105,16 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   """
   def run(opts) do
     project_name = Keyword.fetch!(opts, :project_name)
-    region = Keyword.get(opts, :region, "eu-north-1")
+    region = Keyword.get(opts, :region, AWS.region())
 
     # Get AWS credentials
     access_key_id =
       Keyword.get(opts, :access_key_id) ||
-        Settings.get_setting("aws_access_key_id") ||
-        System.get_env("AWS_ACCESS_KEY_ID")
+        Settings.get_setting("aws_access_key_id") || AWS.access_key_id() || nil
 
     secret_access_key =
       Keyword.get(opts, :secret_access_key) ||
-        Settings.get_setting("aws_secret_access_key") ||
-        System.get_env("AWS_SECRET_ACCESS_KEY")
+        Settings.get_setting("aws_secret_access_key") || AWS.secret_access_key() || nil
 
     unless access_key_id && secret_access_key do
       return_error("validation", "AWS credentials not found. Please configure them first.")

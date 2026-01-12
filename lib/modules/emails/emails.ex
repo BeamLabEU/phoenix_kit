@@ -1170,7 +1170,7 @@ defmodule PhoenixKit.Modules.Emails do
       "eu-north-1"
   """
   def get_aws_region do
-    Settings.get_setting_cached("aws_region", System.get_env("AWS_REGION", "eu-north-1"))
+    Settings.get_setting_cached("aws_region", PhoenixKit.Config.AWS.region())
   end
 
   @doc """
@@ -2006,7 +2006,7 @@ defmodule PhoenixKit.Modules.Emails do
     access_key = get_aws_access_key()
     secret_key = get_aws_secret_key()
 
-    access_key && secret_key && access_key != "" && secret_key != ""
+    access_key != "" && secret_key != ""
   end
 
   # Get AWS configuration for ExAws
@@ -2032,7 +2032,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.get_setting("aws_access_key_id")
     |> case do
       key when is_binary(key) and key != "" -> key
-      _ -> System.get_env("AWS_ACCESS_KEY_ID")
+      _ -> PhoenixKit.Config.AWS.access_key_id()
     end
   end
 
@@ -2050,7 +2050,7 @@ defmodule PhoenixKit.Modules.Emails do
     Settings.get_setting("aws_secret_access_key")
     |> case do
       key when is_binary(key) and key != "" -> key
-      _ -> System.get_env("AWS_SECRET_ACCESS_KEY")
+      _ -> PhoenixKit.Config.AWS.secret_access_key()
     end
   end
 

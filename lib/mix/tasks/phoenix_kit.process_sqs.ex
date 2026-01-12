@@ -166,7 +166,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqs do
   end
 
   defp get_queue_url do
-    region = Settings.get_setting("aws_region", "eu-north-1")
+    region = Settings.get_setting("aws_region", PhoenixKit.Config.AWS.region())
     account_id = Settings.get_setting("aws_account_id")
     queue_name = Settings.get_setting("aws_sqs_queue_name", "phoenixkit-email-queue")
 
@@ -178,7 +178,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqs do
   end
 
   defp get_queue_attributes(queue_url) do
-    region = Settings.get_setting("aws_region", "eu-north-1")
+    region = Settings.get_setting("aws_region", PhoenixKit.Config.AWS.region())
 
     case System.cmd(
            "aws",
@@ -207,7 +207,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqs do
   end
 
   defp receive_message(queue_url) do
-    region = Settings.get_setting("aws_region", "eu-north-1")
+    region = Settings.get_setting("aws_region", PhoenixKit.Config.AWS.region())
 
     case System.cmd(
            "aws",
@@ -236,7 +236,7 @@ defmodule Mix.Tasks.PhoenixKit.ProcessSqs do
   end
 
   defp delete_message(queue_url, receipt_handle) do
-    region = Settings.get_setting("aws_region", "eu-north-1")
+    region = Settings.get_setting("aws_region", PhoenixKit.Config.AWS.region())
 
     System.cmd(
       "aws",

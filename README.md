@@ -325,9 +325,7 @@ For AWS SES, PhoenixKit automatically configures required dependencies and HTTP 
 # Production configuration
 config :phoenix_kit, PhoenixKit.Mailer,
   adapter: Swoosh.Adapters.AmazonSES,
-  region: "eu-north-1",  # or "eu-north-1", "eu-west-1", etc.
-  access_key: System.get_env("AWS_ACCESS_KEY_ID"),
-  secret: System.get_env("AWS_SECRET_ACCESS_KEY")
+  region: "eu-north-1"  # or "eu-north-1", "eu-west-1", etc.
 ```
 
 **AWS SES Checklist:**
@@ -337,7 +335,7 @@ config :phoenix_kit, PhoenixKit.Mailer,
 - ✅ Verify recipient emails (if in sandbox mode)
 - ✅ Ensure AWS region matches your verification region
 - ✅ Request production access to send to any email
-- ✅ Set environment variables: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- ✅ Configure AWS credentials in Settings UI or via config
 
 #### Other Email Providers
 

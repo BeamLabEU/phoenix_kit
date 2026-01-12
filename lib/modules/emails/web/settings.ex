@@ -456,7 +456,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
     # Get AWS credentials from current settings
     aws_config = socket.assigns.aws_settings
-    region = aws_config.region || "eu-north-1"
+    region = aws_config.region || PhoenixKit.Config.AWS.region()
 
     # Check if credentials are configured
     access_key_id =
@@ -577,7 +577,10 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
       "aws_access_key_id" => aws_params["access_key_id"] || "",
       "aws_secret_access_key" => aws_params["secret_access_key"] || "",
       "aws_region" =>
-        if(aws_params["region"] in [nil, ""], do: "eu-north-1", else: aws_params["region"]),
+        if(aws_params["region"] in [nil, ""],
+          do: PhoenixKit.Config.AWS.region(),
+          else: aws_params["region"]
+        ),
       "aws_sqs_queue_url" => aws_params["sqs_queue_url"] || "",
       "aws_sqs_dlq_url" => aws_params["sqs_dlq_url"] || "",
       "aws_sqs_queue_arn" => aws_params["sqs_queue_arn"] || "",

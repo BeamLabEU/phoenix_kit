@@ -127,9 +127,9 @@ defmodule PhoenixKit.Settings do
       "email_compress_body" => "30",
       "email_archive_to_s3" => "false",
       # AWS Configuration for SQS Integration
-      "aws_access_key_id" => "",
-      "aws_secret_access_key" => "",
-      "aws_region" => "eu-north-1",
+      "aws_access_key_id" => PhoenixKit.Config.AWS.access_key_id(),
+      "aws_secret_access_key" => PhoenixKit.Config.AWS.secret_access_key(),
+      "aws_region" => PhoenixKit.Config.AWS.region(),
       "aws_sns_topic_arn" => "",
       "aws_sqs_queue_url" => "",
       "aws_sqs_queue_arn" => "",
