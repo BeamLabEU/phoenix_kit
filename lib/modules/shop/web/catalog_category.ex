@@ -31,6 +31,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
         currency = Shop.get_default_currency()
         all_categories = Shop.list_categories()
 
+        # Check if user is authenticated
+        authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
         socket =
           socket
           |> assign(:page_title, category.name)
@@ -39,6 +42,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           |> assign(:total_products, total)
           |> assign(:categories, all_categories)
           |> assign(:currency, currency)
+          |> assign(:authenticated, authenticated)
 
         {:ok, socket}
     end
@@ -47,13 +51,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_path={@url_path}
-      current_locale={@current_locale}
-      page_title={@page_title}
-    >
+    <.shop_layout {assigns}>
       <div class="p-6 max-w-7xl mx-auto">
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
@@ -139,7 +137,30 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           </div>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    </.shop_layout>
+    """
+  end
+
+  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
+  slot :inner_block, required: true
+
+  defp shop_layout(assigns) do
+    ~H"""
+    <%= if @authenticated do %>
+      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Layouts.dashboard>
+    <% else %>
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+        phoenix_kit_current_scope={@phoenix_kit_current_scope}
+        current_path={@url_path}
+        current_locale={@current_locale}
+        page_title={@page_title}
+      >
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    <% end %>
     """
   end
 
@@ -189,10 +210,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
     """
   end
 
-  defp first_image(%{images: images}) when is_list(images) and length(images) > 0 do
-    List.first(images)
-  end
-
+  defp first_image(%{images: [first | _]}), do: first
   defp first_image(_), do: nil
 
   defp format_price(nil, _currency), do: "-"

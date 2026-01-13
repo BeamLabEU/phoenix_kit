@@ -28,15 +28,17 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     # Get default currency from Billing
     currency = Shop.get_default_currency()
 
+    # Check if user is authenticated
+    authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
     socket =
       socket
       |> assign(:page_title, "Shopping Cart")
       |> assign(:cart, cart)
       |> assign(:session_id, session_id)
       |> assign(:shipping_methods, shipping_methods)
-      |> assign(:selected_country, cart.shipping_country || "US")
-      |> assign(:countries, country_options())
       |> assign(:currency, currency)
+      |> assign(:authenticated, authenticated)
 
     {:ok, socket}
   end
@@ -91,32 +93,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   end
 
   @impl true
-  def handle_event("select_country", %{"country" => country}, socket) do
-    cart = socket.assigns.cart
-
-    case Shop.set_cart_shipping_country(cart, country) do
-      {:ok, updated_cart} ->
-        shipping_methods = Shop.get_available_shipping_methods(updated_cart)
-
-        {:noreply,
-         socket
-         |> assign(:cart, updated_cart)
-         |> assign(:selected_country, country)
-         |> assign(:shipping_methods, shipping_methods)}
-
-      {:error, _} ->
-        {:noreply, socket}
-    end
-  end
-
-  @impl true
   def handle_event("select_shipping", %{"method_id" => method_id}, socket) do
     method_id = String.to_integer(method_id)
     method = Enum.find(socket.assigns.shipping_methods, &(&1.id == method_id))
     cart = socket.assigns.cart
 
     if method do
-      case Shop.set_cart_shipping(cart, method, socket.assigns.selected_country) do
+      # Country will be set at checkout based on billing info
+      case Shop.set_cart_shipping(cart, method, nil) do
         {:ok, updated_cart} ->
           {:noreply, assign(socket, :cart, updated_cart)}
 
@@ -140,23 +124,21 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
         {:noreply, put_flash(socket, :error, "Please select a shipping method")}
 
       true ->
-        # Checkout flow will be implemented in Phase 3
-        {:noreply, put_flash(socket, :info, "Checkout coming soon!")}
+        {:noreply, push_navigate(socket, to: Routes.path("/checkout"))}
     end
   end
 
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_path={@url_path}
-      current_locale={@current_locale}
-      page_title={@page_title}
-    >
+    <.shop_layout {assigns}>
       <div class="p-6 max-w-6xl mx-auto">
-        <h1 class="text-3xl font-bold mb-8">Shopping Cart</h1>
+        <div class="flex items-center justify-between mb-8">
+          <h1 class="text-3xl font-bold">Shopping Cart</h1>
+          <.link navigate={Routes.path("/shop")} class="btn btn-outline btn-sm gap-2">
+            <.icon name="hero-arrow-left" class="w-4 h-4" /> Continue Shopping
+          </.link>
+        </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Cart Items --%>
@@ -167,7 +149,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                   <.icon name="hero-shopping-cart" class="w-16 h-16 mx-auto mb-4 opacity-30" />
                   <h2 class="text-xl font-medium text-base-content/60">Your cart is empty</h2>
                   <p class="text-base-content/50 mb-6">Add some products to get started</p>
-                  <.link navigate={Routes.path("/admin/shop/products")} class="btn btn-primary">
+                  <.link navigate={Routes.path("/shop")} class="btn btn-primary">
                     Browse Products
                   </.link>
                 </div>
@@ -263,20 +245,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
             <%= if @cart.items != [] do %>
               <div class="card bg-base-100 shadow-lg mt-6">
                 <div class="card-body">
-                  <h2 class="card-title mb-4">Shipping</h2>
-
-                  <div class="form-control mb-4">
-                    <label class="label"><span class="label-text">Country</span></label>
-                    <select
-                      class="select select-bordered"
-                      phx-change="select_country"
-                      name="country"
-                    >
-                      <%= for {name, code} <- @countries do %>
-                        <option value={code} selected={@selected_country == code}>{name}</option>
-                      <% end %>
-                    </select>
-                  </div>
+                  <h2 class="card-title mb-4">Shipping Method</h2>
 
                   <%= if @shipping_methods == [] do %>
                     <div class="alert alert-warning">
@@ -396,7 +365,30 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
           </div>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    </.shop_layout>
+    """
+  end
+
+  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
+  slot :inner_block, required: true
+
+  defp shop_layout(assigns) do
+    ~H"""
+    <%= if @authenticated do %>
+      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Layouts.dashboard>
+    <% else %>
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+        phoenix_kit_current_scope={@phoenix_kit_current_scope}
+        current_path={@url_path}
+        current_locale={@current_locale}
+        page_title={@page_title}
+      >
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    <% end %>
     """
   end
 
@@ -414,35 +406,5 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
   defp format_price(amount, nil) do
     "$#{Decimal.round(amount, 2)}"
-  end
-
-  defp country_options do
-    [
-      {"United States", "US"},
-      {"Canada", "CA"},
-      {"United Kingdom", "GB"},
-      {"Germany", "DE"},
-      {"France", "FR"},
-      {"Netherlands", "NL"},
-      {"Belgium", "BE"},
-      {"Austria", "AT"},
-      {"Switzerland", "CH"},
-      {"Italy", "IT"},
-      {"Spain", "ES"},
-      {"Portugal", "PT"},
-      {"Poland", "PL"},
-      {"Sweden", "SE"},
-      {"Norway", "NO"},
-      {"Denmark", "DK"},
-      {"Finland", "FI"},
-      {"Estonia", "EE"},
-      {"Latvia", "LV"},
-      {"Lithuania", "LT"},
-      {"Australia", "AU"},
-      {"New Zealand", "NZ"},
-      {"Japan", "JP"},
-      {"South Korea", "KR"},
-      {"Singapore", "SG"}
-    ]
   end
 end

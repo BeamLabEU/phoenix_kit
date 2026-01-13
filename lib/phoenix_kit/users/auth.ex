@@ -478,6 +478,100 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Creates a guest user from checkout billing data.
+
+  This function is used during guest checkout to create a temporary user
+  account. The user will have `confirmed_at = nil` until they verify their
+  email address.
+
+  ## Parameters
+
+  - `attrs` - Map with email (required), first_name, last_name
+
+  ## Returns
+
+  - `{:ok, user}` - New user created successfully
+  - `{:error, :email_exists_confirmed}` - Email belongs to confirmed user (should login)
+  - `{:error, :email_exists_unconfirmed, existing_user}` - Reuse existing unconfirmed user
+  - `{:error, changeset}` - Validation errors
+
+  ## Examples
+
+      iex> create_guest_user(%{email: "guest@example.com", first_name: "John"})
+      {:ok, %User{}}
+
+      iex> create_guest_user(%{email: "existing@confirmed.com"})
+      {:error, :email_exists_confirmed}
+
+      iex> create_guest_user(%{email: "existing@unconfirmed.com"})
+      {:error, :email_exists_unconfirmed, %User{}}
+
+  """
+  def create_guest_user(attrs) do
+    email = attrs[:email] || attrs["email"]
+
+    case get_user_by_email(email) do
+      %User{confirmed_at: confirmed} = _user when not is_nil(confirmed) ->
+        # User exists and is confirmed - they should login instead
+        {:error, :email_exists_confirmed}
+
+      %User{confirmed_at: nil} = existing_user ->
+        # User exists but unconfirmed - update their name and return
+        first_name = attrs[:first_name] || attrs["first_name"]
+        last_name = attrs[:last_name] || attrs["last_name"]
+
+        update_attrs =
+          %{}
+          |> maybe_put(:first_name, first_name)
+          |> maybe_put(:last_name, last_name)
+
+        if map_size(update_attrs) > 0 do
+          case update_user_profile(existing_user, update_attrs) do
+            {:ok, updated_user} -> {:error, :email_exists_unconfirmed, updated_user}
+            {:error, _} -> {:error, :email_exists_unconfirmed, existing_user}
+          end
+        else
+          {:error, :email_exists_unconfirmed, existing_user}
+        end
+
+      nil ->
+        # No user with this email - create new guest user
+        do_create_guest_user(attrs)
+    end
+  end
+
+  defp do_create_guest_user(attrs) do
+    case %User{}
+         |> User.guest_user_changeset(attrs)
+         |> Repo.insert() do
+      {:ok, user} ->
+        # Assign default User role (not Owner, even if first guest)
+        user_role = Role.system_roles().user
+
+        case Roles.assign_role(user, user_role) do
+          {:ok, _} ->
+            Logger.info("PhoenixKit: Guest user #{user.id} (#{user.email}) created from checkout")
+            {:ok, user}
+
+          {:error, reason} ->
+            Logger.error(
+              "PhoenixKit: Failed to assign role to guest user #{user.id}: #{inspect(reason)}"
+            )
+
+            {:ok, user}
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  # Helper to conditionally add key-value to map
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples

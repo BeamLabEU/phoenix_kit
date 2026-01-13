@@ -5,6 +5,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Utils.Routes
@@ -23,21 +24,29 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
   defp apply_action(socket, :new, _params) do
     method = %ShippingMethod{}
     changeset = Shop.change_shipping_method(method)
+    currencies = load_currencies()
+    default_currency = Billing.get_default_currency()
 
     socket
     |> assign(:page_title, "New Shipping Method")
     |> assign(:method, method)
     |> assign(:changeset, changeset)
+    |> assign(:currencies, currencies)
+    |> assign(:default_currency, default_currency)
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     method = Shop.get_shipping_method!(id)
     changeset = Shop.change_shipping_method(method)
+    currencies = load_currencies()
+    default_currency = Billing.get_default_currency()
 
     socket
     |> assign(:page_title, "Edit #{method.name}")
     |> assign(:method, method)
     |> assign(:changeset, changeset)
+    |> assign(:currencies, currencies)
+    |> assign(:default_currency, default_currency)
   end
 
   @impl true
@@ -168,16 +177,34 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
 
                 <div class="form-control">
                   <label class="label"><span class="label-text">Currency</span></label>
-                  <select name="shipping_method[currency]" class="select select-bordered">
-                    <%= for {name, code} <- currency_options() do %>
-                      <option
-                        value={code}
-                        selected={Ecto.Changeset.get_field(@changeset, :currency) == code}
-                      >
-                        {name}
-                      </option>
-                    <% end %>
-                  </select>
+                  <%= if @currencies == [] do %>
+                    <div class="input input-bordered flex items-center bg-base-200">
+                      {if @default_currency,
+                        do: "#{@default_currency.code} - #{@default_currency.name}",
+                        else: "USD"}
+                    </div>
+                    <input
+                      type="hidden"
+                      name="shipping_method[currency]"
+                      value={if @default_currency, do: @default_currency.code, else: "USD"}
+                    />
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/60">
+                        Configure currencies in Billing → Currencies
+                      </span>
+                    </label>
+                  <% else %>
+                    <select name="shipping_method[currency]" class="select select-bordered">
+                      <%= for currency <- @currencies do %>
+                        <option
+                          value={currency.code}
+                          selected={Ecto.Changeset.get_field(@changeset, :currency) == currency.code}
+                        >
+                          {currency.code} - {currency.name}
+                        </option>
+                      <% end %>
+                    </select>
+                  <% end %>
                 </div>
 
                 <div class="form-control md:col-span-2">
@@ -364,18 +391,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
     """
   end
 
-  defp currency_options do
-    [
-      {"USD - US Dollar", "USD"},
-      {"EUR - Euro", "EUR"},
-      {"GBP - British Pound", "GBP"},
-      {"CAD - Canadian Dollar", "CAD"},
-      {"AUD - Australian Dollar", "AUD"},
-      {"PLN - Polish Zloty", "PLN"},
-      {"SEK - Swedish Krona", "SEK"},
-      {"NOK - Norwegian Krone", "NOK"},
-      {"DKK - Danish Krone", "DKK"},
-      {"CHF - Swiss Franc", "CHF"}
-    ]
+  defp load_currencies do
+    Billing.list_currencies(enabled: true)
+  rescue
+    _ -> []
   end
 end

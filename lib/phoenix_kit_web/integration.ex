@@ -193,6 +193,11 @@ defmodule PhoenixKitWeb.Integration do
       pipeline :phoenix_kit_locale_validation do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
+
+      # Define shop session pipeline (ensures persistent cart session)
+      pipeline :phoenix_kit_shop_session do
+        plug PhoenixKit.Modules.Shop.Web.Plugs.ShopSession
+      end
     end
   end
 
@@ -559,7 +564,7 @@ defmodule PhoenixKitWeb.Integration do
 
       # Shop public routes (catalog, cart - no admin auth required)
       scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup]
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
 
         live_session :phoenix_kit_shop_public,
           on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
@@ -572,6 +577,32 @@ defmodule PhoenixKitWeb.Integration do
             as: :shop_product
 
           live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
+
+          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
+
+          live "/checkout/complete/:uuid",
+               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
+               :show,
+               as: :shop_checkout_complete
+
+          live "/my-orders", PhoenixKit.Modules.Shop.Web.MyOrders, :index, as: :my_orders
+
+          live "/my-orders/:uuid", PhoenixKit.Modules.Shop.Web.MyOrderDetail, :show,
+            as: :my_order_detail
+        end
+      end
+
+      # Shop user dashboard routes (requires authentication)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
+
+        live_session :phoenix_kit_shop_user,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+            as: :shop_user_orders
+
+          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+            as: :shop_user_order_details
         end
       end
 

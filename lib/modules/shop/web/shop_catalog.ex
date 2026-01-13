@@ -16,12 +16,16 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     {products, _total} = Shop.list_products_with_count(status: "active", per_page: 12)
     currency = Shop.get_default_currency()
 
+    # Check if user is authenticated
+    authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
     socket =
       socket
       |> assign(:page_title, "Shop")
       |> assign(:categories, categories)
       |> assign(:products, products)
       |> assign(:currency, currency)
+      |> assign(:authenticated, authenticated)
 
     {:ok, socket}
   end
@@ -29,13 +33,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_path={@url_path}
-      current_locale={@current_locale}
-      page_title={@page_title}
-    >
+    <.shop_layout {assigns}>
       <div class="p-6 max-w-7xl mx-auto">
         <%!-- Hero Section --%>
         <div class="text-center mb-12">
@@ -46,9 +44,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
         </div>
 
         <%!-- Categories Section --%>
-        <%= if @categories != [] do %>
-          <div class="mb-12">
-            <h2 class="text-2xl font-bold mb-6">Browse by Category</h2>
+        <div class="mb-12">
+          <h2 class="text-2xl font-bold mb-6">Browse by Category</h2>
+          <%= if @categories == [] do %>
+            <p class="text-base-content/60">No categories available yet.</p>
+          <% else %>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <%= for category <- @categories do %>
                 <.link
@@ -56,10 +56,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
                   class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow"
                 >
                   <div class="card-body items-center text-center p-4">
-                    <%= if category.image do %>
+                    <%= if category.image_url do %>
                       <div class="w-16 h-16 rounded-full overflow-hidden mb-2">
                         <img
-                          src={category.image}
+                          src={category.image_url}
                           alt={category.name}
                           class="w-full h-full object-cover"
                         />
@@ -79,8 +79,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
                 </.link>
               <% end %>
             </div>
-          </div>
-        <% end %>
+          <% end %>
+        </div>
 
         <%!-- Products Section --%>
         <div>
@@ -108,7 +108,30 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
           <% end %>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    </.shop_layout>
+    """
+  end
+
+  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
+  slot :inner_block, required: true
+
+  defp shop_layout(assigns) do
+    ~H"""
+    <%= if @authenticated do %>
+      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Layouts.dashboard>
+    <% else %>
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+        phoenix_kit_current_scope={@phoenix_kit_current_scope}
+        current_path={@url_path}
+        current_locale={@current_locale}
+        page_title={@page_title}
+      >
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    <% end %>
     """
   end
 
@@ -158,10 +181,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     """
   end
 
-  defp first_image(%{images: images}) when is_list(images) and length(images) > 0 do
-    List.first(images)
-  end
-
+  defp first_image(%{images: [first | _]}), do: first
   defp first_image(_), do: nil
 
   defp format_price(nil, _currency), do: "-"

@@ -37,6 +37,8 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Settings
+  alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.Routes
 
   # ============================================
   # SYSTEM ENABLE/DISABLE
@@ -750,6 +752,277 @@ defmodule PhoenixKit.Modules.Shop do
     |> repo().aggregate(:count, :id)
   rescue
     _ -> 0
+  end
+
+  # ============================================
+  # CHECKOUT / ORDER CONVERSION
+  # ============================================
+
+  @doc """
+  Converts a cart to a Billing.Order.
+
+  Takes an active cart with items and creates an Order with:
+  - All cart items as line_items
+  - Shipping as additional line item (if selected)
+  - Billing profile snapshot (from profile_id or direct billing_data)
+  - Cart marked as "converted"
+
+  For guest checkout (no user_id on cart):
+  - Creates a guest user via `Auth.create_guest_user/1`
+  - Guest user has `confirmed_at = nil` until email verification
+  - Sends confirmation email automatically
+  - Order remains in "pending" status
+
+  ## Options
+
+  - `billing_profile_id: id` - Use existing billing profile (for logged-in users)
+  - `billing_data: map` - Use direct billing data (for guest checkout)
+
+  ## Returns
+
+  - `{:ok, order}` - Order created successfully
+  - `{:error, :cart_not_active}` - Cart is not active
+  - `{:error, :cart_empty}` - Cart has no items
+  - `{:error, :no_shipping_method}` - No shipping method selected
+  - `{:error, :email_already_registered}` - Guest email belongs to confirmed user
+  - `{:error, changeset}` - Validation errors
+  """
+  def convert_cart_to_order(%Cart{} = cart, opts) when is_list(opts) do
+    cart = get_cart!(cart.id)
+
+    with :ok <- validate_cart_convertible(cart),
+         {:ok, user_id, cart} <- resolve_checkout_user(cart, opts),
+         line_items <- build_order_line_items(cart),
+         order_attrs <- build_order_attrs(cart, line_items, opts),
+         {:ok, order} <- do_create_order(user_id, order_attrs),
+         {:ok, _cart} <- mark_cart_converted(cart, order.id),
+         :ok <- maybe_send_guest_confirmation(user_id) do
+      {:ok, order}
+    end
+  end
+
+  # Legacy support: convert_cart_to_order(cart, billing_profile_id)
+  def convert_cart_to_order(%Cart{} = cart, billing_profile_id)
+      when is_integer(billing_profile_id) do
+    convert_cart_to_order(cart, billing_profile_id: billing_profile_id)
+  end
+
+  defp validate_cart_convertible(%Cart{} = cart) do
+    cond do
+      cart.status != "active" -> {:error, :cart_not_active}
+      Enum.empty?(cart.items) -> {:error, :cart_empty}
+      is_nil(cart.shipping_method_id) -> {:error, :no_shipping_method}
+      true -> :ok
+    end
+  end
+
+  defp build_order_line_items(%Cart{} = cart) do
+    product_items =
+      Enum.map(cart.items, fn item ->
+        %{
+          "name" => item.product_title,
+          "description" => item.product_slug,
+          "quantity" => item.quantity,
+          "unit_price" => Decimal.to_string(item.unit_price),
+          "total" => Decimal.to_string(item.line_total),
+          "sku" => item.product_sku,
+          "type" => "product"
+        }
+      end)
+
+    shipping_item =
+      if cart.shipping_method do
+        [
+          %{
+            "name" => "Shipping: #{cart.shipping_method.name}",
+            "description" => cart.shipping_method.description || "",
+            "quantity" => 1,
+            "unit_price" => Decimal.to_string(cart.shipping_amount || Decimal.new(0)),
+            "total" => Decimal.to_string(cart.shipping_amount || Decimal.new(0)),
+            "type" => "shipping"
+          }
+        ]
+      else
+        []
+      end
+
+    product_items ++ shipping_item
+  end
+
+  defp build_order_attrs(%Cart{} = cart, line_items, opts) do
+    billing_profile_id = Keyword.get(opts, :billing_profile_id)
+    billing_data = Keyword.get(opts, :billing_data)
+
+    # Get shipping country from billing data or cart
+    shipping_country = get_shipping_country(billing_profile_id, billing_data, cart)
+
+    # Use string keys to match Billing.maybe_set_order_number behavior
+    base_attrs = %{
+      "currency" => cart.currency,
+      "line_items" => line_items,
+      "subtotal" => cart.subtotal,
+      "tax_amount" => cart.tax_amount || Decimal.new(0),
+      "tax_rate" => Decimal.new(0),
+      "discount_amount" => cart.discount_amount || Decimal.new(0),
+      "discount_code" => cart.discount_code,
+      "total" => cart.total,
+      "status" => "pending",
+      "metadata" => %{
+        "source" => "shop_checkout",
+        "cart_id" => cart.id,
+        "shipping_country" => shipping_country,
+        "shipping_method_id" => cart.shipping_method_id
+      }
+    }
+
+    cond do
+      # Logged-in user with billing profile
+      not is_nil(billing_profile_id) ->
+        Map.put(base_attrs, "billing_profile_id", billing_profile_id)
+
+      # Guest checkout with billing data - clean up _unused_ keys from LiveView
+      is_map(billing_data) ->
+        cleaned_billing_data = clean_billing_data(billing_data)
+        Map.put(base_attrs, "billing_snapshot", cleaned_billing_data)
+
+      true ->
+        base_attrs
+    end
+  end
+
+  # Get shipping country from billing profile, billing data, or cart
+  defp get_shipping_country(billing_profile_id, _billing_data, cart)
+       when not is_nil(billing_profile_id) do
+    case Billing.get_billing_profile(billing_profile_id) do
+      %{country: country} when is_binary(country) -> country
+      _ -> cart.shipping_country
+    end
+  end
+
+  defp get_shipping_country(_billing_profile_id, billing_data, cart) when is_map(billing_data) do
+    billing_data["country"] || cart.shipping_country
+  end
+
+  defp get_shipping_country(_billing_profile_id, _billing_data, cart) do
+    cart.shipping_country
+  end
+
+  # Remove _unused_ prefixed keys that Phoenix LiveView adds
+  defp clean_billing_data(data) when is_map(data) do
+    data
+    |> Enum.reject(fn {key, _value} ->
+      key_str = if is_atom(key), do: Atom.to_string(key), else: key
+      String.starts_with?(key_str, "_unused_")
+    end)
+    |> Map.new()
+  end
+
+  # Resolve user for checkout: logged-in user or create guest user
+  defp resolve_checkout_user(%Cart{user_id: user_id} = cart, _opts) when not is_nil(user_id) do
+    # Cart already has a user (logged-in checkout)
+    {:ok, user_id, cart}
+  end
+
+  defp resolve_checkout_user(%Cart{user_id: nil} = cart, opts) do
+    # Check if logged-in user_id was passed in opts (user is logged in but has guest cart)
+    case Keyword.get(opts, :user_id) do
+      user_id when not is_nil(user_id) ->
+        resolve_logged_in_user_with_guest_cart(cart, user_id)
+
+      nil ->
+        resolve_guest_checkout(cart, opts)
+    end
+  end
+
+  defp resolve_logged_in_user_with_guest_cart(cart, user_id) do
+    case assign_cart_to_user(cart, user_id) do
+      {:ok, updated_cart} -> {:ok, user_id, updated_cart}
+      {:error, _} -> {:ok, user_id, cart}
+    end
+  end
+
+  defp resolve_guest_checkout(cart, opts) do
+    billing_data = Keyword.get(opts, :billing_data)
+
+    if valid_billing_data?(billing_data) do
+      create_guest_user_and_assign_cart(cart, billing_data)
+    else
+      {:ok, nil, cart}
+    end
+  end
+
+  defp valid_billing_data?(data), do: is_map(data) and Map.has_key?(data, "email")
+
+  defp create_guest_user_and_assign_cart(cart, billing_data) do
+    case Auth.create_guest_user(%{
+           email: billing_data["email"],
+           first_name: billing_data["first_name"],
+           last_name: billing_data["last_name"]
+         }) do
+      {:ok, user} ->
+        assign_cart_and_return(cart, user.id)
+
+      {:error, :email_exists_unconfirmed, user} ->
+        assign_cart_and_return(cart, user.id)
+
+      {:error, :email_exists_confirmed} ->
+        {:error, :email_already_registered}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  defp assign_cart_and_return(cart, user_id) do
+    case assign_cart_to_user(cart, user_id) do
+      {:ok, updated_cart} -> {:ok, user_id, updated_cart}
+      {:error, _} -> {:ok, user_id, cart}
+    end
+  end
+
+  # Assign cart to user (for guest -> user conversion)
+  defp assign_cart_to_user(%Cart{} = cart, user_id) do
+    cart
+    |> Cart.changeset(%{user_id: user_id, session_id: nil})
+    |> repo().update()
+  end
+
+  # Create order with or without user
+  defp do_create_order(nil, order_attrs) do
+    Billing.create_order(order_attrs)
+  end
+
+  defp do_create_order(user_id, order_attrs) do
+    Billing.create_order(user_id, order_attrs)
+  end
+
+  # Send confirmation email to guest users
+  defp maybe_send_guest_confirmation(nil), do: :ok
+
+  defp maybe_send_guest_confirmation(user_id) do
+    case Auth.get_user(user_id) do
+      %{confirmed_at: nil} = user ->
+        # Guest user - send confirmation email
+        Auth.deliver_user_confirmation_instructions(
+          user,
+          &Routes.url("/users/confirm/#{&1}")
+        )
+
+        :ok
+
+      _ ->
+        # Already confirmed user - no action needed
+        :ok
+    end
+  end
+
+  defp mark_cart_converted(%Cart{} = cart, order_id) do
+    cart
+    |> Cart.status_changeset("converted", %{
+      converted_at: DateTime.utc_now(),
+      metadata: Map.put(cart.metadata || %{}, "order_id", order_id)
+    })
+    |> repo().update()
   end
 
   # ============================================

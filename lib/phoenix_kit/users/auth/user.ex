@@ -121,6 +121,51 @@ defmodule PhoenixKit.Users.Auth.User do
     |> maybe_generate_uuid()
   end
 
+  @doc """
+  A user changeset for guest checkout.
+
+  Creates a temporary user with a random password for guests who
+  complete checkout without registering. The user will have
+  `confirmed_at = nil` until they verify their email.
+
+  ## Features
+
+  - Generates a random secure password (required by DB constraint)
+  - Sets `custom_fields.source` to "guest_checkout" for tracking
+  - Generates UUID and username automatically
+  - Does NOT confirm the email (confirmed_at remains nil)
+
+  ## Examples
+
+      iex> guest_user_changeset(%User{}, %{email: "guest@example.com", first_name: "John"})
+      %Ecto.Changeset{valid?: true}
+  """
+  def guest_user_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email, :first_name, :last_name])
+    |> validate_required([:email])
+    |> validate_email(validate_email: true)
+    |> put_random_password()
+    |> put_guest_checkout_source()
+    |> maybe_generate_uuid()
+    |> maybe_generate_username_from_email()
+    |> set_default_active_status()
+  end
+
+  # Generates a cryptographically secure random password and hashes it.
+  # Used for guest users who don't set their own password at checkout.
+  defp put_random_password(changeset) do
+    random_password = :crypto.strong_rand_bytes(32) |> Base.encode64()
+    put_change(changeset, :hashed_password, Bcrypt.hash_pwd_salt(random_password))
+  end
+
+  # Sets custom_fields.source to "guest_checkout" for tracking guest users
+  defp put_guest_checkout_source(changeset) do
+    current_fields = get_field(changeset, :custom_fields) || %{}
+    updated_fields = Map.put(current_fields, "source", "guest_checkout")
+    put_change(changeset, :custom_fields, updated_fields)
+  end
+
   # Generate UUIDv7 for new records if not already set
   defp maybe_generate_uuid(changeset) do
     case get_field(changeset, :uuid) do

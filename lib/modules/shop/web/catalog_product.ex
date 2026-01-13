@@ -26,6 +26,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
         currency = Shop.get_default_currency()
 
+        # Check if user is authenticated
+        authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
         socket =
           socket
           |> assign(:page_title, product.title)
@@ -36,6 +39,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:user_id, user_id)
           |> assign(:selected_image, first_image(product))
           |> assign(:adding_to_cart, false)
+          |> assign(:authenticated, authenticated)
 
         {:ok, socket}
     end
@@ -95,13 +99,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_path={@url_path}
-      current_locale={@current_locale}
-      page_title={@page_title}
-    >
+    <.shop_layout {assigns}>
       <div class="p-6 max-w-7xl mx-auto">
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
@@ -198,13 +196,6 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             <div class="divider"></div>
 
             <div class="grid grid-cols-2 gap-4 text-sm">
-              <%= if @product.sku do %>
-                <div>
-                  <span class="text-base-content/60">SKU:</span>
-                  <span class="ml-2 font-medium">{@product.sku}</span>
-                </div>
-              <% end %>
-
               <div>
                 <span class="text-base-content/60">Type:</span>
                 <span class="ml-2 font-medium capitalize">{@product.product_type}</span>
@@ -301,7 +292,30 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           </div>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    </.shop_layout>
+    """
+  end
+
+  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
+  slot :inner_block, required: true
+
+  defp shop_layout(assigns) do
+    ~H"""
+    <%= if @authenticated do %>
+      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Layouts.dashboard>
+    <% else %>
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+        phoenix_kit_current_scope={@phoenix_kit_current_scope}
+        current_path={@url_path}
+        current_locale={@current_locale}
+        page_title={@page_title}
+      >
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    <% end %>
     """
   end
 
@@ -311,16 +325,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     :crypto.strong_rand_bytes(32) |> Base.url_encode64(padding: false)
   end
 
-  defp first_image(%{images: images}) when is_list(images) and length(images) > 0 do
-    List.first(images)
-  end
-
+  defp first_image(%{images: [first | _]}), do: first
   defp first_image(_), do: nil
 
-  defp has_multiple_images?(%{images: images}) when is_list(images) and length(images) > 1 do
-    true
-  end
-
+  defp has_multiple_images?(%{images: [_, _ | _]}), do: true
   defp has_multiple_images?(_), do: false
 
   defp format_price(nil, _currency), do: "-"

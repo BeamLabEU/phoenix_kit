@@ -134,6 +134,59 @@
                     </.link>
                   <% end %>
                 <% end %>
+
+                <%!-- My Orders Link --%>
+                <%= if PhoenixKit.Modules.Billing.enabled?() do %>
+                  <%= if String.contains?(assigns[:url_path] || "", "/dashboard/orders") do %>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
+                          locale: assigns[:current_locale_base]
+                        )
+                      }
+                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
+                    >
+                      <.icon name="hero-shopping-bag" class="w-5 h-5 mr-3" /> {gettext(
+                        "My Orders"
+                      )}
+                    </.link>
+                  <% else %>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
+                          locale: assigns[:current_locale_base]
+                        )
+                      }
+                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                    >
+                      <.icon name="hero-shopping-bag" class="w-5 h-5 mr-3" /> {gettext(
+                        "My Orders"
+                      )}
+                    </.link>
+                  <% end %>
+                <% end %>
+
+                <%!-- Shop Links (shown for authenticated users) --%>
+                <%= if assigns[:phoenix_kit_current_user] do %>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/shop", locale: assigns[:current_locale_base])
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                  >
+                    <.icon name="hero-building-storefront" class="w-5 h-5 mr-3" /> {gettext(
+                      "Shop"
+                    )}
+                  </.link>
+                  <.link
+                    navigate={
+                      PhoenixKit.Utils.Routes.path("/cart", locale: assigns[:current_locale_base])
+                    }
+                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
+                  >
+                    <.icon name="hero-shopping-cart" class="w-5 h-5 mr-3" /> {gettext("My Cart")}
+                  </.link>
+                <% end %>
               </nav>
             </div>
           </aside>
@@ -183,6 +236,46 @@
                       class="flex items-center gap-2"
                     >
                       <.icon name="hero-ticket" class="w-4 h-4" /> {gettext("My Tickets")}
+                    </.link>
+                  </li>
+                <% end %>
+                <%= if PhoenixKit.Modules.Billing.enabled?() do %>
+                  <li>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
+                          locale: assigns[:current_locale_base]
+                        )
+                      }
+                      class="flex items-center gap-2"
+                    >
+                      <.icon name="hero-shopping-bag" class="w-4 h-4" /> {gettext("My Orders")}
+                    </.link>
+                  </li>
+                <% end %>
+                <%= if assigns[:phoenix_kit_current_user] do %>
+                  <li>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/shop",
+                          locale: assigns[:current_locale_base]
+                        )
+                      }
+                      class="flex items-center gap-2"
+                    >
+                      <.icon name="hero-building-storefront" class="w-4 h-4" /> {gettext("Shop")}
+                    </.link>
+                  </li>
+                  <li>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/cart",
+                          locale: assigns[:current_locale_base]
+                        )
+                      }
+                      class="flex items-center gap-2"
+                    >
+                      <.icon name="hero-shopping-cart" class="w-4 h-4" /> {gettext("My Cart")}
                     </.link>
                   </li>
                 <% end %>

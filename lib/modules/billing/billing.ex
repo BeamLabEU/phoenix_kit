@@ -589,15 +589,29 @@ defmodule PhoenixKit.Modules.Billing do
   end
 
   @doc """
+  Gets an order by UUID with optional preloads.
+  Used for public-facing URLs to prevent ID enumeration.
+  """
+  def get_order_by_uuid(uuid, opts \\ []) do
+    preloads = Keyword.get(opts, :preload, [:user, :billing_profile])
+
+    Order
+    |> where([o], o.uuid == ^uuid)
+    |> preload(^preloads)
+    |> repo().one()
+  end
+
+  @doc """
   Creates an order for a user.
   """
   def create_order(user_or_id, attrs) do
     user_id = extract_user_id(user_or_id)
     config = get_config()
 
+    # Use string key to match other attrs (avoid mixed keys error)
     attrs =
       attrs
-      |> Map.put(:user_id, user_id)
+      |> Map.put("user_id", user_id)
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
 

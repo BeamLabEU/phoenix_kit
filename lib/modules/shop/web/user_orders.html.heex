@@ -1,0 +1,146 @@
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+  <div class="container mx-auto">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold">{gettext("My Orders")}</h1>
+        <p class="text-base-content/70 mt-1">{gettext("View your order history")}</p>
+      </div>
+      <div class="mt-4 md:mt-0">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/shop")}
+          class="btn btn-primary"
+        >
+          <.icon name="hero-shopping-bag" class="h-5 w-5" /> {gettext("Browse Shop")}
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Status Filter --%>
+    <div class="bg-base-200 rounded-lg p-4 mb-6">
+      <form phx-change="filter" class="flex flex-col md:flex-row gap-4 items-center">
+        <div class="w-full md:w-48">
+          <select name="filters[status]" class="select select-bordered w-full">
+            <option value="">{gettext("All Statuses")}</option>
+            <option value="pending" selected={@status_filter == "pending"}>
+              {gettext("Pending")}
+            </option>
+            <option value="processing" selected={@status_filter == "processing"}>
+              {gettext("Processing")}
+            </option>
+            <option value="shipped" selected={@status_filter == "shipped"}>
+              {gettext("Shipped")}
+            </option>
+            <option value="delivered" selected={@status_filter == "delivered"}>
+              {gettext("Delivered")}
+            </option>
+            <option value="completed" selected={@status_filter == "completed"}>
+              {gettext("Completed")}
+            </option>
+            <option value="cancelled" selected={@status_filter == "cancelled"}>
+              {gettext("Cancelled")}
+            </option>
+          </select>
+        </div>
+
+        <%= if @status_filter do %>
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            {gettext("Clear")}
+          </button>
+        <% end %>
+
+        <div class="flex-1 text-right text-sm text-base-content/70">
+          {ngettext("%{count} order", "%{count} orders", @total_count, count: @total_count)}
+        </div>
+      </form>
+    </div>
+
+    <%!-- Orders List --%>
+    <div class="space-y-4">
+      <%= if @loading do %>
+        <div class="flex justify-center items-center py-12">
+          <span class="loading loading-spinner loading-lg"></span>
+        </div>
+      <% else %>
+        <%= if Enum.empty?(@orders) do %>
+          <div class="text-center py-12 bg-base-100 rounded-lg shadow">
+            <.icon name="hero-shopping-bag" class="h-16 w-16 mx-auto text-base-content/30 mb-4" />
+            <h3 class="text-lg font-medium mb-2">{gettext("No orders yet")}</h3>
+            <p class="text-base-content/70 mb-4">
+              <%= if @status_filter do %>
+                {gettext("No orders with this status. Try a different filter.")}
+              <% else %>
+                {gettext("Start shopping to see your orders here.")}
+              <% end %>
+            </p>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/shop")}
+              class="btn btn-primary"
+            >
+              <.icon name="hero-shopping-bag" class="h-5 w-5" /> {gettext("Browse Products")}
+            </.link>
+          </div>
+        <% else %>
+          <%= for order <- @orders do %>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/dashboard/orders/#{order.uuid}")}
+              class="block bg-base-100 rounded-lg shadow hover:shadow-md transition p-4"
+            >
+              <div class="flex items-start justify-between">
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-semibold text-lg font-mono">{order.order_number}</h3>
+                  <p class="text-base-content/70 text-sm mt-1">
+                    {items_count(order.line_items)} {ngettext(
+                      "item",
+                      "items",
+                      items_count(order.line_items)
+                    )}
+                  </p>
+                </div>
+                <div class="ml-4 flex-shrink-0 text-right">
+                  <span class={"badge #{status_badge_class(order.status)} capitalize"}>
+                    {order.status}
+                  </span>
+                  <div class="text-lg font-bold mt-1">
+                    {format_price(order.total, @currency)}
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4 mt-3 text-sm text-base-content/60">
+                <span class="flex items-center gap-1">
+                  <.icon name="hero-calendar" class="w-4 h-4" />
+                  {format_date(order.inserted_at)}
+                </span>
+              </div>
+            </.link>
+          <% end %>
+
+          <%!-- Pagination --%>
+          <%= if @total_pages > 1 do %>
+            <div class="flex justify-center items-center gap-2 py-4">
+              <button
+                phx-click="change_page"
+                phx-value-page={max(1, @page - 1)}
+                class={"btn btn-sm #{if @page == 1, do: "btn-disabled"}"}
+                disabled={@page == 1}
+              >
+                {gettext("Previous")}
+              </button>
+              <span class="text-sm">
+                {gettext("Page %{page} of %{total}", page: @page, total: @total_pages)}
+              </span>
+              <button
+                phx-click="change_page"
+                phx-value-page={min(@total_pages, @page + 1)}
+                class={"btn btn-sm #{if @page == @total_pages, do: "btn-disabled"}"}
+                disabled={@page == @total_pages}
+              >
+                {gettext("Next")}
+              </button>
+            </div>
+          <% end %>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Layouts.dashboard>
