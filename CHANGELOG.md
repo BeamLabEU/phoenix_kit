@@ -1,3 +1,11 @@
+## 1.7.22 - 2026-01-13
+- Add AWS config module with centralized credential management
+- Add context selector for multi-tenant dashboard navigation
+- Add comprehensive user dashboard tab system with CLI generator
+- Consolidate Publishing module into self-contained structure
+- Publishing Module: Versioning, AI Translation, Per-Language URLs & Real-time Updates
+- Fixed referralcodes to referrals for more universal code
+
 ## 1.7.21 - 2026-01-10
 - Publishing Module: Versioning, AI Translation, Per-Language URLs & Real-time Updates
 - Fixed referralcodes to referrals for more universal code
