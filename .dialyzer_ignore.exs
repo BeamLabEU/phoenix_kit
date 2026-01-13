@@ -116,5 +116,9 @@
   ~r/lib\/phoenix_kit\/dashboard\/dashboard\.ex:.*invalid_contract/,
   # Legacy warning about nil check - path field can be nil for dividers/headers
   # This is a false positive - dividers and group headers have nil paths by design
-  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:256.*can never evaluate to/
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:256.*can never evaluate to/,
+
+  # Dashboard context selector - user-provided display_name callback might return nil
+  # Dialyzer infers binary() type from usage but callback contract allows nil
+  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*pattern_match/
 ]

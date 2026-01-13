@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   - Attention animations
   - Mobile bottom navigation
   - Collapsible groups
+  - Context selector (when `position: :sidebar` is configured)
 
   ## Usage
 
@@ -58,6 +59,10 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   - `show_presence` - Show presence indicators (default: true)
   - `compact` - Render in compact mode (default: false)
   - `class` - Additional CSS classes
+  - `show_context_selector` - Show context selector at top of sidebar (default: false)
+  - `dashboard_contexts` - List of available contexts
+  - `current_context` - Currently selected context
+  - `context_selector_config` - ContextSelector config struct
   """
   attr :current_path, :string, default: "/dashboard"
   attr :scope, :any, default: nil
@@ -68,6 +73,10 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :show_presence, :boolean, default: true
   attr :compact, :boolean, default: false
   attr :class, :string, default: ""
+  attr :show_context_selector, :boolean, default: false
+  attr :dashboard_contexts, :list, default: []
+  attr :current_context, :any, default: nil
+  attr :context_selector_config, :any, default: nil
 
   def dashboard_sidebar(assigns) do
     # Load tabs if not provided
@@ -98,6 +107,15 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
     ~H"""
     <nav class={["space-y-1", @class]} role="navigation" aria-label="Dashboard navigation">
+      <%!-- Context Selector at top (sub_position: :start) --%>
+      <%= if show_context_selector_at?(@show_context_selector, @context_selector_config, :start) do %>
+        <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+          contexts={@dashboard_contexts}
+          current={@current_context}
+          config={@context_selector_config}
+        />
+      <% end %>
+
       <%= for group <- sorted_groups(@groups, @grouped_tabs) do %>
         <.tab_group
           group={group}
@@ -109,16 +127,22 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
         />
       <% end %>
 
-      <%!-- Render ungrouped tabs --%>
-      <%= for tab <- filter_top_level(Map.get(@grouped_tabs, nil, [])) do %>
-        <.tab_with_subtabs
-          tab={tab}
-          all_tabs={Map.get(@grouped_tabs, nil, [])}
-          viewer_counts={@viewer_counts}
-          locale={@locale}
-          compact={@compact}
-        />
-      <% end %>
+      <%!-- Render ungrouped tabs with possible context selector by priority --%>
+      <.tabs_with_context_selector
+        tabs={filter_top_level(Map.get(@grouped_tabs, nil, []))}
+        all_tabs={Map.get(@grouped_tabs, nil, [])}
+        viewer_counts={@viewer_counts}
+        locale={@locale}
+        compact={@compact}
+        show_context_selector={
+          show_context_selector_with_priority?(@show_context_selector, @context_selector_config)
+        }
+        dashboard_contexts={@dashboard_contexts}
+        current_context={@current_context}
+        context_selector_config={@context_selector_config}
+      />
+
+      <%!-- Note: Bottom context selector (sub_position: :end) is rendered by the layout, not here --%>
     </nav>
     """
   end
@@ -237,6 +261,60 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   end
 
   @doc """
+  Renders tabs with a context selector inserted at the appropriate priority position.
+  """
+  attr :tabs, :list, required: true
+  attr :all_tabs, :list, required: true
+  attr :viewer_counts, :map, default: %{}
+  attr :locale, :string, default: nil
+  attr :compact, :boolean, default: false
+  attr :show_context_selector, :boolean, default: false
+  attr :dashboard_contexts, :list, default: []
+  attr :current_context, :any, default: nil
+  attr :context_selector_config, :any, default: nil
+
+  def tabs_with_context_selector(assigns) do
+    context_priority = get_context_selector_priority(assigns.context_selector_config)
+
+    # Create list of items with their priorities, including context selector if needed
+    items =
+      assigns.tabs
+      |> Enum.map(fn tab -> {:tab, tab, tab.priority} end)
+      |> maybe_add_context_selector(assigns.show_context_selector, context_priority)
+      |> Enum.sort_by(fn {_type, _item, priority} -> priority end)
+
+    assigns = assign(assigns, :items, items)
+
+    ~H"""
+    <%= for item <- @items do %>
+      <%= case item do %>
+        <% {:context_selector, _, _} -> %>
+          <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+            contexts={@dashboard_contexts}
+            current={@current_context}
+            config={@context_selector_config}
+          />
+        <% {:tab, tab, _} -> %>
+          <.tab_with_subtabs
+            tab={tab}
+            all_tabs={@all_tabs}
+            viewer_counts={@viewer_counts}
+            locale={@locale}
+            compact={@compact}
+          />
+      <% end %>
+    <% end %>
+    """
+  end
+
+  defp maybe_add_context_selector(items, false, _priority), do: items
+  defp maybe_add_context_selector(items, true, nil), do: items
+
+  defp maybe_add_context_selector(items, true, priority) do
+    [{:context_selector, nil, priority} | items]
+  end
+
+  @doc """
   Renders a mobile-friendly bottom navigation bar.
 
   ## Attributes
@@ -326,11 +404,17 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   @doc """
   Renders a floating action button for mobile that opens a tab menu.
+
+  Includes context selector at the top if configured and user has multiple contexts.
   """
   attr :current_path, :string, default: "/dashboard"
   attr :scope, :any, default: nil
   attr :locale, :string, default: nil
   attr :class, :string, default: ""
+  attr :show_context_selector, :boolean, default: false
+  attr :dashboard_contexts, :list, default: []
+  attr :current_context, :any, default: nil
+  attr :context_selector_config, :any, default: nil
 
   def mobile_fab_menu(assigns) do
     tabs =
@@ -345,33 +429,44 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
         <label tabindex="0" class="btn btn-primary btn-circle shadow-lg">
           <.icon name="hero-bars-3" class="w-5 h-5" />
         </label>
-        <ul
+        <div
           tabindex="0"
-          class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 mb-2 border border-base-300"
+          class="dropdown-content shadow bg-base-100 rounded-box w-56 mb-2 border border-base-300 max-h-96 overflow-y-auto"
         >
-          <%= for tab <- @tabs do %>
-            <li>
-              <.link
-                navigate={build_path(tab.path, @locale)}
-                class={[
-                  "flex items-center gap-3",
-                  tab.active && "bg-primary text-primary-content"
-                ]}
-              >
-                <%= if tab.icon do %>
-                  <.icon name={tab.icon} class="w-4 h-4" />
-                <% end %>
-                <span>{tab.label}</span>
-                <%= if tab.badge do %>
-                  <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
-                    badge={tab.badge}
-                    class="ml-auto badge-xs"
-                  />
-                <% end %>
-              </.link>
-            </li>
+          <%!-- Mobile Context Selector --%>
+          <%= if @show_context_selector and @context_selector_config && @context_selector_config.enabled do %>
+            <PhoenixKitWeb.Components.Dashboard.ContextSelector.mobile_context_selector
+              contexts={@dashboard_contexts}
+              current={@current_context}
+              config={@context_selector_config}
+            />
           <% end %>
-        </ul>
+          <%!-- Navigation Tabs --%>
+          <ul class="menu p-2">
+            <%= for tab <- @tabs do %>
+              <li>
+                <.link
+                  navigate={build_path(tab.path, @locale)}
+                  class={[
+                    "flex items-center gap-3",
+                    tab.active && "bg-primary text-primary-content"
+                  ]}
+                >
+                  <%= if tab.icon do %>
+                    <.icon name={tab.icon} class="w-4 h-4" />
+                  <% end %>
+                  <span>{tab.label}</span>
+                  <%= if tab.badge do %>
+                    <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
+                      badge={tab.badge}
+                      class="ml-auto badge-xs"
+                    />
+                  <% end %>
+                </.link>
+              </li>
+            <% end %>
+          </ul>
+        </div>
       </div>
     </div>
     """
@@ -428,4 +523,31 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   defp any_subtab_active?(subtabs) do
     Enum.any?(subtabs, & &1.active)
   end
+
+  # Check if context selector should show at a specific position
+  defp show_context_selector_at?(false, _config, _position), do: false
+  defp show_context_selector_at?(_show, nil, _position), do: false
+  defp show_context_selector_at?(_show, %{enabled: false}, _position), do: false
+
+  defp show_context_selector_at?(true, %{position: :sidebar, sub_position: :start}, :start),
+    do: true
+
+  defp show_context_selector_at?(_, _, _), do: false
+
+  # Check if context selector should show with priority (among tabs)
+  defp show_context_selector_with_priority?(false, _config), do: false
+  defp show_context_selector_with_priority?(_show, nil), do: false
+  defp show_context_selector_with_priority?(_show, %{enabled: false}), do: false
+
+  defp show_context_selector_with_priority?(true, %{
+         position: :sidebar,
+         sub_position: {:priority, _}
+       }),
+       do: true
+
+  defp show_context_selector_with_priority?(_, _), do: false
+
+  # Get the priority value for the context selector
+  defp get_context_selector_priority(%{sub_position: {:priority, n}}), do: n
+  defp get_context_selector_priority(_), do: nil
 end
