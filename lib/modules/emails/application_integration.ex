@@ -55,6 +55,7 @@ defmodule PhoenixKit.Modules.Emails.ApplicationIntegration do
       ] ++ PhoenixKit.Modules.Emails.ApplicationIntegration.supervisor_children()
   """
 
+  alias PhoenixKit.Config.AWS
   alias PhoenixKit.Modules.Emails
 
   @doc """
@@ -222,7 +223,7 @@ defmodule PhoenixKit.Modules.Emails.ApplicationIntegration do
       {"sqs_polling_interval_ms", "5000"},
       {"sqs_max_messages_per_poll", "10"},
       {"sqs_visibility_timeout", "300"},
-      {"aws_region", System.get_env("AWS_REGION", "eu-north-1")},
+      {"aws_region", AWS.region()},
       {"from_email", get_config_or_default(:from_email, "noreply@localhost")},
       {"from_name", get_config_or_default(:from_name, "PhoenixKit")}
     ]

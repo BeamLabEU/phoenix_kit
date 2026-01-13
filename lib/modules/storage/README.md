@@ -1036,9 +1036,6 @@ config :phoenix_kit, PhoenixKit.Storage,
 ### Environment Variables (Phase 3)
 ```bash
 # AWS S3
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
 AWS_S3_BUCKET=...
 
 # Backblaze B2
