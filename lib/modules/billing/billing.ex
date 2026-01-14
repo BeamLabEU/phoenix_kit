@@ -45,6 +45,7 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Billing.Events
   alias PhoenixKit.Modules.Billing.Invoice
   alias PhoenixKit.Modules.Billing.Order
   alias PhoenixKit.Modules.Billing.Providers
@@ -429,6 +430,8 @@ defmodule PhoenixKit.Modules.Billing do
     # If this is the first profile, make it default
     case result do
       {:ok, profile} ->
+        Events.broadcast_profile_created(profile)
+
         if count_user_profiles(user_id) == 1 do
           set_default_billing_profile(profile)
         else
@@ -444,16 +447,35 @@ defmodule PhoenixKit.Modules.Billing do
   Updates a billing profile.
   """
   def update_billing_profile(%BillingProfile{} = profile, attrs) do
-    profile
-    |> BillingProfile.changeset(attrs)
-    |> repo().update()
+    result =
+      profile
+      |> BillingProfile.changeset(attrs)
+      |> repo().update()
+
+    case result do
+      {:ok, updated_profile} ->
+        Events.broadcast_profile_updated(updated_profile)
+        {:ok, updated_profile}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Deletes a billing profile.
   """
   def delete_billing_profile(%BillingProfile{} = profile) do
-    repo().delete(profile)
+    result = repo().delete(profile)
+
+    case result do
+      {:ok, deleted_profile} ->
+        Events.broadcast_profile_deleted(deleted_profile)
+        {:ok, deleted_profile}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -615,9 +637,19 @@ defmodule PhoenixKit.Modules.Billing do
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
 
-    %Order{}
-    |> Order.changeset(attrs)
-    |> repo().insert()
+    result =
+      %Order{}
+      |> Order.changeset(attrs)
+      |> repo().insert()
+
+    case result do
+      {:ok, order} ->
+        Events.broadcast_order_created(order)
+        {:ok, order}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -631,9 +663,19 @@ defmodule PhoenixKit.Modules.Billing do
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
 
-    %Order{}
-    |> Order.changeset(attrs)
-    |> repo().insert()
+    result =
+      %Order{}
+      |> Order.changeset(attrs)
+      |> repo().insert()
+
+    case result do
+      {:ok, order} ->
+        Events.broadcast_order_created(order)
+        {:ok, order}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -651,9 +693,19 @@ defmodule PhoenixKit.Modules.Billing do
       # Update billing_snapshot if billing_profile_id changed
       attrs = maybe_update_billing_snapshot(order, attrs)
 
-      order
-      |> Order.changeset(attrs)
-      |> repo().update()
+      result =
+        order
+        |> Order.changeset(attrs)
+        |> repo().update()
+
+      case result do
+        {:ok, updated_order} ->
+          Events.broadcast_order_updated(updated_order)
+          {:ok, updated_order}
+
+        error ->
+          error
+      end
     else
       {:error, :order_not_editable}
     end
@@ -663,9 +715,19 @@ defmodule PhoenixKit.Modules.Billing do
   Confirms an order.
   """
   def confirm_order(%Order{} = order) do
-    order
-    |> Order.status_changeset("confirmed")
-    |> repo().update()
+    result =
+      order
+      |> Order.status_changeset("confirmed")
+      |> repo().update()
+
+    case result do
+      {:ok, confirmed_order} ->
+        Events.broadcast_order_confirmed(confirmed_order)
+        {:ok, confirmed_order}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -685,7 +747,16 @@ defmodule PhoenixKit.Modules.Billing do
           pm -> Ecto.Changeset.put_change(changeset, :payment_method, pm)
         end
 
-      repo().update(changeset)
+      result = repo().update(changeset)
+
+      case result do
+        {:ok, paid_order} ->
+          Events.broadcast_order_paid(paid_order)
+          {:ok, paid_order}
+
+        error ->
+          error
+      end
     else
       {:error, :order_not_payable}
     end
@@ -720,7 +791,16 @@ defmodule PhoenixKit.Modules.Billing do
           changeset
         end
 
-      repo().update(changeset)
+      result = repo().update(changeset)
+
+      case result do
+        {:ok, cancelled_order} ->
+          Events.broadcast_order_cancelled(cancelled_order)
+          {:ok, cancelled_order}
+
+        error ->
+          error
+      end
     else
       {:error, :order_not_cancellable}
     end
@@ -948,9 +1028,19 @@ defmodule PhoenixKit.Modules.Billing do
 
     invoice = Invoice.from_order(order, opts)
 
-    invoice
-    |> Invoice.changeset(%{})
-    |> repo().insert()
+    result =
+      invoice
+      |> Invoice.changeset(%{})
+      |> repo().insert()
+
+    case result do
+      {:ok, created_invoice} ->
+        Events.broadcast_invoice_created(created_invoice)
+        {:ok, created_invoice}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -965,9 +1055,19 @@ defmodule PhoenixKit.Modules.Billing do
       |> Map.put(:user_id, user_id)
       |> Map.put_new(:invoice_number, generate_invoice_number(config.invoice_prefix))
 
-    %Invoice{}
-    |> Invoice.changeset(attrs)
-    |> repo().insert()
+    result =
+      %Invoice{}
+      |> Invoice.changeset(attrs)
+      |> repo().insert()
+
+    case result do
+      {:ok, created_invoice} ->
+        Events.broadcast_invoice_created(created_invoice)
+        {:ok, created_invoice}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -1043,6 +1143,9 @@ defmodule PhoenixKit.Modules.Billing do
 
       case repo().update(changeset) do
         {:ok, updated_invoice} ->
+          # Broadcast invoice sent event
+          Events.broadcast_invoice_sent(updated_invoice)
+
           # Send email if requested
           if send_email? do
             send_invoice_email(updated_invoice, Keyword.put(opts, :to_email, recipient_email))
@@ -1589,9 +1692,10 @@ defmodule PhoenixKit.Modules.Billing do
 
       # Also mark the order as paid if linked
       case result do
-        {:ok, invoice} ->
-          maybe_mark_linked_order_paid(invoice)
-          {:ok, invoice}
+        {:ok, paid_invoice} ->
+          Events.broadcast_invoice_paid(paid_invoice)
+          maybe_mark_linked_order_paid(paid_invoice)
+          {:ok, paid_invoice}
 
         error ->
           error
@@ -1615,7 +1719,16 @@ defmodule PhoenixKit.Modules.Billing do
           changeset
         end
 
-      repo().update(changeset)
+      result = repo().update(changeset)
+
+      case result do
+        {:ok, voided_invoice} ->
+          Events.broadcast_invoice_voided(voided_invoice)
+          {:ok, voided_invoice}
+
+        error ->
+          error
+      end
     else
       {:error, :invoice_not_voidable}
     end

@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfiles do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -16,6 +17,9 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfiles do
   @impl true
   def mount(_params, _session, socket) do
     if Billing.enabled?() do
+      # Subscribe to billing profile events for real-time updates
+      if connected?(socket), do: Events.subscribe_profiles()
+
       project_title = Settings.get_setting("project_title", "PhoenixKit")
 
       socket =
@@ -129,5 +133,18 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfiles do
   @impl true
   def handle_event("refresh", _params, socket) do
     {:noreply, socket |> assign(:loading, true) |> load_profiles()}
+  end
+
+  # PubSub event handlers for real-time updates
+  @impl true
+  def handle_info({event, _profile}, socket)
+      when event in [:profile_created, :profile_updated, :profile_deleted] do
+    {:noreply, load_profiles(socket)}
+  end
+
+  # Catch-all for any other messages (ignore them)
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 end
