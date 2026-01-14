@@ -1043,6 +1043,19 @@ defmodule PhoenixKitWeb.Integration do
         locale: ~r/^(#{unquote(pattern)})$/ do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
+        # POST routes for authentication (needed for locale-prefixed form submissions)
+        post "/users/log-in", Users.Session, :create
+        delete "/users/log-out", Users.Session, :delete
+        get "/users/log-out", Users.Session, :get_logout
+        get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
+
+        # OAuth routes
+        get "/users/auth/:provider", Users.OAuth, :request
+        get "/users/auth/:provider/callback", Users.OAuth, :callback
+
+        # Magic Link Registration
+        get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
+
         phoenix_kit_auth_routes(:_locale)
         phoenix_kit_confirmation_routes(:_locale)
         phoenix_kit_admin_routes(:_locale)

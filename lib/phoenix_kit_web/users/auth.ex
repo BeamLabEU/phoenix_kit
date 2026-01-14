@@ -111,11 +111,17 @@ defmodule PhoenixKitWeb.Users.Auth do
   #     end
   #
   defp renew_session(conn) do
+    # Preserve locale preference across session renewal
+    locale_base = get_session(conn, :phoenix_kit_locale_base)
+
     delete_csrf_token()
 
     conn
     |> configure_session(renew: true)
     |> clear_session()
+    |> then(fn conn ->
+      if locale_base, do: put_session(conn, :phoenix_kit_locale_base, locale_base), else: conn
+    end)
   end
 
   @doc """
