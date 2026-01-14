@@ -4,10 +4,17 @@
   page_title="{@project_title} - Sign in"
 >
   <div class="flex items-center justify-center py-8 min-h-[80vh]">
-    <div class="card bg-base-100 w-full max-w-sm shadow-2xl">
+    <div class="card bg-base-100 w-full max-w-sm shadow-2xl relative">
+      <%!-- Language Switcher --%>
+      <%= if @show_language_switcher do %>
+        <div class="absolute top-4 right-4 z-10">
+          <.language_switcher_dropdown current_path="/users/log-in" />
+        </div>
+      <% end %>
+
       <div class="card-body">
         <h1 class="text-2xl font-bold text-center mb-6">
-          {@project_title} Sign in
+          {@project_title} {gettext("Sign in")}
         </h1>
         <.form
           for={@form}
@@ -16,12 +23,12 @@
           phx-update="ignore"
         >
           <fieldset class="fieldset">
-            <legend class="fieldset-legend sr-only">Login with Password</legend>
+            <legend class="fieldset-legend sr-only">{gettext("Login with Password")}</legend>
 
             <label class="label" for="user_email_or_username">
               <span class="label-text flex items-center">
                 <PhoenixKitWeb.Components.Core.Icons.icon_user_profile class="w-4 h-4 mr-2" />
-                Email or Username
+                {gettext("Email or Username")}
               </span>
             </label>
             <input
@@ -29,7 +36,7 @@
               name="user[email_or_username]"
               type="text"
               class="input input-bordered w-full transition-colors focus:input-primary"
-              placeholder="Enter your email or username"
+              placeholder={gettext("Enter your email or username")}
               value={@form.params["email_or_username"] || ""}
               autocomplete="username"
               required
@@ -37,7 +44,9 @@
 
             <label class="label" for="user_password">
               <span class="label-text flex items-center">
-                <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> Password
+                <PhoenixKitWeb.Components.Core.Icons.icon_lock class="w-4 h-4 mr-2" /> {gettext(
+                  "Password"
+                )}
               </span>
             </label>
             <input
@@ -45,7 +54,7 @@
               name="user[password]"
               type="password"
               class="input input-bordered w-full transition-colors focus:input-primary"
-              placeholder="Enter your password"
+              placeholder={gettext("Enter your password")}
               autocomplete="current-password"
               required
             />
@@ -54,7 +63,7 @@
               <.checkbox
                 id="user_remember_me"
                 name="user[remember_me]"
-                label="Keep me logged in"
+                label={gettext("Keep me logged in")}
               />
             </div>
 
@@ -63,16 +72,18 @@
                 href={Routes.path("/users/reset-password")}
                 class="text-sm font-semibold text-primary hover:underline"
               >
-                Forgot your password?
+                {gettext("Forgot your password?")}
               </.link>
             </div>
 
             <button
               type="submit"
-              phx-disable-with="Logging in..."
+              phx-disable-with={gettext("Logging in...")}
               class="btn btn-primary w-full mt-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
-              <PhoenixKitWeb.Components.Core.Icons.icon_login class="w-5 h-5 mr-2" /> Log in
+              <PhoenixKitWeb.Components.Core.Icons.icon_login class="w-5 h-5 mr-2" /> {gettext(
+                "Log in"
+              )}
               <span aria-hidden="true">→</span>
             </button>
           </fieldset>
@@ -87,7 +98,9 @@
                 <div class="w-full border-t border-base-300" />
               </div>
               <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-base-100 text-base-content/60">Or continue with</span>
+                <span class="px-2 bg-base-100 text-base-content/60">
+                  {gettext("Or continue with")}
+                </span>
               </div>
             </div>
 
@@ -99,7 +112,7 @@
                   class="btn btn-outline w-full transition-all hover:scale-[1.02] active:scale-[0.98] hover:shadow-lg"
                 >
                   <PhoenixKitWeb.Components.Core.Icons.icon_email class="w-5 h-5 mr-2" />
-                  Sign in with Magic Link
+                  {gettext("Sign in with Magic Link")}
                 </.link>
               <% end %>
               <%!-- OAuth authentication --%>
@@ -111,12 +124,12 @@
         <%!-- Registration link --%>
         <%= if @allow_registration do %>
           <div class="text-center mt-4 text-sm">
-            <span>New to {@project_title}? </span>
+            <span>{gettext("New to %{project_title}?", project_title: @project_title)}</span>
             <.link
               navigate={Routes.path("/users/register")}
               class="font-semibold text-primary hover:underline"
             >
-              Create an account
+              {gettext("Create an account")}
             </.link>
           </div>
         <% end %>

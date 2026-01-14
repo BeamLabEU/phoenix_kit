@@ -457,6 +457,7 @@ defmodule PhoenixKitWeb.Users.Auth do
     if Scope.authenticated?(socket.assigns.phoenix_kit_current_scope) do
       {:halt, Phoenix.LiveView.redirect(socket, to: signed_in_path(socket))}
     else
+      socket = attach_locale_hook(socket)
       {:cont, socket}
     end
   end

@@ -1,0 +1,68 @@
+## `msgid`s in this file come from POT (.pot) files.
+##
+## Do not add, change, or remove `msgid`s manually here as
+## they're tied to the ones in the corresponding POT file
+## (with the same domain).
+##
+## Use `mix gettext.extract --merge` or `mix gettext.merge`
+## to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: et\n"
+
+## Login page translations
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Sign in"
+msgstr "Logi sisse"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Login with Password"
+msgstr "Logi parooliga sisse"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Email or Username"
+msgstr "E-post või kasutajanimi"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Enter your email or username"
+msgstr "Sisesta oma e-post või kasutajanimi"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Password"
+msgstr "Parool"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Enter your password"
+msgstr "Sisesta oma parool"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Keep me logged in"
+msgstr "Jäta mind sisselogituks"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Forgot your password?"
+msgstr "Unustasid parooli?"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Logging in..."
+msgstr "Sisselogimine..."
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Log in"
+msgstr "Logi sisse"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Or continue with"
+msgstr "Või jätka"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Sign in with Magic Link"
+msgstr "Logi sisse Magic Linkiga"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "New to %{project_title}?"
+msgstr "Esimest korda %{project_title}?"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Create an account"
+msgstr "Loo konto"
