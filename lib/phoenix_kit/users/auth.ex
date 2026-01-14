@@ -108,6 +108,32 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets a user by email or username.
+
+  Checks if the input contains "@" to determine whether to search
+  by email or username.
+
+  ## Examples
+
+      iex> get_user_by_email_or_username("user@example.com")
+      %User{}
+
+      iex> get_user_by_email_or_username("johndoe")
+      %User{}
+
+      iex> get_user_by_email_or_username("unknown")
+      nil
+
+  """
+  def get_user_by_email_or_username(email_or_username) when is_binary(email_or_username) do
+    if String.contains?(email_or_username, "@") do
+      get_user_by_email(email_or_username)
+    else
+      get_user_by_username(email_or_username)
+    end
+  end
+
+  @doc """
   Gets a user by email and password.
 
   This function includes rate limiting protection to prevent brute-force attacks.
