@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   @impl true
   def mount(_params, session, socket) do
-    user = socket.assigns[:current_user]
+    user = get_current_user(socket)
     session_id = session["shop_session_id"]
     user_id = if user, do: user.id
 
@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp setup_checkout_assigns(socket, cart, user) do
     is_guest = is_nil(user)
     billing_profiles = load_billing_profiles(user)
-    default_profile = Enum.find(billing_profiles, & &1.is_default)
+    {selected_profile, show_profile_prompt} = select_billing_profile(billing_profiles)
 
     # Check if user is authenticated
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
@@ -55,8 +55,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:currency, Shop.get_default_currency())
     |> assign(:is_guest, is_guest)
     |> assign(:billing_profiles, billing_profiles)
-    |> assign(:selected_profile_id, if(default_profile, do: default_profile.id))
+    |> assign(:selected_profile_id, if(selected_profile, do: selected_profile.id))
     |> assign(:use_new_profile, is_guest or billing_profiles == [])
+    |> assign(:show_profile_prompt, show_profile_prompt)
     |> assign(:billing_data, initial_billing_data(user, cart))
     |> assign(:countries, CountryData.list_countries())
     |> assign(:step, :billing)
@@ -64,6 +65,22 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:error_message, nil)
     |> assign(:form_errors, %{})
     |> assign(:authenticated, authenticated)
+  end
+
+  # Select billing profile with smart defaults
+  defp select_billing_profile([]), do: {nil, false}
+
+  defp select_billing_profile(profiles) do
+    default = Enum.find(profiles, & &1.is_default)
+
+    cond do
+      # Has default profile - use it
+      default -> {default, false}
+      # Only one profile - auto-select it
+      length(profiles) == 1 -> {hd(profiles), false}
+      # Multiple profiles without default - select first, show prompt
+      true -> {hd(profiles), true}
+    end
   end
 
   defp load_billing_profiles(nil), do: []
@@ -80,6 +97,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       "city" => "",
       "postal_code" => "",
       "country" => cart.shipping_country || "EE"
+    }
+  end
+
+  defp profile_to_billing_data(profile, cart) do
+    %{
+      "type" => profile.type || "individual",
+      "first_name" => profile.first_name || "",
+      "last_name" => profile.last_name || "",
+      "email" => profile.email || "",
+      "phone" => profile.phone || "",
+      "address_line1" => profile.address_line1 || "",
+      "city" => profile.city || "",
+      "postal_code" => profile.postal_code || "",
+      "country" => profile.country || cart.shipping_country || "EE"
     }
   end
 
@@ -101,9 +132,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   @impl true
   def handle_event("use_new_profile", _params, socket) do
+    # Pre-fill form from selected profile if available
+    billing_data =
+      case Enum.find(
+             socket.assigns.billing_profiles,
+             &(&1.id == socket.assigns.selected_profile_id)
+           ) do
+        nil -> socket.assigns.billing_data
+        profile -> profile_to_billing_data(profile, socket.assigns.cart)
+      end
+
     {:noreply,
      socket
      |> assign(:use_new_profile, true)
+     |> assign(:billing_data, billing_data)
      |> assign(:selected_profile_id, nil)}
   end
 
@@ -302,6 +344,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                 billing_profiles={@billing_profiles}
                 selected_profile_id={@selected_profile_id}
                 use_new_profile={@use_new_profile}
+                show_profile_prompt={@show_profile_prompt}
                 billing_data={@billing_data}
                 form_errors={@form_errors}
                 countries={@countries}
@@ -387,6 +430,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <.profile_selector
             billing_profiles={@billing_profiles}
             selected_profile_id={@selected_profile_id}
+            show_profile_prompt={@show_profile_prompt}
           />
         <% end %>
 
@@ -403,40 +447,66 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp profile_selector(assigns) do
     ~H"""
     <div class="space-y-3">
+      <%!-- Show info alert when multiple profiles exist without a default --%>
+      <%= if @show_profile_prompt do %>
+        <div class="alert alert-info mb-4">
+          <.icon name="hero-information-circle" class="w-5 h-5" />
+          <span>
+            You have multiple billing profiles. Please select one or <.link
+              navigate={Routes.path("/dashboard/billing-profiles")}
+              class="link"
+            >
+              set a default in your account settings
+            </.link>.
+          </span>
+        </div>
+      <% end %>
+
       <%= for profile <- @billing_profiles do %>
-        <label class={[
-          "flex items-start gap-4 p-4 border rounded-lg cursor-pointer transition-colors",
+        <div class={[
+          "flex items-start gap-4 p-4 border rounded-lg transition-colors",
           if(@selected_profile_id == profile.id,
             do: "border-primary bg-primary/5",
             else: "border-base-300 hover:border-primary/50"
           )
         ]}>
-          <input
-            type="radio"
-            name="profile"
-            value={profile.id}
-            checked={@selected_profile_id == profile.id}
-            phx-click="select_profile"
-            phx-value-profile_id={profile.id}
-            class="radio radio-primary mt-1"
-          />
-          <div class="flex-1">
-            <div class="font-medium flex items-center gap-2">
-              {profile_display_name(profile)}
-              <%= if profile.is_default do %>
-                <span class="badge badge-primary badge-sm">Default</span>
+          <label class="flex items-start gap-4 flex-1 cursor-pointer">
+            <input
+              type="radio"
+              name="profile"
+              value={profile.id}
+              checked={@selected_profile_id == profile.id}
+              phx-click="select_profile"
+              phx-value-profile_id={profile.id}
+              class="radio radio-primary mt-1"
+            />
+            <div class="flex-1">
+              <div class="font-medium flex items-center gap-2">
+                {profile_display_name(profile)}
+                <%= if profile.is_default do %>
+                  <span class="badge badge-primary badge-sm">Default</span>
+                <% end %>
+              </div>
+              <div class="text-sm text-base-content/60 mt-1">
+                {profile_address(profile)}
+              </div>
+              <%= if profile.email do %>
+                <div class="text-sm text-base-content/60">
+                  {profile.email}
+                </div>
               <% end %>
             </div>
-            <div class="text-sm text-base-content/60 mt-1">
-              {profile_address(profile)}
-            </div>
-            <%= if profile.email do %>
-              <div class="text-sm text-base-content/60">
-                {profile.email}
-              </div>
-            <% end %>
-          </div>
-        </label>
+          </label>
+          <%!-- Edit button for selected profile --%>
+          <%= if @selected_profile_id == profile.id do %>
+            <.link
+              navigate={Routes.path("/dashboard/billing-profiles/#{profile.id}/edit")}
+              class="btn btn-ghost btn-sm"
+            >
+              <.icon name="hero-pencil" class="w-4 h-4" />
+            </.link>
+          <% end %>
+        </div>
       <% end %>
     </div>
     """
@@ -636,7 +706,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <%!-- Shipping Info --%>
       <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
-          <h2 class="card-title mb-4">Shipping Method</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title">Shipping Method</h2>
+            <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-sm">
+              <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> Change
+            </.link>
+          </div>
 
           <%= if @cart.shipping_method do %>
             <div class="flex justify-between items-center">
@@ -661,7 +736,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       <%!-- Order Items --%>
       <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
-          <h2 class="card-title mb-4">Order Items</h2>
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="card-title">Order Items</h2>
+            <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-sm">
+              <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> Edit Cart
+            </.link>
+          </div>
 
           <div class="space-y-4">
             <%= for item <- @cart.items do %>
@@ -800,5 +880,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   defp format_price(amount, nil) do
     "$#{Decimal.round(amount, 2)}"
+  end
+
+  defp get_current_user(socket) do
+    case socket.assigns[:phoenix_kit_current_scope] do
+      %{user: %{id: _} = user} -> user
+      _ -> nil
+    end
   end
 end

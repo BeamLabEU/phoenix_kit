@@ -259,6 +259,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
           <.link navigate={Routes.path("/shop")} class="btn btn-primary">
             <.icon name="hero-shopping-bag" class="w-5 h-5 mr-2" /> Continue Shopping
           </.link>
+          <%= if @authenticated do %>
+            <.link navigate={Routes.path("/dashboard/orders")} class="btn btn-outline">
+              <.icon name="hero-clipboard-document-list" class="w-5 h-5 mr-2" /> My Orders
+            </.link>
+          <% end %>
         </div>
       </div>
     </.shop_layout>

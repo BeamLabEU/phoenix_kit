@@ -603,6 +603,21 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
             as: :shop_user_order_details
+
+          live "/dashboard/billing-profiles",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               :index,
+               as: :user_billing_profiles
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :new,
+               as: :user_billing_profile_new
+
+          live "/dashboard/billing-profiles/:id/edit",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :edit,
+               as: :user_billing_profile_edit
         end
       end
 

@@ -21,7 +21,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       product ->
         # Get session_id for guest cart
         session_id = session["shop_session_id"] || generate_session_id()
-        user = socket.assigns[:current_user]
+        user = get_current_user(socket)
         user_id = if user, do: user.id, else: nil
 
         currency = Shop.get_default_currency()
@@ -414,6 +414,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
       _ ->
         nil
+    end
+  end
+
+  defp get_current_user(socket) do
+    case socket.assigns[:phoenix_kit_current_scope] do
+      %{user: %{id: _} = user} -> user
+      _ -> nil
     end
   end
 end

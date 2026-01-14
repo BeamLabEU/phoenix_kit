@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     session_id = session["shop_session_id"] || generate_session_id()
 
     # Get current user if logged in
-    user = socket.assigns[:current_user]
+    user = get_current_user(socket)
     user_id = if user, do: user.id, else: nil
 
     # Get or create cart
@@ -413,5 +413,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
   defp format_price(amount, nil) do
     "$#{Decimal.round(amount, 2)}"
+  end
+
+  defp get_current_user(socket) do
+    case socket.assigns[:phoenix_kit_current_scope] do
+      %{user: %{id: _} = user} -> user
+      _ -> nil
+    end
   end
 end

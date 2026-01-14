@@ -460,29 +460,40 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Finds active cart by user_id or session_id.
+
+  Search priority:
+  1. If user_id is provided, search by user_id first
+  2. If not found and session_id is provided, search by session_id (handles guest->login transition)
+  3. If only session_id is provided, search by session_id with no user_id
   """
   def find_active_cart(opts) do
     user_id = Keyword.get(opts, :user_id)
     session_id = Keyword.get(opts, :session_id)
 
-    query = Cart |> where([c], c.status == "active")
+    base_query = Cart |> where([c], c.status == "active") |> preload([:items, :shipping_method])
 
-    query =
-      cond do
-        not is_nil(user_id) ->
-          where(query, [c], c.user_id == ^user_id)
+    cond do
+      not is_nil(user_id) ->
+        # First try to find by user_id
+        case base_query |> where([c], c.user_id == ^user_id) |> repo().one() do
+          nil when not is_nil(session_id) ->
+            # Fallback: try session_id (cart created before login)
+            base_query |> where([c], c.session_id == ^session_id) |> repo().one()
 
-        not is_nil(session_id) ->
-          where(query, [c], c.session_id == ^session_id and is_nil(c.user_id))
+          result ->
+            result
+        end
 
-        true ->
-          # No identity provided, return nil
-          where(query, [c], false)
-      end
+      not is_nil(session_id) ->
+        # Guest user - search by session_id only
+        base_query
+        |> where([c], c.session_id == ^session_id and is_nil(c.user_id))
+        |> repo().one()
 
-    query
-    |> preload([:items, :shipping_method])
-    |> repo().one()
+      true ->
+        # No identity provided
+        nil
+    end
   end
 
   @doc """
