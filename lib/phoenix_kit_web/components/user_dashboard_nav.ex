@@ -21,11 +21,9 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   def user_dropdown(assigns) do
     user = Scope.user(assigns.scope)
-    avatar_file_id = user && user.custom_fields && user.custom_fields["avatar_file_id"]
 
     assigns =
       assigns
-      |> assign(:avatar_file_id, avatar_file_id)
       |> assign(:user, user)
 
     ~H"""
@@ -34,22 +32,13 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
         <div
           tabindex="0"
           role="button"
-          class="w-10 h-10 rounded-lg bg-primary flex items-center justify-center text-primary-content font-bold cursor-pointer hover:opacity-80 transition-opacity overflow-hidden"
+          class="cursor-pointer hover:opacity-80 transition-opacity"
         >
-          <%= if @avatar_file_id do %>
-            <% avatar_url = PhoenixKit.Modules.Storage.URLSigner.signed_url(@avatar_file_id, "medium") %>
-            <img
-              src={avatar_url}
-              alt="Avatar"
-              class="w-full h-full object-cover"
-              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-            />
-            <div class="hidden w-full h-full bg-primary flex items-center justify-center text-primary-content font-bold">
-              {String.first(@user.email || "?") |> String.upcase()}
-            </div>
-          <% else %>
-            {String.first(PhoenixKit.Users.Auth.Scope.user_email(@scope) || "?") |> String.upcase()}
-          <% end %>
+          <PhoenixKitWeb.Components.Core.UserInfo.user_avatar
+            user={@user}
+            size="md"
+            class="!rounded-lg"
+          />
         </div>
 
         <ul
