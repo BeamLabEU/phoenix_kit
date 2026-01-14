@@ -1,3 +1,7 @@
+## 1.7.23 - 2026-01-14
+- Added user functions, language switcher on login page (also support for Estonian and Russian on login)
+- Removed logs spamming about oban jobs
+
 ## 1.7.22 - 2026-01-13
 - Add AWS config module with centralized credential management
 - Add context selector for multi-tenant dashboard navigation
