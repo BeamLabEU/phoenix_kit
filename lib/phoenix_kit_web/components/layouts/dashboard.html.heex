@@ -286,6 +286,7 @@
 <!-- Main Content -->
           <main class="flex-1 px-4 py-8">
             <div class="max-w-6xl mx-auto">
+              <.flash_group flash={@flash} />
               {render_slot(@inner_block)}
             </div>
           </main>

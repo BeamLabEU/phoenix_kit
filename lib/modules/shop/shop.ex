@@ -616,6 +616,47 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Auto-selects the cheapest available shipping method for a cart.
+
+  If cart already has a shipping method selected, does nothing.
+  If only one method is available, selects it.
+  If multiple methods are available, selects the cheapest one.
+  """
+  def auto_select_shipping_method(%Cart{} = cart, shipping_methods) do
+    cond do
+      # Already has shipping method selected
+      not is_nil(cart.shipping_method_id) ->
+        {:ok, cart}
+
+      # No items in cart
+      cart.items == [] or is_nil(cart.items) ->
+        {:ok, cart}
+
+      # No shipping methods available
+      shipping_methods == [] ->
+        {:ok, cart}
+
+      # One or more methods available - select cheapest
+      true ->
+        cheapest = find_cheapest_shipping_method(shipping_methods, cart.subtotal)
+        set_cart_shipping(cart, cheapest, nil)
+    end
+  end
+
+  defp find_cheapest_shipping_method(methods, subtotal) do
+    subtotal = subtotal || Decimal.new("0")
+
+    methods
+    |> Enum.min_by(fn method ->
+      if ShippingMethod.free_for?(method, subtotal) do
+        Decimal.new("0")
+      else
+        method.price || Decimal.new("999999")
+      end
+    end)
+  end
+
+  @doc """
   Merges guest cart into user cart after login.
   """
   def merge_guest_cart(session_id, user_id) do
@@ -1182,6 +1223,7 @@ defmodule PhoenixKit.Modules.Shop do
       items_count: items_count
     })
     |> repo().update!()
+    |> repo().preload([:items, :shipping_method], force: true)
   end
 
   defp get_tax_rate(%Cart{shipping_country: nil}), do: Decimal.new("0")

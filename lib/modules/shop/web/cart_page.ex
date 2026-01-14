@@ -25,6 +25,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     # Get available shipping methods
     shipping_methods = Shop.get_available_shipping_methods(cart)
 
+    # Auto-select cheapest shipping method if none selected
+    {:ok, cart} = Shop.auto_select_shipping_method(cart, shipping_methods)
+
     # Get default currency from Billing
     currency = Shop.get_default_currency()
 
@@ -46,26 +49,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   @impl true
   def handle_event("update_quantity", %{"item_id" => item_id, "quantity" => quantity}, socket) do
     item_id = String.to_integer(item_id)
-    quantity = String.to_integer(quantity)
+    quantity = max(1, String.to_integer(quantity))
 
-    item = Enum.find(socket.assigns.cart.items, &(&1.id == item_id))
-
-    if item do
-      case Shop.update_cart_item(item, quantity) do
-        {:ok, updated_cart} ->
-          shipping_methods = Shop.get_available_shipping_methods(updated_cart)
-
-          {:noreply,
-           socket
-           |> assign(:cart, updated_cart)
-           |> assign(:shipping_methods, shipping_methods)}
-
-        {:error, _} ->
-          {:noreply, put_flash(socket, :error, "Failed to update quantity")}
-      end
-    else
-      {:noreply, socket}
-    end
+    update_item_quantity(socket, item_id, quantity)
   end
 
   @impl true
@@ -125,6 +111,27 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
       true ->
         {:noreply, push_navigate(socket, to: Routes.path("/checkout"))}
+    end
+  end
+
+  defp update_item_quantity(socket, item_id, quantity) do
+    item = Enum.find(socket.assigns.cart.items, &(&1.id == item_id))
+
+    if item do
+      case Shop.update_cart_item(item, quantity) do
+        {:ok, updated_cart} ->
+          shipping_methods = Shop.get_available_shipping_methods(updated_cart)
+
+          {:noreply,
+           socket
+           |> assign(:cart, updated_cart)
+           |> assign(:shipping_methods, shipping_methods)}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to update quantity")}
+      end
+    else
+      {:noreply, socket}
     end
   end
 
@@ -204,16 +211,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                               </div>
                             </td>
                             <td class="text-center">
-                              <select
-                                class="select select-bordered select-sm w-20"
-                                phx-change="update_quantity"
-                                phx-value-item_id={item.id}
-                                name="quantity"
-                              >
-                                <%= for qty <- 1..10 do %>
-                                  <option value={qty} selected={item.quantity == qty}>{qty}</option>
-                                <% end %>
-                              </select>
+                              <form phx-change="update_quantity" class="inline">
+                                <input type="hidden" name="item_id" value={item.id} />
+                                <input
+                                  type="number"
+                                  name="quantity"
+                                  value={item.quantity}
+                                  min="1"
+                                  class="input input-bordered input-sm w-20 text-center"
+                                />
+                              </form>
                             </td>
                             <td class="text-right">
                               <div class="font-semibold">
