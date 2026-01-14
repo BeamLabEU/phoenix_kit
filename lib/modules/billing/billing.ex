@@ -634,6 +634,7 @@ defmodule PhoenixKit.Modules.Billing do
     attrs =
       attrs
       |> Map.put("user_id", user_id)
+      |> maybe_set_default_currency()
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
 
@@ -660,6 +661,7 @@ defmodule PhoenixKit.Modules.Billing do
 
     attrs =
       attrs
+      |> maybe_set_default_currency()
       |> maybe_set_order_number(config)
       |> maybe_set_billing_snapshot()
 
@@ -840,6 +842,16 @@ defmodule PhoenixKit.Modules.Billing do
       attrs
     else
       Map.put(attrs, "order_number", generate_order_number(config.order_prefix))
+    end
+  end
+
+  defp maybe_set_default_currency(attrs) do
+    # Check both atom and string keys
+    if Map.has_key?(attrs, :currency) || Map.has_key?(attrs, "currency") do
+      attrs
+    else
+      default = Settings.get_setting("billing_default_currency", "EUR")
+      Map.put(attrs, "currency", default)
     end
   end
 
