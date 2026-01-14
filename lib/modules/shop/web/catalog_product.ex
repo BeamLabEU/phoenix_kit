@@ -29,6 +29,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Check if user is authenticated
         authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
 
+        # Check if product is already in cart
+        cart_item = get_cart_item(user_id, session_id, product.id)
+
         socket =
           socket
           |> assign(:page_title, product.title)
@@ -40,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:selected_image, first_image(product))
           |> assign(:adding_to_cart, false)
           |> assign(:authenticated, authenticated)
+          |> assign(:cart_item, cart_item)
 
         {:ok, socket}
     end
@@ -47,14 +51,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   @impl true
   def handle_event("set_quantity", %{"quantity" => quantity}, socket) do
-    quantity = String.to_integer(quantity) |> max(1) |> min(99)
+    quantity = String.to_integer(quantity) |> max(1)
     {:noreply, assign(socket, :quantity, quantity)}
   end
 
   @impl true
   def handle_event("increment", _params, socket) do
-    quantity = min(socket.assigns.quantity + 1, 99)
-    {:noreply, assign(socket, :quantity, quantity)}
+    {:noreply, assign(socket, :quantity, socket.assigns.quantity + 1)}
   end
 
   @impl true
@@ -80,12 +83,29 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       )
 
     case Shop.add_to_cart(cart, socket.assigns.product, socket.assigns.quantity) do
-      {:ok, _updated_cart} ->
+      {:ok, updated_cart} ->
+        product = socket.assigns.product
+        quantity = socket.assigns.quantity
+        currency = socket.assigns.currency
+        line_total = Decimal.mult(product.price, quantity)
+        line_str = format_price(line_total, currency)
+        cart_total_str = format_price(updated_cart.total, currency)
+
+        unit_price_str = format_price(product.price, currency)
+
+        message =
+          "#{product.title} (#{quantity} × #{unit_price_str} = #{line_str}) added to cart.\nCart total: #{cart_total_str}"
+
+        # Find updated cart item
+        updated_cart_item =
+          Enum.find(updated_cart.items, &(&1.product_id == socket.assigns.product.id))
+
         {:noreply,
          socket
          |> assign(:adding_to_cart, false)
          |> assign(:quantity, 1)
-         |> put_flash(:info, "Added to cart!")
+         |> assign(:cart_item, updated_cart_item)
+         |> put_flash(:info, message)
          |> push_event("cart_updated", %{})}
 
       {:error, _reason} ->
@@ -229,32 +249,59 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 <%!-- Quantity Selector --%>
                 <div class="form-control">
                   <label class="label"><span class="label-text">Quantity</span></label>
-                  <div class="flex items-center gap-2">
-                    <button
-                      phx-click="decrement"
-                      class="btn btn-square btn-outline btn-sm"
-                      disabled={@quantity <= 1}
-                    >
-                      <.icon name="hero-minus" class="w-4 h-4" />
-                    </button>
-                    <input
-                      type="number"
-                      value={@quantity}
-                      phx-change="set_quantity"
-                      name="quantity"
-                      min="1"
-                      max="99"
-                      class="input input-bordered w-20 text-center"
-                    />
-                    <button
-                      phx-click="increment"
-                      class="btn btn-square btn-outline btn-sm"
-                      disabled={@quantity >= 99}
-                    >
-                      <.icon name="hero-plus" class="w-4 h-4" />
-                    </button>
+                  <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1">
+                      <button
+                        type="button"
+                        phx-click="decrement"
+                        class="btn btn-square btn-outline btn-sm"
+                        disabled={@quantity <= 1}
+                      >
+                        <.icon name="hero-minus" class="w-4 h-4" />
+                      </button>
+                      <form phx-change="set_quantity" class="inline">
+                        <input
+                          type="number"
+                          value={@quantity}
+                          name="quantity"
+                          min="1"
+                          class="input input-bordered w-20 text-center"
+                        />
+                      </form>
+                      <button
+                        type="button"
+                        phx-click="increment"
+                        class="btn btn-square btn-outline btn-sm"
+                      >
+                        <.icon name="hero-plus" class="w-4 h-4" />
+                      </button>
+                    </div>
+                    <span class="text-base-content/60">×</span>
+                    <span class="text-base-content/60">
+                      {format_price(@product.price, @currency)}
+                    </span>
+                    <span class="text-base-content/60">=</span>
+                    <span class="text-xl font-bold text-primary">
+                      {format_price(line_total(@product.price, @quantity), @currency)}
+                    </span>
                   </div>
                 </div>
+
+                <%!-- Already in Cart Notice --%>
+                <%= if @cart_item do %>
+                  <div class="alert alert-info">
+                    <.icon name="hero-shopping-cart" class="w-5 h-5" />
+                    <div>
+                      <span class="font-medium">Already in cart:</span>
+                      <span>
+                        {@cart_item.quantity} × {format_price(@cart_item.unit_price, @currency)} = {format_price(
+                          @cart_item.line_total,
+                          @currency
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                <% end %>
 
                 <%!-- Add to Cart Button --%>
                 <button
@@ -265,7 +312,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                   <%= if @adding_to_cart do %>
                     Adding...
                   <% else %>
-                    <.icon name="hero-shopping-cart" class="w-5 h-5" /> Add to Cart
+                    <.icon name="hero-shopping-cart" class="w-5 h-5" />
+                    <%= if @cart_item do %>
+                      Add More to Cart
+                    <% else %>
+                      Add to Cart
+                    <% end %>
                   <% end %>
                 </button>
 
@@ -348,4 +400,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   defp discount_percentage(_), do: 0
+
+  defp line_total(price, quantity) when not is_nil(price) do
+    Decimal.mult(price, quantity)
+  end
+
+  defp line_total(_, _), do: Decimal.new("0")
+
+  defp get_cart_item(user_id, session_id, product_id) do
+    case Shop.find_active_cart(user_id: user_id, session_id: session_id) do
+      %{items: items} when is_list(items) ->
+        Enum.find(items, &(&1.product_id == product_id))
+
+      _ ->
+        nil
+    end
+  end
 end

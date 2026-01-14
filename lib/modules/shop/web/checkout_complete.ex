@@ -66,6 +66,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
     billing_profile = get_billing_profile(order)
     {is_guest_order, order_email} = check_guest_order(order)
 
+    # Check if user is authenticated
+    authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
     socket
     |> assign(:page_title, "Order Confirmed")
     |> assign(:order, order)
@@ -73,6 +76,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
     |> assign(:billing_profile, billing_profile)
     |> assign(:is_guest_order, is_guest_order)
     |> assign(:order_email, order_email)
+    |> assign(:authenticated, authenticated)
   end
 
   defp get_billing_profile(%{billing_profile_id: nil}), do: nil
@@ -99,13 +103,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
   @impl true
   def render(assigns) do
     ~H"""
-    <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-      flash={@flash}
-      phoenix_kit_current_scope={@phoenix_kit_current_scope}
-      current_path={@url_path}
-      current_locale={@current_locale}
-      page_title={@page_title}
-    >
+    <.shop_layout {assigns}>
       <div class="p-6 max-w-3xl mx-auto">
         <%!-- Success Header --%>
         <div class="text-center mb-8">
@@ -263,7 +261,30 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutComplete do
           </.link>
         </div>
       </div>
-    </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    </.shop_layout>
+    """
+  end
+
+  # Layout wrapper - uses dashboard for authenticated, app_layout for guests
+  slot :inner_block, required: true
+
+  defp shop_layout(assigns) do
+    ~H"""
+    <%= if @authenticated do %>
+      <PhoenixKitWeb.Layouts.dashboard {assigns}>
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Layouts.dashboard>
+    <% else %>
+      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
+        flash={@flash}
+        phoenix_kit_current_scope={@phoenix_kit_current_scope}
+        current_path={@url_path}
+        current_locale={@current_locale}
+        page_title={@page_title}
+      >
+        {render_slot(@inner_block)}
+      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+    <% end %>
     """
   end
 
