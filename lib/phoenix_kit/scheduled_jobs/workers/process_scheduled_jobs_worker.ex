@@ -44,8 +44,6 @@ defmodule PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker do
 
   @impl Oban.Worker
   def perform(%Oban.Job{args: _args}) do
-    Logger.debug("ProcessScheduledJobsWorker: Starting scheduled jobs check...")
-
     pending_jobs = ScheduledJobs.get_pending_jobs()
     pending_count = length(pending_jobs)
 

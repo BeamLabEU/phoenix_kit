@@ -1,0 +1,103 @@
+## `msgid`s in this file come from POT (.pot) files.
+##
+## Do not add, change, or remove `msgid`s manually here as
+## they're tied to the ones in the corresponding POT file
+## (with the same domain).
+##
+## Use `mix gettext.extract --merge` or `mix gettext.merge`
+## to merge POT files into PO files.
+msgid ""
+msgstr ""
+"Language: et\n"
+
+## From Ecto.Changeset.cast/4
+msgid "can't be blank"
+msgstr "ei tohi olla tühi"
+
+## From Ecto.Changeset.unique_constraint/3
+msgid "has already been taken"
+msgstr "on juba võetud"
+
+## From Ecto.Changeset.put_change/3
+msgid "is invalid"
+msgstr "on kehtetu"
+
+## From Ecto.Changeset.validate_acceptance/3
+msgid "must be accepted"
+msgstr "peab olema aktsepteeritud"
+
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match confirmation"
+msgstr "ei ühti kinnitusega"
+
+## From Ecto.Changeset.validate_confirmation/3
+msgid "does not match"
+msgstr "ei ühti"
+
+## From Ecto.Changeset.validate_exclusion/3
+msgid "is reserved"
+msgstr "on reserveeritud"
+
+## From Ecto.Changeset.validate_format/3
+msgid "has invalid format"
+msgstr "on vale formaadiga"
+
+## From Ecto.Changeset.validate_inclusion/3
+msgid "is not included in the list"
+msgstr "ei ole nimekirjas"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :bytes]
+msgid "should be %{count} byte(s)"
+msgid_plural "should be %{count} byte(s)"
+msgstr[0] "peab olema %{count} bait"
+msgstr[1] "peab olema %{count} baiti"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :codepoints]
+msgid "should be %{count} codepoint(s)"
+msgid_plural "should be %{count} codepoint(s)"
+msgstr[0] "peab olema %{count} koodipunkt"
+msgstr[1] "peab olema %{count} koodipunkti"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [count: :graphemes]
+msgid "should be %{count} character(s)"
+msgid_plural "should be %{count} character(s)"
+msgstr[0] "peab olema %{count} tähemärk"
+msgstr[1] "peab olema %{count} tähemärki"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _, max: _]
+msgid "should be between %{min} and %{max} character(s)"
+msgid_plural "should be between %{min} and %{max} character(s)"
+msgstr[0] "peab olema %{min} kuni %{max} tähemärki"
+msgstr[1] "peab olema %{min} kuni %{max} tähemärki"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [min: _]
+msgid "should be at least %{min} character(s)"
+msgid_plural "should be at least %{min} character(s)"
+msgstr[0] "peab olema vähemalt %{min} tähemärk"
+msgstr[1] "peab olema vähemalt %{min} tähemärki"
+
+## From Ecto.Changeset.validate_length/3, when: opts = [max: _]
+msgid "should be at most %{max} character(s)"
+msgid_plural "should be at most %{max} character(s)"
+msgstr[0] "peab olema kuni %{max} tähemärk"
+msgstr[1] "peab olema kuni %{max} tähemärki"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be less than %{number}"
+msgstr "peab olema väiksem kui %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be greater than %{number}"
+msgstr "peab olema suurem kui %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be less than or equal to %{number}"
+msgstr "peab olema väiksem või võrdne %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be greater than or equal to %{number}"
+msgstr "peab olema suurem või võrdne %{number}"
+
+## From Ecto.Changeset.validate_number/3
+msgid "must be equal to %{number}"
+msgstr "peab olema võrdne %{number}"
