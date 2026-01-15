@@ -86,7 +86,9 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %Setting{}}
   """
   def enable_system do
-    Settings.update_boolean_setting_with_module("tickets_enabled", true, "tickets")
+    result = Settings.update_boolean_setting_with_module("tickets_enabled", true, "tickets")
+    refresh_dashboard_tabs()
+    result
   end
 
   @doc """
@@ -98,7 +100,16 @@ defmodule PhoenixKit.Modules.Tickets do
       {:ok, %Setting{}}
   """
   def disable_system do
-    Settings.update_boolean_setting_with_module("tickets_enabled", false, "tickets")
+    result = Settings.update_boolean_setting_with_module("tickets_enabled", false, "tickets")
+    refresh_dashboard_tabs()
+    result
+  end
+
+  defp refresh_dashboard_tabs do
+    if Code.ensure_loaded?(PhoenixKit.Dashboard.Registry) and
+         PhoenixKit.Dashboard.Registry.initialized?() do
+      PhoenixKit.Dashboard.Registry.load_defaults()
+    end
   end
 
   @doc """

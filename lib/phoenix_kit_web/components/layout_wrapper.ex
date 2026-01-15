@@ -539,6 +539,72 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                       <% end %>
                     <% end %>
 
+                    <%= if PhoenixKit.Modules.Shop.enabled?() do %>
+                      <%!-- Shop section with submenu --%>
+                      <.admin_nav_item
+                        href={Routes.locale_aware_path(assigns, "/admin/shop")}
+                        icon="shop"
+                        label={gettext("E-Commerce")}
+                        current_path={@current_path || ""}
+                        disable_active={true}
+                        submenu_open={
+                          submenu_open?(@current_path, [
+                            "/admin/shop",
+                            "/admin/shop/products",
+                            "/admin/shop/categories",
+                            "/admin/shop/shipping",
+                            "/admin/shop/carts",
+                            "/admin/shop/settings"
+                          ])
+                        }
+                      />
+
+                      <%= if submenu_open?(@current_path, ["/admin/shop", "/admin/shop/products", "/admin/shop/categories", "/admin/shop/shipping", "/admin/shop/carts", "/admin/shop/settings"]) do %>
+                        <div class="mt-1">
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop")}
+                            icon="hero-home"
+                            label={gettext("Dashboard")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                            exact_match_only={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/products")}
+                            icon="hero-cube"
+                            label={gettext("Products")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/categories")}
+                            icon="hero-folder"
+                            label={gettext("Categories")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/shipping")}
+                            icon="hero-truck"
+                            label={gettext("Shipping")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/carts")}
+                            icon="hero-shopping-cart"
+                            label={gettext("Carts")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        </div>
+                      <% end %>
+                    <% end %>
+
                     <%= if PhoenixKit.Modules.Entities.enabled?() do %>
                       <%!-- Entities section with direct link and conditional submenu --%>
                       <.admin_nav_item
@@ -771,12 +837,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           "/admin/settings/posts",
                           "/admin/settings/tickets",
                           "/admin/settings/billing",
-                          "/admin/settings/billing/providers"
+                          "/admin/settings/billing/providers",
+                          "/admin/shop/settings"
                         ])
                       }
                     />
 
-                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/publishing", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers"]) do %>
+                    <%= if submenu_open?(@current_path, ["/admin/settings", "/admin/settings/organization", "/admin/settings/users", "/admin/settings/referral-codes", "/admin/settings/emails", "/admin/settings/languages", "/admin/settings/entities", "/admin/settings/media", "/admin/settings/storage/dimensions", "/admin/settings/maintenance", "/admin/settings/publishing", "/admin/settings/blogging", "/admin/settings/seo", "/admin/settings/sitemap", "/admin/settings/posts", "/admin/settings/tickets", "/admin/settings/billing", "/admin/settings/billing/providers", "/admin/shop/settings"]) do %>
                       <%!-- Settings submenu items --%>
                       <div class="mt-1">
                         <.admin_nav_item
@@ -860,6 +927,16 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/settings/billing")}
                             icon="billing"
                             label="Billing"
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+                        <% end %>
+
+                        <%= if PhoenixKit.Modules.Shop.enabled?() do %>
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/settings")}
+                            icon="shop"
+                            label={gettext("E-Commerce")}
                             current_path={@current_path || ""}
                             nested={true}
                           />

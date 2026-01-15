@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
 
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.CountryData
+  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -75,6 +76,9 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
   def handle_event("toggle_billing", _params, socket) do
     new_enabled = !socket.assigns.billing_enabled
 
+    # If disabling Billing and Shop is enabled, disable Shop first
+    if not new_enabled and shop_enabled?(), do: Shop.disable_system()
+
     result =
       if new_enabled do
         Billing.enable_system()
@@ -83,13 +87,13 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
       end
 
     case result do
-      {:ok, _} ->
+      :ok ->
         {:noreply,
          socket
          |> assign(:billing_enabled, new_enabled)
          |> put_flash(:info, if(new_enabled, do: "Billing enabled", else: "Billing disabled"))}
 
-      {:error, _} ->
+      _ ->
         {:noreply, put_flash(socket, :error, "Failed to update billing status")}
     end
   end
@@ -179,4 +183,12 @@ defmodule PhoenixKit.Modules.Billing.Web.Settings do
 
   defp parse_tax_rate(rate) when is_number(rate), do: rate
   defp parse_tax_rate(_), do: 0
+
+  defp shop_enabled? do
+    Code.ensure_loaded?(Shop) and
+      function_exported?(Shop, :enabled?, 0) and
+      Shop.enabled?()
+  rescue
+    _ -> false
+  end
 end

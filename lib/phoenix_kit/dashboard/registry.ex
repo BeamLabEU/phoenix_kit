@@ -62,8 +62,10 @@ defmodule PhoenixKit.Dashboard.Registry do
 
   alias PhoenixKit.Dashboard.{Badge, Tab}
 
-  # Suppress warnings about optional Tickets module (loaded conditionally)
+  # Suppress warnings about optional modules (loaded conditionally)
   @compile {:no_warn_undefined, PhoenixKit.Modules.Tickets}
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Billing}
+  @compile {:no_warn_undefined, PhoenixKit.Modules.Shop}
 
   @ets_table :phoenix_kit_dashboard_tabs
   @pubsub_topic "phoenix_kit:dashboard:tabs"
@@ -178,9 +180,13 @@ defmodule PhoenixKit.Dashboard.Registry do
   """
   @spec get_tab(atom()) :: Tab.t() | nil
   def get_tab(tab_id) when is_atom(tab_id) do
-    case :ets.lookup(@ets_table, {:tab, tab_id}) do
-      [{_, tab}] -> tab
-      [] -> nil
+    if initialized?() do
+      case :ets.lookup(@ets_table, {:tab, tab_id}) do
+        [{_, tab}] -> tab
+        [] -> nil
+      end
+    else
+      nil
     end
   end
 
@@ -243,9 +249,13 @@ defmodule PhoenixKit.Dashboard.Registry do
   """
   @spec get_groups() :: [map()]
   def get_groups do
-    case :ets.lookup(@ets_table, :groups) do
-      [{:groups, groups}] -> Enum.sort_by(groups, & &1.priority)
-      [] -> []
+    if initialized?() do
+      case :ets.lookup(@ets_table, :groups) do
+        [{:groups, groups}] -> Enum.sort_by(groups, & &1.priority)
+        [] -> []
+      end
+    else
+      []
     end
   end
 
@@ -510,7 +520,23 @@ defmodule PhoenixKit.Dashboard.Registry do
     Enum.sort_by(tabs, & &1.priority)
   end
 
+  defp clear_namespace_tabs(namespace) do
+    # Find and remove all tabs for this namespace
+    pattern = {{:namespace, namespace, :_}, :_}
+
+    :ets.match_object(@ets_table, pattern)
+    |> Enum.each(fn {{:namespace, ^namespace, tab_id}, _} ->
+      :ets.delete(@ets_table, {:tab, tab_id})
+      :ets.delete(@ets_table, {:namespace, namespace, tab_id})
+    end)
+  rescue
+    _ -> :ok
+  end
+
   defp load_defaults_internal do
+    # Clear existing phoenix_kit namespace tabs first
+    clear_namespace_tabs(:phoenix_kit)
+
     # Default PhoenixKit tabs
     defaults = [
       Tab.new!(
@@ -552,9 +578,68 @@ defmodule PhoenixKit.Dashboard.Registry do
         defaults
       end
 
+    # Add billing tabs if module is enabled
+    defaults =
+      if billing_enabled?() do
+        billing_tabs = [
+          Tab.new!(
+            id: :dashboard_orders,
+            label: "My Orders",
+            icon: "hero-shopping-bag",
+            path: "/dashboard/orders",
+            priority: 200,
+            match: :prefix,
+            group: :main
+          ),
+          Tab.new!(
+            id: :dashboard_billing_profiles,
+            label: "Billing Profiles",
+            icon: "hero-identification",
+            path: "/dashboard/billing-profiles",
+            priority: 850,
+            match: :prefix,
+            group: :account
+          )
+        ]
+
+        defaults ++ billing_tabs
+      else
+        defaults
+      end
+
+    # Add shop tabs if module is enabled
+    defaults =
+      if shop_enabled?() do
+        shop_tabs = [
+          Tab.new!(
+            id: :dashboard_shop,
+            label: "Shop",
+            icon: "hero-building-storefront",
+            path: "/shop",
+            priority: 300,
+            match: :prefix,
+            group: :shop
+          ),
+          Tab.new!(
+            id: :dashboard_cart,
+            label: "My Cart",
+            icon: "hero-shopping-cart",
+            path: "/cart",
+            priority: 310,
+            match: :prefix,
+            group: :shop
+          )
+        ]
+
+        defaults ++ shop_tabs
+      else
+        defaults
+      end
+
     # Default groups
     groups = [
       %{id: :main, label: nil, priority: 100},
+      %{id: :shop, label: nil, priority: 200},
       %{id: :account, label: nil, priority: 900}
     ]
 
@@ -650,6 +735,28 @@ defmodule PhoenixKit.Dashboard.Registry do
     _ -> false
   end
 
+  defp billing_enabled? do
+    Code.ensure_loaded?(PhoenixKit.Modules.Billing) and
+      function_exported?(PhoenixKit.Modules.Billing, :enabled?, 0) and
+      call_billing_enabled()
+  rescue
+    _ -> false
+  end
+
+  defp shop_enabled? do
+    Code.ensure_loaded?(PhoenixKit.Modules.Shop) and
+      function_exported?(PhoenixKit.Modules.Shop, :enabled?, 0) and
+      call_shop_enabled()
+  rescue
+    _ -> false
+  end
+
   # credo:disable-for-next-line Credo.Check.Design.AliasUsage
   defp call_tickets_enabled, do: PhoenixKit.Modules.Tickets.enabled?()
+
+  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+  defp call_billing_enabled, do: PhoenixKit.Modules.Billing.enabled?()
+
+  # credo:disable-for-next-line Credo.Check.Design.AliasUsage
+  defp call_shop_enabled, do: PhoenixKit.Modules.Shop.enabled?()
 end

@@ -193,6 +193,11 @@ defmodule PhoenixKitWeb.Integration do
       pipeline :phoenix_kit_locale_validation do
         plug PhoenixKitWeb.Users.Auth, :phoenix_kit_validate_and_set_locale
       end
+
+      # Define shop session pipeline (ensures persistent cart session)
+      pipeline :phoenix_kit_shop_session do
+        plug PhoenixKit.Modules.Shop.Web.Plugs.ShopSession
+      end
     end
   end
 
@@ -510,6 +515,107 @@ defmodule PhoenixKitWeb.Integration do
                PhoenixKit.Modules.Entities.Web.EntitiesSettings,
                :index,
                as: :entities_settings
+        end
+      end
+
+      # Shop module routes - uses PhoenixKit.Modules.Shop namespace (no PhoenixKitWeb prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_admin_only]
+
+        live_session :phoenix_kit_shop,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_admin}] do
+          live "/admin/shop", PhoenixKit.Modules.Shop.Web.Dashboard, :index, as: :shop_dashboard
+
+          live "/admin/shop/products", PhoenixKit.Modules.Shop.Web.Products, :index,
+            as: :shop_products
+
+          live "/admin/shop/products/new", PhoenixKit.Modules.Shop.Web.ProductForm, :new,
+            as: :shop_product_new
+
+          live "/admin/shop/products/:id", PhoenixKit.Modules.Shop.Web.ProductDetail, :show,
+            as: :shop_product_detail
+
+          live "/admin/shop/products/:id/edit", PhoenixKit.Modules.Shop.Web.ProductForm, :edit,
+            as: :shop_product_edit
+
+          live "/admin/shop/categories", PhoenixKit.Modules.Shop.Web.Categories, :index,
+            as: :shop_categories
+
+          live "/admin/shop/categories/new", PhoenixKit.Modules.Shop.Web.CategoryForm, :new,
+            as: :shop_category_new
+
+          live "/admin/shop/categories/:id/edit", PhoenixKit.Modules.Shop.Web.CategoryForm, :edit,
+            as: :shop_category_edit
+
+          live "/admin/shop/shipping", PhoenixKit.Modules.Shop.Web.ShippingMethods, :index,
+            as: :shop_shipping_methods
+
+          live "/admin/shop/shipping/new", PhoenixKit.Modules.Shop.Web.ShippingMethodForm, :new,
+            as: :shop_shipping_new
+
+          live "/admin/shop/shipping/:id/edit",
+               PhoenixKit.Modules.Shop.Web.ShippingMethodForm,
+               :edit,
+               as: :shop_shipping_edit
+
+          live "/admin/shop/carts", PhoenixKit.Modules.Shop.Web.Carts, :index, as: :shop_carts
+
+          live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
+            as: :shop_settings
+        end
+      end
+
+      # Shop public routes (catalog, cart - no admin auth required)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
+
+        live_session :phoenix_kit_shop_public,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
+
+          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+            as: :shop_category
+
+          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+            as: :shop_product
+
+          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
+
+          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
+
+          live "/checkout/complete/:uuid",
+               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
+               :show,
+               as: :shop_checkout_complete
+        end
+      end
+
+      # Shop user dashboard routes (requires authentication)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_require_authenticated]
+
+        live_session :phoenix_kit_shop_user,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+          live "/dashboard/orders", PhoenixKit.Modules.Shop.Web.UserOrders, :index,
+            as: :shop_user_orders
+
+          live "/dashboard/orders/:uuid", PhoenixKit.Modules.Shop.Web.UserOrderDetails, :show,
+            as: :shop_user_order_details
+
+          live "/dashboard/billing-profiles",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfiles,
+               :index,
+               as: :user_billing_profiles
+
+          live "/dashboard/billing-profiles/new",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :new,
+               as: :user_billing_profile_new
+
+          live "/dashboard/billing-profiles/:id/edit",
+               PhoenixKit.Modules.Billing.Web.UserBillingProfileForm,
+               :edit,
+               as: :user_billing_profile_edit
         end
       end
 
@@ -1092,11 +1198,12 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
+        # Language must be 2-letter ISO code (excludes "assets", "sitemap", etc.)
         get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
 
         get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
       end
 
       # Non-localized blog routes (for when url_prefix is "/")

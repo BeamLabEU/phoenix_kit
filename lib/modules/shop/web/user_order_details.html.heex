@@ -1,0 +1,219 @@
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+  <div class="container mx-auto">
+    <%!-- Back Button --%>
+    <div class="mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/dashboard/orders")}
+        class="btn btn-ghost btn-sm gap-2"
+      >
+        <.icon name="hero-arrow-left" class="h-4 w-4" />
+        {gettext("Back to Orders")}
+      </.link>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <%!-- Main Content --%>
+      <div class="lg:col-span-2 space-y-6">
+        <%!-- Order Info Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <div class="flex items-start justify-between">
+              <div class="flex-1 min-w-0">
+                <h1 class="card-title text-2xl font-mono">{@order.order_number}</h1>
+                <div class="flex items-center gap-3 mt-2 text-sm text-base-content/70">
+                  <span>
+                    {gettext("Placed on %{date}", date: format_date(@order.inserted_at))}
+                  </span>
+                </div>
+              </div>
+              <div class="flex-shrink-0 ml-4">
+                <span class={"badge #{status_badge_class(@order.status)} badge-lg capitalize"}>
+                  {@order.status}
+                </span>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <%!-- Order Items --%>
+            <h2 class="font-semibold mb-4">{gettext("Order Items")}</h2>
+            <div class="space-y-4">
+              <%= for item <- @order.line_items || [] do %>
+                <div class="flex justify-between items-center py-2 border-b last:border-0 border-base-200">
+                  <div class="flex-1">
+                    <span class="font-medium">{item["name"]}</span>
+                    <%= if item["type"] != "shipping" do %>
+                      <span class="text-base-content/60 ml-2">x {item["quantity"]}</span>
+                    <% end %>
+                    <%= if item["description"] && item["description"] != "" do %>
+                      <div class="text-sm text-base-content/50">{item["description"]}</div>
+                    <% end %>
+                  </div>
+                  <div class="font-medium">
+                    {format_price_string(item["total"])}
+                  </div>
+                </div>
+              <% end %>
+            </div>
+
+            <div class="divider"></div>
+
+            <%!-- Totals --%>
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-base-content/70">{gettext("Subtotal")}</span>
+                <span>{format_price(@order.subtotal, @currency)}</span>
+              </div>
+
+              <%= if @order.tax_amount && Decimal.compare(@order.tax_amount, Decimal.new("0")) == :gt do %>
+                <div class="flex justify-between text-sm">
+                  <span class="text-base-content/70">{gettext("Tax")}</span>
+                  <span>{format_price(@order.tax_amount, @currency)}</span>
+                </div>
+              <% end %>
+
+              <%= if @order.discount_amount && Decimal.compare(@order.discount_amount, Decimal.new("0")) == :gt do %>
+                <div class="flex justify-between text-sm text-success">
+                  <span>{gettext("Discount")}</span>
+                  <span>-{format_price(@order.discount_amount, @currency)}</span>
+                </div>
+              <% end %>
+
+              <div class="flex justify-between text-lg font-bold pt-2 border-t border-base-200">
+                <span>{gettext("Total")}</span>
+                <span>{format_price(@order.total, @currency)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Billing Information Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h2 class="card-title">{gettext("Billing Information")}</h2>
+
+            <%= if @billing_profile do %>
+              <div class="text-sm mt-4">
+                <div class="font-medium">{profile_display_name(@billing_profile)}</div>
+                <div class="text-base-content/60 mt-1">{profile_address(@billing_profile)}</div>
+                <%= if @billing_profile.email do %>
+                  <div class="text-base-content/60 mt-1">{@billing_profile.email}</div>
+                <% end %>
+              </div>
+            <% else %>
+              <%= if @order.billing_snapshot && map_size(@order.billing_snapshot) > 0 do %>
+                <div class="text-sm mt-4">
+                  <div class="font-medium">
+                    {@order.billing_snapshot["first_name"]} {@order.billing_snapshot["last_name"]}
+                  </div>
+                  <div class="text-base-content/60 mt-1">
+                    {[
+                      @order.billing_snapshot["address_line1"],
+                      @order.billing_snapshot["city"],
+                      @order.billing_snapshot["postal_code"],
+                      @order.billing_snapshot["country"]
+                    ]
+                    |> Enum.filter(&(&1 && &1 != ""))
+                    |> Enum.join(", ")}
+                  </div>
+                  <%= if @order.billing_snapshot["email"] do %>
+                    <div class="text-base-content/60 mt-1">
+                      {@order.billing_snapshot["email"]}
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="text-sm text-base-content/60 mt-4">
+                  {gettext("No billing information available")}
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Sidebar --%>
+      <div class="space-y-6">
+        <%!-- Order Summary Card --%>
+        <div class="card bg-base-100 shadow">
+          <div class="card-body">
+            <h3 class="font-semibold mb-4">{gettext("Order Summary")}</h3>
+
+            <%!-- Status --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">{gettext("Status")}</span>
+              <div class="mt-1">
+                <span class={"badge #{status_badge_class(@order.status)} capitalize"}>
+                  {@order.status}
+                </span>
+              </div>
+            </div>
+
+            <%!-- Order Number --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">{gettext("Order Number")}</span>
+              <div class="mt-1 font-mono text-sm">{@order.order_number}</div>
+            </div>
+
+            <%!-- Order Date --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">{gettext("Order Date")}</span>
+              <div class="mt-1 text-sm">{format_date(@order.inserted_at)}</div>
+            </div>
+
+            <%!-- Items Count --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">{gettext("Items")}</span>
+              <div class="mt-1 font-medium">{items_count(@order.line_items)}</div>
+            </div>
+
+            <%!-- Total --%>
+            <div class="mb-4">
+              <span class="text-sm text-base-content/70">{gettext("Total")}</span>
+              <div class="mt-1 text-xl font-bold">{format_price(@order.total, @currency)}</div>
+            </div>
+
+            <%!-- Status Messages --%>
+            <%= if @order.status == "delivered" or @order.status == "completed" do %>
+              <div class="alert alert-success">
+                <.icon name="hero-check-circle" class="w-5 h-5" />
+                <span>{gettext("Your order has been delivered.")}</span>
+              </div>
+            <% end %>
+
+            <%= if @order.status == "shipped" do %>
+              <div class="alert alert-info">
+                <.icon name="hero-truck" class="w-5 h-5" />
+                <span>{gettext("Your order is on its way!")}</span>
+              </div>
+            <% end %>
+
+            <%= if @order.status == "cancelled" do %>
+              <div class="alert alert-error">
+                <.icon name="hero-x-circle" class="w-5 h-5" />
+                <span>{gettext("This order has been cancelled.")}</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Actions Card --%>
+        <div class="card bg-base-200">
+          <div class="card-body">
+            <h3 class="font-semibold mb-2">{gettext("Need help?")}</h3>
+            <p class="text-sm text-base-content/70 mb-4">
+              {gettext("If you have questions about your order, please contact our support team.")}
+            </p>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/shop")}
+              class="btn btn-primary btn-block"
+            >
+              <.icon name="hero-shopping-bag" class="w-5 h-5" />
+              {gettext("Continue Shopping")}
+            </.link>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Layouts.dashboard>

@@ -293,10 +293,6 @@
                 <.icon name="hero-code-bracket" class="w-4 h-4 mr-1" /> Preview Source
               </button>
 
-              <button class="btn btn-outline btn-sm btn-primary" phx-click="preview_html">
-                <.icon name="hero-eye" class="w-4 h-4 mr-1" /> Preview HTML
-              </button>
-
               <button class="btn btn-outline btn-sm btn-warning" phx-click="invalidate_cache">
                 <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Clear Sitemap
               </button>
@@ -343,38 +339,6 @@
         </div>
       </div>
       <div class="modal-backdrop" phx-click="close_preview"></div>
-    </div>
-
-    <%!-- HTML Preview Modal with iframe --%>
-    <div :if={@show_html_preview} class="modal modal-open">
-      <div class="modal-box max-w-5xl w-full h-[85vh] flex flex-col">
-        <div class="flex justify-between items-center mb-4 flex-shrink-0">
-          <h3 class="font-bold text-lg">Sitemap Preview</h3>
-          <button class="btn btn-ghost btn-sm btn-circle" phx-click="close_html_preview">
-            ✕
-          </button>
-        </div>
-
-        <div class="flex-1 min-h-0">
-          <iframe
-            src={Routes.path("/sitemap.xml", locale: :none) <> "?format=html&style=#{get_xsl_style(@config.html_style)}&v=#{@sitemap_version}"}
-            class="w-full h-full border border-base-300 rounded-lg bg-base-100"
-            title="Sitemap Preview"
-          />
-        </div>
-
-        <div class="modal-action flex-shrink-0">
-          <.link
-            href={Routes.path("/sitemap.xml", locale: :none)}
-            target="_blank"
-            class="btn btn-primary"
-          >
-            <.icon name="hero-arrow-top-right-on-square" class="w-4 h-4 mr-1" /> Open in Browser
-          </.link>
-          <button class="btn" phx-click="close_html_preview">Close</button>
-        </div>
-      </div>
-      <div class="modal-backdrop" phx-click="close_html_preview"></div>
     </div>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

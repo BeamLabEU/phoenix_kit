@@ -3,12 +3,13 @@ defmodule PhoenixKit.Modules.Billing.Events do
   PubSub events for PhoenixKit Billing system.
 
   Broadcasts billing-related events for real-time updates in LiveViews.
+  Uses `PhoenixKit.PubSub.Manager` for self-contained PubSub operations.
 
   ## Topics
 
-  - `billing:orders` - Order events (created, updated, confirmed, paid, cancelled)
-  - `billing:invoices` - Invoice events (created, sent, paid, voided)
-  - `billing:profiles` - Billing profile events (created, updated, deleted)
+  - `phoenix_kit:billing:orders` - Order events (created, updated, confirmed, paid, cancelled)
+  - `phoenix_kit:billing:invoices` - Invoice events (created, sent, paid, voided)
+  - `phoenix_kit:billing:profiles` - Billing profile events (created, updated, deleted)
 
   ## Usage Examples
 
@@ -25,9 +26,11 @@ defmodule PhoenixKit.Modules.Billing.Events do
       PhoenixKit.Modules.Billing.Events.broadcast_order_created(order)
   """
 
-  @orders_topic "billing:orders"
-  @invoices_topic "billing:invoices"
-  @profiles_topic "billing:profiles"
+  alias PhoenixKit.PubSub.Manager
+
+  @orders_topic "phoenix_kit:billing:orders"
+  @invoices_topic "phoenix_kit:billing:invoices"
+  @profiles_topic "phoenix_kit:billing:profiles"
 
   # ============================================
   # SUBSCRIPTIONS
@@ -37,35 +40,35 @@ defmodule PhoenixKit.Modules.Billing.Events do
   Subscribes to order events.
   """
   def subscribe_orders do
-    Phoenix.PubSub.subscribe(pubsub(), @orders_topic)
+    Manager.subscribe(@orders_topic)
   end
 
   @doc """
   Subscribes to invoice events.
   """
   def subscribe_invoices do
-    Phoenix.PubSub.subscribe(pubsub(), @invoices_topic)
+    Manager.subscribe(@invoices_topic)
   end
 
   @doc """
   Subscribes to billing profile events.
   """
   def subscribe_profiles do
-    Phoenix.PubSub.subscribe(pubsub(), @profiles_topic)
+    Manager.subscribe(@profiles_topic)
   end
 
   @doc """
   Subscribes to order events for a specific user.
   """
   def subscribe_user_orders(user_id) do
-    Phoenix.PubSub.subscribe(pubsub(), "#{@orders_topic}:user:#{user_id}")
+    Manager.subscribe("#{@orders_topic}:user:#{user_id}")
   end
 
   @doc """
   Subscribes to invoice events for a specific user.
   """
   def subscribe_user_invoices(user_id) do
-    Phoenix.PubSub.subscribe(pubsub(), "#{@invoices_topic}:user:#{user_id}")
+    Manager.subscribe("#{@invoices_topic}:user:#{user_id}")
   end
 
   # ============================================
@@ -178,29 +181,6 @@ defmodule PhoenixKit.Modules.Billing.Events do
   # ============================================
 
   defp broadcast(topic, message) do
-    Phoenix.PubSub.broadcast(pubsub(), topic, message)
-  end
-
-  defp pubsub do
-    # Get PubSub from application config, fall back to common patterns
-    Application.get_env(:phoenix_kit, :pubsub) ||
-      Application.get_env(:phoenix_kit, :pubsub_server) ||
-      detect_pubsub()
-  end
-
-  defp detect_pubsub do
-    # Try to find PubSub from parent application
-    case Application.get_env(:phoenix_kit, :endpoint) do
-      nil ->
-        # Default fallback
-        :phoenix_kit_pubsub
-
-      endpoint when is_atom(endpoint) ->
-        # Extract app name from endpoint module
-        endpoint
-        |> Module.split()
-        |> List.first()
-        |> then(&Module.concat(&1, "PubSub"))
-    end
+    Manager.broadcast(topic, message)
   end
 end

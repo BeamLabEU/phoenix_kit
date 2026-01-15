@@ -155,7 +155,8 @@ defmodule PhoenixKit.Modules.Billing.Order do
       :paid_at,
       :cancelled_at
     ])
-    |> validate_required([:user_id, :billing_profile_id, :total, :currency])
+    |> validate_required([:total, :currency])
+    |> validate_guest_order_billing()
     |> validate_inclusion(:status, @valid_statuses)
     |> validate_payment_method()
     |> validate_length(:currency, is: 3)
@@ -175,6 +176,27 @@ defmodule PhoenixKit.Modules.Billing.Order do
     case get_field(changeset, :uuid) do
       nil -> put_change(changeset, :uuid, UUIDv7.generate())
       _ -> changeset
+    end
+  end
+
+  # Guest orders must have billing_snapshot with email when no billing_profile_id
+  defp validate_guest_order_billing(changeset) do
+    billing_profile_id = get_field(changeset, :billing_profile_id)
+    billing_snapshot = get_field(changeset, :billing_snapshot)
+
+    cond do
+      # Has billing profile - OK
+      not is_nil(billing_profile_id) ->
+        changeset
+
+      # No billing profile but has billing snapshot with email - OK (guest order)
+      is_map(billing_snapshot) and is_binary(billing_snapshot["email"]) and
+          billing_snapshot["email"] != "" ->
+        changeset
+
+      # No billing profile and no valid billing snapshot - error
+      true ->
+        add_error(changeset, :billing_snapshot, "must have email for guest orders")
     end
   end
 

@@ -689,12 +689,20 @@
         <:action_buttons>
           <div class="flex flex-col gap-2 w-full">
             <%= if @billing_enabled do %>
-              <.link
-                navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
-                class="btn btn-primary btn-sm"
-              >
-                <.icon name="hero-banknotes" class="w-4 h-4 mr-1" /> Dashboard
-              </.link>
+              <div class="flex gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+                  class="btn btn-primary btn-sm flex-1"
+                >
+                  <.icon name="hero-banknotes" class="w-4 h-4 mr-1" /> Dashboard
+                </.link>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Settings
+                </.link>
+              </div>
               <div class="flex gap-2">
                 <.link
                   navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
@@ -1065,6 +1073,76 @@
           <div class="text-xs text-base-content/70">
             <p>Privacy Policy • Terms of Service • Cookie Policy</p>
             <p class="mt-1">CCPA Notice • Data Retention • Acceptable Use</p>
+          </div>
+        </:stats>
+      </PhoenixKitWeb.Components.Core.ModuleCard.module_card>
+
+      <%!-- E-Commerce Module --%>
+      <PhoenixKitWeb.Components.Core.ModuleCard.module_card
+        title="E-Commerce"
+        description="Physical and digital products with cart and checkout"
+        icon="🛒"
+        enabled={@shop_enabled}
+        toggle_event="toggle_shop"
+        toggle_disabled={not @billing_enabled}
+        toggle_hint={if not @billing_enabled, do: "Billing Required"}
+      >
+        <:status_badges>
+          <span class={[
+            "badge",
+            if(@shop_enabled, do: "badge-success", else: "badge-neutral")
+          ]}>
+            {if @shop_enabled, do: "Enabled", else: "Disabled"}
+          </span>
+          <%= if not @shop_enabled and @billing_enabled do %>
+            <span class="badge badge-info ml-2">Billing Ready</span>
+          <% end %>
+        </:status_badges>
+
+        <:action_buttons>
+          <div class="flex flex-col gap-2 w-full">
+            <%= if @shop_enabled do %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/shop")}
+                class="btn btn-primary btn-sm"
+              >
+                <.icon name="hero-shopping-bag" class="w-4 h-4 mr-1" /> Dashboard
+              </.link>
+              <div class="flex gap-2">
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/shop/products")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-cube" class="w-4 h-4 mr-1" /> Products
+                </.link>
+                <.link
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/shop/settings")}
+                  class="btn btn-outline btn-sm flex-1"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Settings
+                </.link>
+              </div>
+            <% else %>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/shop/settings")}
+                class="btn btn-outline btn-sm"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+            <% end %>
+          </div>
+        </:action_buttons>
+
+        <:stats>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div>
+              <span class="text-base-content/70">Products:</span>
+              <span class="font-medium">{@shop_products_count}</span>
+            </div>
+            <div>
+              <span class="text-base-content/70">Categories:</span>
+              <span class="font-medium">{@shop_categories_count}</span>
+            </div>
           </div>
         </:stats>
       </PhoenixKitWeb.Components.Core.ModuleCard.module_card>

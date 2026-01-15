@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Invoices do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.Events
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
@@ -16,6 +17,9 @@ defmodule PhoenixKit.Modules.Billing.Web.Invoices do
   @impl true
   def mount(_params, _session, socket) do
     if Billing.enabled?() do
+      # Subscribe to invoice events for real-time updates
+      if connected?(socket), do: Events.subscribe_invoices()
+
       project_title = Settings.get_setting("project_title", "PhoenixKit")
 
       socket =
@@ -136,6 +140,19 @@ defmodule PhoenixKit.Modules.Billing.Web.Invoices do
   @impl true
   def handle_event("refresh", _params, socket) do
     {:noreply, socket |> assign(:loading, true) |> load_invoices()}
+  end
+
+  # PubSub event handlers for real-time updates
+  @impl true
+  def handle_info({event, _invoice}, socket)
+      when event in [:invoice_created, :invoice_sent, :invoice_paid, :invoice_voided] do
+    {:noreply, load_invoices(socket)}
+  end
+
+  # Catch-all for any other messages (ignore them)
+  @impl true
+  def handle_info(_msg, socket) do
+    {:noreply, socket}
   end
 
   defp build_url_params(assigns, new_params) do
