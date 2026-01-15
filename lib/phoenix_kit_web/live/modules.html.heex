@@ -1084,6 +1084,8 @@
         icon="🛒"
         enabled={@shop_enabled}
         toggle_event="toggle_shop"
+        toggle_disabled={not @billing_enabled}
+        toggle_hint={if not @billing_enabled, do: "Billing Required"}
       >
         <:status_badges>
           <span class={[
@@ -1094,9 +1096,6 @@
           </span>
           <%= if not @shop_enabled and @billing_enabled do %>
             <span class="badge badge-info ml-2">Billing Ready</span>
-          <% end %>
-          <%= if not @billing_enabled do %>
-            <span class="badge badge-warning ml-2">Billing Required</span>
           <% end %>
         </:status_badges>
 

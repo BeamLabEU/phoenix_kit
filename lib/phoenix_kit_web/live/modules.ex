@@ -441,6 +441,15 @@ defmodule PhoenixKitWeb.Live.Modules do
   def handle_event("toggle_billing", _params, socket) do
     new_enabled = !socket.assigns.billing_enabled
 
+    # If disabling Billing and Shop is enabled, disable Shop first
+    shop_was_disabled =
+      if not new_enabled and socket.assigns[:shop_enabled] do
+        Shop.disable_system()
+        true
+      else
+        false
+      end
+
     result =
       if new_enabled do
         Billing.enable_system()
@@ -449,7 +458,7 @@ defmodule PhoenixKitWeb.Live.Modules do
       end
 
     case result do
-      {:ok, _} ->
+      :ok ->
         billing_config = Billing.get_config()
 
         socket =
@@ -458,17 +467,15 @@ defmodule PhoenixKitWeb.Live.Modules do
           |> assign(:billing_orders_count, billing_config.orders_count)
           |> assign(:billing_invoices_count, billing_config.invoices_count)
           |> assign(:billing_currencies_count, billing_config.currencies_count)
+          |> then(fn s -> if shop_was_disabled, do: assign(s, :shop_enabled, false), else: s end)
           |> put_flash(
             :info,
-            if(new_enabled,
-              do: "Billing module enabled",
-              else: "Billing module disabled"
-            )
+            if(new_enabled, do: "Billing module enabled", else: "Billing module disabled")
           )
 
         {:noreply, socket}
 
-      {:error, _changeset} ->
+      _ ->
         socket = put_flash(socket, :error, "Failed to update billing module")
         {:noreply, socket}
     end
@@ -754,20 +761,20 @@ defmodule PhoenixKitWeb.Live.Modules do
     if socket.assigns.shop_enabled do
       # Disabling
       case Shop.disable_system() do
-        {:ok, _} ->
+        :ok ->
           {:noreply,
            socket
            |> assign(:shop_enabled, false)
            |> put_flash(:info, gettext("E-Commerce module disabled"))}
 
-        {:error, _} ->
+        _ ->
           {:noreply, put_flash(socket, :error, gettext("Failed to disable E-Commerce module"))}
       end
     else
       # Enabling - check if Billing is enabled first
       if socket.assigns.billing_enabled do
         case Shop.enable_system() do
-          {:ok, _} ->
+          :ok ->
             shop_config = Shop.get_config()
 
             {:noreply,
@@ -777,11 +784,17 @@ defmodule PhoenixKitWeb.Live.Modules do
              |> assign(:shop_categories_count, shop_config.categories_count)
              |> put_flash(:info, gettext("E-Commerce module enabled"))}
 
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, gettext("Failed to enable E-Commerce module"))}
+          _ ->
+            {:noreply,
+             socket
+             |> assign(:shop_enabled, false)
+             |> put_flash(:error, gettext("Failed to enable E-Commerce module"))}
         end
       else
-        {:noreply, put_flash(socket, :error, gettext("Please enable Billing module first"))}
+        {:noreply,
+         socket
+         |> assign(:shop_enabled, false)
+         |> put_flash(:error, gettext("Please enable Billing module first"))}
       end
     end
   end

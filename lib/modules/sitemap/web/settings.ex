@@ -49,7 +49,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
       |> assign(:preview_mode, nil)
       |> assign(:preview_content, nil)
       |> assign(:show_preview, false)
-      |> assign(:show_html_preview, false)
       |> assign(:sitemap_version, sitemap_version)
 
     {:ok, socket}
@@ -289,16 +288,6 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
      |> assign(:show_preview, false)
      |> assign(:preview_mode, nil)
      |> assign(:preview_content, nil)}
-  end
-
-  @impl true
-  def handle_event("preview_html", _params, socket) do
-    {:noreply, assign(socket, :show_html_preview, true)}
-  end
-
-  @impl true
-  def handle_event("close_html_preview", _params, socket) do
-    {:noreply, assign(socket, :show_html_preview, false)}
   end
 
   @impl true

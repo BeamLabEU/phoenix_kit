@@ -1,3 +1,15 @@
+## 1.7.24 - 2026-01-15
+- Add Shop module with products, categories, cart, and checkout flow
+- Add user billing profiles for reusable billing information
+- Add payment options selection in checkout (bank transfer, card payment)
+- Add user order pages with UUID-based URLs
+- Add PubSub broadcasts to Billing module for real-time updates
+- Add automatic default currency for orders
+- Add Billing and Shop tabs to user dashboard tab system
+- Add automatic dashboard tabs refresh when modules are enabled/disabled
+- Fix user dashboard layout sidebar height calculation
+- Fix OAuth avatar display in admin navigation
+
 ## 1.7.23 - 2026-01-14
 - Added user functions, language switcher on login page (also support for Estonian and Russian on login)
 - Removed logs spamming about oban jobs

@@ -70,6 +70,7 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def enable_system do
     Settings.update_setting("billing_enabled", "true")
+    refresh_dashboard_tabs()
   end
 
   @doc """
@@ -77,6 +78,14 @@ defmodule PhoenixKit.Modules.Billing do
   """
   def disable_system do
     Settings.update_setting("billing_enabled", "false")
+    refresh_dashboard_tabs()
+  end
+
+  defp refresh_dashboard_tabs do
+    if Code.ensure_loaded?(PhoenixKit.Dashboard.Registry) and
+         PhoenixKit.Dashboard.Registry.initialized?() do
+      PhoenixKit.Dashboard.Registry.load_defaults()
+    end
   end
 
   @doc """

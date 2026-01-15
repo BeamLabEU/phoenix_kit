@@ -213,10 +213,12 @@ defmodule PhoenixKit.Modules.Sitemap.Generator do
   # Build XSL stylesheet reference line with cache-busting version
   defp build_xsl_line(xsl_style, true) when xsl_style in @valid_xsl_styles do
     prefix = PhoenixKit.Config.get_url_prefix()
+    # Normalize prefix: "/" becomes "" to avoid "//assets/..." (protocol-relative URL)
+    normalized_prefix = if prefix == "/", do: "", else: prefix
     # Add timestamp for cache-busting when style changes
     version = DateTime.utc_now() |> DateTime.to_unix()
 
-    ~s(<?xml-stylesheet type="text/xsl" href="#{prefix}/assets/sitemap/#{xsl_style}?v=#{version}"?>)
+    ~s(<?xml-stylesheet type="text/xsl" href="#{normalized_prefix}/assets/sitemap/#{xsl_style}?v=#{version}"?>)
   end
 
   defp build_xsl_line(_, _), do: ""

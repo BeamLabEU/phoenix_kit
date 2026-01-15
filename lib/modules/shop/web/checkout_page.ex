@@ -48,6 +48,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
     # Load and auto-select payment option
     payment_options = Billing.list_active_payment_options()
+
     {cart, selected_payment_option, needs_payment_selection} =
       prepare_payment_options(cart, payment_options)
 
@@ -60,7 +61,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       payment_option_needs_billing?(selected_payment_option, is_guest, billing_profiles)
 
     initial_step =
-      determine_initial_step(needs_payment_selection, needs_billing, is_guest, billing_profiles, needs_profile_selection)
+      determine_initial_step(
+        needs_payment_selection,
+        needs_billing,
+        is_guest,
+        billing_profiles,
+        needs_profile_selection
+      )
 
     build_checkout_socket(socket, %{
       cart: cart,

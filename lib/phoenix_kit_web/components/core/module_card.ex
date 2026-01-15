@@ -52,6 +52,8 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
   attr(:enabled, :boolean, required: true, doc: "Whether the module is enabled")
   attr(:toggle_event, :string, required: true, doc: "Phoenix event name for the toggle switch")
   attr :show_toggle, :boolean, default: true, doc: "Whether to show the toggle switch"
+  attr :toggle_disabled, :boolean, default: false, doc: "Whether the toggle is disabled"
+  attr :toggle_hint, :string, default: nil, doc: "Hint text shown under the toggle when disabled"
   attr :stats_title, :string, default: "Current Configuration", doc: "Title for the stats section"
 
   slot(:status_badges, required: true, doc: "Status badges to display (left side of actions row)")
@@ -78,15 +80,17 @@ defmodule PhoenixKitWeb.Components.Core.ModuleCard do
             </p>
           </div>
           <%= if @show_toggle do %>
-            <div class="form-control">
-              <label class="label cursor-pointer">
-                <input
-                  type="checkbox"
-                  class="toggle toggle-primary"
-                  checked={@enabled}
-                  phx-click={@toggle_event}
-                />
-              </label>
+            <div class="flex flex-col items-end gap-1">
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@enabled}
+                disabled={@toggle_disabled}
+                phx-click={@toggle_event}
+              />
+              <%= if @toggle_hint do %>
+                <span class="badge badge-warning badge-xs">{@toggle_hint}</span>
+              <% end %>
             </div>
           <% end %>
         </div>

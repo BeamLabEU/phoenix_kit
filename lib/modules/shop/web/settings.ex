@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
@@ -20,6 +21,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       |> assign(:page_title, "E-Commerce Settings")
       |> assign(:enabled, config.enabled)
       |> assign(:inventory_tracking, config.inventory_tracking)
+      |> assign(:billing_enabled, billing_enabled?())
 
     {:ok, socket}
   end
@@ -28,27 +30,38 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   def handle_event("toggle_enabled", _params, socket) do
     new_enabled = !socket.assigns.enabled
 
-    result =
-      if new_enabled do
-        Shop.enable_system()
-      else
-        Shop.disable_system()
+    if new_enabled and not billing_enabled?() do
+      # Cannot enable Shop without Billing
+      {:noreply,
+       socket
+       |> assign(:enabled, false)
+       |> put_flash(:error, "Please enable Billing module first")}
+    else
+      result =
+        if new_enabled do
+          Shop.enable_system()
+        else
+          Shop.disable_system()
+        end
+
+      case result do
+        :ok ->
+          socket =
+            socket
+            |> assign(:enabled, new_enabled)
+            |> put_flash(
+              :info,
+              if(new_enabled, do: "E-Commerce module enabled", else: "E-Commerce module disabled")
+            )
+
+          {:noreply, socket}
+
+        _ ->
+          {:noreply,
+           socket
+           |> assign(:enabled, false)
+           |> put_flash(:error, "Failed to update E-Commerce status")}
       end
-
-    case result do
-      {:ok, _} ->
-        socket =
-          socket
-          |> assign(:enabled, new_enabled)
-          |> put_flash(
-            :info,
-            if(new_enabled, do: "E-Commerce module enabled", else: "E-Commerce module disabled")
-          )
-
-        {:noreply, socket}
-
-      {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Failed to update E-Commerce status")}
     end
   end
 
@@ -110,12 +123,23 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
                 ]}>
                   {if @enabled, do: "Enabled", else: "Disabled"}
                 </span>
-                <input
-                  type="checkbox"
-                  class="toggle toggle-primary toggle-lg"
-                  checked={@enabled}
-                  phx-click="toggle_enabled"
-                />
+                <div class="flex flex-col items-end gap-1">
+                  <input
+                    type="checkbox"
+                    class="toggle toggle-primary toggle-lg"
+                    checked={@enabled}
+                    disabled={not @billing_enabled}
+                    phx-click="toggle_enabled"
+                  />
+                  <%= if not @billing_enabled do %>
+                    <.link
+                      navigate={Routes.path("/admin/modules")}
+                      class="badge badge-warning badge-sm hover:badge-error"
+                    >
+                      Billing Required
+                    </.link>
+                  <% end %>
+                </div>
               </div>
             </div>
           </div>
@@ -172,5 +196,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       </div>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
+  end
+
+  defp billing_enabled? do
+    Code.ensure_loaded?(Billing) and
+      function_exported?(Billing, :enabled?, 0) and
+      Billing.enabled?()
+  rescue
+    _ -> false
   end
 end

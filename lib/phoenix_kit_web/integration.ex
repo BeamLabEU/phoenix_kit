@@ -1198,11 +1198,12 @@ defmodule PhoenixKitWeb.Integration do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
+        # Language must be 2-letter ISO code (excludes "assets", "sitemap", etc.)
         get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
 
         get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
       end
 
       # Non-localized blog routes (for when url_prefix is "/")
