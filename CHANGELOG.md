@@ -1,3 +1,6 @@
+## 1.7.25 - 2026-01-16
+- Bug fix - Added check for nil on language_swithcer on log-in page
+
 ## 1.7.24 - 2026-01-15
 - Add Shop module with products, categories, cart, and checkout flow
 - Add user billing profiles for reusable billing information
