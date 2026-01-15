@@ -44,10 +44,22 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp setup_checkout_assigns(socket, cart, user) do
     is_guest = is_nil(user)
     billing_profiles = load_billing_profiles(user)
-    {selected_profile, show_profile_prompt} = select_billing_profile(billing_profiles)
+    {selected_profile, needs_selection} = select_billing_profile(billing_profiles)
 
     # Check if user is authenticated
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
+    # Determine initial step:
+    # - Guest or no profiles → billing step (need to enter data)
+    # - Multiple profiles without default → billing step (need to choose)
+    # - Default or single profile → skip to review
+    initial_step =
+      cond do
+        is_guest -> :billing
+        billing_profiles == [] -> :billing
+        needs_selection -> :billing
+        true -> :review
+      end
 
     socket
     |> assign(:page_title, "Checkout")
@@ -57,10 +69,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     |> assign(:billing_profiles, billing_profiles)
     |> assign(:selected_profile_id, if(selected_profile, do: selected_profile.id))
     |> assign(:use_new_profile, is_guest or billing_profiles == [])
-    |> assign(:show_profile_prompt, show_profile_prompt)
+    |> assign(:needs_profile_selection, needs_selection)
     |> assign(:billing_data, initial_billing_data(user, cart))
     |> assign(:countries, CountryData.list_countries())
-    |> assign(:step, :billing)
+    |> assign(:step, initial_step)
     |> assign(:processing, false)
     |> assign(:error_message, nil)
     |> assign(:form_errors, %{})
@@ -344,7 +356,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                 billing_profiles={@billing_profiles}
                 selected_profile_id={@selected_profile_id}
                 use_new_profile={@use_new_profile}
-                show_profile_prompt={@show_profile_prompt}
+                needs_profile_selection={@needs_profile_selection}
                 billing_data={@billing_data}
                 form_errors={@form_errors}
                 countries={@countries}
@@ -403,34 +415,27 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     ~H"""
     <div class="card bg-base-100 shadow-lg">
       <div class="card-body">
-        <h2 class="card-title mb-4">Billing Information</h2>
-
-        <%!-- Toggle between existing profiles and new form (for logged-in users with profiles) --%>
-        <%= if not @is_guest and @billing_profiles != [] do %>
-          <div class="tabs tabs-boxed mb-6">
-            <button
-              phx-click="use_existing_profile"
-              class={["tab", not @use_new_profile && "tab-active"]}
-            >
-              Use Existing Profile
-            </button>
-            <button phx-click="use_new_profile" class={["tab", @use_new_profile && "tab-active"]}>
-              Enter New Details
-            </button>
-          </div>
-        <% end %>
+        <h2 class="card-title mb-4">
+          <%= if @is_guest or @billing_profiles == [] do %>
+            Billing Information
+          <% else %>
+            Select Billing Profile
+          <% end %>
+        </h2>
 
         <%= if @use_new_profile do %>
+          <%!-- Guest checkout or no profiles - show billing form --%>
           <.billing_form
             billing_data={@billing_data}
             form_errors={@form_errors}
             countries={@countries}
           />
         <% else %>
+          <%!-- Authenticated user with multiple profiles - show selector --%>
           <.profile_selector
             billing_profiles={@billing_profiles}
             selected_profile_id={@selected_profile_id}
-            show_profile_prompt={@show_profile_prompt}
+            needs_profile_selection={@needs_profile_selection}
           />
         <% end %>
 
@@ -448,7 +453,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     ~H"""
     <div class="space-y-3">
       <%!-- Show info alert when multiple profiles exist without a default --%>
-      <%= if @show_profile_prompt do %>
+      <%= if @needs_profile_selection do %>
         <div class="alert alert-info mb-4">
           <.icon name="hero-information-circle" class="w-5 h-5" />
           <span>
@@ -500,7 +505,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           <%!-- Edit button for selected profile --%>
           <%= if @selected_profile_id == profile.id do %>
             <.link
-              navigate={Routes.path("/dashboard/billing-profiles/#{profile.id}/edit")}
+              navigate={
+                Routes.path("/dashboard/billing-profiles/#{profile.id}/edit?return_to=/checkout")
+              }
               class="btn btn-ghost btn-sm"
             >
               <.icon name="hero-pencil" class="w-4 h-4" />

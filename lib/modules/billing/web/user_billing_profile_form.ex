@@ -29,6 +29,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
 
       true ->
         countries = CountryData.countries_for_select()
+        return_to = params["return_to"]
 
         socket =
           socket
@@ -36,6 +37,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
           |> assign(:countries, countries)
           |> assign(:profile_type, "individual")
           |> assign(:subdivision_label, "Region")
+          |> assign(:return_to, return_to)
           |> load_profile(params["id"])
 
         {:ok, socket}
@@ -120,11 +122,12 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
     case result do
       {:ok, _profile} ->
         action = if socket.assigns.profile, do: "updated", else: "created"
+        redirect_path = socket.assigns.return_to || Routes.path("/dashboard/billing-profiles")
 
         {:noreply,
          socket
          |> put_flash(:info, "Billing profile #{action} successfully")
-         |> push_navigate(to: Routes.path("/dashboard/billing-profiles"))}
+         |> push_navigate(to: redirect_path)}
 
       {:error, changeset} ->
         {:noreply, assign(socket, :form, to_form(changeset))}
@@ -139,7 +142,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
         <%!-- Header --%>
         <div class="flex items-center gap-4 mb-8">
           <.link
-            navigate={Routes.path("/dashboard/billing-profiles")}
+            navigate={@return_to || Routes.path("/dashboard/billing-profiles")}
             class="btn btn-ghost btn-sm"
           >
             <.icon name="hero-arrow-left" class="w-5 h-5" />
@@ -503,7 +506,7 @@ defmodule PhoenixKit.Modules.Billing.Web.UserBillingProfileForm do
           <%!-- Actions --%>
           <div class="flex justify-end gap-4">
             <.link
-              navigate={Routes.path("/dashboard/billing-profiles")}
+              navigate={@return_to || Routes.path("/dashboard/billing-profiles")}
               class="btn btn-ghost"
             >
               Cancel
