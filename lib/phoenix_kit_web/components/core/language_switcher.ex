@@ -89,11 +89,15 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         @default_locale
 
     # Get enabled languages - these are full dialect codes with names
-    languages_config = assigns.languages || Languages.get_display_languages()
+    # Ensure we always have a list, even if nil is returned
+    languages_config = assigns.languages || Languages.get_display_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
+    # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
     all_dialects =
       languages_config
+      |> Enum.reject(&is_nil/1)
+      |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
         dialect = lang["code"]
         base = DialectMapper.extract_base(dialect)
@@ -102,10 +106,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"],
+          "name" => lang["name"] || dialect || "Unknown",
           "native" => get_native_name(dialect),
           "flag" => flag
         }
+      end)
+      |> Enum.filter(fn lang ->
+        base_code = lang["base_code"]
+        is_binary(base_code) and base_code != ""
       end)
       |> Enum.sort_by(& &1["name"])
 
@@ -231,11 +239,15 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         @default_locale
 
     # Get enabled languages - these are full dialect codes with names
-    languages_config = assigns.languages || Languages.get_display_languages()
+    # Ensure we always have a list, even if nil is returned
+    languages_config = assigns.languages || Languages.get_display_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
+    # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
     all_dialects =
       languages_config
+      |> Enum.reject(&is_nil/1)
+      |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
         dialect = lang["code"]
         base = DialectMapper.extract_base(dialect)
@@ -244,9 +256,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"],
+          "name" => lang["name"] || dialect || "Unknown",
           "flag" => flag
         }
+      end)
+      |> Enum.filter(fn lang ->
+        base_code = lang["base_code"]
+        is_binary(base_code) and base_code != ""
       end)
       |> Enum.sort_by(& &1["name"])
 
@@ -337,11 +353,15 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         @default_locale
 
     # Get enabled languages - these are full dialect codes with names
-    languages_config = assigns.languages || Languages.get_display_languages()
+    # Ensure we always have a list, even if nil is returned
+    languages_config = assigns.languages || Languages.get_display_languages() || []
 
     # Transform to include both base code (for URLs) and dialect (for preference)
+    # Filter out any nil entries or entries with nil/empty base_code to prevent routing errors
     all_dialects =
       languages_config
+      |> Enum.reject(&is_nil/1)
+      |> Enum.filter(&is_map/1)
       |> Enum.map(fn lang ->
         dialect = lang["code"]
         base = DialectMapper.extract_base(dialect)
@@ -350,9 +370,13 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
         %{
           "base_code" => base,
           "dialect" => dialect,
-          "name" => lang["name"],
+          "name" => lang["name"] || dialect || "Unknown",
           "flag" => flag
         }
+      end)
+      |> Enum.filter(fn lang ->
+        base_code = lang["base_code"]
+        is_binary(base_code) and base_code != ""
       end)
       |> Enum.sort_by(& &1["name"])
 
@@ -427,6 +451,10 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
   # Default language gets clean URLs (no prefix), other languages get locale prefix
   # Example: generate_base_code_url("en", "/ru/admin") => "/admin" (if en is default)
   # Example: generate_base_code_url("es", "/admin") => "/es/admin"
+  # Guard clauses for nil/empty base_code to prevent Phoenix.Param errors
+  defp generate_base_code_url(nil, current_path), do: current_path || "/"
+  defp generate_base_code_url("", current_path), do: current_path || "/"
+
   defp generate_base_code_url(base_code, current_path) do
     # Extract base code from current path for proper path processing
     current_base = extract_locale_from_path(current_path)
