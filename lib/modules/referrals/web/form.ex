@@ -35,8 +35,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   end
 
   def handle_event("validate_code", params, socket) do
-    # Extract referral_codes params (note: plural form), ignoring search params
-    code_params = Map.get(params, "referral_codes", %{})
+    # Extract referrals params (matches form name from changeset)
+    code_params = Map.get(params, "referrals", %{})
 
     # Add beneficiary if selected
     updated_params =
@@ -61,8 +61,8 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
   end
 
   def handle_event("save_code", params, socket) do
-    # Extract referral_codes params (note: plural form) and add selected beneficiary
-    code_params = Map.get(params, "referral_codes", %{})
+    # Extract referrals params (matches form name from changeset)
+    code_params = Map.get(params, "referrals", %{})
 
     # Ensure beneficiary is included if selected
     updated_code_params =
