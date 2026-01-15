@@ -10,6 +10,7 @@ defmodule PhoenixKit.Migrations.Postgres.V45 do
   - `phoenix_kit_shop_shipping_methods` - Shipping options with constraints
   - `phoenix_kit_shop_carts` - Shopping carts for users and guests
   - `phoenix_kit_shop_cart_items` - Cart contents with price snapshots
+  - `phoenix_kit_payment_options` - Payment methods for checkout
 
   ## Future Tables
   - `phoenix_kit_shop_variants` - Product variants (size, color)
@@ -375,13 +376,81 @@ defmodule PhoenixKit.Migrations.Postgres.V45 do
     """
 
     # ===========================================
-    # 6. SEED SETTINGS
+    # 6. PAYMENT OPTIONS TABLE
+    # ===========================================
+
+    execute """
+    CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_payment_options (
+      id BIGSERIAL PRIMARY KEY,
+      uuid UUID NOT NULL DEFAULT gen_random_uuid(),
+
+      -- Identity
+      name VARCHAR(255) NOT NULL,
+      code VARCHAR(50) NOT NULL,
+      type VARCHAR(20) NOT NULL DEFAULT 'offline',
+
+      -- Provider (for online payments)
+      provider VARCHAR(50),
+
+      -- Display
+      description TEXT,
+      instructions TEXT,
+      icon VARCHAR(100) DEFAULT 'hero-banknotes',
+
+      -- Configuration
+      active BOOLEAN DEFAULT false,
+      position INTEGER DEFAULT 0,
+      requires_billing_profile BOOLEAN DEFAULT true,
+
+      -- Additional settings
+      settings JSONB DEFAULT '{}',
+
+      inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+
+      CONSTRAINT phoenix_kit_payment_options_code_unique UNIQUE (code)
+    );
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_payment_options_active
+    ON #{prefix_str}phoenix_kit_payment_options(active);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_payment_options_position
+    ON #{prefix_str}phoenix_kit_payment_options(position);
+    """
+
+    execute """
+    COMMENT ON TABLE #{prefix_str}phoenix_kit_payment_options IS
+    'Available payment methods for checkout (COD, bank transfer, online payments)';
+    """
+
+    # ===========================================
+    # 7. ADD PAYMENT OPTION TO CARTS
+    # ===========================================
+
+    execute """
+    ALTER TABLE #{prefix_str}phoenix_kit_shop_carts
+    ADD COLUMN IF NOT EXISTS payment_option_id BIGINT
+    REFERENCES #{prefix_str}phoenix_kit_payment_options(id) ON DELETE SET NULL;
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_carts_payment_option
+    ON #{prefix_str}phoenix_kit_shop_carts(payment_option_id);
+    """
+
+    # ===========================================
+    # 8. SEED SETTINGS AND PAYMENT OPTIONS
     # ===========================================
 
     seed_settings(prefix_str)
+    seed_payment_options(prefix_str)
 
     # ===========================================
-    # 7. UPDATE VERSION
+    # 9. UPDATE VERSION
     # ===========================================
 
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '45'"
@@ -396,8 +465,11 @@ defmodule PhoenixKit.Migrations.Postgres.V45 do
     # Drop cart items first (has FK to carts)
     execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_cart_items CASCADE;"
 
-    # Drop carts (has FK to shipping_methods)
+    # Drop carts (has FK to shipping_methods and payment_options)
     execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_carts CASCADE;"
+
+    # Drop payment options
+    execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_payment_options CASCADE;"
 
     # Drop shipping methods
     execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_shipping_methods CASCADE;"
@@ -429,6 +501,70 @@ defmodule PhoenixKit.Migrations.Postgres.V45 do
       ('shop_tax_rate', '20', 'shop', NOW(), NOW()),
       ('shop_inventory_tracking', 'true', 'shop', NOW(), NOW())
     ON CONFLICT (key) DO NOTHING;
+    """
+  end
+
+  # Seed default payment options
+  defp seed_payment_options(prefix_str) do
+    execute """
+    INSERT INTO #{prefix_str}phoenix_kit_payment_options
+      (name, code, type, provider, description, instructions, icon, active, position, requires_billing_profile)
+    VALUES
+      (
+        'Cash on Delivery',
+        'cod',
+        'offline',
+        NULL,
+        'Pay when you receive your order',
+        'Payment will be collected upon delivery. Please have the exact amount ready.',
+        'hero-banknotes',
+        true,
+        1,
+        true
+      ),
+      (
+        'Bank Transfer',
+        'bank_transfer',
+        'offline',
+        NULL,
+        'Pay via bank transfer',
+        'You will receive invoice with bank details after order confirmation.',
+        'hero-building-library',
+        false,
+        2,
+        true
+      ),
+      (
+        'Pay with Card',
+        'stripe',
+        'online',
+        'stripe',
+        'Secure payment with credit or debit card',
+        NULL,
+        'hero-credit-card',
+        false,
+        3,
+        false
+      ),
+      (
+        'PayPal',
+        'paypal',
+        'online',
+        'paypal',
+        'Pay securely with your PayPal account',
+        NULL,
+        'hero-credit-card',
+        false,
+        4,
+        false
+      )
+    ON CONFLICT (code) DO UPDATE SET
+      name = EXCLUDED.name,
+      description = EXCLUDED.description,
+      instructions = EXCLUDED.instructions,
+      icon = EXCLUDED.icon,
+      position = EXCLUDED.position,
+      requires_billing_profile = EXCLUDED.requires_billing_profile;
     """
   end
 end

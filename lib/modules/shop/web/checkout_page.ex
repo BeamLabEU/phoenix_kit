@@ -10,6 +10,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   alias PhoenixKit.Modules.Billing.BillingProfile
   alias PhoenixKit.Modules.Billing.CountryData
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Utils.Routes
 
@@ -43,41 +44,132 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   defp setup_checkout_assigns(socket, cart, user) do
     is_guest = is_nil(user)
-    billing_profiles = load_billing_profiles(user)
-    {selected_profile, needs_selection} = select_billing_profile(billing_profiles)
-
-    # Check if user is authenticated
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
 
-    # Determine initial step:
-    # - Guest or no profiles → billing step (need to enter data)
-    # - Multiple profiles without default → billing step (need to choose)
-    # - Default or single profile → skip to review
-    initial_step =
-      cond do
-        is_guest -> :billing
-        billing_profiles == [] -> :billing
-        needs_selection -> :billing
-        true -> :review
-      end
+    # Load and auto-select payment option
+    payment_options = Billing.list_active_payment_options()
+    {cart, selected_payment_option, needs_payment_selection} =
+      prepare_payment_options(cart, payment_options)
 
+    # Load billing profiles
+    billing_profiles = load_billing_profiles(user)
+    {selected_profile, needs_profile_selection} = select_billing_profile(billing_profiles)
+
+    # Determine if billing is needed and initial step
+    needs_billing =
+      payment_option_needs_billing?(selected_payment_option, is_guest, billing_profiles)
+
+    initial_step =
+      determine_initial_step(needs_payment_selection, needs_billing, is_guest, billing_profiles, needs_profile_selection)
+
+    build_checkout_socket(socket, %{
+      cart: cart,
+      is_guest: is_guest,
+      authenticated: authenticated,
+      payment_options: payment_options,
+      selected_payment_option: selected_payment_option,
+      needs_payment_selection: needs_payment_selection,
+      billing_profiles: billing_profiles,
+      selected_profile: selected_profile,
+      needs_profile_selection: needs_profile_selection,
+      needs_billing: needs_billing,
+      initial_step: initial_step,
+      user: user
+    })
+  end
+
+  defp prepare_payment_options(cart, payment_options) do
+    {selected, needs_selection} = select_payment_option(payment_options, cart)
+    cart = maybe_auto_select_payment(cart, payment_options)
+    {cart, selected, needs_selection}
+  end
+
+  defp maybe_auto_select_payment(cart, payment_options) do
+    if length(payment_options) == 1 and is_nil(cart.payment_option_id) do
+      case Shop.set_cart_payment_option(cart, hd(payment_options).id) do
+        {:ok, updated_cart} -> updated_cart
+        _ -> cart
+      end
+    else
+      cart
+    end
+  end
+
+  defp determine_initial_step(needs_payment, needs_billing, is_guest, profiles, needs_profile) do
+    cond do
+      needs_payment -> :payment
+      needs_billing and (is_guest or profiles == []) -> :billing
+      needs_billing and needs_profile -> :billing
+      true -> :review
+    end
+  end
+
+  defp build_checkout_socket(socket, assigns) do
     socket
     |> assign(:page_title, "Checkout")
-    |> assign(:cart, cart)
+    |> assign(:cart, assigns.cart)
     |> assign(:currency, Shop.get_default_currency())
-    |> assign(:is_guest, is_guest)
-    |> assign(:billing_profiles, billing_profiles)
-    |> assign(:selected_profile_id, if(selected_profile, do: selected_profile.id))
-    |> assign(:use_new_profile, is_guest or billing_profiles == [])
-    |> assign(:needs_profile_selection, needs_selection)
-    |> assign(:billing_data, initial_billing_data(user, cart))
+    |> assign(:is_guest, assigns.is_guest)
+    |> assign(:authenticated, assigns.authenticated)
+    |> assign(:payment_options, assigns.payment_options)
+    |> assign(:selected_payment_option, assigns.selected_payment_option)
+    |> assign(:needs_payment_selection, assigns.needs_payment_selection)
+    |> assign(:billing_profiles, assigns.billing_profiles)
+    |> assign(:selected_profile_id, if(assigns.selected_profile, do: assigns.selected_profile.id))
+    |> assign(:use_new_profile, assigns.is_guest or assigns.billing_profiles == [])
+    |> assign(:needs_profile_selection, assigns.needs_profile_selection)
+    |> assign(:needs_billing, assigns.needs_billing)
+    |> assign(:billing_data, initial_billing_data(assigns.user, assigns.cart))
     |> assign(:countries, CountryData.list_countries())
-    |> assign(:step, initial_step)
+    |> assign(:step, assigns.initial_step)
     |> assign(:processing, false)
     |> assign(:error_message, nil)
     |> assign(:form_errors, %{})
-    |> assign(:authenticated, authenticated)
   end
+
+  # Select payment option with smart defaults
+  defp select_payment_option([], _cart), do: {nil, false}
+
+  defp select_payment_option(options, cart) do
+    # Check if cart already has a payment option selected
+    selected =
+      if cart.payment_option_id do
+        Enum.find(options, &(&1.id == cart.payment_option_id))
+      end
+
+    cond do
+      # Cart has valid selected option
+      selected -> {selected, false}
+      # Only one option available
+      length(options) == 1 -> {hd(options), false}
+      # Multiple options - user must choose
+      true -> {hd(options), true}
+    end
+  end
+
+  # Check if billing info is needed for the payment option
+  defp payment_option_needs_billing?(nil, _is_guest, _profiles), do: true
+
+  defp payment_option_needs_billing?(
+         %PaymentOption{requires_billing_profile: true},
+         _is_guest,
+         _profiles
+       ),
+       do: true
+
+  defp payment_option_needs_billing?(
+         %PaymentOption{requires_billing_profile: false},
+         true,
+         _profiles
+       ),
+       do: true
+
+  defp payment_option_needs_billing?(
+         %PaymentOption{requires_billing_profile: false},
+         false,
+         _profiles
+       ),
+       do: false
 
   # Select billing profile with smart defaults
   defp select_billing_profile([]), do: {nil, false}
@@ -130,6 +222,50 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
     socket
     |> put_flash(:error, message)
     |> push_navigate(to: Routes.path("/cart"))
+  end
+
+  @impl true
+  def handle_event("select_payment_option", %{"option_id" => option_id}, socket) do
+    option_id = String.to_integer(option_id)
+    option = Enum.find(socket.assigns.payment_options, &(&1.id == option_id))
+
+    if option do
+      case Shop.set_cart_payment_option(socket.assigns.cart, option_id) do
+        {:ok, updated_cart} ->
+          # Update needs_billing based on new payment option
+          needs_billing =
+            payment_option_needs_billing?(
+              option,
+              socket.assigns.is_guest,
+              socket.assigns.billing_profiles
+            )
+
+          {:noreply,
+           socket
+           |> assign(:cart, updated_cart)
+           |> assign(:selected_payment_option, option)
+           |> assign(:needs_billing, needs_billing)}
+
+        {:error, _} ->
+          {:noreply, put_flash(socket, :error, "Failed to set payment option")}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl true
+  def handle_event("proceed_to_billing", _params, socket) do
+    if socket.assigns.needs_billing do
+      {:noreply, assign(socket, :step, :billing)}
+    else
+      {:noreply, assign(socket, :step, :review)}
+    end
+  end
+
+  @impl true
+  def handle_event("back_to_payment", _params, socket) do
+    {:noreply, assign(socket, :step, :payment)}
   end
 
   @impl true
@@ -329,7 +465,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
         <%!-- Steps Indicator --%>
         <div class="steps w-full mb-8">
-          <div class={["step", @step in [:billing, :review] && "step-primary"]}>Billing</div>
+          <%= if length(@payment_options) > 1 do %>
+            <div class={["step", @step in [:payment, :billing, :review] && "step-primary"]}>
+              Payment
+            </div>
+          <% end %>
+          <%= if @needs_billing do %>
+            <div class={["step", @step in [:billing, :review] && "step-primary"]}>Billing</div>
+          <% end %>
           <div class={["step", @step == :review && "step-primary"]}>Review & Confirm</div>
         </div>
 
@@ -350,29 +493,40 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Main Content --%>
           <div class="lg:col-span-2">
-            <%= if @step == :billing do %>
-              <.billing_step
-                is_guest={@is_guest}
-                billing_profiles={@billing_profiles}
-                selected_profile_id={@selected_profile_id}
-                use_new_profile={@use_new_profile}
-                needs_profile_selection={@needs_profile_selection}
-                billing_data={@billing_data}
-                form_errors={@form_errors}
-                countries={@countries}
-              />
-            <% else %>
-              <.review_step
-                cart={@cart}
-                is_guest={@is_guest}
-                billing_profiles={@billing_profiles}
-                selected_profile_id={@selected_profile_id}
-                use_new_profile={@use_new_profile}
-                billing_data={@billing_data}
-                currency={@currency}
-                processing={@processing}
-                error_message={@error_message}
-              />
+            <%= case @step do %>
+              <% :payment -> %>
+                <.payment_step
+                  payment_options={@payment_options}
+                  selected_payment_option={@selected_payment_option}
+                  needs_billing={@needs_billing}
+                />
+              <% :billing -> %>
+                <.billing_step
+                  is_guest={@is_guest}
+                  billing_profiles={@billing_profiles}
+                  selected_profile_id={@selected_profile_id}
+                  use_new_profile={@use_new_profile}
+                  needs_profile_selection={@needs_profile_selection}
+                  billing_data={@billing_data}
+                  form_errors={@form_errors}
+                  countries={@countries}
+                  payment_options={@payment_options}
+                />
+              <% :review -> %>
+                <.review_step
+                  cart={@cart}
+                  is_guest={@is_guest}
+                  billing_profiles={@billing_profiles}
+                  selected_profile_id={@selected_profile_id}
+                  use_new_profile={@use_new_profile}
+                  billing_data={@billing_data}
+                  currency={@currency}
+                  processing={@processing}
+                  error_message={@error_message}
+                  selected_payment_option={@selected_payment_option}
+                  needs_billing={@needs_billing}
+                  payment_options={@payment_options}
+                />
             <% end %>
           </div>
 
@@ -411,6 +565,55 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
   # Components
 
+  defp payment_step(assigns) do
+    ~H"""
+    <div class="card bg-base-100 shadow-lg">
+      <div class="card-body">
+        <h2 class="card-title mb-4">Select Payment Method</h2>
+
+        <div class="space-y-3">
+          <%= for option <- @payment_options do %>
+            <label class={[
+              "flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-colors",
+              if(@selected_payment_option && @selected_payment_option.id == option.id,
+                do: "border-primary bg-primary/5",
+                else: "border-base-300 hover:border-primary/50"
+              )
+            ]}>
+              <input
+                type="radio"
+                name="payment_option"
+                value={option.id}
+                checked={@selected_payment_option && @selected_payment_option.id == option.id}
+                phx-click="select_payment_option"
+                phx-value-option_id={option.id}
+                class="radio radio-primary"
+              />
+              <.icon name={PaymentOption.icon_name(option)} class="w-6 h-6 text-base-content/70" />
+              <div class="flex-1">
+                <div class="font-medium">{option.name}</div>
+                <%= if option.description do %>
+                  <div class="text-sm text-base-content/60">{option.description}</div>
+                <% end %>
+              </div>
+            </label>
+          <% end %>
+        </div>
+
+        <div class="card-actions justify-end mt-6">
+          <button phx-click="proceed_to_billing" class="btn btn-primary">
+            <%= if @needs_billing do %>
+              Continue to Billing <.icon name="hero-arrow-right" class="w-4 h-4 ml-2" />
+            <% else %>
+              Continue to Review <.icon name="hero-arrow-right" class="w-4 h-4 ml-2" />
+            <% end %>
+          </button>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
   defp billing_step(assigns) do
     ~H"""
     <div class="card bg-base-100 shadow-lg">
@@ -439,7 +642,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
           />
         <% end %>
 
-        <div class="card-actions justify-end mt-6">
+        <div class="card-actions justify-between mt-6">
+          <%= if length(@payment_options) > 1 do %>
+            <button phx-click="back_to_payment" class="btn btn-ghost">
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </button>
+          <% else %>
+            <div></div>
+          <% end %>
           <button phx-click="proceed_to_review" class="btn btn-primary">
             Continue to Review <.icon name="hero-arrow-right" class="w-4 h-4 ml-2" />
           </button>
@@ -665,50 +875,83 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
     ~H"""
     <div class="space-y-6">
-      <%!-- Billing Info --%>
+      <%!-- Payment Method --%>
       <div class="card bg-base-100 shadow-lg">
         <div class="card-body">
           <div class="flex items-center justify-between mb-4">
-            <h2 class="card-title">Billing Information</h2>
-            <button phx-click="back_to_billing" class="btn btn-ghost btn-sm">
-              <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> Change
-            </button>
-          </div>
-
-          <div class="text-sm">
-            <%= if @use_new_profile do %>
-              <div class="font-medium">
-                {@billing_data["first_name"]} {@billing_data["last_name"]}
-              </div>
-              <div class="text-base-content/60">
-                {[
-                  @billing_data["address_line1"],
-                  @billing_data["city"],
-                  @billing_data["postal_code"],
-                  @billing_data["country"]
-                ]
-                |> Enum.filter(&(&1 && &1 != ""))
-                |> Enum.join(", ")}
-              </div>
-              <div class="text-base-content/60">{@billing_data["email"]}</div>
-              <%= if @billing_data["phone"] && @billing_data["phone"] != "" do %>
-                <div class="text-base-content/60">{@billing_data["phone"]}</div>
-              <% end %>
-            <% else %>
-              <%= if @selected_profile do %>
-                <div class="font-medium">{profile_display_name(@selected_profile)}</div>
-                <div class="text-base-content/60">{profile_address(@selected_profile)}</div>
-                <%= if @selected_profile.email do %>
-                  <div class="text-base-content/60">{@selected_profile.email}</div>
-                <% end %>
-                <%= if @selected_profile.phone do %>
-                  <div class="text-base-content/60">{@selected_profile.phone}</div>
-                <% end %>
-              <% end %>
+            <h2 class="card-title">Payment Method</h2>
+            <%= if length(@payment_options) > 1 do %>
+              <button phx-click="back_to_payment" class="btn btn-ghost btn-sm">
+                <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> Change
+              </button>
             <% end %>
           </div>
+
+          <%= if @selected_payment_option do %>
+            <div class="flex items-center gap-3">
+              <.icon
+                name={PaymentOption.icon_name(@selected_payment_option)}
+                class="w-6 h-6 text-base-content/70"
+              />
+              <div>
+                <div class="font-medium">{@selected_payment_option.name}</div>
+                <%= if @selected_payment_option.description do %>
+                  <div class="text-sm text-base-content/60">
+                    {@selected_payment_option.description}
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
         </div>
       </div>
+
+      <%!-- Billing Info (only if billing is needed) --%>
+      <%= if @needs_billing do %>
+        <div class="card bg-base-100 shadow-lg">
+          <div class="card-body">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="card-title">Billing Information</h2>
+              <button phx-click="back_to_billing" class="btn btn-ghost btn-sm">
+                <.icon name="hero-pencil" class="w-4 h-4 mr-1" /> Change
+              </button>
+            </div>
+
+            <div class="text-sm">
+              <%= if @use_new_profile do %>
+                <div class="font-medium">
+                  {@billing_data["first_name"]} {@billing_data["last_name"]}
+                </div>
+                <div class="text-base-content/60">
+                  {[
+                    @billing_data["address_line1"],
+                    @billing_data["city"],
+                    @billing_data["postal_code"],
+                    @billing_data["country"]
+                  ]
+                  |> Enum.filter(&(&1 && &1 != ""))
+                  |> Enum.join(", ")}
+                </div>
+                <div class="text-base-content/60">{@billing_data["email"]}</div>
+                <%= if @billing_data["phone"] && @billing_data["phone"] != "" do %>
+                  <div class="text-base-content/60">{@billing_data["phone"]}</div>
+                <% end %>
+              <% else %>
+                <%= if @selected_profile do %>
+                  <div class="font-medium">{profile_display_name(@selected_profile)}</div>
+                  <div class="text-base-content/60">{profile_address(@selected_profile)}</div>
+                  <%= if @selected_profile.email do %>
+                    <div class="text-base-content/60">{@selected_profile.email}</div>
+                  <% end %>
+                  <%= if @selected_profile.phone do %>
+                    <div class="text-base-content/60">{@selected_profile.phone}</div>
+                  <% end %>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
 
       <%!-- Shipping Info --%>
       <div class="card bg-base-100 shadow-lg">
@@ -791,9 +1034,18 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
 
       <%!-- Confirm Button --%>
       <div class="flex justify-between items-center">
-        <button phx-click="back_to_billing" class="btn btn-ghost">
-          <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-        </button>
+        <%= cond do %>
+          <% @needs_billing -> %>
+            <button phx-click="back_to_billing" class="btn btn-ghost">
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </button>
+          <% length(@payment_options) > 1 -> %>
+            <button phx-click="back_to_payment" class="btn btn-ghost">
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </button>
+          <% true -> %>
+            <div></div>
+        <% end %>
         <button
           phx-click="confirm_order"
           class={["btn btn-primary btn-lg", @processing && "loading"]}

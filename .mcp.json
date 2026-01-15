@@ -1,9 +1,12 @@
 {
   "mcpServers": {
-    "tidewave": {
-      "command": "mix",
-      "args": ["tidewave.server"],
-      "cwd": "/root/projects/hydroforce"
+    "hydroforce": {
+      "type": "http",
+      "url": "http://localhost:4000/tidewave/mcp"
+    },
+    "decor": {
+      "type": "http",
+      "url": "http://localhost:4001/tidewave/mcp"
     }
   }
 }

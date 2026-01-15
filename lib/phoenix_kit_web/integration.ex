@@ -584,11 +584,6 @@ defmodule PhoenixKitWeb.Integration do
                PhoenixKit.Modules.Shop.Web.CheckoutComplete,
                :show,
                as: :shop_checkout_complete
-
-          live "/my-orders", PhoenixKit.Modules.Shop.Web.MyOrders, :index, as: :my_orders
-
-          live "/my-orders/:uuid", PhoenixKit.Modules.Shop.Web.MyOrderDetail, :show,
-            as: :my_order_detail
         end
       end
 

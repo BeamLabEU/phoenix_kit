@@ -48,6 +48,7 @@ defmodule PhoenixKit.Modules.Billing do
   alias PhoenixKit.Modules.Billing.Events
   alias PhoenixKit.Modules.Billing.Invoice
   alias PhoenixKit.Modules.Billing.Order
+  alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Billing.Providers
   alias PhoenixKit.Modules.Billing.Transaction
   alias PhoenixKit.Modules.Emails.Templates
@@ -2879,6 +2880,97 @@ defmodule PhoenixKit.Modules.Billing do
       address: CountryData.format_company_address(),
       vat: company["vat_number"] || ""
     }
+  end
+
+  # ============================================
+  # PAYMENT OPTIONS
+  # ============================================
+
+  @doc """
+  Lists all payment options.
+  """
+  def list_payment_options do
+    PaymentOption
+    |> order_by([p], [p.position, p.name])
+    |> repo().all()
+  end
+
+  @doc """
+  Lists active payment options for checkout.
+  """
+  def list_active_payment_options do
+    PaymentOption
+    |> where([p], p.active == true)
+    |> order_by([p], [p.position, p.name])
+    |> repo().all()
+  end
+
+  @doc """
+  Gets a payment option by ID.
+  """
+  def get_payment_option(id) when is_integer(id) do
+    repo().get(PaymentOption, id)
+  end
+
+  def get_payment_option(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int_id, ""} -> get_payment_option(int_id)
+      _ -> nil
+    end
+  end
+
+  @doc """
+  Gets a payment option by code.
+  """
+  def get_payment_option_by_code(code) when is_binary(code) do
+    PaymentOption
+    |> where([p], p.code == ^code)
+    |> repo().one()
+  end
+
+  @doc """
+  Creates a new payment option.
+  """
+  def create_payment_option(attrs) do
+    %PaymentOption{}
+    |> PaymentOption.changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Updates a payment option.
+  """
+  def update_payment_option(%PaymentOption{} = payment_option, attrs) do
+    payment_option
+    |> PaymentOption.changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes a payment option.
+  """
+  def delete_payment_option(%PaymentOption{} = payment_option) do
+    repo().delete(payment_option)
+  end
+
+  @doc """
+  Toggles the active status of a payment option.
+  """
+  def toggle_payment_option_active(%PaymentOption{} = payment_option) do
+    update_payment_option(payment_option, %{active: !payment_option.active})
+  end
+
+  @doc """
+  Checks if a payment option requires a billing profile.
+  """
+  def payment_option_requires_billing?(%PaymentOption{requires_billing_profile: true}), do: true
+  def payment_option_requires_billing?(_), do: false
+
+  @doc """
+  Returns a changeset for tracking payment option changes.
+  """
+  def change_payment_option(%PaymentOption{} = payment_option, attrs \\ %{}) do
+    PaymentOption.changeset(payment_option, attrs)
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()

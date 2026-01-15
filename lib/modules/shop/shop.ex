@@ -470,7 +470,10 @@ defmodule PhoenixKit.Modules.Shop do
     user_id = Keyword.get(opts, :user_id)
     session_id = Keyword.get(opts, :session_id)
 
-    base_query = Cart |> where([c], c.status == "active") |> preload([:items, :shipping_method])
+    base_query =
+      Cart
+      |> where([c], c.status == "active")
+      |> preload([:items, :shipping_method, :payment_option])
 
     cond do
       not is_nil(user_id) ->
@@ -517,7 +520,7 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_cart(id) do
     Cart
-    |> preload([:items, :shipping_method])
+    |> preload([:items, :shipping_method, :payment_option])
     |> repo().get(id)
   end
 
@@ -526,7 +529,7 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_cart!(id) do
     Cart
-    |> preload([:items, :shipping_method])
+    |> preload([:items, :shipping_method, :payment_option])
     |> repo().get!(id)
   end
 
@@ -627,6 +630,49 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Sets payment option for cart.
+  """
+  def set_cart_payment_option(%Cart{} = cart, payment_option_id)
+      when is_integer(payment_option_id) do
+    cart
+    |> Cart.payment_changeset(%{payment_option_id: payment_option_id})
+    |> repo().update()
+  end
+
+  def set_cart_payment_option(%Cart{} = cart, nil) do
+    cart
+    |> Cart.payment_changeset(%{payment_option_id: nil})
+    |> repo().update()
+  end
+
+  @doc """
+  Auto-selects payment option if only one is available.
+
+  If cart already has a payment option selected, does nothing.
+  If only one option is available, selects it.
+  """
+  def auto_select_payment_option(%Cart{} = cart, payment_options) do
+    cond do
+      # Already has payment option selected
+      not is_nil(cart.payment_option_id) ->
+        {:ok, cart}
+
+      # No options available
+      payment_options == [] ->
+        {:ok, cart}
+
+      # Only one option available - auto-select it
+      length(payment_options) == 1 ->
+        option = hd(payment_options)
+        set_cart_payment_option(cart, option.id)
+
+      # Multiple options - user must choose
+      true ->
+        {:ok, cart}
+    end
+  end
+
+  @doc """
   Auto-selects the cheapest available shipping method for a cart.
 
   If cart already has a shipping method selected, does nothing.
@@ -716,7 +762,8 @@ defmodule PhoenixKit.Modules.Shop do
           # Recalculate user cart
           recalculate_cart_totals!(user)
 
-          repo().get!(Cart, user.id) |> repo().preload([:items, :shipping_method])
+          repo().get!(Cart, user.id)
+          |> repo().preload([:items, :shipping_method, :payment_option])
         end)
     end
   end

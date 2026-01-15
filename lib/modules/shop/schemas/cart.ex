@@ -21,6 +21,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Users.Auth.User
@@ -40,6 +41,9 @@ defmodule PhoenixKit.Modules.Shop.Cart do
     # Shipping
     belongs_to :shipping_method, ShippingMethod
     field :shipping_country, :string
+
+    # Payment
+    belongs_to :payment_option, PaymentOption
 
     # Totals (cached)
     field :subtotal, :decimal, default: Decimal.new("0")
@@ -80,6 +84,7 @@ defmodule PhoenixKit.Modules.Shop.Cart do
       :status,
       :shipping_method_id,
       :shipping_country,
+      :payment_option_id,
       :subtotal,
       :shipping_amount,
       :tax_amount,
@@ -124,6 +129,14 @@ defmodule PhoenixKit.Modules.Shop.Cart do
   def shipping_changeset(cart, attrs) do
     cart
     |> cast(attrs, [:shipping_method_id, :shipping_country, :shipping_amount])
+  end
+
+  @doc """
+  Changeset for setting payment option.
+  """
+  def payment_changeset(cart, attrs) do
+    cart
+    |> cast(attrs, [:payment_option_id])
   end
 
   @doc """

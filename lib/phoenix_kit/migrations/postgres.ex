@@ -331,9 +331,11 @@ defmodule PhoenixKit.Migrations.Postgres do
   ### V45 - E-commerce Shop Module ⚡ LATEST
   - Phoenix_kit_shop_categories for product organization with nesting
   - Phoenix_kit_shop_products for physical and digital products
+  - Phoenix_kit_shop_shipping_methods, phoenix_kit_shop_carts, phoenix_kit_shop_cart_items
+  - Phoenix_kit_payment_options for checkout payment methods (COD, bank transfer, Stripe, PayPal)
+  - Cart supports payment_option_id for payment method selection
   - JSONB fields for tags, images, option_names, metadata
   - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
-  - Future: variants, inventory, carts, shipping_methods (incremental additions)
 
   ## Migration Paths
 
