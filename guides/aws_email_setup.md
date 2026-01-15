@@ -195,13 +195,16 @@ For production, use least-privilege permissions:
 
 #### Environment Variables (Alternative)
 
-You can also configure credentials via environment variables:
+You can also configure credentials via config:
 
-```bash
-# ~/.bashrc or ~/.zshrc
-export AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
-export AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-export AWS_DEFAULT_REGION="eu-north-1"
+```elixir
+# config/config.exs
+config :phoenix_kit,
+  aws: [
+    access_key_id: "AKIAIOSFODNN7EXAMPLE",
+    secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+    region: "eu-north-1"
+  ]
 ```
 
 ### Region Selection

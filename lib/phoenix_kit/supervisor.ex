@@ -14,6 +14,8 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.PubSub.Manager,
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
+      # Dashboard tab registry for user dashboard navigation
+      PhoenixKit.Dashboard.Registry,
       # Settings cache with synchronous initialization
       # Loads all settings in handle_continue (after init returns)
       # This ensures OAuth configuration is available before OAuthConfigLoader starts
@@ -25,8 +27,8 @@ defmodule PhoenixKit.Supervisor do
       ),
       # Cache rendered blog posts (HTML) to avoid re-rendering markdown on every request
       Supervisor.child_spec(
-        {PhoenixKit.Cache, name: :blog_posts, ttl: :timer.hours(6)},
-        id: :blog_posts_cache
+        {PhoenixKit.Cache, name: :publishing_posts, ttl: :timer.hours(6)},
+        id: :publishing_posts_cache
       ),
       # Rate limiter backend MUST be started before any authentication requests
       PhoenixKit.Users.RateLimiter.Backend,

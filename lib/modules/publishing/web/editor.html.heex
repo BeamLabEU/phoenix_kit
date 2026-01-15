@@ -172,7 +172,7 @@
       <%= if length(@all_enabled_languages) > 1 or not @current_language_enabled or not @current_language_known do %>
         <div class="flex items-center gap-2">
           <span class="text-xs font-medium text-base-content/60">{gettext("Language:")}</span>
-          <.blog_language_switcher
+          <.publishing_language_switcher
             languages={
               build_editor_languages(
                 @post,
@@ -195,7 +195,7 @@
         <div class="flex items-center gap-2">
           <%= if length(@available_versions) > 1 do %>
             <span class="text-xs font-medium text-base-content/60">{gettext("Version:")}</span>
-            <.blog_version_switcher
+            <.publishing_version_switcher
               versions={@available_versions}
               version_statuses={@version_statuses}
               version_dates={@version_dates}

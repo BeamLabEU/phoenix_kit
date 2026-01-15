@@ -1,15 +1,18 @@
-defmodule PhoenixKitWeb.BlogHTML do
+defmodule PhoenixKit.Modules.Publishing.Web.HTML do
   @moduledoc """
-  HTML rendering functions for BlogController.
+  HTML rendering functions for Publishing.Web.Controller.
   """
   use PhoenixKitWeb, :html
 
   alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.Renderer
-  alias PhoenixKit.Modules.Publishing.Storage, as: BlogStorage
+  alias PhoenixKit.Modules.Publishing.Storage, as: PublishingStorage
 
-  embed_templates("blog_html/*")
+  # Import publishing-specific components for templates
+  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
+
+  embed_templates("templates/*")
 
   @doc """
   Builds the public URL for a blog listing page.
@@ -318,7 +321,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   # Counts posts on a given date for a blog
   # Used to determine if time should be included in URLs
   defp count_posts_on_date(blog_slug, date) do
-    BlogStorage.count_posts_on_date(blog_slug, date)
+    PublishingStorage.count_posts_on_date(blog_slug, date)
   end
 
   @doc """
@@ -341,7 +344,7 @@ defmodule PhoenixKitWeb.BlogHTML do
   end
 
   @doc """
-  Builds language data for the blog_language_switcher component on public pages.
+  Builds language data for the publishing_language_switcher component on public pages.
   Converts the @translations assign to the format expected by the component.
   """
   def build_public_translations(translations, _current_language) do

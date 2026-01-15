@@ -340,7 +340,7 @@
                 <% files_path = "priv/publishing/" <> post.path %>
                 <%!-- Use post's actual language, falling back to first available language for this post --%>
                 <% public_url =
-                  BlogHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
+                  PublishingHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
                 <% full_public_url = @endpoint_url <> public_url %>
                 <%!-- Version info (only for slug-mode posts) --%>
                 <% version_count = length(Map.get(post, :available_versions) || []) %>
@@ -403,7 +403,7 @@
                         </span>
                       </div>
                       <%!-- All translations --%>
-                      <.blog_language_switcher
+                      <.publishing_language_switcher
                         languages={
                           build_post_languages(
                             post,

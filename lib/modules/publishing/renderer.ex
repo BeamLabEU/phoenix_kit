@@ -15,7 +15,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   alias PhoenixKit.Modules.Publishing.PageBuilder
   alias PhoenixKit.Settings
 
-  @cache_name :blog_posts
+  @cache_name :publishing_posts
   @cache_version "v1"
 
   # New settings keys (write to these)
@@ -70,7 +70,7 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   @spec render_cache_enabled?(String.t()) :: boolean()
   def render_cache_enabled?(blog_slug) do
     global_enabled = global_render_cache_enabled?()
-    per_blog_enabled = blog_render_cache_enabled?(blog_slug)
+    per_blog_enabled = group_render_cache_enabled?(blog_slug)
 
     global_enabled and per_blog_enabled
   end
@@ -88,14 +88,14 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   end
 
   @doc """
-  Returns whether render cache is enabled for a specific blog.
+  Returns whether render cache is enabled for a specific group.
   Does not check the global setting.
   Checks new key first, falls back to legacy key.
   """
-  @spec blog_render_cache_enabled?(String.t()) :: boolean()
-  def blog_render_cache_enabled?(blog_slug) do
-    new_key = @per_blog_cache_prefix <> blog_slug
-    legacy_key = @legacy_per_blog_cache_prefix <> blog_slug
+  @spec group_render_cache_enabled?(String.t()) :: boolean()
+  def group_render_cache_enabled?(group_slug) do
+    new_key = @per_blog_cache_prefix <> group_slug
+    legacy_key = @legacy_per_blog_cache_prefix <> group_slug
 
     case Settings.get_setting_cached(new_key, nil) do
       nil -> Settings.get_setting_cached(legacy_key, "true") == "true"
@@ -104,11 +104,20 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
   end
 
   @doc """
-  Returns the settings key for per-blog render cache.
+  Returns the settings key for per-group render cache.
   Used by other modules that need to write to the setting.
   """
-  @spec per_blog_cache_key(String.t()) :: String.t()
-  def per_blog_cache_key(blog_slug), do: @per_blog_cache_prefix <> blog_slug
+  @spec per_group_cache_key(String.t()) :: String.t()
+  def per_group_cache_key(group_slug), do: @per_blog_cache_prefix <> group_slug
+
+  # Deprecated shims for backward compatibility
+  @doc false
+  @deprecated "Use group_render_cache_enabled?/1 instead"
+  def blog_render_cache_enabled?(group_slug), do: group_render_cache_enabled?(group_slug)
+
+  @doc false
+  @deprecated "Use per_group_cache_key/1 instead"
+  def per_blog_cache_key(group_slug), do: per_group_cache_key(group_slug)
 
   @doc """
   Renders markdown or .phk content directly without caching.
@@ -425,17 +434,17 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
 
   ## Examples
 
-      Renderer.clear_blog_cache("my-blog")
+      Renderer.clear_group_cache("my-group")
       # => {:ok, 15}
 
   """
-  @spec clear_blog_cache(String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
-  def clear_blog_cache(blog_slug) do
-    prefix = "#{@cache_version}:blog_post:#{blog_slug}:"
+  @spec clear_group_cache(String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
+  def clear_group_cache(group_slug) do
+    prefix = "#{@cache_version}:blog_post:#{group_slug}:"
 
     case PhoenixKit.Cache.clear_by_prefix(@cache_name, prefix) do
       {:ok, count} = result ->
-        Logger.info("Cleared #{count} cached posts for blog: #{blog_slug}")
+        Logger.info("Cleared #{count} cached posts for group: #{group_slug}")
         result
 
       {:error, _} = error ->
@@ -443,9 +452,13 @@ defmodule PhoenixKit.Modules.Publishing.Renderer do
     end
   rescue
     _ ->
-      Logger.warning("Blog cache not available for clearing")
+      Logger.warning("Group cache not available for clearing")
       {:ok, 0}
   end
+
+  @doc false
+  @deprecated "Use clear_group_cache/1 instead"
+  def clear_blog_cache(group_slug), do: clear_group_cache(group_slug)
 
   # Private Functions
 

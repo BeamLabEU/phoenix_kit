@@ -1,0 +1,384 @@
+/**
+ * PhoenixKit Dashboard Animation System
+ *
+ * Custom animations for dashboard tabs, badges, and attention indicators.
+ * Include this file in your app.css or import it in your Tailwind config.
+ */
+
+/* ============================================================================
+   Shake Animation
+   Used for error states and urgent attention
+   ============================================================================ */
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+  20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-shake-continuous {
+  animation: shake 0.5s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Glow Animation
+   Soft glowing effect for highlighting
+   ============================================================================ */
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor;
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor, 0 0 30px currentColor;
+    opacity: 0.8;
+  }
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* Icon glow variant */
+@keyframes icon-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 2px currentColor);
+  }
+  50% {
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 12px currentColor);
+  }
+}
+
+.animate-icon-glow {
+  animation: icon-glow 2s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Pulse Variants
+   Enhanced pulse animations for different contexts
+   ============================================================================ */
+
+/* Subtle pulse for badges */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+/* Strong pulse for urgent items */
+@keyframes pulse-strong {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.animate-pulse-strong {
+  animation: pulse-strong 1s ease-in-out infinite;
+}
+
+/* Ring pulse (expands outward) */
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 oklch(var(--p) / 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 10px oklch(var(--p) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 oklch(var(--p) / 0);
+  }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+/* ============================================================================
+   Bounce Variants
+   ============================================================================ */
+
+/* Gentle bounce */
+@keyframes bounce-gentle {
+  0%, 100% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+  }
+  50% {
+    transform: translateY(-15%);
+    animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+.animate-bounce-gentle {
+  animation: bounce-gentle 1s infinite;
+}
+
+/* Single bounce (for new items) */
+@keyframes bounce-once {
+  0% { transform: translateY(0); }
+  20% { transform: translateY(-10px); }
+  40% { transform: translateY(0); }
+  60% { transform: translateY(-5px); }
+  80% { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+.animate-bounce-once {
+  animation: bounce-once 0.6s ease-out;
+}
+
+/* ============================================================================
+   Badge Specific Animations
+   ============================================================================ */
+
+/* Badge pop-in animation */
+@keyframes badge-pop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-badge-pop {
+  animation: badge-pop 0.3s ease-out;
+}
+
+/* Badge value change animation */
+@keyframes badge-change {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(0.9);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-badge-change {
+  animation: badge-change 0.3s ease-out;
+}
+
+/* Badge attention animation */
+@keyframes badge-attention {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 currentColor;
+  }
+  50% {
+    transform: scale(1.1);
+    box-shadow: 0 0 8px currentColor;
+  }
+}
+
+.animate-badge-attention {
+  animation: badge-attention 1s ease-in-out infinite;
+}
+
+/* ============================================================================
+   Dot Indicator Animations
+   ============================================================================ */
+
+/* Online/active dot pulse */
+@keyframes dot-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-dot-pulse {
+  animation: dot-pulse 2s ease-in-out infinite;
+}
+
+/* Dot ripple effect */
+@keyframes dot-ripple {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 0.7;
+  }
+  100% {
+    box-shadow: 0 0 0 8px transparent;
+    opacity: 0;
+  }
+}
+
+.animate-dot-ripple::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  animation: dot-ripple 1.5s ease-out infinite;
+}
+
+/* ============================================================================
+   Tab Transition Animations
+   ============================================================================ */
+
+/* Tab active state transition */
+.tab-transition {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Tab hover scale */
+.tab-hover-scale {
+  transition: transform 0.15s ease-out;
+}
+
+.tab-hover-scale:hover {
+  transform: translateX(2px);
+}
+
+/* Tab active indicator slide */
+@keyframes tab-indicator-slide {
+  from {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  to {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+.animate-tab-indicator {
+  animation: tab-indicator-slide 0.2s ease-out;
+  transform-origin: left;
+}
+
+/* ============================================================================
+   Presence Indicator Animations
+   ============================================================================ */
+
+/* Presence dot breathing */
+@keyframes presence-breathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+.animate-presence-breathe {
+  animation: presence-breathe 3s ease-in-out infinite;
+}
+
+/* User join animation */
+@keyframes user-join {
+  0% {
+    transform: scale(0) translateY(10px);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1) translateY(-2px);
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-user-join {
+  animation: user-join 0.4s ease-out;
+}
+
+/* ============================================================================
+   Group Collapse Animation
+   ============================================================================ */
+
+@keyframes collapse {
+  from {
+    max-height: 500px;
+    opacity: 1;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes expand {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 500px;
+    opacity: 1;
+  }
+}
+
+.animate-collapse {
+  animation: collapse 0.3s ease-out forwards;
+  overflow: hidden;
+}
+
+.animate-expand {
+  animation: expand 0.3s ease-out forwards;
+  overflow: hidden;
+}
+
+/* ============================================================================
+   Utility Classes
+   ============================================================================ */
+
+/* Disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Animation delay utilities */
+.animation-delay-100 { animation-delay: 100ms; }
+.animation-delay-200 { animation-delay: 200ms; }
+.animation-delay-300 { animation-delay: 300ms; }
+.animation-delay-500 { animation-delay: 500ms; }
+.animation-delay-1000 { animation-delay: 1000ms; }
+
+/* Animation duration utilities */
+.animation-duration-fast { animation-duration: 0.15s; }
+.animation-duration-normal { animation-duration: 0.3s; }
+.animation-duration-slow { animation-duration: 0.5s; }
+.animation-duration-slower { animation-duration: 1s; }

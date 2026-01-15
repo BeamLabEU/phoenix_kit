@@ -411,37 +411,37 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   end
 
   # ============================================================================
-  # Editor Presence for Blog Listing
+  # Editor Presence for Group Listing
   # ============================================================================
 
   @doc """
-  Returns the global topic for editor activity across a blog.
-  Used by blog listing to show who's editing what.
+  Returns the global topic for editor activity across a group.
+  Used by group listing to show who's editing what.
   """
-  def blog_editors_topic(blog_slug) do
-    "#{@topic_prefix}:#{blog_slug}:editors"
+  def group_editors_topic(group_slug) do
+    "#{@topic_prefix}:#{group_slug}:editors"
   end
 
   @doc """
-  Subscribes to editor activity for a blog (used by blog listing).
+  Subscribes to editor activity for a group (used by group listing).
   """
-  def subscribe_to_blog_editors(blog_slug) do
-    Manager.subscribe(blog_editors_topic(blog_slug))
+  def subscribe_to_group_editors(group_slug) do
+    Manager.subscribe(group_editors_topic(group_slug))
   end
 
   @doc """
-  Unsubscribes from editor activity for a blog.
+  Unsubscribes from editor activity for a group.
   """
-  def unsubscribe_from_blog_editors(blog_slug) do
-    Manager.unsubscribe(blog_editors_topic(blog_slug))
+  def unsubscribe_from_group_editors(group_slug) do
+    Manager.unsubscribe(group_editors_topic(group_slug))
   end
 
   @doc """
   Broadcasts that a user started editing a post.
   """
-  def broadcast_editor_joined(blog_slug, post_slug, user_info) do
+  def broadcast_editor_joined(group_slug, post_slug, user_info) do
     Manager.broadcast(
-      blog_editors_topic(blog_slug),
+      group_editors_topic(group_slug),
       {:editor_joined, post_slug, user_info}
     )
   end
@@ -449,12 +449,25 @@ defmodule PhoenixKit.Modules.Publishing.PubSub do
   @doc """
   Broadcasts that a user stopped editing a post.
   """
-  def broadcast_editor_left(blog_slug, post_slug, user_info) do
+  def broadcast_editor_left(group_slug, post_slug, user_info) do
     Manager.broadcast(
-      blog_editors_topic(blog_slug),
+      group_editors_topic(group_slug),
       {:editor_left, post_slug, user_info}
     )
   end
+
+  # Deprecated shims for backward compatibility
+  @doc false
+  @deprecated "Use group_editors_topic/1 instead"
+  def blog_editors_topic(group_slug), do: group_editors_topic(group_slug)
+
+  @doc false
+  @deprecated "Use subscribe_to_group_editors/1 instead"
+  def subscribe_to_blog_editors(group_slug), do: subscribe_to_group_editors(group_slug)
+
+  @doc false
+  @deprecated "Use unsubscribe_from_group_editors/1 instead"
+  def unsubscribe_from_blog_editors(group_slug), do: unsubscribe_from_group_editors(group_slug)
 
   # ============================================================================
   # Bulk Operations Progress

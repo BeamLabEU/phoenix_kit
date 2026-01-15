@@ -277,7 +277,7 @@ defmodule PhoenixKit.Cache do
 
   ## Examples
 
-      PhoenixKit.Cache.clear_by_prefix(:blog_posts, "v1:blog_post:my-blog:")
+      PhoenixKit.Cache.clear_by_prefix(:publishing_posts, "v1:blog_post:my-blog:")
       # => {:ok, 15}
 
   """

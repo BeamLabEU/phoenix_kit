@@ -27,7 +27,7 @@
       <%!-- Language Switcher --%>
       <%= if length(@translations) > 1 do %>
         <div class="mt-4">
-          <.blog_language_switcher
+          <.publishing_language_switcher
             languages={build_public_translations(@translations, @current_language)}
             current_language={@current_language}
             show_status={false}

@@ -447,9 +447,14 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
   defp extract_locale_from_path(path) do
     case String.split(path, "/", parts: 3) do
-      ["", locale, _rest] -> locale
-      ["", locale] -> locale
-      _ -> nil
+      ["", locale, _rest] ->
+        if DialectMapper.valid_base_code?(locale), do: locale, else: nil
+
+      ["", locale] ->
+        if DialectMapper.valid_base_code?(locale), do: locale, else: nil
+
+      _ ->
+        nil
     end
   end
 

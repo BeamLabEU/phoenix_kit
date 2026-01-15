@@ -1,6 +1,6 @@
-defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
+defmodule PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher do
   @moduledoc """
-  Unified language switcher component for blog posts.
+  Unified language switcher component for publishing posts.
 
   Displays available languages as a compact inline list with status indicators.
   Flexible enough for admin interfaces (with status dots) and public pages (links only).
@@ -19,8 +19,8 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
 
   ## Examples
 
-      # Admin: blog listing with edit links and status indicators
-      <.blog_language_switcher
+      # Admin: publishing listing with edit links and status indicators
+      <.publishing_language_switcher
         languages={@languages}
         current_language="en"
         on_click="switch_language"
@@ -28,7 +28,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
       />
 
       # Admin: editor with switch functionality
-      <.blog_language_switcher
+      <.publishing_language_switcher
         languages={@languages}
         current_language={@current_language}
         on_click="switch_language"
@@ -37,7 +37,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
       />
 
       # Public: post page with translation links
-      <.blog_language_switcher
+      <.publishing_language_switcher
         languages={@translations}
         current_language={@current_language}
         show_status={false}
@@ -83,7 +83,7 @@ defmodule PhoenixKitWeb.Components.Core.BlogLanguageSwitcher do
   attr :class, :string, default: ""
   attr :size, :atom, default: :sm, values: [:xs, :sm, :md]
 
-  def blog_language_switcher(assigns) do
+  def publishing_language_switcher(assigns) do
     # Filter languages for public mode (only show existing/published)
     languages =
       if assigns.show_status do

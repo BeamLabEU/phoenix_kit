@@ -3,6 +3,7 @@
   {"lib/mix/tasks/phoenix_kit.install.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.update.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :unknown_function},
+  {"lib/mix/tasks/phoenix_kit.gen.dashboard_tab.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :unknown_function},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :unknown_function},
   # Conditional compilation pattern match in update.ex (Code.ensure_loaded?)
@@ -37,6 +38,7 @@
   {"lib/mix/tasks/phoenix_kit.install.ex", :callback_info_missing, 2},
   {"lib/mix/tasks/phoenix_kit.update.ex", :callback_info_missing, 3},
   {"lib/mix/tasks/phoenix_kit.gen.admin_page.ex", :callback_info_missing},
+  {"lib/mix/tasks/phoenix_kit.gen.dashboard_tab.ex", :callback_info_missing},
   {"lib/mix/tasks/phoenix_kit.modernize_layouts.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.assets.rebuild.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.status.ex", :callback_info_missing, 1},
@@ -97,13 +99,26 @@
   # The actual functions return both {:ok, post} and {:error, reason} at runtime
   ~r/lib\/modules\/publishing\/storage\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/listing_cache\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*pattern_match/,
-  ~r/lib\/modules\/publishing\/web\/blog\.ex:.*unused_fun/,
+  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/listing\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*pattern_match/,
   ~r/lib\/modules\/publishing\/web\/editor\.ex:.*unused_fun/,
   ~r/lib\/modules\/publishing\/web\/preview\.ex:.*pattern_match/,
 
-  # BlogController - with-chain type inference false positives
-  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match/,
-  ~r/lib\/phoenix_kit_web\/controllers\/blog_controller\.ex:.*pattern_match_cov/
+  # Publishing Controller - with-chain type inference false positives
+  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match/,
+  ~r/lib\/modules\/publishing\/web\/controller\.ex:.*pattern_match_cov/,
+
+  # Dashboard tab system - keyword list spec inference false positives
+  # Functions accept keyword() but Dialyzer infers broader types from pattern matching
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*invalid_contract/,
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*exact_compare/,
+  ~r/lib\/phoenix_kit\/dashboard\/dashboard\.ex:.*invalid_contract/,
+  # Legacy warning about nil check - path field can be nil for dividers/headers
+  # This is a false positive - dividers and group headers have nil paths by design
+  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:256.*can never evaluate to/,
+
+  # Dashboard context selector - user-provided display_name callback might return nil
+  # Dialyzer infers binary() type from usage but callback contract allows nil
+  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*pattern_match/
 ]

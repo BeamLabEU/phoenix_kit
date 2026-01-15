@@ -1,6 +1,6 @@
-defmodule PhoenixKit.Modules.Publishing.Web.Blog do
+defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   @moduledoc """
-  Lists posts for a blog and provides creation actions.
+  Lists posts for a publishing group and provides creation actions.
   """
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
@@ -10,10 +10,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
-  alias PhoenixKitWeb.BlogHTML
+
+  # Import publishing-specific components
+  import PhoenixKit.Modules.Publishing.Web.Components.LanguageSwitcher
 
   @impl true
   def mount(params, _session, socket) do
@@ -27,7 +30,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
       if blog_slug do
         PublishingPubSub.subscribe_to_posts(blog_slug)
         PublishingPubSub.subscribe_to_cache(blog_slug)
-        PublishingPubSub.subscribe_to_blog_editors(blog_slug)
+        PublishingPubSub.subscribe_to_group_editors(blog_slug)
       end
     end
 
@@ -92,14 +95,14 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
         if old_blog_slug do
           PublishingPubSub.unsubscribe_from_posts(old_blog_slug)
           PublishingPubSub.unsubscribe_from_cache(old_blog_slug)
-          PublishingPubSub.unsubscribe_from_blog_editors(old_blog_slug)
+          PublishingPubSub.unsubscribe_from_group_editors(old_blog_slug)
         end
 
         # Subscribe to new blog's topics
         if new_blog_slug do
           PublishingPubSub.subscribe_to_posts(new_blog_slug)
           PublishingPubSub.subscribe_to_cache(new_blog_slug)
-          PublishingPubSub.subscribe_to_blog_editors(new_blog_slug)
+          PublishingPubSub.subscribe_to_group_editors(new_blog_slug)
         end
 
         # Reset editor tracking state for new blog
@@ -444,9 +447,9 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
 
   def handle_event("toggle_render_cache", _params, socket) do
     blog_slug = socket.assigns.blog_slug
-    current = Renderer.blog_render_cache_enabled?(blog_slug)
+    current = Renderer.group_render_cache_enabled?(blog_slug)
     new_value = !current
-    Settings.update_setting(Renderer.per_blog_cache_key(blog_slug), to_string(new_value))
+    Settings.update_setting(Renderer.per_group_cache_key(blog_slug), to_string(new_value))
 
     message =
       if new_value, do: gettext("Render cache enabled"), else: gettext("Render cache disabled")
@@ -460,7 +463,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
   def handle_event("clear_render_cache", _params, socket) do
     blog_slug = socket.assigns.blog_slug
 
-    case Renderer.clear_blog_cache(blog_slug) do
+    case Renderer.clear_group_cache(blog_slug) do
       {:ok, count} ->
         {:noreply,
          socket
@@ -869,7 +872,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
   end
 
   @doc """
-  Builds language data for the blog_language_switcher component.
+  Builds language data for the publishing_language_switcher component.
   Returns a list of language maps with status, path, enabled flag, known flag, and metadata.
 
   The `enabled` field indicates if the language is currently active in the Languages module.
@@ -970,7 +973,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Blog do
     cache_path = ListingCache.cache_path(blog_slug)
     file_enabled = ListingCache.file_cache_enabled?()
     memory_enabled = ListingCache.memory_cache_enabled?()
-    render_enabled = Renderer.blog_render_cache_enabled?(blog_slug)
+    render_enabled = Renderer.group_render_cache_enabled?(blog_slug)
     render_global_enabled = Renderer.global_render_cache_enabled?()
 
     # Check if in :persistent_term

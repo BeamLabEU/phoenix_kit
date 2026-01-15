@@ -212,6 +212,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/log-out", Users.Session, :get_logout
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
 
+        # Dashboard context switching
+        post "/context/:id", ContextController, :set
+
         # OAuth routes for external provider authentication
         get "/users/auth/:provider", Users.OAuth, :request
         get "/users/auth/:provider/callback", Users.OAuth, :callback
@@ -800,7 +803,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index_localized
 
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
             as: :publishing_blog_localized
 
           live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
@@ -833,7 +836,7 @@ defmodule PhoenixKitWeb.Integration do
           live "/admin/publishing", PhoenixKit.Modules.Publishing.Web.Index, :index,
             as: :publishing_index
 
-          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Blog, :blog,
+          live "/admin/publishing/:blog", PhoenixKit.Modules.Publishing.Web.Listing, :blog,
             as: :publishing_blog
 
           live "/admin/publishing/:blog/edit", PhoenixKit.Modules.Publishing.Web.Editor, :edit,
@@ -1119,7 +1122,10 @@ defmodule PhoenixKitWeb.Integration do
     quote do
       if unquote(PhoenixKit.Config.user_dashboard_enabled?()) do
         live_session unquote(session_name),
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope}] do
+          on_mount: [
+            {PhoenixKitWeb.Users.Auth, :phoenix_kit_ensure_authenticated_scope},
+            {PhoenixKitWeb.Dashboard.ContextProvider, :default}
+          ] do
           live "/dashboard", Live.Dashboard.Index, :index
           live "/dashboard/settings", Live.Dashboard.Settings, :edit
 
@@ -1142,6 +1148,19 @@ defmodule PhoenixKitWeb.Integration do
       scope "#{unquote(url_prefix)}/:locale", PhoenixKitWeb,
         locale: ~r/^(#{unquote(pattern)})$/ do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
+
+        # POST routes for authentication (needed for locale-prefixed form submissions)
+        post "/users/log-in", Users.Session, :create
+        delete "/users/log-out", Users.Session, :delete
+        get "/users/log-out", Users.Session, :get_logout
+        get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
+
+        # OAuth routes
+        get "/users/auth/:provider", Users.OAuth, :request
+        get "/users/auth/:provider/callback", Users.OAuth, :callback
+
+        # Magic Link Registration
+        get "/users/register/verify/:token", Users.MagicLinkRegistrationVerify, :verify
 
         phoenix_kit_auth_routes(:_locale)
         phoenix_kit_confirmation_routes(:_locale)
@@ -1175,12 +1194,15 @@ defmodule PhoenixKitWeb.Integration do
           prefix -> "#{prefix}/:language"
         end
 
-      scope blog_scope_multi, PhoenixKitWeb do
+      scope blog_scope_multi do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
-        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
-        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
+
+        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
       end
 
       # Non-localized blog routes (for when url_prefix is "/")
@@ -1190,13 +1212,16 @@ defmodule PhoenixKitWeb.Integration do
           prefix -> prefix
         end
 
-      scope blog_scope_non_localized, PhoenixKitWeb do
+      scope blog_scope_non_localized do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
         # Exclude admin paths from blogging catch-all routes
         # Language detection is handled in the controller by checking if content exists
-        get "/:blog", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
-        get "/:blog/*path", BlogController, :show, constraints: %{"blog" => ~r/^(?!admin$)/}
+        get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
+
+        get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
+          constraints: %{"blog" => ~r/^(?!admin$)/}
       end
     end
   end

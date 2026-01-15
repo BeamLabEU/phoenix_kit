@@ -3,9 +3,39 @@
 
   This layout is specifically designed for authenticated user dashboard pages.
   It provides a clean interface for regular users to view their profile and activities.
+
+  Features:
+  - Dynamic tab navigation from PhoenixKit.Dashboard.Registry
+  - Support for custom tabs via config or runtime registration
+  - Real-time badge updates via PubSub
+  - Presence tracking for viewer counts
+  - Attention animations for important tabs
+  - Mobile-friendly navigation
+
   Note: This layout does NOT use LayoutWrapper.app_layout as that's for admin pages only.
 --%>
-<% project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit") %> <!DOCTYPE html>
+<% project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit") %>
+<% # Get tabs from registry (with active state based on current path)
+dashboard_tabs =
+  assigns[:dashboard_tabs] ||
+    PhoenixKit.Dashboard.Registry.get_tabs_with_active(
+      assigns[:url_path] || "/dashboard",
+      scope: assigns[:phoenix_kit_current_scope]
+    )
+
+# Get viewer counts if presence is enabled
+viewer_counts = assigns[:tab_viewer_counts] || %{}
+
+# Get collapsed groups
+collapsed_groups = assigns[:collapsed_dashboard_groups] || MapSet.new()
+
+# Get context selector data (may be nil if not configured)
+show_context_selector = assigns[:show_context_selector] || false
+dashboard_contexts = assigns[:dashboard_contexts] || []
+current_context = assigns[:current_context]
+
+context_selector_config =
+  assigns[:context_selector_config] || %PhoenixKit.Dashboard.ContextSelector{enabled: false} %> <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -16,15 +46,47 @@
       {assigns[:page_title] || "Dashboard"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+    <%!-- Dashboard animations CSS --%>
+    <style>
+      /* Shake animation for attention */
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+        20%, 40%, 60%, 80% { transform: translateX(2px); }
+      }
+      .animate-shake { animation: shake 0.5s ease-in-out; }
+
+      /* Glow animation for highlighting */
+      @keyframes glow {
+        0%, 100% { box-shadow: 0 0 5px currentColor; }
+        50% { box-shadow: 0 0 20px currentColor; }
+      }
+      .animate-glow { animation: glow 2s ease-in-out infinite; }
+
+      /* Badge pop animation */
+      @keyframes badge-pop {
+        0% { transform: scale(0); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
+      }
+      .animate-badge-pop { animation: badge-pop 0.3s ease-out; }
+
+      /* Respect reduced motion preference */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    </style>
   </head>
   <body class="bg-base-100 antialiased">
     <div class="min-h-screen bg-base-100">
-      <%!-- User Dashboard Header (matching admin style) --%>
+      <%!-- User Dashboard Header --%>
       <header class="bg-base-100 shadow-sm border-b border-base-300 fixed top-0 left-0 right-0 z-50">
         <div class="flex items-center justify-between h-16 px-4">
           <%!-- Left: Logo and Title --%>
           <div class="flex items-center gap-3">
-            <!-- Logo and Title Link to Main Page -->
             <.link
               navigate="/"
               class="flex items-center gap-3 hover:opacity-80 transition-opacity"
@@ -32,16 +94,38 @@
               <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
                 <.icon name="hero-home" class="w-5 h-5 text-primary-content" />
               </div>
-              <!-- Title -->
-              <span class="font-bold text-base-content">
+              <span class="font-bold text-base-content hidden sm:inline">
                 {gettext("%{project_title} Dashboard", project_title: project_title)}
               </span>
             </.link>
+            <%!-- Context Selector (header start - after logo) --%>
+            <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :start do %>
+              <div class="hidden sm:flex items-center">
+                <%= if context_selector_config.separator do %>
+                  <span class="text-base-content/30 mx-2">
+                    {context_selector_config.separator}
+                  </span>
+                <% end %>
+                <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
+                  contexts={dashboard_contexts}
+                  current={current_context}
+                  config={context_selector_config}
+                />
+              </div>
+            <% end %>
           </div>
-          
-<!-- Right: User Dropdown -->
+
+          <%!-- Right: User Dropdown --%>
           <div class="flex items-center gap-3">
-            <!-- User Dropdown -->
+            <%!-- Context Selector (header end - before user menu) --%>
+            <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :end do %>
+              <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
+                contexts={dashboard_contexts}
+                current={current_context}
+                config={context_selector_config}
+                class="hidden sm:flex"
+              />
+            <% end %>
             <PhoenixKitWeb.Components.UserDashboardNav.user_dropdown
               scope={assigns[:phoenix_kit_current_scope]}
               current_path={assigns[:url_path] || "/dashboard"}
@@ -50,285 +134,50 @@
           </div>
         </div>
       </header>
-      
-<!-- Main Content Area with top padding for fixed header -->
+
+      <%!-- Main Content Area --%>
       <div class="pt-16">
         <div class="flex">
-          <!-- Left Sidebar Navigation -->
-          <aside class="w-64 sticky top-16 h-[calc(100vh-4rem)] bg-base-100 border-r border-base-300 hidden lg:block overflow-y-auto">
-            <div class="p-4">
-              <nav class="space-y-2">
-                <!-- Dashboard Link -->
-                <%= if String.ends_with?(assigns[:url_path] || "/dashboard", "/dashboard") do %>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
-                  >
-                    <.icon name="hero-home" class="w-5 h-5 mr-3" /> {gettext("Dashboard")}
-                  </.link>
-                <% else %>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                  >
-                    <.icon name="hero-home" class="w-5 h-5 mr-3" /> {gettext("Dashboard")}
-                  </.link>
-                <% end %>
-
-                <%!-- Settings Link --%>
-                <%= if String.contains?(assigns[:url_path] || "", "/dashboard/settings") do %>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
-                  >
-                    <.icon name="hero-cog-6-tooth" class="w-5 h-5 mr-3" /> {gettext("Settings")}
-                  </.link>
-                <% else %>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                  >
-                    <.icon name="hero-cog-6-tooth" class="w-5 h-5 mr-3" /> {gettext("Settings")}
-                  </.link>
-                <% end %>
-
-                <%!-- My Tickets Link --%>
-                <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
-                  <%= if String.contains?(assigns[:url_path] || "", "/dashboard/tickets") do %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/tickets",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
-                    >
-                      <.icon name="hero-ticket" class="w-5 h-5 mr-3" /> {gettext("My Tickets")}
-                    </.link>
-                  <% else %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/tickets",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                    >
-                      <.icon name="hero-ticket" class="w-5 h-5 mr-3" /> {gettext("My Tickets")}
-                    </.link>
-                  <% end %>
-                <% end %>
-
-                <%!-- My Orders Link --%>
-                <%= if PhoenixKit.Modules.Billing.enabled?() do %>
-                  <%= if String.contains?(assigns[:url_path] || "", "/dashboard/orders") do %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
-                    >
-                      <.icon name="hero-shopping-bag" class="w-5 h-5 mr-3" /> {gettext(
-                        "My Orders"
-                      )}
-                    </.link>
-                  <% else %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                    >
-                      <.icon name="hero-shopping-bag" class="w-5 h-5 mr-3" /> {gettext(
-                        "My Orders"
-                      )}
-                    </.link>
-                  <% end %>
-                <% end %>
-
-                <%!-- Billing Profiles Link --%>
-                <%= if PhoenixKit.Modules.Billing.enabled?() do %>
-                  <%= if String.contains?(assigns[:url_path] || "", "/dashboard/billing-profiles") do %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/billing-profiles",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors bg-primary text-primary-content"
-                    >
-                      <.icon name="hero-identification" class="w-5 h-5 mr-3" /> {gettext(
-                        "Billing Profiles"
-                      )}
-                    </.link>
-                  <% else %>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/billing-profiles",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                    >
-                      <.icon name="hero-identification" class="w-5 h-5 mr-3" /> {gettext(
-                        "Billing Profiles"
-                      )}
-                    </.link>
-                  <% end %>
-                <% end %>
-
-                <%!-- Shop Links (shown for authenticated users) --%>
-                <%= if assigns[:phoenix_kit_current_user] do %>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/shop", locale: assigns[:current_locale_base])
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                  >
-                    <.icon name="hero-building-storefront" class="w-5 h-5 mr-3" /> {gettext(
-                      "Shop"
-                    )}
-                  </.link>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/cart", locale: assigns[:current_locale_base])
-                    }
-                    class="flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors text-base-content hover:bg-base-200"
-                  >
-                    <.icon name="hero-shopping-cart" class="w-5 h-5 mr-3" /> {gettext("My Cart")}
-                  </.link>
-                <% end %>
-              </nav>
+          <%!-- Left Sidebar Navigation (Desktop) --%>
+          <aside class="w-64 h-[calc(100vh-4rem)] bg-base-100 border-r border-base-300 hidden lg:flex flex-col sticky top-16">
+            <div class="p-4 flex-1">
+              <PhoenixKitWeb.Components.Dashboard.Sidebar.dashboard_sidebar
+                current_path={assigns[:url_path] || "/dashboard"}
+                scope={assigns[:phoenix_kit_current_scope]}
+                locale={assigns[:current_locale_base]}
+                tabs={dashboard_tabs}
+                viewer_counts={viewer_counts}
+                collapsed_groups={collapsed_groups}
+                show_context_selector={show_context_selector}
+                dashboard_contexts={dashboard_contexts}
+                current_context={current_context}
+                context_selector_config={context_selector_config}
+              />
             </div>
+            <%!-- Bottom Context Selector (when sub_position: :end) --%>
+            <%= if show_context_selector and context_selector_config && context_selector_config.enabled and context_selector_config.position == :sidebar and context_selector_config.sub_position == :end do %>
+              <div class="p-4 border-t border-base-300 mt-auto">
+                <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+                  contexts={dashboard_contexts}
+                  current={current_context}
+                  config={context_selector_config}
+                />
+              </div>
+            <% end %>
           </aside>
-          
-<!-- Mobile Menu Button -->
-          <div class="lg:hidden fixed bottom-4 right-4 z-50">
-            <div class="dropdown dropdown-top dropdown-end">
-              <label tabindex="0" class="btn btn-primary btn-circle">
-                <.icon name="hero-bars-3" class="w-5 h-5" />
-              </label>
-              <ul
-                tabindex="0"
-                class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52"
-              >
-                <li>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center gap-2"
-                  >
-                    <.icon name="hero-home" class="w-4 h-4" /> {gettext("Dashboard")}
-                  </.link>
-                </li>
-                <li>
-                  <.link
-                    navigate={
-                      PhoenixKit.Utils.Routes.path("/dashboard/settings",
-                        locale: assigns[:current_locale_base]
-                      )
-                    }
-                    class="flex items-center gap-2"
-                  >
-                    <.icon name="hero-cog-6-tooth" class="w-4 h-4" /> {gettext("Settings")}
-                  </.link>
-                </li>
-                <%= if PhoenixKit.Modules.Tickets.enabled?() do %>
-                  <li>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/tickets",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center gap-2"
-                    >
-                      <.icon name="hero-ticket" class="w-4 h-4" /> {gettext("My Tickets")}
-                    </.link>
-                  </li>
-                <% end %>
-                <%= if PhoenixKit.Modules.Billing.enabled?() do %>
-                  <li>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/orders",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center gap-2"
-                    >
-                      <.icon name="hero-shopping-bag" class="w-4 h-4" /> {gettext("My Orders")}
-                    </.link>
-                  </li>
-                  <li>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/dashboard/billing-profiles",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center gap-2"
-                    >
-                      <.icon name="hero-identification" class="w-4 h-4" /> {gettext(
-                        "Billing Profiles"
-                      )}
-                    </.link>
-                  </li>
-                <% end %>
-                <%= if assigns[:phoenix_kit_current_user] do %>
-                  <li>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/shop",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center gap-2"
-                    >
-                      <.icon name="hero-building-storefront" class="w-4 h-4" /> {gettext("Shop")}
-                    </.link>
-                  </li>
-                  <li>
-                    <.link
-                      navigate={
-                        PhoenixKit.Utils.Routes.path("/cart",
-                          locale: assigns[:current_locale_base]
-                        )
-                      }
-                      class="flex items-center gap-2"
-                    >
-                      <.icon name="hero-shopping-cart" class="w-4 h-4" /> {gettext("My Cart")}
-                    </.link>
-                  </li>
-                <% end %>
-              </ul>
-            </div>
-          </div>
-          
-<!-- Main Content -->
+
+          <%!-- Mobile FAB Menu --%>
+          <PhoenixKitWeb.Components.Dashboard.Sidebar.mobile_fab_menu
+            current_path={assigns[:url_path] || "/dashboard"}
+            scope={assigns[:phoenix_kit_current_scope]}
+            locale={assigns[:current_locale_base]}
+            show_context_selector={show_context_selector}
+            dashboard_contexts={dashboard_contexts}
+            current_context={current_context}
+            context_selector_config={context_selector_config}
+          />
+
+          <%!-- Main Content --%>
           <main class="flex-1 px-4 py-8">
             <div class="max-w-6xl mx-auto">
               <.flash_group flash={@flash} />

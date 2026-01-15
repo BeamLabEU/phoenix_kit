@@ -123,12 +123,17 @@ mix phoenix_kit.configure_aws_ses --region "eu-north-1"
 mix phoenix_kit.configure_aws_ses --status   # Check current config
 ```
 
-### Environment Variables (Secrets Only)
+### Configuration (Secrets)
 
-```bash
-export AWS_ACCESS_KEY_ID="your-access-key"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_REGION="eu-north-1"  # Optional when stored in Settings
+Configure via Settings UI at `/{prefix}/admin/settings/emails` or via config:
+
+```elixir
+# config/config.exs
+config :phoenix_kit,
+  aws: [
+    access_key_id: "your-access-key",
+    secret_access_key: "your-secret-key"
+  ]
 ```
 
 ### Important Note
@@ -176,12 +181,15 @@ cd /app/scripts
 ./aws_ses_sqs_setup.sh  # Creates AWS infrastructure + saves to Settings DB
 ```
 
-#### Method 4: Environment Variables (Secrets Only)
+#### Method 4: Application Config (Secrets Only)
 
-```bash
-export AWS_ACCESS_KEY_ID="your-key-id"
-export AWS_SECRET_ACCESS_KEY="your-secret-key"
-export AWS_REGION="eu-north-1"
+```elixir
+# config/config.exs
+config :phoenix_kit,
+  aws: [
+    access_key_id: "your-key-id",
+    secret_access_key: "your-secret-key"
+  ]
 ```
 
 ### Storage Map
@@ -203,12 +211,6 @@ export AWS_REGION="eu-north-1"
 - `sqs_polling_interval_ms`
 - All other email-related settings
 
-**Environment Variables**
-
-- `AWS_ACCESS_KEY_ID` – Used only when Settings DB lacks a value
-- `AWS_SECRET_ACCESS_KEY` – Used only when Settings DB lacks a value
-- `AWS_REGION` – Optional fallback region
-
 **`config/config.exs`**
 
 - `repo:` – PhoenixKit repository configuration (required)
@@ -220,32 +222,32 @@ export AWS_REGION="eu-north-1"
 ```
 1. Settings Database (primary)
    └─> If credentials exist and are non-empty → use them
-2. Environment Variables (fallback)
+2. Application Config (fallback)
    └─> Used when Settings Database values are blank
 ```
 
 This means:
 
-- ✅ Settings values override environment variables for runtime control
-- ✅ Environment variables keep working when the Settings DB is empty
+- ✅ Settings values override config for runtime control
+- ✅ Config provides defaults for new installations
 - ❌ Leaving both empty results in missing credentials
 
 Example scenarios:
 
 ```bash
-# 1) Web UI + ENV → Settings Database wins
+# 1) Web UI + Config → Settings Database wins
 # Settings: aws_access_key_id = "AKIA...from_ui"
-# ENV:      AWS_ACCESS_KEY_ID = "AKIA...from_env"
+# Config:   aws: [access_key_id: "AKIA...from_config"]
 # Result:   Uses "AKIA...from_ui"
 
-# 2) ENV only → fallback kicks in
+# 2) Config only → fallback kicks in
 # Settings: aws_access_key_id = ""
-# ENV:      AWS_ACCESS_KEY_ID = "AKIA...from_env"
-# Result:   Uses "AKIA...from_env"
+# Config:   aws: [access_key_id: "AKIA...from_config"]
+# Result:   Uses "AKIA...from_config"
 
 # 3) Nothing configured → error
 # Settings: aws_access_key_id = ""
-# ENV:      AWS_ACCESS_KEY_ID not set
+# Config:   (not set)
 # Result:   Raises configuration error
 ```
 
@@ -418,20 +420,9 @@ PhoenixKit uses the Settings Database as the primary source for AWS credentials.
    {prefix}/admin/settings/emails → aws_access_key_id field
    ```
 
-2. **Check environment variables**:
+2. **Check Settings UI** - Navigate to `{prefix}/admin/settings/emails` and verify AWS credentials are saved
 
-   ```bash
-   echo $AWS_ACCESS_KEY_ID
-   echo $AWS_SECRET_ACCESS_KEY
-   echo $AWS_REGION
-   ```
-
-3. **Clear the Settings Database** if you want to rely solely on environment variables:
-
-   ```elixir
-   PhoenixKit.Settings.delete_setting("aws_access_key_id")
-   PhoenixKit.Settings.delete_setting("aws_secret_access_key")
-   ```
+3. **Check config** - Verify `config :phoenix_kit, aws:` is set in `config/config.exs`
 
 **Verification**
 

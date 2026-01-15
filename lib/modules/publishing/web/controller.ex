@@ -1,4 +1,4 @@
-defmodule PhoenixKitWeb.BlogController do
+defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   @moduledoc """
   Public blog post display controller.
 
@@ -20,8 +20,8 @@ defmodule PhoenixKitWeb.BlogController do
   alias PhoenixKit.Modules.Publishing.Metadata
   alias PhoenixKit.Modules.Publishing.Renderer
   alias PhoenixKit.Modules.Publishing.Storage
+  alias PhoenixKit.Modules.Publishing.Web.HTML, as: PublishingHTML
   alias PhoenixKit.Settings
-  alias PhoenixKitWeb.BlogHTML
 
   # Suppress dialyzer false positive for defensive fallback pattern
   @dialyzer {:nowarn_function, render_post_content: 1}
@@ -375,7 +375,7 @@ defmodule PhoenixKitWeb.BlogController do
 
         if canonical_language != language do
           # Redirect to canonical URL
-          canonical_url = BlogHTML.blog_listing_path(canonical_language, blog_slug, params)
+          canonical_url = PublishingHTML.blog_listing_path(canonical_language, blog_slug, params)
           redirect(conn, to: canonical_url)
         else
           page = get_page_param(params)
@@ -435,14 +435,14 @@ defmodule PhoenixKitWeb.BlogController do
         elapsed_us = System.monotonic_time(:microsecond) - start_time
 
         Logger.debug(
-          "[BlogController] Cache HIT for #{blog_slug} (#{elapsed_us}μs, #{length(posts)} posts)"
+          "[PublishingController] Cache HIT for #{blog_slug} (#{elapsed_us}μs, #{length(posts)} posts)"
         )
 
         posts
 
       {:error, :cache_miss} ->
         Logger.warning(
-          "[BlogController] Cache MISS for #{blog_slug} - falling back to filesystem scan"
+          "[PublishingController] Cache MISS for #{blog_slug} - falling back to filesystem scan"
         )
 
         # Cache miss - scan filesystem and regenerate cache for next request
@@ -452,7 +452,7 @@ defmodule PhoenixKitWeb.BlogController do
         elapsed_ms = Float.round(elapsed_us / 1000, 1)
 
         Logger.warning(
-          "[BlogController] Filesystem scan complete for #{blog_slug} (#{elapsed_ms}ms, #{length(all_posts)} posts)"
+          "[PublishingController] Filesystem scan complete for #{blog_slug} (#{elapsed_ms}ms, #{length(all_posts)} posts)"
         )
 
         # Regenerate cache asynchronously (don't block the request)
@@ -557,7 +557,7 @@ defmodule PhoenixKitWeb.BlogController do
       language_slugs: %{language => current_url_slug}
     }
 
-    BlogHTML.build_post_url(blog_slug, post, language)
+    PublishingHTML.build_post_url(blog_slug, post, language)
   end
 
   # Resolves a URL slug to the internal directory slug
@@ -706,7 +706,7 @@ defmodule PhoenixKitWeb.BlogController do
       language_slugs: cached_post.language_slugs
     }
 
-    BlogHTML.build_post_url(blog_slug, post, language)
+    PublishingHTML.build_post_url(blog_slug, post, language)
   end
 
   defp render_resolved_post(conn, blog_slug, identifier, language) do
@@ -720,7 +720,7 @@ defmodule PhoenixKitWeb.BlogController do
 
           if canonical_language != language do
             # Redirect to canonical URL
-            canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
+            canonical_url = PublishingHTML.build_post_url(blog_slug, post, canonical_language)
             redirect(conn, to: canonical_url)
           else
             # Render markdown (cached for published posts)
@@ -784,7 +784,7 @@ defmodule PhoenixKitWeb.BlogController do
             breadcrumbs = build_breadcrumbs(blog_slug, post, canonical_language)
 
             # Build canonical URL (points to main post URL, not versioned URL)
-            canonical_url = BlogHTML.build_post_url(blog_slug, post, canonical_language)
+            canonical_url = PublishingHTML.build_post_url(blog_slug, post, canonical_language)
 
             # Build version dropdown data (also gives us the live version)
             version_dropdown = build_version_dropdown(blog_slug, post, canonical_language)
@@ -853,7 +853,7 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Builds a timestamp URL with date and time
   defp build_timestamp_url(blog_slug, date, time, language) do
-    BlogHTML.build_public_path_with_time(language, blog_slug, date, time)
+    PublishingHTML.build_public_path_with_time(language, blog_slug, date, time)
   end
 
   # ============================================================================
@@ -1248,7 +1248,7 @@ defmodule PhoenixKitWeb.BlogController do
           display_code: display_code,
           name: get_language_name(lang),
           flag: get_language_flag(lang),
-          url: BlogHTML.blog_listing_path(display_code, blog_slug),
+          url: PublishingHTML.blog_listing_path(display_code, blog_slug),
           current: DialectMapper.extract_base(lang) == current_base
         }
       end)
@@ -1335,7 +1335,7 @@ defmodule PhoenixKitWeb.BlogController do
         if version do
           build_version_url(blog_slug, post_with_url_slug, display_code, version)
         else
-          BlogHTML.build_post_url(blog_slug, post_with_url_slug, display_code)
+          PublishingHTML.build_post_url(blog_slug, post_with_url_slug, display_code)
         end
 
       %{
@@ -1437,7 +1437,7 @@ defmodule PhoenixKitWeb.BlogController do
       end
 
     [
-      %{label: blog_name, url: BlogHTML.blog_listing_path(language, blog_slug)},
+      %{label: blog_name, url: PublishingHTML.blog_listing_path(language, blog_slug)},
       %{label: post.metadata.title, url: nil}
     ]
   end
@@ -1504,7 +1504,7 @@ defmodule PhoenixKitWeb.BlogController do
 
   defp default_blog_listing(language) do
     case Publishing.list_groups() do
-      [%{"slug" => slug} | _] -> BlogHTML.blog_listing_path(language, slug)
+      [%{"slug" => slug} | _] -> PublishingHTML.blog_listing_path(language, slug)
       _ -> nil
     end
   end
@@ -1670,12 +1670,12 @@ defmodule PhoenixKitWeb.BlogController do
 
   # Builds URL for a specific version of a post
   defp build_version_url(blog_slug, post, language, version) do
-    base_url = BlogHTML.build_post_url(blog_slug, post, language)
+    base_url = PublishingHTML.build_post_url(blog_slug, post, language)
     "#{base_url}/v/#{version}"
   end
 
   defp log_404(conn, blog_slug, identifier, language, reason) do
-    Logger.info("Blog 404",
+    Logger.info("Publishing 404",
       blog_slug: blog_slug,
       identifier: inspect(identifier),
       reason: reason,
@@ -1815,7 +1815,7 @@ defmodule PhoenixKitWeb.BlogController do
   # No posts found on this date - fall back to blog listing
   # The blog listing will show all available posts
   defp fallback_to_other_date(blog_slug, default_lang) do
-    {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
+    {:ok, PublishingHTML.blog_listing_path(default_lang, blog_slug)}
   end
 
   # Find the first published post at any of the given times
@@ -1920,7 +1920,7 @@ defmodule PhoenixKitWeb.BlogController do
 
       :not_found ->
         # Post doesn't exist at all - fall back to blog listing
-        {:ok, BlogHTML.blog_listing_path(default_lang, blog_slug)}
+        {:ok, PublishingHTML.blog_listing_path(default_lang, blog_slug)}
     end
   end
 
@@ -1974,7 +1974,7 @@ defmodule PhoenixKitWeb.BlogController do
           {:ok, _version} ->
             # Published version exists - use base URL
             # fetch_post will find the right version
-            {:ok, BlogHTML.build_post_url(blog_slug, post, lang)}
+            {:ok, PublishingHTML.build_post_url(blog_slug, post, lang)}
 
           :not_found ->
             nil
@@ -1982,7 +1982,7 @@ defmodule PhoenixKitWeb.BlogController do
       end)
 
     # If no published version found, fall back to blog listing
-    result || {:ok, BlogHTML.blog_listing_path(fallback_lang, blog_slug)}
+    result || {:ok, PublishingHTML.blog_listing_path(fallback_lang, blog_slug)}
   end
 
   defp blog_exists?(blog_slug) do

@@ -35,9 +35,10 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
 
   use Mix.Task
 
+  alias PhoenixKit.Config.AWS
   alias PhoenixKit.Modules.Emails
 
-  @default_region "eu-north-1"
+  @dialyzer {:nowarn_function, prompt_boolean: 2}
 
   @impl Mix.Task
   def run(args) do
@@ -89,14 +90,14 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
     IO.puts("   Configuration Set: #{config.ses_configuration_set || "❌ Not set"}")
     IO.puts("   AWS Region: #{config.aws_region || "❌ Not set"}")
 
-    aws_access_key = System.get_env("AWS_ACCESS_KEY_ID")
-    aws_secret_key = System.get_env("AWS_SECRET_ACCESS_KEY")
-
     IO.puts("\n🔑 AWS Credentials:")
-    IO.puts("   Access Key ID: #{if aws_access_key, do: "✅ Configured", else: "❌ Missing"}")
-    IO.puts("   Secret Access Key: #{if aws_secret_key, do: "✅ Configured", else: "❌ Missing"}")
+    IO.puts("   Access Key ID: #{format_credential(AWS.access_key_id())}")
+    IO.puts("   Secret Access Key: #{format_credential(AWS.secret_access_key())}")
 
-    complete = config.enabled && config.ses_configuration_set && aws_access_key && aws_secret_key
+    complete =
+      config.enabled && config.ses_configuration_set &&
+        credential_present?(AWS.access_key_id()) &&
+        credential_present?(AWS.secret_access_key())
 
     IO.puts(
       "\n#{if complete, do: "✅", else: "⚠️"} Configuration Status: #{if complete, do: "Complete", else: "Incomplete"}"
@@ -123,7 +124,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
         updates
       end
 
-    region = opts[:region] || @default_region
+    region = opts[:region] || AWS.region()
 
     updates =
       case Emails.set_aws_region(region) do
@@ -157,7 +158,7 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
       Emails.set_ses_configuration_set(config_set)
     end
 
-    region = prompt("AWS Region", @default_region)
+    region = prompt("AWS Region", AWS.region())
     Emails.set_aws_region(region)
 
     enable_ses = prompt_boolean("Enable SES event management?", true)
@@ -168,6 +169,18 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
   end
 
   # Helper functions
+  defp format_credential(credential) when is_binary(credential) and credential != "" do
+    "✅ Configured"
+  end
+
+  defp format_credential(_), do: "❌ Missing"
+
+  defp credential_present?(credential) when is_binary(credential) and credential != "" do
+    true
+  end
+
+  defp credential_present?(_), do: false
+
   defp format_boolean(value) do
     case value do
       true -> "✅ Yes"
@@ -185,17 +198,14 @@ defmodule Mix.Tasks.PhoenixKit.ConfigureAwsSes do
   defp format_default(""), do: ""
   defp format_default(default), do: " [#{default}]"
 
-  @spec prompt_boolean(String.t(), boolean()) :: boolean()
-  defp prompt_boolean(message, default) when is_boolean(default) do
-    default_text =
+  defp prompt_boolean(message, default) do
+    prompt_text =
       case default do
         true -> " [Y/n]"
         false -> " [y/N]"
       end
 
-    input = IO.gets("#{message}#{default_text}: ") |> String.trim() |> String.downcase()
-
-    case input do
+    case IO.gets("#{message}#{prompt_text}: ") |> String.trim() |> String.downcase() do
       "" -> default
       "y" -> true
       "yes" -> true
