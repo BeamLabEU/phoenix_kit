@@ -74,6 +74,16 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
     doc: "Current path to preserve when switching languages"
   )
 
+  attr(:scroll_threshold, :integer,
+    default: 10,
+    doc: "Number of languages after which to show scrollbar and search"
+  )
+
+  attr(:show_current, :boolean,
+    default: false,
+    doc: "Show current language (flag + name) in dropdown trigger instead of globe icon"
+  )
+
   attr(:_language_update_key, :any,
     default: nil,
     doc: "Internal: forces re-render when languages change"
@@ -139,59 +149,99 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
           "flag" => "🌐"
         }
 
+    # Determine if we need scroll/search based on language count
+    needs_scroll = length(filtered_languages) > assigns.scroll_threshold
+
     assigns =
       assigns
       |> assign(:current_locale, locale)
       |> assign(:current_base, current_base)
       |> assign(:languages, filtered_languages)
       |> assign(:current_language, current_language)
+      |> assign(:needs_scroll, needs_scroll)
 
     ~H"""
     <div class={["relative", @class]}>
       <details class="dropdown dropdown-end dropdown-bottom" id="language-switcher-dropdown">
-        <summary class="btn btn-sm btn-ghost btn-circle">
-          <Icon.icon name="hero-globe-alt" class="w-5 h-5" />
+        <summary class={[
+          "btn btn-sm",
+          if(@show_current, do: "gap-2", else: "btn-ghost btn-circle")
+        ]}>
+          <%= if @show_current do %>
+            <span class="text-lg">{@current_language["flag"]}</span>
+            <span class="font-medium">{@current_language["name"]}</span>
+            <Icon.icon name="hero-chevron-down" class="w-4 h-4" />
+          <% else %>
+            <Icon.icon name="hero-globe-alt" class="w-5 h-5" />
+          <% end %>
         </summary>
-        <ul
-          class="dropdown-content w-56 rounded-box border border-base-200 bg-base-100 p-2 shadow-xl z-[60] mt-2 list-none space-y-1"
+        <div
+          class="dropdown-content w-56 rounded-box border border-base-200 bg-base-100 shadow-xl z-[60] mt-2"
           tabindex="0"
           phx-click-away={JS.remove_attribute("open", to: "#language-switcher-dropdown")}
         >
-          <%= for language <- @languages do %>
-            <li class="w-full">
-              <a
-                href={generate_base_code_url(language["base_code"], @current_path)}
-                phx-click="phoenix_kit_set_locale"
-                phx-value-locale={language["base_code"]}
-                phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
-                class={[
-                  "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
-                  if(language["base_code"] == @current_base, do: "bg-base-200", else: "")
-                ]}
-              >
-                <%= if @show_flags do %>
-                  <span class="text-lg">{language["flag"]}</span>
-                <% end %>
-                <%= if @show_names do %>
-                  <div class="flex-1">
-                    <span class="font-medium text-base-content">
-                      <%= if @show_native_names && Map.get(language, "native") do %>
-                        {language["native"]}
-                      <% else %>
-                        {language["name"]}
-                      <% end %>
-                    </span>
-                  </div>
-                <% else %>
-                  <div class="flex-1"></div>
-                <% end %>
-                <%= if language["base_code"] == @current_base do %>
-                  <span class="ml-auto">✓</span>
-                <% end %>
-              </a>
-            </li>
+          <%!-- Search bar (only if many languages) --%>
+          <%= if @needs_scroll do %>
+            <div class="p-2 border-b border-base-200">
+              <input
+                type="text"
+                placeholder="Search languages..."
+                class="input input-sm input-bordered w-full"
+                phx-hook="LanguageSwitcherSearch"
+                id="language-search-input"
+                autocomplete="off"
+              />
+            </div>
           <% end %>
-        </ul>
+
+          <%!-- Language list (scrollable if many languages) --%>
+          <ul
+            class={[
+              "p-2 list-none space-y-1",
+              @needs_scroll && "max-h-64 overflow-y-auto"
+            ]}
+            id="language-switcher-list"
+          >
+            <%= for language <- @languages do %>
+              <li
+                class="w-full language-item"
+                data-name={String.downcase(language["name"] || "")}
+                data-native={String.downcase(language["native"] || "")}
+              >
+                <a
+                  href={generate_base_code_url(language["base_code"], @current_path)}
+                  phx-click="phoenix_kit_set_locale"
+                  phx-value-locale={language["base_code"]}
+                  phx-value-url={generate_base_code_url(language["base_code"], @current_path)}
+                  class={[
+                    "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition hover:bg-base-200",
+                    if(language["base_code"] == @current_base, do: "bg-base-200", else: "")
+                  ]}
+                >
+                  <%= if @show_flags do %>
+                    <span class="text-lg">{language["flag"]}</span>
+                  <% end %>
+                  <%= if @show_names do %>
+                    <div class="flex-1">
+                      <span class="font-medium text-base-content">
+                        <%= if @show_native_names && Map.get(language, "native") do %>
+                          {language["native"]}
+                        <% else %>
+                          {language["name"]}
+                        <% end %>
+                      </span>
+                    </div>
+                  <% else %>
+                    <div class="flex-1"></div>
+                  <% end %>
+                  <%= if language["base_code"] == @current_base do %>
+                    <span class="ml-auto">✓</span>
+                  <% end %>
+                </a>
+              </li>
+            <% end %>
+          </ul>
+        </div>
       </details>
     </div>
     """

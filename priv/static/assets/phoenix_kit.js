@@ -25,6 +25,7 @@
  *   - CookieConsent ... Cookie consent banner and preferences modal
  *   - ResetSelect ..... Reset select element to first option on event
  *   - TimeAgo ......... Client-side relative time updates
+ *   - LanguageSwitcherSearch ... Client-side language filtering for dropdown
  *
  * @version 2.0.0
  * @license MIT
@@ -1100,6 +1101,59 @@
       if (seconds < 3600) return 30000;     // Update every 30 seconds
       if (seconds < 86400) return 300000;   // Update every 5 minutes
       return 3600000;                        // Update every hour
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // LanguageSwitcherSearch Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Provides client-side search filtering for the language switcher dropdown.
+  // Filters languages by name as the user types, without server round-trips.
+  //
+  // Usage in LiveView template:
+  //   <input phx-hook="LanguageSwitcherSearch" id="language-search-input" />
+  //
+  // The language items should have data-name and optionally data-native attributes:
+  //   <li class="language-item" data-name="english" data-native="english">...</li>
+  //
+  // ---------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.LanguageSwitcherSearch = {
+    mounted() {
+      this.el.addEventListener("input", (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        const container = this.el.closest(".dropdown-content") || this.el.closest(".dropdown");
+        if (!container) return;
+
+        const items = container.querySelectorAll(".language-item");
+
+        items.forEach(item => {
+          const name = (item.dataset.name || "").toLowerCase();
+          const native = (item.dataset.native || "").toLowerCase();
+
+          // Show if search term is found in name or native name
+          const matches = searchTerm === "" ||
+                          name.includes(searchTerm) ||
+                          native.includes(searchTerm);
+
+          item.style.display = matches ? "" : "none";
+        });
+      });
+
+      // Clear search when dropdown closes
+      this.el.addEventListener("blur", () => {
+        // Small delay to allow click events to fire first
+        setTimeout(() => {
+          this.el.value = "";
+          const container = this.el.closest(".dropdown-content") || this.el.closest(".dropdown");
+          if (container) {
+            container.querySelectorAll(".language-item").forEach(item => {
+              item.style.display = "";
+            });
+          }
+        }, 200);
+      });
     }
   };
 
