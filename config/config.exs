@@ -2,7 +2,9 @@ import Config
 
 # Configure PhoenixKit application
 config :phoenix_kit,
-  ecto_repos: []
+  ecto_repos: [],
+  # Required for standalone development - ensures Storage.root_path() resolves correctly
+  parent_app_name: :phoenix_kit
 
 # Configure password requirements (optional - these are the defaults)
 # Uncomment and modify to enforce specific password strength requirements
@@ -19,6 +21,9 @@ config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
 
 # Note: Hammer rate limiting configuration is automatically added to parent
 # applications via mix phoenix_kit.install/update tasks
+# For standalone development, configure Hammer here:
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 4, cleanup_interval_ms: 60_000 * 10]}
 
 # Configure Ueberauth (minimal configuration for compilation)
 # Applications using PhoenixKit should configure their own providers
@@ -27,8 +32,15 @@ config :ueberauth, Ueberauth, providers: []
 # Configure Oban (if using job processing)
 config :phoenix_kit, Oban,
   repo: PhoenixKit.Repo,
-  queues: [default: 10, emails: 50, file_processing: 20],
-  plugins: [Oban.Plugins.Pruner, {Oban.Plugins.Cron, crontab: []}]
+  queues: [default: 10, emails: 50, file_processing: 20, posts: 10],
+  plugins: [
+    # Keep completed/cancelled/discarded jobs for 30 days for dashboard visibility
+    {Oban.Plugins.Pruner, max_age: 60 * 60 * 24 * 30},
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker}
+     ]}
+  ]
 
 # Configure Logger metadata
 config :logger, :console,

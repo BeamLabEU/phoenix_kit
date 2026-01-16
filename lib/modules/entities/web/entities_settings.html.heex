@@ -1,0 +1,629 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={
+    gettext("%{project_title} %{section}",
+      project_title: @project_title,
+      section: gettext("Entities Settings")
+    )
+  }
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> {gettext("Back to Modules")}
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">{gettext("Entities Settings")}</h1>
+        <p class="text-lg text-base-content">
+          {gettext("Configure the entities system behavior and preferences")}
+        </p>
+      </div>
+    </header>
+
+    <%!-- System Status Card --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> {gettext("System Status")}
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <%!-- System Toggle --%>
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-lg font-semibold">{gettext("Entities System")}</h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext("Enable or disable the entire entities module")}
+                </p>
+              </div>
+              <span class={"badge #{setting_status_class(@settings.entities_enabled)}"}>
+                {setting_status_text(@settings.entities_enabled)}
+              </span>
+            </div>
+
+            <div class="flex gap-2">
+              <%= if @settings.entities_enabled do %>
+                <button
+                  class="btn btn-error btn-sm"
+                  phx-click="disable_entities"
+                  data-confirm={
+                    gettext(
+                      "Are you sure you want to disable the entities system? This will make all entities and data inaccessible."
+                    )
+                  }
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4 mr-1" /> {gettext("Disable System")}
+                </button>
+              <% else %>
+                <button
+                  class="btn btn-success btn-sm"
+                  phx-click="enable_entities"
+                >
+                  <.icon name="hero-check" class="w-4 h-4 mr-1" /> {gettext("Enable System")}
+                </button>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Quick Stats --%>
+          <div>
+            <h3 class="text-lg font-semibold mb-4">{gettext("Quick Stats")}</h3>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Entities")}</div>
+                <div class="stat-value text-lg">{@entities_stats.total_entities}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Data Records")}</div>
+                <div class="stat-value text-lg">{@entities_stats.total_data_records}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Published")}</div>
+                <div class="stat-value text-lg">{@entities_stats.published_records}</div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Drafts")}</div>
+                <div class="stat-value text-lg">{@entities_stats.draft_records}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Mirror & Export Card --%>
+    <div class="card bg-base-100 shadow-xl mb-6">
+      <div class="card-body">
+        <h2 class="card-title text-2xl mb-4">
+          <.icon name="hero-arrow-path" class="w-6 h-6" /> {gettext("Mirror & Export")}
+        </h2>
+        <p class="text-base-content/70 mb-4">
+          {gettext(
+            "Sync entity definitions and data to filesystem for version control and backup."
+          )}
+        </p>
+
+        <%!-- Bulk Actions --%>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-sm btn-outline">
+              <.icon name="hero-document-text" class="w-4 h-4" />
+              {gettext("Definitions")}
+              <.icon name="hero-chevron-down" class="w-3 h-3" />
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+            >
+              <li>
+                <button phx-click="enable_all_definitions" class="text-success">
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  {gettext("Enable All")}
+                </button>
+              </li>
+              <li>
+                <button phx-click="disable_all_definitions" class="text-error">
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                  {gettext("Disable All")}
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <div class="dropdown dropdown-hover">
+            <div tabindex="0" role="button" class="btn btn-sm btn-outline">
+              <.icon name="hero-circle-stack" class="w-4 h-4" />
+              {gettext("Records")}
+              <.icon name="hero-chevron-down" class="w-3 h-3" />
+            </div>
+            <ul
+              tabindex="0"
+              class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+            >
+              <li>
+                <button phx-click="enable_all_data" class="text-success">
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  {gettext("Enable All")}
+                </button>
+              </li>
+              <li>
+                <button phx-click="disable_all_data" class="text-error">
+                  <.icon name="hero-x-mark" class="w-4 h-4" />
+                  {gettext("Disable All")}
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <button
+            class="btn btn-sm btn-primary"
+            phx-click="export_now"
+            disabled={@exporting}
+          >
+            <%= if @exporting do %>
+              <span class="loading loading-spinner loading-xs"></span>
+              {gettext("Exporting...")}
+            <% else %>
+              <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
+              {gettext("Export All")}
+            <% end %>
+          </button>
+
+          <button
+            class="btn btn-sm btn-outline btn-secondary"
+            phx-click="show_import_modal"
+            disabled={@importing}
+          >
+            <%= if @importing do %>
+              <span class="loading loading-spinner loading-xs"></span>
+              {gettext("Importing...")}
+            <% else %>
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+              {gettext("Import")}
+            <% end %>
+          </button>
+        </div>
+
+        <%!-- Entities Table --%>
+        <%= if length(@entities_list) > 0 do %>
+          <div class="overflow-x-auto">
+            <table class="table table-zebra">
+              <thead>
+                <tr>
+                  <th>{gettext("Entity")}</th>
+                  <th class="text-center">{gettext("Records")}</th>
+                  <th class="text-center">{gettext("Live Sync")}</th>
+                  <th class="text-center">{gettext("Actions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for entity <- @entities_list do %>
+                  <tr>
+                    <td>
+                      <div class="flex items-center gap-2">
+                        <span class="font-medium">{entity.display_name}</span>
+                        <span class="text-xs text-base-content/50">({entity.name})</span>
+                        <%= if entity.file_exists do %>
+                          <span class="badge badge-ghost badge-xs" title={gettext("File exists")}>
+                            <.icon name="hero-document-check" class="w-3 h-3" />
+                          </span>
+                        <% end %>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge badge-ghost">{entity.data_count}</span>
+                    </td>
+                    <td class="text-center">
+                      <div class="flex flex-col items-center gap-1">
+                        <%!-- Definition toggle --%>
+                        <div class="flex items-center gap-2">
+                          <span class="text-xs text-base-content/70 w-14 text-right">
+                            {gettext("Definition")}
+                          </span>
+                          <%= if entity.mirror_definitions do %>
+                            <button
+                              class="btn btn-outline btn-success btn-xs"
+                              phx-click="toggle_entity_definitions"
+                              phx-value-id={entity.id}
+                              title={gettext("Definition sync enabled - click to disable")}
+                            >
+                              <.icon name="hero-check" class="w-3 h-3" />
+                            </button>
+                          <% else %>
+                            <button
+                              class="btn btn-outline btn-xs"
+                              phx-click="toggle_entity_definitions"
+                              phx-value-id={entity.id}
+                              title={gettext("Definition sync disabled - click to enable")}
+                            >
+                              <.icon name="hero-x-mark" class="w-3 h-3" />
+                            </button>
+                          <% end %>
+                        </div>
+
+                        <%!-- Records toggle (label greyed out when definition sync is disabled) --%>
+                        <div class="flex items-center gap-2">
+                          <span class={"text-xs text-base-content/70 w-14 text-right #{unless entity.mirror_definitions, do: "opacity-50"}"}>
+                            {gettext("Records")}
+                          </span>
+                          <%= if entity.mirror_definitions do %>
+                            <%= if entity.mirror_data do %>
+                              <button
+                                class="btn btn-outline btn-success btn-xs"
+                                phx-click="toggle_entity_data"
+                                phx-value-id={entity.id}
+                                title={gettext("Records sync enabled - click to disable")}
+                              >
+                                <.icon name="hero-check" class="w-3 h-3" />
+                              </button>
+                            <% else %>
+                              <button
+                                class="btn btn-outline btn-xs"
+                                phx-click="toggle_entity_data"
+                                phx-value-id={entity.id}
+                                title={gettext("Records sync disabled - click to enable")}
+                              >
+                                <.icon name="hero-x-mark" class="w-3 h-3" />
+                              </button>
+                            <% end %>
+                          <% else %>
+                            <button
+                              class="btn btn-outline btn-xs"
+                              disabled
+                              title={gettext("Enable definition sync first")}
+                            >
+                              <.icon name="hero-x-mark" class="w-3 h-3" />
+                            </button>
+                          <% end %>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <button
+                        class="btn btn-ghost btn-xs"
+                        phx-click="export_entity_now"
+                        phx-value-id={entity.id}
+                        title={gettext("Export now")}
+                      >
+                        <.icon name="hero-arrow-up-tray" class="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% else %>
+          <div class="text-center py-8 text-base-content/50">
+            <.icon name="hero-inbox" class="w-12 h-12 mx-auto mb-2" />
+            <p>{gettext("No entities defined yet")}</p>
+          </div>
+        <% end %>
+
+        <%!-- Export Info Footer --%>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6 pt-4 border-t border-base-300">
+          <%!-- Export Path --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Export Path")}</p>
+            <code class="text-xs text-base-content/70 break-all">{@mirror_path}</code>
+          </div>
+
+          <%!-- Export Stats --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Exported Files")}</p>
+            <p class="text-sm text-base-content/70">
+              {gettext("%{defs} definitions, %{data} data records",
+                defs: @export_stats.definitions_count,
+                data: @export_stats.data_count
+              )}
+            </p>
+          </div>
+
+          <%!-- Last Export --%>
+          <div class="p-3 bg-base-200 rounded-lg">
+            <p class="font-medium text-sm mb-1">{gettext("Last Export")}</p>
+            <p class="text-sm text-base-content/70">
+              <%= if @export_stats.last_export do %>
+                {@export_stats.last_export}
+              <% else %>
+                {gettext("Never")}
+              <% end %>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Import Modal --%>
+    <%= if @show_import_modal do %>
+      <div class="modal modal-open">
+        <div class="modal-box max-w-4xl max-h-[90vh]">
+          <h3 class="font-bold text-lg mb-4">
+            <.icon name="hero-arrow-down-tray" class="w-5 h-5 mr-2 inline" />
+            {gettext("Import Entities")}
+          </h3>
+
+          <%= if @import_preview do %>
+            <%!-- Summary Stats --%>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Definitions")}</div>
+                <div class="stat-value text-lg">{@import_preview.summary.definitions.total}</div>
+                <div class="stat-desc">
+                  {gettext("%{new} new, %{identical} identical, %{conflicts} changed",
+                    new: @import_preview.summary.definitions.new,
+                    identical: @import_preview.summary.definitions.identical,
+                    conflicts: @import_preview.summary.definitions.conflicts
+                  )}
+                </div>
+              </div>
+              <div class="stat bg-base-200 rounded p-3">
+                <div class="stat-title text-xs">{gettext("Data Records")}</div>
+                <div class="stat-value text-lg">{@import_preview.summary.data.total}</div>
+                <div class="stat-desc">
+                  {gettext("%{new} new, %{identical} identical, %{conflicts} changed",
+                    new: @import_preview.summary.data.new,
+                    identical: @import_preview.summary.data.identical,
+                    conflicts: @import_preview.summary.data.conflicts
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <%!-- Entity Tabs --%>
+            <%= if length(@import_preview.entities) > 0 do %>
+              <div role="tablist" class="tabs tabs-bordered mb-4">
+                <%= for entity <- @import_preview.entities do %>
+                  <button
+                    role="tab"
+                    class={"tab #{if @import_active_tab == entity.name, do: "tab-active", else: ""}"}
+                    phx-click="set_import_tab"
+                    phx-value-entity={entity.name}
+                  >
+                    {entity.name}
+                    <span class={"badge badge-sm ml-2 #{if @import_active_tab == entity.name, do: "badge-primary", else: "badge-ghost"}"}>
+                      {length(entity.data)}
+                    </span>
+                  </button>
+                <% end %>
+              </div>
+
+              <%!-- Active Entity Content --%>
+              <%= for entity <- @import_preview.entities do %>
+                <div class={if @import_active_tab == entity.name, do: "", else: "hidden"}>
+                  <%!-- Definition Section --%>
+                  <div class="bg-base-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <span class="font-semibold">{gettext("Definition")}</span>
+                        <%= case entity.definition.action do %>
+                          <% :create -> %>
+                            <span class="badge badge-success badge-sm">{gettext("NEW")}</span>
+                          <% :identical -> %>
+                            <span class="badge badge-ghost badge-sm">{gettext("IDENTICAL")}</span>
+                          <% :conflict -> %>
+                            <span class="badge badge-warning badge-sm">{gettext("CHANGED")}</span>
+                          <% _ -> %>
+                            <span class="badge badge-error badge-sm">{gettext("ERROR")}</span>
+                        <% end %>
+                      </div>
+                      <select
+                        class="select select-sm select-bordered"
+                        phx-change="set_definition_action"
+                        phx-value-entity={entity.name}
+                        name="action"
+                      >
+                        <option
+                          value="skip"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :skip
+                          }
+                        >
+                          {gettext("Skip")}
+                        </option>
+                        <option
+                          value="overwrite"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :overwrite
+                          }
+                        >
+                          {gettext("Import/Overwrite")}
+                        </option>
+                        <option
+                          value="merge"
+                          selected={
+                            get_definition_action(@import_selections, entity.name) == :merge
+                          }
+                        >
+                          {gettext("Merge")}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <%!-- Data Records Section --%>
+                  <%= if length(entity.data) > 0 do %>
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="font-semibold">
+                        {gettext("Data Records")} ({length(entity.data)})
+                      </span>
+                      <div class="flex gap-2">
+                        <button
+                          class="btn btn-xs btn-ghost"
+                          phx-click="set_all_records_action"
+                          phx-value-entity={entity.name}
+                          phx-value-action="skip"
+                        >
+                          {gettext("Skip All")}
+                        </button>
+                        <button
+                          class="btn btn-xs btn-ghost"
+                          phx-click="set_all_records_action"
+                          phx-value-entity={entity.name}
+                          phx-value-action="overwrite"
+                        >
+                          {gettext("Import All")}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="overflow-y-auto max-h-64 border border-base-300 rounded-lg">
+                      <table class="table table-sm table-zebra">
+                        <thead class="sticky top-0 bg-base-200">
+                          <tr>
+                            <th>{gettext("Status")}</th>
+                            <th>{gettext("Slug")}</th>
+                            <th>{gettext("Title")}</th>
+                            <th class="text-right">{gettext("Action")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <%= for record <- entity.data do %>
+                            <tr>
+                              <td>
+                                <%= case record.action do %>
+                                  <% :create -> %>
+                                    <span class="badge badge-success badge-xs">
+                                      {gettext("NEW")}
+                                    </span>
+                                  <% :identical -> %>
+                                    <span class="badge badge-ghost badge-xs">
+                                      {gettext("IDENTICAL")}
+                                    </span>
+                                  <% :conflict -> %>
+                                    <span class="badge badge-warning badge-xs">
+                                      {gettext("CHANGED")}
+                                    </span>
+                                  <% _ -> %>
+                                    <span class="badge badge-error badge-xs">
+                                      {gettext("ERROR")}
+                                    </span>
+                                <% end %>
+                              </td>
+                              <td class="font-mono text-xs">
+                                <%= if record[:is_new_record] do %>
+                                  <span class="text-base-content/50">
+                                    {record[:display_slug]}
+                                  </span>
+                                  <span class="text-success text-xs block">
+                                    → {record[:generated_slug]}
+                                  </span>
+                                <% else %>
+                                  {record.slug}
+                                  <%= if record[:generated_slug] do %>
+                                    <span class="text-warning text-xs block">
+                                      → {record[:generated_slug]}
+                                    </span>
+                                  <% end %>
+                                <% end %>
+                              </td>
+                              <td class="truncate max-w-32">{record[:title] || "-"}</td>
+                              <td class="text-right">
+                                <select
+                                  class="select select-xs select-bordered"
+                                  phx-change="set_record_action"
+                                  phx-value-entity={entity.name}
+                                  phx-value-slug={record.slug}
+                                  name="action"
+                                >
+                                  <option
+                                    value="skip"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :skip
+                                    }
+                                  >
+                                    {gettext("Skip")}
+                                  </option>
+                                  <option
+                                    value="overwrite"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :overwrite
+                                    }
+                                  >
+                                    {gettext("Import")}
+                                  </option>
+                                  <option
+                                    value="merge"
+                                    selected={
+                                      get_record_action(
+                                        @import_selections,
+                                        entity.name,
+                                        record.slug
+                                      ) == :merge
+                                    }
+                                  >
+                                    {gettext("Merge")}
+                                  </option>
+                                </select>
+                              </td>
+                            </tr>
+                          <% end %>
+                        </tbody>
+                      </table>
+                    </div>
+                  <% else %>
+                    <div class="text-center py-4 text-base-content/50">
+                      {gettext("No data records")}
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            <% else %>
+              <div class="text-center py-8 text-base-content/50">
+                {gettext("No entities found to import")}
+              </div>
+            <% end %>
+          <% else %>
+            <div class="flex justify-center py-8">
+              <span class="loading loading-spinner loading-lg"></span>
+            </div>
+          <% end %>
+
+          <div class="modal-action">
+            <button class="btn btn-ghost" phx-click="hide_import_modal">
+              {gettext("Cancel")}
+            </button>
+            <button
+              class="btn btn-secondary btn-outline"
+              phx-click="do_import_entity"
+              phx-value-entity={@import_active_tab}
+              disabled={@import_preview == nil or @import_active_tab == nil}
+            >
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" />
+              {gettext("Import This Entity")}
+            </button>
+            <button
+              class="btn btn-primary"
+              phx-click="do_import"
+              disabled={@import_preview == nil or length(@import_preview.entities) == 0}
+            >
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4 mr-1" />
+              {gettext("Import All Entities")}
+            </button>
+          </div>
+        </div>
+        <div class="modal-backdrop" phx-click="hide_import_modal"></div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

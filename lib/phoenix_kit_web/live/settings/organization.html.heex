@@ -1,0 +1,325 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} - Organization"
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-3xl font-bold">{gettext("Organization Settings")}</h1>
+        <p class="text-base-content/60 mt-1">
+          {gettext("Company information shared across Legal and Billing modules")}
+        </p>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <%!-- Company Information --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">{gettext("Company Information")}</h2>
+          <p class="text-sm text-base-content/60">
+            {gettext("Used in legal documents and invoices")}
+          </p>
+          <form phx-submit="save_company" class="space-y-4 mt-4">
+            <%!-- Company Name (required) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  {gettext("Company Name")} <span class="text-error">*</span>
+                </span>
+              </label>
+              <input
+                type="text"
+                name="company_name"
+                value={@company_name}
+                class="input input-bordered"
+                placeholder={gettext("Your Company Name")}
+                required
+              />
+            </div>
+
+            <%!-- Country (required, first for dynamic subdivision label) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  {gettext("Country")} <span class="text-error">*</span>
+                </span>
+              </label>
+              <select
+                name="company_country"
+                class="select select-bordered"
+                phx-change="country_changed"
+                required
+              >
+                <option value="">{gettext("Select country...")}</option>
+                <%= for {name, code} <- @countries do %>
+                  <option value={code} selected={@company_country == code}>
+                    {name}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <div class="divider">{gettext("Address")}</div>
+
+            <%!-- Street Address (required) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  {gettext("Street Address")} <span class="text-error">*</span>
+                </span>
+              </label>
+              <input
+                type="text"
+                name="company_address_line1"
+                value={@company_address_line1}
+                class="input input-bordered"
+                placeholder={gettext("123 Business Street")}
+                required
+              />
+            </div>
+
+            <%!-- Address Line 2 (optional) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("Address Line 2")}</span>
+              </label>
+              <input
+                type="text"
+                name="company_address_line2"
+                value={@company_address_line2}
+                class="input input-bordered"
+                placeholder={gettext("Suite, Floor, Building (optional)")}
+              />
+            </div>
+
+            <%!-- City + State row --%>
+            <div class="grid grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">
+                    {gettext("City")} <span class="text-error">*</span>
+                  </span>
+                </label>
+                <input
+                  type="text"
+                  name="company_city"
+                  value={@company_city}
+                  class="input input-bordered"
+                  placeholder={gettext("City")}
+                  required
+                />
+              </div>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">{@subdivision_label}</span>
+                </label>
+                <input
+                  type="text"
+                  name="company_state"
+                  value={@company_state}
+                  class="input input-bordered"
+                  placeholder={gettext("(optional)")}
+                />
+              </div>
+            </div>
+
+            <%!-- Postal Code --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("Postal Code")}</span>
+              </label>
+              <input
+                type="text"
+                name="company_postal_code"
+                value={@company_postal_code}
+                class="input input-bordered font-mono w-40"
+                placeholder="10115"
+              />
+            </div>
+
+            <div class="divider">{gettext("Tax & Registration")}</div>
+
+            <%!-- VAT Number (required) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">
+                  {gettext("VAT Number")} <span class="text-error">*</span>
+                </span>
+              </label>
+              <input
+                type="text"
+                name="company_vat"
+                value={@company_vat}
+                class="input input-bordered font-mono"
+                placeholder={
+                  if @eu_country, do: "#{@company_country}123456789", else: gettext("Tax ID")
+                }
+                required
+              />
+              <%= if @eu_country do %>
+                <label class="label">
+                  <span class="label-text-alt text-info">
+                    <.icon name="hero-information-circle" class="w-4 h-4 inline" />
+                    {gettext("EU VAT format required (e.g., %{country}123456789)",
+                      country: @company_country
+                    )}
+                  </span>
+                </label>
+              <% end %>
+            </div>
+
+            <%!-- Registration Number (optional) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("Registration Number")}</span>
+              </label>
+              <input
+                type="text"
+                name="company_registration"
+                value={@company_registration}
+                class="input input-bordered font-mono"
+                placeholder={gettext("Business registration number (optional)")}
+              />
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <button type="submit" class="btn btn-primary">
+                <.icon name="hero-check" class="w-4 h-4" />
+                {gettext("Save Company Info")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Bank Details --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">{gettext("Bank Details")}</h2>
+          <p class="text-sm text-base-content/60">
+            {gettext("For bank transfer payments on invoices")}
+          </p>
+          <form phx-submit="save_bank" class="space-y-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("Bank Name")}</span>
+              </label>
+              <input
+                type="text"
+                name="bank_name"
+                value={@bank_name}
+                class="input input-bordered"
+                placeholder={gettext("Bank Name")}
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("IBAN")}</span>
+              </label>
+              <input
+                type="text"
+                name="bank_iban"
+                value={@bank_iban}
+                class="input input-bordered font-mono"
+                placeholder="EE00 0000 0000 0000 0000"
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                  {gettext("International Bank Account Number")}
+                </span>
+              </label>
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{gettext("SWIFT/BIC")}</span>
+              </label>
+              <input
+                type="text"
+                name="bank_swift"
+                value={@bank_swift}
+                class="input input-bordered font-mono w-40"
+                placeholder="XXXXEEHH"
+              />
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                  {gettext("8 or 11 characters")}
+                </span>
+              </label>
+            </div>
+
+            <div class="card-actions justify-end mt-4">
+              <button type="submit" class="btn btn-primary">
+                <.icon name="hero-check" class="w-4 h-4" />
+                {gettext("Save Bank Details")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <%!-- Site URL (from General Settings) --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex items-center justify-between">
+            <h2 class="card-title">{gettext("Site URL")}</h2>
+            <.link
+              navigate={
+                PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale_base)
+              }
+              class="btn btn-sm btn-primary"
+            >
+              <.icon name="hero-pencil-square" class="w-4 h-4" />
+              {gettext("Edit in General")}
+            </.link>
+          </div>
+          <p class="text-sm text-base-content/60">
+            {gettext("Used in legal documents and sitemap generation")}
+          </p>
+
+          <div class="bg-base-200 rounded-lg p-4 mt-4">
+            <%= if @site_url != "" do %>
+              <div class="flex items-center gap-2">
+                <.icon name="hero-globe-alt" class="w-5 h-5 text-primary" />
+                <a href={@site_url} target="_blank" class="link link-primary">
+                  {@site_url}
+                </a>
+              </div>
+            <% else %>
+              <div class="flex items-center gap-2 text-base-content/60">
+                <.icon name="hero-globe-alt" class="w-5 h-5" />
+                <span class="italic">{gettext("Not configured")}</span>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Info Alert --%>
+    <div class="alert alert-info mt-6">
+      <.icon name="hero-information-circle" class="w-6 h-6" />
+      <div>
+        <p class="font-semibold">{gettext("Shared across modules")}</p>
+        <p class="text-sm">
+          {gettext(
+            "This information is used by the Legal module for legal documents and by the Billing module for invoices and receipts."
+          )}
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

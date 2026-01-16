@@ -170,7 +170,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Per-dimension control for responsive sizing vs exact crops
   - Defaults to maintaining aspect ratio for all dimensions
 
-  ### V26 - Rename Checksum Fields & Per-User Deduplication ⚡ LATEST
+  ### V26 - Rename Checksum Fields & Per-User Deduplication
   - Renames `checksum` to `file_checksum` (clearer naming)
   - Removes unique index on file_checksum (allows same file from different users)
   - Adds `user_file_checksum` column (SHA256 of user_id + file_checksum)
@@ -180,19 +180,177 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Preserves file_checksum field for popularity analytics across all users
   - Clearer naming convention: file_checksum vs user_file_checksum
 
+  ### V27 - Oban Background Job System
+  - Creates Oban tables for background job processing
+  - Oban_jobs table for job queue management
+  - Oban_peers table for distributed coordination
+  - Performance indexes for efficient job processing
+  - Enables file processing (variant generation, metadata extraction)
+  - Enables email processing (sending, tracking, analytics)
+  - Uses Oban's latest schema version automatically (forward-compatible)
+  - Integrated with PhoenixKit configuration system
+
+  ### V28 - User Preferred Locale
+  - Adds `preferred_locale` column to `phoenix_kit_users` table
+  - Supports user-specific language dialect preferences
+  - Enables simplified URL structure with dialect preferences
+
+  ### V29 - Posts System
+  - Complete social posts system with media attachments
+  - Posts with privacy controls (draft/public/unlisted/scheduled)
+  - Post comments with nested threading
+  - Post likes and user mentions
+  - Post tags and user groups
+
+  ### V30 - Move Preferred Locale to Custom Fields
+  - Migrates preferred_locale from column to custom_fields JSONB
+  - Reduces schema complexity
+  - Backward compatible data access
+
+  ### V31 - Billing System (Phase 1)
+  - Phoenix_kit_currencies for multi-currency support
+  - Phoenix_kit_billing_profiles for user billing information (EU Standard)
+  - Phoenix_kit_orders for order management with line items
+  - Phoenix_kit_invoices for invoice generation with receipt functionality
+  - Phoenix_kit_transactions for payment tracking
+  - Bank transfer payment workflow (manual payment marking)
+  - Default currencies seeding (EUR, USD, GBP)
+  - Billing settings for prefixes and configuration
+
+  ### V32 - AI System
+  - Phoenix_kit_ai_accounts for AI provider account management
+  - Phoenix_kit_ai_requests for usage tracking and statistics
+  - OpenRouter integration with API key validation
+  - Text processing slots configuration (3 presets/fallback chain)
+  - JSONB storage for flexible settings and metadata
+  - AI system enable/disable toggle
+  - Usage statistics and request history
+
+  ### V33 - Payment Providers and Subscriptions
+  - Phoenix_kit_payment_methods for saved payment methods (cards, wallets)
+  - Phoenix_kit_subscription_plans for subscription pricing plans
+  - Phoenix_kit_subscriptions for user subscription management
+  - Phoenix_kit_payment_provider_configs for provider credentials
+  - Phoenix_kit_webhook_events for idempotent webhook processing
+  - Orders: checkout session fields
+  - Invoices: subscription reference
+  - Settings: provider enable/disable, grace period, dunning configuration
+
+  ### V34 - AI Endpoints System
+  - Phoenix_kit_ai_endpoints for unified AI configuration
+  - Combines provider credentials, model selection, and generation parameters
+  - Replaces the Accounts + Slots architecture with single Endpoint entities
+  - Updates phoenix_kit_ai_requests with endpoint_id reference
+  - Removes slot settings from Settings table
+
+  ### V35 - Support Tickets System
+  - Phoenix_kit_tickets for customer support request management
+  - Phoenix_kit_ticket_comments for threaded comments with internal notes
+  - Phoenix_kit_ticket_attachments for file attachments on tickets/comments
+  - Phoenix_kit_ticket_status_history for complete audit trail
+  - Status workflow: open → in_progress → resolved → closed
+  - SupportAgent role for ticket access control
+  - Internal notes feature (staff-only visibility)
+  - Settings: enabled, per_page, comments, internal notes, attachments, allow_reopen
+
+  ### V36 - Connections Module (Social Relationships)
+  - Phoenix_kit_user_follows for one-way follow relationships
+  - Phoenix_kit_user_connections for two-way mutual connections
+  - Phoenix_kit_user_blocks for user blocking
+  - Public API for parent applications to use
+  - Follow: no consent required, instant
+  - Connection: requires acceptance from both parties
+  - Block: prevents all interaction, removes existing relationships
+  - Settings: connections_enabled
+
+  ### V37 - Sync Connections & Transfer Tracking
+  - phoenix_kit_sync_connections for permanent site-to-site connections (renamed in V44)
+  - phoenix_kit_sync_transfers for tracking all data transfers (renamed in V44)
+  - Approval modes: auto_approve, require_approval, per_table
+  - Expiration and download limits (max_downloads, max_records_total)
+  - Additional security: password protection, IP whitelist, time restrictions
+  - Receiver-side settings: conflict strategy, auto-sync
+  - Full audit trail for connections and transfers
+
+  ### V38 - AI Prompts System
+  - Phoenix_kit_ai_prompts for reusable prompt templates
+  - Variable substitution with {{VariableName}} syntax
+  - Auto-extracted variables stored for validation
+  - Usage tracking (count and last used timestamp)
+  - Sorting and organization support
+
+  ### V39 - Admin Notes System
+  - Phoenix_kit_admin_notes for internal admin notes about users
+  - Admin-to-admin communication about user accounts
+  - Author tracking for accountability
+  - Any admin can view/edit/delete any note
+
+  ### V40 - UUID Column Addition
+  - Adds `uuid` column to all 33 legacy tables using bigserial PKs
+  - Non-breaking: keeps existing bigserial primary keys intact
+  - Backfills existing records with generated UUIDs
+  - Creates unique indexes on uuid columns
+  - Enables gradual transition to UUID-based lookups
+
+  ### V41 - AI Prompt Tracking & Reasoning Parameters
+  - Adds `prompt_id` and `prompt_name` to phoenix_kit_ai_requests
+  - Tracks which prompt template was used for AI completions
+  - Denormalized prompt_name preserved for historical display
+  - Foreign key with ON DELETE SET NULL for prompt deletion
+  - Adds reasoning/thinking parameters to phoenix_kit_ai_endpoints:
+    - `reasoning_enabled` (boolean) - Enable reasoning with default effort
+    - `reasoning_effort` (string) - none/minimal/low/medium/high/xhigh
+    - `reasoning_max_tokens` (integer) - Hard cap on thinking tokens (1024-32000)
+    - `reasoning_exclude` (boolean) - Hide reasoning from response
+
+  ### V42 - Universal Scheduled Jobs System
+  - Phoenix_kit_scheduled_jobs for polymorphic scheduled task management
+  - Behaviour-based handler pattern for extensibility
+  - Priority-based job execution ordering
+  - Retry logic with max_attempts and last_error tracking
+  - Status management: pending, executed, failed, cancelled
+  - Replaces single-purpose PublishScheduledPostsJob with generic processor
+  - Supports any schedulable resource (posts, emails, notifications, etc.)
+
+  ### V43 - Legal Module
+  - Phoenix_kit_consent_logs for user consent tracking (GDPR/CCPA compliance)
+  - Supports logged-in users and anonymous visitors via session_id
+  - Consent types: necessary, analytics, marketing, preferences
+  - Settings seeds for legal module configuration:
+    - legal_enabled, legal_frameworks, legal_company_info
+    - legal_dpo_contact, legal_consent_widget_enabled
+    - legal_cookie_banner_position
+
+  ### V44 - Sync Table Rename
+  - Rename phoenix_kit_db_sync_connections → phoenix_kit_sync_connections
+  - Rename phoenix_kit_db_sync_transfers → phoenix_kit_sync_transfers
+  - Rename all related indexes to match new table names
+  - Rename settings keys: db_sync_* → sync_*
+  - Matches module rename from DBSync to Sync
+
+  ### V45 - E-commerce Shop Module ⚡ LATEST
+  - Phoenix_kit_shop_categories for product organization with nesting
+  - Phoenix_kit_shop_products for physical and digital products
+  - Phoenix_kit_shop_shipping_methods, phoenix_kit_shop_carts, phoenix_kit_shop_cart_items
+  - Phoenix_kit_payment_options for checkout payment methods (COD, bank transfer, Stripe, PayPal)
+  - Cart supports payment_option_id for payment method selection
+  - JSONB fields for tags, images, option_names, metadata
+  - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
+
   ## Migration Paths
 
   ### Fresh Installation (0 → Current)
-  Runs all migrations V01 through V26 in sequence.
+  Runs all migrations V01 through V27 in sequence.
 
   ### Incremental Updates
-  - V01 → V26: Runs V02 through V26 in sequence
-  - V25 → V26: Runs V26 only (adds per-user file hash)
-  - V24 → V26: Runs V25 and V26 in sequence
-  - V23 → V26: Runs V24, V25, and V26 in sequence
-  - V20 → V26: Runs V21 through V26 in sequence
+  - V01 → V27: Runs V02 through V27 in sequence
+  - V26 → V27: Runs V27 only (adds Oban tables)
+  - V25 → V27: Runs V26 and V27 in sequence
+  - V24 → V27: Runs V25, V26, and V27 in sequence
+  - V20 → V27: Runs V21 through V27 in sequence
 
   ### Rollback Support
+  - V27 → V26: Removes Oban tables and background job system
   - V26 → V25: Removes user_file_checksum, renames file_checksum back to checksum, restores checksum unique index
   - V25 → V24: Removes aspect ratio control from dimensions
   - V24 → V23: Removes unique index on checksum
@@ -212,14 +370,14 @@ defmodule PhoenixKit.Migrations.Postgres do
 
   ## Usage Examples
 
-      # Update to latest version (V26)
+      # Update to latest version (V27)
       PhoenixKit.Migrations.Postgres.up(prefix: "myapp")
 
       # Update to specific version
-      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 26)
+      PhoenixKit.Migrations.Postgres.up(prefix: "myapp", version: 27)
 
       # Rollback to specific version
-      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 25)
+      PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 26)
 
       # Complete rollback
       PhoenixKit.Migrations.Postgres.down(prefix: "myapp", version: 0)
@@ -237,7 +395,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 26
+  @current_version 45
   @default_prefix "public"
 
   @doc false

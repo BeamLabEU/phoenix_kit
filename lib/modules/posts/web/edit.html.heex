@@ -1,0 +1,511 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="p-6">
+    <%!-- Back Button --%>
+    <.link
+      navigate={Routes.path("/admin/posts")}
+      class="btn btn-outline btn-sm mb-4"
+    >
+      <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Posts
+    </.link>
+
+    <.form
+      for={@form}
+      id="post-form"
+      phx-change="validate"
+      phx-submit="save"
+    >
+      <%!-- Main Layout: 2/3 Content + 1/3 Sidebar --%>
+      <div class="flex flex-col lg:flex-row gap-6">
+        <%!-- Left Column: Main Content (2/3) --%>
+        <div class="flex-[2] flex flex-col gap-6">
+          <%!-- Basic Information Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-xl mb-4">
+                <.icon name="hero-document-text" class="w-5 h-5" /> Basic Information
+              </h2>
+
+              <div class="space-y-4">
+                <%!-- Title --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Title *</span>
+                    <span class="label-text-alt">
+                      {String.length(@form[:title].value || "")}/{@max_title_length}
+                    </span>
+                  </label>
+                  <.input
+                    field={@form[:title]}
+                    type="text"
+                    placeholder="Enter post title..."
+                    maxlength={@max_title_length}
+                    required
+                  />
+                </div>
+
+                <%!-- Subtitle --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Subtitle / Tagline</span>
+                    <span class="label-text-alt">
+                      {String.length(@form[:sub_title].value || "")}/{@max_subtitle_length}
+                    </span>
+                  </label>
+                  <.input
+                    field={@form[:sub_title]}
+                    type="text"
+                    placeholder="Optional subtitle or tagline..."
+                    maxlength={@max_subtitle_length}
+                  />
+                </div>
+
+                <%!-- Media --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Media</span>
+                    <span class="label-text-alt">{length(@post_images)}</span>
+                  </label>
+
+                  <%= if @post_images == [] do %>
+                    <%!-- Full-width add button when empty --%>
+                    <button
+                      type="button"
+                      phx-click="open_featured_image_selector"
+                      class="w-full h-32 border-2 border-dashed border-base-300 rounded-lg hover:border-primary hover:bg-base-200 transition-all cursor-pointer flex flex-col items-center justify-center gap-2 text-base-content/60 hover:text-primary"
+                    >
+                      <.icon name="hero-photo" class="w-8 h-8" />
+                      <span class="text-sm font-medium">Add Media</span>
+                    </button>
+                  <% else %>
+                    <.draggable_list
+                      id="post-images-grid"
+                      items={@post_images}
+                      item_id={fn media -> media.file_id end}
+                      on_reorder="reorder_post_images"
+                      cols={4}
+                    >
+                      <:item :let={media}>
+                        <div class="relative group aspect-square">
+                          <img
+                            src={
+                              PhoenixKit.Modules.Storage.URLSigner.signed_url(
+                                media.file_id,
+                                "thumbnail"
+                              )
+                            }
+                            alt="Post image"
+                            class="w-full h-full object-cover rounded-lg border-2 border-base-300"
+                          />
+                          <%!-- Featured badge on first image --%>
+                          <%= if media.position == 1 do %>
+                            <div class="absolute top-1 left-1 badge badge-primary badge-xs">
+                              Featured
+                            </div>
+                          <% end %>
+                          <%!-- Remove button --%>
+                          <button
+                            type="button"
+                            phx-click="remove_post_image"
+                            phx-value-id={media.id || media.file_id}
+                            class="absolute top-1 right-1 btn btn-xs btn-circle btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <.icon name="hero-x-mark" class="w-3 h-3" />
+                          </button>
+                        </div>
+                      </:item>
+                      <:add_button>
+                        <button
+                          type="button"
+                          phx-click="open_featured_image_selector"
+                          class="w-full aspect-square border-2 border-dashed border-base-300 rounded-lg hover:border-primary hover:bg-base-200 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 text-base-content/60 hover:text-primary"
+                        >
+                          <.icon name="hero-plus" class="w-6 h-6" />
+                          <span class="text-xs font-medium">Add</span>
+                        </button>
+                      </:add_button>
+                    </.draggable_list>
+                  <% end %>
+
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      Drag to reorder. First image is the featured image.
+                    </span>
+                  </label>
+                </div>
+
+                <%!-- Content --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Content *</span>
+                    <span class="label-text-alt">
+                      {String.length(@content)}/{@max_content_length}
+                    </span>
+                  </label>
+                  <.live_component
+                    module={PhoenixKitWeb.Components.Core.MarkdownEditor}
+                    id="post-content-editor"
+                    content={@content}
+                    placeholder="Write your post content here... Use #hashtags for auto-tagging"
+                    height="400px"
+                    debounce={400}
+                    toolbar={[:image, :video]}
+                    protect_navigation={false}
+                    script_nonce={assigns[:csp_nonce] || ""}
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      Use #hashtags in your content for automatic tag extraction
+                    </span>
+                  </label>
+                </div>
+
+                <%!-- SEO Slug --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">SEO Slug</span>
+                  </label>
+                  <.input
+                    field={@form[:slug]}
+                    type="text"
+                    placeholder={
+                      if @seo_auto_slug,
+                        do: "Auto-generated from title...",
+                        else: "enter-url-slug"
+                    }
+                    disabled={@seo_auto_slug}
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      <%= if @seo_auto_slug do %>
+                        Auto-generation enabled. URL slug will be created from title.
+                      <% else %>
+                        URL-friendly identifier (e.g., my-awesome-post)
+                      <% end %>
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Groups Card (if enabled) --%>
+          <%= if @allow_groups do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title text-xl mb-4">
+                  <.icon name="hero-folder" class="w-5 h-5" /> Collections / Groups
+                </h2>
+
+                <%= if length(@user_groups) > 0 do %>
+                  <div class="form-control">
+                    <div class="space-y-2">
+                      <%= for group <- @user_groups do %>
+                        <label class="label cursor-pointer justify-start gap-3">
+                          <input
+                            type="checkbox"
+                            name="post[group_ids][]"
+                            value={group.id}
+                            checked={group.id in @selected_groups}
+                            class="checkbox checkbox-primary"
+                          />
+                          <span class="label-text">
+                            <span class="font-semibold">{group.name}</span>
+                            <%= if group.description do %>
+                              <span class="text-sm text-base-content/60">
+                                - {group.description}
+                              </span>
+                            <% end %>
+                          </span>
+                        </label>
+                      <% end %>
+                    </div>
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/70">
+                        Organize posts into your personal collections
+                      </span>
+                    </label>
+                  </div>
+                <% else %>
+                  <div class="text-sm text-base-content/60">
+                    No groups created yet.
+                    <.link navigate={Routes.path("/admin/posts/groups")} class="link link-primary">
+                      Create your first group
+                    </.link>
+                    to organize your posts.
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Tags Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-xl mb-4">
+                <.icon name="hero-hashtag" class="w-5 h-5" /> Tags
+              </h2>
+
+              <%!-- Selected Tags Display --%>
+              <%= if length(@selected_tags) > 0 do %>
+                <div class="flex flex-wrap gap-2 mb-4">
+                  <%= for tag <- @selected_tags do %>
+                    <div class="badge badge-primary gap-2">
+                      #{tag}
+                      <button
+                        type="button"
+                        phx-click="remove_tag"
+                        phx-value-tag={tag}
+                        class="btn btn-ghost btn-xs p-0"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% else %>
+                <div class="text-sm text-base-content/60 mb-4">
+                  No tags added yet. Tags will be automatically extracted from #hashtags in your content.
+                </div>
+              <% end %>
+
+              <%!-- Manual Tag Input --%>
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text font-medium">Add Tag Manually</span>
+                  <span class="label-text-alt">
+                    {length(@selected_tags)}/{@max_tags} tags
+                  </span>
+                </label>
+                <div class="input-group">
+                  <span class="bg-base-200 px-4 py-3">#</span>
+                  <input
+                    type="text"
+                    id="tag-input"
+                    placeholder="Enter tag and press Enter"
+                    class="input input-bordered w-full"
+                    phx-keydown="add_tag"
+                    phx-key="Enter"
+                    phx-value-tag=""
+                  />
+                </div>
+                <label class="label">
+                  <span class="label-text-alt text-base-content/70">
+                    Tags are automatically extracted from #hashtags in content
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Right Column: Sidebar (1/3) --%>
+        <div class="flex-1 flex flex-col gap-6 lg:sticky lg:top-6 lg:self-start">
+          <%!-- Post Info Card (only for existing posts) --%>
+          <%= if @post.id do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title text-xl mb-4">
+                  <.icon name="hero-information-circle" class="w-5 h-5" /> Post Info
+                </h2>
+
+                <div class="space-y-3">
+                  <%!-- Created By --%>
+                  <div class="flex items-center gap-2 text-sm">
+                    <.icon name="hero-user-circle" class="w-4 h-4 text-base-content/50" />
+                    <span class="text-base-content/70">Created by:</span>
+                    <span class="font-medium">
+                      <%= if @post.user do %>
+                        {@post.user.email}
+                      <% else %>
+                        Unknown
+                      <% end %>
+                    </span>
+                  </div>
+
+                  <%!-- Created When --%>
+                  <div class="flex items-center gap-2 text-sm">
+                    <.icon name="hero-calendar" class="w-4 h-4 text-base-content/50" />
+                    <span class="text-base-content/70">Created:</span>
+                    <span class="font-medium">
+                      {Calendar.strftime(@post.inserted_at, "%B %d, %Y at %H:%M")}
+                    </span>
+                  </div>
+
+                  <%!-- Public Link (only for public posts with a slug) --%>
+                  <%= if @post.status == "public" && @post.slug && @post.slug != "" do %>
+                    <div class="flex items-start gap-2 text-sm">
+                      <.icon name="hero-link" class="w-4 h-4 text-base-content/50 mt-0.5" />
+                      <div class="flex-1 min-w-0">
+                        <span class="text-base-content/70">Public URL:</span>
+                        <a
+                          href={"/posts/#{@post.slug}"}
+                          target="_blank"
+                          rel="noopener"
+                          class="block text-primary hover:underline truncate font-mono text-xs mt-1"
+                          title={"/posts/#{@post.slug}"}
+                        >
+                          /posts/{@post.slug}
+                        </a>
+                      </div>
+                    </div>
+                  <% else %>
+                    <div class="flex items-center gap-2 text-sm text-base-content/50">
+                      <.icon name="hero-link" class="w-4 h-4" />
+                      <span class="italic">Publish to get a public URL</span>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Post Settings Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-xl mb-4">
+                <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Post Settings
+              </h2>
+
+              <div class="space-y-4">
+                <%!-- Type --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Post Type</span>
+                  </label>
+                  <.select
+                    field={@form[:type]}
+                    options={[
+                      {"Post (Full content)", "post"},
+                      {"Snippet (Short update)", "snippet"},
+                      {"Repost (Share existing)", "repost"}
+                    ]}
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      Different types have different display layouts
+                    </span>
+                  </label>
+                </div>
+
+                <%!-- Status --%>
+                <div class="form-control">
+                  <label class="label">
+                    <span class="label-text font-medium">Status</span>
+                  </label>
+                  <.select
+                    field={@form[:status]}
+                    options={[
+                      {"Draft", "draft"},
+                      {"Public", "public"},
+                      {"Unlisted", "unlisted"},
+                      {"Scheduled", "scheduled"}
+                    ]}
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/70">
+                      Control post visibility
+                    </span>
+                  </label>
+                </div>
+
+                <%!-- Scheduled Date (only show if status is scheduled) --%>
+                <%= if @allow_scheduling and @form[:status].value == "scheduled" do %>
+                  <div class="form-control">
+                    <label class="label">
+                      <span class="label-text font-medium">Scheduled Publish Time</span>
+                    </label>
+                    <.input
+                      field={@form[:scheduled_at]}
+                      type="datetime-local"
+                      required={@form[:status].value == "scheduled"}
+                    />
+                    <label class="label">
+                      <span class="label-text-alt text-base-content/70">
+                        Post will be published at this time
+                      </span>
+                    </label>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Action Buttons Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <div class="flex flex-col gap-3">
+                <button
+                  type="submit"
+                  class="btn btn-primary w-full"
+                  phx-disable-with="Saving..."
+                >
+                  <.icon name="hero-check" class="w-4 h-4" />
+                  {if @post.id, do: "Update Post", else: "Create Post"}
+                </button>
+
+                <button
+                  type="button"
+                  phx-click="cancel"
+                  class="btn btn-ghost btn-outline w-full"
+                >
+                  <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </.form>
+  </div>
+
+  <%!-- Media Selector Modal --%>
+  <.live_component
+    :if={@show_media_selector}
+    module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+    id="post-media-selector"
+    show={@show_media_selector}
+    mode={@media_selector_mode}
+    selected_ids={[]}
+    phoenix_kit_current_user={assigns[:phoenix_kit_current_user]}
+  />
+
+  <script>
+    // Function to insert standard markdown media syntax at cursor position
+    window.postsEditorInsertMedia = function(fileUrl, mediaType) {
+      const textarea = document.getElementById('post-content-editor-textarea');
+      if (!textarea) return;
+
+      // Build standard markdown syntax: ![alt](url)
+      const altText = mediaType === 'image' ? 'Image description' : 'Video';
+      const template = '![' + altText + '](' + fileUrl + ')';
+
+      const start = textarea.selectionStart || 0;
+      const end = textarea.selectionEnd || 0;
+      const currentValue = textarea.value;
+
+      const newValue = currentValue.substring(0, start) + template + currentValue.substring(end);
+      textarea.value = newValue;
+
+      // Move cursor after inserted text
+      const newPos = start + template.length;
+      textarea.selectionStart = textarea.selectionEnd = newPos;
+      textarea.focus();
+
+      // Trigger keyup event to update LiveView
+      textarea.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true }));
+    };
+
+    // Handle exec-js event from server
+    window.addEventListener("phx:exec-js", (e) => {
+      if (e.detail && e.detail.js) {
+        eval(e.detail.js);
+      }
+    });
+  </script>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

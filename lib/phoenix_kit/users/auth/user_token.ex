@@ -38,6 +38,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
   @magic_link_validity_in_minutes 15
 
   schema "phoenix_kit_users_tokens" do
+    field :uuid, Ecto.UUID
     field :token, :binary
     field :context, :string
     field :sent_to, :string
@@ -92,6 +93,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
     fingerprint = Keyword.get(opts, :fingerprint)
 
     user_token = %UserToken{
+      uuid: UUIDv7.generate(),
       token: token,
       context: "session",
       user_id: user.id,
@@ -155,6 +157,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
     {Base.url_encode64(token, padding: false),
      %UserToken{
+       uuid: UUIDv7.generate(),
        token: hashed_token,
        context: context,
        sent_to: email,
@@ -168,6 +171,7 @@ defmodule PhoenixKit.Users.Auth.UserToken do
 
     {Base.url_encode64(token, padding: false),
      %UserToken{
+       uuid: UUIDv7.generate(),
        token: hashed_token,
        context: context,
        sent_to: sent_to,

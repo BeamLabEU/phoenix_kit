@@ -1,0 +1,601 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="Emails"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon_arrow_left /> Back to Dashboard
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Emails</h1>
+        <p class="text-lg text-base-content">Monitor and track all outgoing emails</p>
+      </div>
+    </header>
+
+    <%!-- Statistics Summary --%>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats[:total_sent] || 0}
+        title="Total Sent"
+        subtitle="Last 30 days"
+      >
+        <:icon>
+          <.icon name="hero-envelope" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats[:delivered] || 0}
+        title="Delivered"
+        subtitle={"#{@stats[:delivery_rate] || 0}% rate"}
+      >
+        <:icon>
+          <.icon name="hero-check-circle" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats[:bounced] || 0}
+        title="Bounced"
+        subtitle={"#{@stats[:bounce_rate] || 0}% rate"}
+      >
+        <:icon>
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+
+      <PhoenixKitWeb.Components.Core.StatCard.stat_card
+        compact={true}
+        rounded="xl"
+        value={@stats[:opened] || 0}
+        title="Opened"
+        subtitle={"#{@stats[:open_rate] || 0}% rate"}
+      >
+        <:icon>
+          <.icon name="hero-envelope-open" class="w-5 h-5" />
+        </:icon>
+      </PhoenixKitWeb.Components.Core.StatCard.stat_card>
+    </div>
+
+    <%!-- Filters & Search --%>
+    <div class="bg-base-200 rounded-lg p-6 mb-6">
+      <.form for={%{}} phx-change="filter" class="space-y-4">
+        <%!-- Search Bar --%>
+        <div class="flex gap-2 items-center">
+          <input
+            type="text"
+            name="search[query]"
+            value={@filters.search}
+            placeholder="Search by recipient, subject, or campaign..."
+            class="input input-bordered flex-1"
+            phx-debounce="300"
+          />
+          <button type="button" phx-click="clear_filters" class="btn btn-ghost btn-sm">
+            Clear
+          </button>
+        </div>
+
+        <%!-- Filter Row --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <%!-- Status Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Status</span>
+            </label>
+            <select name="filter[status]" class="select select-bordered">
+              <option value="">All Statuses</option>
+              <option value="queued" selected={@filters.status == "queued"}>Queued</option>
+              <option value="sent" selected={@filters.status == "sent"}>Sent</option>
+              <option value="delivered" selected={@filters.status == "delivered"}>
+                Delivered
+              </option>
+              <option value="opened" selected={@filters.status == "opened"}>Opened</option>
+              <option value="clicked" selected={@filters.status == "clicked"}>Clicked</option>
+              <option value="bounced" selected={@filters.status == "bounced"}>Bounced</option>
+              <option value="hard_bounced" selected={@filters.status == "hard_bounced"}>
+                Hard Bounced
+              </option>
+              <option value="soft_bounced" selected={@filters.status == "soft_bounced"}>
+                Soft Bounced
+              </option>
+              <option value="rejected" selected={@filters.status == "rejected"}>Rejected</option>
+              <option value="delayed" selected={@filters.status == "delayed"}>Delayed</option>
+              <option value="complaint" selected={@filters.status == "complaint"}>
+                Complaint
+              </option>
+              <option value="failed" selected={@filters.status == "failed"}>Failed</option>
+            </select>
+          </div>
+
+          <%!-- Category Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Category</span>
+            </label>
+            <select name="filter[category]" class="select select-bordered">
+              <option value="">All Categories</option>
+              <option value="system" selected={@filters.category == "system"}>
+                System
+              </option>
+              <option value="transactional" selected={@filters.category == "transactional"}>
+                Transactional
+              </option>
+              <option value="marketing" selected={@filters.category == "marketing"}>
+                Marketing
+              </option>
+              <option value="notification" selected={@filters.category == "notification"}>
+                Notification
+              </option>
+            </select>
+          </div>
+
+          <%!-- Source Module Filter --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Source Module</span>
+            </label>
+            <select name="filter[source_module]" class="select select-bordered">
+              <option value="">All Modules</option>
+              <option value="users" selected={@filters.source_module == "users"}>
+                Users
+              </option>
+              <option value="billing" selected={@filters.source_module == "billing"}>
+                Billing
+              </option>
+              <option value="publishing" selected={@filters.source_module == "publishing"}>
+                Publishing
+              </option>
+              <option value="entities" selected={@filters.source_module == "entities"}>
+                Entities
+              </option>
+              <option value="admin" selected={@filters.source_module == "admin"}>
+                Admin
+              </option>
+              <option value="custom" selected={@filters.source_module == "custom"}>
+                Custom
+              </option>
+            </select>
+          </div>
+        </div>
+
+        <%!-- Second Filter Row: Date Range --%>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <%!-- Date Range --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">From Date</span>
+            </label>
+            <input
+              type="date"
+              name="filter[from_date]"
+              value={@filters.from_date}
+              class="input input-bordered"
+            />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">To Date</span>
+            </label>
+            <input
+              type="date"
+              name="filter[to_date]"
+              value={@filters.to_date}
+              class="input input-bordered"
+            />
+          </div>
+        </div>
+
+        <%!-- Quick Actions Row --%>
+        <div class="w-full">
+          <label class="label">
+            <span class="label-text">Quick Actions</span>
+          </label>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              phx-click="show_column_modal"
+              class="btn btn-info btn-sm"
+              title="Customize columns"
+            >
+              <.icon name="hero-view-columns" class="h-5 w-5" />
+              <span class="hidden sm:inline">Columns</span>
+            </button>
+
+            <.link
+              navigate={Routes.path("/admin/modules/emails/templates")}
+              class="btn btn-outline btn-secondary btn-sm"
+            >
+              <.icon name="hero-document-text" class="w-4 h-4" />
+              <span class="hidden sm:inline ml-1">Templates</span>
+            </.link>
+
+            <button
+              type="button"
+              phx-click="show_test_email_modal"
+              class="btn btn-primary btn-sm"
+            >
+              <.icon name="hero-envelope" class="w-4 h-4" />
+              <span class="hidden sm:inline ml-1">Send Test</span>
+            </button>
+
+            <.link
+              href={build_export_url(@filters)}
+              target="_blank"
+              class="btn btn-outline btn-sm"
+            >
+              <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+              <span class="hidden sm:inline ml-1">Export CSV</span>
+            </.link>
+
+            <button type="button" phx-click="refresh" class="btn btn-outline btn-sm">
+              <.icon name="hero-arrow-path" class="w-4 h-4" />
+              <span class="hidden sm:inline ml-1">Refresh</span>
+            </button>
+          </div>
+        </div>
+      </.form>
+    </div>
+
+    <%!-- Emails Table --%>
+    <div class="bg-base-100">
+      <%= if @loading do %>
+        <div class="flex justify-center items-center h-32">
+          <span class="loading loading-spinner loading-md"></span>
+          <span class="ml-2">Loading emails...</span>
+        </div>
+      <% else %>
+        <%= if length(@logs) > 0 do %>
+          <.table_default variant="zebra" class="w-full">
+            <.table_default_header>
+              <.table_default_row>
+                <%= for field <- @selected_columns do %>
+                  <% column = Enum.find(@available_columns, fn col -> col.field == field end) %>
+                  <%= if column do %>
+                    <.table_default_header_cell>
+                      <%= if field == "status" do %>
+                        <div class="flex items-center gap-1">
+                          <span>{column.label}</span>
+                          <div class="dropdown dropdown-hover dropdown-bottom dropdown-end">
+                            <div tabindex="0" role="button">
+                              <.icon
+                                name="hero-information-circle"
+                                class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                              />
+                            </div>
+                            <div
+                              tabindex="0"
+                              class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-40 border border-base-300 text-base-content"
+                            >
+                              <div class="text-xs font-medium mb-2">Legend:</div>
+                              <div class="flex flex-col gap-1.5">
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-ghost badge-xs"></span>
+                                  <span class="text-xs">Queued</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-info badge-xs"></span>
+                                  <span class="text-xs">Sent</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-success badge-xs"></span>
+                                  <span class="text-xs">Delivered</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-primary badge-xs"></span>
+                                  <span class="text-xs">Opened</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-secondary badge-xs"></span>
+                                  <span class="text-xs">Clicked</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-warning badge-xs"></span>
+                                  <span class="text-xs">Delayed</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                  <span class="badge badge-error badge-xs"></span>
+                                  <span class="text-xs">Error</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      <% else %>
+                        <%= if field == "details" do %>
+                          <div class="flex items-center gap-1">
+                            <span>{column.label}</span>
+                            <div class="dropdown dropdown-hover dropdown-bottom dropdown-end">
+                              <div tabindex="0" role="button">
+                                <.icon
+                                  name="hero-information-circle"
+                                  class="w-4 h-4 text-base-content/50 hover:text-base-content cursor-help"
+                                />
+                              </div>
+                              <div
+                                tabindex="0"
+                                class="dropdown-content z-[1] p-3 shadow-lg bg-base-100 rounded-box w-48 border border-base-300 text-base-content"
+                              >
+                                <div class="text-xs font-medium mb-2">Legend:</div>
+                                <div class="flex flex-col gap-1.5">
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-accent"></span>
+                                    <span class="text-xs">Source Module</span>
+                                  </div>
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-primary"></span>
+                                    <span class="text-xs">Campaign</span>
+                                  </div>
+                                  <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full border-2 border-base-content/30 bg-transparent">
+                                    </span>
+                                    <span class="text-xs">Template</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        <% else %>
+                          {column.label}
+                        <% end %>
+                      <% end %>
+                    </.table_default_header_cell>
+                  <% end %>
+                <% end %>
+              </.table_default_row>
+            </.table_default_header>
+
+            <.table_default_body>
+              <%= for log <- @logs do %>
+                <.table_default_row>
+                  <%= for field <- @selected_columns do %>
+                    <.table_default_cell>
+                      <%= case field do %>
+                        <% "to" -> %>
+                          <div class="space-y-1">
+                            <div class="font-medium text-sm">{log.to}</div>
+                            <%= if log.user_id do %>
+                              <div class="badge badge-ghost badge-xs">User #{log.user_id}</div>
+                            <% end %>
+                          </div>
+                        <% "subject" -> %>
+                          <div class="text-sm truncate" title={log.subject}>
+                            {log.subject || "(no subject)"}
+                          </div>
+                        <% "status" -> %>
+                          <.email_activity_badges log={log} />
+                        <% "details" -> %>
+                          <div class="flex flex-wrap gap-1">
+                            <%!-- Source module badge (accent - primary info) --%>
+                            <% source_module =
+                              is_map(log.message_tags) &&
+                                Map.get(log.message_tags, "source_module") %>
+                            <%= if source_module do %>
+                              <div class="badge badge-accent badge-xs">{source_module}</div>
+                            <% end %>
+                            <%!-- Campaign badge (primary) --%>
+                            <%= if log.campaign_id do %>
+                              <div class="badge badge-primary badge-xs">{log.campaign_id}</div>
+                            <% end %>
+                            <%!-- Template name badge (outline) --%>
+                            <%= if log.template_name do %>
+                              <div class="badge badge-outline badge-xs">{log.template_name}</div>
+                            <% end %>
+                            <% has_details =
+                              source_module || log.campaign_id || log.template_name %>
+                            <%= if !has_details do %>
+                              <span class="text-xs text-base-content/50">—</span>
+                            <% end %>
+                          </div>
+                        <% "actions" -> %>
+                          <button
+                            phx-click="view_details"
+                            phx-value-id={log.id}
+                            class="btn btn-xs btn-outline btn-primary"
+                          >
+                            <.icon name="hero-eye" class="w-3 h-3 mr-1" /> View
+                          </button>
+                        <% _ -> %>
+                          <span class="text-xs text-base-content/50">—</span>
+                      <% end %>
+                    </.table_default_cell>
+                  <% end %>
+                </.table_default_row>
+              <% end %>
+            </.table_default_body>
+          </.table_default>
+        <% else %>
+          <%!-- Empty state --%>
+          <div class="text-center py-12">
+            <.icon name="hero-envelope" class="h-16 w-16 mx-auto text-base-content/40 mb-4" />
+            <h3 class="text-lg font-medium text-base-content mb-2">
+              No emails found
+            </h3>
+            <p class="text-base-content/70 mb-4">
+              No emails found matching your criteria
+            </p>
+          </div>
+        <% end %>
+
+        <%!-- Pagination --%>
+        <%= if @total_count > @per_page do %>
+          <.pagination
+            current_page={@page}
+            total_pages={@total_pages}
+            base_path="/admin/emails"
+            params={
+              %{
+                "search" => @filters.search,
+                "status" => @filters.status,
+                "category" => @filters.category,
+                "source_module" => @filters.source_module,
+                "campaign_id" => @filters.campaign_id,
+                "from_date" => @filters.from_date,
+                "to_date" => @filters.to_date,
+                "per_page" => @per_page
+              }
+            }
+          />
+        <% end %>
+      <% end %>
+    </div>
+
+    <%!-- Test Email Modal --%>
+    <div
+      :if={@show_test_email_modal}
+      class="modal modal-open"
+      phx-click-away="hide_test_email_modal"
+    >
+      <div class="modal-box">
+        <h3 class="font-bold text-lg mb-4">Send Test Email</h3>
+        <p class="text-sm text-base-content/70 mb-4">
+          Send a test email to verify that email is working correctly.
+          The test email will include test links.
+        </p>
+
+        <.form
+          for={%{}}
+          phx-submit="send_test_email"
+          phx-change="validate_test_email"
+          class="space-y-4"
+        >
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Recipient Email Address</span>
+            </label>
+            <input
+              type="email"
+              name="test_email[recipient]"
+              value={@test_email_form[:recipient] || ""}
+              placeholder="admin@example.com"
+              class={[
+                "input input-bordered w-full",
+                @test_email_form[:errors][:recipient] && "input-error"
+              ]}
+              required
+            />
+            <%= if @test_email_form[:errors][:recipient] do %>
+              <label class="label">
+                <span class="label-text-alt text-error">
+                  {@test_email_form[:errors][:recipient]}
+                </span>
+              </label>
+            <% end %>
+          </div>
+
+          <div class="alert alert-info">
+            <.icon name="hero-information-circle" class="w-5 h-5" />
+            <div class="text-sm">
+              <div class="font-semibold">This test email will:</div>
+              <ul class="mt-1 list-disc list-inside">
+                <li>Verify AWS SES configuration (if enabled)</li>
+                <li>Test email delivery management</li>
+                <li>Include trackable links for click testing</li>
+                <li>Appear in your emails with "TEST" campaign</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="modal-action">
+            <button
+              type="button"
+              phx-click="hide_test_email_modal"
+              class="btn btn-ghost"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class={[
+                "btn btn-primary",
+                @test_email_sending && "loading"
+              ]}
+              disabled={@test_email_sending}
+            >
+              <%= if @test_email_sending do %>
+                Sending...
+              <% else %>
+                Send Test Email
+              <% end %>
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- Column Selection Modal --%>
+    <%= if @show_column_modal do %>
+      <div class="modal modal-open" phx-click-away="hide_column_modal">
+        <div class="modal-box max-w-2xl">
+          <h3 class="font-bold text-xl mb-4">Customize Table Columns</h3>
+          <p class="text-base-content/70 mb-6">
+            Select which columns to display in the emails table. Required columns (Email, Subject, Status, Actions) cannot be hidden.
+          </p>
+
+          <div class="space-y-2 max-h-96 overflow-y-auto">
+            <%= for column <- @available_columns do %>
+              <div class="flex items-center p-3 rounded-lg hover:bg-base-200 transition-colors">
+                <input
+                  type="checkbox"
+                  class="checkbox checkbox-primary"
+                  id={"column-#{column.field}"}
+                  checked={column.field in @selected_columns}
+                  disabled={column.required}
+                  phx-click="toggle_column"
+                  phx-value-field={column.field}
+                />
+                <label for={"column-#{column.field}"} class="ml-3 flex-1 cursor-pointer">
+                  <div class="font-medium text-sm text-base-content">
+                    {column.label}
+                  </div>
+                  <%= if column.required do %>
+                    <div class="text-xs text-base-content/50">
+                      Required column
+                    </div>
+                  <% end %>
+                </label>
+                <%= if column.required do %>
+                  <div class="badge badge-sm badge-ghost">Required</div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="modal-action">
+            <button
+              type="button"
+              phx-click="reset_columns"
+              class="btn btn-outline"
+            >
+              Reset to Default
+            </button>
+            <button
+              type="button"
+              phx-click="hide_column_modal"
+              class="btn btn-primary"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

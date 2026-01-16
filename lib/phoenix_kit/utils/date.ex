@@ -47,17 +47,16 @@ defmodule PhoenixKit.Utils.Date do
 
   ## Implementation
 
-  This module uses Timex for robust internationalized date/time formatting
-  with extensive format support and proper locale handling.
+  This module uses Elixir's built-in Calendar.strftime for robust date/time formatting
+  with extensive format support.
   """
 
-  use Timex
   alias PhoenixKit.Settings
 
   @doc """
   Formats a date according to the specified format string.
 
-  Uses Timex for robust date formatting with extensive format support.
+  Uses Calendar.strftime for robust date formatting with extensive format support.
 
   ## Examples
 
@@ -71,37 +70,14 @@ defmodule PhoenixKit.Utils.Date do
       "January 15, 2024"
   """
   def format_date(date, format) do
-    timex_format = get_timex_format(format)
-    format_with_timex(date, timex_format)
-  end
-
-  # Private helper functions to reduce complexity
-  defp get_timex_format(format) do
-    case format do
-      "Y-m-d" -> "{YYYY}-{0M}-{0D}"
-      "m/d/Y" -> "{0M}/{0D}/{YYYY}"
-      "d/m/Y" -> "{0D}/{0M}/{YYYY}"
-      "d.m.Y" -> "{0D}.{0M}.{YYYY}"
-      "d.m" -> "{0D}.{0M}"
-      "d-m-Y" -> "{0D}-{0M}-{YYYY}"
-      "F j, Y" -> "{Mfull} {D}, {YYYY}"
-      # Default to Y-m-d format
-      _ -> "{YYYY}-{0M}-{0D}"
-    end
-  end
-
-  defp format_with_timex(date, timex_format) do
-    case Timex.format(date, timex_format) do
-      {:ok, formatted} -> formatted
-      # Fallback to ISO format
-      {:error, _} -> Date.to_string(date)
-    end
+    strftime_format = convert_php_to_strftime(format, :date)
+    Calendar.strftime(date, strftime_format)
   end
 
   @doc """
   Formats a time according to the specified format string.
 
-  Uses Timex for robust time formatting with extensive format support.
+  Uses Calendar.strftime for robust time formatting with extensive format support.
 
   ## Examples
 
@@ -112,19 +88,32 @@ defmodule PhoenixKit.Utils.Date do
       "3:30 PM"
   """
   def format_time(time, format) do
-    # Map our format codes to Timex format strings
-    timex_format =
-      case format do
-        "H:i" -> "{h24}:{m}"
-        "h:i A" -> "{h12}:{m} {AM}"
-        # Default to 24-hour format
-        _ -> "{h24}:{m}"
-      end
+    strftime_format = convert_php_to_strftime(format, :time)
+    Calendar.strftime(time, strftime_format)
+  end
 
-    case Timex.format(time, timex_format) do
-      {:ok, formatted} -> formatted
-      # Fallback to ISO format
-      {:error, _} -> Time.to_string(time)
+  # Convert PHP-style format strings to strftime format strings
+  defp convert_php_to_strftime(format, :date) do
+    case format do
+      "Y-m-d" -> "%Y-%m-%d"
+      "m/d/Y" -> "%m/%d/%Y"
+      "d/m/Y" -> "%d/%m/%Y"
+      "d.m.Y" -> "%d.%m.%Y"
+      "d.m" -> "%d.%m"
+      "d-m-Y" -> "%d-%m-%Y"
+      "F j, Y" -> "%B %-d, %Y"
+      # Default to Y-m-d format
+      _ -> "%Y-%m-%d"
+    end
+  end
+
+  # Convert PHP-style time format strings to strftime format strings
+  defp convert_php_to_strftime(format, :time) do
+    case format do
+      "H:i" -> "%H:%M"
+      "h:i A" -> "%I:%M %p"
+      # Default to 24-hour format
+      _ -> "%H:%M"
     end
   end
 
@@ -477,6 +466,12 @@ defmodule PhoenixKit.Utils.Date do
     shift_to_timezone_offset(datetime, user_timezone_offset)
   end
 
+  # Private helper to shift datetime to user's timezone using cached settings
+  defp shift_to_user_timezone_cached(datetime, user, settings) do
+    user_timezone_offset = get_user_timezone_cached(user, settings)
+    shift_to_timezone_offset(datetime, user_timezone_offset)
+  end
+
   # Private helper to apply timezone offset to datetime
   defp shift_to_timezone_offset(datetime, timezone_offset) do
     case Integer.parse(timezone_offset) do
@@ -488,6 +483,66 @@ defmodule PhoenixKit.Utils.Date do
       _ ->
         # Invalid timezone offset, return original datetime
         datetime
+    end
+  end
+
+  # Cached variant of format_datetime_with_timezone
+  defp format_datetime_with_timezone_cached(datetime, format, user, settings) do
+    case datetime do
+      nil ->
+        "Never"
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_datetime(shifted_datetime, format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_datetime(shifted_datetime, format)
+
+      _ ->
+        format_datetime(datetime, format)
+    end
+  end
+
+  # Cached variant of format_date_with_timezone
+  defp format_date_with_timezone_cached(date, format, user, settings) do
+    case date do
+      %Date{} = d ->
+        format_date(d, format)
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_date(DateTime.to_date(shifted_datetime), format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_date(DateTime.to_date(shifted_datetime), format)
+
+      _ ->
+        format_date(date, format)
+    end
+  end
+
+  # Cached variant of format_time_with_timezone
+  defp format_time_with_timezone_cached(time, format, user, settings) do
+    case time do
+      %Time{} = t ->
+        format_time(t, format)
+
+      %NaiveDateTime{} = naive_dt ->
+        utc_datetime = DateTime.from_naive!(naive_dt, "Etc/UTC")
+        shifted_datetime = shift_to_user_timezone_cached(utc_datetime, user, settings)
+        format_time(DateTime.to_time(shifted_datetime), format)
+
+      %DateTime{} = dt ->
+        shifted_datetime = shift_to_user_timezone_cached(dt, user, settings)
+        format_time(DateTime.to_time(shifted_datetime), format)
+
+      _ ->
+        format_time(time, format)
     end
   end
 
@@ -583,7 +638,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_datetime_with_user_timezone_cached(datetime, user, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    format_datetime_with_timezone(datetime, date_format, user)
+    format_datetime_with_timezone_cached(datetime, date_format, user, settings)
   end
 
   @doc """
@@ -598,7 +653,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_date_with_user_timezone_cached(date, user, settings) do
     date_format = Map.get(settings, "date_format", "Y-m-d")
-    format_date_with_timezone(date, date_format, user)
+    format_date_with_timezone_cached(date, date_format, user, settings)
   end
 
   @doc """
@@ -613,7 +668,7 @@ defmodule PhoenixKit.Utils.Date do
   """
   def format_time_with_user_timezone_cached(time, user, settings) do
     time_format = Map.get(settings, "time_format", "H:i")
-    format_time_with_timezone(time, time_format, user)
+    format_time_with_timezone_cached(time, time_format, user, settings)
   end
 
   @doc """

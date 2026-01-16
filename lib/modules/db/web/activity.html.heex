@@ -1,0 +1,190 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - Live Activity"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to DB
+      </.link>
+
+      <div class="text-center">
+        <div class="flex items-center justify-center gap-3 mb-3">
+          <div class={"w-3 h-3 rounded-full #{if @paused, do: "bg-warning", else: "bg-success animate-pulse"}"}>
+          </div>
+          <h1 class="text-4xl font-bold text-base-content">Live Database Activity</h1>
+        </div>
+        <p class="text-lg text-base-content">
+          <%= if @paused do %>
+            Paused - {length(@activity_log)} events captured
+          <% else %>
+            Monitoring all tables in real-time
+          <% end %>
+        </p>
+      </div>
+    </header>
+
+    <%!-- Controls --%>
+    <div class="flex justify-center gap-2 mb-6">
+      <button
+        phx-click="toggle_pause"
+        class={"btn btn-sm #{if @paused, do: "btn-warning", else: "btn-ghost"}"}
+      >
+        <%= if @paused do %>
+          <.icon name="hero-play" class="w-4 h-4 mr-2" /> Resume
+        <% else %>
+          <.icon name="hero-pause" class="w-4 h-4 mr-2" /> Pause
+        <% end %>
+      </button>
+      <button phx-click="clear_log" class="btn btn-ghost btn-sm">
+        <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Clear
+      </button>
+    </div>
+
+    <%!-- Filters --%>
+    <div class="flex gap-4">
+      <div class="flex flex-col gap-2">
+        <div class="form-control">
+          <label class="label py-0">
+            <span class="label-text text-xs">Table</span>
+          </label>
+          <select
+            name="table"
+            phx-change="filter_table"
+            class="select select-bordered select-sm w-56"
+          >
+            <option value="">All tables</option>
+            <%= for table <- @tables do %>
+              <option value={table} selected={@filter_table == table}>{table}</option>
+            <% end %>
+          </select>
+        </div>
+        <div class="form-control">
+          <label class="label py-0">
+            <span class="label-text text-xs">Operation</span>
+          </label>
+          <select
+            name="operation"
+            phx-change="filter_operation"
+            class="select select-bordered select-sm w-56"
+          >
+            <option value="">All</option>
+            <option value="INSERT" selected={@filter_operation == "INSERT"}>INSERT</option>
+            <option value="UPDATE" selected={@filter_operation == "UPDATE"}>UPDATE</option>
+            <option value="DELETE" selected={@filter_operation == "DELETE"}>DELETE</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex-1"></div>
+      <div class="text-sm text-base-content/70 self-end">
+        {length(@activity_log)} events
+      </div>
+    </div>
+
+    <%!-- Activity Log --%>
+    <div class="bg-base-100 rounded-box shadow border border-base-200 overflow-hidden">
+      <%= if Enum.empty?(@activity_log) do %>
+        <div class="p-12 text-center text-base-content/50">
+          <.icon name="hero-signal" class="w-12 h-12 mx-auto mb-4 opacity-30" />
+          <p class="text-lg font-medium">Waiting for database activity...</p>
+          <p class="text-sm mt-2">
+            INSERT, UPDATE, and DELETE operations will appear here in real-time
+          </p>
+        </div>
+      <% else %>
+        <div class="divide-y divide-base-200">
+          <%= for entry <- @activity_log do %>
+            <div class="p-4 hover:bg-base-200/30 transition-colors" id={"activity-#{entry.id}"}>
+              <%!-- Header row --%>
+              <div class="flex items-center gap-3 mb-3">
+                <span class={"badge #{operation_badge_class(entry.operation)}"}>
+                  {entry.operation}
+                </span>
+                <.link
+                  navigate={
+                    PhoenixKit.Utils.Routes.path("/admin/db/#{entry.schema}/#{entry.table}")
+                  }
+                  class="font-mono text-sm link link-hover"
+                >
+                  {entry.schema}.{entry.table}
+                </.link>
+                <%= if entry.row_id do %>
+                  <span class="badge badge-outline badge-sm">id: {entry.row_id}</span>
+                <% end %>
+                <span class="text-xs text-base-content/50 ml-auto font-mono">
+                  {Calendar.strftime(entry.timestamp, "%Y-%m-%d %H:%M:%S")}
+                </span>
+              </div>
+
+              <%!-- Row data --%>
+              <%= if entry.row_data do %>
+                <div class="bg-base-200/50 rounded-lg p-3 overflow-x-auto">
+                  <table class="table table-xs">
+                    <tbody>
+                      <%= for {key, value} <- entry.row_data |> Enum.sort_by(fn {k, _} -> k end) do %>
+                        <tr class={field_highlight_class(entry, key)}>
+                          <td class="font-mono text-xs text-base-content/70 w-40 align-top py-1">
+                            {key}
+                            <%= if key_new?(entry, key) do %>
+                              <span class="badge badge-success badge-xs ml-1">new</span>
+                            <% end %>
+                            <%= if key_changed?(entry, key) do %>
+                              <span class="badge badge-warning badge-xs ml-1">changed</span>
+                            <% end %>
+                          </td>
+                          <td class="font-mono text-xs py-1 break-all">
+                            <%= cond do %>
+                              <% is_nil(value) -> %>
+                                <span class="text-base-content/40 italic">null</span>
+                              <% is_map(value) or is_list(value) -> %>
+                                <details>
+                                  <summary class="cursor-pointer text-primary">
+                                    {if is_map(value), do: "{ ... }", else: "[ ... ]"}
+                                  </summary>
+                                  <pre class="mt-1 text-[10px] whitespace-pre-wrap">{format_value(value)}</pre>
+                                </details>
+                              <% is_binary(value) and byte_size(value) > 100 -> %>
+                                <details>
+                                  <summary class="cursor-pointer">
+                                    {String.slice(value, 0, 100)}...
+                                  </summary>
+                                  <div class="mt-1 whitespace-pre-wrap">{value}</div>
+                                </details>
+                              <% true -> %>
+                                {inspect(value)}
+                            <% end %>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              <% else %>
+                <%= if entry.operation == "DELETE" do %>
+                  <div class="text-sm text-base-content/50 italic">
+                    Row deleted (data not available)
+                  </div>
+                <% else %>
+                  <div class="text-sm text-base-content/50 italic">
+                    Row data not available
+                    <%= if is_nil(entry.row_id) do %>
+                      (table may not have an 'id' column)
+                    <% end %>
+                  </div>
+                <% end %>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

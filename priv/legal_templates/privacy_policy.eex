@@ -1,0 +1,173 @@
+<%!-- Privacy Policy Template --%>
+<%!-- Variables: company_name, company_address, company_country, company_website, dpo_name, dpo_email, frameworks, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated based on your selected compliance frameworks.
+> It provides a basic template that meets minimum requirements but MUST be reviewed
+> and customized by a qualified legal professional before publication.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+## 1. Introduction
+
+<%= @company_name %> ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website<%= if @company_website != "", do: " at #{@company_website}", else: "" %> or use our services.
+
+## 2. Company Information
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %>
+<%= @company_address %>
+<% end %>
+<%= if @company_country != "" do %>
+<%= @company_country %>
+<% end %>
+<%= if @registration_number != "" do %>
+Registration Number: <%= @registration_number %>
+<% end %>
+<%= if @vat_number != "" do %>
+VAT Number: <%= @vat_number %>
+<% end %>
+
+<%= if @dpo_name != "" or @dpo_email != "" do %>
+## 3. Data Protection Officer
+
+For any data protection inquiries, please contact our Data Protection Officer:
+
+<%= if @dpo_name != "" do %>- **Name:** <%= @dpo_name %><% end %>
+<%= if @dpo_email != "" do %>- **Email:** <%= @dpo_email %><% end %>
+<%= if @dpo_phone != "" do %>- **Phone:** <%= @dpo_phone %><% end %>
+<%= if @dpo_address != "" do %>- **Address:** <%= @dpo_address %><% end %>
+<% end %>
+
+## 4. Information We Collect
+
+### 4.1 Information You Provide
+
+We may collect personal information that you voluntarily provide to us when you:
+- Register for an account
+- Subscribe to our newsletter
+- Contact us with inquiries
+- Make a purchase
+- Participate in surveys or promotions
+
+This information may include:
+- Name and contact information (email, phone number)
+- Account credentials
+- Billing and payment information
+- Communication preferences
+- Any other information you choose to provide
+
+### 4.2 Automatically Collected Information
+
+When you access our services, we automatically collect certain information, including:
+- IP address
+- Browser type and version
+- Operating system
+- Device information
+- Access times and dates
+- Pages viewed and links clicked
+- Referring URL
+
+### 4.3 Cookies and Tracking Technologies
+
+We use cookies and similar tracking technologies to collect information about your browsing activities. For more details, please see our Cookie Policy.
+
+## 5. How We Use Your Information
+
+We use the information we collect to:
+- Provide, maintain, and improve our services
+- Process transactions and send related information
+- Send promotional communications (with your consent)
+- Respond to your comments, questions, and requests
+- Monitor and analyze trends, usage, and activities
+- Detect, investigate, and prevent security incidents
+- Comply with legal obligations
+
+<%= if "gdpr" in @frameworks or "uk_gdpr" in @frameworks do %>
+## 6. Legal Basis for Processing (GDPR)
+
+Under the General Data Protection Regulation, we process your personal data based on the following legal grounds:
+
+- **Consent (Article 6(1)(a)):** Where you have given explicit consent for specific purposes
+- **Contract Performance (Article 6(1)(b)):** Where processing is necessary to fulfill our contractual obligations
+- **Legal Obligation (Article 6(1)(c)):** Where we must comply with legal requirements
+- **Legitimate Interests (Article 6(1)(f)):** Where we have legitimate business interests that don't override your rights
+<% end %>
+
+## 7. Data Sharing and Disclosure
+
+We may share your information with:
+- **Service Providers:** Third parties that perform services on our behalf
+- **Business Partners:** With your consent, for joint marketing activities
+- **Legal Authorities:** When required by law or to protect our rights
+- **Business Transfers:** In connection with mergers, acquisitions, or asset sales
+
+We do not sell your personal information to third parties.
+
+<%= if "gdpr" in @frameworks or "uk_gdpr" in @frameworks or "lgpd" in @frameworks or "pipeda" in @frameworks do %>
+## 8. Your Rights
+
+You have the following rights regarding your personal data:
+
+<%= if "gdpr" in @frameworks or "uk_gdpr" in @frameworks do %>
+### GDPR Rights (EU/EEA/UK residents)
+
+- **Right to Access:** Request a copy of your personal data
+- **Right to Rectification:** Request correction of inaccurate data
+- **Right to Erasure:** Request deletion of your data ("right to be forgotten")
+- **Right to Restrict Processing:** Request limitation of how we use your data
+- **Right to Data Portability:** Receive your data in a structured, machine-readable format
+- **Right to Object:** Object to processing based on legitimate interests
+- **Rights Related to Automated Decision-Making:** Not be subject to decisions based solely on automated processing
+
+To exercise these rights, contact our Data Protection Officer at <%= @dpo_email %>.
+<% end %>
+<% end %>
+
+<%= if "ccpa" in @frameworks or "us_states" in @frameworks do %>
+### CCPA/CPRA Rights (California residents)
+
+Under the California Consumer Privacy Act and California Privacy Rights Act, you have the right to:
+
+- **Know:** Request information about the personal data we collect, use, and disclose
+- **Delete:** Request deletion of your personal information
+- **Correct:** Request correction of inaccurate personal information
+- **Opt-Out:** Opt out of the sale or sharing of your personal information
+- **Limit Use:** Limit the use and disclosure of sensitive personal information
+- **Non-Discrimination:** Not receive discriminatory treatment for exercising your rights
+
+To exercise these rights, please visit our "Do Not Sell My Personal Information" page or contact us.
+<% end %>
+
+## 9. Data Security
+
+We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the Internet or electronic storage is 100% secure.
+
+## 10. Data Retention
+
+We retain your personal information only for as long as necessary to fulfill the purposes for which it was collected, comply with legal obligations, resolve disputes, and enforce our agreements.
+
+## 11. International Data Transfers
+
+Your information may be transferred to and processed in countries other than your country of residence. We ensure appropriate safeguards are in place to protect your data in accordance with this Privacy Policy.
+
+## 12. Children's Privacy
+
+Our services are not intended for children under 16 years of age. We do not knowingly collect personal information from children under 16.
+
+## 13. Changes to This Policy
+
+We may update this Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Effective Date" at the top.
+
+## 14. Contact Us
+
+If you have questions about this Privacy Policy or our privacy practices, please contact us at:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>

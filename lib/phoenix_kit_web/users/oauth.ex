@@ -1,12 +1,18 @@
 if Code.ensure_loaded?(Ueberauth) do
   defmodule PhoenixKitWeb.Users.OAuth do
     @moduledoc """
-    OAuth authentication controller using Ueberauth.
+    OAuth authentication controller using Ueberauth with dynamic provider configuration.
+
+    This controller uses `Ueberauth.run_request/4` and `Ueberauth.run_callback/4` for
+    dynamic OAuth invocation, eliminating compile-time configuration requirements.
+    OAuth credentials are loaded from database at runtime.
 
     This controller requires the following optional dependencies to be installed:
     - ueberauth
     - ueberauth_google (for Google Sign-In)
     - ueberauth_apple (for Apple Sign-In)
+    - ueberauth_github (for GitHub Sign-In)
+    - ueberauth_facebook (for Facebook Sign-In)
 
     If these dependencies are not installed, a fallback controller will be used instead.
     """
@@ -14,11 +20,10 @@ if Code.ensure_loaded?(Ueberauth) do
     use PhoenixKitWeb, :controller
 
     plug PhoenixKitWeb.Plugs.EnsureOAuthScheme
-    # Ensure OAuth config is loaded before Ueberauth plug runs
-    # This prevents MatchError if configuration is missing
     plug PhoenixKitWeb.Plugs.EnsureOAuthConfig
-    plug Ueberauth
+    # NOTE: No `plug Ueberauth` - we call Ueberauth.run_request/4 and run_callback/4 dynamically
 
+    alias PhoenixKit.Config
     alias PhoenixKit.Settings
     alias PhoenixKit.Users.OAuth
     alias PhoenixKit.Utils.IpAddress
@@ -27,52 +32,54 @@ if Code.ensure_loaded?(Ueberauth) do
 
     require Logger
 
+    # Map provider names (strings) to strategy modules
+    @provider_strategies %{
+      "google" => Ueberauth.Strategy.Google,
+      "apple" => Ueberauth.Strategy.Apple,
+      "github" => Ueberauth.Strategy.Github,
+      "facebook" => Ueberauth.Strategy.Facebook
+    }
+
     @doc """
     Initiates OAuth authentication flow.
+
+    Uses `Ueberauth.run_request/4` for dynamic OAuth invocation,
+    reading credentials from database at runtime.
     """
     def request(conn, %{"provider" => provider} = params) do
       Logger.debug("PhoenixKit OAuth request for provider: #{provider}")
 
       # Check if OAuth is enabled in settings
       if oauth_enabled_in_settings?() do
-        # Check if OAuth is properly configured
-        case get_ueberauth_providers() do
-          [] ->
-            Logger.warning("PhoenixKit OAuth: No providers configured")
+        # Check if provider is supported and enabled
+        case validate_provider(provider) do
+          {:ok, strategy_module} ->
+            handle_oauth_request(conn, provider, strategy_module, params)
+
+          {:error, :unknown_provider} ->
+            Logger.warning("PhoenixKit OAuth: Unknown provider '#{provider}'")
+
+            conn
+            |> put_flash(:error, "Unknown OAuth provider: #{provider}")
+            |> redirect(to: Routes.path("/users/log-in"))
+
+          {:error, :provider_disabled} ->
+            Logger.warning("PhoenixKit OAuth: Provider '#{provider}' is disabled in settings")
+
+            conn
+            |> put_flash(:error, "OAuth provider '#{provider}' is currently disabled.")
+            |> redirect(to: Routes.path("/users/log-in"))
+
+          {:error, :no_credentials} ->
+            Logger.warning(
+              "PhoenixKit OAuth: No credentials configured for provider '#{provider}'"
+            )
 
             conn
             |> put_flash(
               :error,
-              "OAuth authentication is not configured. To enable OAuth, please add provider configuration to your config.exs file. See PhoenixKit documentation for details."
+              "OAuth provider '#{provider}' is not configured. Please contact your administrator."
             )
-            |> redirect(to: Routes.path("/users/log-in"))
-
-          providers when providers != [] ->
-            provider_names =
-              Enum.map(providers, fn {provider, _strategy} -> to_string(provider) end)
-
-            Logger.debug("PhoenixKit OAuth: Available providers: #{inspect(provider_names)}")
-
-            if provider in provider_names do
-              handle_oauth_request(conn, params)
-            else
-              Logger.warning(
-                "PhoenixKit OAuth: Provider '#{provider}' not in configured providers: #{inspect(provider_names)}"
-              )
-
-              conn
-              |> put_flash(
-                :error,
-                "Provider '#{provider}' is not configured. Available providers: #{Enum.join(provider_names, ", ")}"
-              )
-              |> redirect(to: Routes.path("/users/log-in"))
-            end
-
-          error ->
-            Logger.error("PhoenixKit OAuth: Configuration error: #{inspect(error)}")
-
-            conn
-            |> put_flash(:error, "OAuth configuration error. Please contact your administrator.")
             |> redirect(to: Routes.path("/users/log-in"))
         end
       else
@@ -87,52 +94,50 @@ if Code.ensure_loaded?(Ueberauth) do
       end
     end
 
-    defp handle_oauth_request(conn, params) do
+    defp handle_oauth_request(conn, provider, strategy_module, params) do
+      # Store referral_code and return_to in session
       conn =
-        if referral_code = params["referral_code"] do
-          put_session(conn, :oauth_referral_code, referral_code)
-        else
-          conn
-        end
-
-      conn =
-        if return_to = params["return_to"] do
-          put_session(conn, :oauth_return_to, return_to)
-        else
-          conn
-        end
-
-      # Check if Ueberauth plug has already sent a response (e.g., a redirect)
-      # If response was already sent by Ueberauth, halt() to stop further processing
-      if conn.state != :unset do
-        # Response already sent by Ueberauth (e.g., redirect to OAuth provider)
-        halt(conn)
-      else
-        # No response sent - Ueberauth couldn't process the request
-        # This can happen if provider configuration is missing or invalid
-        Logger.error(
-          "PhoenixKit OAuth: Ueberauth plugin did not process request for provider. Check if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables are set correctly."
-        )
-
         conn
-        |> put_flash(
-          :error,
-          "OAuth authentication unavailable. The provider credentials are not configured. Please contact your administrator or use another sign-in method."
-        )
-        |> redirect(to: Routes.path("/users/log-in"))
+        |> maybe_put_session(:oauth_referral_code, params["referral_code"])
+        |> maybe_put_session(:oauth_return_to, params["return_to"])
+
+      # Build provider config for dynamic Ueberauth call
+      base_path = Config.UeberAuth.get_base_path()
+
+      provider_config =
+        {strategy_module,
+         [
+           request_path: "#{base_path}/#{provider}",
+           callback_path: "#{base_path}/#{provider}/callback"
+         ]}
+
+      # Dynamic Ueberauth call - reads credentials from Application env
+      # (configured by EnsureOAuthConfig plug)
+      Ueberauth.run_request(conn, provider, provider_config)
+    end
+
+    defp validate_provider(provider) do
+      case Map.get(@provider_strategies, provider) do
+        nil ->
+          {:error, :unknown_provider}
+
+        strategy_module ->
+          # Check if provider is enabled in settings
+          if Settings.get_boolean_setting("oauth_#{provider}_enabled", false) do
+            # Check if credentials exist
+            if Settings.has_oauth_credentials_direct?(String.to_existing_atom(provider)) do
+              {:ok, strategy_module}
+            else
+              {:error, :no_credentials}
+            end
+          else
+            {:error, :provider_disabled}
+          end
       end
     end
 
-    defp get_ueberauth_providers do
-      providers = Application.get_env(:ueberauth, Ueberauth, [])[:providers] || []
-
-      # Normalize Map or List to list of {provider_atom, strategy} tuples
-      case providers do
-        p when is_map(p) -> Map.to_list(p)
-        p when is_list(p) -> p
-        _ -> []
-      end
-    end
+    defp maybe_put_session(conn, _key, nil), do: conn
+    defp maybe_put_session(conn, key, value), do: put_session(conn, key, value)
 
     defp oauth_enabled_in_settings? do
       Settings.get_boolean_setting("oauth_enabled", false)
@@ -140,8 +145,42 @@ if Code.ensure_loaded?(Ueberauth) do
 
     @doc """
     Handles OAuth callback from provider.
+
+    Uses `Ueberauth.run_callback/4` for dynamic OAuth invocation,
+    then processes the result from conn.assigns.
     """
-    def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
+    def callback(conn, %{"provider" => provider} = _params) do
+      Logger.debug("PhoenixKit OAuth callback for provider: #{provider}")
+
+      case Map.get(@provider_strategies, provider) do
+        nil ->
+          Logger.error("PhoenixKit OAuth: Unknown provider in callback: #{provider}")
+
+          conn
+          |> put_flash(:error, "Unknown OAuth provider: #{provider}")
+          |> redirect(to: Routes.path("/users/log-in"))
+
+        strategy_module ->
+          # Build provider config for dynamic Ueberauth call
+          base_path = Config.UeberAuth.get_base_path()
+
+          provider_config =
+            {strategy_module,
+             [
+               request_path: "#{base_path}/#{provider}",
+               callback_path: "#{base_path}/#{provider}/callback"
+             ]}
+
+          # Dynamic Ueberauth callback - processes OAuth response
+          conn = Ueberauth.run_callback(conn, provider, provider_config)
+
+          # Handle the result based on assigns set by Ueberauth
+          handle_callback_result(conn)
+      end
+    end
+
+    # Handle successful OAuth authentication
+    defp handle_callback_result(%{assigns: %{ueberauth_auth: auth}} = conn) do
       track_geolocation = Settings.get_boolean_setting("track_registration_geolocation", false)
       ip_address = IpAddress.extract_from_conn(conn)
       referral_code = get_session(conn, :oauth_referral_code)
@@ -193,7 +232,8 @@ if Code.ensure_loaded?(Ueberauth) do
       end
     end
 
-    def callback(%{assigns: %{ueberauth_failure: failure}} = conn, _params) do
+    # Handle OAuth authentication failure
+    defp handle_callback_result(%{assigns: %{ueberauth_failure: failure}} = conn) do
       error_message = format_ueberauth_failure(failure)
       Logger.warning("PhoenixKit: OAuth authentication failure: #{inspect(failure)}")
 
@@ -202,7 +242,8 @@ if Code.ensure_loaded?(Ueberauth) do
       |> redirect(to: Routes.path("/users/log-in"))
     end
 
-    def callback(conn, _params) do
+    # Handle unexpected callback without auth or failure
+    defp handle_callback_result(conn) do
       Logger.error("PhoenixKit: Unexpected OAuth callback without auth or failure")
 
       conn

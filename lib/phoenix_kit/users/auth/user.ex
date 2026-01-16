@@ -23,6 +23,7 @@ defmodule PhoenixKit.Users.Auth.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Users.Roles
 
   # Fields excluded from get_user_field for security/internal reasons
@@ -30,6 +31,7 @@ defmodule PhoenixKit.Users.Auth.User do
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          uuid: Ecto.UUID.t() | nil,
           email: String.t(),
           username: String.t() | nil,
           password: String.t() | nil,
@@ -50,6 +52,7 @@ defmodule PhoenixKit.Users.Auth.User do
         }
 
   schema "phoenix_kit_users" do
+    field :uuid, Ecto.UUID
     field :email, :string
     field :username, :string
     field :password, :string, virtual: true, redact: true
@@ -115,6 +118,60 @@ defmodule PhoenixKit.Users.Auth.User do
     |> validate_registration_fields()
     |> maybe_generate_username_from_email()
     |> set_default_active_status()
+    |> maybe_generate_uuid()
+  end
+
+  @doc """
+  A user changeset for guest checkout.
+
+  Creates a temporary user with a random password for guests who
+  complete checkout without registering. The user will have
+  `confirmed_at = nil` until they verify their email.
+
+  ## Features
+
+  - Generates a random secure password (required by DB constraint)
+  - Sets `custom_fields.source` to "guest_checkout" for tracking
+  - Generates UUID and username automatically
+  - Does NOT confirm the email (confirmed_at remains nil)
+
+  ## Examples
+
+      iex> guest_user_changeset(%User{}, %{email: "guest@example.com", first_name: "John"})
+      %Ecto.Changeset{valid?: true}
+  """
+  def guest_user_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:email, :first_name, :last_name])
+    |> validate_required([:email])
+    |> validate_email(validate_email: true)
+    |> put_random_password()
+    |> put_guest_checkout_source()
+    |> maybe_generate_uuid()
+    |> maybe_generate_username_from_email()
+    |> set_default_active_status()
+  end
+
+  # Generates a cryptographically secure random password and hashes it.
+  # Used for guest users who don't set their own password at checkout.
+  defp put_random_password(changeset) do
+    random_password = :crypto.strong_rand_bytes(32) |> Base.encode64()
+    put_change(changeset, :hashed_password, Bcrypt.hash_pwd_salt(random_password))
+  end
+
+  # Sets custom_fields.source to "guest_checkout" for tracking guest users
+  defp put_guest_checkout_source(changeset) do
+    current_fields = get_field(changeset, :custom_fields) || %{}
+    updated_fields = Map.put(current_fields, "source", "guest_checkout")
+    put_change(changeset, :custom_fields, updated_fields)
+  end
+
+  # Generate UUIDv7 for new records if not already set
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   defp validate_email(changeset, opts) do
@@ -277,6 +334,105 @@ defmodule PhoenixKit.Users.Auth.User do
   end
 
   @doc """
+  A user changeset for updating preferred locale/dialect.
+
+  This allows authenticated users to select their preferred dialect variant
+  (e.g., en-GB instead of en-US) while URLs continue to show base codes.
+  The locale is stored in the `custom_fields` JSONB column.
+
+  ## Validation
+
+  - Format: Must match ~r/^[a-z]{2}(-[A-Z]{2})?$/
+  - Existence: Must exist in predefined language list
+  - NULL/empty allowed: Indicates "use system default"
+
+  ## Examples
+
+      iex> preferred_locale_changeset(user, %{preferred_locale: "en-GB"})
+      #Ecto.Changeset<...>
+
+      iex> preferred_locale_changeset(user, %{preferred_locale: nil})
+      #Ecto.Changeset<...>  # Clears preference, uses defaults
+
+      iex> preferred_locale_changeset(user, %{preferred_locale: "invalid"})
+      #Ecto.Changeset<errors: [preferred_locale: {"must be a valid locale format", []}]>
+  """
+  def preferred_locale_changeset(user, attrs) do
+    locale = Map.get(attrs, :preferred_locale) || Map.get(attrs, "preferred_locale")
+
+    case validate_locale_value(locale) do
+      :ok ->
+        # Merge locale into custom_fields
+        current_fields = user.custom_fields || %{}
+
+        updated_fields =
+          if locale && locale != "" do
+            Map.put(current_fields, "preferred_locale", locale)
+          else
+            Map.delete(current_fields, "preferred_locale")
+          end
+
+        user
+        |> change(custom_fields: updated_fields)
+
+      {:error, message} ->
+        user
+        |> change()
+        |> add_error(:preferred_locale, message)
+    end
+  end
+
+  @doc """
+  Validates a locale value for format and existence.
+
+  Returns `:ok` if valid, `{:error, message}` if invalid.
+
+  ## Examples
+
+      iex> validate_locale_value("en-US")
+      :ok
+
+      iex> validate_locale_value("invalid")
+      {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
+  """
+  def validate_locale_value(nil), do: :ok
+  def validate_locale_value(""), do: :ok
+
+  def validate_locale_value(locale) when is_binary(locale) do
+    cond do
+      !Regex.match?(~r/^[a-z]{2}(-[A-Z]{2})?$/, locale) ->
+        {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
+
+      !Languages.get_predefined_language(locale) ->
+        {:error, "is not a recognized language code"}
+
+      true ->
+        :ok
+    end
+  end
+
+  def validate_locale_value(_), do: {:error, "must be a string"}
+
+  @doc """
+  Gets the user's preferred locale from custom_fields.
+
+  Returns nil if not set (indicating system default should be used).
+
+  ## Examples
+
+      iex> get_preferred_locale(%User{custom_fields: %{"preferred_locale" => "en-GB"}})
+      "en-GB"
+
+      iex> get_preferred_locale(%User{custom_fields: %{}})
+      nil
+  """
+  def get_preferred_locale(%__MODULE__{custom_fields: fields}) when is_map(fields) do
+    Map.get(fields, "preferred_locale")
+  end
+
+  def get_preferred_locale(%__MODULE__{}), do: nil
+
+  @doc """
   Verifies the password.
 
   If there is no user or the user doesn't have a password, we call
@@ -333,11 +489,12 @@ defmodule PhoenixKit.Users.Auth.User do
   """
   def profile_changeset(user, attrs, opts \\ []) do
     user
-    |> cast(attrs, [:first_name, :last_name, :email, :username, :user_timezone])
+    |> cast(attrs, [:first_name, :last_name, :email, :username, :user_timezone, :custom_fields])
     |> validate_names()
     |> validate_email(opts)
     |> validate_username(opts)
     |> validate_user_timezone()
+    |> validate_custom_fields()
   end
 
   @doc """
@@ -518,7 +675,19 @@ defmodule PhoenixKit.Users.Auth.User do
       nil ->
         email = get_change(changeset, :email) || get_field(changeset, :email)
 
-        if email do
+        # Only generate username if email contains "@" to ensure user finishes typing
+        if email && String.contains?(email, "@") do
+          generated_username = generate_unique_username_from_email(email)
+          put_change(changeset, :username, generated_username)
+        else
+          changeset
+        end
+
+      "" ->
+        # Treat empty string same as nil - allow generation if email has "@"
+        email = get_change(changeset, :email) || get_field(changeset, :email)
+
+        if email && String.contains?(email, "@") do
           generated_username = generate_unique_username_from_email(email)
           put_change(changeset, :username, generated_username)
         else
@@ -526,6 +695,7 @@ defmodule PhoenixKit.Users.Auth.User do
         end
 
       _ ->
+        # User has manually entered a username, don't override it
         changeset
     end
   end

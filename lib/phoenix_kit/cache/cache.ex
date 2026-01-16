@@ -271,6 +271,34 @@ defmodule PhoenixKit.Cache do
   end
 
   @doc """
+  Clears all cache entries whose keys start with the given prefix.
+
+  Returns the count of entries cleared.
+
+  ## Examples
+
+      PhoenixKit.Cache.clear_by_prefix(:publishing_posts, "v1:blog_post:my-blog:")
+      # => {:ok, 15}
+
+  """
+  @spec clear_by_prefix(cache_name(), String.t()) :: {:ok, non_neg_integer()} | {:error, any()}
+  def clear_by_prefix(cache_name, prefix) do
+    GenServer.call(via_tuple(cache_name), {:clear_by_prefix, prefix}, 10_000)
+  rescue
+    error in [ArgumentError, RuntimeError] ->
+      Logger.warning("Cache #{cache_name} unavailable: #{inspect(error)}")
+      {:ok, 0}
+  catch
+    :exit, {:noproc, _} ->
+      Logger.warning("Cache #{cache_name} not started")
+      {:ok, 0}
+
+    :exit, {:timeout, _} ->
+      Logger.warning("Cache #{cache_name} timeout during clear_by_prefix")
+      {:error, :timeout}
+  end
+
+  @doc """
   Gets cache statistics.
 
   ## Examples
@@ -323,11 +351,23 @@ defmodule PhoenixKit.Cache do
   def init(opts) do
     name = Keyword.fetch!(opts, :name)
     warmer = Keyword.get(opts, :warmer)
+    critical_warmer = Keyword.get(opts, :critical_warmer)
+    sync_init = Keyword.get(opts, :sync_init, false)
     ttl = Keyword.get(opts, :ttl)
     max_size = Keyword.get(opts, :max_size)
 
     table =
       :ets.new(:"cache_#{name}", [:set, :protected, :named_table, {:read_concurrency, true}])
+
+    # Support legacy cache_settings table for backwards compatibility
+    if name == :settings do
+      try do
+        :ets.new(:cache_settings, [:set, :protected, :named_table, {:read_concurrency, true}])
+      rescue
+        # Table already exists
+        ArgumentError -> :ok
+      end
+    end
 
     state = %__MODULE__{
       name: name,
@@ -337,13 +377,19 @@ defmodule PhoenixKit.Cache do
       max_size: max_size
     }
 
-    # Warm cache if warmer function is provided
-    if warmer do
-      send(self(), :warm_cache)
-    end
+    Logger.info(
+      "Started cache #{name} with table #{table}#{if sync_init, do: " (sync_init enabled)", else: ""}"
+    )
 
-    Logger.info("Started cache #{name} with table #{table}")
-    {:ok, state}
+    # Use handle_continue to warm cache after init returns
+    # This prevents blocking supervisor initialization
+    if sync_init and critical_warmer do
+      {:ok, state, {:continue, {:warm_critical, critical_warmer, warmer}}}
+    else
+      # Standard async warming
+      if warmer, do: send(self(), :warm_cache)
+      {:ok, state}
+    end
   end
 
   @impl GenServer
@@ -403,6 +449,30 @@ defmodule PhoenixKit.Cache do
 
     response = Map.put(stats, :hit_rate, hit_rate)
     {:reply, response, state}
+  end
+
+  @impl GenServer
+  def handle_call({:clear_by_prefix, prefix}, _from, %{table: table, stats: stats} = state) do
+    # Find all keys matching the prefix and delete them
+    matching_keys =
+      :ets.foldl(
+        fn {key, _value, _expires_at}, acc ->
+          if is_binary(key) and String.starts_with?(key, prefix) do
+            [key | acc]
+          else
+            acc
+          end
+        end,
+        [],
+        table
+      )
+
+    # Delete matching entries
+    Enum.each(matching_keys, fn key -> :ets.delete(table, key) end)
+
+    count = length(matching_keys)
+    new_stats = %{stats | invalidations: stats.invalidations + count}
+    {:reply, {:ok, count}, %{state | stats: new_stats}}
   end
 
   @impl GenServer
@@ -482,6 +552,41 @@ defmodule PhoenixKit.Cache do
   end
 
   @impl GenServer
+  def handle_continue({:warm_critical, _critical_warmer, warmer}, %{name: name} = state) do
+    # Load ALL data synchronously in handle_continue when sync_init is enabled
+    # This runs after init returns, so supervisor can continue starting other processes
+    # We load all data instead of just critical to avoid race conditions
+
+    # Retry warming if data is empty (repo might not be ready yet)
+    case warm_with_retry(warmer, name, 3, 100) do
+      {:ok, data} when is_map(data) and map_size(data) > 0 ->
+        warm_critical_data(state, data)
+
+        Logger.info(
+          "Synchronously warmed cache #{name} with #{map_size(data)} entries (sync_init mode)"
+        )
+
+      {:ok, empty_data} when is_map(empty_data) ->
+        Logger.warning(
+          "Cache #{name} warmed but no data loaded - repository may not be ready yet. Will retry asynchronously."
+        )
+
+        # Schedule async retry
+        Process.send_after(self(), :warm_cache, 1000)
+
+      {:error, error} ->
+        Logger.error("Failed to synchronously warm cache #{name}: #{inspect(error)}")
+        # Schedule async retry
+        Process.send_after(self(), :warm_cache, 1000)
+
+      _ ->
+        Logger.warning("Warmer for cache #{name} returned invalid data")
+    end
+
+    {:noreply, state}
+  end
+
+  @impl GenServer
   def handle_info(:warm_cache, state) do
     handle_cast(:warm, state)
   end
@@ -492,10 +597,40 @@ defmodule PhoenixKit.Cache do
     PhoenixKit.Cache.Registry.via_tuple(name)
   end
 
+  defp warm_critical_data(%{name: name, table: table, ttl: ttl}, data) do
+    Enum.each(data, fn {key, value} ->
+      expires_at = if ttl, do: System.monotonic_time(:millisecond) + ttl, else: nil
+      :ets.insert(table, {key, value, expires_at})
+
+      # Also write to legacy cache_settings table if this is settings cache
+      if name == :settings do
+        :ets.insert(:cache_settings, {key, value, expires_at})
+      end
+    end)
+  end
+
   defp safe_warm(warmer) when is_function(warmer, 0) do
     {:ok, warmer.()}
   rescue
     error -> {:error, error}
+  end
+
+  defp warm_with_retry(warmer, name, retries, delay) do
+    case safe_warm(warmer) do
+      {:ok, data} when is_map(data) and map_size(data) > 0 ->
+        {:ok, data}
+
+      {:ok, empty_data} when is_map(empty_data) and retries > 0 ->
+        Logger.debug(
+          "Cache #{name} warming returned empty data, retrying in #{delay}ms (#{retries} retries left)"
+        )
+
+        Process.sleep(delay)
+        warm_with_retry(warmer, name, retries - 1, delay * 2)
+
+      result ->
+        result
+    end
   end
 
   defp maybe_evict(%{max_size: nil} = state), do: state

@@ -6,8 +6,8 @@ defmodule PhoenixKitWeb.FileController do
   """
   use PhoenixKitWeb, :controller
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{Manager, URLSigner, Workers.ProcessFileJob}
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{Manager, ProcessFileJob, URLSigner}
   alias PhoenixKit.Utils.Routes
 
   @doc """
@@ -56,9 +56,11 @@ defmodule PhoenixKitWeb.FileController do
       # Set content type
       conn = put_resp_content_type(conn, instance.mime_type)
 
-      # Stream file to client
-      # Note: temp files in /tmp will be cleaned up by the OS
-      send_file(conn, 200, temp_path)
+      # Stream file to client, then clean up temp file
+      conn = send_file(conn, 200, temp_path)
+      # Clean up temp file after send (send_file is synchronous in Plug)
+      File.rm(temp_path)
+      conn
     else
       {:error, :invalid_token} ->
         conn
@@ -195,10 +197,12 @@ defmodule PhoenixKitWeb.FileController do
   end
 
   defp retrieve_file_variant(instance) do
-    # Create temp path
+    # Create temp path with unique suffix to prevent race conditions
+    # when multiple requests for the same file arrive simultaneously
     temp_dir = System.tmp_dir!()
     ext = Path.extname(instance.file_name)
-    temp_path = Path.join(temp_dir, "phoenix_kit_#{instance.id}#{ext}")
+    random_suffix = :crypto.strong_rand_bytes(4) |> Base.encode16(case: :lower)
+    temp_path = Path.join(temp_dir, "phoenix_kit_#{instance.id}_#{random_suffix}#{ext}")
 
     # Retrieve from storage
     case Manager.retrieve_file(instance.file_name,

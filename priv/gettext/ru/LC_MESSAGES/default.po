@@ -305,3 +305,60 @@ msgstr "Статистика успешно обновлена"
 #, elixir-autogen, elixir-format
 msgid "close"
 msgstr "закрыть"
+
+## Login page translations
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Sign in"
+msgstr "Войти"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Login with Password"
+msgstr "Вход с паролем"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Email or Username"
+msgstr "Email или имя пользователя"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Enter your email or username"
+msgstr "Введите email или имя пользователя"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Password"
+msgstr "Пароль"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Enter your password"
+msgstr "Введите пароль"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Keep me logged in"
+msgstr "Оставаться в системе"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Forgot your password?"
+msgstr "Забыли пароль?"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Logging in..."
+msgstr "Вход..."
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Log in"
+msgstr "Войти"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Or continue with"
+msgstr "Или продолжить с"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Sign in with Magic Link"
+msgstr "Войти через Magic Link"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "New to %{project_title}?"
+msgstr "Впервые на %{project_title}?"
+
+#: lib/phoenix_kit_web/users/login.html.heex
+msgid "Create an account"
+msgstr "Создать аккаунт"

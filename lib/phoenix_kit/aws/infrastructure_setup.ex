@@ -58,6 +58,8 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   alias ExAws.SNS
   alias ExAws.SQS
   alias ExAws.STS
+  alias PhoenixKit.AWS.SESv2
+  alias PhoenixKit.Config.AWS
   alias PhoenixKit.Settings
 
   @dialyzer {:nowarn_function,
@@ -103,18 +105,16 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   """
   def run(opts) do
     project_name = Keyword.fetch!(opts, :project_name)
-    region = Keyword.get(opts, :region, "eu-north-1")
+    region = Keyword.get(opts, :region, AWS.region())
 
     # Get AWS credentials
     access_key_id =
       Keyword.get(opts, :access_key_id) ||
-        Settings.get_setting("aws_access_key_id") ||
-        System.get_env("AWS_ACCESS_KEY_ID")
+        Settings.get_setting("aws_access_key_id") || AWS.access_key_id() || nil
 
     secret_access_key =
       Keyword.get(opts, :secret_access_key) ||
-        Settings.get_setting("aws_secret_access_key") ||
-        System.get_env("AWS_SECRET_ACCESS_KEY")
+        Settings.get_setting("aws_secret_access_key") || AWS.secret_access_key() || nil
 
     unless access_key_id && secret_access_key do
       return_error("validation", "AWS credentials not found. Please configure them first.")
@@ -402,8 +402,6 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
 
     config_set_name = "#{config.project_name}-emailing"
 
-    alias PhoenixKit.AWS.SESv2
-
     case SESv2.create_configuration_set(config_set_name, aws_config(config)) do
       {:ok, ^config_set_name} ->
         Logger.info("[AWS Setup]   ✓ SES Configuration Set created")
@@ -418,8 +416,6 @@ defmodule PhoenixKit.AWS.InfrastructureSetup do
   # Step 9: Configure SES Event Tracking
   defp step_9_configure_ses_events(config, config_set_name, sns_topic_arn) do
     Logger.info("[AWS Setup] [9/9] Configuring SES event tracking to SNS...")
-
-    alias PhoenixKit.AWS.SESv2
 
     case SESv2.create_configuration_set_event_destination(
            config_set_name,

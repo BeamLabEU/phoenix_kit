@@ -1,7 +1,7 @@
 defmodule PhoenixKit.MixProject do
   use Mix.Project
 
-  @version "1.6.5"
+  @version "1.7.25"
   @description "PhoenixKit is a starter kit for building modern web applications with Elixir and Phoenix"
   @source_url "https://github.com/BeamLabEU/phoenix_kit"
 
@@ -69,7 +69,7 @@ defmodule PhoenixKit.MixProject do
     [
       # Database
       {:ecto_sql, "~> 3.10"},
-      {:postgrex, "~> 0.21.1"},
+      {:postgrex, "~> 0.22"},
 
       # Phoenix web layer
       {:phoenix, "~> 1.8.1"},
@@ -78,15 +78,15 @@ defmodule PhoenixKit.MixProject do
       {:phoenix_live_view, "~> 1.1.12"},
 
       # Web functionality
-      {:gettext, "~> 0.24"},
+      {:gettext, "~> 1.0"},
       {:plug_cowboy, "~> 2.5"},
       {:esbuild, "~> 0.8", only: :dev},
-      {:tailwind, "~> 0.4.0", only: :dev},
+      {:tailwind, "~> 0.4.1", only: :dev},
       {:phoenix_live_reload, "~> 1.6.1", only: :dev},
 
       # Authentication
       {:bcrypt_elixir, "~> 3.0"},
-      {:swoosh, "~> 1.19.5"},
+      {:swoosh, "~> 1.20"},
       {:gen_smtp, "~> 1.2"},
 
       # OAuth authentication
@@ -98,7 +98,7 @@ defmodule PhoenixKit.MixProject do
       {:ueberauth_facebook, "~> 0.10"},
 
       # Development and testing
-      {:ex_doc, "~> 0.38.4", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.39", only: :dev, runtime: false},
       {:usage_rules, "~> 0.1", only: :dev, runtime: false},
       {:excoveralls, "~> 0.18", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
@@ -108,14 +108,16 @@ defmodule PhoenixKit.MixProject do
 
       # Utilities
       {:jason, "~> 1.4"},
-      {:timex, "~> 3.7"},
       {:earmark, "~> 1.4"},
       {:yaml_elixir, "~> 2.9"},
       {:uuidv7, "~> 1.0"},
       {:oban, "~> 2.20"},
 
       # Rate limiting (ETS backend is built into Hammer 6.x)
-      {:hammer, "~> 6.2"},
+      {:hammer, "~> 7.1"},
+
+      # DB Sync - WebSocket client for cross-site data sync
+      {:websockex, "~> 0.5.1"},
 
       # AWS integration for emails
       {:sweet_xml, "~> 0.7"},
@@ -128,8 +130,16 @@ defmodule PhoenixKit.MixProject do
       {:saxy, "~> 1.5"},
       {:finch, "~> 0.18"},
 
+      # HTTP client for payment providers
+      {:req, "~> 0.5"},
+
       # Code generation and project patching
-      {:igniter, "~> 0.7", optional: true}
+      # Note: Available in all environments for library code, but typically
+      # only needed in :dev when used as a dependency in parent projects
+      {:igniter, "~> 0.7"},
+
+      # Language and country data
+      {:beamlab_countries, "~> 1.0.5"}
     ]
   end
 
@@ -154,11 +164,13 @@ defmodule PhoenixKit.MixProject do
       extras: [
         "README.md",
         "CHANGELOG.md",
+        "guides/integration.md",
         "guides/oauth_and_magic_link_setup.md",
         "guides/aws_email_setup.md",
         "guides/making-pages-live.md",
-        "guides/phk_blogging_format.md",
+        "guides/phk_publishing_format.md",
         "guides/AUTH_HEADER_INTEGRATION.md",
+        "guides/draggable_list_component.md",
         "guides/README.md"
       ],
       groups_for_extras: [

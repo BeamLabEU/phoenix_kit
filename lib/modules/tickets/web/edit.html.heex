@@ -1,0 +1,218 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={if @action == :new, do: "New Ticket", else: "Edit Ticket"}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6 max-w-3xl">
+    <%!-- Header --%>
+    <div class="mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")}
+        class="btn btn-ghost btn-sm gap-2"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 19l-7-7 7-7"
+          />
+        </svg>
+        Back to Tickets
+      </.link>
+    </div>
+
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h1 class="card-title text-2xl mb-6">
+          {if @action == :new, do: "New Ticket", else: "Edit Ticket"}
+        </h1>
+
+        <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+          <%!-- Customer (for new tickets) --%>
+          <%= if @action == :new do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Customer</span>
+              </label>
+              <select name="ticket[user_id]" class="select select-bordered w-full">
+                <option value="">Current User (You)</option>
+                <%= for user <- @all_users do %>
+                  <option value={user.id}>{user.email}</option>
+                <% end %>
+              </select>
+              <label class="label">
+                <span class="label-text-alt text-base-content/50">
+                  Select the customer this ticket is for
+                </span>
+              </label>
+            </div>
+          <% end %>
+
+          <%!-- Title --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Title</span>
+              <span class="label-text-alt text-error">Required</span>
+            </label>
+            <input
+              type="text"
+              name="ticket[title]"
+              value={@form[:title].value}
+              class={"input input-bordered w-full #{if @form[:title].errors != [], do: "input-error"}"}
+              placeholder="Brief description of the issue"
+              required
+            />
+            <%= if @form[:title].errors != [] do %>
+              <label class="label">
+                <span class="label-text-alt text-error">
+                  {Enum.map(@form[:title].errors, fn {msg, _} -> msg end) |> Enum.join(", ")}
+                </span>
+              </label>
+            <% end %>
+          </div>
+
+          <%!-- Description --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Description</span>
+              <span class="label-text-alt text-error">Required</span>
+            </label>
+            <textarea
+              name="ticket[description]"
+              class={"textarea textarea-bordered w-full h-40 #{if @form[:description].errors != [], do: "textarea-error"}"}
+              placeholder="Describe the issue in detail..."
+              required
+            >{@form[:description].value}</textarea>
+            <%= if @form[:description].errors != [] do %>
+              <label class="label">
+                <span class="label-text-alt text-error">
+                  {Enum.map(@form[:description].errors, fn {msg, _} -> msg end) |> Enum.join(", ")}
+                </span>
+              </label>
+            <% end %>
+          </div>
+
+          <%!-- Assignment (for edit) --%>
+          <%= if @action == :edit do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Assigned To</span>
+              </label>
+              <select name="ticket[assigned_to_id]" class="select select-bordered w-full">
+                <option value="">Unassigned</option>
+                <%= for user <- @staff_users do %>
+                  <option value={user.id} selected={@form[:assigned_to_id].value == user.id}>
+                    {user.email}
+                  </option>
+                <% end %>
+              </select>
+            </div>
+
+            <%!-- Status (for edit) --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Status</span>
+              </label>
+              <select name="ticket[status]" class="select select-bordered w-full">
+                <option value="open" selected={@form[:status].value == "open"}>Open</option>
+                <option value="in_progress" selected={@form[:status].value == "in_progress"}>
+                  In Progress
+                </option>
+                <option value="resolved" selected={@form[:status].value == "resolved"}>
+                  Resolved
+                </option>
+                <option value="closed" selected={@form[:status].value == "closed"}>Closed</option>
+              </select>
+            </div>
+          <% end %>
+
+          <%!-- Attachments (for new tickets) --%>
+          <%= if @action == :new and @attachments_enabled do %>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Attachments</span>
+                <span class="label-text-alt text-base-content/50">Optional</span>
+              </label>
+
+              <%= if Enum.any?(@pending_files) do %>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                  <%= for file <- @pending_files do %>
+                    <div class="relative group border rounded-lg overflow-hidden">
+                      <%= if file.file_type == "image" do %>
+                        <img
+                          src={
+                            PhoenixKit.Modules.Storage.get_public_url_by_variant(
+                              file,
+                              "thumbnail"
+                            )
+                          }
+                          alt={file.original_file_name}
+                          class="w-full h-20 object-cover"
+                        />
+                      <% else %>
+                        <div class="w-full h-20 flex items-center justify-center bg-base-200">
+                          <.icon name="hero-document" class="w-6 h-6 text-base-content/50" />
+                        </div>
+                      <% end %>
+                      <div class="p-1">
+                        <div class="text-xs truncate">{file.original_file_name}</div>
+                      </div>
+                      <button
+                        type="button"
+                        phx-click="remove_pending_file"
+                        phx-value-id={file.id}
+                        class="absolute top-1 right-1 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <.icon name="hero-x-mark" class="w-3 h-3" />
+                      </button>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+
+              <button
+                type="button"
+                phx-click="open_media_selector"
+                class="btn btn-outline btn-sm w-fit"
+              >
+                <.icon name="hero-paper-clip" class="w-4 h-4" />
+                {if Enum.any?(@pending_files), do: "Add More Files", else: "Attach Files"}
+              </button>
+            </div>
+          <% end %>
+
+          <%!-- Actions --%>
+          <div class="flex justify-end gap-3 pt-4">
+            <.link navigate={PhoenixKit.Utils.Routes.path("/admin/tickets")} class="btn btn-ghost">
+              Cancel
+            </.link>
+            <button type="submit" class="btn btn-primary">
+              {if @action == :new, do: "Create Ticket", else: "Save Changes"}
+            </button>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <%!-- Media Selector Modal (for new tickets) --%>
+    <%= if @action == :new and @attachments_enabled do %>
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+        id="new-ticket-media-selector"
+        show={@show_media_selector}
+        mode={:multiple}
+        selected_ids={@pending_file_ids}
+        phoenix_kit_current_user={@current_user}
+      />
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

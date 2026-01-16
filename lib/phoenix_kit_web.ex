@@ -103,6 +103,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.SimpleForm
       import PhoenixKitWeb.Components.Core.ThemeSwitcher
       import PhoenixKitWeb.Components.Core.Badge
+      import PhoenixKitWeb.Components.Core.StatCard
       import PhoenixKitWeb.Components.Core.EmailStatusBadge
       import PhoenixKitWeb.Components.Core.TimeDisplay
       import PhoenixKitWeb.Components.Core.EventTimelineItem
@@ -121,6 +122,13 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.Accordion
       import PhoenixKitWeb.Components.Core.FileUpload
       import PhoenixKitWeb.Components.Core.LanguageSwitcher
+      import PhoenixKitWeb.Components.Core.MarkdownContent
+      import PhoenixKitWeb.Components.Core.DraggableList
+      import PhoenixKitWeb.Components.Core.OrderStatusBadge
+      import PhoenixKitWeb.Components.Core.InvoiceStatusBadge
+      import PhoenixKitWeb.Components.Core.TransactionTypeBadge
+      import PhoenixKitWeb.Components.Core.CurrencyDisplay
+      import PhoenixKitWeb.Components.Core.CookieConsent
     end
   end
 

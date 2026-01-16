@@ -24,7 +24,7 @@ PhoenixKit is a comprehensive SaaS starter kit for Phoenix applications that pro
 - System settings in `phoenix_kit_settings` table with key/value storage
 
 ### Admin Backend
-- Built-in admin dashboard at `/phoenix_kit/admin/dashboard`
+- Built-in admin dashboard at `/phoenix_kit/admin`
 - User management interface at `/phoenix_kit/admin/users`
 - Role management at `/phoenix_kit/admin/users/roles`
 - Session management at `/phoenix_kit/admin/users/sessions` and `/phoenix_kit/admin/users/live_sessions`
@@ -78,7 +78,7 @@ PhoenixKit is a comprehensive SaaS starter kit for Phoenix applications that pro
 - Database-stored language configuration using JSON settings
 - Admin interface for language management at `/phoenix_kit/admin/modules/languages`
 - Functions: `enabled?/0`, `get_languages/0`, `get_enabled_languages/0`, `get_default_language/0`
-- Module: `PhoenixKit.Module.Languages`
+- Module: `PhoenixKit.Modules.Languages`
 
 ### Emails
 - Email tracking with delivery status and events

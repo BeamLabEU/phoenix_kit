@@ -1,0 +1,154 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={"#{@project_title} - DB"}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
+      </.link>
+
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">DB</h1>
+        <p class="text-lg text-base-content">Explore database tables and their contents</p>
+      </div>
+    </header>
+
+    <%!-- Actions --%>
+    <div class="flex justify-end mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/db/activity")}
+        class="btn btn-outline btn-primary btn-sm"
+      >
+        <.icon name="hero-signal" class="w-4 h-4 mr-2" /> Live Activity
+      </.link>
+    </div>
+
+    <div class="grid gap-4 md:grid-cols-4">
+      <div class="stat bg-base-100 shadow rounded-box">
+        <div class="stat-title">Tables</div>
+        <div class="stat-value text-primary">
+          <.formatted_number number={@stats.table_count} />
+        </div>
+        <div class="stat-desc">Application tables</div>
+      </div>
+      <div class="stat bg-base-100 shadow rounded-box">
+        <div class="stat-title">Rows</div>
+        <div class="stat-value text-secondary">
+          <.formatted_number number={@stats.approx_rows} format={:short} />
+        </div>
+        <div class="stat-desc">Summed live tuples</div>
+      </div>
+      <div class="stat bg-base-100 shadow rounded-box">
+        <div class="stat-title">Tables Size</div>
+        <div class="stat-value text-accent"><.file_size bytes={@stats.total_size_bytes} /></div>
+        <div class="stat-desc">App data + indexes</div>
+      </div>
+      <div class="stat bg-base-100 shadow rounded-box">
+        <div class="stat-title">Database Size</div>
+        <div class="stat-value text-info"><.file_size bytes={@stats.database_size_bytes} /></div>
+        <div class="stat-desc">Full pg_database_size</div>
+      </div>
+    </div>
+
+    <div class="bg-base-100 rounded-box shadow border border-base-200">
+      <div class="p-4 border-b border-base-200">
+        <.form for={%{}} phx-change="search">
+          <.input
+            name="search"
+            label="Search tables"
+            value={@search}
+            placeholder="Filter by schema or table name"
+            phx-debounce="300"
+          />
+        </.form>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Table</th>
+              <th class="text-right">Rows</th>
+              <th class="text-right">Size</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= if Enum.empty?(@tables.entries) do %>
+              <tr>
+                <td colspan="4" class="text-center py-8 text-base-content/70">
+                  No tables found.
+                </td>
+              </tr>
+            <% else %>
+              <%= for entry <- @tables.entries do %>
+                <tr class="hover">
+                  <td>
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/admin/db/#{entry.schema}/#{entry.name}")
+                      }
+                      class="font-semibold link link-hover"
+                    >
+                      {entry.schema}.{entry.name}
+                    </.link>
+                  </td>
+                  <td class="text-right">
+                    <.formatted_number number={entry.approx_rows} format={:short} />
+                  </td>
+                  <td class="text-right text-base-content/70">
+                    <.file_size bytes={entry.size_bytes} />
+                  </td>
+                  <td class="text-right">
+                    <.link
+                      navigate={
+                        PhoenixKit.Utils.Routes.path("/admin/db/#{entry.schema}/#{entry.name}")
+                      }
+                      class="btn btn-ghost btn-sm"
+                    >
+                      <.icon name="hero-eye" class="w-4 h-4" />
+                    </.link>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 px-4 py-3 border-t border-base-200">
+        <div class="text-sm text-base-content/70">
+          Page {@tables.page} of {@tables.total_pages} •
+          <.formatted_number number={@tables.total_entries} /> tables
+        </div>
+        <div class="btn-group">
+          <button
+            class="btn btn-sm"
+            phx-click="change_page"
+            phx-value-page={@tables.page - 1}
+            disabled={@tables.page <= 1}
+          >
+            « Prev
+          </button>
+          <button
+            class="btn btn-sm"
+            phx-click="change_page"
+            phx-value-page={@tables.page + 1}
+            disabled={@tables.page >= @tables.total_pages}
+          >
+            Next »
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

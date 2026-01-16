@@ -49,8 +49,8 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails
-  alias PhoenixKit.Emails.{Log, SQSProcessor}
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.{Log, SQSProcessor}
 
   @impl Mix.Task
   def run(args) do
@@ -150,7 +150,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
 
   defp find_existing_log(message_id, verbose) do
     case Log.get_log_by_message_id(message_id) do
-      %PhoenixKit.Emails.Log{} = log ->
+      %PhoenixKit.Modules.Emails.Log{} = log ->
         if verbose do
           IO.puts("📧 Found existing email log: ID=#{log.id}, Status=#{log.status}")
         end
@@ -230,7 +230,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
   defp print_process_details(details) do
     IO.puts("\n🔍 Processing Details:")
 
-    if length(details.successful) > 0 do
+    if not Enum.empty?(details.successful) do
       IO.puts("   ✅ Successful events:")
 
       Enum.each(details.successful, fn result ->
@@ -238,7 +238,7 @@ defmodule Mix.Tasks.PhoenixKit.SyncEmailStatus do
       end)
     end
 
-    if length(details.failed) > 0 do
+    if not Enum.empty?(details.failed) do
       IO.puts("   ❌ Failed events:")
 
       Enum.each(details.failed, fn {event, reason} ->

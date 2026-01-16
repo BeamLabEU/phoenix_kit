@@ -67,9 +67,11 @@ defmodule PhoenixKit.Users.Auth do
   # This module will be populated by mix phx.gen.auth
 
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Users.Auth.{User, UserNotifier, UserToken}
-  alias PhoenixKit.Users.{RateLimiter, Roles}
+  alias PhoenixKit.Users.{RateLimiter, Role, Roles}
   alias PhoenixKit.Utils.Geolocation
+  alias PhoenixKit.Utils.SessionFingerprint
 
   ## Database getters
 
@@ -87,6 +89,48 @@ defmodule PhoenixKit.Users.Auth do
   """
   def get_user_by_email(email) when is_binary(email) do
     Repo.get_by(User, email: email)
+  end
+
+  @doc """
+  Gets a user by username.
+
+  ## Examples
+
+      iex> get_user_by_username("johndoe")
+      %User{}
+
+      iex> get_user_by_username("unknown")
+      nil
+
+  """
+  def get_user_by_username(username) when is_binary(username) do
+    Repo.get_by(User, username: username)
+  end
+
+  @doc """
+  Gets a user by email or username.
+
+  Checks if the input contains "@" to determine whether to search
+  by email or username.
+
+  ## Examples
+
+      iex> get_user_by_email_or_username("user@example.com")
+      %User{}
+
+      iex> get_user_by_email_or_username("johndoe")
+      %User{}
+
+      iex> get_user_by_email_or_username("unknown")
+      nil
+
+  """
+  def get_user_by_email_or_username(email_or_username) when is_binary(email_or_username) do
+    if String.contains?(email_or_username, "@") do
+      get_user_by_email(email_or_username)
+    else
+      get_user_by_username(email_or_username)
+    end
   end
 
   @doc """
@@ -132,6 +176,60 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Gets a user by email or username and password.
+
+  Allows users to log in using either their email address or username.
+  If the input contains "@", it's treated as an email; otherwise, as a username.
+  Username lookup is case-insensitive for better UX.
+
+  This function includes rate limiting protection to prevent brute-force attacks.
+
+  ## Examples
+
+      iex> get_user_by_email_or_username_and_password("foo@example.com", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("johndoe", "correct_password")
+      {:ok, %User{}}
+
+      iex> get_user_by_email_or_username_and_password("JohnDoe", "correct_password")
+      {:ok, %User{}}  # Case-insensitive username lookup
+
+      iex> get_user_by_email_or_username_and_password("unknown", "password")
+      {:error, :invalid_credentials}
+
+  """
+  def get_user_by_email_or_username_and_password(email_or_username, password, ip_address \\ nil)
+      when is_binary(email_or_username) and is_binary(password) do
+    # Check rate limit before attempting authentication
+    case RateLimiter.check_login_rate_limit(email_or_username, ip_address) do
+      :ok ->
+        user =
+          if String.contains?(email_or_username, "@") do
+            # Treat as email
+            Repo.get_by(User, email: email_or_username)
+          else
+            # Treat as username - case-insensitive lookup
+            from(u in User,
+              where: fragment("LOWER(?)", u.username) == ^String.downcase(email_or_username)
+            )
+            |> Repo.one()
+          end
+
+        # Return user if password is valid, regardless of is_active status
+        # The session controller will handle inactive status check separately
+        if User.valid_password?(user, password) do
+          {:ok, user}
+        else
+          {:error, :invalid_credentials}
+        end
+
+      {:error, :rate_limit_exceeded} ->
+        {:error, :rate_limit_exceeded}
+    end
+  end
+
+  @doc """
   Gets a single user.
 
   Returns `nil` if the user does not exist.
@@ -162,6 +260,135 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def get_user!(id), do: Repo.get!(User, id)
+
+  @doc """
+  Gets users by list of IDs.
+
+  Returns list of users with all fields including custom_fields.
+  Useful for batch loading users when you have a list of IDs.
+
+  ## Examples
+
+      iex> get_users_by_ids([1, 2, 3])
+      [%User{id: 1, ...}, %User{id: 2, ...}]
+
+      iex> get_users_by_ids([])
+      []
+  """
+  def get_users_by_ids([]), do: []
+
+  def get_users_by_ids(ids) when is_list(ids) do
+    from(u in User, where: u.id in ^ids)
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets the first admin user (Owner or Admin role).
+
+  Useful for programmatic operations that require a user ID, such as
+  creating entities via scripts or seeds.
+
+  Returns the first Owner if one exists, otherwise the first Admin,
+  otherwise nil.
+
+  ## Examples
+
+      iex> get_first_admin()
+      %User{id: 1, email: "admin@example.com"}
+
+      iex> get_first_admin()
+      nil  # No admin users exist
+  """
+  def get_first_admin do
+    roles = Role.system_roles()
+
+    # Try to get Owner first, then Admin
+    owner_query =
+      from u in User,
+        join: assignment in assoc(u, :role_assignments),
+        join: role in assoc(assignment, :role),
+        where: role.name == ^roles.owner,
+        order_by: [asc: u.id],
+        limit: 1
+
+    case Repo.one(owner_query) do
+      nil ->
+        # No owner, try admin
+        admin_query =
+          from u in User,
+            join: assignment in assoc(u, :role_assignments),
+            join: role in assoc(assignment, :role),
+            where: role.name == ^roles.admin,
+            order_by: [asc: u.id],
+            limit: 1
+
+        Repo.one(admin_query)
+
+      user ->
+        user
+    end
+  end
+
+  @doc """
+  Gets the ID of the first admin user.
+
+  Convenience function that returns just the user ID, useful for
+  setting `created_by` fields programmatically.
+
+  ## Examples
+
+      iex> get_first_admin_id()
+      1
+
+      iex> get_first_admin_id()
+      nil  # No admin users exist
+
+      # Common usage for creating entities
+      PhoenixKit.Modules.Entities.create_entity(%{
+        name: "contact",
+        display_name: "Contact",
+        created_by: PhoenixKit.Users.Auth.get_first_admin_id()
+      })
+  """
+  def get_first_admin_id do
+    case get_first_admin() do
+      nil -> nil
+      user -> user.id
+    end
+  end
+
+  @doc """
+  Gets the first user in the system (by ID).
+
+  Returns the user with the lowest ID, typically the first registered user.
+  Useful as a fallback when no specific admin is needed.
+
+  ## Examples
+
+      iex> get_first_user()
+      %User{id: 1}
+  """
+  def get_first_user do
+    from(u in User, order_by: [asc: u.id], limit: 1)
+    |> Repo.one()
+  end
+
+  @doc """
+  Gets the ID of the first user in the system.
+
+  Convenience function for getting a user ID for `created_by` fields.
+
+  ## Examples
+
+      iex> get_first_user_id()
+      1
+  """
+  def get_first_user_id do
+    case get_first_user() do
+      nil -> nil
+      user -> user.id
+    end
+  end
 
   ## User registration
 
@@ -293,6 +520,100 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Creates a guest user from checkout billing data.
+
+  This function is used during guest checkout to create a temporary user
+  account. The user will have `confirmed_at = nil` until they verify their
+  email address.
+
+  ## Parameters
+
+  - `attrs` - Map with email (required), first_name, last_name
+
+  ## Returns
+
+  - `{:ok, user}` - New user created successfully
+  - `{:error, :email_exists_confirmed}` - Email belongs to confirmed user (should login)
+  - `{:error, :email_exists_unconfirmed, existing_user}` - Reuse existing unconfirmed user
+  - `{:error, changeset}` - Validation errors
+
+  ## Examples
+
+      iex> create_guest_user(%{email: "guest@example.com", first_name: "John"})
+      {:ok, %User{}}
+
+      iex> create_guest_user(%{email: "existing@confirmed.com"})
+      {:error, :email_exists_confirmed}
+
+      iex> create_guest_user(%{email: "existing@unconfirmed.com"})
+      {:error, :email_exists_unconfirmed, %User{}}
+
+  """
+  def create_guest_user(attrs) do
+    email = attrs[:email] || attrs["email"]
+
+    case get_user_by_email(email) do
+      %User{confirmed_at: confirmed} = _user when not is_nil(confirmed) ->
+        # User exists and is confirmed - they should login instead
+        {:error, :email_exists_confirmed}
+
+      %User{confirmed_at: nil} = existing_user ->
+        # User exists but unconfirmed - update their name and return
+        first_name = attrs[:first_name] || attrs["first_name"]
+        last_name = attrs[:last_name] || attrs["last_name"]
+
+        update_attrs =
+          %{}
+          |> maybe_put(:first_name, first_name)
+          |> maybe_put(:last_name, last_name)
+
+        if map_size(update_attrs) > 0 do
+          case update_user_profile(existing_user, update_attrs) do
+            {:ok, updated_user} -> {:error, :email_exists_unconfirmed, updated_user}
+            {:error, _} -> {:error, :email_exists_unconfirmed, existing_user}
+          end
+        else
+          {:error, :email_exists_unconfirmed, existing_user}
+        end
+
+      nil ->
+        # No user with this email - create new guest user
+        do_create_guest_user(attrs)
+    end
+  end
+
+  defp do_create_guest_user(attrs) do
+    case %User{}
+         |> User.guest_user_changeset(attrs)
+         |> Repo.insert() do
+      {:ok, user} ->
+        # Assign default User role (not Owner, even if first guest)
+        user_role = Role.system_roles().user
+
+        case Roles.assign_role(user, user_role) do
+          {:ok, _} ->
+            Logger.info("PhoenixKit: Guest user #{user.id} (#{user.email}) created from checkout")
+            {:ok, user}
+
+          {:error, reason} ->
+            Logger.error(
+              "PhoenixKit: Failed to assign role to guest user #{user.id}: #{inspect(reason)}"
+            )
+
+            {:ok, user}
+        end
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  # Helper to conditionally add key-value to map
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, _key, ""), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  @doc """
   Returns an `%Ecto.Changeset{}` for tracking user changes.
 
   ## Examples
@@ -374,7 +695,7 @@ defmodule PhoenixKit.Users.Auth do
 
   ## Examples
 
-      iex> deliver_user_update_email_instructions(user, current_email, &PhoenixKit.Utils.Routes.url("/users/settings/confirm_email/#{&1}"))
+      iex> deliver_user_update_email_instructions(user, current_email, &PhoenixKit.Utils.Routes.url("/dashboard/settings/confirm_email/#{&1}"))
       {:ok, %{to: ..., body: ...}}
 
   """
@@ -595,8 +916,6 @@ defmodule PhoenixKit.Users.Auth do
 
   """
   def verify_session_fingerprint(conn, token) do
-    alias PhoenixKit.Utils.SessionFingerprint
-
     # Skip verification if fingerprinting is disabled
     if SessionFingerprint.fingerprinting_enabled?() do
       case get_session_token_record(token) do
@@ -637,7 +956,6 @@ defmodule PhoenixKit.Users.Auth do
   def ensure_active_user(user) do
     case user do
       %User{is_active: false} = inactive_user ->
-        require Logger
         Logger.warning("PhoenixKit: Inactive user #{inactive_user.id} attempted access")
         nil
 
@@ -710,7 +1028,6 @@ defmodule PhoenixKit.Users.Auth do
          %User{} = user <- Repo.one(query),
          {:ok, %{user: updated_user}} <- Repo.transaction(confirm_user_multi(user)) do
       # Broadcast confirmation event
-      alias PhoenixKit.Admin.Events
       Events.broadcast_user_confirmed(updated_user)
       {:ok, updated_user}
     else
@@ -740,7 +1057,6 @@ defmodule PhoenixKit.Users.Auth do
 
     case Repo.update(changeset) do
       {:ok, updated_user} = result ->
-        alias PhoenixKit.Admin.Events
         Events.broadcast_user_confirmed(updated_user)
         result
 
@@ -765,7 +1081,6 @@ defmodule PhoenixKit.Users.Auth do
 
     case Repo.update(changeset) do
       {:ok, updated_user} = result ->
-        alias PhoenixKit.Admin.Events
         Events.broadcast_user_unconfirmed(updated_user)
         result
 
@@ -1032,6 +1347,46 @@ defmodule PhoenixKit.Users.Auth do
   end
 
   @doc """
+  Updates user's preferred locale (dialect preference).
+
+  This allows users to select specific language dialects (e.g., en-GB, en-US)
+  while URLs continue to use base codes (e.g., /en/).
+  The locale is stored in the `custom_fields` JSONB column.
+
+  Uses `update_user_custom_fields/2` internally for consistency.
+
+  ## Examples
+
+      iex> update_user_locale_preference(user, "en-GB")
+      {:ok, %User{custom_fields: %{"preferred_locale" => "en-GB", ...}}}
+
+      iex> update_user_locale_preference(user, "invalid")
+      {:error, "must be a valid locale format (e.g., en-US, es-MX)"}
+
+      iex> update_user_locale_preference(user, nil)
+      {:ok, %User{...}}  # Clears the preference
+  """
+  def update_user_locale_preference(%User{} = user, preferred_locale) do
+    case User.validate_locale_value(preferred_locale) do
+      :ok ->
+        # Merge locale into existing custom_fields
+        current_fields = user.custom_fields || %{}
+
+        updated_fields =
+          if preferred_locale && preferred_locale != "" do
+            Map.put(current_fields, "preferred_locale", preferred_locale)
+          else
+            Map.delete(current_fields, "preferred_locale")
+          end
+
+        update_user_custom_fields(user, updated_fields)
+
+      {:error, message} ->
+        {:error, message}
+    end
+  end
+
+  @doc """
   Updates user custom fields.
 
   Custom fields are stored as JSONB and can contain arbitrary key-value pairs
@@ -1180,7 +1535,7 @@ defmodule PhoenixKit.Users.Auth do
     ext = Path.extname(filename) |> String.replace_leading(".", "")
 
     # Store file in buckets (automatically queues ProcessFileJob for variants)
-    case PhoenixKit.Storage.store_file_in_buckets(
+    case Storage.store_file_in_buckets(
            file_path,
            "image",
            user_id,
@@ -1593,5 +1948,134 @@ defmodule PhoenixKit.Users.Auth do
     {:ok, String.to_existing_atom(string)}
   rescue
     ArgumentError -> :error
+  end
+
+  ## Admin Notes
+
+  alias PhoenixKit.Users.AdminNote
+
+  @doc """
+  Lists all admin notes for a user, ordered by most recent first.
+
+  Preloads the author information for display.
+
+  ## Examples
+
+      iex> list_admin_notes(user)
+      [%AdminNote{}, ...]
+
+  """
+  def list_admin_notes(%User{} = user) do
+    from(n in AdminNote,
+      where: n.user_id == ^user.id,
+      order_by: [desc: n.inserted_at],
+      preload: [:author]
+    )
+    |> Repo.all()
+  end
+
+  @doc """
+  Gets a single admin note by ID.
+
+  Preloads the author information.
+
+  ## Examples
+
+      iex> get_admin_note(123)
+      %AdminNote{}
+
+      iex> get_admin_note(456)
+      nil
+
+  """
+  def get_admin_note(id) when is_integer(id) do
+    from(n in AdminNote,
+      where: n.id == ^id,
+      preload: [:author]
+    )
+    |> Repo.one()
+  end
+
+  @doc """
+  Creates an admin note about a user.
+
+  ## Parameters
+
+  - `user` - The user being noted about
+  - `author` - The admin creating the note
+  - `attrs` - Map containing `:content`
+
+  ## Examples
+
+      iex> create_admin_note(user, author, %{content: "Important note"})
+      {:ok, %AdminNote{}}
+
+      iex> create_admin_note(user, author, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def create_admin_note(%User{} = user, %User{} = author, attrs) do
+    attrs =
+      attrs
+      |> Map.put("user_id", user.id)
+      |> Map.put("author_id", author.id)
+
+    %AdminNote{}
+    |> AdminNote.changeset(attrs)
+    |> Repo.insert()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Updates an admin note.
+
+  Only the content can be updated.
+
+  ## Examples
+
+      iex> update_admin_note(note, %{content: "Updated note"})
+      {:ok, %AdminNote{}}
+
+      iex> update_admin_note(note, %{content: ""})
+      {:error, %Ecto.Changeset{}}
+
+  """
+  def update_admin_note(%AdminNote{} = note, attrs) do
+    note
+    |> AdminNote.update_changeset(attrs)
+    |> Repo.update()
+    |> case do
+      {:ok, note} -> {:ok, Repo.preload(note, :author)}
+      error -> error
+    end
+  end
+
+  @doc """
+  Deletes an admin note.
+
+  ## Examples
+
+      iex> delete_admin_note(note)
+      {:ok, %AdminNote{}}
+
+  """
+  def delete_admin_note(%AdminNote{} = note) do
+    Repo.delete(note)
+  end
+
+  @doc """
+  Returns a changeset for tracking admin note changes.
+
+  ## Examples
+
+      iex> change_admin_note(note)
+      %Ecto.Changeset{}
+
+  """
+  def change_admin_note(%AdminNote{} = note, attrs \\ %{}) do
+    AdminNote.changeset(note, attrs)
   end
 end

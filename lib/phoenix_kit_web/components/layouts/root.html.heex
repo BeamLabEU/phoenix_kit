@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html
-  lang={@content_language}
+  lang={@content_language || "en"}
   class="[scrollbar-gutter:stable]"
   data-theme="light"
 >
@@ -8,6 +8,11 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
+    <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
+    <%= if @seo_no_index do %>
+      <meta name="robots" content="noindex,nofollow" />
+      <meta name="googlebot" content="noindex,nofollow" />
+    <% end %>
     <.live_title default="PhoenixKit" suffix=" · Phoenix Framework">
       {assigns[:page_title]}
     </.live_title>
@@ -38,7 +43,9 @@
                 class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
               >
                 <li>
-                  <.link href={PhoenixKit.Utils.Routes.path("/users/settings")}>Settings</.link>
+                  <.link href={PhoenixKit.Utils.Routes.path("/dashboard/settings")}>
+                    Settings
+                  </.link>
                 </li>
                 <li>
                   <.link
@@ -83,7 +90,7 @@
           </div>
         </label>
         <ul tabindex="0" class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52">
-          <li><.link href={PhoenixKit.Utils.Routes.path("/users/settings")}>Settings</.link></li>
+          <li><.link href={PhoenixKit.Utils.Routes.path("/dashboard/settings")}>Settings</.link></li>
           <li><.link href={PhoenixKit.Utils.Routes.path("/users/log-out")} method="delete">Logout</.link></li>
         </ul>
       </div>
@@ -130,6 +137,20 @@
           {@inner_content}
         </div>
       </main>
+    <% end %>
+
+    <%!-- Cookie Consent Widget (Phase 2 Legal Module) --%>
+    <%= if PhoenixKit.Modules.Legal.consent_widget_enabled?() do %>
+      <% config = PhoenixKit.Modules.Legal.get_consent_widget_config() %>
+      <.cookie_consent
+        frameworks={config.frameworks}
+        consent_mode={config.consent_mode}
+        icon_position={config.icon_position}
+        policy_version={config.policy_version}
+        cookie_policy_url={config.cookie_policy_url}
+        privacy_policy_url={config.privacy_policy_url}
+        google_consent_mode={config.google_consent_mode}
+      />
     <% end %>
   </body>
 </html>

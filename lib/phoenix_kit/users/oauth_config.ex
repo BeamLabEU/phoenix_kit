@@ -7,6 +7,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   configuration dynamically.
   """
 
+  alias PhoenixKit.Config
   alias PhoenixKit.Settings
   require Logger
 
@@ -59,21 +60,13 @@ defmodule PhoenixKit.Users.OAuthConfig do
   defp configure_ueberauth_base do
     providers = build_provider_list()
 
-    # FIXED: Preserve existing base_path or set default based on PhoenixKit URL prefix
-    # Get current config to preserve any existing settings
-    current_config = Application.get_env(:ueberauth, Ueberauth, [])
+    base_path = PhoenixKit.Config.UeberAuth.get_base_path()
 
-    # Preserve base_path if it exists, or set default based on PhoenixKit URL prefix
-    base_path = Keyword.get(current_config, :base_path) || get_oauth_base_path()
-
-    config = [
+    # Use PhoenixKit.Config.UeberAuth to set the configuration
+    Config.UeberAuth.set_all(
       base_path: base_path,
       providers: providers
-    ]
-
-    # Always update Ueberauth configuration, even if providers list is empty
-    # This ensures Ueberauth has a valid configuration at all times
-    Application.put_env(:ueberauth, Ueberauth, config)
+    )
 
     if providers != %{} do
       Logger.info(
@@ -86,50 +79,41 @@ defmodule PhoenixKit.Users.OAuthConfig do
     end
   end
 
-  # Helper to get OAuth base path from PhoenixKit URL prefix
-  defp get_oauth_base_path do
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-
-    case url_prefix do
-      "" -> "/users/auth"
-      prefix -> "#{prefix}/users/auth"
-    end
-  end
-
   # Build the list of available providers based on configured credentials
+  # Uses direct database reads to avoid cache race conditions
   defp build_provider_list do
     providers = %{}
 
-    # Add Google if credentials exist
+    # Add Google if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:google) and
+      if Settings.has_oauth_credentials_direct?(:google) and
            Settings.get_boolean_setting("oauth_google_enabled", false) do
         Map.put(providers, :google, {Ueberauth.Strategy.Google, []})
       else
         providers
       end
 
-    # Add Apple if credentials exist
+    # Add Apple if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:apple) and
+      if Settings.has_oauth_credentials_direct?(:apple) and
            Settings.get_boolean_setting("oauth_apple_enabled", false) do
         Map.put(providers, :apple, {Ueberauth.Strategy.Apple, []})
       else
         providers
       end
 
-    # Add GitHub if credentials exist
+    # Add GitHub if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:github) and
+      if Settings.has_oauth_credentials_direct?(:github) and
            Settings.get_boolean_setting("oauth_github_enabled", false) do
         Map.put(providers, :github, {Ueberauth.Strategy.Github, []})
       else
         providers
       end
 
-    # Add Facebook if credentials exist
+    # Add Facebook if credentials exist (direct DB read)
     providers =
-      if Settings.has_oauth_credentials?(:facebook) and
+      if Settings.has_oauth_credentials_direct?(:facebook) and
            Settings.get_boolean_setting("oauth_facebook_enabled", false) do
         Map.put(providers, :facebook, {Ueberauth.Strategy.Facebook, []})
       else
@@ -140,9 +124,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Google OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_google do
     if Settings.get_boolean_setting("oauth_google_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:google)
+      credentials = Settings.get_oauth_credentials_direct(:google)
 
       if credentials.client_id != "" and credentials.client_secret != "" do
         config = [
@@ -150,7 +135,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.client_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Google.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :google,
+          Ueberauth.Strategy.Google.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Google OAuth provider")
       else
         Logger.warning("OAuth: Google enabled but credentials not configured")
@@ -159,9 +149,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Apple OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_apple do
     if Settings.get_boolean_setting("oauth_apple_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:apple)
+      credentials = Settings.get_oauth_credentials_direct(:apple)
 
       if credentials.client_id != "" and
            credentials.team_id != "" and
@@ -174,7 +165,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           private_key: credentials.private_key
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Apple.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :apple,
+          Ueberauth.Strategy.Apple.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Apple OAuth provider")
       else
         Logger.warning("OAuth: Apple enabled but credentials not fully configured")
@@ -183,9 +179,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure GitHub OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_github do
     if Settings.get_boolean_setting("oauth_github_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:github)
+      credentials = Settings.get_oauth_credentials_direct(:github)
 
       if credentials.client_id != "" and credentials.client_secret != "" do
         config = [
@@ -193,7 +190,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.client_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Github.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :github,
+          Ueberauth.Strategy.Github.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured GitHub OAuth provider")
       else
         Logger.warning("OAuth: GitHub enabled but credentials not configured")
@@ -202,9 +204,10 @@ defmodule PhoenixKit.Users.OAuthConfig do
   end
 
   # Configure Facebook OAuth
+  # Uses direct DB read to avoid cache race conditions after settings update
   defp configure_facebook do
     if Settings.get_boolean_setting("oauth_facebook_enabled", false) do
-      credentials = Settings.get_oauth_credentials(:facebook)
+      credentials = Settings.get_oauth_credentials_direct(:facebook)
 
       if credentials.app_id != "" and credentials.app_secret != "" do
         config = [
@@ -212,7 +215,12 @@ defmodule PhoenixKit.Users.OAuthConfig do
           client_secret: credentials.app_secret
         ]
 
-        Application.put_env(:ueberauth, Ueberauth.Strategy.Facebook.OAuth, config)
+        Config.UeberAuth.set_provider_strategy_config(
+          :facebook,
+          Ueberauth.Strategy.Facebook.OAuth,
+          config
+        )
+
         Logger.info("OAuth: Configured Facebook OAuth provider")
       else
         Logger.warning("OAuth: Facebook enabled but credentials not configured")
@@ -224,6 +232,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
   Validates OAuth credentials for a specific provider.
 
   Returns `{:ok, provider}` if credentials are valid, or `{:error, reason}` if not.
+  Uses direct database read for accurate validation.
 
   ## Examples
 
@@ -234,7 +243,7 @@ defmodule PhoenixKit.Users.OAuthConfig do
       {:error, "Missing Apple private key"}
   """
   def validate_credentials(provider) when provider in [:google, :apple, :github, :facebook] do
-    credentials = Settings.get_oauth_credentials(provider)
+    credentials = Settings.get_oauth_credentials_direct(provider)
 
     case provider do
       :google -> validate_google_credentials(credentials)

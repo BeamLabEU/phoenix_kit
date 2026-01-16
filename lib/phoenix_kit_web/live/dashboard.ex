@@ -8,18 +8,14 @@ defmodule PhoenixKitWeb.Live.Dashboard do
   use Gettext, backend: PhoenixKitWeb.Gettext
 
   alias PhoenixKit.Admin.{Events, Presence}
+  alias PhoenixKit.Migrations.Postgres, as: Migrations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Users.{Roles, Sessions}
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
 
-  def mount(params, session, socket) do
-    # Set locale for LiveView process - check params first, then socket assigns, then default
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
-
+  def mount(_params, session, socket) do
     # Subscribe to statistics updates for live data
     if connected?(socket) do
       Events.subscribe_to_stats()
@@ -38,8 +34,12 @@ defmodule PhoenixKitWeb.Live.Dashboard do
     # Get PhoenixKit version from application specification
     version = Application.spec(:phoenix_kit, :vsn) |> to_string()
 
-    # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Get migration versions
+    migration_current = Migrations.current_version()
+    migration_db = Migrations.migrated_version_runtime(%{prefix: "public"})
+
+    # Get project title from settings cache
+    project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
 
     # Cache user roles from scope to avoid repeated DB queries
     user_roles =
@@ -54,10 +54,11 @@ defmodule PhoenixKitWeb.Live.Dashboard do
       |> assign(:session_stats, session_stats)
       |> assign(:presence_stats, presence_stats)
       |> assign(:phoenix_kit_version, version)
+      |> assign(:migration_current, migration_current)
+      |> assign(:migration_db, migration_db)
       |> assign(:project_title, project_title)
       |> assign(:page_title, "Dashboard")
       |> assign(:cached_user_roles, user_roles)
-      |> assign(:current_locale, locale)
 
     {:ok, socket}
   end
@@ -143,7 +144,7 @@ defmodule PhoenixKitWeb.Live.Dashboard do
         session_id: session_id,
         ip_address: IpAddress.extract_from_socket(socket),
         user_agent: get_connect_info(socket, :user_agent),
-        current_page: Routes.path("/admin/dashboard")
+        current_page: Routes.path("/admin")
       })
     end
   end

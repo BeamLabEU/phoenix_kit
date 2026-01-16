@@ -7,22 +7,23 @@ defmodule PhoenixKitWeb.Live.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
-  def mount(params, _session, socket) do
+  require Logger
+
+  @default_locale Config.default_locale()
+
+  def mount(_params, _session, socket) do
     # Subscribe to settings changes for live updates (like entities does)
     if connected?(socket) do
       SettingsEvents.subscribe_to_settings()
     end
 
-    # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
     # Load current settings from database
     current_settings = Settings.list_all_settings()
     defaults = Settings.get_defaults()
@@ -49,14 +50,16 @@ defmodule PhoenixKitWeb.Live.Settings do
         []
       end
 
-    # Load admin languages from settings
+    # Load admin languages from settings cache
+    # Default is [@default_locale] - a fresh install only has the default locale enabled
     admin_languages_json =
-      Settings.get_setting("admin_languages", Jason.encode!(["en", "ru", "es"]))
+      Settings.get_setting_cached("admin_languages", nil) ||
+        Jason.encode!([@default_locale])
 
     admin_languages =
       case Jason.decode(admin_languages_json) do
         {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en", "ru", "es"]
+        _ -> [@default_locale]
       end
 
     socket =
@@ -69,7 +72,6 @@ defmodule PhoenixKitWeb.Live.Settings do
       |> assign(:changeset, changeset)
       |> assign(:saving, false)
       |> assign(:project_title, merged_settings["project_title"] || "PhoenixKit")
-      |> assign(:current_locale, locale)
       |> assign(:languages_enabled, languages_enabled)
       |> assign(:content_language, content_language)
       |> assign(:content_language_details, content_language_details)
@@ -138,6 +140,9 @@ defmodule PhoenixKitWeb.Live.Settings do
     # Update all settings to defaults in database
     case Settings.update_settings(defaults) do
       {:ok, updated_settings} ->
+        # Also reset admin_languages to just the default locale
+        Settings.update_json_setting("admin_languages", [@default_locale])
+
         # Update socket with default settings
         changeset = Settings.change_settings(updated_settings)
 
@@ -147,6 +152,7 @@ defmodule PhoenixKitWeb.Live.Settings do
           |> assign(:saved_settings, updated_settings)
           |> assign(:changeset, changeset)
           |> assign(:project_title, updated_settings["project_title"] || "PhoenixKit")
+          |> assign(:admin_languages, [@default_locale])
           |> put_flash(:info, "Settings reset to defaults successfully")
 
         {:noreply, socket}
@@ -188,7 +194,7 @@ defmodule PhoenixKitWeb.Live.Settings do
         socket
       )
       when language_code != "" do
-    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
+    current_languages = socket.assigns.admin_languages || [@default_locale]
 
     # Toggle: add if not present, remove if already present
     if language_code in current_languages do
@@ -227,19 +233,32 @@ defmodule PhoenixKitWeb.Live.Settings do
   end
 
   def handle_event("remove_admin_language_from_form", %{"code" => code}, socket) do
-    current_languages = socket.assigns.admin_languages || ["en", "ru", "es"]
-    updated_languages = Enum.filter(current_languages, &(&1 != code))
+    current_languages = socket.assigns.admin_languages || [@default_locale]
 
-    # Get language details for feedback
-    language = Languages.get_predefined_language(code)
-    language_name = if language, do: language.name, else: String.upcase(code)
+    # Prevent removing the last language
+    if length(current_languages) <= 1 do
+      socket =
+        put_flash(
+          socket,
+          :warning,
+          "Cannot remove the last language. At least one language must be configured."
+        )
 
-    socket =
-      socket
-      |> assign(:admin_languages, updated_languages)
-      |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+      {:noreply, socket}
+    else
+      updated_languages = Enum.filter(current_languages, &(&1 != code))
 
-    {:noreply, socket}
+      # Get language details for feedback
+      language = Languages.get_predefined_language(code)
+      language_name = if language, do: language.name, else: String.upcase(code)
+
+      socket =
+        socket
+        |> assign(:admin_languages, updated_languages)
+        |> put_flash(:info, "#{language_name} removed. Remember to save settings.")
+
+      {:noreply, socket}
+    end
   end
 
   ## Live updates - handle broadcasts from other admins
@@ -299,7 +318,6 @@ defmodule PhoenixKitWeb.Live.Settings do
 
   # Handle settings save error
   defp handle_settings_error(socket, errors) do
-    require Logger
     Logger.error("Settings save error: #{inspect(errors)}")
 
     error_msg = format_error_message(errors)
@@ -313,25 +331,37 @@ defmodule PhoenixKitWeb.Live.Settings do
   end
 
   # Parse admin_languages JSON string to list
+  # Default is [@default_locale] - a fresh install only has the default locale enabled
   defp parse_admin_languages_json(json) when is_binary(json) do
     if String.trim(json) != "" do
       case Jason.decode(json) do
         {:ok, codes} when is_list(codes) -> codes
-        _ -> ["en", "ru", "es"]
+        _ -> [@default_locale]
       end
     else
-      ["en", "ru", "es"]
+      [@default_locale]
     end
   end
 
-  defp parse_admin_languages_json(_), do: ["en", "ru", "es"]
+  defp parse_admin_languages_json(_), do: [@default_locale]
 
   # Prepare settings params by handling admin_languages field
+  # Ensures admin_languages is never empty - defaults to [@default_locale]
   defp prepare_settings_params(%{"admin_languages" => json} = params) when is_binary(json) do
-    if String.trim(json) != "" do
-      params
-    else
-      Map.delete(params, "admin_languages")
+    trimmed = String.trim(json)
+
+    cond do
+      # Empty string - use default
+      trimmed == "" ->
+        Map.put(params, "admin_languages", Jason.encode!([@default_locale]))
+
+      # Empty JSON array - use default
+      trimmed == "[]" ->
+        Map.put(params, "admin_languages", Jason.encode!([@default_locale]))
+
+      # Valid JSON - keep it
+      true ->
+        params
     end
   end
 

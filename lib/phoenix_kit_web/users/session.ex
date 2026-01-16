@@ -17,6 +17,7 @@ defmodule PhoenixKitWeb.Users.Session do
   use PhoenixKitWeb, :controller
 
   alias PhoenixKit.Users.Auth
+  alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
   alias PhoenixKitWeb.Users.Auth, as: UserAuth
 
@@ -26,7 +27,7 @@ defmodule PhoenixKitWeb.Users.Session do
 
   def create(conn, %{"_action" => "password_updated"} = params) do
     conn
-    |> put_session(:user_return_to, Routes.path("/users/settings"))
+    |> put_session(:user_return_to, Routes.path("/dashboard/settings"))
     |> create(params, "Password updated successfully!")
   end
 
@@ -35,10 +36,12 @@ defmodule PhoenixKitWeb.Users.Session do
   end
 
   defp create(conn, %{"user" => user_params}, info) do
-    %{"email" => email, "password" => password} = user_params
-    ip_address = get_ip_address(conn)
+    %{"password" => password} = user_params
+    # Support both old "email" field and new "email_or_username" field for backwards compatibility
+    email_or_username = user_params["email_or_username"] || user_params["email"]
+    ip_address = IpAddress.extract_from_conn(conn)
 
-    case Auth.get_user_by_email_and_password(email, password, ip_address) do
+    case Auth.get_user_by_email_or_username_and_password(email_or_username, password, ip_address) do
       {:ok, %Auth.User{is_active: false}} ->
         # Valid credentials but account is inactive
         conn
@@ -46,7 +49,7 @@ defmodule PhoenixKitWeb.Users.Session do
           :error,
           "Your account is currently inactive. Please contact the team if you believe this is an error."
         )
-        |> put_flash(:email, String.slice(email, 0, 160))
+        |> put_flash(:email_or_username, String.slice(email_or_username, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
 
       {:ok, user} ->
@@ -59,23 +62,16 @@ defmodule PhoenixKitWeb.Users.Session do
         # Rate limit exceeded - show specific error message
         conn
         |> put_flash(:error, "Too many login attempts. Please try again later.")
-        |> put_flash(:email, String.slice(email, 0, 160))
+        |> put_flash(:email_or_username, String.slice(email_or_username, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
 
       {:error, :invalid_credentials} ->
-        # Invalid credentials (wrong email or password)
-        # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
+        # Invalid credentials (wrong email/username or password)
+        # In order to prevent user enumeration attacks, don't disclose whether the email/username is registered.
         conn
-        |> put_flash(:error, "Invalid email or password")
-        |> put_flash(:email, String.slice(email, 0, 160))
+        |> put_flash(:error, "Invalid email/username or password")
+        |> put_flash(:email_or_username, String.slice(email_or_username, 0, 160))
         |> redirect(to: Routes.path("/users/log-in"))
-    end
-  end
-
-  defp get_ip_address(conn) do
-    case Plug.Conn.get_peer_data(conn) do
-      %{address: {a, b, c, d}} -> "#{a}.#{b}.#{c}.#{d}"
-      %{address: address} -> to_string(address)
     end
   end
 

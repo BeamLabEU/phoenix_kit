@@ -60,8 +60,8 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
   use Mix.Task
   require Logger
 
-  alias PhoenixKit.Emails
-  alias PhoenixKit.Emails.SQSProcessor
+  alias PhoenixKit.Modules.Emails
+  alias PhoenixKit.Modules.Emails.SQSProcessor
 
   @impl Mix.Task
   def run(args) do
@@ -185,7 +185,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.DebugSqs do
       )
 
     case ExAws.request(request) do
-      {:ok, %{body: %{messages: messages}}} when is_list(messages) and length(messages) > 0 ->
+      {:ok, %{body: %{messages: messages}}} when is_list(messages) and messages != [] ->
         new_acc = acc ++ messages
         new_remaining = remaining - length(messages)
 

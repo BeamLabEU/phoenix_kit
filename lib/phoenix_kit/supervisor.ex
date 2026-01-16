@@ -14,13 +14,36 @@ defmodule PhoenixKit.Supervisor do
       PhoenixKit.PubSub.Manager,
       PhoenixKit.Admin.SimplePresence,
       {PhoenixKit.Cache.Registry, []},
-      {PhoenixKit.Cache, name: :settings, warmer: &PhoenixKit.Settings.warm_cache_data/0},
-      # OAuth config loader MUST be first to ensure configuration
-      # is available before any OAuth requests are processed
+      # Dashboard tab registry for user dashboard navigation
+      PhoenixKit.Dashboard.Registry,
+      # Settings cache with synchronous initialization
+      # Loads all settings in handle_continue (after init returns)
+      # This ensures OAuth configuration is available before OAuthConfigLoader starts
+      # while not blocking supervisor initialization
+      Supervisor.child_spec(
+        {PhoenixKit.Cache,
+         name: :settings, sync_init: true, warmer: &PhoenixKit.Settings.warm_cache_data/0},
+        id: :settings_cache
+      ),
+      # Cache rendered blog posts (HTML) to avoid re-rendering markdown on every request
+      Supervisor.child_spec(
+        {PhoenixKit.Cache, name: :publishing_posts, ttl: :timer.hours(6)},
+        id: :publishing_posts_cache
+      ),
+      # Rate limiter backend MUST be started before any authentication requests
+      PhoenixKit.Users.RateLimiter.Backend,
+      # OAuth config loader - now guaranteed to have critical settings in cache
+      # No longer needs retry logic as cache is pre-warmed with OAuth settings
       PhoenixKit.Workers.OAuthConfigLoader,
-      PhoenixKit.Entities.Presence,
+      # Presence modules for collaborative editing
+      PhoenixKit.Modules.Entities.Presence,
+      PhoenixKit.Modules.Publishing.Presence,
       # Email tracking supervisor - handles SQS Worker for automatic bounce event processing
-      PhoenixKit.Emails.Supervisor
+      PhoenixKit.Modules.Emails.Supervisor,
+      # DB Sync session store for ephemeral connection codes
+      PhoenixKit.Modules.Sync.SessionStore,
+      # DB Explorer listener for PostgreSQL LISTEN/NOTIFY (live table updates)
+      PhoenixKit.Modules.DB.Listener
     ]
 
     Supervisor.init(children, strategy: :one_for_one)

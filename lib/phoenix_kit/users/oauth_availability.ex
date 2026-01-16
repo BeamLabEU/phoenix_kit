@@ -49,34 +49,37 @@ defmodule PhoenixKit.Users.OAuthAvailability do
       try do
         providers = []
 
-        # Check Google
+        # Check Google (direct DB read to avoid cache race conditions)
         providers =
-          if provider_enabled?(:google) and PhoenixKit.Settings.has_oauth_credentials?(:google) do
+          if provider_enabled?(:google) and
+               PhoenixKit.Settings.has_oauth_credentials_direct?(:google) do
             [:google | providers]
           else
             providers
           end
 
-        # Check Apple
+        # Check Apple (direct DB read to avoid cache race conditions)
         providers =
-          if provider_enabled?(:apple) and PhoenixKit.Settings.has_oauth_credentials?(:apple) do
+          if provider_enabled?(:apple) and
+               PhoenixKit.Settings.has_oauth_credentials_direct?(:apple) do
             [:apple | providers]
           else
             providers
           end
 
-        # Check GitHub
+        # Check GitHub (direct DB read to avoid cache race conditions)
         providers =
-          if provider_enabled?(:github) and PhoenixKit.Settings.has_oauth_credentials?(:github) do
+          if provider_enabled?(:github) and
+               PhoenixKit.Settings.has_oauth_credentials_direct?(:github) do
             [:github | providers]
           else
             providers
           end
 
-        # Check Facebook
+        # Check Facebook (direct DB read to avoid cache race conditions)
         providers =
           if provider_enabled?(:facebook) and
-               PhoenixKit.Settings.has_oauth_credentials?(:facebook) do
+               PhoenixKit.Settings.has_oauth_credentials_direct?(:facebook) do
             [:facebook | providers]
           else
             providers

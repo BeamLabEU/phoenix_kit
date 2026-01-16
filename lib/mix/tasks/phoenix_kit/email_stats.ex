@@ -39,7 +39,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   """
 
   use Mix.Task
-  alias PhoenixKit.Emails
+  alias PhoenixKit.Modules.Emails
 
   @impl Mix.Task
   def run(args) do
@@ -49,7 +49,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
 
     unless Emails.enabled?() do
       Mix.shell().error("Email is not enabled. Enable it first with:")
-      Mix.shell().info("  PhoenixKit.Emails.enable_system()")
+      Mix.shell().info("  PhoenixKit.Modules.Emails.enable_system()")
       exit({:shutdown, 1})
     end
 
@@ -208,7 +208,7 @@ defmodule Mix.Tasks.PhoenixKit.Email.Stats do
   end
 
   defp get_template_stats(period) do
-    PhoenixKit.Emails.get_template_stats(period)
+    Emails.get_template_stats(period)
   end
 
   defp format_number(number) when is_integer(number) do

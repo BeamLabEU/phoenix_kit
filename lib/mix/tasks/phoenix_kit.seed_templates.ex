@@ -40,7 +40,7 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
 
   use Mix.Task
 
-  alias PhoenixKit.Emails.Templates
+  alias PhoenixKit.Modules.Emails.Templates
 
   @requirements ["app.start"]
 
@@ -133,7 +133,8 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
         variables: %{
           "user_email" => "User's email address",
           "magic_link_url" => "URL for magic link authentication"
-        }
+        },
+        metadata: %{"source_module" => "users"}
       },
       %{
         name: "register",
@@ -149,7 +150,8 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
         variables: %{
           "user_email" => "User's email address",
           "confirmation_url" => "URL for account confirmation"
-        }
+        },
+        metadata: %{"source_module" => "users"}
       },
       %{
         name: "reset_password",
@@ -165,7 +167,8 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
         variables: %{
           "user_email" => "User's email address",
           "reset_url" => "URL for password reset"
-        }
+        },
+        metadata: %{"source_module" => "users"}
       },
       %{
         name: "test_email",
@@ -182,7 +185,8 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
           "recipient_email" => "Recipient's email address",
           "timestamp" => "Current timestamp",
           "test_link_url" => "URL for testing link tracking"
-        }
+        },
+        metadata: %{"source_module" => "admin"}
       },
       %{
         name: "update_email",
@@ -198,7 +202,8 @@ defmodule Mix.Tasks.PhoenixKit.SeedTemplates do
         variables: %{
           "user_email" => "User's email address",
           "update_url" => "URL for email update confirmation"
-        }
+        },
+        metadata: %{"source_module" => "users"}
       }
     ]
 

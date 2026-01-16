@@ -13,13 +13,14 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign(:media_selection_mode, :single)
       |> assign(:media_selected_ids, [])
 
-      # In template
+      # In template (IMPORTANT: Must pass phoenix_kit_current_user for uploads to work)
       <.live_component
         module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
         id="media-selector-modal"
         show={@show_media_selector}
         mode={@media_selection_mode}
         selected_ids={@media_selected_ids}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
       />
 
       # To open the modal
@@ -37,8 +38,8 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
 
   require Logger
 
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{File, FileInstance, URLSigner}
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Users.Auth
 
   import Ecto.Query
@@ -49,10 +50,18 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   @per_page 30
 
   def update(assigns, socket) do
+    # Check if any enabled buckets exist
+    enabled_buckets = Storage.list_enabled_buckets()
+    has_buckets = not Enum.empty?(enabled_buckets)
+
+    # Save previous state BEFORE assigning new values
+    was_shown = socket.assigns[:show] || false
+    previous_selected_ids = socket.assigns[:selected_ids]
+
     socket =
       socket
       |> assign(assigns)
-      |> assign_new(:selected_ids, fn -> MapSet.new(assigns[:selected_ids] || []) end)
+      |> assign(:has_buckets, has_buckets)
       |> assign_new(:file_type_filter, fn -> :all end)
       |> assign_new(:search_query, fn -> "" end)
       |> assign_new(:current_page, fn -> 1 end)
@@ -60,7 +69,24 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
       |> assign_new(:uploaded_files, fn -> [] end)
       |> assign_new(:total_count, fn -> 0 end)
       |> assign_new(:total_pages, fn -> 0 end)
-      |> maybe_allow_upload()
+      |> maybe_allow_upload(has_buckets)
+
+    # Handle selected_ids - only reset when modal is opening, otherwise preserve selection
+    socket =
+      cond do
+        # Modal is opening (show transitions from false to true) - initialize from incoming assigns
+        assigns[:show] && !was_shown ->
+          selected_ids_list = assigns[:selected_ids] || []
+          assign(socket, :selected_ids, MapSet.new(selected_ids_list))
+
+        # Modal already open and has selection state - preserve it
+        is_struct(previous_selected_ids, MapSet) ->
+          assign(socket, :selected_ids, previous_selected_ids)
+
+        # First mount or no previous state - initialize empty
+        true ->
+          assign(socket, :selected_ids, MapSet.new([]))
+      end
 
     # Load files if modal is shown
     socket =
@@ -79,16 +105,22 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     {:ok, socket}
   end
 
-  defp maybe_allow_upload(socket) do
-    if socket.assigns[:uploads] do
-      socket
-    else
-      allow_upload(socket, :media_files,
-        accept: :any,
-        max_entries: 10,
-        auto_upload: true,
-        progress: &handle_progress/3
-      )
+  defp maybe_allow_upload(socket, has_buckets) do
+    cond do
+      socket.assigns[:uploads] ->
+        socket
+
+      has_buckets ->
+        allow_upload(socket, :media_files,
+          accept: :any,
+          max_entries: 10,
+          auto_upload: true,
+          progress: &handle_progress/3
+        )
+
+      true ->
+        # No buckets - don't allow upload
+        socket
     end
   end
 
@@ -101,6 +133,8 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
     selected_ids = socket.assigns.selected_ids
     mode = socket.assigns.mode
 
+    Logger.debug("MediaSelectorModal toggle_selection: mode=#{inspect(mode)}, file_id=#{file_id}")
+
     new_selected_ids =
       case mode do
         :single ->
@@ -112,6 +146,21 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
           else
             MapSet.put(selected_ids, file_id)
           end
+
+        # Handle string versions in case they come through as strings
+        "single" ->
+          MapSet.new([file_id])
+
+        "multiple" ->
+          if MapSet.member?(selected_ids, file_id) do
+            MapSet.delete(selected_ids, file_id)
+          else
+            MapSet.put(selected_ids, file_id)
+          end
+
+        # Default to single select for any unexpected value
+        _ ->
+          MapSet.new([file_id])
       end
 
     {:noreply, assign(socket, :selected_ids, new_selected_ids)}
@@ -216,33 +265,33 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
             process_upload(socket, path, entry)
           end)
 
-        # Extract the file ID from the result - consume_uploaded_entry returns [{:ok, file_id}]
-        new_file_id =
-          case uploaded_results do
-            [{:ok, file_id}] when is_binary(file_id) -> file_id
-            _ -> nil
-          end
+        # Check if upload failed and handle error
+        case uploaded_results do
+          [{:ok, file_id}] when is_binary(file_id) ->
+            # Success - reload files and auto-select
+            {files, total_count} = load_files(socket, socket.assigns.current_page)
+            total_pages = ceil(total_count / socket.assigns.per_page)
 
-        # Reload files to show the newly uploaded file
-        {files, total_count} = load_files(socket, socket.assigns.current_page)
-        total_pages = ceil(total_count / socket.assigns.per_page)
+            selected_ids =
+              case socket.assigns.mode do
+                :single -> MapSet.new([file_id])
+                :multiple -> MapSet.put(socket.assigns.selected_ids, file_id)
+              end
 
-        # Auto-select the newly uploaded file
-        selected_ids =
-          if new_file_id do
-            case socket.assigns.mode do
-              :single -> MapSet.new([new_file_id])
-              :multiple -> MapSet.put(socket.assigns.selected_ids, new_file_id)
-            end
-          else
-            socket.assigns.selected_ids
-          end
+            socket
+            |> assign(:uploaded_files, files)
+            |> assign(:total_count, total_count)
+            |> assign(:total_pages, total_pages)
+            |> assign(:selected_ids, selected_ids)
 
-        socket
-        |> assign(:uploaded_files, files)
-        |> assign(:total_count, total_count)
-        |> assign(:total_pages, total_pages)
-        |> assign(:selected_ids, selected_ids)
+          _ ->
+            # Upload failed - show error message
+            socket
+            |> put_flash(
+              :error,
+              "Upload failed: No storage buckets configured. Please configure at least one storage bucket before uploading files."
+            )
+        end
       else
         socket
       end
@@ -288,7 +337,7 @@ defmodule PhoenixKitWeb.Live.Components.MediaSelectorModal do
   end
 
   defp load_files(socket, page) do
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = PhoenixKit.Config.get_repo()
     per_page = socket.assigns.per_page
     filter = socket.assigns.file_type_filter
     search = socket.assigns.search_query

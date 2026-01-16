@@ -1,0 +1,431 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={Routes.path("/admin/publishing", locale: @current_locale_base)}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Publishing
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">
+          {(@current_blog && @current_blog["name"]) || @blog_slug || gettext("Blog")}
+        </h1>
+        <% blog_slug = (@current_blog && @current_blog["slug"]) || @blog_slug || "your-blog" %>
+        <% url_prefix =
+          PhoenixKit.Config.get_url_prefix()
+          |> case do
+            "/" -> ""
+            prefix -> prefix
+          end %>
+        <% files_hint = "priv/publishing/" <> blog_slug <> "/…" %>
+        <%!-- Use first enabled language (default) for public URL, not UI locale --%>
+        <% default_language = List.first(@enabled_languages) %>
+        <% public_url =
+          if length(@enabled_languages) == 1 do
+            @endpoint_url <> url_prefix <> "/" <> blog_slug
+          else
+            @endpoint_url <> url_prefix <> "/#{default_language}/" <> blog_slug
+          end %>
+        <div class="text-sm text-base-content/60 space-y-1">
+          <p>
+            <span class="font-medium text-base-content">{gettext("Files")}: </span>
+            <code class="font-mono break-all">{files_hint}</code>
+          </p>
+          <p>
+            <span class="font-medium text-base-content">{gettext("Public URL")}: </span>
+            <a
+              href={public_url}
+              target="_blank"
+              class="link link-hover font-mono break-all text-xs"
+            >
+              {public_url}
+            </a>
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <%!-- Cache Status Section (Collapsible) --%>
+    <%= if @cache_info do %>
+      <div class="collapse collapse-arrow bg-base-100 shadow-sm border border-base-200 mb-6">
+        <input type="checkbox" class="peer" />
+        <%!-- Collapse Title - Always visible --%>
+        <div class="collapse-title p-4 min-h-0 flex items-center">
+          <div class="flex items-center justify-between w-full">
+            <div class="flex items-center gap-2">
+              <.icon name="hero-archive-box" class="w-5 h-5" />
+              <span class="font-semibold">{gettext("Caching")}</span>
+            </div>
+            <%= if @cache_info.file_enabled || @cache_info.memory_enabled do %>
+              <span class="badge badge-success badge-sm gap-1 mr-6">
+                <.icon name="hero-check" class="w-3 h-3" />
+                {gettext("ON")}
+              </span>
+            <% else %>
+              <span class="badge badge-ghost badge-sm mr-6">
+                {gettext("OFF")}
+              </span>
+            <% end %>
+          </div>
+        </div>
+
+        <%!-- Collapse Content - Expandable details --%>
+        <div class="collapse-content !p-0">
+          <div class="px-4 pb-4">
+            <%!-- Only check staleness when file cache is enabled - if file is off, memory is authoritative --%>
+            <% memory_is_stale =
+              @cache_info.memory_enabled && @cache_info.in_memory &&
+                @cache_info.file_enabled &&
+                @cache_info.memory_file_generated_at &&
+                @cache_info.generated_at &&
+                @cache_info.memory_file_generated_at != @cache_info.generated_at %>
+
+            <div class="space-y-3">
+              <%!-- File Cache Row --%>
+              <div>
+                <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg">
+                  <div class="flex items-center gap-2">
+                    <.icon name="hero-document" class="w-4 h-4 text-base-content/70" />
+                    <span class="text-sm font-medium">{gettext("File")}</span>
+                    <%= if @cache_info.file_enabled do %>
+                      <%= if @cache_info.exists do %>
+                        <span class="badge badge-success badge-xs">{gettext("cached")}</span>
+                        <%= if @cache_info.generated_at do %>
+                          <span class="text-xs text-base-content/50">
+                            {format_cache_time(@cache_info.generated_at)}
+                          </span>
+                        <% end %>
+                      <% else %>
+                        <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                      <% end %>
+                    <% else %>
+                      <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <%= if @cache_info.file_enabled do %>
+                      <%= if @cache_info.exists do %>
+                        <button
+                          type="button"
+                          phx-click="invalidate_file_cache"
+                          class="btn btn-ghost btn-xs text-error"
+                          title={gettext("Clear file cache")}
+                        >
+                          <.icon name="hero-trash" class="w-3 h-3" />
+                        </button>
+                      <% end %>
+                      <button
+                        type="button"
+                        phx-click="regenerate_file_cache"
+                        class="btn btn-ghost btn-xs"
+                        title={gettext("Regenerate file cache")}
+                      >
+                        <.icon name="hero-arrow-path" class="w-3 h-3" />
+                      </button>
+                    <% end %>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-primary toggle-xs"
+                      checked={@cache_info.file_enabled}
+                      phx-click="toggle_file_cache"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-base-content/50 mt-1 ml-1">
+                  <%= if @cache_info.file_enabled do %>
+                    {gettext("Persists listing metadata to disk for fast startup.")}
+                  <% else %>
+                    {gettext("Disabled. Listing will scan filesystem on startup.")}
+                  <% end %>
+                </p>
+              </div>
+
+              <%!-- Memory Cache Row --%>
+              <div>
+                <div class={[
+                  "flex items-center justify-between p-2 rounded-lg",
+                  if(memory_is_stale, do: "bg-error/10", else: "bg-base-200")
+                ]}>
+                  <div class="flex items-center gap-2">
+                    <.icon name="hero-cpu-chip" class="w-4 h-4 text-base-content/70" />
+                    <span class="text-sm font-medium">{gettext("Memory")}</span>
+                    <%= if @cache_info.memory_enabled do %>
+                      <%= if @cache_info.in_memory do %>
+                        <%= if memory_is_stale do %>
+                          <span class="badge badge-warning badge-xs">{gettext("stale")}</span>
+                        <% else %>
+                          <span class="badge badge-success badge-xs">{gettext("loaded")}</span>
+                        <% end %>
+                        <%= if @cache_info.memory_file_generated_at do %>
+                          <span class="text-xs text-base-content/50">
+                            <%= if @cache_info.file_enabled do %>
+                              {gettext("from file %{time}",
+                                time: format_cache_time(@cache_info.memory_file_generated_at)
+                              )}
+                            <% else %>
+                              {gettext("scanned %{time}",
+                                time: format_cache_time(@cache_info.memory_file_generated_at)
+                              )}
+                            <% end %>
+                          </span>
+                        <% end %>
+                      <% else %>
+                        <span class="badge badge-ghost badge-xs">{gettext("empty")}</span>
+                      <% end %>
+                    <% else %>
+                      <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <%= if @cache_info.memory_enabled do %>
+                      <%= if @cache_info.in_memory do %>
+                        <button
+                          type="button"
+                          phx-click="invalidate_memory_cache"
+                          class="btn btn-ghost btn-xs text-error"
+                          title={gettext("Clear memory cache")}
+                        >
+                          <.icon name="hero-trash" class="w-3 h-3" />
+                        </button>
+                      <% end %>
+                      <button
+                        type="button"
+                        phx-click="load_memory_cache"
+                        class="btn btn-ghost btn-xs"
+                        title={gettext("Load into memory")}
+                      >
+                        <.icon name="hero-arrow-path" class="w-3 h-3" />
+                      </button>
+                    <% end %>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-primary toggle-xs"
+                      checked={@cache_info.memory_enabled}
+                      phx-click="toggle_memory_cache"
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-base-content/50 mt-1 ml-1">
+                  <%= cond do %>
+                    <% memory_is_stale -> %>
+                      <span class="text-amber-700 dark:text-amber-400">
+                        {gettext("Stale data loaded. Reload or clear to serve fresh content.")}
+                      </span>
+                    <% @cache_info.memory_enabled && @cache_info.in_memory -> %>
+                      <span class="text-success">
+                        {gettext("Listing requests served in sub-milliseconds.")}
+                      </span>
+                    <% @cache_info.memory_enabled && !@cache_info.in_memory && !@cache_info.file_enabled -> %>
+                      {gettext("Not loaded. Click reload to manually scan posts into memory.")}
+                    <% @cache_info.memory_enabled && !@cache_info.in_memory -> %>
+                      {gettext("Not loaded yet. Will load from file on first request.")}
+                    <% true -> %>
+                      {gettext("Disabled. Listing reads from file on each request.")}
+                  <% end %>
+                </p>
+              </div>
+
+              <%!-- Post Render Cache Row --%>
+              <div>
+                <div class="flex items-center justify-between p-2 bg-base-200 rounded-lg">
+                  <div class="flex items-center gap-2">
+                    <.icon name="hero-document-text" class="w-4 h-4 text-base-content/70" />
+                    <span class="text-sm font-medium">{gettext("Posts")}</span>
+                    <%= if @cache_info.render_enabled && @cache_info.render_global_enabled do %>
+                      <span class="badge badge-success badge-xs">{gettext("on")}</span>
+                    <% else %>
+                      <%= if !@cache_info.render_global_enabled do %>
+                        <span class="badge badge-ghost badge-xs">{gettext("global off")}</span>
+                      <% else %>
+                        <span class="badge badge-ghost badge-xs">{gettext("off")}</span>
+                      <% end %>
+                    <% end %>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <%= if @cache_info.render_enabled && @cache_info.render_global_enabled do %>
+                      <button
+                        type="button"
+                        phx-click="clear_render_cache"
+                        class="btn btn-ghost btn-xs text-error"
+                        title={gettext("Clear cached post HTML for this group")}
+                      >
+                        <.icon name="hero-trash" class="w-3 h-3" />
+                      </button>
+                    <% end %>
+                    <input
+                      type="checkbox"
+                      class="toggle toggle-primary toggle-xs"
+                      checked={@cache_info.render_enabled}
+                      phx-click="toggle_render_cache"
+                      disabled={!@cache_info.render_global_enabled}
+                      title={
+                        if !@cache_info.render_global_enabled,
+                          do: gettext("Enable global render cache first in Publishing Settings"),
+                          else: nil
+                      }
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-base-content/50 mt-1 ml-1">
+                  <%= if @cache_info.render_enabled && @cache_info.render_global_enabled do %>
+                    {gettext(
+                      "Rendered HTML cached in ETS. Auto-invalidates when content changes."
+                    )}
+                  <% else %>
+                    {gettext("Disabled. Markdown rendered fresh on each view.")}
+                  <% end %>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <div class="space-y-6">
+      <div class="flex-1">
+        <div class="flex flex-col md:flex-row gap-3 md:items-center md:justify-between mb-4">
+          <span class="text-sm text-base-content/70">
+            {gettext("Showing %{count} posts", count: length(@posts))}
+          </span>
+          <div class="flex gap-2">
+            <button type="button" class="btn btn-outline btn-sm shadow-none" phx-click="refresh">
+              <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> {gettext("Refresh")}
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" phx-click="create_post">
+              <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Post")}
+            </button>
+          </div>
+        </div>
+
+        <%= if @loading do %>
+          <div class="flex justify-center items-center py-12">
+            <span class="loading loading-spinner loading-lg text-primary"></span>
+          </div>
+        <% else %>
+          <%= if @posts == [] do %>
+            <div class="card bg-base-100 shadow-sm border border-base-200">
+              <div class="card-body">
+                <h3 class="text-lg font-semibold text-base-content">{gettext("No posts yet")}</h3>
+                <p class="text-sm text-base-content/70">
+                  {gettext("Create your first post to start sharing content.")}
+                </p>
+              </div>
+            </div>
+          <% else %>
+            <div class="grid gap-4">
+              <%= for post <- @posts do %>
+                <% blog_slug =
+                  post.group || (@current_blog && @current_blog["slug"]) || @blog_slug ||
+                    "blog" %>
+                <% master_lang = @master_language %>
+                <% default_lang = List.first(post.available_languages) || @current_locale_base %>
+                <% default_lang_path =
+                  Path.join([
+                    Path.dirname(post.path),
+                    "#{master_lang}.phk"
+                  ]) %>
+                <% files_path = "priv/publishing/" <> post.path %>
+                <%!-- Use post's actual language, falling back to first available language for this post --%>
+                <% public_url =
+                  PublishingHTML.build_post_url(blog_slug, post, post.language || default_lang) %>
+                <% full_public_url = @endpoint_url <> public_url %>
+                <%!-- Version info (only for slug-mode posts) --%>
+                <% version_count = length(Map.get(post, :available_versions) || []) %>
+                <% is_versioned =
+                  post.mode == :slug and not Map.get(post, :is_legacy_structure, true) %>
+                <div class="card bg-base-100 shadow-sm border border-base-200 overflow-hidden">
+                  <div class="card-body p-4 md:p-5 min-w-0">
+                    <%!-- Post info section --%>
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 text-xs uppercase tracking-wide text-base-content/60">
+                        <span>
+                          {format_datetime(post, @phoenix_kit_current_user, @date_time_settings)}
+                        </span>
+                        <%!-- Version badge (only show when multiple versions exist) --%>
+                        <%= if is_versioned and version_count > 1 do %>
+                          <span class="badge badge-ghost badge-xs">
+                            {ngettext("%{count} version", "%{count} versions", version_count,
+                              count: version_count
+                            )}
+                          </span>
+                        <% end %>
+                      </div>
+                      <h3 class="text-xl font-semibold text-base-content mt-1 truncate">
+                        <a
+                          href={
+                            PhoenixKit.Utils.Routes.path(
+                              "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(default_lang_path)}",
+                              locale: @current_locale_base
+                            )
+                          }
+                          class="hover:text-primary transition-colors"
+                        >
+                          {post.metadata.title || gettext("Untitled post")}
+                        </a>
+                      </h3>
+                      <p class="text-xs text-base-content/50 mt-1">
+                        <span class="font-medium text-base-content">{gettext("Files")}: </span>
+                        <code class="font-mono break-all">{files_path}</code>
+                      </p>
+                      <p class="text-xs text-base-content/50">
+                        <span class="font-medium text-base-content">
+                          {gettext("Public URL")}:
+                        </span>
+                        <a
+                          href={full_public_url}
+                          target="_blank"
+                          class="link link-hover font-mono break-all text-xs"
+                        >
+                          {full_public_url}
+                        </a>
+                      </p>
+                    </div>
+                    <%!-- Languages section --%>
+                    <div class="border-t border-base-200 pt-3 mt-3 space-y-2">
+                      <%!-- Master language label --%>
+                      <div class="flex items-center gap-2 text-xs">
+                        <span class="text-base-content/60">{gettext("Master")}:</span>
+                        <span class="font-bold text-base-content uppercase">
+                          {String.upcase(@master_language)}
+                        </span>
+                      </div>
+                      <%!-- All translations --%>
+                      <.publishing_language_switcher
+                        languages={
+                          build_post_languages(
+                            post,
+                            @blog_slug,
+                            @enabled_languages,
+                            @current_locale,
+                            @master_language
+                          )
+                        }
+                        show_status={true}
+                        show_add={true}
+                        on_click="language_action"
+                        size={:sm}
+                      />
+                    </div>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

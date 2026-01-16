@@ -33,6 +33,8 @@ defmodule PhoenixKit.LayoutConfig do
 
   alias PhoenixKit.Config
 
+  require Logger
+
   @default_layout {PhoenixKitWeb.Layouts, :app}
   @default_root_layout {PhoenixKitWeb.Layouts, :root}
 
@@ -160,7 +162,6 @@ defmodule PhoenixKit.LayoutConfig do
 
   # Helper to log warnings for missing layout modules
   defp log_missing_module_warning(module, fallback) do
-    require Logger
     module_string = to_string(module)
 
     # Skip logging for auto-generated test module names to reduce noise

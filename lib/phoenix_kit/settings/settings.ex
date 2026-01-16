@@ -66,7 +66,8 @@ defmodule PhoenixKit.Settings do
   import Ecto.Query, warn: false
   import Ecto.Changeset, only: [add_error: 3]
 
-  alias PhoenixKit.Module.Languages
+  alias PhoenixKit.Config.AWS
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Settings.Setting
   alias PhoenixKit.Settings.Setting.SettingsForm
@@ -74,6 +75,7 @@ defmodule PhoenixKit.Settings do
   alias PhoenixKit.Users.Roles
   alias PhoenixKit.Utils.Date, as: UtilsDate
 
+  @default_locale PhoenixKit.Config.default_locale()
   @cache_name :settings
 
   # Gets the configured repository for database operations.
@@ -116,6 +118,7 @@ defmodule PhoenixKit.Settings do
       "date_format" => "Y-m-d",
       "time_format" => "H:i",
       "track_registration_geolocation" => "false",
+      "registration_show_username" => "true",
       # Email Settings
       "email_enabled" => "false",
       "email_save_body" => "false",
@@ -125,9 +128,9 @@ defmodule PhoenixKit.Settings do
       "email_compress_body" => "30",
       "email_archive_to_s3" => "false",
       # AWS Configuration for SQS Integration
-      "aws_access_key_id" => "",
-      "aws_secret_access_key" => "",
-      "aws_region" => "eu-north-1",
+      "aws_access_key_id" => AWS.access_key_id(),
+      "aws_secret_access_key" => AWS.secret_access_key(),
+      "aws_region" => AWS.region(),
       "aws_sns_topic_arn" => "",
       "aws_sqs_queue_url" => "",
       "aws_sqs_queue_arn" => "",
@@ -138,6 +141,13 @@ defmodule PhoenixKit.Settings do
       "sqs_polling_interval_ms" => "5000",
       "sqs_max_messages_per_poll" => "10",
       "sqs_visibility_timeout" => "300",
+      # SEO
+      "seo_module_enabled" => "false",
+      "seo_no_index" => "false",
+      # Webhook Security Settings
+      "webhook_verify_sns_signature" => "true",
+      "webhook_check_aws_ip" => "true",
+      "webhook_rate_limit_enabled" => "true",
       # OAuth Provider Credentials
       "oauth_google_client_id" => "",
       "oauth_google_client_secret" => "",
@@ -149,8 +159,8 @@ defmodule PhoenixKit.Settings do
       "oauth_github_client_secret" => "",
       "oauth_facebook_app_id" => "",
       "oauth_facebook_app_secret" => "",
-      # Admin Panel Languages
-      "admin_languages" => Jason.encode!(["en", "ru", "es"])
+      # Admin Panel Languages - default is just the default locale for fresh installs
+      "admin_languages" => Jason.encode!([@default_locale])
     }
   end
 
@@ -208,13 +218,22 @@ defmodule PhoenixKit.Settings do
       "default"
   """
   def get_setting_cached(key, default \\ nil) when is_binary(key) do
-    case PhoenixKit.Cache.get(@cache_name, key) do
-      nil ->
+    # Use a special sentinel to distinguish "not in cache" from "cached nil" or "cached non-existent"
+    cache_miss_sentinel = :__cache_not_found__
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    case PhoenixKit.Cache.get(@cache_name, key, cache_miss_sentinel) do
+      ^cache_miss_sentinel ->
         # Cache miss - query database and cache result
         value = query_and_cache_setting(key)
         value || default
 
+      ^setting_not_exists_sentinel ->
+        # Setting doesn't exist in database (cached result)
+        default
+
       value ->
+        # Cache hit with actual value (including nil if setting exists with nil value)
         value
     end
   rescue
@@ -240,7 +259,18 @@ defmodule PhoenixKit.Settings do
       %{"date_format" => "F j, Y", "time_format" => "h:i A"}
   """
   def get_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
-    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    cached_results = PhoenixKit.Cache.get_multiple(@cache_name, keys, %{})
+
+    # Process cached results, replacing sentinel values with defaults
+    Enum.reduce(cached_results, %{}, fn {key, value}, acc ->
+      if value == setting_not_exists_sentinel do
+        Map.put(acc, key, Map.get(defaults, key))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
   rescue
     error ->
       Logger.warning(
@@ -273,7 +303,18 @@ defmodule PhoenixKit.Settings do
       %{"app_config" => %{"theme" => "dark"}, "feature_flags" => %{"auth" => true}}
   """
   def get_json_settings_cached(keys, defaults \\ %{}) when is_list(keys) do
-    PhoenixKit.Cache.get_multiple(@cache_name, keys, defaults)
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    cached_results = PhoenixKit.Cache.get_multiple(@cache_name, keys, %{})
+
+    # Process cached results, replacing sentinel values with defaults
+    Enum.reduce(cached_results, %{}, fn {key, value}, acc ->
+      if value == setting_not_exists_sentinel do
+        Map.put(acc, key, Map.get(defaults, key))
+      else
+        Map.put(acc, key, value)
+      end
+    end)
   rescue
     error ->
       Logger.warning(
@@ -362,13 +403,22 @@ defmodule PhoenixKit.Settings do
       %{"default" => true}
   """
   def get_json_setting_cached(key, default \\ nil) when is_binary(key) do
-    case PhoenixKit.Cache.get(@cache_name, key) do
-      nil ->
+    # Use a special sentinel to distinguish "not in cache" from "cached nil" or "cached non-existent"
+    cache_miss_sentinel = :__cache_not_found__
+    setting_not_exists_sentinel = :__setting_does_not_exist__
+
+    case PhoenixKit.Cache.get(@cache_name, key, cache_miss_sentinel) do
+      ^cache_miss_sentinel ->
         # Cache miss - query database and cache result
         value = query_and_cache_json_setting(key)
         value || default
 
+      ^setting_not_exists_sentinel ->
+        # Setting doesn't exist in database (cached result)
+        default
+
       value ->
+        # Cache hit with actual value (including nil if setting exists with nil value)
         value
     end
   rescue
@@ -461,6 +511,7 @@ defmodule PhoenixKit.Settings do
   Gets OAuth credentials for a specific provider.
 
   Returns a map with all credentials for the given provider.
+  Uses cache for performance - suitable for non-critical reads.
 
   ## Examples
 
@@ -481,6 +532,30 @@ defmodule PhoenixKit.Settings do
       :apple -> get_apple_oauth_credentials()
       :github -> get_github_oauth_credentials()
       :facebook -> get_facebook_oauth_credentials()
+    end
+  end
+
+  @doc """
+  Gets OAuth credentials directly from database, bypassing cache.
+
+  Use this for security-critical operations where fresh data is required,
+  such as configuring OAuth providers after settings update.
+
+  This prevents race conditions where cache invalidation hasn't completed
+  before the credentials are read.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_oauth_credentials_direct(:google)
+      %{client_id: "google-client-id", client_secret: "google-client-secret"}
+  """
+  def get_oauth_credentials_direct(provider)
+      when provider in [:google, :apple, :github, :facebook] do
+    case provider do
+      :google -> get_google_oauth_credentials_direct()
+      :apple -> get_apple_oauth_credentials_direct()
+      :github -> get_github_oauth_credentials_direct()
+      :facebook -> get_facebook_oauth_credentials_direct()
     end
   end
 
@@ -542,8 +617,92 @@ defmodule PhoenixKit.Settings do
     }
   end
 
+  # Direct database reads for OAuth credentials (bypassing cache)
+  # Used by OAuthConfig.configure_providers() to avoid race conditions
+
+  defp get_google_oauth_credentials_direct do
+    keys = ["oauth_google_client_id", "oauth_google_client_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_google_client_id", ""),
+      client_secret: Map.get(settings, "oauth_google_client_secret", "")
+    }
+  end
+
+  defp get_apple_oauth_credentials_direct do
+    keys = [
+      "oauth_apple_client_id",
+      "oauth_apple_team_id",
+      "oauth_apple_key_id",
+      "oauth_apple_private_key"
+    ]
+
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_apple_client_id", ""),
+      team_id: Map.get(settings, "oauth_apple_team_id", ""),
+      key_id: Map.get(settings, "oauth_apple_key_id", ""),
+      private_key: Map.get(settings, "oauth_apple_private_key", "")
+    }
+  end
+
+  defp get_github_oauth_credentials_direct do
+    keys = ["oauth_github_client_id", "oauth_github_client_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      client_id: Map.get(settings, "oauth_github_client_id", ""),
+      client_secret: Map.get(settings, "oauth_github_client_secret", "")
+    }
+  end
+
+  defp get_facebook_oauth_credentials_direct do
+    keys = ["oauth_facebook_app_id", "oauth_facebook_app_secret"]
+    settings = get_settings_direct(keys)
+
+    %{
+      app_id: Map.get(settings, "oauth_facebook_app_id", ""),
+      app_secret: Map.get(settings, "oauth_facebook_app_secret", "")
+    }
+  end
+
+  @doc """
+  Gets multiple settings directly from database, bypassing cache.
+
+  Use this for security-critical operations where fresh data is required.
+  Returns a map with setting keys and their values.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.get_settings_direct(["oauth_google_client_id", "oauth_google_client_secret"])
+      %{"oauth_google_client_id" => "client-id", "oauth_google_client_secret" => "secret"}
+  """
+  def get_settings_direct(keys) when is_list(keys) do
+    if repo_available?() do
+      Setting
+      |> where([s], s.key in ^keys)
+      |> select([s], {s.key, s.value})
+      |> repo().all()
+      |> Map.new()
+    else
+      %{}
+    end
+  rescue
+    error ->
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      unless migration_column_error?(error) do
+        Logger.warning("Failed to get settings directly from DB: #{inspect(error)}")
+      end
+
+      %{}
+  end
+
   @doc """
   Checks if OAuth credentials are configured for a provider.
+
+  Uses cache for performance - suitable for non-critical checks.
 
   ## Examples
 
@@ -552,6 +711,29 @@ defmodule PhoenixKit.Settings do
   """
   def has_oauth_credentials?(provider) when provider in [:google, :apple, :github, :facebook] do
     credentials = get_oauth_credentials(provider)
+
+    case provider do
+      :google -> validate_google_credentials(credentials)
+      :apple -> validate_apple_credentials(credentials)
+      :github -> validate_github_credentials(credentials)
+      :facebook -> validate_facebook_credentials(credentials)
+    end
+  end
+
+  @doc """
+  Checks if OAuth credentials are configured for a provider, reading directly from database.
+
+  Bypasses cache to ensure fresh data. Use this when configuring OAuth providers
+  after settings update to avoid race conditions.
+
+  ## Examples
+
+      iex> PhoenixKit.Settings.has_oauth_credentials_direct?(:google)
+      true
+  """
+  def has_oauth_credentials_direct?(provider)
+      when provider in [:google, :apple, :github, :facebook] do
+    credentials = get_oauth_credentials_direct(provider)
 
     case provider do
       :google -> validate_google_credentials(credentials)
@@ -737,30 +919,34 @@ defmodule PhoenixKit.Settings do
       ],
       "time_zone" => [
         {"UTC-12 (Baker Island)", "-12"},
-        {"UTC-11 (American Samoa)", "-11"},
-        {"UTC-10 (Hawaii)", "-10"},
-        {"UTC-9 (Alaska)", "-9"},
-        {"UTC-8 (Pacific Time)", "-8"},
-        {"UTC-7 (Mountain Time)", "-7"},
-        {"UTC-6 (Central Time)", "-6"},
-        {"UTC-5 (Eastern Time)", "-5"},
-        {"UTC-4 (Atlantic Time)", "-4"},
-        {"UTC-3 (Argentina)", "-3"},
-        {"UTC-2 (Mid-Atlantic)", "-2"},
-        {"UTC-1 (Cape Verde)", "-1"},
-        {"UTC+0 (GMT/London)", "0"},
-        {"UTC+1 (Central Europe)", "1"},
-        {"UTC+2 (Eastern Europe)", "2"},
-        {"UTC+3 (Moscow)", "3"},
-        {"UTC+4 (Dubai)", "4"},
-        {"UTC+5 (Pakistan)", "5"},
-        {"UTC+6 (Bangladesh)", "6"},
-        {"UTC+7 (Thailand)", "7"},
-        {"UTC+8 (China/Singapore)", "8"},
-        {"UTC+9 (Japan/Korea)", "9"},
-        {"UTC+10 (Australia East)", "10"},
-        {"UTC+11 (Solomon Islands)", "11"},
-        {"UTC+12 (New Zealand)", "12"}
+        {"UTC-11 (Pago Pago, Niue)", "-11"},
+        {"UTC-10 (Honolulu, Tahiti)", "-10"},
+        {"UTC-9 (Anchorage, Juneau)", "-9"},
+        {"UTC-8 (Los Angeles, Vancouver, Seattle)", "-8"},
+        {"UTC-7 (Denver, Phoenix, Calgary)", "-7"},
+        {"UTC-6 (Chicago, Mexico City, Guatemala)", "-6"},
+        {"UTC-5 (New York, Toronto, Bogotá, Lima)", "-5"},
+        {"UTC-4 (Halifax, Caracas, Santiago)", "-4"},
+        {"UTC-3 (Buenos Aires, São Paulo, Montevideo)", "-3"},
+        {"UTC-2 (South Georgia)", "-2"},
+        {"UTC-1 (Azores, Cape Verde)", "-1"},
+        {"UTC+0 (London, Dublin, Lisbon, Accra)", "0"},
+        {"UTC+1 (Paris, Berlin, Rome, Madrid, Lagos)", "1"},
+        {"UTC+2 (Kyiv, Athens, Helsinki, Cairo, Johannesburg)", "2"},
+        {"UTC+3 (Istanbul, Riyadh, Nairobi, Baghdad, Moscow)", "3"},
+        {"UTC+4 (Dubai, Baku, Tbilisi)", "4"},
+        {"UTC+5 (Karachi, Tashkent, Yekaterinburg)", "5"},
+        {"UTC+5:30 (Mumbai, Delhi, Kolkata, Colombo)", "5.5"},
+        {"UTC+6 (Dhaka, Almaty, Bishkek)", "6"},
+        {"UTC+7 (Bangkok, Jakarta, Ho Chi Minh City)", "7"},
+        {"UTC+8 (Beijing, Singapore, Hong Kong, Perth)", "8"},
+        {"UTC+9 (Tokyo, Seoul, Pyongyang)", "9"},
+        {"UTC+9:30 (Adelaide, Darwin)", "9.5"},
+        {"UTC+10 (Sydney, Melbourne, Brisbane)", "10"},
+        {"UTC+11 (Honiara, Noumea)", "11"},
+        {"UTC+12 (Auckland, Fiji, Wellington)", "12"},
+        {"UTC+13 (Nuku'alofa, Apia)", "13"},
+        {"UTC+14 (Kiritimati)", "14"}
       ],
       "date_format" => UtilsDate.get_date_format_options(),
       "time_format" => UtilsDate.get_time_format_options()
@@ -991,7 +1177,7 @@ defmodule PhoenixKit.Settings do
       settings =
         get_settings_cached(["site_content_language"], %{"site_content_language" => "en"})
 
-      settings["site_content_language"]
+      settings["site_content_language"] || "en"
     else
       # Languages module disabled - force "en"
       "en"
@@ -1178,15 +1364,19 @@ defmodule PhoenixKit.Settings do
 
   # Private helper to update all settings from a valid changeset
   defp update_all_settings_from_changeset(changeset) do
-    # Extract all data from the changeset (not just changes)
-    # This ensures all form fields are saved, even if unchanged
-    changeset_data = Ecto.Changeset.apply_changes(changeset)
+    defaults = get_defaults()
 
+    # Only update settings that were actually submitted in the form
+    # Use changeset.params (original form params) not the full struct
+    # This prevents one settings page from overwriting settings managed by another page
     settings_to_update =
-      changeset_data
-      |> Map.from_struct()
-      # Convert nil to empty string for storage (optional fields are allowed to be empty)
-      |> Enum.map(fn {k, v} -> {Atom.to_string(k), v || ""} end)
+      (changeset.params || %{})
+      |> Enum.map(fn {k, v} ->
+        key = to_string(k)
+        # Use default value if nil or empty string
+        value = if is_nil(v) or v == "", do: Map.get(defaults, key, ""), else: v
+        {key, value}
+      end)
       |> Map.new()
       # Auto-enable OAuth providers when credentials are saved
       |> auto_enable_oauth_providers()
@@ -1296,24 +1486,90 @@ defmodule PhoenixKit.Settings do
   Prioritizes JSON values over string values for cache storage.
   """
   def warm_cache_data do
-    settings = repo().all(Setting)
+    # Check if repository is available before attempting to warm cache
+    # This prevents errors during Mix tasks when repo might not be started yet
+    if repo_available?() do
+      settings = repo().all(Setting)
 
-    settings
-    |> Enum.map(fn setting ->
-      # Prioritize JSON value over string value for cache storage
-      value =
-        if setting.value_json do
-          setting.value_json
-        else
-          setting.value
-        end
+      settings
+      |> Enum.map(fn setting ->
+        # Prioritize JSON value over string value for cache storage
+        value =
+          if setting.value_json do
+            setting.value_json
+          else
+            setting.value
+          end
 
-      {setting.key, value}
-    end)
-    |> Map.new()
+        {setting.key, value}
+      end)
+      |> Map.new()
+    else
+      # Repo not available (likely during Mix task execution)
+      # Return empty map - cache will be warmed later when repo becomes available
+      %{}
+    end
   rescue
     error ->
-      Logger.error("Failed to warm settings cache: #{inspect(error)}")
+      # Handle missing uuid column during V40 migration gracefully
+      unless migration_column_error?(error) do
+        Logger.error("Failed to warm settings cache: #{inspect(error)}")
+      end
+
+      %{}
+  end
+
+  @doc """
+  Warm cache with critical settings only.
+
+  Returns map of critical settings for synchronous cache warming.
+  This is used during startup to ensure essential configuration is available
+  immediately.
+
+  Note: OAuth credentials are NOT cached here because they are read directly
+  from the database via get_oauth_credentials_direct/1 to avoid race conditions
+  when credentials are updated through the admin UI.
+  """
+  def warm_critical_cache do
+    # Critical keys that must be loaded synchronously at startup
+    # OAuth credentials are intentionally NOT included - they use direct DB reads
+    critical_keys = [
+      # OAuth enabled flag only (not credentials)
+      "oauth_enabled"
+    ]
+
+    # Check if repository is available
+    if repo_available?() do
+      settings =
+        Setting
+        |> where([s], s.key in ^critical_keys)
+        |> repo().all()
+
+      settings
+      |> Enum.map(fn setting ->
+        # Prioritize JSON value over string value for cache storage
+        value =
+          if setting.value_json do
+            setting.value_json
+          else
+            setting.value
+          end
+
+        {setting.key, value}
+      end)
+      |> Map.new()
+    else
+      # Repo not available - return empty map
+      # This should rarely happen as critical cache is loaded at startup
+      %{}
+    end
+  rescue
+    error ->
+      # Handle missing uuid column during V40 migration gracefully
+      unless migration_column_error?(error) do
+        Logger.error("Failed to warm critical cache: #{inspect(error)}")
+      end
+
       %{}
   end
 
@@ -1360,8 +1616,9 @@ defmodule PhoenixKit.Settings do
           value
 
         nil ->
-          # Cache the fact that this setting doesn't exist to avoid repeated queries
-          PhoenixKit.Cache.put(@cache_name, key, nil)
+          # Cache a sentinel value to indicate this setting doesn't exist
+          # This prevents repeated database queries for non-existent settings
+          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
           nil
       end
     else
@@ -1370,8 +1627,9 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Only log if we're in runtime (not compilation or test setup)
-      unless compilation_mode?() do
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Also skip logging during compilation mode
+      unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query setting #{key}: #{inspect(error)}")
       end
 
@@ -1393,8 +1651,9 @@ defmodule PhoenixKit.Settings do
           nil
 
         nil ->
-          # Cache the fact that this setting doesn't exist to avoid repeated queries
-          PhoenixKit.Cache.put(@cache_name, key, nil)
+          # Cache a sentinel value to indicate this setting doesn't exist
+          # This prevents repeated database queries for non-existent settings
+          PhoenixKit.Cache.put(@cache_name, key, :__setting_does_not_exist__)
           nil
       end
     else
@@ -1403,8 +1662,9 @@ defmodule PhoenixKit.Settings do
     end
   rescue
     error ->
-      # Only log if we're in runtime (not compilation or test setup)
-      unless compilation_mode?() do
+      # Handle missing uuid column during V40 migration gracefully (silent)
+      # Also skip logging during compilation mode
+      unless migration_column_error?(error) or compilation_mode?() do
         Logger.error("Failed to query JSON setting #{key}: #{inspect(error)}")
       end
 
@@ -1429,8 +1689,24 @@ defmodule PhoenixKit.Settings do
     _ -> true
   end
 
-  # Check if the repository is available and ready to accept queries
-  defp repo_available? do
+  # Check if error is specifically about missing uuid column (happens during V40 migration)
+  # Only silences uuid column errors - other missing columns will still be logged
+  # This is safe: after V40 migration, uuid exists and this never matches
+  defp migration_column_error?(%Postgrex.Error{
+         postgres: %{code: :undefined_column, message: msg}
+       }) do
+    String.contains?(msg, "uuid")
+  end
+
+  defp migration_column_error?(_), do: false
+
+  @doc """
+  Check if the repository is available and ready to accept queries.
+
+  Returns true if the repo is configured and running, false otherwise.
+  Used to prevent errors during Mix tasks when repo might not be started.
+  """
+  def repo_available? do
     # First check if repo is configured
     case PhoenixKit.Config.get(:repo, nil) do
       nil ->

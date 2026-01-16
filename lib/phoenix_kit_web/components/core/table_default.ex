@@ -65,7 +65,7 @@ defmodule PhoenixKitWeb.Components.Core.TableDefault do
 
   def table_default(assigns) do
     ~H"""
-    <div class="rounded-lg shadow-md overflow-x-auto">
+    <div class="rounded-lg shadow-md">
       <table
         class={[
           "table",

@@ -225,4 +225,33 @@ defmodule PhoenixKit.Install.IgniterHelpers do
 
     module_name_web_router
   end
+
+  @doc """
+  Constructs the Endpoint module name for the parent application.
+
+  Builds the standard Phoenix Endpoint module name by concatenating the Web
+  module with "Endpoint" (e.g., `MyAppWeb.Endpoint`).
+
+  This is used during installation to add PhoenixKit sockets to the endpoint.
+
+  ## Parameters
+
+  - `igniter` - The Igniter project struct
+
+  ## Returns
+
+  The Endpoint module as an atom (e.g., `MyAppWeb.Endpoint`)
+
+  ## Examples
+
+      iex> igniter = Igniter.new()
+      iex> PhoenixKit.Install.IgniterHelpers.get_parent_app_module_web_endpoint(igniter)
+      MyAppWeb.Endpoint
+  """
+  @spec get_parent_app_module_web_endpoint(Igniter.t()) :: module()
+  def get_parent_app_module_web_endpoint(igniter) do
+    module_name = IgniterModule.module_name_prefix(igniter)
+    module_name_web = Module.concat(["#{module_name}" <> "Web"])
+    Module.concat([module_name_web, Endpoint])
+  end
 end

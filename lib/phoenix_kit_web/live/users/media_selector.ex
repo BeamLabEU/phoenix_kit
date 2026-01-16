@@ -8,7 +8,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   ## Usage
 
       # Navigate to selector with query params
-      /admin/media/selector?return_to=/admin/blogging/edit&mode=single&filter=image
+      /admin/media/selector?return_to=/admin/publishing/edit&mode=single&filter=image
 
   ## Query Parameters
 
@@ -22,9 +22,9 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
 
   require Logger
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.{File, FileInstance, URLSigner}
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
 
@@ -34,9 +34,8 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
 
   def mount(params, _session, socket) do
     # Handle locale
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
 
     # Get project title
     project_title = Settings.get_setting("project_title", "PhoenixKit")
@@ -240,7 +239,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
   end
 
   defp load_files(socket, page) do
-    repo = Application.get_env(:phoenix_kit, :repo)
+    repo = PhoenixKit.Config.get_repo()
     per_page = socket.assigns.per_page
     filter = socket.assigns.file_type_filter
     search = socket.assigns.search_query

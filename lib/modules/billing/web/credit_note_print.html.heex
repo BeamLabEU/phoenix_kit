@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Credit Note {@credit_note_number} - {@project_title}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #1f2937;
+        background: #f3f4f6;
+        padding: 20px;
+      }
+
+      .credit-note-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      .print-controls {
+        max-width: 800px;
+        margin: 0 auto 20px;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+      }
+
+      .print-controls button,
+      .print-controls a {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .btn-print {
+        background: #f59e0b;
+        color: white;
+        border: none;
+      }
+
+      .btn-print:hover {
+        background: #d97706;
+      }
+
+      .btn-back {
+        background: white;
+        color: #374151;
+        border: 1px solid #d1d5db;
+      }
+
+      .btn-back:hover {
+        background: #f9fafb;
+      }
+
+      .credit-note-header {
+        background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+        color: white;
+        padding: 40px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+
+      .credit-note-title h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin-bottom: 5px;
+      }
+
+      .credit-note-number {
+        font-size: 18px;
+        opacity: 0.9;
+      }
+
+      .credit-note-status {
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      .credit-note-body {
+        padding: 40px;
+      }
+
+      .credit-note-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 40px;
+        padding-bottom: 30px;
+        border-bottom: 2px solid #e5e7eb;
+      }
+
+      .meta-section h3 {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #6b7280;
+        margin-bottom: 10px;
+      }
+
+      .meta-section p {
+        line-height: 1.8;
+      }
+
+      .meta-section strong {
+        font-weight: 600;
+      }
+
+      .company-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .refund-details {
+        background: #fef3c7;
+        border: 1px solid #f59e0b;
+        border-radius: 8px;
+        padding: 24px;
+        margin-bottom: 30px;
+      }
+
+      .refund-details h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #92400e;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .refund-details-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+
+      .refund-detail {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .refund-detail .label {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #b45309;
+        margin-bottom: 4px;
+      }
+
+      .refund-detail .value {
+        font-weight: 600;
+        color: #92400e;
+      }
+
+      .original-invoice-section {
+        background: #f9fafb;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+
+      .original-invoice-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 12px;
+      }
+
+      .original-invoice-details {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+      }
+
+      .original-invoice-details .detail {
+        font-size: 13px;
+      }
+
+      .original-invoice-details .detail .label {
+        color: #6b7280;
+      }
+
+      .original-invoice-details .detail .value {
+        font-weight: 500;
+        color: #1f2937;
+      }
+
+      .line-items-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 30px;
+      }
+
+      .line-items-table th {
+        background: #f9fafb;
+        padding: 14px 16px;
+        text-align: left;
+        font-weight: 600;
+        color: #374151;
+        border-bottom: 2px solid #e5e7eb;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .line-items-table td {
+        padding: 16px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .line-items-table .text-right {
+        text-align: right;
+      }
+
+      .item-name {
+        font-weight: 500;
+      }
+
+      .item-description {
+        font-size: 13px;
+        color: #6b7280;
+        margin-top: 4px;
+      }
+
+      .totals-section {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 40px;
+      }
+
+      .totals-table {
+        width: 300px;
+      }
+
+      .totals-table tr td {
+        padding: 10px 16px;
+      }
+
+      .totals-table .label {
+        text-align: right;
+        color: #6b7280;
+      }
+
+      .totals-table .value {
+        text-align: right;
+        font-weight: 500;
+      }
+
+      .totals-table .total-row {
+        font-size: 18px;
+        font-weight: 700;
+        border-top: 2px solid #f59e0b;
+      }
+
+      .totals-table .total-row td {
+        padding-top: 16px;
+        color: #92400e;
+      }
+
+      .bank-details-section {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+
+      .bank-details-section h4 {
+        font-size: 14px;
+        font-weight: 600;
+        color: #92400e;
+        margin-bottom: 12px;
+      }
+
+      .bank-details-section p {
+        font-size: 13px;
+        color: #78350f;
+        margin-bottom: 8px;
+      }
+
+      .bank-details-section .note {
+        font-style: italic;
+        color: #92400e;
+        margin-top: 12px;
+        font-size: 12px;
+      }
+
+      .credit-note-footer {
+        background: #f9fafb;
+        padding: 30px 40px;
+        border-top: 1px solid #e5e7eb;
+      }
+
+      .footer-company {
+        margin-bottom: 15px;
+      }
+
+      .footer-company .name {
+        font-weight: 600;
+        color: #1f2937;
+      }
+
+      .footer-company .details {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .footer-note {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      .refund-stamp {
+        position: relative;
+        display: inline-block;
+      }
+
+      .refund-stamp::after {
+        content: 'REFUND';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-15deg);
+        font-size: 60px;
+        font-weight: 900;
+        color: rgba(245, 158, 11, 0.15);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+
+      @media print {
+        body {
+          background: white;
+          padding: 0;
+        }
+
+        .print-controls {
+          display: none;
+        }
+
+        .credit-note-container {
+          box-shadow: none;
+          border-radius: 0;
+        }
+
+        .credit-note-header {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .credit-note-status,
+        .refund-details,
+        .bank-details-section {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="print-controls">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices/#{@invoice.id}")}
+        class="btn-back"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </.link>
+      <button onclick="window.print()" class="btn-print">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" /><rect
+            x="6"
+            y="14"
+            width="12"
+            height="8"
+            rx="1"
+          />
+        </svg>
+        Print Credit Note
+      </button>
+    </div>
+
+    <div class="credit-note-container">
+      <div class="credit-note-header">
+        <div class="credit-note-title">
+          <h1>CREDIT NOTE</h1>
+          <div class="credit-note-number">{@credit_note_number}</div>
+        </div>
+        <div class="credit-note-status">
+          REFUND ISSUED
+        </div>
+      </div>
+
+      <div class="credit-note-body">
+        <div class="credit-note-meta">
+          <%!-- IMPORTANT: Roles are REVERSED for credit notes --%>
+          <%!-- Company is the PAYER (issuing refund) --%>
+          <div class="meta-section">
+            <h3>Issued By (Payer)</h3>
+            <p>
+              <strong>{@company.name}</strong>
+              <br />
+              <%= for line <- String.split(@company.address || "", "\n") do %>
+                {line}<br />
+              <% end %>
+              <%= if @company.vat != "" do %>
+                VAT: {@company.vat}
+              <% end %>
+            </p>
+          </div>
+
+          <%!-- Customer is the PAYEE (receiving refund) --%>
+          <div class="meta-section">
+            <h3>Issued To (Payee)</h3>
+            <p>
+              <%= if @invoice.billing_details && map_size(@invoice.billing_details) > 0 do %>
+                <%= if @invoice.billing_details["type"] == "company" do %>
+                  <span class="company-name">{@invoice.billing_details["company_name"]}</span>
+                  <br />
+                  <%= if @invoice.billing_details["company_vat_number"] do %>
+                    VAT: {@invoice.billing_details["company_vat_number"]}<br />
+                  <% end %>
+                <% else %>
+                  <span class="company-name">
+                    {@invoice.billing_details["first_name"]} {@invoice.billing_details[
+                      "last_name"
+                    ]}
+                  </span>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line1"] do %>
+                  {@invoice.billing_details["address_line1"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["address_line2"] do %>
+                  {@invoice.billing_details["address_line2"]}<br />
+                <% end %>
+                <%= if @invoice.billing_details["city"] do %>
+                  {@invoice.billing_details["city"]}
+                  <%= if @invoice.billing_details["postal_code"] do %>
+                    , {@invoice.billing_details["postal_code"]}
+                  <% end %>
+                  <br />
+                <% end %>
+                <%= if @invoice.billing_details["country"] do %>
+                  {@invoice.billing_details["country"]}
+                <% end %>
+              <% else %>
+                <%= if @invoice.user do %>
+                  <span class="company-name">{@invoice.user.email}</span>
+                <% else %>
+                  <em>No billing information</em>
+                <% end %>
+              <% end %>
+            </p>
+          </div>
+
+          <div class="meta-section" style="text-align: right;">
+            <h3>Credit Note Details</h3>
+            <p>
+              <strong>Credit Note #:</strong> {@credit_note_number}<br />
+              <strong>Date:</strong>
+              {Calendar.strftime(@transaction.inserted_at, "%B %d, %Y")}<br />
+              <strong>Currency:</strong> {@transaction.currency}
+            </p>
+          </div>
+        </div>
+
+        <%!-- Refund Confirmation Box --%>
+        <div class="refund-details">
+          <h4>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" />
+            </svg>
+            Refund Details
+          </h4>
+          <div class="refund-details-grid">
+            <div class="refund-detail">
+              <span class="label">Refund Amount</span>
+              <span class="value">
+                {Decimal.to_string(Decimal.abs(@transaction.amount), :normal)} {@transaction.currency}
+              </span>
+            </div>
+            <div class="refund-detail">
+              <span class="label">Refund Date</span>
+              <span class="value">
+                {Calendar.strftime(@transaction.inserted_at, "%B %d, %Y at %H:%M")}
+              </span>
+            </div>
+            <div class="refund-detail">
+              <span class="label">Payment Method</span>
+              <span class="value">{String.capitalize(@transaction.payment_method)}</span>
+            </div>
+            <div class="refund-detail">
+              <span class="label">Transaction #</span>
+              <span class="value">{@transaction.transaction_number}</span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Original Invoice Reference --%>
+        <div class="original-invoice-section">
+          <h4>Original Invoice Reference</h4>
+          <div class="original-invoice-details">
+            <div class="detail">
+              <span class="label">Invoice #:</span>
+              <span class="value">{@invoice.invoice_number}</span>
+            </div>
+            <div class="detail">
+              <span class="label">Invoice Date:</span>
+              <span class="value">
+                {Calendar.strftime(@invoice.inserted_at, "%B %d, %Y")}
+              </span>
+            </div>
+            <div class="detail">
+              <span class="label">Original Total:</span>
+              <span class="value">
+                {Decimal.to_string(@invoice.total, :normal)} {@invoice.currency}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Reason for Refund --%>
+        <%= if @transaction.description && @transaction.description != "" do %>
+          <div style="margin-bottom: 30px; padding: 20px; background: #f9fafb; border-radius: 8px;">
+            <h4 style="font-size: 13px; font-weight: 600; color: #6b7280; margin-bottom: 10px;">
+              Reason for Refund
+            </h4>
+            <p style="white-space: pre-wrap;">{@transaction.description}</p>
+          </div>
+        <% end %>
+
+        <%!-- Refund Summary Table --%>
+        <table class="line-items-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th class="text-right" style="width: 150px;">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="item-name">Refund for Invoice {@invoice.invoice_number}</div>
+                <%= if @transaction.description && @transaction.description != "" do %>
+                  <div class="item-description">{@transaction.description}</div>
+                <% end %>
+              </td>
+              <td class="text-right">
+                {Decimal.to_string(Decimal.abs(@transaction.amount), :normal)} {@transaction.currency}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="totals-section">
+          <table class="totals-table">
+            <tr class="total-row">
+              <td class="label">Total Refund:</td>
+              <td class="value">
+                {Decimal.to_string(Decimal.abs(@transaction.amount), :normal)} {@transaction.currency}
+              </td>
+            </tr>
+          </table>
+        </div>
+
+        <%!-- Bank Details for Refund --%>
+        <%= if @company.bank_name != "" || @company.bank_iban != "" do %>
+          <div class="bank-details-section">
+            <h4>Refund Payment Information</h4>
+            <p>The refund will be processed to your original payment method or bank account.</p>
+            <%= if @invoice.billing_details && @invoice.billing_details["bank_iban"] do %>
+              <p><strong>Customer IBAN:</strong> {@invoice.billing_details["bank_iban"]}</p>
+            <% end %>
+            <p class="note">
+              Please allow 5-10 business days for the refund to appear in your account.
+            </p>
+          </div>
+        <% end %>
+      </div>
+
+      <div class="credit-note-footer">
+        <div class="footer-company">
+          <div class="name">{@company.name}</div>
+          <div class="details">
+            {@company.address}
+            <%= if @company.vat != "" do %>
+              &bull; VAT: {@company.vat}
+            <% end %>
+          </div>
+        </div>
+        <div class="footer-note">
+          This credit note confirms that a refund has been issued. If you have any questions, please contact us.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

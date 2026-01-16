@@ -2,326 +2,313 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title="Media Detail"
-  current_path={Routes.path("/admin/users/media/#{@file_id}")}
+  current_path={Routes.path("/admin/media/#{@file_id}")}
   project_title={@project_title}
   current_locale={@current_locale}
 >
   <div class="p-6">
-    <div class="mb-8">
-      <%!-- Back Button --%>
-      <.link
-        navigate={Routes.path("/admin/users/media")}
-        class="btn btn-outline btn-sm mb-4"
-      >
-        <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
-      </.link>
-
-      <%= if @file_data do %>
-        <h1 class="text-3xl font-bold text-base-content">{@file_data.filename}</h1>
-      <% else %>
-        <h1 class="text-3xl font-bold text-error">File Not Found</h1>
-        <p class="text-base-content/70 mt-1">The requested media file could not be found</p>
-      <% end %>
-    </div>
+    <%!-- Back Button --%>
+    <.link
+      navigate={Routes.path("/admin/media")}
+      class="btn btn-outline btn-sm mb-4"
+    >
+      <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Media
+    </.link>
 
     <%= if @file_data do %>
-      <div class="card bg-base-100 shadow-xl mb-8">
-        <div class="card-body">
-          <%!-- File Preview --%>
-          <div class="mb-6 flex items-center justify-center bg-base-300 rounded-lg p-4 min-h-96">
-            <%= if String.starts_with?(@file_data.mime_type, "image/") do %>
-              <img
-                src={@file_data.urls["original"] || @file_data.urls["medium"]}
-                alt={@file_data.filename}
-                class="max-h-96 w-auto rounded"
-                onerror="this.style.display='none'; document.getElementById('preview-error').style.display='flex';"
-              />
-              <div
-                id="preview-error"
-                class="hidden flex-col items-center justify-center w-full h-full"
+      <%!-- Main Layout: 3/4 Preview + 1/4 Info --%>
+      <div class="flex flex-col lg:flex-row gap-4 h-[calc(100vh-12rem)]">
+        <%!-- Left: Image Preview (3/4) --%>
+        <div class="flex-[3] flex items-center justify-center bg-base-200 rounded-lg overflow-hidden p-4">
+          <%= if String.starts_with?(@file_data.mime_type, "image/") do %>
+            <img
+              src={@file_data.urls["original"] || @file_data.urls["medium"]}
+              alt={@file_data.filename}
+              class="max-w-full max-h-full object-contain rounded"
+              onerror="this.style.display='none'; document.getElementById('preview-error').style.display='flex';"
+            />
+            <div
+              id="preview-error"
+              class="hidden flex-col items-center justify-center w-full h-full"
+            >
+              <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
+              <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
+              <p class="text-sm text-base-content/70 mt-2">
+                The image file could not be loaded
+              </p>
+            </div>
+          <% else %>
+            <%= if String.starts_with?(@file_data.mime_type, "video/") do %>
+              <video
+                src={@file_data.urls["original"]}
+                controls
+                class="max-w-full max-h-full rounded"
+                preload="metadata"
               >
-                <.icon name="hero-photo" class="w-20 h-20 mb-4 text-error" />
-                <p class="text-lg font-semibold text-base-content">Image Missing or Broken</p>
-                <p class="text-sm text-base-content/70 mt-2">
-                  The image file could not be loaded
-                </p>
-              </div>
+                Your browser does not support the video tag.
+              </video>
             <% else %>
               <div class="flex flex-col items-center justify-center text-base-content/50">
-                <.icon name={file_icon(@file_data.file_type)} class="w-20 h-20 mb-4" />
-                <p class="text-lg font-semibold">{String.upcase(@file_data.file_type)}</p>
+                <.icon name={file_icon(@file_data.file_type)} class="w-32 h-32 mb-4" />
+                <p class="text-2xl font-semibold">{String.upcase(@file_data.file_type)}</p>
+                <p class="text-sm text-base-content/70 mt-2">{@file_data.mime_type}</p>
               </div>
             <% end %>
+          <% end %>
+        </div>
+
+        <%!-- Right: Info Panel (1/4) --%>
+        <div class="flex-1 flex flex-col gap-4 overflow-y-auto">
+          <%!-- File Title Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body p-4">
+              <h2 class="card-title text-lg break-words">{@file_data.filename}</h2>
+              <div class="flex gap-2 mt-2">
+                <span class={[
+                  "badge",
+                  @file_data.status == "active" && "badge-success",
+                  @file_data.status == "processing" && "badge-info",
+                  @file_data.status == "failed" && "badge-error"
+                ]}>
+                  {String.capitalize(@file_data.status)}
+                </span>
+                <span class="badge badge-primary">
+                  {String.upcase(@file_data.file_type)}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <%!-- Metadata Section --%>
-          <div class="mb-6">
-            <div class="flex justify-between items-center mb-3">
-              <h3 class="text-lg font-semibold text-base-content">Media Information</h3>
-              <button
-                type="button"
-                phx-click="toggle_edit"
-                class={["btn btn-sm", (@edit_mode && "btn-warning") || "btn-outline"]}
-              >
-                <%= if @edit_mode do %>
-                  <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
-                <% else %>
-                  <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                <% end %>
-              </button>
-            </div>
+          <%!-- Metadata Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body p-4">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="font-semibold text-sm">Metadata</h3>
+                <button
+                  type="button"
+                  phx-click="toggle_edit"
+                  class={["btn btn-xs", (@edit_mode && "btn-warning") || "btn-ghost"]}
+                >
+                  <%= if @edit_mode do %>
+                    <.icon name="hero-x-mark" class="w-3 h-3" />
+                  <% else %>
+                    <.icon name="hero-pencil" class="w-3 h-3" />
+                  <% end %>
+                </button>
+              </div>
 
-            <%= if @edit_mode do %>
-              <form phx-submit="save_metadata" class="space-y-4">
-                <div>
-                  <label for="title" class="block text-sm font-semibold text-base-content mb-1">
-                    Title
-                  </label>
-                  <input
-                    type="text"
-                    id="title"
-                    name="title"
-                    value={@file_data.title}
-                    class="input input-bordered w-full"
-                    placeholder="Enter title"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    for="description"
-                    class="block text-sm font-semibold text-base-content mb-1"
-                  >
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    name="description"
-                    class="textarea textarea-bordered w-full"
-                    rows="4"
-                    placeholder="Enter description"
-                  >{@file_data.description}</textarea>
-                </div>
-
-                <div>
-                  <label for="tags" class="block text-sm font-semibold text-base-content mb-1">
-                    Tags (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    id="tags"
-                    name="tags"
-                    value={Enum.join(@file_data.tags, ", ")}
-                    class="input input-bordered w-full"
-                    placeholder="e.g., photo, landscape, 2024"
-                  />
-                </div>
-
-                <div class="flex gap-2">
-                  <button type="submit" class="btn btn-primary btn-sm">
-                    <.icon name="hero-check" class="w-4 h-4" /> Save
-                  </button>
-                  <button type="button" phx-click="cancel_edit" class="btn btn-outline btn-sm">
-                    <.icon name="hero-x-mark" class="w-4 h-4" /> Cancel
-                  </button>
-                </div>
-              </form>
-            <% else %>
-              <div class="text-sm space-y-1">
-                <div class="flex gap-4">
+              <%= if @edit_mode do %>
+                <form phx-submit="save_metadata" class="space-y-3">
                   <div>
-                    <span class="font-semibold text-base-content/70">Title</span>
-                    <span class="text-base-content ml-2">
+                    <label for="title" class="label label-text text-xs">Title</label>
+                    <input
+                      type="text"
+                      id="title"
+                      name="title"
+                      value={@file_data.title}
+                      class="input input-bordered input-sm w-full"
+                      placeholder="Enter title"
+                    />
+                  </div>
+
+                  <div>
+                    <label for="description" class="label label-text text-xs">Description</label>
+                    <textarea
+                      id="description"
+                      name="description"
+                      class="textarea textarea-bordered textarea-sm w-full"
+                      rows="3"
+                      placeholder="Enter description"
+                    >{@file_data.description}</textarea>
+                  </div>
+
+                  <div>
+                    <label for="tags" class="label label-text text-xs">
+                      Tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      id="tags"
+                      name="tags"
+                      value={Enum.join(@file_data.tags, ", ")}
+                      class="input input-bordered input-sm w-full"
+                      placeholder="tag1, tag2"
+                    />
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button type="submit" class="btn btn-primary btn-xs flex-1">
+                      <.icon name="hero-check" class="w-3 h-3" /> Save
+                    </button>
+                    <button type="button" phx-click="cancel_edit" class="btn btn-ghost btn-xs">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              <% else %>
+                <div class="space-y-2 text-xs">
+                  <div>
+                    <span class="font-semibold text-base-content/70">Title:</span>
+                    <p class="text-base-content mt-1">
                       <%= if String.length(@file_data.title) > 0 do %>
                         {@file_data.title}
                       <% else %>
-                        <span class="text-base-content/50 italic">—</span>
+                        <span class="text-base-content/50 italic">None</span>
                       <% end %>
-                    </span>
+                    </p>
                   </div>
-                </div>
 
-                <div class="flex gap-4">
                   <div>
-                    <span class="font-semibold text-base-content/70">Description</span>
-                    <span class="text-base-content ml-2">
+                    <span class="font-semibold text-base-content/70">Description:</span>
+                    <p class="text-base-content mt-1">
                       <%= if String.length(@file_data.description) > 0 do %>
                         {@file_data.description}
                       <% else %>
-                        <span class="text-base-content/50 italic">—</span>
+                        <span class="text-base-content/50 italic">None</span>
                       <% end %>
-                    </span>
+                    </p>
                   </div>
-                </div>
 
-                <div class="flex gap-4 items-start">
-                  <span class="font-semibold text-base-content/70">Tags</span>
-                  <div class="flex flex-wrap gap-1">
-                    <%= if Enum.empty?(@file_data.tags) do %>
-                      <span class="text-base-content/50 italic">—</span>
-                    <% else %>
-                      <%= for tag <- @file_data.tags do %>
-                        <span class="badge badge-sm">{tag}</span>
+                  <div>
+                    <span class="font-semibold text-base-content/70">Tags:</span>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                      <%= if Enum.empty?(@file_data.tags) do %>
+                        <span class="text-base-content/50 italic">None</span>
+                      <% else %>
+                        <%= for tag <- @file_data.tags do %>
+                          <span class="badge badge-sm">{tag}</span>
+                        <% end %>
                       <% end %>
-                    <% end %>
-                  </div>
-                </div>
-              </div>
-            <% end %>
-          </div>
-
-          <%!-- Divider --%>
-          <div class="divider my-4"></div>
-
-          <%!-- File Information --%>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">File Name</label>
-              <p class="text-base-content mt-1">{@file_data.filename}</p>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">File Type</label>
-              <span class="badge badge-lg badge-primary mt-1">
-                {String.upcase(@file_data.file_type)}
-              </span>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">File Size</label>
-              <p class="text-base-content mt-1">{format_file_size(@file_data.size)}</p>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">Status</label>
-              <span class={[
-                "badge badge-lg mt-1",
-                @file_data.status == "active" && "badge-success",
-                @file_data.status == "processing" && "badge-info",
-                @file_data.status == "failed" && "badge-error"
-              ]}>
-                {String.capitalize(@file_data.status)}
-              </span>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">MIME Type</label>
-              <p class="text-base-content mt-1 break-all text-sm">{@file_data.mime_type}</p>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">Uploaded By</label>
-              <p class="text-base-content mt-1 text-sm">{@file_data.user_name}</p>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">File ID</label>
-              <p class="text-base-content mt-1 break-all text-sm font-mono">
-                {@file_data.file_id}
-              </p>
-            </div>
-          </div>
-
-          <%!-- Timestamps --%>
-          <div class="divider my-4"></div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">Uploaded</label>
-              <p class="text-base-content mt-1 text-sm">
-                {UtilsDate.format_datetime_with_user_format(@file_data.inserted_at)}
-              </p>
-            </div>
-
-            <div>
-              <label class="text-sm font-semibold text-base-content/70">Updated</label>
-              <p class="text-base-content mt-1 text-sm">
-                {UtilsDate.format_datetime_with_user_format(@file_data.updated_at)}
-              </p>
-            </div>
-          </div>
-
-          <%!-- Storage Locations --%>
-          <%= if not Enum.empty?(@file_data.locations) do %>
-            <div class="mb-6">
-              <label class="text-sm font-semibold text-base-content mb-3 block">
-                Storage Locations
-              </label>
-              <div class="space-y-2">
-                <%= for location <- @file_data.locations do %>
-                  <div class="bg-base-200 rounded p-3 text-sm">
-                    <div class="flex items-start gap-2">
-                      <div class="flex-1">
-                        <p class="font-semibold text-base-content">{location.bucket_name}</p>
-                        <p class="text-base-content/70 text-xs mt-1 break-all font-mono">
-                          {location.path}
-                        </p>
-                        <p class="text-base-content/50 text-xs mt-1">
-                          Provider: {String.upcase(location.bucket_provider)}
-                        </p>
-                      </div>
                     </div>
                   </div>
-                <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- File Details Card --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body p-4">
+              <h3 class="font-semibold text-sm mb-3">File Details</h3>
+              <div class="space-y-2 text-xs">
+                <div>
+                  <span class="font-semibold text-base-content/70">Size:</span>
+                  <p class="text-base-content mt-1">{format_file_size(@file_data.size)}</p>
+                </div>
+
+                <div>
+                  <span class="font-semibold text-base-content/70">MIME Type:</span>
+                  <p class="text-base-content mt-1 break-all">{@file_data.mime_type}</p>
+                </div>
+
+                <div>
+                  <span class="font-semibold text-base-content/70">Uploaded By:</span>
+                  <p class="text-base-content mt-1">{@file_data.user_name}</p>
+                </div>
+
+                <div>
+                  <span class="font-semibold text-base-content/70">Uploaded:</span>
+                  <p class="text-base-content mt-1">
+                    {UtilsDate.format_datetime_with_user_format(@file_data.inserted_at)}
+                  </p>
+                </div>
+
+                <div>
+                  <span class="font-semibold text-base-content/70">Updated:</span>
+                  <p class="text-base-content mt-1">
+                    {UtilsDate.format_datetime_with_user_format(@file_data.updated_at)}
+                  </p>
+                </div>
+
+                <div>
+                  <span class="font-semibold text-base-content/70">File ID:</span>
+                  <p class="text-base-content mt-1 break-all font-mono text-[10px]">
+                    {@file_data.file_id}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Storage Locations Card --%>
+          <%= if not Enum.empty?(@file_data.locations) do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body p-4">
+                <h3 class="font-semibold text-sm mb-3">Storage Locations</h3>
+                <div class="space-y-2">
+                  <%= for location <- @file_data.locations do %>
+                    <div class="bg-base-200 rounded p-2 text-xs">
+                      <p class="font-semibold text-base-content">{location.bucket_name}</p>
+                      <p class="text-base-content/70 mt-1 break-all font-mono text-[10px]">
+                        {location.path}
+                      </p>
+                      <p class="text-base-content/50 mt-1">
+                        {String.upcase(location.bucket_provider)}
+                      </p>
+                    </div>
+                  <% end %>
+                </div>
               </div>
             </div>
           <% end %>
 
-          <%!-- Download Links --%>
+          <%!-- Download Variants Card --%>
           <%= if map_size(@file_data.urls) > 0 do %>
-            <div>
-              <p class="text-sm font-semibold text-base-content mb-3">Download Variants:</p>
-              <div class="flex gap-2 flex-wrap">
-                <%!-- Sort variants with original first --%>
-                <% variant_order = ["original", "large", "medium", "small", "thumbnail"] %>
-                <% sorted_variants =
-                  @file_data.urls
-                  |> Enum.sort_by(fn {name, _url} ->
-                    Enum.find_index(variant_order, &(&1 == name)) || 999
-                  end) %>
-
-                <%= for {variant, url} <- sorted_variants do %>
-                  <a
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class={[
-                      "btn gap-2",
-                      variant == "original" && "btn-primary",
-                      variant != "original" && "btn-outline btn-sm"
-                    ]}
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body p-4">
+                <div class="flex justify-between items-center mb-3">
+                  <h3 class="font-semibold text-sm">Download Variants</h3>
+                  <button
+                    type="button"
+                    phx-click="regenerate_variants"
+                    class="btn btn-ghost btn-xs gap-1"
                   >
-                    <svg
-                      class="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                    <.icon name="hero-arrow-path" class="w-3 h-3" /> Regenerate
+                  </button>
+                </div>
+                <div class="flex flex-col gap-2">
+                  <%!-- Sort variants with original first --%>
+                  <% variant_order = ["original", "large", "medium", "small", "thumbnail"] %>
+                  <% sorted_variants =
+                    @file_data.urls
+                    |> Enum.sort_by(fn {name, _url} ->
+                      Enum.find_index(variant_order, &(&1 == name)) || 999
+                    end) %>
+
+                  <%= for {variant, url} <- sorted_variants do %>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class={[
+                        "btn btn-sm gap-2 justify-start",
+                        variant == "original" && "btn-primary",
+                        variant != "original" && "btn-outline"
+                      ]}
                     >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                      >
-                      </path>
-                    </svg>
-                    {String.capitalize(variant)}
-                  </a>
-                <% end %>
+                      <.icon name="hero-arrow-down-tray" class="w-4 h-4" />
+                      {String.capitalize(variant)}
+                    </a>
+                  <% end %>
+                </div>
               </div>
             </div>
           <% end %>
         </div>
       </div>
     <% else %>
-      <div class="bg-base-200 rounded-lg p-8 text-center">
-        <.icon name="hero-photo" class="w-12 h-12 mx-auto mb-4 text-base-content/50" />
-        <p class="text-base-content/70">
-          The file you're looking for doesn't exist or has been deleted.
-        </p>
-        <.link navigate={Routes.path("/admin/users/media")} class="btn btn-primary btn-sm mt-4">
-          Back to Media Library
-        </.link>
+      <%!-- File Not Found --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body text-center">
+          <.icon name="hero-photo" class="w-16 h-16 mx-auto mb-4 text-base-content/50" />
+          <h2 class="text-2xl font-bold text-error">File Not Found</h2>
+          <p class="text-base-content/70 mt-2">
+            The file you're looking for doesn't exist or has been deleted.
+          </p>
+          <.link navigate={Routes.path("/admin/media")} class="btn btn-primary btn-sm mt-4">
+            Back to Media Library
+          </.link>
+        </div>
       </div>
     <% end %>
   </div>

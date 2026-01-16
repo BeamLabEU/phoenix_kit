@@ -9,8 +9,13 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
 
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Settings
+  alias PhoenixKit.Utils.Routes
 
   def mount(_params, _session, socket) do
+    # Get current path for navigation
+    current_path =
+      Routes.path("/admin/settings/maintenance", locale: socket.assigns.current_locale_base)
+
     # Get current settings
     config = Maintenance.get_config()
 
@@ -18,6 +23,7 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
       socket
       |> assign(:page_title, "Maintenance Mode Settings")
       |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:current_path, current_path)
       |> assign(:header, config.header)
       |> assign(:subtext, config.subtext)
       |> assign(:enabled, config.enabled)
@@ -108,9 +114,9 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
       flash={@flash}
       phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
       page_title="{@project_title} - Maintenance Mode Settings"
-      current_path={@url_path}
+      current_path={@current_path}
       project_title={@project_title}
-      current_locale={assigns[:current_locale] || "en"}
+      current_locale={@current_locale}
     >
       <div class="container mx-auto px-4 py-6">
         <%!-- Header Section --%>

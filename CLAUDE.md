@@ -2,6 +2,46 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚧 IN-PROGRESS: UUID Migration (V40)
+
+> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
+
+### Summary
+
+V40 adds UUIDv7 columns to all 33 legacy tables that use bigserial primary keys. This is a **non-breaking, graceful migration** that allows parent apps to gradually adopt UUIDs.
+
+### What's Been Done
+
+- ✅ Created V40 migration (`lib/phoenix_kit/migrations/postgres/v40.ex`)
+- ✅ Added `field :uuid, Ecto.UUID` to all 33 schemas
+- ✅ Created `PhoenixKit.UUID` helper module with prefix support
+- ✅ User schema generates UUIDv7 in Elixir changeset
+- ✅ Other schemas rely on PostgreSQL DEFAULT (both work correctly)
+- ✅ Documentation at `guides/uuid_migration.md`
+
+### Key Design Decisions
+
+1. **UUIDv7 only** - Time-ordered for better index performance
+2. **Keep DEFAULT** - DB generates UUID if Ecto doesn't (backward compatible)
+3. **Dual-accessor pattern** - `PhoenixKit.UUID.get/2` accepts both integer and UUID
+4. **Non-breaking** - Integer IDs continue to work, FKs remain bigserial
+
+### Files Modified
+
+- `lib/phoenix_kit/migrations/postgres/v40.ex` - Main migration
+- `lib/phoenix_kit/uuid.ex` - Helper module
+- `lib/phoenix_kit/users/auth/user.ex` - UUIDv7 in registration changeset
+- 30+ schema files - Added `field :uuid, Ecto.UUID`
+- `guides/uuid_migration.md` - Documentation
+
+### DO NOT
+
+- Remove the UUID DEFAULT from the migration
+- Change UUIDv7 back to UUIDv4
+- Modify foreign keys (they stay as bigserial)
+
+---
+
 ## MCP Memory Knowledge Base
 
 ⚠️ **IMPORTANT**: Always start working with the project by studying data in the MCP memory storage. Use the command:
@@ -181,9 +221,8 @@ This ensures consistent code formatting across the project.
 
 ### 🏷️ Version Management Protocol
 
-**Current Version**: 1.3.3 (in mix.exs)
-**Version Strategy**: Semantic versioning (MAJOR.MINOR.PATCH)
-**Migration Version**: V23 (latest migration version with session fingerprinting)
+**Current Version**: 1.7.0 (in mix.exs)
+**Migration Version**: V31 (billing system)
 
 **MANDATORY steps for version updates:**
 
@@ -407,6 +446,7 @@ end
 - `time_display.ex` - Relative time, expiration dates, age badges
 - `user_info.ex` - User roles, user counts, user statistics
 - `button.ex`, `input.ex`, `select.ex`, etc. - Form components
+- `draggable_list.ex` - Drag-and-drop reorderable grid/list component (see [guide](guides/draggable_list_component.md))
 
 **Adding New Component Category:**
 
@@ -595,7 +635,7 @@ config :phoenix_kit,
 
 - **Three System Roles** - Owner, Admin, User with automatic assignment
 - **Elixir Logic** - First user automatically becomes Owner
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin/dashboard` for system statistics
+- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin` for system statistics
 - **User Management** - Complete user management interface at `{prefix}/admin/users`
 - **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
 - **Security Features** - Owner protection, audit trail, self-modification prevention
@@ -636,9 +676,86 @@ config :phoenix_kit,
 {UtilsDate.format_time(Time.utc_now(), "h:i A")}
 ```
 
-**Emails module:** See `lib/phoenix_kit_web/live/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
+### Module Folder Structure (IMPORTANT)
 
-**Blogging module:** See `lib/phoenix_kit_web/live/modules/blogging/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
+**All modules MUST be placed in `lib/modules/`** - this is the only correct location for module code.
+
+**Namespace convention:** All modules must use the `PhoenixKit.Modules.<ModuleName>` namespace prefix.
+
+**Example module structure:**
+```
+lib/modules/db/
+├── db.ex                    # PhoenixKit.Modules.DB (main context)
+├── listener.ex              # PhoenixKit.Modules.DB.Listener
+└── web/
+    ├── index.ex             # PhoenixKit.Modules.DB.Web.Index (LiveView)
+    ├── index.html.heex
+    ├── show.ex              # PhoenixKit.Modules.DB.Web.Show (LiveView)
+    └── show.html.heex
+```
+
+**Key rules:**
+- Backend logic AND web/LiveView code go in the same `lib/modules/<name>/` folder
+- Main context module: `PhoenixKit.Modules.<Name>`
+- Sub-modules: `PhoenixKit.Modules.<Name>.<SubModule>`
+- Web/LiveView code: `PhoenixKit.Modules.<Name>.Web.<Component>` (recommended but flexible)
+- Each module is self-contained for future plugin system compatibility
+
+**DO NOT use these legacy locations for new modules:**
+- ❌ `lib/phoenix_kit/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit_web/live/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit/<module_name>.ex` - Legacy location
+
+**Module Documentation:**
+
+- **AI module:** See `lib/modules/ai/README.md` for API usage, endpoint management, prompts, and usage tracking.
+- **Emails module:** See `lib/modules/emails/README.md` for architecture, configuration, and troubleshooting guidance.
+- **Publishing module:** See `lib/modules/publishing/README.md` for dual storage modes, multi-language support, and filesystem-based content management.
+- **Sync module:** See `lib/modules/sync/README.md` for peer-to-peer data sync, programmatic API, conflict strategies, and remote operations.
+- **Entities module:** See `lib/modules/entities/README.md` for dynamic content types (WordPress ACF-like).
+- **Billing module:** See `lib/modules/billing/README.md` for payment providers, subscriptions, invoices.
+
+### ⚠️ CRITICAL: Enabling Modules Before Use
+
+**All PhoenixKit modules are DISABLED by default.** Before using any module programmatically, you MUST enable it first. Attempting to use a disabled module will result in errors or no-ops.
+
+**Enable a module using its `enable_system/0` function:**
+
+```elixir
+# Check if module is enabled
+PhoenixKit.Modules.Entities.enabled?()        # => false (default)
+PhoenixKit.Modules.AI.enabled?()              # => false (default)
+
+# Enable modules before use
+PhoenixKit.Modules.Entities.enable_system()   # Enables entities module
+PhoenixKit.Modules.AI.enable_system()         # Enables AI module
+PhoenixKit.Modules.Posts.enable_system()      # Enables posts module
+PhoenixKit.Emails.enable_system()     # Enables email tracking
+PhoenixKit.Billing.enable_system()    # Enables billing module
+PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
+PhoenixKit.Modules.Sync.enable_system()     # Enables DB sync
+PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
+PhoenixKit.Pages.enable_system()      # Enables pages module
+PhoenixKit.Modules.Referrals.enable_system() # Enables referrals
+
+# Disable when no longer needed
+PhoenixKit.Modules.Entities.disable_system()
+```
+
+**Alternatively, enable via Admin UI:** Navigate to `/{prefix}/admin/modules` or each module's settings page.
+
+**Common pattern:**
+
+```elixir
+# WRONG - Will fail if module is disabled
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+
+# CORRECT - Check/enable first
+unless PhoenixKit.Entities.enabled?() do
+  PhoenixKit.Entities.enable_system()
+end
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+```
 
 ### Migration Architecture
 

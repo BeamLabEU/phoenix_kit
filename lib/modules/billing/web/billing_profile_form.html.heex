@@ -1,0 +1,455 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6 max-w-4xl">
+    <%!-- Header --%>
+    <div class="flex items-center gap-4 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
+        class="btn btn-ghost btn-sm"
+      >
+        <.icon name="hero-arrow-left" class="w-4 h-4" />
+      </.link>
+      <div>
+        <h1 class="text-2xl font-bold">{@page_title}</h1>
+        <p class="text-base-content/60">
+          <%= if @profile do %>
+            Edit billing profile details
+          <% else %>
+            Create a new billing profile for a user
+          <% end %>
+        </p>
+      </div>
+    </div>
+
+    <.form for={@form} phx-change="validate" phx-submit="save" class="space-y-6">
+      <%!-- User Selection --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-user" class="w-5 h-5" /> User
+          </h2>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Select User *</span>
+            </label>
+            <select
+              name="user_id"
+              class="select select-bordered"
+              phx-change="select_user"
+              disabled={@profile != nil}
+            >
+              <option value="">Select a user...</option>
+              <%= for user <- @users do %>
+                <option value={user.id} selected={@selected_user_id == user.id}>
+                  {user.email}
+                  <%= if user.first_name do %>
+                    ({user.first_name} {user.last_name})
+                  <% end %>
+                </option>
+              <% end %>
+            </select>
+            <%= if @profile do %>
+              <label class="label">
+                <span class="label-text-alt text-info">
+                  User cannot be changed after creation
+                </span>
+              </label>
+            <% end %>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Profile Type --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-identification" class="w-5 h-5" /> Profile Type
+          </h2>
+
+          <div class="flex gap-4">
+            <label class="cursor-pointer flex items-center gap-2">
+              <input
+                type="radio"
+                name="type"
+                value="individual"
+                class="radio radio-primary"
+                checked={@profile_type == "individual"}
+                phx-click="change_type"
+                phx-value-type="individual"
+              />
+              <span class="label-text">
+                <span class="font-medium">Individual</span>
+                <span class="text-base-content/60 block text-sm">Personal billing profile</span>
+              </span>
+            </label>
+
+            <label class="cursor-pointer flex items-center gap-2">
+              <input
+                type="radio"
+                name="type"
+                value="company"
+                class="radio radio-primary"
+                checked={@profile_type == "company"}
+                phx-click="change_type"
+                phx-value-type="company"
+              />
+              <span class="label-text">
+                <span class="font-medium">Company</span>
+                <span class="text-base-content/60 block text-sm">
+                  Business billing profile (EU)
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Individual Fields --%>
+      <%= if @profile_type == "individual" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">
+              <.icon name="hero-user-circle" class="w-5 h-5" /> Personal Information
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">First Name *</span>
+                </label>
+                <input
+                  type="text"
+                  name="billing_profile[first_name]"
+                  value={@form[:first_name].value}
+                  class="input input-bordered"
+                  placeholder="John"
+                />
+                <.error :for={msg <- @form[:first_name].errors |> Enum.map(&elem(&1, 0))}>
+                  {msg}
+                </.error>
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Middle Name</span>
+                </label>
+                <input
+                  type="text"
+                  name="billing_profile[middle_name]"
+                  value={@form[:middle_name].value}
+                  class="input input-bordered"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Last Name *</span>
+                </label>
+                <input
+                  type="text"
+                  name="billing_profile[last_name]"
+                  value={@form[:last_name].value}
+                  class="input input-bordered"
+                  placeholder="Doe"
+                />
+                <.error :for={msg <- @form[:last_name].errors |> Enum.map(&elem(&1, 0))}>
+                  {msg}
+                </.error>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Email</span>
+                </label>
+                <input
+                  type="email"
+                  name="billing_profile[email]"
+                  value={@form[:email].value}
+                  class="input input-bordered"
+                  placeholder="john@example.com"
+                />
+                <label class="label">
+                  <span class="label-text-alt">
+                    Billing email (can differ from account email)
+                  </span>
+                </label>
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Phone</span>
+                </label>
+                <input
+                  type="tel"
+                  name="billing_profile[phone]"
+                  value={@form[:phone].value}
+                  class="input input-bordered"
+                  placeholder="+372 5555 5555"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Company Fields --%>
+      <%= if @profile_type == "company" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title">
+              <.icon name="hero-building-office" class="w-5 h-5" /> Company Information
+            </h2>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Company Name *</span>
+              </label>
+              <input
+                type="text"
+                name="billing_profile[company_name]"
+                value={@form[:company_name].value}
+                class="input input-bordered"
+                placeholder="Acme Corp OÜ"
+              />
+              <.error :for={msg <- @form[:company_name].errors |> Enum.map(&elem(&1, 0))}>
+                {msg}
+              </.error>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">VAT Number</span>
+                </label>
+                <input
+                  type="text"
+                  name="billing_profile[company_vat_number]"
+                  value={@form[:company_vat_number].value}
+                  class="input input-bordered font-mono"
+                  placeholder="EE123456789"
+                />
+                <label class="label">
+                  <span class="label-text-alt">EU VAT format: Country code + number</span>
+                </label>
+                <.error :for={msg <- @form[:company_vat_number].errors |> Enum.map(&elem(&1, 0))}>
+                  {msg}
+                </.error>
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Registration Number</span>
+                </label>
+                <input
+                  type="text"
+                  name="billing_profile[company_registration_number]"
+                  value={@form[:company_registration_number].value}
+                  class="input input-bordered font-mono"
+                  placeholder="12345678"
+                />
+              </div>
+            </div>
+
+            <div class="form-control mt-4">
+              <label class="label">
+                <span class="label-text">Legal Address</span>
+              </label>
+              <textarea
+                name="billing_profile[company_legal_address]"
+                class="textarea textarea-bordered"
+                rows="2"
+                placeholder="Registered legal address"
+              >{@form[:company_legal_address].value}</textarea>
+            </div>
+
+            <div class="divider">Contact</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Contact Email</span>
+                </label>
+                <input
+                  type="email"
+                  name="billing_profile[email]"
+                  value={@form[:email].value}
+                  class="input input-bordered"
+                  placeholder="billing@company.com"
+                />
+              </div>
+
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">Phone</span>
+                </label>
+                <input
+                  type="tel"
+                  name="billing_profile[phone]"
+                  value={@form[:phone].value}
+                  class="input input-bordered"
+                  placeholder="+372 5555 5555"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Billing Address (Country first) --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-map-pin" class="w-5 h-5" /> Billing Address
+          </h2>
+
+          <%!-- Country first --%>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Country</span>
+            </label>
+            <select name="billing_profile[country]" class="select select-bordered">
+              <option value="">Select country...</option>
+              <%= for {name, code} <- @countries do %>
+                <option value={code} selected={@form[:country].value == code}>
+                  {name}
+                </option>
+              <% end %>
+            </select>
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Address Line 1</span>
+            </label>
+            <input
+              type="text"
+              name="billing_profile[address_line1]"
+              value={@form[:address_line1].value}
+              class="input input-bordered"
+              placeholder="Street address"
+            />
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Address Line 2</span>
+            </label>
+            <input
+              type="text"
+              name="billing_profile[address_line2]"
+              value={@form[:address_line2].value}
+              class="input input-bordered"
+              placeholder="Apartment, suite, etc."
+            />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">City</span>
+              </label>
+              <input
+                type="text"
+                name="billing_profile[city]"
+                value={@form[:city].value}
+                class="input input-bordered"
+                placeholder="Tallinn"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">{@subdivision_label}</span>
+              </label>
+              <input
+                type="text"
+                name="billing_profile[state]"
+                value={@form[:state].value}
+                class="input input-bordered"
+                placeholder="Harju"
+              />
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Postal Code</span>
+              </label>
+              <input
+                type="text"
+                name="billing_profile[postal_code]"
+                value={@form[:postal_code].value}
+                class="input input-bordered"
+                placeholder="10115"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Options --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title">
+            <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Options
+          </h2>
+
+          <div class="form-control">
+            <label class="cursor-pointer label justify-start gap-4">
+              <input
+                type="checkbox"
+                name="billing_profile[is_default]"
+                value="true"
+                class="checkbox checkbox-primary"
+                checked={@form[:is_default].value == true || @form[:is_default].value == "true"}
+              />
+              <div>
+                <span class="label-text font-medium">Set as default profile</span>
+                <span class="label-text-alt block">
+                  This profile will be used by default for new orders
+                </span>
+              </div>
+            </label>
+          </div>
+
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">Profile Name (Optional)</span>
+            </label>
+            <input
+              type="text"
+              name="billing_profile[name]"
+              value={@form[:name].value}
+              class="input input-bordered"
+              placeholder="e.g., Home Address, Work, Company HQ"
+            />
+            <label class="label">
+              <span class="label-text-alt">Custom name to identify this profile</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Actions --%>
+      <div class="flex justify-end gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
+          class="btn btn-ghost"
+        >
+          Cancel
+        </.link>
+        <button type="submit" class="btn btn-primary">
+          <.icon name="hero-check" class="w-4 h-4" />
+          {if @profile, do: "Update Profile", else: "Create Profile"}
+        </button>
+      </div>
+    </.form>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

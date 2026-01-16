@@ -12,11 +12,11 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Settings do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
 
-    current_path = Routes.path("/admin/settings/pages", locale: locale)
+    current_path =
+      Routes.path("/admin/settings/pages", locale: socket.assigns.current_locale_base)
 
     socket =
       socket

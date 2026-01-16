@@ -11,20 +11,20 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
 
   import Ecto.Query
 
+  alias PhoenixKit.Modules.Storage
+  alias PhoenixKit.Modules.Storage.File
+  alias PhoenixKit.Modules.Storage.FileInstance
+  alias PhoenixKit.Modules.Storage.FileLocation
+  alias PhoenixKit.Modules.Storage.URLSigner
+  alias PhoenixKit.Modules.Storage.VariantGenerator
   alias PhoenixKit.Settings
-  alias PhoenixKit.Storage
-  alias PhoenixKit.Storage.File
-  alias PhoenixKit.Storage.FileInstance
-  alias PhoenixKit.Storage.FileLocation
-  alias PhoenixKit.Storage.URLSigner
   alias PhoenixKit.Utils.Date, as: UtilsDate
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
 
     # Get file_id from params
     file_id = params["file_id"]
@@ -97,6 +97,27 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     {:noreply, assign(socket, :edit_mode, false)}
   end
 
+  def handle_event("regenerate_variants", _params, socket) do
+    file = socket.assigns.file
+
+    case VariantGenerator.generate_variants(file, async: false) do
+      {:ok, instances} ->
+        # instances is a list of successfully created FileInstance structs
+        count = length(instances)
+
+        socket =
+          socket
+          |> load_file_data(file.id)
+          |> put_flash(:info, "Regenerated #{count} variants")
+
+        {:noreply, socket}
+
+      {:error, reason} ->
+        socket = put_flash(socket, :error, "Failed to regenerate: #{inspect(reason)}")
+        {:noreply, socket}
+    end
+  end
+
   defp load_file_data(socket, file_id) do
     repo = PhoenixKit.Config.get_repo()
 
@@ -147,7 +168,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
   defp get_user_name(nil, _repo), do: "Unknown"
 
   defp get_user_name(user_id, repo) do
-    alias_module = Application.get_env(:phoenix_kit, :users_module, PhoenixKit.Users.Auth.User)
+    alias_module = PhoenixKit.Config.get_users_module()
 
     case repo.get(alias_module, user_id) do
       nil -> "Unknown"

@@ -54,9 +54,10 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
 
         <div class="space-y-2">
           <%!-- Google Sign-In Button --%>
+          <%!-- OAuth routes are non-localized, so we use locale: :none --%>
           <%= if @google_enabled do %>
             <.link
-              href={Routes.path("/users/auth/google")}
+              href={Routes.path("/users/auth/google", locale: :none)}
               class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Icons.icon_google class="w-5 h-5" />
@@ -66,7 +67,7 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
           <%!-- Apple Sign-In Button --%>
           <%= if @apple_enabled do %>
             <.link
-              href={Routes.path("/users/auth/apple")}
+              href={Routes.path("/users/auth/apple", locale: :none)}
               class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Icons.icon_apple class="w-5 h-5" />
@@ -76,7 +77,7 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
           <%!-- GitHub Sign-In Button --%>
           <%= if @github_enabled do %>
             <.link
-              href={Routes.path("/users/auth/github")}
+              href={Routes.path("/users/auth/github", locale: :none)}
               class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Icons.icon_github class="w-5 h-5" />
@@ -86,7 +87,7 @@ defmodule PhoenixKitWeb.Components.OAuthButtons do
           <%!-- Facebook Sign-In Button --%>
           <%= if @facebook_enabled do %>
             <.link
-              href={Routes.path("/users/auth/facebook")}
+              href={Routes.path("/users/auth/facebook", locale: :none)}
               class="btn btn-outline w-full flex items-center justify-center gap-2 hover:bg-base-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
             >
               <Icons.icon_facebook class="w-5 h-5" />

@@ -1,0 +1,161 @@
+<%!-- Terms of Service Template --%>
+<%!-- Variables: company_name, company_address, company_country, company_website, dpo_email, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated and provides a basic template.
+> It MUST be reviewed and customized by a qualified legal professional
+> before publication to ensure compliance with applicable laws.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+## 1. Agreement to Terms
+
+By accessing or using the services provided by <%= @company_name %> ("we," "our," or "us")<%= if @company_website != "", do: " at #{@company_website}", else: "" %>, you agree to be bound by these Terms of Service ("Terms"). If you do not agree to these Terms, please do not use our services.
+
+## 2. Company Information
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @company_country != "" do %><%= @company_country %><% end %>
+<%= if @registration_number != "" do %>Registration Number: <%= @registration_number %><% end %>
+<%= if @vat_number != "" do %>VAT Number: <%= @vat_number %><% end %>
+
+## 3. Eligibility
+
+You must be at least 18 years old (or the age of majority in your jurisdiction) to use our services. By using our services, you represent and warrant that you meet this requirement.
+
+## 4. Account Registration
+
+### 4.1 Account Creation
+
+When creating an account, you agree to:
+- Provide accurate, current, and complete information
+- Maintain and promptly update your account information
+- Keep your password confidential and secure
+- Notify us immediately of any unauthorized access to your account
+- Accept responsibility for all activities that occur under your account
+
+### 4.2 Account Termination
+
+We reserve the right to suspend or terminate your account at any time for any reason, including if we reasonably believe that you have violated these Terms.
+
+## 5. Acceptable Use
+
+### 5.1 Permitted Use
+
+You may use our services only for lawful purposes and in accordance with these Terms.
+
+### 5.2 Prohibited Activities
+
+You agree NOT to:
+- Violate any applicable laws, regulations, or third-party rights
+- Use the services for any illegal or unauthorized purpose
+- Transmit any viruses, malware, or other malicious code
+- Attempt to gain unauthorized access to our systems or networks
+- Interfere with or disrupt the integrity or performance of our services
+- Collect or harvest user data without consent
+- Impersonate any person or entity
+- Engage in any activity that could damage our reputation
+- Use automated means to access our services without permission
+- Reverse engineer, decompile, or disassemble any aspect of our services
+
+## 6. Intellectual Property
+
+### 6.1 Our Rights
+
+All content, features, and functionality of our services, including but not limited to text, graphics, logos, icons, images, audio, video, software, and code, are owned by or licensed to <%= @company_name %> and are protected by copyright, trademark, and other intellectual property laws.
+
+### 6.2 Limited License
+
+We grant you a limited, non-exclusive, non-transferable, revocable license to access and use our services for your personal, non-commercial use, subject to these Terms.
+
+### 6.3 Your Content
+
+You retain ownership of any content you submit to our services. By submitting content, you grant us a worldwide, royalty-free, sublicensable license to use, reproduce, modify, and display such content in connection with our services.
+
+## 7. Payment Terms
+
+### 7.1 Fees
+
+Certain features of our services may require payment. All fees are stated in the applicable currency and are exclusive of taxes unless otherwise noted.
+
+### 7.2 Payment Processing
+
+Payments are processed through third-party payment processors. By making a payment, you agree to the payment processor's terms and conditions.
+
+### 7.3 Refunds
+
+Refund policies vary by service. Please refer to the specific terms for the service you are purchasing.
+
+## 8. Disclaimer of Warranties
+
+OUR SERVICES ARE PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+We do not warrant that:
+- Our services will be uninterrupted, error-free, or secure
+- Any defects will be corrected
+- Our services will meet your requirements
+- Any results or outcomes will be achieved
+
+## 9. Limitation of Liability
+
+TO THE FULLEST EXTENT PERMITTED BY LAW, <%= String.upcase(@company_name) %> SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, INCLUDING BUT NOT LIMITED TO LOSS OF PROFITS, DATA, USE, GOODWILL, OR OTHER INTANGIBLE LOSSES, RESULTING FROM:
+
+- Your use or inability to use our services
+- Any unauthorized access to or use of our servers
+- Any interruption or cessation of transmission to or from our services
+- Any bugs, viruses, or other harmful code transmitted through our services
+- Any errors or omissions in any content
+
+## 10. Indemnification
+
+You agree to indemnify, defend, and hold harmless <%= @company_name %> and its officers, directors, employees, agents, and affiliates from any claims, damages, losses, liabilities, and expenses (including attorneys' fees) arising from:
+
+- Your use of our services
+- Your violation of these Terms
+- Your violation of any third-party rights
+- Your content submitted to our services
+
+## 11. Governing Law and Dispute Resolution
+
+### 11.1 Governing Law
+
+These Terms shall be governed by and construed in accordance with the laws of <%= if @company_country != "", do: @company_country, else: "[Your Jurisdiction]" %>, without regard to its conflict of law provisions.
+
+### 11.2 Dispute Resolution
+
+Any disputes arising from these Terms or your use of our services shall be resolved through:
+
+1. **Informal Negotiation:** First, by contacting us to attempt resolution
+2. **Mediation:** If negotiation fails, through mediation
+3. **Arbitration/Litigation:** As a last resort, through binding arbitration or litigation in the courts of <%= if @company_country != "", do: @company_country, else: "[Your Jurisdiction]" %>
+
+## 12. Changes to Terms
+
+We reserve the right to modify these Terms at any time. We will notify you of material changes by:
+- Posting the updated Terms on our website
+- Updating the "Effective Date" at the top
+- Sending you an email notification (for significant changes)
+
+Your continued use of our services after changes constitutes acceptance of the modified Terms.
+
+## 13. Severability
+
+If any provision of these Terms is found to be unenforceable or invalid, that provision shall be limited or eliminated to the minimum extent necessary, and the remaining provisions shall remain in full force and effect.
+
+## 14. Entire Agreement
+
+These Terms, together with our Privacy Policy and any other agreements expressly incorporated by reference, constitute the entire agreement between you and <%= @company_name %> regarding your use of our services.
+
+## 15. Contact Us
+
+If you have any questions about these Terms, please contact us at:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>

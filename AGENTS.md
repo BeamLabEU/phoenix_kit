@@ -1,11 +1,50 @@
 This is a web application written using the Phoenix web framework.
 
+## 🚧 IN-PROGRESS: UUID Migration (V40)
+
+> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
+
+**TL;DR**: V40 adds UUIDv7 columns to all 33 legacy bigserial tables. Non-breaking change.
+
+**Key points:**
+- Migration: `lib/phoenix_kit/migrations/postgres/v40.ex`
+- Helper: `lib/phoenix_kit/uuid.ex` (dual integer/UUID lookups with prefix support)
+- All schemas have `field :uuid, Ecto.UUID`
+- User schema generates UUID in Elixir; others use DB DEFAULT
+- Docs: `guides/uuid_migration.md`
+
+**DO NOT**: Remove UUID DEFAULT, change to UUIDv4, or modify foreign keys.
+
+---
+
 ## Project guidelines
 
 - Use `mix precommit` alias when you are done with all changes and fix any pending issues
 - Use the already included and available `:req` (`Req`) library for HTTP requests, **avoid** `:httpoison`, `:tesla`, and `:httpc`. Req is included by default and is the preferred HTTP client for Phoenix apps
 
-### Phoenix v1.8 guidelines
+### PhoenixKit Layout Guidelines
+
+PhoenixKit uses its own layout wrapper component instead of the standard Phoenix `Layouts.app`:
+
+- **Always** begin PhoenixKit LiveView templates with `<PhoenixKitWeb.Components.LayoutWrapper.app_layout ...>` which wraps all inner content
+- Required attributes: `flash`, `page_title`, `current_path`, `project_title`, `phoenix_kit_current_scope`
+- Optional: `current_locale`
+
+Example:
+```heex
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  phoenix_kit_current_scope={@phoenix_kit_current_scope}
+  current_locale={assigns[:current_locale]}
+>
+  <!-- Your content here -->
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+```
+
+### Phoenix v1.8 guidelines (for parent applications)
 
 - **Always** begin your LiveView templates with `<Layouts.app flash={@flash} ...>` which wraps all inner content
 - The `MyAppWeb.Layouts` module is aliased in the `my_app_web.ex` file, so you can use it without needing to alias it again
@@ -20,15 +59,18 @@ custom classes must fully style the input
 
 ### JS and CSS guidelines
 
+**Note**: PhoenixKit ships pre-compiled CSS/JS under `priv/static/assets/`. The following guidelines are for **parent applications** that integrate PhoenixKit.
+
 - **Use Tailwind CSS classes and custom CSS rules** to create polished, responsive, and visually stunning interfaces.
-- Tailwindcss v4 **no longer needs a tailwind.config.js** and uses a new import syntax in `app.css`:
+- PhoenixKit uses **daisyUI 5** for component styling - ensure your parent app includes daisyUI
+- For Tailwindcss v4 projects, use the new import syntax in `app.css`:
 
       @import "tailwindcss" source(none);
       @source "../css";
       @source "../js";
       @source "../../lib/my_app_web";
+      @source "../../deps/phoenix_kit/lib/phoenix_kit_web";  /* Include PhoenixKit templates */
 
-- **Always use and maintain this import syntax** in the app.css file for projects generated with `phx.new`
 - **Never** use `@apply` when writing raw css
 - Out of the box **only the app.js and app.css bundles are supported**
   - You cannot reference an external vendor'd script `src` or link `href` in the layouts
@@ -331,3 +373,88 @@ And **never** do this:
 <!-- phoenix:liveview-end -->
 
 <!-- usage-rules-end -->
+
+## PhoenixKit Modules
+
+### Module Folder Structure (IMPORTANT)
+
+**All modules MUST be placed in `lib/modules/`** - this is the only correct location for module code.
+
+**Namespace convention:** All modules must use the `PhoenixKit.Modules.<ModuleName>` namespace prefix.
+
+**Example module structure:**
+```
+lib/modules/db/
+├── db.ex                    # PhoenixKit.Modules.DB (main context)
+├── listener.ex              # PhoenixKit.Modules.DB.Listener
+└── web/
+    ├── index.ex             # PhoenixKit.Modules.DB.Web.Index (LiveView)
+    ├── index.html.heex
+    ├── show.ex              # PhoenixKit.Modules.DB.Web.Show (LiveView)
+    └── show.html.heex
+```
+
+**Key rules:**
+- Backend logic AND web/LiveView code go in the same `lib/modules/<name>/` folder
+- Main context module: `PhoenixKit.Modules.<Name>`
+- Sub-modules: `PhoenixKit.Modules.<Name>.<SubModule>`
+- Web/LiveView code: `PhoenixKit.Modules.<Name>.Web.<Component>` (recommended but flexible)
+- Each module is self-contained for future plugin system compatibility
+
+**DO NOT use these legacy locations for new modules:**
+- ❌ `lib/phoenix_kit/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit_web/live/modules/` - Legacy, being migrated
+- ❌ `lib/phoenix_kit/<module_name>.ex` - Legacy location
+
+### Module Documentation
+
+- **AI Module**: `lib/modules/ai/README.md` - AI provider accounts, model configuration slots, completion API, and usage tracking
+- **Emails Module**: `lib/modules/emails/README.md` - Email logging, AWS SES integration, analytics, and rate limiting
+- **Publishing Module**: `lib/modules/publishing/README.md` - Filesystem-based CMS with multi-language support
+- **Sync Module**: `lib/modules/sync/README.md` - Peer-to-peer data sync between PhoenixKit instances with programmatic API
+- **Entities Module**: `lib/modules/entities/README.md` - Dynamic content types (WordPress ACF-like)
+- **Billing Module**: `lib/modules/billing/README.md` - Payment providers, subscriptions, invoices
+- **Posts Module**: Available under `/admin/posts` - Content scheduling and groups
+
+### ⚠️ CRITICAL: Modules Must Be Enabled Before Use
+
+**All PhoenixKit modules are disabled by default.** Before using any module programmatically, you MUST enable it first. Attempting to use a disabled module will result in errors or no-ops.
+
+**Enable a module using its `enable_system/0` function:**
+
+```elixir
+# Check if module is enabled
+PhoenixKit.Modules.Entities.enabled?()        # => false (default)
+PhoenixKit.Modules.AI.enabled?()              # => false (default)
+
+# Enable modules before use
+PhoenixKit.Modules.Entities.enable_system()   # Enables entities module
+PhoenixKit.Modules.AI.enable_system()         # Enables AI module
+PhoenixKit.Modules.Posts.enable_system()      # Enables posts module
+PhoenixKit.Emails.enable_system()     # Enables email tracking
+PhoenixKit.Billing.enable_system()    # Enables billing module
+PhoenixKit.Sitemap.enable_system()    # Enables sitemap generation
+PhoenixKit.Modules.Sync.enable_system()     # Enables DB sync
+PhoenixKit.Modules.Languages.enable_system() # Enables multi-language
+
+# Disable when no longer needed
+PhoenixKit.Modules.Entities.disable_system()
+```
+
+**Alternatively, enable via Admin UI:**
+Navigate to `/{prefix}/admin/modules` or each module's settings page to toggle modules on/off.
+
+**Common pattern when working with modules:**
+
+```elixir
+# WRONG - Will fail if module is disabled
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+
+# CORRECT - Check/enable first
+unless PhoenixKit.Entities.enabled?() do
+  PhoenixKit.Entities.enable_system()
+end
+PhoenixKit.Entities.create_entity(%{name: "products", ...})
+```
+
+See `CLAUDE.md` for comprehensive PhoenixKit documentation including architecture, configuration, and development guidelines.

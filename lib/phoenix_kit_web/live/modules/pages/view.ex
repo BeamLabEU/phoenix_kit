@@ -14,8 +14,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.View do
 
   def mount(_params, _session, socket) do
     # Set locale
-    locale = socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
+    locale = socket.assigns[:current_locale]
 
     # Check if module is enabled
     if Pages.enabled?() do

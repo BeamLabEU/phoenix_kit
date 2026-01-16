@@ -30,7 +30,7 @@ cd your_app_name
 defp deps do
   [
     {:phoenix_kit, path: "../phoenix_kit"},
-    {:igniter, "~> 0.6.0", only: [:dev]},      # Required for phoenix_kit.install task
+    {:igniter, "~> 0.7"},      # Required for phoenix_kit.install task
     # ... other Phoenix dependencies
   ]
 end
@@ -73,7 +73,7 @@ mix phx.server
 You can now visit [`http://localhost:4000`](http://localhost:4000) to see your development app running with PhoenixKit, and you can visit PhoenixKit powered pages:
 - http://localhost:4000{prefix}/users/register (first registered user will become admin and a product owner)
 - http://localhost:4000{prefix}/users/log-in (you should be able to login)
-- http://localhost:4000{prefix}/admin/dashboard (and access phoenix_kit admin panel)
+- http://localhost:4000{prefix}/admin (and access phoenix_kit admin panel)
 
 Keep in mind, that any changes you make to files in the `phoenix_kit` directory will require manually running `mix deps.compile phoenix_kit --force` and refreshing your browser to see the changes, so let's configure live reloading for a better development experience.
 

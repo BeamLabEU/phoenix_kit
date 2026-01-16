@@ -1,0 +1,349 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="My Connections"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">My Connections</h1>
+        <p class="text-lg text-base-content">
+          Manage your followers, following, and connections
+        </p>
+      </div>
+    </header>
+
+    <%!-- Tabs Navigation --%>
+    <div class="flex justify-center mb-6">
+      <div role="tablist" class="tabs tabs-boxed">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/profile/connections?tab=followers")}
+          role="tab"
+          class={"tab #{if @tab == "followers", do: "tab-active"}"}
+        >
+          Followers <span class="badge badge-sm ml-2">{@followers_count}</span>
+        </.link>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/profile/connections?tab=following")}
+          role="tab"
+          class={"tab #{if @tab == "following", do: "tab-active"}"}
+        >
+          Following <span class="badge badge-sm ml-2">{@following_count}</span>
+        </.link>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/profile/connections?tab=connections")}
+          role="tab"
+          class={"tab #{if @tab == "connections", do: "tab-active"}"}
+        >
+          Connections <span class="badge badge-sm ml-2">{@connections_count}</span>
+        </.link>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/profile/connections?tab=requests")}
+          role="tab"
+          class={"tab #{if @tab == "requests", do: "tab-active"}"}
+        >
+          Requests
+          <%= if @pending_count > 0 do %>
+            <span class="badge badge-warning badge-sm ml-2">{@pending_count}</span>
+          <% end %>
+        </.link>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/profile/connections?tab=blocked")}
+          role="tab"
+          class={"tab #{if @tab == "blocked", do: "tab-active"}"}
+        >
+          Blocked <span class="badge badge-sm ml-2">{@blocked_count}</span>
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Tab Content --%>
+    <div class="max-w-4xl mx-auto w-full">
+      <%!-- Followers Tab --%>
+      <%= if @tab == "followers" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-4">
+              <.icon name="hero-user-group" class="w-5 h-5" /> Your Followers
+            </h2>
+
+            <%= if Enum.empty?(@items) do %>
+              <div class="text-center py-8 text-base-content/50">
+                <.icon name="hero-user-group" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No followers yet</p>
+              </div>
+            <% else %>
+              <div class="space-y-3">
+                <%= for follow <- @items do %>
+                  <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-3">
+                      <div class="avatar placeholder">
+                        <div class="bg-primary text-primary-content rounded-full w-10">
+                          <span class="text-lg">
+                            {String.first(follow.follower.email || "?")}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="font-medium">{follow.follower.email}</p>
+                        <p class="text-sm text-base-content/50">
+                          Followed you <.time_ago datetime={follow.inserted_at} />
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Following Tab --%>
+      <%= if @tab == "following" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-4">
+              <.icon name="hero-user-plus" class="w-5 h-5" /> People You Follow
+            </h2>
+
+            <%= if Enum.empty?(@items) do %>
+              <div class="text-center py-8 text-base-content/50">
+                <.icon name="hero-user-plus" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>You're not following anyone yet</p>
+              </div>
+            <% else %>
+              <div class="space-y-3">
+                <%= for follow <- @items do %>
+                  <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-3">
+                      <div class="avatar placeholder">
+                        <div class="bg-primary text-primary-content rounded-full w-10">
+                          <span class="text-lg">
+                            {String.first(follow.followed.email || "?")}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="font-medium">{follow.followed.email}</p>
+                        <p class="text-sm text-base-content/50">
+                          Following since <.time_ago datetime={follow.inserted_at} />
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      class="btn btn-sm btn-outline btn-error"
+                      phx-click="unfollow"
+                      phx-value-id={follow.followed_id}
+                    >
+                      Unfollow
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Connections Tab --%>
+      <%= if @tab == "connections" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-4">
+              <.icon name="hero-users" class="w-5 h-5" /> Your Connections
+            </h2>
+
+            <%= if Enum.empty?(@items) do %>
+              <div class="text-center py-8 text-base-content/50">
+                <.icon name="hero-users" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No connections yet</p>
+              </div>
+            <% else %>
+              <div class="space-y-3">
+                <%= for connection <- @items do %>
+                  <% other_user =
+                    PhoenixKitWeb.Live.Modules.Connections.UserConnections.get_other_user(
+                      connection,
+                      @current_user.id
+                    ) %>
+                  <div class="flex items-center justify-between p-3 bg-base-200 rounded-lg">
+                    <div class="flex items-center gap-3">
+                      <div class="avatar placeholder">
+                        <div class="bg-success text-success-content rounded-full w-10">
+                          <span class="text-lg">{String.first(other_user.email || "?")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="font-medium">{other_user.email}</p>
+                        <p class="text-sm text-base-content/50">
+                          Connected <.time_ago datetime={connection.responded_at} />
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      class="btn btn-sm btn-outline btn-error"
+                      phx-click="remove_connection"
+                      phx-value-id={other_user.id}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Requests Tab --%>
+      <%= if @tab == "requests" do %>
+        <div class="space-y-6">
+          <%!-- Incoming Requests --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-xl mb-4">
+                <.icon name="hero-inbox" class="w-5 h-5" /> Incoming Requests
+              </h2>
+
+              <%= if Enum.empty?(@incoming_requests) do %>
+                <div class="text-center py-8 text-base-content/50">
+                  <.icon name="hero-inbox" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No pending requests</p>
+                </div>
+              <% else %>
+                <div class="space-y-3">
+                  <%= for request <- @incoming_requests do %>
+                    <div class="flex items-center justify-between p-3 bg-warning/10 rounded-lg border border-warning/20">
+                      <div class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                          <div class="bg-warning text-warning-content rounded-full w-10">
+                            <span class="text-lg">
+                              {String.first(request.requester.email || "?")}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p class="font-medium">{request.requester.email}</p>
+                          <p class="text-sm text-base-content/50">
+                            Requested <.time_ago datetime={request.requested_at} />
+                          </p>
+                        </div>
+                      </div>
+                      <div class="flex gap-2">
+                        <button
+                          class="btn btn-sm btn-success"
+                          phx-click="accept_request"
+                          phx-value-id={request.id}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          class="btn btn-sm btn-outline btn-error"
+                          phx-click="reject_request"
+                          phx-value-id={request.id}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Outgoing Requests --%>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title text-xl mb-4">
+                <.icon name="hero-paper-airplane" class="w-5 h-5" /> Sent Requests
+              </h2>
+
+              <%= if Enum.empty?(@outgoing_requests) do %>
+                <div class="text-center py-8 text-base-content/50">
+                  <.icon name="hero-paper-airplane" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>No pending outgoing requests</p>
+                </div>
+              <% else %>
+                <div class="space-y-3">
+                  <%= for request <- @outgoing_requests do %>
+                    <div class="flex items-center justify-between p-3 bg-info/10 rounded-lg border border-info/20">
+                      <div class="flex items-center gap-3">
+                        <div class="avatar placeholder">
+                          <div class="bg-info text-info-content rounded-full w-10">
+                            <span class="text-lg">
+                              {String.first(request.recipient.email || "?")}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <p class="font-medium">{request.recipient.email}</p>
+                          <p class="text-sm text-base-content/50">
+                            Sent <.time_ago datetime={request.requested_at} />
+                          </p>
+                        </div>
+                      </div>
+                      <span class="badge badge-info">Pending</span>
+                    </div>
+                  <% end %>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <%!-- Blocked Tab --%>
+      <%= if @tab == "blocked" do %>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-4">
+              <.icon name="hero-no-symbol" class="w-5 h-5" /> Blocked Users
+            </h2>
+
+            <%= if Enum.empty?(@items) do %>
+              <div class="text-center py-8 text-base-content/50">
+                <.icon name="hero-no-symbol" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>No blocked users</p>
+              </div>
+            <% else %>
+              <div class="space-y-3">
+                <%= for block <- @items do %>
+                  <div class="flex items-center justify-between p-3 bg-error/10 rounded-lg border border-error/20">
+                    <div class="flex items-center gap-3">
+                      <div class="avatar placeholder">
+                        <div class="bg-error text-error-content rounded-full w-10">
+                          <span class="text-lg">{String.first(block.blocked.email || "?")}</span>
+                        </div>
+                      </div>
+                      <div>
+                        <p class="font-medium">{block.blocked.email}</p>
+                        <p class="text-sm text-base-content/50">
+                          Blocked <.time_ago datetime={block.inserted_at} />
+                        </p>
+                        <%= if block.reason do %>
+                          <p class="text-xs text-base-content/40">Reason: {block.reason}</p>
+                        <% end %>
+                      </div>
+                    </div>
+                    <button
+                      class="btn btn-sm btn-outline"
+                      phx-click="unblock"
+                      phx-value-id={block.blocked_id}
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

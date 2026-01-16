@@ -1,0 +1,187 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Currencies"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div class="flex items-center gap-4">
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing")}
+          class="btn btn-ghost btn-sm"
+        >
+          <.icon name="hero-arrow-left" class="w-4 h-4" />
+        </.link>
+        <div>
+          <h1 class="text-3xl font-bold">Currencies</h1>
+          <p class="text-base-content/60 mt-1">Manage supported currencies for billing</p>
+        </div>
+      </div>
+      <button phx-click="refresh" class="btn btn-ghost btn-sm">
+        <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
+      </button>
+    </div>
+
+    <%!-- Navigation Tabs --%>
+    <div class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+        class="tab"
+      >
+        <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> General
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+        class="tab"
+      >
+        <.icon name="hero-credit-card" class="w-4 h-4 mr-2" /> Payment Providers
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+        class="tab tab-active"
+      >
+        <.icon name="hero-currency-dollar" class="w-4 h-4 mr-2" /> Currencies
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+        class="tab"
+      >
+        <.icon name="hero-clipboard-document-list" class="w-4 h-4 mr-2" /> Plans
+      </.link>
+    </div>
+
+    <%!-- Currencies Table --%>
+    <div class="card bg-base-100 shadow-xl">
+      <div class="card-body p-0">
+        <%= if @loading do %>
+          <div class="flex justify-center items-center py-12">
+            <span class="loading loading-spinner loading-lg"></span>
+          </div>
+        <% else %>
+          <%= if Enum.empty?(@currencies) do %>
+            <div class="text-center py-12">
+              <.icon
+                name="hero-currency-dollar"
+                class="w-16 h-16 mx-auto mb-4 text-base-content/30"
+              />
+              <h3 class="text-xl font-semibold mb-2">No currencies configured</h3>
+              <p class="text-base-content/60">
+                Run the billing migration to seed default currencies
+              </p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Currency</th>
+                    <th>Symbol</th>
+                    <th>Decimal Places</th>
+                    <th>Exchange Rate</th>
+                    <th>Status</th>
+                    <th>Default</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for currency <- @currencies do %>
+                    <tr class="hover">
+                      <td>
+                        <div class="flex items-center gap-3">
+                          <div class="font-mono text-lg font-bold">{currency.code}</div>
+                          <div class="text-sm text-base-content/60">{currency.name}</div>
+                        </div>
+                      </td>
+                      <td>
+                        <span class="text-xl font-bold">{currency.symbol}</span>
+                      </td>
+                      <td>{currency.decimal_places}</td>
+                      <td>
+                        <%= if currency.is_default do %>
+                          <span class="badge badge-ghost">Base</span>
+                        <% else %>
+                          <span class="font-mono">
+                            {Decimal.to_string(currency.exchange_rate)}
+                          </span>
+                        <% end %>
+                      </td>
+                      <td>
+                        <label class="cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="toggle toggle-success toggle-sm"
+                            checked={currency.enabled}
+                            phx-click="toggle_enabled"
+                            phx-value-id={currency.id}
+                          />
+                        </label>
+                      </td>
+                      <td>
+                        <%= if currency.is_default do %>
+                          <span class="badge badge-primary">Default</span>
+                        <% else %>
+                          <%= if currency.enabled do %>
+                            <button
+                              phx-click="set_default"
+                              phx-value-id={currency.id}
+                              class="btn btn-ghost btn-xs"
+                            >
+                              Set Default
+                            </button>
+                          <% end %>
+                        <% end %>
+                      </td>
+                      <td class="text-right">
+                        <div class="dropdown dropdown-end">
+                          <label tabindex="0" class="btn btn-ghost btn-sm btn-square">
+                            <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
+                          </label>
+                          <ul
+                            tabindex="0"
+                            class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52"
+                          >
+                            <li>
+                              <button phx-click="toggle_enabled" phx-value-id={currency.id}>
+                                <%= if currency.enabled do %>
+                                  <.icon name="hero-x-circle" class="w-4 h-4" /> Disable
+                                <% else %>
+                                  <.icon name="hero-check-circle" class="w-4 h-4" /> Enable
+                                <% end %>
+                              </button>
+                            </li>
+                            <%= if !currency.is_default and currency.enabled do %>
+                              <li>
+                                <button phx-click="set_default" phx-value-id={currency.id}>
+                                  <.icon name="hero-star" class="w-4 h-4" /> Set as Default
+                                </button>
+                              </li>
+                            <% end %>
+                          </ul>
+                        </div>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+
+    <%!-- Info Card --%>
+    <div class="alert alert-info mt-6">
+      <.icon name="hero-information-circle" class="w-5 h-5" />
+      <div>
+        <h3 class="font-bold">Currency Configuration</h3>
+        <p class="text-sm">
+          The default currency is used for all new orders. Exchange rates are relative to the default currency (base rate = 1.0).
+          Enable only the currencies you plan to accept for billing.
+        </p>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

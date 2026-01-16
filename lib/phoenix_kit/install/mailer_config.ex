@@ -503,13 +503,18 @@ defmodule PhoenixKit.Install.MailerConfig do
     # config :swoosh, :api_client, false
     # This setting will override Finch configuration and break AWS SES!
 
-    # STEP 4: Configure AWS SES
-    # For your app's mailer (recommended approach):
+    # STEP 4: Configure AWS credentials (in config/config.exs)
+    # config :phoenix_kit,
+    #   aws: [
+    #     region: "eu-north-1",
+    #     access_key_id: "AKIAIOSFODNN7EXAMPLE",
+    #     secret_access_key: "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+    #   ]
+    #
+    # Then configure your app's mailer (recommended approach):
     # config :your_app, YourApp.Mailer,
     #   adapter: Swoosh.Adapters.AmazonSES,
-    #   region: "eu-north-1",  # or "us-east-1", "us-west-2", etc.
-    #   access_key: System.get_env("AWS_ACCESS_KEY_ID"),
-    #   secret: System.get_env("AWS_SECRET_ACCESS_KEY")
+    #   region: PhoenixKit.Config.AWS.region()
     #
     # Then configure PhoenixKit to use your mailer:
     # config :phoenix_kit,
@@ -520,9 +525,7 @@ defmodule PhoenixKit.Install.MailerConfig do
     # Legacy approach (using PhoenixKit's built-in mailer):
     # config :phoenix_kit, PhoenixKit.Mailer,
     #   adapter: Swoosh.Adapters.AmazonSES,
-    #   region: "eu-north-1",
-    #   access_key: System.get_env("AWS_ACCESS_KEY_ID"),
-    #   secret: System.get_env("AWS_SECRET_ACCESS_KEY")
+    #   region: PhoenixKit.Config.AWS.region()
 
     # STEP 5: AWS SES Setup Checklist
     # □ Create AWS IAM user with SES permissions (ses:*)
@@ -530,10 +533,7 @@ defmodule PhoenixKit.Install.MailerConfig do
     # □ Verify recipient email addresses (if in sandbox mode)
     # □ Ensure correct AWS region matches your verification
     # □ Request production access to send to any email
-    # □ Set environment variables:
-    #   - AWS_ACCESS_KEY_ID
-    #   - AWS_SECRET_ACCESS_KEY
-    #   - AWS_REGION (optional, defaults to eu-north-1)
+    # □ Configure AWS credentials in config/config.exs (see STEP 4 above)
 
     # Common AWS SES regions:
     # - eu-west-1 (Ireland)

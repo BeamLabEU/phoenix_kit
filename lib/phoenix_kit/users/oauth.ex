@@ -12,6 +12,7 @@ if Code.ensure_loaded?(Ueberauth) do
     import Ecto.Query, warn: false
     alias PhoenixKit.RepoHelper, as: Repo
 
+    alias PhoenixKit.Modules.Referrals
     alias PhoenixKit.Users.Auth
     alias PhoenixKit.Users.Auth.User
     alias PhoenixKit.Users.OAuthProvider
@@ -29,6 +30,7 @@ if Code.ensure_loaded?(Ueberauth) do
         with {:ok, user, _status} <-
                find_or_create_user(oauth_data, track_geolocation, ip_address),
              {:ok, _provider} <- link_oauth_provider(user, oauth_data),
+             {:ok, user} <- maybe_save_oauth_avatar(user, oauth_data),
              :ok <- maybe_process_referral_code(user, referral_code) do
           user
         else
@@ -43,7 +45,9 @@ if Code.ensure_loaded?(Ueberauth) do
     def find_or_create_user(oauth_data, track_geolocation \\ false, ip_address \\ nil) do
       case Auth.get_user_by_email(oauth_data.email) do
         %User{} = user ->
-          {:ok, user, :found}
+          # Auto-confirm email for existing users logging in via OAuth
+          {:ok, confirmed_user} = maybe_confirm_user(user)
+          {:ok, confirmed_user, :found}
 
         nil ->
           case register_oauth_user(oauth_data, track_geolocation, ip_address) do
@@ -52,6 +56,34 @@ if Code.ensure_loaded?(Ueberauth) do
           end
       end
     end
+
+    # Auto-confirm email for unconfirmed users logging in via OAuth.
+    # OAuth providers verify email ownership, so we can trust it.
+    defp maybe_confirm_user(%User{confirmed_at: nil} = user) do
+      case Auth.admin_confirm_user(user) do
+        {:ok, confirmed_user} -> {:ok, confirmed_user}
+        {:error, _changeset} -> {:ok, user}
+      end
+    end
+
+    defp maybe_confirm_user(%User{} = user), do: {:ok, user}
+
+    # Save OAuth avatar URL to user's custom_fields if available
+    # This enables displaying the OAuth provider's avatar in the UI
+    defp maybe_save_oauth_avatar(user, %{image: image}) when is_binary(image) and image != "" do
+      # Only update if user doesn't already have a custom avatar
+      case user.custom_fields do
+        %{"avatar_file_id" => file_id} when is_binary(file_id) and file_id != "" ->
+          # User has a custom avatar, don't override
+          {:ok, user}
+
+        _ ->
+          # Save OAuth avatar URL for fallback display
+          Auth.set_user_custom_field(user, "oauth_avatar_url", image)
+      end
+    end
+
+    defp maybe_save_oauth_avatar(user, _oauth_data), do: {:ok, user}
 
     @doc """
     Links an OAuth provider to a user account.
@@ -132,14 +164,20 @@ if Code.ensure_loaded?(Ueberauth) do
         email: oauth_data.email,
         password: generate_random_password(),
         first_name: oauth_data.first_name,
-        last_name: oauth_data.last_name,
-        confirmed_at: NaiveDateTime.utc_now() |> NaiveDateTime.truncate(:second)
+        last_name: oauth_data.last_name
       }
 
-      if track_geolocation && ip_address do
-        Auth.register_user_with_geolocation(attrs, ip_address)
-      else
-        Auth.register_user(attrs, ip_address)
+      result =
+        if track_geolocation && ip_address do
+          Auth.register_user_with_geolocation(attrs, ip_address)
+        else
+          Auth.register_user(attrs, ip_address)
+        end
+
+      # Auto-confirm email for OAuth users (providers verify email ownership)
+      case result do
+        {:ok, user} -> maybe_confirm_user(user)
+        error -> error
       end
     end
 
@@ -184,10 +222,10 @@ if Code.ensure_loaded?(Ueberauth) do
     defp maybe_process_referral_code(_user, nil), do: :ok
 
     defp maybe_process_referral_code(user, referral_code) when is_binary(referral_code) do
-      if Code.ensure_loaded?(PhoenixKit.ReferralCodes) do
-        case PhoenixKit.ReferralCodes.get_code_by_string(referral_code) do
+      if Code.ensure_loaded?(Referrals) do
+        case Referrals.get_code_by_string(referral_code) do
           nil -> :ok
-          code -> PhoenixKit.ReferralCodes.use_code(code.code, user.id)
+          code -> Referrals.use_code(code.code, user.id)
         end
       end
 

@@ -5,7 +5,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
 
   use PhoenixKitWeb, :live_view
 
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
   alias PhoenixKit.Users.MagicLinkRegistration
@@ -16,7 +16,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
     case MagicLinkRegistration.verify_registration_token(token) do
       {:ok, email} ->
         # Get referral codes configuration
-        referral_codes_config = ReferralCodes.get_config()
+        referral_codes_config = Referrals.get_config()
 
         # Generate username suggestion from email
         suggested_username = User.generate_username_from_email(email)
@@ -157,7 +157,7 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
   end
 
   defp validate_referral_code_value(code_string) do
-    case ReferralCodes.get_code_by_string(code_string) do
+    case Referrals.get_code_by_string(code_string) do
       nil ->
         {:error, "Invalid referral code"}
 
@@ -166,10 +166,10 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistration do
           not code.status ->
             {:error, "This referral code is no longer active"}
 
-          ReferralCodes.expired?(code) ->
+          Referrals.expired?(code) ->
             {:error, "This referral code has expired"}
 
-          ReferralCodes.usage_limit_reached?(code) ->
+          Referrals.usage_limit_reached?(code) ->
             {:error, "This referral code has reached its usage limit"}
 
           true ->

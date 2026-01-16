@@ -1,0 +1,163 @@
+<%!-- Acceptable Use Policy Template --%>
+<%!-- Variables: company_name, company_address, company_country, company_website, dpo_name, dpo_email, frameworks, effective_date --%>
+
+> **DRAFT DOCUMENT - LEGAL REVIEW REQUIRED**
+>
+> This document was auto-generated based on your selected compliance frameworks.
+> It provides a basic template that meets minimum requirements but MUST be reviewed
+> and customized by a qualified legal professional before publication.
+>
+> Last generated: <%= @effective_date %>
+
+---
+
+**Effective Date:** <%= @effective_date %>
+
+## 1. Introduction
+
+This Acceptable Use Policy ("Policy") governs your use of the services, websites, and applications (collectively, "Services") provided by <%= @company_name %> ("we," "our," or "us")<%= if @company_website != "", do: " at #{@company_website}", else: "" %>.
+
+By accessing or using our Services, you agree to comply with this Policy. If you do not agree, you must not use our Services.
+
+## 2. Scope
+
+This Policy applies to all users of our Services, including:
+- Registered account holders
+- Visitors to our websites
+- API users and developers
+- Any person or entity accessing our Services
+
+## 3. Acceptable Use
+
+You agree to use our Services only for lawful purposes and in accordance with this Policy. You may:
+
+- Use the Services for their intended purpose
+- Create and manage legitimate user accounts
+- Share content you have the right to distribute
+- Communicate respectfully with other users and our team
+- Report violations or security vulnerabilities responsibly
+
+## 4. Prohibited Activities
+
+You must NOT use our Services to:
+
+### 4.1 Illegal Activities
+- Violate any applicable laws, regulations, or third-party rights
+- Engage in fraud, money laundering, or terrorist financing
+- Distribute illegal content or materials
+- Facilitate or promote illegal activities
+
+### 4.2 Harmful Content
+- Upload, transmit, or distribute malware, viruses, or malicious code
+- Distribute spam, phishing attempts, or deceptive content
+- Post content that is defamatory, obscene, or threatening
+- Share content that exploits or harms minors
+- Distribute hate speech or content promoting discrimination
+
+### 4.3 Security Violations
+- Attempt unauthorized access to systems or accounts
+- Interfere with or disrupt the Services or networks
+- Circumvent security measures or access controls
+- Engage in denial-of-service attacks or similar activities
+- Scrape, harvest, or collect user data without authorization
+
+### 4.4 Intellectual Property Violations
+- Infringe copyrights, trademarks, or other intellectual property rights
+- Remove or alter proprietary notices or labels
+- Use the Services to pirate or distribute unauthorized content
+
+### 4.5 Abusive Behavior
+- Harass, threaten, or intimidate other users
+- Impersonate others or misrepresent your identity
+- Stalk or invade the privacy of other users
+- Engage in bullying or targeted attacks
+
+### 4.6 System Abuse
+- Create multiple accounts to evade restrictions
+- Use automated tools without authorization
+- Overload systems with excessive requests
+- Exploit bugs or vulnerabilities (except through responsible disclosure)
+
+## 5. Content Standards
+
+When creating or sharing content through our Services, you must ensure it:
+
+- Is accurate and not misleading
+- Does not violate third-party rights
+- Complies with applicable laws
+- Is appropriate for the intended audience
+- Does not contain personal data of others without consent
+
+## 6. Account Responsibilities
+
+If you have an account with us, you are responsible for:
+
+- Maintaining the security of your login credentials
+- All activities occurring under your account
+- Promptly reporting any unauthorized access
+- Keeping your account information accurate and up-to-date
+- Complying with any age restrictions
+
+## 7. Monitoring and Enforcement
+
+We reserve the right to:
+
+- Monitor use of the Services for policy compliance
+- Investigate suspected violations
+- Remove or disable access to violating content
+- Suspend or terminate accounts for policy violations
+- Report illegal activities to law enforcement
+- Take legal action against violators
+
+## 8. Reporting Violations
+
+If you become aware of any violation of this Policy, please report it to:
+
+<%= if @dpo_email != "" do %>**Email:** <%= @dpo_email %><% end %>
+<%= if @company_address != "" do %>**Mail:** <%= @company_address %><% end %>
+
+We take all reports seriously and will investigate promptly.
+
+## 9. Consequences of Violations
+
+Violations of this Policy may result in:
+
+- Warning or notice of violation
+- Temporary suspension of access
+- Permanent termination of account
+- Removal of content
+- Legal action
+- Reporting to law enforcement
+
+The severity of the consequence will depend on the nature and frequency of the violation.
+
+## 10. No Waiver
+
+Our failure to enforce any provision of this Policy does not constitute a waiver of our right to enforce it in the future.
+
+## 11. Changes to This Policy
+
+We may update this Policy from time to time. We will notify you of significant changes by:
+- Posting the updated Policy on our website
+- Sending notification to registered users
+- Updating the "Effective Date" at the top
+
+Your continued use of the Services after changes become effective constitutes acceptance of the updated Policy.
+
+## 12. Relationship with Other Policies
+
+This Policy is supplementary to our:
+- Terms of Service
+- Privacy Policy
+- Cookie Policy
+
+In case of conflict, the Terms of Service shall prevail.
+
+## 13. Contact Information
+
+For questions about this Acceptable Use Policy, please contact:
+
+**<%= @company_name %>**
+<%= if @company_address != "" do %><%= @company_address %><% end %>
+<%= if @dpo_email != "" do %>Email: <%= @dpo_email %><% end %>
+<%= if @company_website != "" do %>Website: <%= @company_website %><% end %>

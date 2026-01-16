@@ -10,6 +10,7 @@ defmodule PhoenixKitWeb.Users.Login do
 
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Config
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.IpAddress
   alias PhoenixKit.Utils.Routes
@@ -32,15 +33,24 @@ defmodule PhoenixKitWeb.Users.Login do
     allow_registration = Settings.get_boolean_setting("allow_registration", true)
     magic_link_enabled = Settings.get_boolean_setting("magic_link_login_enabled", true)
 
-    email = Phoenix.Flash.get(socket.assigns.flash, :email)
-    form = to_form(%{"email" => email}, as: "user")
+    # Check if language switcher should be shown
+    show_language_switcher =
+      Languages.enabled?() and length(Languages.get_enabled_languages()) > 1
+
+    # Support both old :email flash and new :email_or_username flash for backwards compatibility
+    email_or_username =
+      Phoenix.Flash.get(socket.assigns.flash, :email_or_username) ||
+        Phoenix.Flash.get(socket.assigns.flash, :email)
+
+    form = to_form(%{"email_or_username" => email_or_username}, as: "user")
 
     socket =
       assign(socket,
         form: form,
         project_title: project_title,
         allow_registration: allow_registration,
-        magic_link_enabled: magic_link_enabled
+        magic_link_enabled: magic_link_enabled,
+        show_language_switcher: show_language_switcher
       )
 
     {:ok, socket, temporary_assigns: [form: form]}

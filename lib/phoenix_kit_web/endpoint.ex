@@ -13,6 +13,11 @@ defmodule PhoenixKitWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: false
 
+  # DB Sync socket for cross-site data sync
+  socket "/sync", PhoenixKit.Modules.Sync.Web.Socket,
+    websocket: [connect_info: [:peer_data, :x_headers]],
+    longpoll: false
+
   # Serve at "/" the static files from "priv/static" directory.
   plug Plug.Static,
     at: "/",

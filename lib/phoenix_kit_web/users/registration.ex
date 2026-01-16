@@ -10,7 +10,7 @@ defmodule PhoenixKitWeb.Users.Registration do
 
   alias PhoenixKit.Admin.Presence
   alias PhoenixKit.Config
-  alias PhoenixKit.ReferralCodes
+  alias PhoenixKit.Modules.Referrals
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Users.Auth.User
@@ -38,11 +38,14 @@ defmodule PhoenixKitWeb.Users.Registration do
       project_title = Settings.get_setting("project_title", "PhoenixKit")
 
       # Get referral codes configuration
-      referral_codes_config = ReferralCodes.get_config()
+      referral_codes_config = Referrals.get_config()
 
       # Get Magic Link registration setting
       magic_link_registration_enabled =
         Settings.get_boolean_setting("magic_link_registration_enabled", true)
+
+      # Get username field visibility setting
+      show_username = Settings.get_setting("registration_show_username", "true") != "false"
 
       changeset = Auth.change_user_registration(%User{})
 
@@ -59,6 +62,7 @@ defmodule PhoenixKitWeb.Users.Registration do
         |> assign(referral_code_error: nil)
         |> assign(user_ip_address: ip_address)
         |> assign(magic_link_registration_enabled: magic_link_registration_enabled)
+        |> assign(show_username: show_username)
         |> assign_form(changeset)
 
       {:ok, socket, temporary_assigns: [form: nil]}
@@ -97,7 +101,7 @@ defmodule PhoenixKitWeb.Users.Registration do
           {:ok, user} ->
             # Record referral code usage if provided and valid
             if validated_code do
-              ReferralCodes.use_code(validated_code.code, user.id)
+              Referrals.use_code(validated_code.code, user.id)
             end
 
             case Auth.deliver_user_confirmation_instructions(
@@ -190,7 +194,7 @@ defmodule PhoenixKitWeb.Users.Registration do
   end
 
   defp validate_referral_code_value(code_string) do
-    case ReferralCodes.get_code_by_string(code_string) do
+    case Referrals.get_code_by_string(code_string) do
       nil ->
         {:error, "Invalid referral code"}
 
@@ -199,10 +203,10 @@ defmodule PhoenixKitWeb.Users.Registration do
           not code.status ->
             {:error, "This referral code is no longer active"}
 
-          PhoenixKit.ReferralCodes.expired?(code) ->
+          Referrals.expired?(code) ->
             {:error, "This referral code has expired"}
 
-          PhoenixKit.ReferralCodes.usage_limit_reached?(code) ->
+          Referrals.usage_limit_reached?(code) ->
             {:error, "This referral code has reached its usage limit"}
 
           true ->

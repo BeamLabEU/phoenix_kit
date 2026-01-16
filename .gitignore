@@ -88,9 +88,11 @@ yarn-debug.log*
 yarn-error.log*
 
 # Assets compilation (legacy Phoenix apps)
-/priv/static/assets/
 /priv/static/cache_manifest.json
 /assets/node_modules/
+
+# Generated sitemap (should be created on production site, not in repo)
+/priv/static/sitemap.xml
 
 # Ignore personal notes
 NOTES.md
@@ -102,3 +104,7 @@ memory.json
 CLAUDE.local.md
 
 *.tar
+*.zip
+
+# Uploaded media files
+/priv/media/

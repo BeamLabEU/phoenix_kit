@@ -69,4 +69,32 @@ defmodule PhoenixKitTest do
       assert current >= 15
     end
   end
+
+  describe "Posts worker modules" do
+    test "PublishScheduledPostsJob worker is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Posts.Workers.PublishScheduledPostsJob)
+    end
+
+    test "ScheduledPostHandler is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.Posts.ScheduledPostHandler)
+    end
+  end
+
+  describe "ScheduledJobs modules" do
+    test "ScheduledJobs context is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.ScheduledJobs)
+    end
+
+    test "ScheduledJob schema is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.ScheduledJobs.ScheduledJob)
+    end
+
+    test "Handler behaviour is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.ScheduledJobs.Handler)
+    end
+
+    test "ProcessScheduledJobsWorker is defined" do
+      assert Code.ensure_loaded?(PhoenixKit.ScheduledJobs.Workers.ProcessScheduledJobsWorker)
+    end
+  end
 end

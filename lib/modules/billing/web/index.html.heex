@@ -1,0 +1,266 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Billing"
+  current_path={@url_path}
+  project_title={@project_title}
+>
+  <div class="container mx-auto px-4 py-6">
+    <%!-- Header --%>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+      <div>
+        <h1 class="text-3xl font-bold">Billing Dashboard</h1>
+        <p class="text-base-content/60 mt-1">
+          Overview of orders, invoices, and billing activity
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <button phx-click="refresh" class="btn btn-ghost btn-sm">
+          <.icon name="hero-arrow-path" class="w-4 h-4" /> Refresh
+        </button>
+        <.link
+          navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/new")}
+          class="btn btn-primary btn-sm"
+        >
+          <.icon name="hero-plus" class="w-4 h-4" /> New Order
+        </.link>
+      </div>
+    </div>
+
+    <%!-- Stats Cards --%>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-figure text-primary">
+          <.icon name="hero-clipboard-document-list" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">Total Orders</div>
+        <div class="stat-value text-primary">{@stats.total_orders}</div>
+        <div class="stat-desc">{@stats.orders_this_month} this month</div>
+      </div>
+
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-figure text-secondary">
+          <.icon name="hero-document-text" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">Total Invoices</div>
+        <div class="stat-value text-secondary">{@stats.total_invoices}</div>
+        <div class="stat-desc">{@stats.invoices_this_month} this month</div>
+      </div>
+
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-figure text-success">
+          <.icon name="hero-banknotes" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">Paid Revenue</div>
+        <div class="stat-value text-success">
+          <.currency_compact
+            amount={@stats.total_paid_revenue}
+            currency={@stats.default_currency}
+          />
+        </div>
+        <div class="stat-desc">{@stats.paid_invoices_count} paid invoices</div>
+      </div>
+
+      <div class="stat bg-base-100 rounded-box shadow">
+        <div class="stat-figure text-warning">
+          <.icon name="hero-clock" class="w-8 h-8" />
+        </div>
+        <div class="stat-title">Pending</div>
+        <div class="stat-value text-warning">
+          <.currency_compact amount={@stats.pending_revenue} currency={@stats.default_currency} />
+        </div>
+        <div class="stat-desc">{@stats.pending_invoices_count} pending invoices</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <%!-- Recent Orders --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">Recent Orders</h2>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders")}
+              class="btn btn-ghost btn-sm"
+            >
+              View All <.icon name="hero-arrow-right" class="w-4 h-4" />
+            </.link>
+          </div>
+
+          <%= if Enum.empty?(@recent_orders) do %>
+            <div class="text-center py-8 text-base-content/50">
+              <.icon
+                name="hero-clipboard-document-list"
+                class="w-12 h-12 mx-auto mb-2 opacity-50"
+              />
+              <p>No orders yet</p>
+              <.link
+                navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/new")}
+                class="btn btn-primary btn-sm mt-4"
+              >
+                Create First Order
+              </.link>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Order #</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for order <- @recent_orders do %>
+                    <tr
+                      class="hover cursor-pointer"
+                      phx-click="view_order"
+                      phx-value-id={order.id}
+                    >
+                      <td class="font-mono text-sm">{order.order_number}</td>
+                      <td><.order_status_badge status={order.status} /></td>
+                      <td>
+                        <.currency_compact amount={order.total} currency={order.currency} />
+                      </td>
+                      <td class="text-sm text-base-content/60">
+                        <.time_ago datetime={order.inserted_at} />
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%!-- Recent Invoices --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="card-title">Recent Invoices</h2>
+            <.link
+              navigate={PhoenixKit.Utils.Routes.path("/admin/billing/invoices")}
+              class="btn btn-ghost btn-sm"
+            >
+              View All <.icon name="hero-arrow-right" class="w-4 h-4" />
+            </.link>
+          </div>
+
+          <%= if Enum.empty?(@recent_invoices) do %>
+            <div class="text-center py-8 text-base-content/50">
+              <.icon name="hero-document-text" class="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p>No invoices yet</p>
+              <p class="text-sm mt-2">Create an order first to generate invoices</p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Invoice #</th>
+                    <th>Status</th>
+                    <th>Total</th>
+                    <th>Due Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%= for invoice <- @recent_invoices do %>
+                    <tr
+                      class="hover cursor-pointer"
+                      phx-click="view_invoice"
+                      phx-value-id={invoice.id}
+                    >
+                      <td class="font-mono text-sm">{invoice.invoice_number}</td>
+                      <td><.invoice_status_badge status={invoice.status} /></td>
+                      <td>
+                        <.currency_compact amount={invoice.total} currency={invoice.currency} />
+                      </td>
+                      <td class="text-sm text-base-content/60">
+                        <%= if invoice.due_date do %>
+                          {Calendar.strftime(invoice.due_date, "%b %d, %Y")}
+                        <% else %>
+                          <span class="text-base-content/40">-</span>
+                        <% end %>
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Quick Actions --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <h2 class="card-title mb-4">Quick Actions</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/orders/new")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-plus" class="w-5 h-5" /> New Order
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/subscriptions")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-credit-card" class="w-5 h-5" /> Subscriptions
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/plans")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-squares-2x2" class="w-5 h-5" /> Plans
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/profiles")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-users" class="w-5 h-5" /> Billing Profiles
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing")}
+            class="btn btn-outline"
+          >
+            <.icon name="hero-cog-6-tooth" class="w-5 h-5" /> Settings
+          </.link>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/settings/billing/providers")}
+            class="btn btn-primary"
+          >
+            <.icon name="hero-credit-card" class="w-5 h-5" /> Payment Providers
+          </.link>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Active Currencies --%>
+    <div class="card bg-base-100 shadow-xl mt-6">
+      <div class="card-body">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="card-title">Active Currencies</h2>
+          <.link
+            navigate={PhoenixKit.Utils.Routes.path("/admin/billing/currencies")}
+            class="btn btn-ghost btn-sm"
+          >
+            Manage <.icon name="hero-arrow-right" class="w-4 h-4" />
+          </.link>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <%= for currency <- @currencies do %>
+            <.currency_badge code={currency.code} name={currency.name} size={:md} />
+          <% end %>
+          <%= if Enum.empty?(@currencies) do %>
+            <span class="text-base-content/50">No currencies configured</span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

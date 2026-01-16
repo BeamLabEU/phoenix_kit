@@ -1,0 +1,179 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title="{@project_title} Referrals"
+  current_path={@url_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="container flex flex-col mx-auto px-4 py-6">
+    <%!-- Header Section --%>
+    <header class="w-full relative mb-6">
+      <%!-- Back Button (Left aligned) --%>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
+        class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_arrow_left /> Back to Settings
+      </.link>
+
+      <%!-- Title Section --%>
+      <div class="text-center">
+        <h1 class="text-4xl font-bold text-base-content mb-3">Referrals Settings</h1>
+        <p class="text-lg text-base-content">
+          Configure referrals behavior and limits
+        </p>
+      </div>
+    </header>
+
+    <%!-- Main Content --%>
+    <div class="max-w-4xl mx-auto space-y-8">
+      <%!-- Status Card --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <h2 class="card-title text-2xl mb-4">
+            <.icon name="hero-cog-6-tooth" class="w-6 h-6" /> Status
+          </h2>
+
+          <div class="form-control">
+            <label class="label cursor-pointer">
+              <span class="label-text text-lg">
+                <span class="font-semibold">Enable Referrals</span>
+                <div class="text-sm text-base-content/70 mt-1">
+                  Allow users to create and use referrals for registration
+                </div>
+              </span>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary"
+                checked={@referral_codes_enabled}
+                phx-click="toggle_referral_codes"
+              />
+            </label>
+          </div>
+
+          <%= if @referral_codes_enabled do %>
+            <div class="divider"></div>
+
+            <div class="form-control">
+              <label class="label cursor-pointer">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Require Referrals</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Make referrals mandatory for user registration
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-secondary"
+                  checked={@referral_codes_required}
+                  phx-click="toggle_referral_codes_required"
+                />
+              </label>
+            </div>
+          <% end %>
+        </div>
+      </div>
+
+      <%= if @referral_codes_enabled do %>
+        <%!-- Usage Limits Card --%>
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            <h2 class="card-title text-2xl mb-4">
+              <.icon name="hero-scale" class="w-6 h-6" /> Usage Limits
+            </h2>
+
+            <%!-- Max Uses Per Code --%>
+            <div class="form-control mb-4">
+              <label class="label">
+                <span class="label-text text-lg font-semibold">Maximum Uses Per Code</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  placeholder="Enter max uses"
+                  class="input input-bordered w-full max-w-xs"
+                  value={@max_uses_per_code}
+                  min="1"
+                  max="10000"
+                  phx-blur="update_max_uses_per_code"
+                  phx-value-max_uses_per_code={assigns[:max_uses_per_code]}
+                />
+                <span class="bg-base-200 px-4 py-3 text-sm">uses</span>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  How many times each referral code can be used (1-10,000)
+                </span>
+              </label>
+            </div>
+
+            <%!-- Max Codes Per User --%>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text text-lg font-semibold">Maximum Codes Per User</span>
+              </label>
+              <div class="input-group">
+                <input
+                  type="number"
+                  placeholder="Enter max codes"
+                  class="input input-bordered w-full max-w-xs"
+                  value={@max_codes_per_user}
+                  min="1"
+                  max="1000"
+                  phx-blur="update_max_codes_per_user"
+                  phx-value-max_codes_per_user={assigns[:max_codes_per_user]}
+                />
+                <span class="bg-base-200 px-4 py-3 text-sm">codes</span>
+              </div>
+              <label class="label">
+                <span class="label-text-alt text-base-content/70">
+                  How many referral codes each user can create (1-1,000)
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <%!-- Current Configuration Summary --%>
+        <div class="alert alert-info">
+          <.icon name="hero-information-circle" class="w-5 h-5" />
+          <div>
+            <h3 class="font-bold">Current Configuration</h3>
+            <div class="text-sm mt-1">
+              <p>
+                Status:
+                <span class="font-semibold">
+                  {if @referral_codes_enabled, do: "Enabled", else: "Disabled"}
+                </span>
+              </p>
+              <%= if @referral_codes_enabled do %>
+                <p>
+                  Required:
+                  <span class="font-semibold">
+                    {if @referral_codes_required, do: "Yes", else: "No"}
+                  </span>
+                </p>
+                <p>Max uses per code: <span class="font-semibold">{@max_uses_per_code}</span></p>
+                <p>
+                  Max codes per user: <span class="font-semibold">{@max_codes_per_user}</span>
+                </p>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      <% else %>
+        <%!-- Disabled State Information --%>
+        <div class="alert alert-warning">
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
+          <div>
+            <h3 class="font-bold">Referrals Disabled</h3>
+            <p class="text-sm mt-1">
+              Enable referrals above to access configuration options and allow users to create referrals.
+            </p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

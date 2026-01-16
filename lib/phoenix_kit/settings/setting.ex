@@ -54,12 +54,18 @@ defmodule PhoenixKit.Settings.Setting do
 
   # Settings that are allowed to have empty/nil values
   @optional_settings [
+    # AWS Credentials
     "aws_access_key_id",
     "aws_secret_access_key",
+    "aws_region",
+    # AWS Infrastructure
     "aws_sqs_queue_url",
     "aws_sqs_dlq_url",
     "aws_sqs_queue_arn",
     "aws_sns_topic_arn",
+    "aws_ses_configuration_set",
+    "sqs_polling_interval_ms",
+    # General
     "site_url",
     # OAuth Provider Credentials
     "oauth_google_client_id",
@@ -77,6 +83,7 @@ defmodule PhoenixKit.Settings.Setting do
   @primary_key {:id, :id, autogenerate: true}
 
   schema "phoenix_kit_settings" do
+    field :uuid, Ecto.UUID
     field :key, :string
     field :value, :string
     field :value_json, :map
@@ -101,6 +108,14 @@ defmodule PhoenixKit.Settings.Setting do
     |> validate_length(:module, max: 255)
     |> unique_constraint(:key, name: :phoenix_kit_settings_key_uidx)
     |> maybe_set_timestamps()
+    |> maybe_generate_uuid()
+  end
+
+  defp maybe_generate_uuid(changeset) do
+    case get_field(changeset, :uuid) do
+      nil -> put_change(changeset, :uuid, UUIDv7.generate())
+      _ -> changeset
+    end
   end
 
   @doc """
@@ -245,6 +260,7 @@ defmodule PhoenixKit.Settings.Setting do
       field :date_format, :string
       field :time_format, :string
       field :track_registration_geolocation, :string
+      field :registration_show_username, :string
       # Admin Panel Languages
       field :admin_languages, :string
       # OAuth Provider Credentials
@@ -307,6 +323,7 @@ defmodule PhoenixKit.Settings.Setting do
         :date_format,
         :time_format,
         :track_registration_geolocation,
+        :registration_show_username,
         :admin_languages,
         :oauth_google_client_id,
         :oauth_google_client_secret,

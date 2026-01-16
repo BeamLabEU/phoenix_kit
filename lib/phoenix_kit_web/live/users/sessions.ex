@@ -23,9 +23,9 @@ defmodule PhoenixKitWeb.Live.Users.Sessions do
 
   def mount(params, _session, socket) do
     # Set locale for LiveView process
-    locale = params["locale"] || socket.assigns[:current_locale] || "en"
-    Gettext.put_locale(PhoenixKitWeb.Gettext, locale)
-    Process.put(:phoenix_kit_current_locale, locale)
+    locale =
+      params["locale"] || socket.assigns[:current_locale]
+
     # Subscribe to session events for real-time updates
     if connected?(socket) do
       Events.subscribe_to_sessions()

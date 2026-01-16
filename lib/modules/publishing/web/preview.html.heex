@@ -1,0 +1,59 @@
+<PhoenixKitWeb.Components.LayoutWrapper.app_layout
+  flash={@flash}
+  phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
+  page_title={@page_title}
+  current_path={@current_path}
+  project_title={@project_title}
+  current_locale={@current_locale}
+>
+  <div class="min-h-screen bg-base-100">
+    <%!-- Preview Header --%>
+    <div class="bg-info text-info-content py-3 px-4 sticky top-0 z-50 shadow-lg">
+      <div class="container mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <.icon name="hero-eye" class="w-5 h-5" />
+          <span class="font-semibold">{gettext("Preview Mode")}</span>
+          <span class="text-sm opacity-80">
+            —
+            <%= if @preview_source == :unsaved do %>
+              {gettext("Showing unsaved changes")}
+            <% else %>
+              {gettext("Showing saved content")}
+            <% end %>
+          </span>
+        </div>
+        <div class="flex gap-2">
+          <button type="button" class="btn btn-sm btn-ghost" phx-click="back_to_editor">
+            <.icon name="hero-pencil-square" class="w-4 h-4 mr-1" />
+            {gettext("Back to Editor")}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <%!-- Preview Content --%>
+    <%= if @error do %>
+      <div class="container mx-auto px-4 py-12">
+        <div class="alert alert-error">
+          <.icon name="hero-exclamation-triangle" class="w-6 h-6" />
+          <div>
+            <h3 class="font-bold">{gettext("Preview Error")}</h3>
+            <p class="text-sm">{@error}</p>
+          </div>
+        </div>
+      </div>
+    <% else %>
+      <%= if @rendered_content do %>
+        <div class="container mx-auto px-4 py-8 max-w-4xl">
+          <.markdown_content content={@rendered_content} />
+        </div>
+      <% else %>
+        <div class="container mx-auto px-4 py-12">
+          <div class="flex items-center justify-center">
+            <span class="loading loading-spinner loading-lg"></span>
+          </div>
+        </div>
+      <% end %>
+    <% end %>
+  </div>
+</PhoenixKitWeb.Components.LayoutWrapper.app_layout>

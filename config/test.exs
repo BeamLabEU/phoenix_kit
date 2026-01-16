@@ -36,9 +36,9 @@ config :phoenix_kit,
   session_fingerprint_enabled: true,
   session_fingerprint_strict: false
 
-# Future: Configure FakeSettings when blogging tests are implemented
+# Future: Configure FakeSettings when publishing tests are implemented
 # config :phoenix_kit,
-#   blogging_settings_module: PhoenixKit.Test.FakeSettings
+#   publishing_settings_module: PhoenixKit.Test.FakeSettings
 
 # Configure logger for tests
 config :logger, level: :warning

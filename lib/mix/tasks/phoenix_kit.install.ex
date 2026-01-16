@@ -53,10 +53,13 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       BrowserPipelineIntegration,
       CssIntegration,
       DemoFiles,
+      EndpointIntegration,
+      JsIntegration,
       LayoutConfig,
       MailerConfig,
       MigrationStrategy,
       OAuthConfig,
+      ObanConfig,
       RateLimiterConfig,
       RepoDetection,
       RouterIntegration
@@ -95,12 +98,16 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       |> MailerConfig.add_mailer_configuration()
       |> RateLimiterConfig.add_rate_limiter_configuration()
       |> OAuthConfig.add_oauth_configuration()
+      |> ObanConfig.add_oban_configuration()
       |> ApplicationSupervisor.add_supervisor()
+      |> ObanConfig.add_oban_supervisor()
       |> LayoutConfig.add_layout_integration_configuration()
       |> CssIntegration.add_automatic_css_integration()
+      |> JsIntegration.add_automatic_js_integration()
       |> DemoFiles.copy_test_demo_files()
       |> RouterIntegration.add_router_integration(opts[:router_path])
       |> BrowserPipelineIntegration.add_integration_to_browser_pipeline()
+      |> EndpointIntegration.add_endpoint_integration()
       |> MigrationStrategy.create_phoenix_kit_migration_only(opts)
       |> add_completion_notice()
     end
@@ -132,18 +139,40 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
         # CRITICAL: Check if required configuration exists BEFORE starting app
         # This prevents configuration timing issues where config is added via Igniter
         # but the app has already started with cached (missing) configuration
+
+        # Check if this is a retry pass (automatic restart after adding config)
+        is_retry = Process.get(:phoenix_kit_retry_pass, false)
         config_status = check_required_configuration()
 
-        case config_status do
-          :missing ->
+        case {config_status, is_retry} do
+          {:missing, false} ->
             # First pass: Add configuration via Igniter without starting app
-            show_missing_config_message(argv)
-            result = super(argv)
-            show_config_added_message(argv)
-            result
+            # Store status in Process dictionary for tracking
+            Process.put(:phoenix_kit_config_status, :missing)
 
-          :ok ->
+            show_missing_config_message(argv)
+            super(argv)
+
+            # AUTOMATIC RESTART instead of asking user to run again manually
+            Mix.shell().info("""
+
+            ✅ Configuration added successfully!
+            🔄 Automatically restarting to complete the installation...
+            """)
+
+            # Clean Process dictionary to ensure fresh state for retry
+            Process.delete(:phoenix_kit_config_status)
+
+            # Mark this as a retry pass to prevent infinite loops
+            Process.put(:phoenix_kit_retry_pass, true)
+
+            # Recursive call with same arguments - automatic restart
+            run(argv)
+
+          {:ok, _} ->
             # Second pass: Configuration exists, safe to start app and complete installation
+            Process.put(:phoenix_kit_config_status, :ok)
+
             # Run standard igniter process
             result = super(argv)
 
@@ -155,7 +184,27 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
               AssetRebuild.check_and_rebuild(verbose: true)
             end
 
+            # Clean up retry flag on successful completion
+            Process.delete(:phoenix_kit_retry_pass)
             result
+
+          {:missing, true} ->
+            # Safety check: Configuration still missing after automatic retry
+            # This prevents infinite loops if configuration addition fails
+            Mix.shell().error("""
+
+            ❌ Configuration was not added successfully after automatic retry.
+
+            Please check config/config.exs manually and ensure it contains:
+            - config :ueberauth, Ueberauth (with providers: [])
+            - config :hammer (with backend and expiry_ms)
+            - config :phoenix_kit, Oban (with queues configuration)
+
+            Then run: mix phoenix_kit.install #{Enum.join(argv, " ")}
+            """)
+
+            Process.delete(:phoenix_kit_retry_pass)
+            :error
         end
       end
     end
@@ -230,15 +279,15 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
 
         # Default behavior (prefix: /phoenix_kit)
         phoenix_kit_routes()
-        # Routes: /phoenix_kit/users/register, /phoenix_kit/admin/dashboard
+        # Routes: /phoenix_kit/users/register, /phoenix_kit/admin
 
         # Custom prefix
         config :phoenix_kit, url_prefix: "/auth"
-        # Routes: /auth/users/register, /auth/admin/dashboard
+        # Routes: /auth/users/register, /auth/admin
 
         # No prefix (root-level routes)
         config :phoenix_kit, url_prefix: ""
-        # Routes: /users/register, /admin/dashboard
+        # Routes: /users/register, /admin
 
       AFTER INSTALLATION
         1. Run database migrations:
@@ -274,21 +323,11 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       PhoenixKit requires configuration for:
       - Ueberauth (OAuth authentication)
       - Hammer (rate limiting)
+      - Oban (background jobs for file processing)
 
       This configuration will be added now.
 
       After this completes, please run the install command again:
-        mix phoenix_kit.install #{Enum.join(argv, " ")}
-      """)
-    end
-
-    # Display message after configuration is added
-    defp show_config_added_message(argv) do
-      Mix.shell().info("""
-
-      ✅ Configuration added successfully!
-
-      Next step: Run the install command again to complete the installation:
         mix phoenix_kit.install #{Enum.join(argv, " ")}
       """)
     end
@@ -307,13 +346,12 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
           !String.contains?(content, "config :ueberauth") ->
             :missing
 
-          # Incorrect Ueberauth configuration (providers: [] instead of providers: %{})
-          String.contains?(content, "config :ueberauth, Ueberauth") &&
-              Regex.match?(~r/providers:\s*\[\s*\]/, content) ->
-            :missing
-
           # Missing Hammer configuration (check for active, non-commented config)
           !has_active_hammer_config?(lines) ->
+            :missing
+
+          # Missing Oban configuration (check for active, non-commented config)
+          !has_active_oban_config?(lines) ->
             :missing
 
           # All required configuration present
@@ -348,6 +386,26 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       has_hammer_config and has_expiry_ms
     end
 
+    # Check if active (non-commented) Oban configuration exists
+    defp has_active_oban_config?(lines) do
+      has_oban_config =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains config :any_app, Oban
+          !String.starts_with?(trimmed, "#") and
+            String.contains?(line, ", Oban")
+        end)
+
+      has_queues =
+        Enum.any?(lines, fn line ->
+          trimmed = String.trim(line)
+          # Not a comment and contains queues:
+          !String.starts_with?(trimmed, "#") and String.contains?(line, "queues:")
+        end)
+
+      has_oban_config and has_queues
+    end
+
     # Add completion notice with essential next steps (reduced duplication)
     defp add_completion_notice(igniter) do
       notice = """
@@ -371,7 +429,7 @@ else
 
     This task requires the Igniter library to be available. Please add it to your mix.exs:
 
-        {:igniter, "~> 0.6.27"}
+        {:igniter, "~> 0.7"}
 
     Then run: mix deps.get
     """
@@ -389,7 +447,7 @@ else
 
           def deps do
             [
-              {:igniter, "~> 0.6.27"}
+              {:igniter, "~> 0.7"}
               # ... your other dependencies
             ]
           end

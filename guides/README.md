@@ -2,6 +2,23 @@
 
 This folder contains comprehensive guides to help developers work with PhoenixKit features and patterns.
 
+## For External Users (Using PhoenixKit as a Dependency)
+
+### [Integration Guide](integration.md) ⭐ Start Here
+
+**The essential guide for developers using PhoenixKit as a Hex dependency.** Covers:
+- Quick start installation
+- Configuration reference
+- Using the Entities system
+- Public forms for contact/lead capture
+- Authentication integration
+- API reference with examples
+- Troubleshooting common issues
+
+**This guide is optimized for AI assistants** (Claude, Cursor, Copilot, Tidewave MCP) to help you integrate PhoenixKit into your Phoenix application.
+
+---
+
 ## Available Guides
 
 ### [Making Pages Live: Real-time Updates & Collaborative Editing](making-pages-live.md)
@@ -99,11 +116,16 @@ Links to actual implementation files.
 Future guides to add:
 - **Testing LiveView Pages** - Patterns for testing real-time features
 - **Database Migrations** - PhoenixKit's versioned migration system
-- **Authentication & Authorization** - Role-based access patterns
-- **Settings Management** - Adding new system settings
-- **Email System** - Implementing email logging and analytics
 - **UI Components** - Creating reusable Phoenix components
 - **Internationalization** - Multi-language support patterns
+
+## Completed Guides
+
+- ✅ **Integration Guide** - External user guide with API reference
+- ✅ **Making Pages Live** - Real-time updates and collaborative editing
+- ✅ **OAuth & Magic Link Setup** - Authentication providers
+- ✅ **AWS Email Setup** - Email infrastructure automation
+- ✅ **Auth Header Integration** - Authentication header patterns
 
 ## Feedback
 
