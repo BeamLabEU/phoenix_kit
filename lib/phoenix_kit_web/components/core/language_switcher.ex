@@ -162,7 +162,11 @@ defmodule PhoenixKitWeb.Components.Core.LanguageSwitcher do
 
     ~H"""
     <div class={["relative", @class]}>
-      <details class="dropdown dropdown-end dropdown-bottom" id="language-switcher-dropdown">
+      <details
+        class="dropdown dropdown-end dropdown-bottom"
+        id="language-switcher-dropdown"
+        phx-hook="LanguageSwitcherPosition"
+      >
         <summary class={[
           "btn btn-sm",
           if(@show_current, do: "gap-2", else: "btn-ghost btn-circle")

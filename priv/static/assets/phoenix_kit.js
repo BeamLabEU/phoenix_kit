@@ -26,6 +26,7 @@
  *   - ResetSelect ..... Reset select element to first option on event
  *   - TimeAgo ......... Client-side relative time updates
  *   - LanguageSwitcherSearch ... Client-side language filtering for dropdown
+ *   - LanguageSwitcherPosition . Auto-position dropdown based on viewport space
  *
  * @version 2.0.0
  * @license MIT
@@ -1153,6 +1154,49 @@
             });
           }
         }, 200);
+      });
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // LanguageSwitcherPosition Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Automatically positions the language switcher dropdown above or below
+  // based on available viewport space. Opens downward by default, switches
+  // to upward when there's not enough space below.
+  //
+  // Usage in LiveView template:
+  //   <details class="dropdown" phx-hook="LanguageSwitcherPosition">
+  //     <summary>...</summary>
+  //     <div class="dropdown-content">...</div>
+  //   </details>
+  //
+  // ---------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.LanguageSwitcherPosition = {
+    mounted() {
+      this.el.addEventListener("toggle", (e) => {
+        if (e.target.open) {
+          const rect = this.el.getBoundingClientRect();
+          const dropdownContent = this.el.querySelector(".dropdown-content");
+          if (!dropdownContent) return;
+
+          // Get actual or estimated content height
+          const contentHeight = dropdownContent.offsetHeight || 300;
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+
+          // Remove existing position classes
+          this.el.classList.remove("dropdown-top", "dropdown-bottom");
+
+          // Add appropriate position class based on available space
+          if (spaceBelow < contentHeight && spaceAbove > spaceBelow) {
+            this.el.classList.add("dropdown-top");
+          } else {
+            this.el.classList.add("dropdown-bottom");
+          }
+        }
       });
     }
   };
