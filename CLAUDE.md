@@ -371,6 +371,63 @@ def my_function do
 end
 ```
 
+### URL Prefix and Navigation (IMPORTANT)
+
+**NEVER hardcode PhoenixKit paths.** PhoenixKit uses a configurable URL prefix (default: `/phoenix_kit`). Always use the provided helpers to ensure paths work correctly regardless of prefix configuration.
+
+**Available Helpers:**
+
+1. **`Routes.path/1`** - Build prefix-aware paths in Elixir code
+2. **`<.pk_link>`** - Prefix-aware link component for templates
+
+**✅ CORRECT - Using Routes.path:**
+
+```elixir
+# In any LiveView or Controller (Routes is auto-imported)
+def handle_event("save", _params, socket) do
+  {:noreply, push_navigate(socket, to: Routes.path("/dashboard"))}
+end
+
+# Building URLs for emails
+url = Routes.url("/users/confirm/#{token}")
+```
+
+**✅ CORRECT - Using pk_link component:**
+
+```heex
+<%!-- Navigate with automatic prefix --%>
+<.pk_link navigate="/dashboard">Dashboard</.pk_link>
+
+<%!-- Patch for LiveView updates --%>
+<.pk_link patch="/dashboard/settings">Settings</.pk_link>
+
+<%!-- Button-styled link --%>
+<.pk_link_button navigate="/admin/users" variant="primary">
+  Manage Users
+</.pk_link_button>
+```
+
+**❌ WRONG - Hardcoded paths:**
+
+```heex
+<%!-- DON'T DO THIS - breaks when prefix changes --%>
+<.link navigate="/phoenix_kit/dashboard">Dashboard</.link>
+<.link navigate="/dashboard">Dashboard</.link>
+```
+
+**When to use which:**
+
+| Scenario | Use |
+|----------|-----|
+| Template navigation links | `<.pk_link navigate="/path">` |
+| Template patch links | `<.pk_link patch="/path">` |
+| `push_navigate` in LiveView | `Routes.path("/path")` |
+| `push_patch` in LiveView | `Routes.path("/path")` |
+| Redirect in Controller | `Routes.path("/path")` |
+| Email URLs | `Routes.url("/path")` |
+
+**Note:** `Routes` is automatically aliased in all LiveViews, LiveComponents, Controllers, and HTML modules via `PhoenixKitWeb`.
+
 ### Helper Functions: Use Components, Not Private Functions
 
 **CRITICAL RULE**: Never create private helper functions (`defp`) that are called directly from HEEX templates.
