@@ -60,7 +60,7 @@ defmodule PhoenixKitWeb.Components.Core.ThemeController do
               <li class="w-full">
                 <button
                   type="button"
-                  phx-click={JS.dispatch("phx:set-admin-theme", detail: %{theme: theme.value})}
+                  phx-click={JS.dispatch("phx:set-theme", detail: %{theme: theme.value})}
                   data-tip={theme.value}
                   data-theme-target={theme.value}
                   data-theme-role="dropdown-option"

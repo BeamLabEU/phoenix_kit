@@ -6,13 +6,10 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
   use PhoenixKitWeb, :html
 
-  alias PhoenixKit.Config
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Users.Auth.Scope
   alias PhoenixKit.Utils.Routes
-
-  import PhoenixKitWeb.Components.Core.ThemeController, only: [theme_controller: 1]
 
   @doc """
   Renders user dropdown for dashboard navigation.
@@ -76,16 +73,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
               <.icon name="hero-cog-6-tooth" class="w-4 h-4" />
               <span>Settings</span>
             </a>
-          </li>
-
-          <li>
-            <div class="menu-title px-4 py-1 flex items-center justify-between">
-              <span class="text-xs">Theme</span>
-              <.theme_controller
-                themes={Config.get(:dashboard_themes, :all)}
-                id="dashboard-theme-dropdown"
-              />
-            </div>
           </li>
 
           <% user_languages = get_user_languages() %>

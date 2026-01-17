@@ -70,6 +70,10 @@ context_selector_config =
       {assigns[:page_title] || "Dashboard"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+    <%!-- PhoenixKit Custom Theme CSS (phoenix-light, phoenix-dark) --%>
+    <style data-phoenix-kit-themes>
+      <%= Phoenix.HTML.raw(PhoenixKit.ThemeConfig.custom_theme_css()) %>
+    </style>
     <%!-- Dashboard animations CSS --%>
     <style>
       /* Shake animation for attention */
@@ -151,9 +155,9 @@ context_selector_config =
             <% end %>
           </div>
 
-          <%!-- Right: User Dropdown --%>
+          <%!-- Right: Context Selector, Theme, User Dropdown --%>
           <div class="flex items-center gap-3">
-            <%!-- Context Selector (header end - before user menu) --%>
+            <%!-- Context Selector (header end - before theme/user) --%>
             <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :end do %>
               <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
                 contexts={dashboard_contexts}
@@ -162,6 +166,11 @@ context_selector_config =
                 class="hidden sm:flex"
               />
             <% end %>
+            <%!-- Theme Switcher --%>
+            <PhoenixKitWeb.Components.Core.ThemeController.theme_controller
+              themes={PhoenixKit.Config.get(:dashboard_themes, :all)}
+              id="dashboard-theme-dropdown"
+            />
             <PhoenixKitWeb.Components.UserDashboardNav.user_dropdown
               scope={assigns[:phoenix_kit_current_scope]}
               current_path={assigns[:url_path] || "/dashboard"}
@@ -223,5 +232,81 @@ context_selector_config =
         </div>
       </div>
     </div>
+    <%!-- Theme Controller JavaScript --%>
+    <script>
+      (function() {
+        const STORAGE_KEY = 'phx:theme';
+        const themeBaseMap = {
+          'phoenix-light': 'light', 'light': 'light', 'cupcake': 'light', 'bumblebee': 'light',
+          'emerald': 'light', 'corporate': 'light', 'retro': 'light', 'cyberpunk': 'light',
+          'valentine': 'light', 'garden': 'light', 'aqua': 'light', 'lofi': 'light',
+          'pastel': 'light', 'fantasy': 'light', 'wireframe': 'light', 'cmyk': 'light',
+          'autumn': 'light', 'acid': 'light', 'lemonade': 'light', 'winter': 'light',
+          'caramellatte': 'light', 'silk': 'light',
+          'phoenix-dark': 'dark', 'dark': 'dark', 'synthwave': 'dark', 'halloween': 'dark',
+          'forest': 'dark', 'black': 'dark', 'luxury': 'dark', 'dracula': 'dark',
+          'business': 'dark', 'night': 'dark', 'coffee': 'dark', 'dim': 'dark',
+          'nord': 'dark', 'sunset': 'dark', 'abyss': 'dark'
+        };
+
+        function getSystemTheme() {
+          return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'phoenix-dark' : 'phoenix-light';
+        }
+
+        function applyTheme(theme) {
+          const html = document.documentElement;
+          const body = document.body;
+          let resolvedTheme = theme;
+          if (theme === 'system') {
+            resolvedTheme = getSystemTheme();
+          }
+          html.setAttribute('data-theme', resolvedTheme);
+          body.setAttribute('data-theme', resolvedTheme);
+          const base = themeBaseMap[resolvedTheme] || 'light';
+          html.style.colorScheme = base;
+          body.style.colorScheme = base;
+        }
+
+        function setTheme(theme) {
+          applyTheme(theme);
+          if (theme === 'system') {
+            localStorage.removeItem(STORAGE_KEY);
+          } else {
+            localStorage.setItem(STORAGE_KEY, theme);
+          }
+          // Update active indicators
+          document.querySelectorAll('[data-theme-target]').forEach(btn => {
+            const targets = (btn.dataset.themeTarget || '').split(',').map(s => s.trim()).filter(Boolean);
+            const isActive = targets.includes(theme);
+            if (btn.dataset.themeRole === 'dropdown-option') {
+              btn.classList.toggle('bg-base-200', isActive);
+              btn.classList.toggle('ring-2', isActive);
+              btn.classList.toggle('ring-primary/70', isActive);
+              btn.querySelectorAll('[data-theme-active-indicator]').forEach(icon => {
+                icon.classList.toggle('opacity-100', isActive);
+                icon.classList.toggle('scale-100', isActive);
+                icon.classList.toggle('scale-75', !isActive);
+              });
+            }
+          });
+        }
+
+        // Initialize
+        const saved = localStorage.getItem(STORAGE_KEY) || 'system';
+        applyTheme(saved);
+
+        // Listen for system theme changes
+        window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if ((localStorage.getItem(STORAGE_KEY) || 'system') === 'system') {
+            applyTheme('system');
+          }
+        });
+
+        // Listen for theme change events
+        window.addEventListener('phx:set-theme', e => {
+          if (e?.detail?.theme) setTheme(e.detail.theme);
+        });
+      })();
+    </script>
   </body>
 </html>
