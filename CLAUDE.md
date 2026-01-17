@@ -2,46 +2,6 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 🚧 IN-PROGRESS: UUID Migration (V40)
-
-> **DELETE THIS SECTION** after the UUID migration is fully complete and merged to main.
-
-### Summary
-
-V40 adds UUIDv7 columns to all 33 legacy tables that use bigserial primary keys. This is a **non-breaking, graceful migration** that allows parent apps to gradually adopt UUIDs.
-
-### What's Been Done
-
-- ✅ Created V40 migration (`lib/phoenix_kit/migrations/postgres/v40.ex`)
-- ✅ Added `field :uuid, Ecto.UUID` to all 33 schemas
-- ✅ Created `PhoenixKit.UUID` helper module with prefix support
-- ✅ User schema generates UUIDv7 in Elixir changeset
-- ✅ Other schemas rely on PostgreSQL DEFAULT (both work correctly)
-- ✅ Documentation at `guides/uuid_migration.md`
-
-### Key Design Decisions
-
-1. **UUIDv7 only** - Time-ordered for better index performance
-2. **Keep DEFAULT** - DB generates UUID if Ecto doesn't (backward compatible)
-3. **Dual-accessor pattern** - `PhoenixKit.UUID.get/2` accepts both integer and UUID
-4. **Non-breaking** - Integer IDs continue to work, FKs remain bigserial
-
-### Files Modified
-
-- `lib/phoenix_kit/migrations/postgres/v40.ex` - Main migration
-- `lib/phoenix_kit/uuid.ex` - Helper module
-- `lib/phoenix_kit/users/auth/user.ex` - UUIDv7 in registration changeset
-- 30+ schema files - Added `field :uuid, Ecto.UUID`
-- `guides/uuid_migration.md` - Documentation
-
-### DO NOT
-
-- Remove the UUID DEFAULT from the migration
-- Change UUIDv7 back to UUIDv4
-- Modify foreign keys (they stay as bigserial)
-
----
-
 ## MCP Memory Knowledge Base
 
 ⚠️ **IMPORTANT**: Always start working with the project by studying data in the MCP memory storage. Use the command:
@@ -251,78 +211,11 @@ This ensures consistent code formatting across the project.
 - ❌ `migration fixes` (not descriptive enough)
 - ❌ `Add new feature with Claude assistance` (mentions AI)
 
-### 🏷️ Version Management Protocol
+### 🏷️ Version Management
 
-**Current Version**: 1.7.0 (in mix.exs)
-**Migration Version**: V31 (billing system)
+**Current Version**: 1.7.0 (mix.exs) | **Migration Version**: V31
 
-**MANDATORY steps for version updates:**
-
-#### 1. Version Update Requirements
-
-```bash
-# Current version locations to update:
-# - mix.exs (@version constant)
-# - CHANGELOG.md (new version entry)
-# - README.md (if version mentioned in examples)
-```
-
-#### 2. Version Number Schema
-
-- **MAJOR**: Breaking changes, backward incompatibility
-- **MINOR**: New features, backward compatible
-- **PATCH**: Bug fixes, backward compatible
-
-#### 3. Update Process Checklist
-
-**Step 1: Update mix.exs**
-
-```elixir
-@version "1.0.1"  # Increment from current version
-```
-
-**Step 2: Update CHANGELOG.md**
-
-```markdown
-## [1.0.1] - 2025-08-20
-
-### Added
-- Description of new features
-
-### Changed
-- Description of modifications
-
-### Fixed
-- Description of bug fixes
-
-### Removed
-- Description of deletions
-```
-
-**Step 3: Commit Version Changes**
-
-```bash
-git add mix.exs CHANGELOG.md README.md
-git commit -m "Update version to 1.0.1 with comprehensive changelog"
-```
-
-#### 4. Version Validation
-
-**Before committing version changes:**
-
-- ✅ Mix compiles without errors: `mix compile`
-- ✅ Tests pass: `mix test` (run existing tests to ensure no regressions)
-- ✅ Code formatted: `mix format`
-- ✅ Credo passes: `mix credo --strict`
-- ✅ CI checks pass: Verify GitHub Actions workflow succeeds
-- ✅ CHANGELOG.md includes current date
-- ✅ Version number incremented correctly
-
-**⚠️ Critical Notes:**
-
-- **NEVER ship without updating CHANGELOG.md**
-- **ALWAYS validate version number increments**
-- **NEVER reference old version in new documentation**
+**Version updates require:** Update `mix.exs` (@version), `CHANGELOG.md`, and optionally `README.md`. Always run `mix compile`, `mix test`, `mix format`, `mix credo --strict` before committing.
 
 ### Publishing
 
@@ -334,74 +227,8 @@ git commit -m "Update version to 1.0.1 with comprehensive changelog"
 
 ### Template Comments
 
-**ALWAYS use EEx comments in Phoenix templates and components:**
-
-```heex
-<%!-- EEx comments (CORRECT) --%>
-<div class="container">
-  <%!-- This is the preferred way to comment in .heex templates --%>
-  <h1>My App</h1>
-</div>
-
-<!-- HTML comments (AVOID) -->
-<div class="container">
-  <!-- This should be avoided in Phoenix templates -->
-  <h1>My App</h1>
-</div>
-```
-
-**Why EEx comments are preferred:**
-
-- ✅ **Server-side processing** - EEx comments (`<%!-- --%>`) are processed server-side and never sent to the client
-- ✅ **Performance** - Reduces HTML payload size since comments don't appear in browser
-- ✅ **Security** - Internal comments and notes remain private on the server
-- ✅ **Consistency** - Matches Phoenix LiveView and EEx template conventions
-
-**When to use:**
-
-- ✅ All `.heex` template files
-- ✅ LiveView components
-- ✅ Phoenix templates and layouts
-- ✅ Documentation and section dividers in templates
-- ✅ Temporary code comments during development
-
-**Template Comment Examples:**
-
-```heex
-<%!-- Header Section --%>
-<header class="w-full relative mb-6">
-  <%!-- Back Button (Left aligned) --%>
-  <.link navigate="/dashboard" class="btn btn-outline">
-    Back to Dashboard
-  </.link>
-
-  <%!-- Title Section --%>
-  <div class="text-center">
-    <h1>Page Title</h1>
-  </div>
-</header>
-
-<%!-- Main Content Area --%>
-<main class="container mx-auto">
-  <%!-- TODO: Add pagination controls --%>
-  <div class="content">
-    <!-- This HTML comment will appear in browser source -->
-    <%!-- This EEx comment stays on the server --%>
-  </div>
-</main>
-```
-
-**Code Comments in Elixir Files:**
-
-For regular Elixir code (`.ex` files), continue using standard Elixir comments:
-
-```elixir
-# Standard Elixir comment for code documentation
-def my_function do
-  # Inline comment explaining logic
-  :ok
-end
-```
+**Use EEx comments in .heex templates:** `<%!-- comment --%>` (server-side, not sent to client)
+**Avoid HTML comments:** `<!-- comment -->` (sent to browser)
 
 ### URL Prefix and Navigation (IMPORTANT)
 
@@ -462,150 +289,14 @@ url = Routes.url("/users/confirm/#{token}")
 
 ### Helper Functions: Use Components, Not Private Functions
 
-**CRITICAL RULE**: Never create private helper functions (`defp`) that are called directly from HEEX templates.
+**CRITICAL**: Never use `defp` helpers called from HEEX templates - compiler can't see usage.
 
-**❌ WRONG - Compiler Cannot See Usage:**
+**❌ WRONG:** `defp format_date(date)` called as `{format_date(@date)}` in template
+**✅ CORRECT:** Create Phoenix Component in `lib/phoenix_kit_web/components/core/` and use as `<.formatted_date date={@date} />`
 
-```elixir
-# lib/my_app_web/live/users_live.ex
-defmodule MyAppWeb.UsersLive do
-  use MyAppWeb, :live_view
+**Existing components:** `badge.ex`, `time_display.ex`, `user_info.ex`, `button.ex`, `input.ex`, `select.ex`, `draggable_list.ex`
 
-  # ❌ BAD: Compiler shows "function format_date/1 is unused"
-  defp format_date(date) do
-    Calendar.strftime(date, "%B %d, %Y")
-  end
-end
-```
-
-```heex
-<!-- lib/my_app_web/live/users_live.html.heex -->
-{format_date(user.created_at)}  <%!-- ❌ Compiler doesn't see this call --%>
-```
-
-**✅ CORRECT - Use Phoenix Components:**
-
-```elixir
-# lib/phoenix_kit_web/components/core/time_display.ex
-defmodule PhoenixKitWeb.Components.Core.TimeDisplay do
-  use Phoenix.Component
-
-  @doc """
-  Displays formatted date.
-
-  ## Examples
-      <.formatted_date date={user.created_at} />
-  """
-  attr :date, :any, required: true
-  attr :format, :string, default: "%B %d, %Y"
-
-  def formatted_date(assigns) do
-    ~H"""
-    <span>{Calendar.strftime(@date, @format)}</span>
-    """
-  end
-
-  # ✅ GOOD: Private helper INSIDE component
-  defp format_time(time), do: ...
-end
-```
-
-```heex
-<!-- lib/my_app_web/live/users_live.html.heex -->
-<.formatted_date date={user.created_at} />  <%!-- ✅ Compiler sees component usage --%>
-```
-
-**Why This Matters:**
-
-1. **Compiler Visibility**: Component calls (`<.component />`) are visible to Elixir compiler, function calls in templates are not
-2. **Type Safety**: Components use `attr` macros for compile-time validation
-3. **Reusability**: Components work across all LiveView modules without duplication
-4. **Documentation**: Components have structured `@doc` with examples
-5. **No Warnings**: Prevents false-positive "unused function" warnings
-
-**Where to Put Components:**
-
-- **New helper component**: `lib/phoenix_kit_web/components/core/[category].ex`
-- **Import in**: `lib/phoenix_kit_web.ex` → `core_components()` function
-- **Available everywhere**: Automatically imported in all LiveViews
-
-**Existing Core Component Categories:**
-
-- `badge.ex` - Role badges, status badges, code status badges
-- `time_display.ex` - Relative time, expiration dates, age badges
-- `user_info.ex` - User roles, user counts, user statistics
-- `button.ex`, `input.ex`, `select.ex`, etc. - Form components
-- `draggable_list.ex` - Drag-and-drop reorderable grid/list component (see [guide](guides/draggable_list_component.md))
-
-**Adding New Component Category:**
-
-1. Create file: `lib/phoenix_kit_web/components/core/my_category.ex`
-2. Add import: `lib/phoenix_kit_web.ex` → `import PhoenixKitWeb.Components.Core.MyCategory`
-3. Use in templates: `<.my_component attr={value} />`
-
-**Example: Adding New Helper Component:**
-
-```elixir
-# 1. Create component file
-# lib/phoenix_kit_web/components/core/currency.ex
-defmodule PhoenixKitWeb.Components.Core.Currency do
-  use Phoenix.Component
-
-  attr :amount, :integer, required: true
-  attr :currency, :string, default: "USD"
-
-  def price(assigns) do
-    ~H"""
-    <span class="font-semibold">{format_price(@amount, @currency)}</span>
-    """
-  end
-
-  defp format_price(amount, "USD"), do: "$#{amount / 100}"
-  defp format_price(amount, "EUR"), do: "€#{amount / 100}"
-end
-
-# 2. Add import to lib/phoenix_kit_web.ex
-def core_components do
-  quote do
-    # ... existing imports ...
-    import PhoenixKitWeb.Components.Core.Currency  # ← Add this
-  end
-end
-
-# 3. Use in any LiveView template
-# <.price amount={product.price_cents} currency="USD" />
-```
-
-**Component Best Practices:**
-
-1. **One category per file**: Group related helpers (time, currency, badges, etc.)
-2. **Document everything**: Use `@doc`, `attr`, examples
-3. **Private helpers OK**: Use `defp` INSIDE components for internal logic
-4. **Validation**: Use `attr` with `:required`, `:default`, `:values`
-5. **Naming**: Use clear, semantic names (`<.time_ago />` not `<.format_t />`)
-
-**Migration Pattern:**
-
-```elixir
-# BEFORE (helper function)
-defp format_time_ago(datetime) do
-  # logic...
-end
-
-# Template: {format_time_ago(session.connected_at)}
-
-# AFTER (component)
-# Move to lib/phoenix_kit_web/components/core/time_display.ex
-attr :datetime, :any, required: true
-def time_ago(assigns) do
-  ~H"""
-  <span>{format_time_ago(@datetime)}</span>
-  """
-end
-defp format_time_ago(datetime), do: # logic...
-
-# Template: <.time_ago datetime={session.connected_at} />
-```
+**To add new:** Create in `components/core/`, import in `phoenix_kit_web.ex` → `core_components()`
 
 ## Architecture
 
@@ -652,118 +343,21 @@ defp format_time_ago(datetime), do: # logic...
 - **PhoenixKit.Users.Auth.Scope** - Authentication scope management with role integration
 - **PhoenixKit.Users.RateLimiter** - Rate limiting protection for authentication endpoints
 
-### Rate Limiting Architecture
+### Rate Limiting
 
-Protection against brute-force attacks, token enumeration, and spam using Hammer library. Configuration is automatically added to parent app's `config.exs` during installation.
+Uses Hammer library. Protected: Login (5/min), Magic Link (3/5min), Password Reset (3/5min), Registration (3/hour). Config via `PhoenixKit.Users.RateLimiter`. Use `hammer_backend_redis` in production.
 
-**Protected Endpoints:**
-- Login: 5/min per email + IP limiting
-- Magic Link: 3/5min per email
-- Password Reset: 3/5min per email
-- Registration: 3/hour per email + 10/hour per IP
+### Session Fingerprinting
 
-**Configuration:**
-```elixir
-# config/config.exs
-config :hammer,
-  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000, cleanup_interval_ms: 60_000]}
+Tracks IP and user agent to detect session hijacking. Config: `session_fingerprint_enabled: true`, `session_fingerprint_strict: false`. Non-strict logs warnings; strict forces re-auth on mismatch.
 
-config :phoenix_kit, PhoenixKit.Users.RateLimiter,
-  login_limit: 5, login_window_ms: 60_000,
-  magic_link_limit: 3, magic_link_window_ms: 300_000,
-  password_reset_limit: 3, password_reset_window_ms: 300_000,
-  registration_limit: 3, registration_window_ms: 3_600_000,
-  registration_ip_limit: 10, registration_ip_window_ms: 3_600_000
-```
+### Role System
 
-**Production:** Use `hammer_backend_redis` for distributed systems.
+Three system roles: Owner, Admin, User. First user becomes Owner. API: `PhoenixKit.Users.Roles`. Admin UI at `{prefix}/admin/users`. Role checks via `PhoenixKit.Users.Auth.Scope`.
 
-### Session Fingerprinting Architecture
+### Date Formatting
 
-- **PhoenixKit.Utils.SessionFingerprint** - Session fingerprinting utilities for hijacking prevention
-- **PhoenixKit.Users.Auth.UserToken** - Extended with ip_address and user_agent_hash fields
-- **PhoenixKitWeb.Users.Auth** - Integrated fingerprint verification in authentication plugs
-- **Migration V23** - Database migration adding fingerprinting columns
-
-**Security Features:**
-- **IP Address Tracking** - Detects when session is used from different IP address
-- **User Agent Hashing** - Detects when session is used from different browser/device
-- **Configurable Strictness** - Can log warnings or force re-authentication
-- **Backward Compatible** - Existing sessions without fingerprints remain valid
-- **Privacy Focused** - User agents are hashed for storage efficiency
-
-**Configuration:**
-```elixir
-# In your config/config.exs
-config :phoenix_kit,
-  session_fingerprint_enabled: true,  # Enable fingerprinting (default: true)
-  session_fingerprint_strict: false   # Strict mode forces re-auth on mismatch (default: false)
-```
-
-**Verification Behavior:**
-- **Non-strict mode (default)**: Logs warnings but allows access when fingerprints change
-- **Strict mode**: Forces re-authentication if both IP and user agent change
-- **Partial changes**: Single changes (IP or UA) logged as warnings but allowed
-
-**Use Cases:**
-- Detect stolen session tokens being used from different locations
-- Identify suspicious session activity patterns
-- Provide audit trail for security investigations
-- Balance security with user experience (mobile users, VPNs)
-
-### Role System Architecture
-
-- **PhoenixKit.Users.Role** - Role schema with system role protection
-- **PhoenixKit.Users.RoleAssignment** - Many-to-many role assignments with audit trail
-- **PhoenixKit.Users.Roles** - Role management API and business logic
-- **PhoenixKitWeb.Live.Dashboard** - Admin dashboard with system statistics
-- **PhoenixKitWeb.Live.Users** - User management interface with role controls
-- **PhoenixKit.Users.Auth.register_user/1** - User registration with integrated role assignment
-
-**Key Features:**
-
-- **Three System Roles** - Owner, Admin, User with automatic assignment
-- **Elixir Logic** - First user automatically becomes Owner
-- **Admin Dashboard** - Built-in dashboard at `{prefix}/admin` for system statistics
-- **User Management** - Complete user management interface at `{prefix}/admin/users`
-- **Role API** - Comprehensive role management with `PhoenixKit.Users.Roles`
-- **Security Features** - Owner protection, audit trail, self-modification prevention
-- **Scope Integration** - Role checks via `PhoenixKit.Users.Auth.Scope`
-
-### Date Formatting Architecture
-
-- **PhoenixKit.Utils.Date** - Date and time formatting utilities using Timex
-- **Settings Integration** - Automatic user preference loading from Settings system
-- **Template Integration** - Direct usage in LiveView templates with UtilsDate alias
-
-**Core Functions:**
-
-- **format_date/2** - Format dates with PHP-style format codes
-- **format_time/2** - Format times with PHP-style format codes
-- **format_datetime/2** - Format datetime values with date formats
-- **format_datetime_with_user_format/1** - Auto-load user's date_format setting
-- **format_date_with_user_format/1** - Auto-load user's date_format setting
-- **format_time_with_user_format/1** - Auto-load user's time_format setting
-
-**Supported Formats:**
-
-- **Date Formats** - Y-m-d (ISO), m/d/Y (US), d/m/Y (European), d.m.Y (German), d-m-Y, F j, Y (Long)
-- **Time Formats** - H:i (24-hour), h:i A (12-hour with AM/PM)
-- **Examples** - Dynamic format preview with current date/time examples
-- **Timex Integration** - Robust internationalized formatting with extensive format support
-
-**Template Usage:**
-
-```heex
-<!-- Settings-aware formatting (recommended) -->
-{UtilsDate.format_datetime_with_user_format(user.inserted_at)}
-{UtilsDate.format_date_with_user_format(user.confirmed_at)}
-{UtilsDate.format_time_with_user_format(Time.utc_now())}
-
-<!-- Manual formatting -->
-{UtilsDate.format_date(Date.utc_today(), "F j, Y")}
-{UtilsDate.format_time(Time.utc_now(), "h:i A")}
-```
+Use `PhoenixKit.Utils.Date` (aliased as `UtilsDate`). Settings-aware: `format_datetime_with_user_format/1`, `format_date_with_user_format/1`, `format_time_with_user_format/1`. Manual: `format_date/2`, `format_time/2` with PHP-style codes.
 
 ### Module Folder Structure (IMPORTANT)
 
@@ -937,196 +531,25 @@ The `project_home_url` supports a `~/` prefix for automatic URL prefix applicati
 
 Use `~/` when linking to PhoenixKit routes, omit it for external URLs or site root.
 
-### Theme-Aware Logos (DaisyUI Integration)
+### Theme-Aware Logos
 
-PhoenixKit uses **daisyUI's theme system** with `data-theme` attribute on the document. The theme is set via JavaScript and stored in localStorage. This means:
+Use SVG logos with `currentColor` for automatic theme adaptation. Use `project_logo_class: "text-base-content"` or `"text-primary"`. Theme stored in localStorage as `phx:theme`, applied via `data-theme` attribute.
 
-1. **NO separate dark mode logo config** - themes handle this automatically
-2. **Use SVG logos with `currentColor`** for automatic theme adaptation
-3. **Use daisyUI color classes** in `project_logo_class` for theme-aware styling
+### Dashboard Color Scheme Guide
 
-**Creating a Theme-Aware SVG Logo:**
+**NEVER use hardcoded colors** (`bg-white`, `text-gray-800`, `bg-blue-500`). Use daisyUI semantic classes:
 
-```svg
-<!-- Logo that adapts to any theme automatically -->
-<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-  <!-- Uses currentColor which inherits from text-base-content -->
-  <circle cx="50" cy="50" r="40" fill="currentColor"/>
-</svg>
-```
+- **Base:** `bg-base-100/200/300`, `text-base-content`, `border-base-300`
+- **Semantic:** `bg-primary`, `text-error`, `btn btn-primary`, `badge badge-success`
+- **Opacity:** `text-base-content/70`, `bg-primary/10`
 
-**Theme-Aware Logo Classes:**
+### Dashboard Theme Switcher
 
-```elixir
-# Logo adapts to theme text color
-project_logo_class: "text-base-content"
-
-# Logo uses theme's primary color
-project_logo_class: "text-primary"
-
-# Invert colors in dark themes (for PNG logos)
-project_logo_class: "dark:invert"
-```
-
-**CSS Targeting Specific Themes:**
-
-```css
-/* In your app.css - target specific themes */
-[data-theme="dark"] .my-logo { filter: invert(1); }
-[data-theme="forest"] .my-logo { filter: hue-rotate(90deg); }
-```
-
-**How Theme System Works:**
-- Theme stored in `localStorage` as `phx:theme`
-- Applied via `data-theme` attribute on `<html>` and `<body>`
-- JavaScript controller handles system preference detection
-- 35+ daisyUI themes available (light, dark, cupcake, dracula, etc.)
-- See `PhoenixKit.ThemeConfig` for theme definitions
-
-### Dashboard Color Scheme Guide (IMPORTANT)
-
-**NEVER use hardcoded colors** in dashboard components. Always use daisyUI's semantic color classes so themes work correctly.
-
-**❌ WRONG - Hardcoded colors break themes:**
-```heex
-<div class="bg-white text-gray-800">         <!-- Won't adapt to dark themes -->
-<div class="bg-gray-100 border-gray-300">    <!-- Hardcoded grays -->
-<button class="bg-blue-500 text-white">      <!-- Hardcoded blue -->
-<span class="text-red-600">Error</span>      <!-- Hardcoded red -->
-<div style="color: #3b82f6;">                <!-- Inline hex colors -->
-```
-
-**✅ CORRECT - Semantic colors adapt to all themes:**
-```heex
-<div class="bg-base-100 text-base-content">  <!-- Base background/text -->
-<div class="bg-base-200 border-base-300">    <!-- Subtle backgrounds/borders -->
-<button class="btn btn-primary">             <!-- Primary action button -->
-<span class="text-error">Error</span>        <!-- Semantic error color -->
-<div class="text-primary">                   <!-- Theme's primary color -->
-```
-
-**DaisyUI Semantic Color Classes:**
-
-| Purpose | Background | Text | Border |
-|---------|------------|------|--------|
-| Base/neutral | `bg-base-100/200/300` | `text-base-content` | `border-base-300` |
-| Primary action | `bg-primary` | `text-primary` | `border-primary` |
-| Secondary | `bg-secondary` | `text-secondary` | `border-secondary` |
-| Accent | `bg-accent` | `text-accent` | `border-accent` |
-| Success | `bg-success` | `text-success` | `border-success` |
-| Warning | `bg-warning` | `text-warning` | `border-warning` |
-| Error | `bg-error` | `text-error` | `border-error` |
-| Info | `bg-info` | `text-info` | `border-info` |
-| Neutral | `bg-neutral` | `text-neutral` | `border-neutral` |
-
-**Content colors** (text on colored backgrounds):
-- `text-primary-content` - text on `bg-primary`
-- `text-base-content` - text on `bg-base-*`
-- `text-success-content`, `text-error-content`, etc.
-
-**Opacity variants** for subtle effects:
-```heex
-<div class="text-base-content/70">     <!-- 70% opacity text -->
-<div class="bg-primary/10">            <!-- 10% opacity primary bg -->
-<div class="border-base-content/20">   <!-- 20% opacity border -->
-```
-
-**DaisyUI Component Classes** (preferred over raw Tailwind):
-```heex
-<button class="btn btn-primary">       <!-- Instead of custom button styles -->
-<div class="card bg-base-100">         <!-- Card component -->
-<div class="badge badge-success">      <!-- Badge component -->
-<div class="alert alert-error">        <!-- Alert component -->
-<input class="input input-bordered">   <!-- Input component -->
-```
-
-### Dashboard Theme Switcher Configuration
-
-Control which themes appear in the dashboard theme switcher:
-
-```elixir
-# All themes (default)
-config :phoenix_kit,
-  dashboard_themes: :all
-
-# Only specific themes
-config :phoenix_kit,
-  dashboard_themes: ["system", "light", "dark", "nord", "dracula"]
-
-# Light/dark only
-config :phoenix_kit,
-  dashboard_themes: ["system", "light", "dark"]
-```
-
-**Available theme names:** `"system"`, `"phoenix-light"`, `"phoenix-dark"`, `"light"`, `"dark"`, `"cupcake"`, `"bumblebee"`, `"emerald"`, `"corporate"`, `"synthwave"`, `"retro"`, `"cyberpunk"`, `"valentine"`, `"halloween"`, `"garden"`, `"forest"`, `"aqua"`, `"lofi"`, `"pastel"`, `"fantasy"`, `"wireframe"`, `"black"`, `"luxury"`, `"dracula"`, `"cmyk"`, `"autumn"`, `"business"`, `"acid"`, `"lemonade"`, `"night"`, `"coffee"`, `"winter"`, `"dim"`, `"nord"`, `"sunset"`, `"caramellatte"`, `"abyss"`, `"silk"`
+Config: `dashboard_themes: :all` (default) or `["system", "light", "dark", "nord", "dracula"]`
 
 ### Dashboard Context Selectors
 
-Context selectors allow users to switch between contexts (organizations, teams, projects, etc.) in the dashboard. Supports both single selector (legacy) and multiple selectors with dependencies.
-
-**Single Selector (Legacy):**
-
-```elixir
-config :phoenix_kit, :dashboard_context_selector,
-  loader: {MyApp.Orgs, :list_for_user},
-  display_name: fn org -> org.name end,
-  id_field: :id,
-  label: "Organization",
-  icon: "hero-building-office",
-  position: :header,           # :header or :sidebar
-  sub_position: :start         # :start, :end, or {:priority, N}
-```
-
-**Multiple Selectors (New):**
-
-```elixir
-config :phoenix_kit, :dashboard_context_selectors, [
-  %{
-    key: :organization,        # Required unique identifier
-    loader: {MyApp.Orgs, :list_for_user},
-    display_name: fn org -> org.name end,
-    label: "Organization",
-    icon: "hero-building-office",
-    position: :header,
-    sub_position: :start,
-    priority: 100              # Lower = earlier in position
-  },
-  %{
-    key: :project,
-    depends_on: :organization, # Dependent selector
-    loader: {MyApp.Projects, :list_for_org},  # Called with (user_id, parent_context)
-    display_name: fn p -> p.name end,
-    label: "Project",
-    icon: "hero-folder",
-    position: :header,
-    sub_position: :end,
-    priority: 200,
-    on_parent_change: :reset   # :reset (default), :keep, or {:redirect, "/path"}
-  }
-]
-```
-
-**Configuration Options:**
-
-- `:key` - Required for multi-selector. Unique atom identifier (e.g., `:organization`)
-- `:loader` - `{Module, :function}` tuple. For dependent selectors, receives `(user_id, parent_context)`
-- `:display_name` - Function returning display string
-- `:depends_on` - Parent selector key (creates dependency chain)
-- `:on_parent_change` - `:reset` | `:keep` | `{:redirect, path}` when parent changes
-- `:priority` - Integer for ordering within same position (lower first, default: 500)
-- `:position` - `:header` or `:sidebar`
-- `:sub_position` - `:start`, `:end`, or `{:priority, N}`
-
-**Accessing in LiveViews:**
-
-```elixir
-# Single selector (legacy)
-context = socket.assigns.current_context
-
-# Multiple selectors
-org = socket.assigns.current_contexts_map[:organization]
-project = socket.assigns.current_contexts_map[:project]
-```
+See "Built-in Dashboard Features" section above for full documentation. Access in LiveViews: `socket.assigns.current_context` (single) or `socket.assigns.current_contexts_map[:key]` (multi).
 
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
