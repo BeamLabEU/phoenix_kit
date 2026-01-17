@@ -1,3 +1,6 @@
+## 1.7.26 - 2026-01-18
+- Language switcher fix
+
 ## 1.7.25 - 2026-01-16
 - Bug fix - Added check for nil on language_swithcer on log-in page
 
