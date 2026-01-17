@@ -190,8 +190,20 @@ defmodule PhoenixKitWeb.Users.Auth do
   and remember me token.
 
   Also verifies session fingerprints if enabled to detect session hijacking attempts.
+
+  This plug is idempotent - if the user has already been fetched, it returns early
+  to avoid duplicate database queries.
   """
   def fetch_phoenix_kit_current_user(conn, _opts) do
+    # Early return if user already fetched (idempotent)
+    if Map.has_key?(conn.assigns, :phoenix_kit_current_user) do
+      conn
+    else
+      do_fetch_phoenix_kit_current_user(conn)
+    end
+  end
+
+  defp do_fetch_phoenix_kit_current_user(conn) do
     {user_token, conn} = ensure_user_token(conn)
 
     # Verify session fingerprint if token exists

@@ -166,6 +166,7 @@ defmodule PhoenixKitWeb.Integration do
       # Define the auto-setup pipeline
       pipeline :phoenix_kit_auto_setup do
         plug PhoenixKitWeb.Plugs.RequestTimer
+        plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_user
         plug PhoenixKitWeb.Integration, :phoenix_kit_auto_setup
       end
 
