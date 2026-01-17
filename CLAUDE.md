@@ -1028,6 +1028,74 @@ config :phoenix_kit,
 
 **Available theme names:** `"system"`, `"phoenix-light"`, `"phoenix-dark"`, `"light"`, `"dark"`, `"cupcake"`, `"bumblebee"`, `"emerald"`, `"corporate"`, `"synthwave"`, `"retro"`, `"cyberpunk"`, `"valentine"`, `"halloween"`, `"garden"`, `"forest"`, `"aqua"`, `"lofi"`, `"pastel"`, `"fantasy"`, `"wireframe"`, `"black"`, `"luxury"`, `"dracula"`, `"cmyk"`, `"autumn"`, `"business"`, `"acid"`, `"lemonade"`, `"night"`, `"coffee"`, `"winter"`, `"dim"`, `"nord"`, `"sunset"`, `"caramellatte"`, `"abyss"`, `"silk"`
 
+### Dashboard Context Selectors
+
+Context selectors allow users to switch between contexts (organizations, teams, projects, etc.) in the dashboard. Supports both single selector (legacy) and multiple selectors with dependencies.
+
+**Single Selector (Legacy):**
+
+```elixir
+config :phoenix_kit, :dashboard_context_selector,
+  loader: {MyApp.Orgs, :list_for_user},
+  display_name: fn org -> org.name end,
+  id_field: :id,
+  label: "Organization",
+  icon: "hero-building-office",
+  position: :header,           # :header or :sidebar
+  sub_position: :start         # :start, :end, or {:priority, N}
+```
+
+**Multiple Selectors (New):**
+
+```elixir
+config :phoenix_kit, :dashboard_context_selectors, [
+  %{
+    key: :organization,        # Required unique identifier
+    loader: {MyApp.Orgs, :list_for_user},
+    display_name: fn org -> org.name end,
+    label: "Organization",
+    icon: "hero-building-office",
+    position: :header,
+    sub_position: :start,
+    priority: 100              # Lower = earlier in position
+  },
+  %{
+    key: :project,
+    depends_on: :organization, # Dependent selector
+    loader: {MyApp.Projects, :list_for_org},  # Called with (user_id, parent_context)
+    display_name: fn p -> p.name end,
+    label: "Project",
+    icon: "hero-folder",
+    position: :header,
+    sub_position: :end,
+    priority: 200,
+    on_parent_change: :reset   # :reset (default), :keep, or {:redirect, "/path"}
+  }
+]
+```
+
+**Configuration Options:**
+
+- `:key` - Required for multi-selector. Unique atom identifier (e.g., `:organization`)
+- `:loader` - `{Module, :function}` tuple. For dependent selectors, receives `(user_id, parent_context)`
+- `:display_name` - Function returning display string
+- `:depends_on` - Parent selector key (creates dependency chain)
+- `:on_parent_change` - `:reset` | `:keep` | `{:redirect, path}` when parent changes
+- `:priority` - Integer for ordering within same position (lower first, default: 500)
+- `:position` - `:header` or `:sidebar`
+- `:sub_position` - `:start`, `:end`, or `{:priority, N}`
+
+**Accessing in LiveViews:**
+
+```elixir
+# Single selector (legacy)
+context = socket.assigns.current_context
+
+# Multiple selectors
+org = socket.assigns.current_contexts_map[:organization]
+project = socket.assigns.current_contexts_map[:project]
+```
+
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,

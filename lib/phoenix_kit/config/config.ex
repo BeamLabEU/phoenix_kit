@@ -164,7 +164,9 @@ defmodule PhoenixKit.Config do
       track_anonymous: false
     ],
     # Admin dashboard categories
-    admin_dashboard_categories: []
+    admin_dashboard_categories: [],
+    # Multiple context selectors (takes precedence over single selector)
+    dashboard_context_selectors: nil
   ]
 
   @doc """

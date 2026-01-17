@@ -101,7 +101,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
                 <.icon name={@config.icon} class="w-4 h-4" />
               <% end %>
               <span class="flex-1 truncate">
-                {ContextSelector.get_display_name(context)}
+                {get_display_name(context, @config)}
               </span>
               <%= if current?(context, @current, @config) do %>
                 <.icon name="hero-check" class="w-4 h-4 text-success" />
@@ -178,7 +178,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
                 <.icon name={@config.icon} class="w-4 h-4" />
               <% end %>
               <span class="flex-1 truncate">
-                {ContextSelector.get_display_name(context)}
+                {get_display_name(context, @config)}
               </span>
               <%= if current?(context, @current, @config) do %>
                 <.icon name="hero-check" class="w-4 h-4 text-success" />
@@ -265,7 +265,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
                   <.icon name={@config.icon} class="w-4 h-4" />
                 <% end %>
                 <span class="flex-1 truncate">
-                  {ContextSelector.get_display_name(context)}
+                  {get_display_name(context, @config)}
                 </span>
                 <%= if current?(context, @current, @config) do %>
                   <.icon name="hero-check" class="w-4 h-4 text-success" />
@@ -304,17 +304,30 @@ defmodule PhoenixKitWeb.Components.Dashboard.ContextSelector do
   # Private helpers
 
   defp get_current_display_name(nil, config), do: "Select #{config.label}"
-  defp get_current_display_name(current, _config), do: ContextSelector.get_display_name(current)
 
-  defp context_switch_path(context, _config) do
-    id = ContextSelector.get_id(context)
-    url_prefix = PhoenixKit.Config.get_url_prefix()
-    "#{url_prefix}/context/#{id}"
+  defp get_current_display_name(current, config) do
+    ContextSelector.get_display_name_for_config(config, current)
   end
 
-  defp current?(context, current, _config) do
-    context_id = ContextSelector.get_id(context)
-    current_id = ContextSelector.get_id(current)
+  defp get_display_name(context, config) do
+    ContextSelector.get_display_name_for_config(config, context)
+  end
+
+  defp context_switch_path(context, config) do
+    id = ContextSelector.get_id_for_config(config, context)
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+
+    # Use keyed path for multi-selector, legacy path for single selector
+    if config.key && config.key != :default do
+      "#{url_prefix}/context/#{config.key}/#{id}"
+    else
+      "#{url_prefix}/context/#{id}"
+    end
+  end
+
+  defp current?(context, current, config) do
+    context_id = ContextSelector.get_id_for_config(config, context)
+    current_id = ContextSelector.get_id_for_config(config, current)
     context_id == current_id
   end
 

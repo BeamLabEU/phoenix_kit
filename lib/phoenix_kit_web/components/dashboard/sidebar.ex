@@ -63,6 +63,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   - `dashboard_contexts` - List of available contexts
   - `current_context` - Currently selected context
   - `context_selector_config` - ContextSelector config struct
+
+  ## Multi-Selector Attributes (optional)
+
+  - `context_selector_configs` - List of all ContextSelector configs
+  - `dashboard_contexts_map` - Map of key => list of contexts
+  - `current_contexts_map` - Map of key => current context
+  - `show_context_selectors_map` - Map of key => boolean
   """
   attr :current_path, :string, default: "/dashboard"
   attr :scope, :any, default: nil
@@ -77,6 +84,11 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :dashboard_contexts, :list, default: []
   attr :current_context, :any, default: nil
   attr :context_selector_config, :any, default: nil
+  # Multi-selector attributes
+  attr :context_selector_configs, :list, default: []
+  attr :dashboard_contexts_map, :map, default: %{}
+  attr :current_contexts_map, :map, default: %{}
+  attr :show_context_selectors_map, :map, default: %{}
 
   def dashboard_sidebar(assigns) do
     # Load tabs if not provided
@@ -105,15 +117,33 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
       |> assign(:groups, groups)
       |> assign(:viewer_counts, viewer_counts)
 
+    # Check if multi-selector mode
+    has_multi_selector = assigns.context_selector_configs != []
+
+    assigns = assign(assigns, :has_multi_selector, has_multi_selector)
+
     ~H"""
     <nav class={["space-y-1", @class]} role="navigation" aria-label="Dashboard navigation">
-      <%!-- Context Selector at top (sub_position: :start) --%>
-      <%= if show_context_selector_at?(@show_context_selector, @context_selector_config, :start) do %>
-        <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
-          contexts={@dashboard_contexts}
-          current={@current_context}
-          config={@context_selector_config}
+      <%!-- Context Selector(s) at top (sub_position: :start) --%>
+      <%= if @has_multi_selector do %>
+        <%!-- Multi-selector mode --%>
+        <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector_sidebar
+          position={:sidebar}
+          sub_position={:start}
+          configs={@context_selector_configs}
+          contexts_map={@dashboard_contexts_map}
+          current_map={@current_contexts_map}
+          show_map={@show_context_selectors_map}
         />
+      <% else %>
+        <%!-- Legacy single selector --%>
+        <%= if show_context_selector_at?(@show_context_selector, @context_selector_config, :start) do %>
+          <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+            contexts={@dashboard_contexts}
+            current={@current_context}
+            config={@context_selector_config}
+          />
+        <% end %>
       <% end %>
 
       <%= for group <- sorted_groups(@groups, @grouped_tabs) do %>
@@ -415,13 +445,24 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :dashboard_contexts, :list, default: []
   attr :current_context, :any, default: nil
   attr :context_selector_config, :any, default: nil
+  # Multi-selector attributes
+  attr :context_selector_configs, :list, default: []
+  attr :dashboard_contexts_map, :map, default: %{}
+  attr :current_contexts_map, :map, default: %{}
+  attr :show_context_selectors_map, :map, default: %{}
 
   def mobile_fab_menu(assigns) do
     tabs =
       Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
       |> Enum.filter(&Tab.navigable?/1)
 
-    assigns = assign(assigns, :tabs, tabs)
+    # Check if multi-selector mode
+    has_multi_selector = assigns.context_selector_configs != []
+
+    assigns =
+      assigns
+      |> assign(:tabs, tabs)
+      |> assign(:has_multi_selector, has_multi_selector)
 
     ~H"""
     <div class={["fixed bottom-4 right-4 z-50 lg:hidden", @class]}>
@@ -433,13 +474,22 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
           tabindex="0"
           class="dropdown-content shadow bg-base-100 rounded-box w-56 mb-2 border border-base-300 max-h-96 overflow-y-auto"
         >
-          <%!-- Mobile Context Selector --%>
-          <%= if @show_context_selector and @context_selector_config && @context_selector_config.enabled do %>
-            <PhoenixKitWeb.Components.Dashboard.ContextSelector.mobile_context_selector
-              contexts={@dashboard_contexts}
-              current={@current_context}
-              config={@context_selector_config}
+          <%!-- Mobile Context Selector(s) --%>
+          <%= if @has_multi_selector do %>
+            <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector_mobile
+              configs={@context_selector_configs}
+              contexts_map={@dashboard_contexts_map}
+              current_map={@current_contexts_map}
+              show_map={@show_context_selectors_map}
             />
+          <% else %>
+            <%= if @show_context_selector and @context_selector_config && @context_selector_config.enabled do %>
+              <PhoenixKitWeb.Components.Dashboard.ContextSelector.mobile_context_selector
+                contexts={@dashboard_contexts}
+                current={@current_context}
+                config={@context_selector_config}
+              />
+            <% end %>
           <% end %>
           <%!-- Navigation Tabs --%>
           <ul class="menu p-2">

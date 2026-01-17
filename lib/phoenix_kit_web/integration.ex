@@ -213,7 +213,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/log-out", Users.Session, :get_logout
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
 
-        # Dashboard context switching
+        # Dashboard context switching (multi-selector with key, must come before legacy route)
+        post "/context/:key/:id", ContextController, :set
+        # Dashboard context switching (legacy single selector)
         post "/context/:id", ContextController, :set
 
         # OAuth routes for external provider authentication
