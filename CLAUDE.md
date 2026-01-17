@@ -887,13 +887,61 @@ config :my_app, MyApp.Mailer, adapter: Swoosh.Adapters.Local
 config :phoenix_kit,
   project_title: "My App",              # Displayed in dashboard header
   project_title_suffix: "",             # Suffix after title (default: "Dashboard", "" to remove)
-  project_logo: "/images/logo.svg",     # URL/path to logo image (use SVG with currentColor for theme support)
+  project_logo: "/images/logo.svg",     # URL/path to logo image (see theme-aware logos below)
   project_icon: "hero-cube",            # Heroicon name when no logo image (default: "hero-home")
   project_logo_height: "h-10",          # Tailwind height class (default: "h-8")
   project_logo_class: "rounded",        # Additional CSS classes for logo image
   project_home_url: "/dashboard",       # Where logo links to (default: "/")
   show_title_with_logo: false           # Show title text alongside logo (default: true)
+```
 
+### Theme-Aware Logos (DaisyUI Integration)
+
+PhoenixKit uses **daisyUI's theme system** with `data-theme` attribute on the document. The theme is set via JavaScript and stored in localStorage. This means:
+
+1. **NO separate dark mode logo config** - themes handle this automatically
+2. **Use SVG logos with `currentColor`** for automatic theme adaptation
+3. **Use daisyUI color classes** in `project_logo_class` for theme-aware styling
+
+**Creating a Theme-Aware SVG Logo:**
+
+```svg
+<!-- Logo that adapts to any theme automatically -->
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Uses currentColor which inherits from text-base-content -->
+  <circle cx="50" cy="50" r="40" fill="currentColor"/>
+</svg>
+```
+
+**Theme-Aware Logo Classes:**
+
+```elixir
+# Logo adapts to theme text color
+project_logo_class: "text-base-content"
+
+# Logo uses theme's primary color
+project_logo_class: "text-primary"
+
+# Invert colors in dark themes (for PNG logos)
+project_logo_class: "dark:invert"
+```
+
+**CSS Targeting Specific Themes:**
+
+```css
+/* In your app.css - target specific themes */
+[data-theme="dark"] .my-logo { filter: invert(1); }
+[data-theme="forest"] .my-logo { filter: hue-rotate(90deg); }
+```
+
+**How Theme System Works:**
+- Theme stored in `localStorage` as `phx:theme`
+- Applied via `data-theme` attribute on `<html>` and `<body>`
+- JavaScript controller handles system preference detection
+- 35+ daisyUI themes available (light, dark, cupcake, dracula, etc.)
+- See `PhoenixKit.ThemeConfig` for theme definitions
+
+```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,
   layout: {MyAppWeb.Layouts, :app},        # Use your app's layout
