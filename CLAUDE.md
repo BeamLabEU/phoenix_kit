@@ -951,6 +951,63 @@ project_logo_class: "dark:invert"
 - 35+ daisyUI themes available (light, dark, cupcake, dracula, etc.)
 - See `PhoenixKit.ThemeConfig` for theme definitions
 
+### Dashboard Color Scheme Guide (IMPORTANT)
+
+**NEVER use hardcoded colors** in dashboard components. Always use daisyUI's semantic color classes so themes work correctly.
+
+**❌ WRONG - Hardcoded colors break themes:**
+```heex
+<div class="bg-white text-gray-800">         <!-- Won't adapt to dark themes -->
+<div class="bg-gray-100 border-gray-300">    <!-- Hardcoded grays -->
+<button class="bg-blue-500 text-white">      <!-- Hardcoded blue -->
+<span class="text-red-600">Error</span>      <!-- Hardcoded red -->
+<div style="color: #3b82f6;">                <!-- Inline hex colors -->
+```
+
+**✅ CORRECT - Semantic colors adapt to all themes:**
+```heex
+<div class="bg-base-100 text-base-content">  <!-- Base background/text -->
+<div class="bg-base-200 border-base-300">    <!-- Subtle backgrounds/borders -->
+<button class="btn btn-primary">             <!-- Primary action button -->
+<span class="text-error">Error</span>        <!-- Semantic error color -->
+<div class="text-primary">                   <!-- Theme's primary color -->
+```
+
+**DaisyUI Semantic Color Classes:**
+
+| Purpose | Background | Text | Border |
+|---------|------------|------|--------|
+| Base/neutral | `bg-base-100/200/300` | `text-base-content` | `border-base-300` |
+| Primary action | `bg-primary` | `text-primary` | `border-primary` |
+| Secondary | `bg-secondary` | `text-secondary` | `border-secondary` |
+| Accent | `bg-accent` | `text-accent` | `border-accent` |
+| Success | `bg-success` | `text-success` | `border-success` |
+| Warning | `bg-warning` | `text-warning` | `border-warning` |
+| Error | `bg-error` | `text-error` | `border-error` |
+| Info | `bg-info` | `text-info` | `border-info` |
+| Neutral | `bg-neutral` | `text-neutral` | `border-neutral` |
+
+**Content colors** (text on colored backgrounds):
+- `text-primary-content` - text on `bg-primary`
+- `text-base-content` - text on `bg-base-*`
+- `text-success-content`, `text-error-content`, etc.
+
+**Opacity variants** for subtle effects:
+```heex
+<div class="text-base-content/70">     <!-- 70% opacity text -->
+<div class="bg-primary/10">            <!-- 10% opacity primary bg -->
+<div class="border-base-content/20">   <!-- 20% opacity border -->
+```
+
+**DaisyUI Component Classes** (preferred over raw Tailwind):
+```heex
+<button class="btn btn-primary">       <!-- Instead of custom button styles -->
+<div class="card bg-base-100">         <!-- Card component -->
+<div class="badge badge-success">      <!-- Badge component -->
+<div class="alert alert-error">        <!-- Alert component -->
+<input class="input input-bordered">   <!-- Input component -->
+```
+
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,
