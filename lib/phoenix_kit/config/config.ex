@@ -29,6 +29,13 @@ defmodule PhoenixKit.Config do
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
+  - `:project_title` - Project/application name displayed in dashboard header (default: "PhoenixKit")
+  - `:project_logo` - URL or path to logo image for dashboard header (optional, use SVG with currentColor for theme support)
+  - `:project_icon` - Heroicon name when no logo image (default: "hero-home")
+  - `:project_logo_height` - Logo height CSS class (default: "h-8")
+  - `:project_logo_class` - Additional CSS classes for logo image (optional)
+  - `:project_home_url` - URL the logo links to (default: "/")
+  - `:show_title_with_logo` - Show title text alongside logo (default: true)
   - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
   - `:user_dashboard_tabs` - List of custom tabs for the user dashboard sidebar
   - `:user_dashboard_tab_groups` - List of tab groups for organizing dashboard tabs
@@ -114,6 +121,14 @@ defmodule PhoenixKit.Config do
     host: "localhost",
     port: 4000,
     url_prefix: "/phoenix_kit",
+    # Branding settings
+    project_title: "PhoenixKit",
+    project_logo: nil,
+    project_icon: "hero-home",
+    project_logo_height: "h-8",
+    project_logo_class: nil,
+    project_home_url: "/",
+    show_title_with_logo: true,
     layouts_module: nil,
     phoenix_version_strategy: nil,
     from_email: nil,

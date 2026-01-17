@@ -860,10 +860,11 @@ PhoenixKit.Entities.create_entity(%{name: "products", ...})
 2. **Run Migrations**: Database tables created automatically (V16 includes OAuth providers and magic link registration)
 3. **Add Routes**: Use `phoenix_kit_routes()` macro in your router
 4. **Configure Mailer**: PhoenixKit auto-detects and uses your app's mailer, or set up email delivery in `config/config.exs`
-5. **Configure Layout** (Optional): Set custom layouts in `config/config.exs`
-6. **Theme Support**: DaisyUI 5 theme system with 35+ themes is automatically enabled
-7. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
-8. **Email System** (Optional): Enable email system and AWS SES integration
+5. **Configure Branding**: Set `project_title`, `project_logo`, and/or `project_icon` in `config/config.exs`
+6. **Configure Layout** (Optional): Set custom layouts in `config/config.exs`
+7. **Theme Support**: DaisyUI 5 theme system with 35+ themes is automatically enabled
+8. **Settings Management**: Access admin settings at `{prefix}/admin/settings`
+9. **Email System** (Optional): Enable email system and AWS SES integration
 
 > **Note**: `{prefix}` represents your configured PhoenixKit URL prefix (default: `/phoenix_kit`).
 > This can be customized via `config :phoenix_kit, url_prefix: "/your_custom_prefix"`.
@@ -881,6 +882,16 @@ config :my_app, MyApp.Mailer, adapter: Swoosh.Adapters.Local
 
 # Alternative: Configure PhoenixKit's built-in mailer (legacy approach)
 # config :phoenix_kit, PhoenixKit.Mailer, adapter: Swoosh.Adapters.Local
+
+# Configure Dashboard Branding (IMPORTANT for customization)
+config :phoenix_kit,
+  project_title: "My App",              # Displayed in dashboard header
+  project_logo: "/images/logo.svg",     # URL/path to logo image (use SVG with currentColor for theme support)
+  project_icon: "hero-cube",            # Heroicon name when no logo image (default: "hero-home")
+  project_logo_height: "h-10",          # Tailwind height class (default: "h-8")
+  project_logo_class: "rounded",        # Additional CSS classes for logo image
+  project_home_url: "/dashboard",       # Where logo links to (default: "/")
+  show_title_with_logo: false           # Show title text alongside logo (default: true)
 
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,
