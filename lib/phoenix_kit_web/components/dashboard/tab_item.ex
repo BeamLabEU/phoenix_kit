@@ -231,7 +231,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
   # Helper functions
 
-  defp build_path(path, nil), do: path
+  # Always apply URL prefix via Routes.path
+  # When locale is nil, use :none to skip locale prefix but still apply URL prefix
+  defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
   defp build_path(path, locale) do
     Routes.path(path, locale: locale)
