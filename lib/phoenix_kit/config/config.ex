@@ -35,8 +35,9 @@ defmodule PhoenixKit.Config do
   - `:project_icon` - Heroicon name when no logo image (default: "hero-home")
   - `:project_logo_height` - Logo height CSS class (default: "h-8")
   - `:project_logo_class` - Additional CSS classes for logo image (optional)
-  - `:project_home_url` - URL the logo links to (default: "/")
+  - `:project_home_url` - URL the logo links to (default: "/", use "~/" prefix for URL prefix)
   - `:show_title_with_logo` - Show title text alongside logo (default: true)
+  - `:dashboard_themes` - Themes available in dashboard theme switcher (default: `:all`)
   - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
   - `:user_dashboard_tabs` - List of custom tabs for the user dashboard sidebar
   - `:user_dashboard_tab_groups` - List of tab groups for organizing dashboard tabs
@@ -131,6 +132,8 @@ defmodule PhoenixKit.Config do
     project_logo_class: nil,
     project_home_url: "/",
     show_title_with_logo: true,
+    # Dashboard theme settings (:all for all themes, or list of theme names)
+    dashboard_themes: :all,
     layouts_module: nil,
     phoenix_version_strategy: nil,
     from_email: nil,

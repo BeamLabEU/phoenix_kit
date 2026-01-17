@@ -1008,6 +1008,26 @@ project_logo_class: "dark:invert"
 <input class="input input-bordered">   <!-- Input component -->
 ```
 
+### Dashboard Theme Switcher Configuration
+
+Control which themes appear in the dashboard theme switcher:
+
+```elixir
+# All themes (default)
+config :phoenix_kit,
+  dashboard_themes: :all
+
+# Only specific themes
+config :phoenix_kit,
+  dashboard_themes: ["system", "light", "dark", "nord", "dracula"]
+
+# Light/dark only
+config :phoenix_kit,
+  dashboard_themes: ["system", "light", "dark"]
+```
+
+**Available theme names:** `"system"`, `"phoenix-light"`, `"phoenix-dark"`, `"light"`, `"dark"`, `"cupcake"`, `"bumblebee"`, `"emerald"`, `"corporate"`, `"synthwave"`, `"retro"`, `"cyberpunk"`, `"valentine"`, `"halloween"`, `"garden"`, `"forest"`, `"aqua"`, `"lofi"`, `"pastel"`, `"fantasy"`, `"wireframe"`, `"black"`, `"luxury"`, `"dracula"`, `"cmyk"`, `"autumn"`, `"business"`, `"acid"`, `"lemonade"`, `"night"`, `"coffee"`, `"winter"`, `"dim"`, `"nord"`, `"sunset"`, `"caramellatte"`, `"abyss"`, `"silk"`
+
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,

@@ -266,16 +266,43 @@ defmodule PhoenixKit.ThemeConfig do
 
   @doc """
   Returns the ordered list of themes displayed in dropdown selectors.
+
+  ## Options
+
+  - `:all` or `nil` - Returns all themes (default)
+  - List of theme names - Returns only the specified themes in order
+
+  ## Examples
+
+      # All themes
+      dropdown_themes()
+      dropdown_themes(:all)
+
+      # Only specific themes
+      dropdown_themes(["system", "light", "dark", "nord", "dracula"])
   """
-  def dropdown_themes do
-    Enum.map(@dropdown_order, fn theme ->
-      %{
-        value: theme,
-        label: Map.fetch!(@labels, theme),
-        preview_theme: Map.get(@preview_themes, theme),
-        type: if(theme == "system", do: :system, else: :theme)
-      }
-    end)
+  def dropdown_themes(filter \\ :all)
+
+  def dropdown_themes(:all), do: dropdown_themes(nil)
+
+  def dropdown_themes(nil) do
+    Enum.map(@dropdown_order, &theme_to_map/1)
+  end
+
+  def dropdown_themes(allowed_themes) when is_list(allowed_themes) do
+    # Filter and preserve order from allowed_themes list
+    allowed_themes
+    |> Enum.filter(&Map.has_key?(@labels, &1))
+    |> Enum.map(&theme_to_map/1)
+  end
+
+  defp theme_to_map(theme) do
+    %{
+      value: theme,
+      label: Map.fetch!(@labels, theme),
+      preview_theme: Map.get(@preview_themes, theme),
+      type: if(theme == "system", do: :system, else: :theme)
+    }
   end
 
   @doc """
