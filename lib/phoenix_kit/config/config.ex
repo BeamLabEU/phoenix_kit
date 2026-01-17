@@ -38,6 +38,7 @@ defmodule PhoenixKit.Config do
   - `:project_home_url` - URL the logo links to (default: "/", use "~/" prefix for URL prefix)
   - `:show_title_with_logo` - Show title text alongside logo (default: true)
   - `:dashboard_themes` - Themes available in dashboard theme switcher (default: `:all`)
+  - `:dashboard_subtab_style` - Default styling for subtabs (indent, icon_size, text_size, animation)
   - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
   - `:user_dashboard_tabs` - List of custom tabs for the user dashboard sidebar
   - `:user_dashboard_tab_groups` - List of tab groups for organizing dashboard tabs
@@ -166,7 +167,14 @@ defmodule PhoenixKit.Config do
     # Admin dashboard categories
     admin_dashboard_categories: [],
     # Multiple context selectors (takes precedence over single selector)
-    dashboard_context_selectors: nil
+    dashboard_context_selectors: nil,
+    # Subtab styling defaults
+    dashboard_subtab_style: [
+      indent: "pl-9",
+      icon_size: "w-4 h-4",
+      text_size: "text-sm",
+      animation: :none
+    ]
   ]
 
   @doc """
