@@ -74,6 +74,38 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 - Layout integration with parent applications
 - Ready for production use
 
+## ⚠️ Built-in Dashboard Features (USE THESE FIRST)
+
+**IMPORTANT**: Before implementing custom dashboard functionality, check if PhoenixKit already provides it:
+
+### Context Selectors (Organization/Project/Team Switching)
+
+PhoenixKit has a **built-in context selector system** for switching between organizations, teams, projects, workspaces, etc. **DO NOT build custom dropdowns** for context switching.
+
+```elixir
+# Single selector - config/config.exs
+config :phoenix_kit, :dashboard_context_selector,
+  loader: {MyApp.Orgs, :list_for_user},
+  display_name: fn org -> org.name end,
+  label: "Organization",
+  position: :header
+
+# Multiple selectors with dependencies
+config :phoenix_kit, :dashboard_context_selectors, [
+  %{key: :organization, loader: {MyApp.Orgs, :list_for_user}, ...},
+  %{key: :project, depends_on: :organization, loader: {MyApp.Projects, :list_for_org}, ...}
+]
+```
+
+**See full documentation:** Search for "Dashboard Context Selectors" in this file.
+
+### Other Built-in Features
+
+- **Theme Switcher** - `dashboard_themes` config, auto-renders in header
+- **Dynamic Tabs** - `tab_loader` option in context selector for context-aware navigation
+- **Role-based UI** - Use `@phoenix_kit_current_scope` for role checks
+- **Settings System** - `PhoenixKit.Settings` for key/value storage
+
 ## Development Commands
 
 ### Setup and Dependencies
