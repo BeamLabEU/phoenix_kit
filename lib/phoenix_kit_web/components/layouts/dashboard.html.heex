@@ -23,7 +23,12 @@ project_logo = assigns[:project_logo] || PhoenixKit.Config.get(:project_logo, ni
 project_icon = assigns[:project_icon] || PhoenixKit.Config.get(:project_icon, "hero-home")
 project_logo_height = assigns[:project_logo_height] || PhoenixKit.Config.get(:project_logo_height, "h-8")
 project_logo_class = assigns[:project_logo_class] || PhoenixKit.Config.get(:project_logo_class, nil)
-project_home_url = assigns[:project_home_url] || PhoenixKit.Config.get(:project_home_url, "/")
+project_home_url_raw = assigns[:project_home_url] || PhoenixKit.Config.get(:project_home_url, "/")
+# Paths starting with ~/ get the URL prefix applied, others stay as-is
+project_home_url = case project_home_url_raw do
+  "~/" <> path -> PhoenixKit.Utils.Routes.path("/" <> path)
+  other -> other
+end
 show_title_with_logo = assigns[:show_title_with_logo]
 show_title_with_logo = if is_nil(show_title_with_logo), do: PhoenixKit.Config.get(:show_title_with_logo, true), else: show_title_with_logo
 

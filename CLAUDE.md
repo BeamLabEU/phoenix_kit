@@ -891,9 +891,19 @@ config :phoenix_kit,
   project_icon: "hero-cube",            # Heroicon name when no logo image (default: "hero-home")
   project_logo_height: "h-10",          # Tailwind height class (default: "h-8")
   project_logo_class: "rounded",        # Additional CSS classes for logo image
-  project_home_url: "/dashboard",       # Where logo links to (default: "/")
+  project_home_url: "~/dashboard",      # Where logo links to (default: "/", see below)
   show_title_with_logo: false           # Show title text alongside logo (default: true)
 ```
+
+### Logo Link URL Prefix Convention
+
+The `project_home_url` supports a `~/` prefix for automatic URL prefix application:
+
+- `"~/dashboard"` → `/phoenix_kit/dashboard` (prefix applied)
+- `"/"` → `/` (no prefix, goes to site root)
+- `"https://example.com"` → external URL (no change)
+
+Use `~/` when linking to PhoenixKit routes, omit it for external URLs or site root.
 
 ### Theme-Aware Logos (DaisyUI Integration)
 
