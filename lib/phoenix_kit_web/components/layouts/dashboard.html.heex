@@ -17,6 +17,8 @@
 <%
 # Branding configuration
 project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+project_title_suffix = assigns[:project_title_suffix]
+project_title_suffix = if is_nil(project_title_suffix), do: PhoenixKit.Config.get(:project_title_suffix, "Dashboard"), else: project_title_suffix
 project_logo = assigns[:project_logo] || PhoenixKit.Config.get(:project_logo, nil)
 project_icon = assigns[:project_icon] || PhoenixKit.Config.get(:project_icon, "hero-home")
 project_logo_height = assigns[:project_logo_height] || PhoenixKit.Config.get(:project_logo_height, "h-8")
@@ -24,6 +26,13 @@ project_logo_class = assigns[:project_logo_class] || PhoenixKit.Config.get(:proj
 project_home_url = assigns[:project_home_url] || PhoenixKit.Config.get(:project_home_url, "/")
 show_title_with_logo = assigns[:show_title_with_logo]
 show_title_with_logo = if is_nil(show_title_with_logo), do: PhoenixKit.Config.get(:show_title_with_logo, true), else: show_title_with_logo
+
+# Build full display title
+display_title = if project_title_suffix && project_title_suffix != "" do
+  "#{project_title} #{project_title_suffix}"
+else
+  project_title
+end
 %>
 <% # Get tabs from registry (with active state based on current path)
 dashboard_tabs =
@@ -52,7 +61,7 @@ context_selector_config =
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
     <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
-    <.live_title default={"#{project_title} Dashboard"}>
+    <.live_title default={display_title}>
       {assigns[:page_title] || "Dashboard"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
@@ -116,7 +125,7 @@ context_selector_config =
               <% end %>
               <%= if show_title_with_logo or is_nil(project_logo) do %>
                 <span class="font-bold text-base-content hidden sm:inline">
-                  {gettext("%{project_title} Dashboard", project_title: project_title)}
+                  {display_title}
                 </span>
               <% end %>
             </.link>

@@ -886,6 +886,7 @@ config :my_app, MyApp.Mailer, adapter: Swoosh.Adapters.Local
 # Configure Dashboard Branding (IMPORTANT for customization)
 config :phoenix_kit,
   project_title: "My App",              # Displayed in dashboard header
+  project_title_suffix: "",             # Suffix after title (default: "Dashboard", "" to remove)
   project_logo: "/images/logo.svg",     # URL/path to logo image (use SVG with currentColor for theme support)
   project_icon: "hero-cube",            # Heroicon name when no logo image (default: "hero-home")
   project_logo_height: "h-10",          # Tailwind height class (default: "h-8")
