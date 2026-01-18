@@ -68,16 +68,57 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   end
 
   @doc false
-  # credo:disable-for-lines:60 Credo.Check.Refactor.CyclomaticComplexity
+  # credo:disable-for-lines:100 Credo.Check.Refactor.CyclomaticComplexity
   defmacro __before_compile__(_env) do
     quote do
       def handle_info({:tab_updated, tab}, socket) do
         tabs = update_tab_in_list(socket.assigns[:dashboard_tabs] || [], tab)
+        # Re-apply context badge value if this tab has one
+        context_badge_values = socket.assigns[:context_badge_values] || %{}
+        tabs = restore_context_badge_value(tabs, tab.id, context_badge_values)
         {:noreply, assign(socket, :dashboard_tabs, tabs)}
       end
 
+      # Restore context badge value for a specific tab after update
+      defp restore_context_badge_value(tabs, tab_id, context_badge_values) do
+        case Map.get(context_badge_values, tab_id) do
+          nil -> tabs
+          value ->
+            Enum.map(tabs, fn tab ->
+              if tab.id == tab_id and tab.badge != nil and
+                   PhoenixKit.Dashboard.Badge.context_aware?(tab.badge) do
+                updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
+                %{tab | badge: updated_badge}
+              else
+                tab
+              end
+            end)
+        end
+      end
+
       def handle_info(:tabs_refreshed, socket) do
-        {:noreply, assign(socket, :dashboard_tabs, load_dashboard_tabs(socket))}
+        tabs = load_dashboard_tabs(socket)
+        # Re-merge context badge values to preserve per-user badge state
+        context_badge_values = socket.assigns[:context_badge_values] || %{}
+        tabs_with_context = merge_context_badge_values_inline(tabs, context_badge_values)
+        {:noreply, assign(socket, :dashboard_tabs, tabs_with_context)}
+      end
+
+      # Inline helper to merge context values (mirrors the module function)
+      defp merge_context_badge_values_inline(tabs, context_badge_values)
+           when map_size(context_badge_values) == 0,
+           do: tabs
+
+      defp merge_context_badge_values_inline(tabs, context_badge_values) do
+        Enum.map(tabs, fn tab ->
+          case Map.get(context_badge_values, tab.id) do
+            nil -> tab
+            value when tab.badge != nil ->
+              updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
+              %{tab | badge: updated_badge}
+            _value -> tab
+          end
+        end)
       end
 
       def handle_info({:tab_viewers_updated, tab_id, count}, socket) do
@@ -249,6 +290,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   Refreshes the dashboard tabs from the registry.
 
   Call this when you need to force a refresh of tab data.
+  Context-aware badge values are preserved during refresh.
   """
   @spec refresh_dashboard_tabs(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
   def refresh_dashboard_tabs(socket) do
@@ -256,7 +298,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     current_path = socket.assigns[:url_path] || "/dashboard"
 
     tabs = Registry.get_tabs_with_active(current_path, scope: scope)
-    Phoenix.Component.assign(socket, :dashboard_tabs, tabs)
+
+    # Re-merge context badge values to preserve per-user badge state
+    context_badge_values = socket.assigns[:context_badge_values] || %{}
+    tabs_with_context = merge_context_badge_values(tabs, context_badge_values)
+
+    Phoenix.Component.assign(socket, :dashboard_tabs, tabs_with_context)
   end
 
   @doc """
@@ -305,9 +352,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
   Call this when the user switches context (e.g., selects a different organization).
   It will:
-  - Unsubscribe from old context-specific topics
-  - Subscribe to new context-specific topics
+  - Subscribe to new context-specific PubSub topics
   - Load new badge values for the new context
+  - Merge updated values into dashboard tabs
+
+  Note: Old PubSub subscriptions are not explicitly removed. They will be cleaned
+  up when the LiveView process terminates. If your context switch doesn't involve
+  navigation, filter incoming PubSub messages by checking the current context.
 
   ## Examples
 
@@ -445,10 +496,14 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
         nil ->
           tab
 
-        value ->
+        value when tab.badge != nil ->
           # Update the badge's value with the context-specific value
           updated_badge = Badge.update_value(tab.badge, value)
           %{tab | badge: updated_badge}
+
+        _value ->
+          # Tab has no badge, skip update
+          tab
       end
     end)
   end
