@@ -236,6 +236,8 @@ config :phoenix_kit, :user_dashboard_tabs, [
 ]
 ```
 
+> **Note:** Currently only one level of nesting is supported (parent → subtab). Sub-sub-tabs (nested subtabs) are not yet implemented but may be added in a future release.
+
 ### Subtab Display Options
 
 - `:when_active` (default) - Subtabs only appear when the parent tab is active
