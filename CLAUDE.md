@@ -304,6 +304,19 @@ url = Routes.url("/users/confirm/#{token}")
 
 **Note:** `Routes` is automatically aliased in all LiveViews, LiveComponents, Controllers, and HTML modules via `PhoenixKitWeb`.
 
+### Route Path Convention (Hyphens)
+
+PhoenixKit uses **hyphens** in route paths, not underscores:
+
+| Correct (PhoenixKit) | Common Convention |
+|---------------------|-------------------|
+| `/users/log-in` | `/users/log_in` |
+| `/users/log-out` | `/users/log_out` |
+| `/users/reset-password` | `/users/reset_password` |
+| `/users/magic-link` | `/users/magic_link` |
+
+This matches URL conventions (hyphens are more readable in URLs) but differs from the typical Elixir/Phoenix underscore convention. If you get 404 errors, check that you're using hyphens.
+
 ### Helper Functions: Use Components, Not Private Functions
 
 **CRITICAL**: Never use `defp` helpers called from HEEX templates - compiler can't see usage.
