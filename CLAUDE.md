@@ -583,6 +583,20 @@ See `lib/phoenix_kit/dashboard/README.md` for full documentation. Quick access i
 - Single context: `socket.assigns.current_context`
 - Multi context: `socket.assigns.current_contexts_map[:key]`
 
+### Dashboard Layout Performance (IMPORTANT)
+
+**Do not pass all assigns to the dashboard layout.** Use `dashboard_assigns/1`:
+
+```heex
+<%!-- ❌ BAD - triggers layout diff on ANY assign change --%>
+<PhoenixKitWeb.Layouts.dashboard {assigns}>
+
+<%!-- ✅ GOOD - only passes assigns the layout uses --%>
+<PhoenixKitWeb.Layouts.dashboard {dashboard_assigns(assigns)}>
+```
+
+Without this, a LiveView receiving 7 updates/second sends ~84KB/sec of redundant layout HTML. The `dashboard_assigns/1` function (auto-imported in LiveViews) extracts only layout-relevant assigns.
+
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)
 config :phoenix_kit,

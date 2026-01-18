@@ -90,6 +90,9 @@ defmodule PhoenixKitWeb do
       # PhoenixKit Routes helper for prefix-aware path building
       alias PhoenixKit.Utils.Routes
 
+      # Layout helper for extracting only layout-relevant assigns (performance)
+      import PhoenixKitWeb.LayoutHelpers, only: [dashboard_assigns: 1]
+
       unquote(verified_routes())
     end
   end
