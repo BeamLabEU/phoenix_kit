@@ -112,11 +112,20 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
       defp merge_context_badge_values_inline(tabs, context_badge_values) do
         Enum.map(tabs, fn tab ->
           case Map.get(context_badge_values, tab.id) do
-            nil -> tab
+            nil ->
+              tab
+
             value when tab.badge != nil ->
-              updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
-              %{tab | badge: updated_badge}
-            _value -> tab
+              # Only update if badge is still context-aware (config might have changed)
+              if PhoenixKit.Dashboard.Badge.context_aware?(tab.badge) do
+                updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
+                %{tab | badge: updated_badge}
+              else
+                tab
+              end
+
+            _value ->
+              tab
           end
         end)
       end
@@ -497,9 +506,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
           tab
 
         value when tab.badge != nil ->
-          # Update the badge's value with the context-specific value
-          updated_badge = Badge.update_value(tab.badge, value)
-          %{tab | badge: updated_badge}
+          # Only update if badge is still context-aware (config might have changed)
+          if Badge.context_aware?(tab.badge) do
+            updated_badge = Badge.update_value(tab.badge, value)
+            %{tab | badge: updated_badge}
+          else
+            tab
+          end
 
         _value ->
           # Tab has no badge, skip update

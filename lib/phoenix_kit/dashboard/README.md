@@ -567,10 +567,11 @@ end
 
 ### How It Works
 
-1. **At mount**: `init_dashboard_tabs/2` detects context-aware badges, calls their loaders, and stores values in `:context_badge_values` assign
+1. **At mount**: `init_dashboard_tabs/2` detects context-aware badges, calls their loaders, and merges values directly into the tab's badge struct
 2. **Subscriptions**: Topic placeholders are resolved using the current context from `:current_contexts_map`
-3. **Updates**: PubSub messages update the context-specific badge value
-4. **Rendering**: Badge component checks `:context_badge_values` first, falls back to global value
+3. **Updates**: Use `update_context_badge/3` to update both `:context_badge_values` and the tab's badge value
+4. **Rendering**: Badge component uses `tab.badge.value` which already has the merged context value
+5. **Preservation**: Tab refresh handlers automatically restore context badge values to prevent overwriting by global updates
 
 ### Global vs Context-Aware
 
