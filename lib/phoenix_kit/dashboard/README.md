@@ -149,6 +149,28 @@ PhoenixKit.Dashboard.clear_attention(:alerts)
 }
 ```
 
+### Tab Path Format
+
+**Important:** Tab paths should be specified WITHOUT the PhoenixKit URL prefix.
+
+```elixir
+# ✅ CORRECT - relative path without prefix
+path: "/dashboard/orders"
+
+# ❌ WRONG - don't include the phoenix_kit prefix
+path: "/phoenix_kit/dashboard/orders"
+```
+
+PhoenixKit automatically normalizes paths for matching:
+- Strips the configured URL prefix (default: `/phoenix_kit`)
+- Strips locale prefixes (e.g., `/en/dashboard/orders` → `/dashboard/orders`)
+- Handles trailing slashes consistently
+
+This means your tab will correctly highlight regardless of:
+- What URL prefix is configured
+- Whether the user has a locale in the URL
+- Whether there's a trailing slash
+
 ### Full Options
 
 ```elixir
@@ -393,6 +415,107 @@ PhoenixKit.Dashboard.subtab?(tab)
 # Check if subtabs should be shown
 PhoenixKit.Dashboard.show_subtabs?(parent_tab, is_active)
 ```
+
+### Subtab Behavior Reference
+
+This section documents how subtab options interact with each other.
+
+#### Option Summary
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `parent` | `nil` | Links this tab as a subtab of the specified parent |
+| `subtab_display` | `:when_active` | When to show subtabs: `:when_active` or `:always` |
+| `highlight_with_subtabs` | `false` | Whether parent highlights when a subtab is active |
+| `redirect_to_first_subtab` | `false` | Clicking parent navigates to first subtab instead |
+| `match` | `:prefix` | Path matching strategy: `:exact`, `:prefix`, `{:regex, ~r/...}`, or function |
+
+#### Common Patterns
+
+**Pattern 1: Category parent with default subtab landing page**
+
+The parent tab acts as a category header. Clicking it goes to the first subtab. Both parent and active subtab are highlighted.
+
+```elixir
+# Parent - acts as category, redirects to first subtab
+%{
+  id: :history,
+  label: "History",
+  path: "/dashboard/history",
+  redirect_to_first_subtab: true,   # Click goes to /dashboard/history/timeline
+  highlight_with_subtabs: true,     # Parent stays highlighted
+  subtab_display: :when_active
+}
+
+# Subtabs
+%{id: :timeline, label: "Timeline", path: "/dashboard/history/timeline", parent: :history, priority: 100}
+%{id: :stats, label: "Stats", path: "/dashboard/history/stats", parent: :history, priority: 200}
+```
+
+**Pattern 2: Parent has its own content, subtabs are secondary**
+
+The parent tab has its own page. Subtabs provide additional views. Only the active item highlights.
+
+```elixir
+# Parent - has its own content at /dashboard/orders
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  match: :exact,                    # Only highlight when exactly on /dashboard/orders
+  highlight_with_subtabs: false,    # Don't highlight parent when on subtab
+  subtab_display: :when_active
+}
+
+# Subtabs
+%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders}
+%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders}
+```
+
+**Pattern 3: Always-visible subtabs (settings menu)**
+
+Subtabs are always visible regardless of which is active.
+
+```elixir
+%{
+  id: :settings,
+  label: "Settings",
+  path: "/dashboard/settings",
+  subtab_display: :always,          # Always show subtabs
+  redirect_to_first_subtab: true
+}
+
+%{id: :profile, label: "Profile", path: "/dashboard/settings/profile", parent: :settings}
+%{id: :security, label: "Security", path: "/dashboard/settings/security", parent: :settings}
+```
+
+#### How Options Interact
+
+**`match` and `highlight_with_subtabs`:**
+
+- With `match: :prefix` (default), the parent highlights for `/dashboard/orders`, `/dashboard/orders/pending`, etc.
+- With `match: :exact`, the parent only highlights for exactly `/dashboard/orders`
+- `highlight_with_subtabs: true` overrides `match: :exact` to also highlight when subtabs are active
+
+**`redirect_to_first_subtab` and parent path:**
+
+- When `true`, the parent's `path` is used for sidebar display but clicking navigates to the first subtab
+- The first subtab is determined by lowest `priority` value
+- If no subtabs exist, falls back to parent's path
+
+**`subtab_display` and visibility:**
+
+- `:when_active` - Subtabs appear only when parent or any subtab is the current page
+- `:always` - Subtabs always appear in the sidebar
+
+#### Debugging Tips
+
+If subtabs aren't behaving as expected:
+
+1. **Parent not highlighting?** Check `highlight_with_subtabs` and `match` settings
+2. **Subtabs not showing?** Verify `subtab_display` and that `parent` ID matches
+3. **Wrong tab active?** Check path normalization - paths should not include URL prefix
+4. **Click goes to wrong place?** Check `redirect_to_first_subtab` and subtab priorities
 
 ## Badge Types
 
