@@ -456,6 +456,120 @@ When you broadcast to the topic, the badge updates automatically:
 Phoenix.PubSub.broadcast(MyApp.PubSub, "farm:stats", %{printing_count: 3})
 ```
 
+## Context-Aware Badges
+
+For badges that show different values per user, organization, or other context (e.g., "alert count for THIS user's farm"), use context-aware badges. These badges:
+
+- Store values per-context in socket assigns (not globally)
+- Load initial values using a loader function
+- Subscribe to context-specific PubSub topics
+
+### Basic Usage
+
+```elixir
+%{
+  id: :alerts,
+  label: "Alerts",
+  icon: "hero-bell-alert",
+  path: "/dashboard/alerts",
+  badge: %{
+    type: :count,
+    color: :error,
+    context_key: :organization,  # Which context selector this depends on
+    loader: {MyApp.Alerts, :count_for_org}  # Called with current context
+  }
+}
+```
+
+### With Live Updates
+
+```elixir
+%{
+  id: :printers,
+  label: "Printers",
+  path: "/dashboard/printers",
+  badge: %{
+    type: :count,
+    context_key: :farm,
+    loader: {MyApp.Farms, :printing_count},
+    # {id} is replaced with farm.id at runtime
+    subscribe: {"farm:{id}:stats", fn msg -> msg.printing_count end}
+  }
+}
+```
+
+### Topic Placeholders
+
+Subscribe topics support `{field}` placeholders that are resolved from the current context:
+
+- `{id}` - context.id
+- `{name}` - context.name
+- Any field accessible on the context struct/map
+
+Examples:
+- `"org:{id}:alerts"` → `"org:123:alerts"`
+- `"farm:{uuid}:stats"` → `"farm:abc-def:stats"`
+
+### Loader Function
+
+The loader is called when the LiveView mounts to get the initial badge value:
+
+```elixir
+# Module function - called as MyApp.Alerts.count_for_org(context)
+loader: {MyApp.Alerts, :count_for_org}
+
+# Anonymous function
+loader: fn context -> MyApp.Alerts.count_for_org(context.id) end
+```
+
+### Using Badge.context/3
+
+For cleaner syntax, use the convenience constructor:
+
+```elixir
+alias PhoenixKit.Dashboard.Badge
+
+# Badge that shows alert count for current organization
+Badge.context(:organization, {MyApp.Alerts, :count_for_org}, color: :error)
+
+# With live updates
+Badge.context(:farm, {MyApp.Farms, :printing_count},
+  subscribe: "farm:{id}:stats",
+  color: :info
+)
+```
+
+### Reinitializing on Context Change
+
+When the user switches context, call `reinit_context_badges/1` to update badge values:
+
+```elixir
+def handle_info({:context_changed, :organization, new_org}, socket) do
+  socket =
+    socket
+    |> assign(:current_contexts_map, %{organization: new_org})
+    |> reinit_context_badges()
+
+  {:noreply, socket}
+end
+```
+
+### How It Works
+
+1. **At mount**: `init_dashboard_tabs/2` detects context-aware badges, calls their loaders, and stores values in `:context_badge_values` assign
+2. **Subscriptions**: Topic placeholders are resolved using the current context from `:current_contexts_map`
+3. **Updates**: PubSub messages update the context-specific badge value
+4. **Rendering**: Badge component checks `:context_badge_values` first, falls back to global value
+
+### Global vs Context-Aware
+
+| Feature | Global Badge | Context-Aware Badge |
+|---------|--------------|---------------------|
+| Storage | ETS (shared) | Socket assigns (per-user) |
+| Updates | Broadcast to all users | Per-subscription |
+| Use case | Site-wide notifications | Per-org/farm/team data |
+| Config | `value: 5` | `context_key: :org, loader: {...}` |
+
 ## Conditional Visibility
 
 ### Role-Based

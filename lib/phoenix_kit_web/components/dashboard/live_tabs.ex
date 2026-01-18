@@ -129,13 +129,21 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   This function:
   1. Loads tabs from the registry
   2. Subscribes to tab updates
-  3. Subscribes to badge update topics
+  3. Subscribes to badge update topics (with context resolution for context-aware badges)
   4. Initializes viewer counts
+  5. Loads initial values for context-aware badges
 
   ## Options
 
   - `:show_presence` - Load and track presence counts (default: true)
   - `:subscribe_badges` - Subscribe to live badge topics (default: true)
+
+  ## Context-Aware Badges
+
+  For badges with `context_key` set, this function:
+  - Resolves topic placeholders using the current context from `current_contexts_map`
+  - Loads initial badge values using the badge's loader function
+  - Stores context badge values in `:context_badge_values` assign
 
   ## Examples
 
@@ -150,6 +158,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     scope = socket.assigns[:phoenix_kit_current_scope]
     current_path = socket.assigns[:url_path] || "/dashboard"
 
+    # Get current contexts map for context-aware badges
+    contexts_map = socket.assigns[:current_contexts_map] || %{}
+
     # Load tabs
     tabs = Registry.get_tabs_with_active(current_path, scope: scope)
 
@@ -163,9 +174,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
         Presence.subscribe()
       end
 
-      # Subscribe to badge topics
+      # Subscribe to badge topics (resolving context placeholders)
       if subscribe_badges do
-        subscribe_to_badge_topics(tabs)
+        subscribe_to_badge_topics(tabs, contexts_map)
       end
     end
 
@@ -177,10 +188,14 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
         %{}
       end
 
+    # Load initial values for context-aware badges
+    context_badge_values = init_context_badges(tabs, contexts_map)
+
     socket
     |> Phoenix.Component.assign(:dashboard_tabs, tabs)
     |> Phoenix.Component.assign(:tab_viewer_counts, viewer_counts)
     |> Phoenix.Component.assign(:collapsed_dashboard_groups, MapSet.new())
+    |> Phoenix.Component.assign(:context_badge_values, context_badge_values)
   end
 
   @doc """
@@ -284,11 +299,69 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     socket
   end
 
+  @doc """
+  Reinitializes context-aware badges when context changes.
+
+  Call this when the user switches context (e.g., selects a different organization).
+  It will:
+  - Unsubscribe from old context-specific topics
+  - Subscribe to new context-specific topics
+  - Load new badge values for the new context
+
+  ## Examples
+
+      def handle_info({:context_changed, :organization, new_org}, socket) do
+        socket =
+          socket
+          |> assign(:current_contexts_map, %{organization: new_org})
+          |> reinit_context_badges()
+
+        {:noreply, socket}
+      end
+  """
+  @spec reinit_context_badges(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  def reinit_context_badges(socket) do
+    tabs = socket.assigns[:dashboard_tabs] || []
+    contexts_map = socket.assigns[:current_contexts_map] || %{}
+
+    # Resubscribe to badge topics with new context
+    if Phoenix.LiveView.connected?(socket) do
+      subscribe_to_badge_topics(tabs, contexts_map)
+    end
+
+    # Reload context badge values
+    context_badge_values = init_context_badges(tabs, contexts_map)
+
+    Phoenix.Component.assign(socket, :context_badge_values, context_badge_values)
+  end
+
+  @doc """
+  Gets the badge value for a tab, checking context-aware values first.
+
+  For context-aware badges, returns the value from `:context_badge_values`.
+  For regular badges, returns the badge's stored value.
+
+  ## Examples
+
+      # In template
+      <%= get_badge_value(@context_badge_values, tab) %>
+  """
+  @spec get_badge_value(map(), map()) :: any()
+  def get_badge_value(context_badge_values, tab) when is_map(context_badge_values) do
+    case Map.get(context_badge_values, tab.id) do
+      nil -> tab.badge && tab.badge.value
+      value -> value
+    end
+  end
+
+  def get_badge_value(_, tab), do: tab.badge && tab.badge.value
+
   # Private helpers
 
-  defp subscribe_to_badge_topics(tabs) do
+  defp subscribe_to_badge_topics(tabs, contexts_map) do
     for tab <- tabs, tab.badge, Badge.live?(tab.badge) do
-      topic = Badge.get_topic(tab.badge)
+      context = get_context_for_badge(tab.badge, contexts_map)
+      topic = Badge.get_resolved_topic(tab.badge, context)
 
       if topic do
         Phoenix.PubSub.subscribe(PhoenixKit.PubSub, topic)
@@ -296,5 +369,21 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
     end
 
     :ok
+  end
+
+  defp init_context_badges(tabs, contexts_map) do
+    tabs
+    |> Enum.filter(fn tab -> tab.badge && Badge.context_aware?(tab.badge) end)
+    |> Enum.reduce(%{}, fn tab, acc ->
+      context = get_context_for_badge(tab.badge, contexts_map)
+      value = Badge.load_value(tab.badge, context)
+      Map.put(acc, tab.id, value)
+    end)
+  end
+
+  defp get_context_for_badge(%Badge{context_key: nil}, _contexts_map), do: nil
+
+  defp get_context_for_badge(%Badge{context_key: key}, contexts_map) do
+    Map.get(contexts_map, key)
   end
 end
