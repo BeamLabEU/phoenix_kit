@@ -539,9 +539,20 @@ Badge.context(:farm, {MyApp.Farms, :printing_count},
 )
 ```
 
+### Handling Live Updates
+
+When a PubSub message arrives for a context-aware badge, use `update_context_badge/3`:
+
+```elixir
+def handle_info(%{printing_count: count}, socket) do
+  # Update the badge value in socket assigns (not global ETS)
+  {:noreply, update_context_badge(socket, :printers, count)}
+end
+```
+
 ### Reinitializing on Context Change
 
-When the user switches context, call `reinit_context_badges/1` to update badge values:
+When the user switches context, call `reinit_context_badges/1` to reload all context badge values:
 
 ```elixir
 def handle_info({:context_changed, :organization, new_org}, socket) do

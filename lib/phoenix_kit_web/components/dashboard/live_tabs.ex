@@ -188,11 +188,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
         %{}
       end
 
-    # Load initial values for context-aware badges
+    # Load initial values for context-aware badges and merge into tabs
     context_badge_values = init_context_badges(tabs, contexts_map)
+    tabs_with_context_values = merge_context_badge_values(tabs, context_badge_values)
 
     socket
-    |> Phoenix.Component.assign(:dashboard_tabs, tabs)
+    |> Phoenix.Component.assign(:dashboard_tabs, tabs_with_context_values)
     |> Phoenix.Component.assign(:tab_viewer_counts, viewer_counts)
     |> Phoenix.Component.assign(:collapsed_dashboard_groups, MapSet.new())
     |> Phoenix.Component.assign(:context_badge_values, context_badge_values)
@@ -329,10 +330,51 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
       subscribe_to_badge_topics(tabs, contexts_map)
     end
 
-    # Reload context badge values
+    # Reload context badge values and merge into tabs
     context_badge_values = init_context_badges(tabs, contexts_map)
+    tabs_with_context_values = merge_context_badge_values(tabs, context_badge_values)
 
-    Phoenix.Component.assign(socket, :context_badge_values, context_badge_values)
+    socket
+    |> Phoenix.Component.assign(:dashboard_tabs, tabs_with_context_values)
+    |> Phoenix.Component.assign(:context_badge_values, context_badge_values)
+  end
+
+  @doc """
+  Updates a context-aware badge value in socket assigns.
+
+  Use this when handling PubSub messages for context-aware badges. Unlike
+  `update_tab_badge/3` which updates global ETS, this updates the socket assigns
+  so each user sees their own value.
+
+  ## Examples
+
+      def handle_info({:alert_count_update, count}, socket) do
+        {:noreply, update_context_badge(socket, :alerts, count)}
+      end
+  """
+  @spec update_context_badge(Phoenix.LiveView.Socket.t(), atom(), any()) ::
+          Phoenix.LiveView.Socket.t()
+  def update_context_badge(socket, tab_id, value) do
+    # Update context_badge_values
+    context_badge_values = socket.assigns[:context_badge_values] || %{}
+    updated_values = Map.put(context_badge_values, tab_id, value)
+
+    # Also update the tab's badge in dashboard_tabs
+    tabs = socket.assigns[:dashboard_tabs] || []
+
+    updated_tabs =
+      Enum.map(tabs, fn tab ->
+        if tab.id == tab_id and tab.badge do
+          updated_badge = Badge.update_value(tab.badge, value)
+          %{tab | badge: updated_badge}
+        else
+          tab
+        end
+      end)
+
+    socket
+    |> Phoenix.Component.assign(:context_badge_values, updated_values)
+    |> Phoenix.Component.assign(:dashboard_tabs, updated_tabs)
   end
 
   @doc """
@@ -385,5 +427,24 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
   defp get_context_for_badge(%Badge{context_key: key}, contexts_map) do
     Map.get(contexts_map, key)
+  end
+
+  # Merges context badge values into tabs so they're ready for rendering
+  defp merge_context_badge_values(tabs, context_badge_values) when map_size(context_badge_values) == 0 do
+    tabs
+  end
+
+  defp merge_context_badge_values(tabs, context_badge_values) do
+    Enum.map(tabs, fn tab ->
+      case Map.get(context_badge_values, tab.id) do
+        nil ->
+          tab
+
+        value ->
+          # Update the badge's value with the context-specific value
+          updated_badge = Badge.update_value(tab.badge, value)
+          %{tab | badge: updated_badge}
+      end
+    end)
   end
 end
