@@ -96,6 +96,8 @@ defmodule PhoenixKit.Dashboard.Tab do
 
   @type subtab_display :: :when_active | :always
 
+  @type subtab_animation :: :none | :slide | :fade | :collapse
+
   @type t :: %__MODULE__{
           id: atom(),
           label: String.t(),
@@ -105,6 +107,12 @@ defmodule PhoenixKit.Dashboard.Tab do
           group: atom() | nil,
           parent: atom() | nil,
           subtab_display: subtab_display(),
+          subtab_indent: String.t() | nil,
+          subtab_icon_size: String.t() | nil,
+          subtab_text_size: String.t() | nil,
+          subtab_animation: subtab_animation() | nil,
+          redirect_to_first_subtab: boolean(),
+          highlight_with_subtabs: boolean(),
           match: match_type(),
           visible: visibility(),
           badge: Badge.t() | nil,
@@ -127,8 +135,14 @@ defmodule PhoenixKit.Dashboard.Tab do
     :tooltip,
     :attention,
     :inserted_at,
+    :subtab_indent,
+    :subtab_icon_size,
+    :subtab_text_size,
+    :subtab_animation,
     priority: 500,
     subtab_display: :when_active,
+    redirect_to_first_subtab: false,
+    highlight_with_subtabs: false,
     match: :prefix,
     visible: true,
     external: false,
@@ -149,6 +163,12 @@ defmodule PhoenixKit.Dashboard.Tab do
   - `:group` - Group identifier for organizing tabs (optional, atom)
   - `:parent` - Parent tab ID for subtabs (optional, atom)
   - `:subtab_display` - When to show subtabs: :when_active or :always (default: :when_active)
+  - `:subtab_indent` - Tailwind padding class for subtab indentation (e.g., "pl-6", "pl-12")
+  - `:subtab_icon_size` - Icon size class for subtabs (e.g., "w-3 h-3", "w-5 h-5")
+  - `:subtab_text_size` - Text size class for subtabs (e.g., "text-xs", "text-base")
+  - `:subtab_animation` - Animation when subtabs appear: :none, :slide, :fade, :collapse
+  - `:redirect_to_first_subtab` - Navigate to first subtab when clicking parent (default: false)
+  - `:highlight_with_subtabs` - Highlight parent when subtab is active (default: false)
   - `:match` - Path matching strategy: :exact, :prefix, :regex, or function (default: :prefix)
   - `:visible` - Boolean or function(scope) -> boolean for conditional visibility (default: true)
   - `:badge` - Badge struct or map for displaying indicators (optional)
@@ -188,6 +208,12 @@ defmodule PhoenixKit.Dashboard.Tab do
       group: get_attr(attrs, :group),
       parent: get_attr(attrs, :parent),
       subtab_display: parse_subtab_display(get_attr(attrs, :subtab_display)),
+      subtab_indent: get_attr(attrs, :subtab_indent),
+      subtab_icon_size: get_attr(attrs, :subtab_icon_size),
+      subtab_text_size: get_attr(attrs, :subtab_text_size),
+      subtab_animation: parse_subtab_animation(get_attr(attrs, :subtab_animation)),
+      redirect_to_first_subtab: get_attr(attrs, :redirect_to_first_subtab) || false,
+      highlight_with_subtabs: get_attr(attrs, :highlight_with_subtabs) || false,
       match: parse_match(get_attr(attrs, :match) || :prefix),
       visible: get_attr(attrs, :visible) || true,
       badge: badge,
@@ -513,6 +539,17 @@ defmodule PhoenixKit.Dashboard.Tab do
   defp parse_subtab_display("when_active"), do: :when_active
   defp parse_subtab_display("always"), do: :always
   defp parse_subtab_display(_), do: :when_active
+
+  defp parse_subtab_animation(nil), do: nil
+  defp parse_subtab_animation(:none), do: :none
+  defp parse_subtab_animation(:slide), do: :slide
+  defp parse_subtab_animation(:fade), do: :fade
+  defp parse_subtab_animation(:collapse), do: :collapse
+  defp parse_subtab_animation("none"), do: :none
+  defp parse_subtab_animation("slide"), do: :slide
+  defp parse_subtab_animation("fade"), do: :fade
+  defp parse_subtab_animation("collapse"), do: :collapse
+  defp parse_subtab_animation(_), do: nil
 
   defp normalize_path(path) when is_binary(path) do
     path

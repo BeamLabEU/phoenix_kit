@@ -54,7 +54,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Queue do
     # Check if email is enabled
     if Emails.enabled?() do
       # Get project title from settings
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       # Schedule periodic refresh for real-time updates
       if connected?(socket) do

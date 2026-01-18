@@ -14,7 +14,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataNavigator do
   alias PhoenixKit.Utils.Routes
 
   def mount(params, _session, socket) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     entities = Entities.list_entities()
 

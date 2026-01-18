@@ -22,7 +22,7 @@ defmodule PhoenixKit.Modules.Sync.Web.ConnectionsLive do
   @impl true
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     config = Sync.get_config()
 
     # Subscribe to connection updates

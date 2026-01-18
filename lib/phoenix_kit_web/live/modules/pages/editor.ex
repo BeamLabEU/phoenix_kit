@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Editor do
         |> assign(:file_content, "")
         |> assign(:original_content, "")
         |> assign(:has_changes, false)
-        |> assign(:project_title, PhoenixKit.Settings.get_setting("project_title", "PhoenixKit"))
+        |> assign(:project_title, PhoenixKit.Settings.get_project_title())
         |> assign(:current_locale, locale)
 
       {:ok, socket}

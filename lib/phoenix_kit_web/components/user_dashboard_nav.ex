@@ -75,30 +75,6 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
             </a>
           </li>
 
-          <li>
-            <div class="menu-title px-4 py-1">
-              <span class="text-xs">Theme</span>
-            </div>
-          </li>
-          <li>
-            <label class="flex items-center justify-between px-3 py-2 cursor-pointer">
-              <!-- Text area -->
-              <span class="text-sm">
-                Dark Mode
-              </span>
-              <!-- Icon area with checkbox -->
-              <div class="swap swap-rotate swap-flip">
-                <input
-                  type="checkbox"
-                  class="theme-controller"
-                  value="dark"
-                />
-                <.icon name="hero-sun" class="swap-off w-4 h-4" />
-                <.icon name="hero-moon" class="swap-on w-4 h-4" />
-              </div>
-            </label>
-          </li>
-
           <% user_languages = get_user_languages() %>
           <%= if length(user_languages) > 1 do %>
             <div class="divider my-0"></div>
@@ -107,30 +83,35 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
               <span class="text-xs">Language</span>
             </li>
 
-            <%= for language <- user_languages do %>
-              <li>
-                <a
-                  href={generate_language_switch_url(@current_path, language["code"])}
-                  class={[
-                    "flex items-center gap-3",
-                    if(language["code"] == @current_locale, do: "active", else: "")
-                  ]}
-                >
-                  <span class="text-lg">{get_language_flag(language["code"])}</span>
-                  <span>{language["name"]}</span>
-                  <%= if language["code"] == @current_locale do %>
-                    <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
-                  <% end %>
-                </a>
-              </li>
-            <% end %>
+            <%!-- Scrollable container when there are many languages --%>
+            <div class={[
+              length(user_languages) > 6 && "max-h-48 overflow-y-auto"
+            ]}>
+              <%= for language <- user_languages do %>
+                <li>
+                  <a
+                    href={generate_language_switch_url(@current_path, language["code"])}
+                    class={[
+                      "flex items-center gap-3",
+                      if(language["code"] == @current_locale, do: "active", else: "")
+                    ]}
+                  >
+                    <span class="text-lg">{get_language_flag(language["code"])}</span>
+                    <span>{language["name"]}</span>
+                    <%= if language["code"] == @current_locale do %>
+                      <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4 ml-auto" />
+                    <% end %>
+                  </a>
+                </li>
+              <% end %>
+            </div>
           <% end %>
 
           <div class="divider my-0"></div>
 
           <li>
             <.link
-              navigate="/users/log-out"
+              navigate={Routes.path("/users/log-out")}
               method="delete"
               class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content"
             >
@@ -142,7 +123,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       </div>
     <% else %>
       <.link
-        navigate="/users/log-in"
+        navigate={Routes.path("/users/log-in")}
         class="btn btn-primary btn-sm"
       >
         Login

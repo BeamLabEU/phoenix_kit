@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.Entities.Web.Entities do
     locale =
       params["locale"] || socket.assigns[:current_locale]
 
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     stats = Entities.get_system_stats()
 

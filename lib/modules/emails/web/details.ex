@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Details do
       case Integer.parse(id) do
         {email_id, _} ->
           # Get project title from settings
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
 
           socket =
             socket

@@ -19,7 +19,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
 
     socket =
       socket
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, "Preview")
       |> assign(:blog_slug, blog_slug)
       |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)

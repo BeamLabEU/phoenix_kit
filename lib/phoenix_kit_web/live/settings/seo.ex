@@ -16,7 +16,7 @@ defmodule PhoenixKitWeb.Live.Settings.SEO do
     # Attach locale hook for automatic locale handling
 
     if SEO.module_enabled?() do
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
       config = SEO.get_config()
 
       socket =

@@ -38,7 +38,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.List do
       current_user = socket.assigns[:phoenix_kit_current_user]
 
       if can_access_tickets?(current_user) do
-        project_title = Settings.get_setting("project_title", "PhoenixKit")
+        project_title = Settings.get_project_title()
 
         socket =
           socket

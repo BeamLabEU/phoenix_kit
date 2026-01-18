@@ -32,7 +32,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
 
     socket =
       socket
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:page_title, gettext("Manage Publishing"))
       |> assign(
         :current_path,

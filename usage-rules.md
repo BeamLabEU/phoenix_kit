@@ -106,6 +106,77 @@ PhoenixKit provides three authentication levels via `on_mount` hooks:
 - Optional layout integration with your app's layouts
 - Configurable URL prefix for all routes
 
+### Dashboard Context Selectors (USE THIS - DON'T BUILD CUSTOM)
+
+PhoenixKit has a **built-in context selector system** for switching between organizations, teams, projects, workspaces, etc. **DO NOT build custom dropdowns** for context switching - use this instead.
+
+**Single Selector:**
+```elixir
+# config/config.exs
+config :phoenix_kit, :dashboard_context_selector,
+  loader: {MyApp.Orgs, :list_for_user},      # (user_id) -> list of items
+  display_name: fn org -> org.name end,       # How to display each item
+  id_field: :id,                              # Field to use as ID
+  label: "Organization",                      # Label in UI
+  icon: "hero-building-office",               # Heroicon name
+  position: :header,                          # :header or :sidebar
+  sub_position: :start                        # :start or :end
+```
+
+**Multiple Selectors with Dependencies (e.g., Org → Project):**
+```elixir
+config :phoenix_kit, :dashboard_context_selectors, [
+  %{
+    key: :organization,
+    loader: {MyApp.Orgs, :list_for_user},
+    display_name: fn org -> org.name end,
+    label: "Organization",
+    icon: "hero-building-office",
+    position: :header,
+    sub_position: :start,
+    priority: 100
+  },
+  %{
+    key: :project,
+    depends_on: :organization,                 # Parent selector
+    loader: {MyApp.Projects, :list_for_org},   # (user_id, parent_context) -> list
+    display_name: fn p -> p.name end,
+    label: "Project",
+    icon: "hero-folder",
+    position: :header,
+    sub_position: :end,
+    priority: 200,
+    on_parent_change: :reset                   # :reset, :keep, or {:redirect, "/path"}
+  }
+]
+```
+
+**Accessing in LiveViews:**
+```elixir
+# Single selector
+context = socket.assigns.current_context
+
+# Multiple selectors
+org = socket.assigns.current_contexts_map[:organization]
+project = socket.assigns.current_contexts_map[:project]
+```
+
+**Dynamic Tabs based on Context:**
+```elixir
+config :phoenix_kit, :dashboard_context_selector,
+  # ... other options ...
+  tab_loader: {MyApp.Contexts, :get_tabs_for_context}  # Returns tab definitions
+```
+
+### Dashboard Theme Switcher
+
+Built-in theme switcher with 35+ daisyUI themes. Auto-renders in dashboard header.
+
+```elixir
+# Limit available themes
+config :phoenix_kit, dashboard_themes: ["system", "light", "dark", "nord", "dracula"]
+```
+
 ### Caching System
 - Built-in caching functionality for frequently accessed data
 - Module-based cache organization

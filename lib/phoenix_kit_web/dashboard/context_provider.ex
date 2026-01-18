@@ -15,7 +15,7 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
           {PhoenixKitWeb.Dashboard.ContextProvider, :default}
         ]
 
-  ## Assigns Set
+  ## Assigns Set (Single Selector - Legacy)
 
   - `@dashboard_contexts` - List of all contexts available to the user
   - `@current_context` - The currently selected context (or nil)
@@ -23,11 +23,25 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
   - `@context_selector_config` - The ContextSelector config struct
   - `@dashboard_tabs` - (Optional) List of Tab structs when `tab_loader` is configured
 
+  ## Assigns Set (Multiple Selectors)
+
+  - `@dashboard_contexts_map` - Map of key => list of contexts
+  - `@current_contexts_map` - Map of key => current context item
+  - `@show_context_selectors_map` - Map of key => boolean
+  - `@context_selector_configs` - List of all ContextSelector configs
+
+  Note: Legacy assigns are also set for backward compatibility when using
+  multiple selectors. The first selector's data populates the legacy assigns.
+
   ## Accessing in LiveViews
 
       def mount(_params, _session, socket) do
-        # Context is already loaded
+        # Single selector (legacy)
         context = socket.assigns.current_context
+
+        # Multiple selectors
+        org = socket.assigns.current_contexts_map[:organization]
+        project = socket.assigns.current_contexts_map[:project]
 
         if context do
           items = MyApp.Items.list_for_context(context.id)
@@ -55,12 +69,18 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
 
   """
   def on_mount(:default, _params, session, socket) do
-    config = ContextSelector.get_config()
-
-    if config.enabled do
-      load_and_assign_contexts(socket, session, config)
+    # Check if multi-selector is configured
+    if ContextSelector.multi_selector_enabled?() do
+      load_multi_selectors(socket, session)
     else
-      {:cont, assign_disabled(socket)}
+      # Legacy single selector
+      config = ContextSelector.get_config()
+
+      if config.enabled do
+        load_and_assign_contexts(socket, session, config)
+      else
+        {:cont, assign_disabled(socket)}
+      end
     end
   end
 
@@ -156,6 +176,123 @@ defmodule PhoenixKitWeb.Dashboard.ContextProvider do
     |> assign(:current_context, nil)
     |> assign(:show_context_selector, false)
     |> assign(:context_selector_config, %ContextSelector{enabled: false})
+    # Multi-selector assigns (also disabled)
+    |> assign(:dashboard_contexts_map, %{})
+    |> assign(:current_contexts_map, %{})
+    |> assign(:show_context_selectors_map, %{})
+    |> assign(:context_selector_configs, [])
+  end
+
+  # ============================================================================
+  # Multi-Selector Support
+  # ============================================================================
+
+  defp load_multi_selectors(socket, session) do
+    user_id = get_user_id(socket)
+
+    if user_id do
+      configs = ContextSelector.get_all_configs()
+      ordered_configs = ContextSelector.order_by_dependencies(configs)
+
+      # Get stored context IDs from session
+      stored_ids = get_stored_context_ids(session)
+
+      # Load contexts for each selector in dependency order
+      {contexts_map, current_map} =
+        load_all_contexts(ordered_configs, user_id, stored_ids)
+
+      # Build show map
+      show_map =
+        Map.new(contexts_map, fn {key, contexts} ->
+          {key, length(contexts) > 1}
+        end)
+
+      # Set legacy assigns using first selector for backward compatibility
+      first_config = List.first(ordered_configs)
+
+      socket =
+        socket
+        # Multi-selector assigns
+        |> assign(:dashboard_contexts_map, contexts_map)
+        |> assign(:current_contexts_map, current_map)
+        |> assign(:show_context_selectors_map, show_map)
+        |> assign(:context_selector_configs, ordered_configs)
+        # Legacy assigns for backward compatibility
+        |> assign_legacy_from_first(first_config, contexts_map, current_map, show_map)
+
+      {:cont, socket}
+    else
+      {:cont, assign_disabled(socket)}
+    end
+  end
+
+  defp get_stored_context_ids(session) do
+    # Try multi-selector session key first
+    case session[ContextSelector.multi_session_key()] do
+      ids when is_map(ids) -> ids
+      _ -> %{}
+    end
+  end
+
+  defp load_all_contexts(configs, user_id, stored_ids) do
+    # Accumulator: {contexts_map, current_map}
+    Enum.reduce(configs, {%{}, %{}}, fn config, {ctx_map, cur_map} ->
+      # Get parent context if this is a dependent selector
+      parent_context =
+        if config.depends_on do
+          Map.get(cur_map, config.depends_on)
+        else
+          nil
+        end
+
+      # Load contexts for this selector
+      contexts = ContextSelector.load_contexts_for_config(config, user_id, parent_context)
+
+      # Resolve current context from session or default to first
+      current = resolve_context_for_key(contexts, config.key, stored_ids, config)
+
+      {
+        Map.put(ctx_map, config.key, contexts),
+        Map.put(cur_map, config.key, current)
+      }
+    end)
+  end
+
+  defp resolve_context_for_key(contexts, key, stored_ids, _config) do
+    stored_id = Map.get(stored_ids, to_string(key))
+
+    cond do
+      contexts == [] ->
+        nil
+
+      stored_id != nil ->
+        ContextSelector.find_by_id(contexts, stored_id) || List.first(contexts)
+
+      true ->
+        List.first(contexts)
+    end
+  end
+
+  defp assign_legacy_from_first(socket, nil, _contexts_map, _current_map, _show_map) do
+    # No configs at all - use disabled defaults
+    socket
+    |> assign(:dashboard_contexts, [])
+    |> assign(:current_context, nil)
+    |> assign(:show_context_selector, false)
+    |> assign(:context_selector_config, %ContextSelector{enabled: false})
+  end
+
+  defp assign_legacy_from_first(socket, first_config, contexts_map, current_map, show_map) do
+    key = first_config.key
+    contexts = Map.get(contexts_map, key, [])
+    current = Map.get(current_map, key)
+    show = Map.get(show_map, key, false)
+
+    socket
+    |> assign(:dashboard_contexts, contexts)
+    |> assign(:current_context, current)
+    |> assign(:show_context_selector, show)
+    |> assign(:context_selector_config, first_config)
   end
 
   defp get_user_id(socket) do

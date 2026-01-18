@@ -149,6 +149,28 @@ PhoenixKit.Dashboard.clear_attention(:alerts)
 }
 ```
 
+### Tab Path Format
+
+**Important:** Tab paths should be specified WITHOUT the PhoenixKit URL prefix.
+
+```elixir
+# ✅ CORRECT - relative path without prefix
+path: "/dashboard/orders"
+
+# ❌ WRONG - don't include the phoenix_kit prefix
+path: "/phoenix_kit/dashboard/orders"
+```
+
+PhoenixKit automatically normalizes paths for matching:
+- Strips the configured URL prefix (default: `/phoenix_kit`)
+- Strips locale prefixes (e.g., `/en/dashboard/orders` → `/dashboard/orders`)
+- Handles trailing slashes consistently
+
+This means your tab will correctly highlight regardless of:
+- What URL prefix is configured
+- Whether the user has a locale in the URL
+- Whether there's a trailing slash
+
 ### Full Options
 
 ```elixir
@@ -236,6 +258,8 @@ config :phoenix_kit, :user_dashboard_tabs, [
 ]
 ```
 
+> **Note:** Currently only one level of nesting is supported (parent → subtab). Sub-sub-tabs (nested subtabs) are not yet implemented but may be added in a future release.
+
 ### Subtab Display Options
 
 - `:when_active` (default) - Subtabs only appear when the parent tab is active
@@ -251,11 +275,113 @@ config :phoenix_kit, :user_dashboard_tabs, [
 }
 ```
 
-### Subtab Appearance
+### Redirect to First Subtab
 
-- Subtabs are automatically indented with a left border
-- Subtabs have smaller icons and slightly different styling
-- Subtabs maintain their own badges and attention states
+When `redirect_to_first_subtab: true` is set on a parent tab, clicking the parent tab navigates to the first subtab instead of the parent's own path. This is useful when the parent tab serves as a container/category and the first subtab is the default landing page.
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",           # This path won't be used for navigation
+  redirect_to_first_subtab: true,      # Clicking "Orders" goes to first subtab
+  subtab_display: :when_active
+}
+
+# First subtab (priority 110) becomes the landing page
+%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders, priority: 110}
+%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders, priority: 120}
+```
+
+With this config, clicking "Orders" navigates to `/dashboard/orders/pending`.
+
+### Parent Tab Highlighting
+
+By default, when a subtab is active, only the subtab is highlighted (not the parent). This behavior can be changed with `highlight_with_subtabs`:
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  highlight_with_subtabs: true  # Also highlight parent when subtab is active (default: false)
+}
+```
+
+- `highlight_with_subtabs: false` (default) - Only the active subtab is highlighted
+- `highlight_with_subtabs: true` - Both parent and active subtab are highlighted
+
+### Subtab Customization
+
+Subtabs support customizable styling for indent, icon size, text size, and entry animations.
+
+#### Style Options
+
+Set these on the **parent tab** to apply to all its subtabs, or on **individual subtabs** to override:
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  subtab_display: :when_active,
+  # Style options for subtabs (applied to children)
+  subtab_indent: "pl-12",        # Tailwind padding-left class (default: "pl-9")
+  subtab_icon_size: "w-3 h-3",   # Icon size classes (default: "w-4 h-4")
+  subtab_text_size: "text-xs",   # Text size class (default: "text-sm")
+  subtab_animation: :slide       # Animation: :none, :slide, :fade, :collapse
+}
+```
+
+#### Per-Subtab Overrides
+
+Individual subtabs can override the parent's styling:
+
+```elixir
+# Parent with default styling
+%{id: :settings, label: "Settings", path: "/dashboard/settings", subtab_display: :always},
+
+# Subtab with custom styling (overrides parent)
+%{
+  id: :advanced_settings,
+  label: "Advanced",
+  path: "/dashboard/settings/advanced",
+  parent: :settings,
+  subtab_indent: "pl-14",
+  subtab_text_size: "text-xs font-medium"
+}
+```
+
+#### Global Defaults
+
+Set global subtab styling defaults in your config:
+
+```elixir
+config :phoenix_kit,
+  dashboard_subtab_style: [
+    indent: "pl-9",           # Default indent
+    icon_size: "w-4 h-4",     # Default icon size
+    text_size: "text-sm",     # Default text size
+    animation: :none          # Default animation
+  ]
+```
+
+#### Style Cascade
+
+Styles are resolved in this order (first non-nil wins):
+1. Subtab's own `subtab_*` fields
+2. Parent tab's `subtab_*` fields
+3. Global `dashboard_subtab_style` config
+4. Hardcoded defaults
+
+#### Animation Options
+
+- `:none` - No animation (default)
+- `:slide` - Slides in from the left
+- `:fade` - Fades in
+- `:collapse` - Expands from collapsed state
+
+Animations play when subtabs become visible (when navigating to parent or subtab).
 
 ### Dynamic Subtab Registration
 
@@ -289,6 +415,107 @@ PhoenixKit.Dashboard.subtab?(tab)
 # Check if subtabs should be shown
 PhoenixKit.Dashboard.show_subtabs?(parent_tab, is_active)
 ```
+
+### Subtab Behavior Reference
+
+This section documents how subtab options interact with each other.
+
+#### Option Summary
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `parent` | `nil` | Links this tab as a subtab of the specified parent |
+| `subtab_display` | `:when_active` | When to show subtabs: `:when_active` or `:always` |
+| `highlight_with_subtabs` | `false` | Whether parent highlights when a subtab is active |
+| `redirect_to_first_subtab` | `false` | Clicking parent navigates to first subtab instead |
+| `match` | `:prefix` | Path matching strategy: `:exact`, `:prefix`, `{:regex, ~r/...}`, or function |
+
+#### Common Patterns
+
+**Pattern 1: Category parent with default subtab landing page**
+
+The parent tab acts as a category header. Clicking it goes to the first subtab. Both parent and active subtab are highlighted.
+
+```elixir
+# Parent - acts as category, redirects to first subtab
+%{
+  id: :history,
+  label: "History",
+  path: "/dashboard/history",
+  redirect_to_first_subtab: true,   # Click goes to /dashboard/history/timeline
+  highlight_with_subtabs: true,     # Parent stays highlighted
+  subtab_display: :when_active
+}
+
+# Subtabs
+%{id: :timeline, label: "Timeline", path: "/dashboard/history/timeline", parent: :history, priority: 100}
+%{id: :stats, label: "Stats", path: "/dashboard/history/stats", parent: :history, priority: 200}
+```
+
+**Pattern 2: Parent has its own content, subtabs are secondary**
+
+The parent tab has its own page. Subtabs provide additional views. Only the active item highlights.
+
+```elixir
+# Parent - has its own content at /dashboard/orders
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  match: :exact,                    # Only highlight when exactly on /dashboard/orders
+  highlight_with_subtabs: false,    # Don't highlight parent when on subtab
+  subtab_display: :when_active
+}
+
+# Subtabs
+%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders}
+%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders}
+```
+
+**Pattern 3: Always-visible subtabs (settings menu)**
+
+Subtabs are always visible regardless of which is active.
+
+```elixir
+%{
+  id: :settings,
+  label: "Settings",
+  path: "/dashboard/settings",
+  subtab_display: :always,          # Always show subtabs
+  redirect_to_first_subtab: true
+}
+
+%{id: :profile, label: "Profile", path: "/dashboard/settings/profile", parent: :settings}
+%{id: :security, label: "Security", path: "/dashboard/settings/security", parent: :settings}
+```
+
+#### How Options Interact
+
+**`match` and `highlight_with_subtabs`:**
+
+- With `match: :prefix` (default), the parent highlights for `/dashboard/orders`, `/dashboard/orders/pending`, etc.
+- With `match: :exact`, the parent only highlights for exactly `/dashboard/orders`
+- `highlight_with_subtabs: true` overrides `match: :exact` to also highlight when subtabs are active
+
+**`redirect_to_first_subtab` and parent path:**
+
+- When `true`, the parent's `path` is used for sidebar display but clicking navigates to the first subtab
+- The first subtab is determined by lowest `priority` value
+- If no subtabs exist, falls back to parent's path
+
+**`subtab_display` and visibility:**
+
+- `:when_active` - Subtabs appear only when parent or any subtab is the current page
+- `:always` - Subtabs always appear in the sidebar
+
+#### Debugging Tips
+
+If subtabs aren't behaving as expected:
+
+1. **Parent not highlighting?** Check `highlight_with_subtabs` and `match` settings
+2. **Subtabs not showing?** Verify `subtab_display` and that `parent` ID matches
+3. **Wrong tab active?** Check path normalization - paths should not include URL prefix
+4. **Click goes to wrong place?** Check `redirect_to_first_subtab` and subtab priorities
 
 ## Badge Types
 
@@ -351,6 +578,132 @@ When you broadcast to the topic, the badge updates automatically:
 ```elixir
 Phoenix.PubSub.broadcast(MyApp.PubSub, "farm:stats", %{printing_count: 3})
 ```
+
+## Context-Aware Badges
+
+For badges that show different values per user, organization, or other context (e.g., "alert count for THIS user's farm"), use context-aware badges. These badges:
+
+- Store values per-context in socket assigns (not globally)
+- Load initial values using a loader function
+- Subscribe to context-specific PubSub topics
+
+### Basic Usage
+
+```elixir
+%{
+  id: :alerts,
+  label: "Alerts",
+  icon: "hero-bell-alert",
+  path: "/dashboard/alerts",
+  badge: %{
+    type: :count,
+    color: :error,
+    context_key: :organization,  # Which context selector this depends on
+    loader: {MyApp.Alerts, :count_for_org}  # Called with current context
+  }
+}
+```
+
+### With Live Updates
+
+```elixir
+%{
+  id: :printers,
+  label: "Printers",
+  path: "/dashboard/printers",
+  badge: %{
+    type: :count,
+    context_key: :farm,
+    loader: {MyApp.Farms, :printing_count},
+    # {id} is replaced with farm.id at runtime
+    subscribe: {"farm:{id}:stats", fn msg -> msg.printing_count end}
+  }
+}
+```
+
+### Topic Placeholders
+
+Subscribe topics support `{field}` placeholders that are resolved from the current context:
+
+- `{id}` - context.id
+- `{name}` - context.name
+- Any field accessible on the context struct/map
+
+Examples:
+- `"org:{id}:alerts"` → `"org:123:alerts"`
+- `"farm:{uuid}:stats"` → `"farm:abc-def:stats"`
+
+### Loader Function
+
+The loader is called when the LiveView mounts to get the initial badge value:
+
+```elixir
+# Module function - called as MyApp.Alerts.count_for_org(context)
+loader: {MyApp.Alerts, :count_for_org}
+
+# Anonymous function
+loader: fn context -> MyApp.Alerts.count_for_org(context.id) end
+```
+
+### Using Badge.context/3
+
+For cleaner syntax, use the convenience constructor:
+
+```elixir
+alias PhoenixKit.Dashboard.Badge
+
+# Badge that shows alert count for current organization
+Badge.context(:organization, {MyApp.Alerts, :count_for_org}, color: :error)
+
+# With live updates
+Badge.context(:farm, {MyApp.Farms, :printing_count},
+  subscribe: "farm:{id}:stats",
+  color: :info
+)
+```
+
+### Handling Live Updates
+
+When a PubSub message arrives for a context-aware badge, use `update_context_badge/3`:
+
+```elixir
+def handle_info(%{printing_count: count}, socket) do
+  # Update the badge value in socket assigns (not global ETS)
+  {:noreply, update_context_badge(socket, :printers, count)}
+end
+```
+
+### Reinitializing on Context Change
+
+When the user switches context, call `reinit_context_badges/1` to reload all context badge values:
+
+```elixir
+def handle_info({:context_changed, :organization, new_org}, socket) do
+  socket =
+    socket
+    |> assign(:current_contexts_map, %{organization: new_org})
+    |> reinit_context_badges()
+
+  {:noreply, socket}
+end
+```
+
+### How It Works
+
+1. **At mount**: `init_dashboard_tabs/2` detects context-aware badges, calls their loaders, and merges values directly into the tab's badge struct
+2. **Subscriptions**: Topic placeholders are resolved using the current context from `:current_contexts_map`
+3. **Updates**: Use `update_context_badge/3` to update both `:context_badge_values` and the tab's badge value
+4. **Rendering**: Badge component uses `tab.badge.value` which already has the merged context value
+5. **Preservation**: Tab refresh handlers automatically restore context badge values to prevent overwriting by global updates
+
+### Global vs Context-Aware
+
+| Feature | Global Badge | Context-Aware Badge |
+|---------|--------------|---------------------|
+| Storage | ETS (shared) | Socket assigns (per-user) |
+| Updates | Broadcast to all users | Per-subscription |
+| Use case | Site-wide notifications | Per-org/farm/team data |
+| Config | `value: 5` | `context_key: :org, loader: {...}` |
 
 ## Conditional Visibility
 

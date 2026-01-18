@@ -34,7 +34,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Details do
              |> push_navigate(to: Routes.path("/admin/tickets"))}
 
           ticket ->
-            project_title = Settings.get_setting("project_title", "PhoenixKit")
+            project_title = Settings.get_project_title()
 
             socket =
               socket

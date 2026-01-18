@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Groups do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     # Get project title
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Check if groups are enabled
     allow_groups = Settings.get_setting("posts_allow_groups", "true") == "true"

@@ -39,7 +39,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntityForm do
   end
 
   defp mount_entity_form(socket, entity, _changeset, page_title) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     # Get current fields or initialize empty

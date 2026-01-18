@@ -19,7 +19,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     current_path = get_current_path(socket, session)
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load languages configuration
     ml_config = Languages.get_config()

@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Billing.Web.ReceiptPrint do
            |> push_navigate(to: Routes.path("/admin/billing/invoices/#{id}"))}
 
         invoice ->
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
           company_info = get_company_info()
           transactions = Billing.list_invoice_transactions(invoice.id)
 

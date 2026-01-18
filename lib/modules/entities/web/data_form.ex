@@ -71,7 +71,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataForm do
   end
 
   defp mount_data_form(socket, entity, data_record, changeset, page_title, locale) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     # For new records, set default status to "published" to avoid validation errors

@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Settings do
 
   def mount(_params, _session, socket) do
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load all posts settings
     socket =

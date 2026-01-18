@@ -37,6 +37,9 @@ defmodule PhoenixKitWeb do
       import Plug.Conn
       use Gettext, backend: PhoenixKitWeb.Gettext
 
+      # PhoenixKit Routes helper for prefix-aware path building
+      alias PhoenixKit.Utils.Routes
+
       unquote(core_components())
       unquote(verified_routes())
     end
@@ -84,6 +87,12 @@ defmodule PhoenixKitWeb do
       import Phoenix.HTML.Form
       import Phoenix.LiveView.Helpers
 
+      # PhoenixKit Routes helper for prefix-aware path building
+      alias PhoenixKit.Utils.Routes
+
+      # Layout helper for extracting only layout-relevant assigns (performance)
+      import PhoenixKitWeb.LayoutHelpers, only: [dashboard_assigns: 1]
+
       unquote(verified_routes())
     end
   end
@@ -129,6 +138,7 @@ defmodule PhoenixKitWeb do
       import PhoenixKitWeb.Components.Core.TransactionTypeBadge
       import PhoenixKitWeb.Components.Core.CurrencyDisplay
       import PhoenixKitWeb.Components.Core.CookieConsent
+      import PhoenixKitWeb.Components.Core.PkLink
     end
   end
 

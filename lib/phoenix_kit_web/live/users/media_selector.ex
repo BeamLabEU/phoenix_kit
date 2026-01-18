@@ -38,7 +38,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaSelector do
       params["locale"] || socket.assigns[:current_locale]
 
     # Get project title
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Parse query parameters
     return_to = params["return_to"] || "/"

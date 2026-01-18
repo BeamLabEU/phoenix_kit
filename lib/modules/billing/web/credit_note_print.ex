@@ -57,7 +57,7 @@ defmodule PhoenixKit.Modules.Billing.Web.CreditNotePrint do
   end
 
   defp mount_credit_note(socket, invoice, transaction) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     company_info = get_company_info()
     credit_note_number = generate_credit_note_number(transaction)
 

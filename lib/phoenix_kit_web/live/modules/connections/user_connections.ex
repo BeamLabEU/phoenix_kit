@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Modules.Connections.UserConnections do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     if current_user && Connections.enabled?() do
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

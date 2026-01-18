@@ -26,7 +26,7 @@ defmodule PhoenixKitWeb.Live.Users.Users do
     end
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load date/time format settings once for performance optimization
     # Use batch cached call for maximum efficiency

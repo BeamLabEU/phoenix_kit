@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Sync.Web.Sender do
   @impl true
   def mount(params, _session, socket) do
     locale = params["locale"] || "en"
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     site_url = Settings.get_setting("site_url", "")
 
     socket =
