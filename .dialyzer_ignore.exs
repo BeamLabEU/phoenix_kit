@@ -120,5 +120,9 @@
 
   # Dashboard context selector - user-provided display_name callback might return nil
   # Dialyzer infers binary() type from usage but callback contract allows nil
-  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*pattern_match/
+  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*pattern_match/,
+
+  # Dashboard context selector - MapSet opaque type false positives
+  # Dialyzer can't properly track MapSet opaque types through recursive functions
+  ~r/lib\/phoenix_kit\/dashboard\/context_selector\.ex:.*call_without_opaque/
 ]

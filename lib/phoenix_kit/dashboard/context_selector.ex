@@ -527,7 +527,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   @spec multi_selector_enabled?() :: boolean()
   def multi_selector_enabled? do
     case Config.get(:dashboard_context_selectors) do
-      {:ok, selectors} when is_list(selectors) and length(selectors) > 0 -> true
+      {:ok, [_ | _]} -> true
       _ -> false
     end
   end
@@ -550,7 +550,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   @spec get_all_configs() :: [t()]
   def get_all_configs do
     case Config.get(:dashboard_context_selectors) do
-      {:ok, selectors} when is_list(selectors) and length(selectors) > 0 ->
+      {:ok, [_ | _] = selectors} ->
         selectors
         |> Enum.map(&validate_multi_config/1)
         |> Enum.filter(& &1.enabled)
@@ -725,18 +725,9 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
     has_circular =
       Enum.any?(configs, fn config ->
-        if config.depends_on do
-          # Check if dependency exists
-          if not MapSet.member?(keys, config.depends_on) do
-            # Invalid dependency reference - log warning but don't fail
-            false
-          else
-            # Check for circular dependency
-            check_circular_dependency(config.key, config.depends_on, configs, MapSet.new())
-          end
-        else
-          false
-        end
+        config.depends_on &&
+          MapSet.member?(keys, config.depends_on) &&
+          check_circular_dependency(config.key, config.depends_on, configs, MapSet.new())
       end)
 
     if has_circular do
@@ -747,32 +738,26 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     end
   end
 
+  @spec check_circular_dependency(atom(), atom(), [t()], MapSet.t(atom())) :: boolean()
   defp check_circular_dependency(original_key, current_key, configs, visited) do
     if MapSet.member?(visited, current_key) do
       # Already visited - this is a cycle
       true
     else
       visited = MapSet.put(visited, current_key)
-
-      # Find the config for current_key
-      case Enum.find(configs, fn c -> c.key == current_key end) do
-        nil ->
-          false
-
-        config ->
-          if config.depends_on == original_key do
-            # Direct cycle back to original
-            true
-          else
-            if config.depends_on do
-              # Continue checking the chain
-              check_circular_dependency(original_key, config.depends_on, configs, visited)
-            else
-              false
-            end
-          end
-      end
+      config = Enum.find(configs, fn c -> c.key == current_key end)
+      check_config_for_cycle(original_key, config, configs, visited)
     end
+  end
+
+  @spec check_config_for_cycle(atom(), t() | nil, [t()], MapSet.t(atom())) :: boolean()
+  defp check_config_for_cycle(_original_key, nil, _configs, _visited), do: false
+  defp check_config_for_cycle(original_key, config, _configs, _visited)
+       when config.depends_on == original_key, do: true
+  defp check_config_for_cycle(_original_key, config, _configs, _visited)
+       when is_nil(config.depends_on), do: false
+  defp check_config_for_cycle(original_key, config, configs, visited) do
+    check_circular_dependency(original_key, config.depends_on, configs, visited)
   end
 
   defp topological_sort(configs, key_to_config) do

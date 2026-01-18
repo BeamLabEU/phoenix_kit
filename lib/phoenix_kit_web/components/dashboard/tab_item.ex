@@ -320,25 +320,19 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   defp get_subtab_style(tab, parent_tab) do
     global_style = PhoenixKit.Config.get(:dashboard_subtab_style, [])
 
-    # Get values with fallback chain: tab -> parent -> global -> hardcoded default
     %{
-      indent:
-        tab.subtab_indent ||
-          (parent_tab && parent_tab.subtab_indent) ||
-          Keyword.get(global_style, :indent, "pl-9"),
-      icon_size:
-        tab.subtab_icon_size ||
-          (parent_tab && parent_tab.subtab_icon_size) ||
-          Keyword.get(global_style, :icon_size, "w-4 h-4"),
-      text_size:
-        tab.subtab_text_size ||
-          (parent_tab && parent_tab.subtab_text_size) ||
-          Keyword.get(global_style, :text_size, "text-sm"),
-      animation:
-        tab.subtab_animation ||
-          (parent_tab && parent_tab.subtab_animation) ||
-          Keyword.get(global_style, :animation, :none)
+      indent: get_style_value(:subtab_indent, tab, parent_tab, global_style, :indent, "pl-9"),
+      icon_size: get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size, "w-4 h-4"),
+      text_size: get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size, "text-sm"),
+      animation: get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation, :none)
     }
+  end
+
+  # Fallback chain: tab -> parent -> global -> default
+  defp get_style_value(tab_key, tab, parent_tab, global_style, global_key, default) do
+    Map.get(tab, tab_key) ||
+      (parent_tab && Map.get(parent_tab, tab_key)) ||
+      Keyword.get(global_style, global_key, default)
   end
 
   defp subtab_animation_class(nil), do: nil

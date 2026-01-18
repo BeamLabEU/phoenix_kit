@@ -71,6 +71,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   # credo:disable-for-lines:100 Credo.Check.Refactor.CyclomaticComplexity
   defmacro __before_compile__(_env) do
     quote do
+      alias PhoenixKit.Dashboard.Badge, as: DashboardBadge
+
       def handle_info({:tab_updated, tab}, socket) do
         tabs = update_tab_in_list(socket.assigns[:dashboard_tabs] || [], tab)
         # Re-apply context badge value if this tab has one
@@ -88,8 +90,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
           value ->
             Enum.map(tabs, fn tab ->
               if tab.id == tab_id and tab.badge != nil and
-                   PhoenixKit.Dashboard.Badge.context_aware?(tab.badge) do
-                updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
+                   DashboardBadge.context_aware?(tab.badge) do
+                updated_badge = DashboardBadge.update_value(tab.badge, value)
                 %{tab | badge: updated_badge}
               else
                 tab
@@ -119,8 +121,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
             value when tab.badge != nil ->
               # Only update if badge is still context-aware (config might have changed)
-              if PhoenixKit.Dashboard.Badge.context_aware?(tab.badge) do
-                updated_badge = PhoenixKit.Dashboard.Badge.update_value(tab.badge, value)
+              if DashboardBadge.context_aware?(tab.badge) do
+                updated_badge = DashboardBadge.update_value(tab.badge, value)
                 %{tab | badge: updated_badge}
               else
                 tab
