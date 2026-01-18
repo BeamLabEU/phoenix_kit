@@ -322,9 +322,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
     %{
       indent: get_style_value(:subtab_indent, tab, parent_tab, global_style, :indent, "pl-9"),
-      icon_size: get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size, "w-4 h-4"),
-      text_size: get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size, "text-sm"),
-      animation: get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation, :none)
+      icon_size:
+        get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size, "w-4 h-4"),
+      text_size:
+        get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size, "text-sm"),
+      animation:
+        get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation, :none)
     }
   end
 

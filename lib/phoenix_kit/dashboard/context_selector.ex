@@ -752,10 +752,15 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   @spec check_config_for_cycle(atom(), t() | nil, [t()], MapSet.t(atom())) :: boolean()
   defp check_config_for_cycle(_original_key, nil, _configs, _visited), do: false
+
   defp check_config_for_cycle(original_key, config, _configs, _visited)
-       when config.depends_on == original_key, do: true
+       when config.depends_on == original_key,
+       do: true
+
   defp check_config_for_cycle(_original_key, config, _configs, _visited)
-       when is_nil(config.depends_on), do: false
+       when is_nil(config.depends_on),
+       do: false
+
   defp check_config_for_cycle(original_key, config, configs, visited) do
     check_circular_dependency(original_key, config.depends_on, configs, visited)
   end
