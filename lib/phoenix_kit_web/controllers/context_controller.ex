@@ -99,7 +99,7 @@ defmodule PhoenixKitWeb.ContextController do
     else
       conn
       |> put_flash(:error, "Context switching is not enabled")
-      |> redirect(to: "/dashboard")
+      |> redirect(to: default_redirect())
     end
   end
 

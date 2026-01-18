@@ -111,7 +111,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
 
           <li>
             <.link
-              navigate="/users/log-out"
+              navigate={Routes.path("/users/log-out")}
               method="delete"
               class="flex items-center gap-3 text-error hover:bg-error hover:text-error-content"
             >
@@ -123,7 +123,7 @@ defmodule PhoenixKitWeb.Components.UserDashboardNav do
       </div>
     <% else %>
       <.link
-        navigate="/users/log-in"
+        navigate={Routes.path("/users/log-in")}
         class="btn btn-primary btn-sm"
       >
         Login
