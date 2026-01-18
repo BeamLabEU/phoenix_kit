@@ -1097,7 +1097,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   # Reserved path segments that should never be treated as locale codes
   # These are valid URL path components that happen to match the locale pattern position
-  @reserved_path_segments ~w(admin api webhooks assets static files images)
+  @reserved_path_segments ~w(admin api webhooks assets static files images dashboard users)
 
   # Locale processing logic
   defp process_locale(conn) do
