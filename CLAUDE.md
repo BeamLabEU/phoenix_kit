@@ -36,11 +36,19 @@ This is **PhoenixKit** - PhoenixKit is a starter kit for building modern web app
 
 ## ⚠️ Built-in Dashboard Features (USE THESE FIRST)
 
-**IMPORTANT**: Before implementing custom dashboard functionality, check if PhoenixKit already provides it:
+**IMPORTANT**: Before implementing custom dashboard functionality, check if PhoenixKit already provides it.
 
-### Context Selectors (Organization/Project/Team Switching)
+**Full documentation:** See `lib/phoenix_kit/dashboard/README.md` for comprehensive dashboard documentation including tabs, subtabs, badges, context selectors, and more.
 
-PhoenixKit has a **built-in context selector system** for switching between organizations, teams, projects, workspaces, etc. **DO NOT build custom dropdowns** for context switching.
+### Quick Reference
+
+- **Tabs & Subtabs** - Configurable navigation with parent/child relationships, custom styling, animations
+- **Context Selectors** - Organization/team/project switching with dependencies
+- **Theme Switcher** - `dashboard_themes` config, auto-renders in header
+- **Live Badges** - Real-time badge updates via PubSub
+- **Role-based UI** - Use `@phoenix_kit_current_scope` for role checks
+
+### Context Selector Quick Example
 
 ```elixir
 # Single selector - config/config.exs
@@ -57,14 +65,23 @@ config :phoenix_kit, :dashboard_context_selectors, [
 ]
 ```
 
-**See full documentation:** Search for "Dashboard Context Selectors" in this file.
+### Subtab Styling Quick Example
 
-### Other Built-in Features
-
-- **Theme Switcher** - `dashboard_themes` config, auto-renders in header
-- **Dynamic Tabs** - `tab_loader` option in context selector for context-aware navigation
-- **Role-based UI** - Use `@phoenix_kit_current_scope` for role checks
-- **Settings System** - `PhoenixKit.Settings` for key/value storage
+```elixir
+config :phoenix_kit, :user_dashboard_tabs, [
+  %{
+    id: :orders,
+    label: "Orders",
+    path: "/dashboard/orders",
+    subtab_display: :when_active,  # or :always
+    subtab_indent: "pl-12",        # Tailwind padding class
+    subtab_icon_size: "w-3 h-3",   # Icon size
+    subtab_text_size: "text-xs",   # Text size
+    subtab_animation: :slide       # :none, :slide, :fade, :collapse
+  },
+  %{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders}
+]
+```
 
 ## Development Commands
 
@@ -547,9 +564,11 @@ Use SVG logos with `currentColor` for automatic theme adaptation. Use `project_l
 
 Config: `dashboard_themes: :all` (default) or `["system", "light", "dark", "nord", "dracula"]`
 
-### Dashboard Context Selectors
+### Dashboard (Tabs, Subtabs, Context Selectors)
 
-See "Built-in Dashboard Features" section above for full documentation. Access in LiveViews: `socket.assigns.current_context` (single) or `socket.assigns.current_contexts_map[:key]` (multi).
+See `lib/phoenix_kit/dashboard/README.md` for full documentation. Quick access in LiveViews:
+- Single context: `socket.assigns.current_context`
+- Multi context: `socket.assigns.current_contexts_map[:key]`
 
 ```elixir
 # Configure Layout Integration (optional - defaults to PhoenixKit layouts)

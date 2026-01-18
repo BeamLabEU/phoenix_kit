@@ -251,22 +251,37 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   def tab_with_subtabs(assigns) do
     subtabs = get_subtabs_for(assigns.tab.id, assigns.all_tabs)
+    subtab_active = any_subtab_active?(subtabs)
 
     show_subtabs =
-      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or any_subtab_active?(subtabs)
+      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or subtab_active
+
+    # If redirect_to_first_subtab is true, modify the parent tab's path
+    display_tab = maybe_redirect_to_first_subtab(assigns.tab, subtabs)
+
+    # Determine if parent should be highlighted
+    # If highlight_with_subtabs is false (default) and a subtab is active, don't highlight parent
+    parent_active =
+      if subtab_active and not assigns.tab.highlight_with_subtabs do
+        false
+      else
+        assigns.tab.active
+      end
 
     assigns =
       assigns
       |> assign(:subtabs, subtabs)
       |> assign(:show_subtabs, show_subtabs)
       |> assign(:has_subtabs, subtabs != [])
+      |> assign(:display_tab, display_tab)
+      |> assign(:parent_active, parent_active)
 
     ~H"""
     <div class="tab-with-subtabs" data-tab-id={@tab.id} data-has-subtabs={@has_subtabs}>
       <%!-- Parent Tab --%>
       <TabItem.tab_item
-        tab={@tab}
-        active={@tab.active}
+        tab={@display_tab}
+        active={@parent_active}
         viewer_count={Map.get(@viewer_counts, @tab.id, 0)}
         locale={@locale}
         compact={@compact}
@@ -282,6 +297,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
               viewer_count={Map.get(@viewer_counts, subtab.id, 0)}
               locale={@locale}
               compact={@compact}
+              parent_tab={@tab}
             />
           <% end %>
         </div>
@@ -575,6 +591,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   defp any_subtab_active?(subtabs) do
     Enum.any?(subtabs, & &1.active)
   end
+
+  # If redirect_to_first_subtab is enabled, replace the tab's path with the first subtab's path
+  defp maybe_redirect_to_first_subtab(%{redirect_to_first_subtab: true} = tab, [first_subtab | _]) do
+    %{tab | path: first_subtab.path}
+  end
+
+  defp maybe_redirect_to_first_subtab(tab, _subtabs), do: tab
 
   # Check if context selector should show at a specific position
   defp show_context_selector_at?(false, _config, _position), do: false

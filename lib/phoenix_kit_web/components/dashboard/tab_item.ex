@@ -44,6 +44,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   attr :locale, :string, default: nil
   attr :compact, :boolean, default: false
   attr :class, :string, default: ""
+  attr :parent_tab, :any, default: nil
 
   def tab_item(assigns) do
     cond do
@@ -61,7 +62,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   defp render_tab(assigns) do
     path = build_path(assigns.tab.path, assigns.locale)
     is_subtab = Tab.subtab?(assigns.tab)
-    subtab_style = get_subtab_style(assigns.tab)
+    # For subtabs, get style from parent_tab if provided, otherwise fall back to global defaults
+    subtab_style = get_subtab_style(assigns.tab, assigns.parent_tab)
 
     assigns =
       assigns
@@ -313,15 +315,29 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     |> Enum.join(" ")
   end
 
-  # Gets subtab style configuration, merging global defaults with per-tab overrides
-  defp get_subtab_style(tab) do
+  # Gets subtab style configuration with cascade: subtab -> parent -> global defaults
+  # Priority: subtab's own style > parent tab's style > global config
+  defp get_subtab_style(tab, parent_tab) do
     global_style = PhoenixKit.Config.get(:dashboard_subtab_style, [])
 
+    # Get values with fallback chain: tab -> parent -> global -> hardcoded default
     %{
-      indent: tab.subtab_indent || Keyword.get(global_style, :indent, "pl-9"),
-      icon_size: tab.subtab_icon_size || Keyword.get(global_style, :icon_size, "w-4 h-4"),
-      text_size: tab.subtab_text_size || Keyword.get(global_style, :text_size, "text-sm"),
-      animation: tab.subtab_animation || Keyword.get(global_style, :animation, :none)
+      indent:
+        tab.subtab_indent ||
+          (parent_tab && parent_tab.subtab_indent) ||
+          Keyword.get(global_style, :indent, "pl-9"),
+      icon_size:
+        tab.subtab_icon_size ||
+          (parent_tab && parent_tab.subtab_icon_size) ||
+          Keyword.get(global_style, :icon_size, "w-4 h-4"),
+      text_size:
+        tab.subtab_text_size ||
+          (parent_tab && parent_tab.subtab_text_size) ||
+          Keyword.get(global_style, :text_size, "text-sm"),
+      animation:
+        tab.subtab_animation ||
+          (parent_tab && parent_tab.subtab_animation) ||
+          Keyword.get(global_style, :animation, :none)
     }
   end
 

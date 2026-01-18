@@ -123,22 +123,22 @@ has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
 
       /* Subtab animations */
       @keyframes slide-in-left {
-        0% { opacity: 0; transform: translateX(-10px); }
+        0% { opacity: 0; transform: translateX(-24px); }
         100% { opacity: 1; transform: translateX(0); }
       }
-      .animate-slide-in-left { animation: slide-in-left 0.2s ease-out; }
+      .animate-slide-in-left { animation: slide-in-left 0.35s ease-out; }
 
       @keyframes fade-in {
         0% { opacity: 0; }
         100% { opacity: 1; }
       }
-      .animate-fade-in { animation: fade-in 0.2s ease-out; }
+      .animate-fade-in { animation: fade-in 0.3s ease-out; }
 
       @keyframes collapse-open {
         0% { opacity: 0; max-height: 0; }
         100% { opacity: 1; max-height: 100px; }
       }
-      .animate-collapse-open { animation: collapse-open 0.2s ease-out; }
+      .animate-collapse-open { animation: collapse-open 0.3s ease-out; }
 
       /* Respect reduced motion preference */
       @media (prefers-reduced-motion: reduce) {

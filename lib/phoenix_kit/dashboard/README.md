@@ -251,11 +251,113 @@ config :phoenix_kit, :user_dashboard_tabs, [
 }
 ```
 
-### Subtab Appearance
+### Redirect to First Subtab
 
-- Subtabs are automatically indented with a left border
-- Subtabs have smaller icons and slightly different styling
-- Subtabs maintain their own badges and attention states
+When `redirect_to_first_subtab: true` is set on a parent tab, clicking the parent tab navigates to the first subtab instead of the parent's own path. This is useful when the parent tab serves as a container/category and the first subtab is the default landing page.
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",           # This path won't be used for navigation
+  redirect_to_first_subtab: true,      # Clicking "Orders" goes to first subtab
+  subtab_display: :when_active
+}
+
+# First subtab (priority 110) becomes the landing page
+%{id: :pending, label: "Pending", path: "/dashboard/orders/pending", parent: :orders, priority: 110}
+%{id: :completed, label: "Completed", path: "/dashboard/orders/completed", parent: :orders, priority: 120}
+```
+
+With this config, clicking "Orders" navigates to `/dashboard/orders/pending`.
+
+### Parent Tab Highlighting
+
+By default, when a subtab is active, only the subtab is highlighted (not the parent). This behavior can be changed with `highlight_with_subtabs`:
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  highlight_with_subtabs: true  # Also highlight parent when subtab is active (default: false)
+}
+```
+
+- `highlight_with_subtabs: false` (default) - Only the active subtab is highlighted
+- `highlight_with_subtabs: true` - Both parent and active subtab are highlighted
+
+### Subtab Customization
+
+Subtabs support customizable styling for indent, icon size, text size, and entry animations.
+
+#### Style Options
+
+Set these on the **parent tab** to apply to all its subtabs, or on **individual subtabs** to override:
+
+```elixir
+%{
+  id: :orders,
+  label: "Orders",
+  path: "/dashboard/orders",
+  subtab_display: :when_active,
+  # Style options for subtabs (applied to children)
+  subtab_indent: "pl-12",        # Tailwind padding-left class (default: "pl-9")
+  subtab_icon_size: "w-3 h-3",   # Icon size classes (default: "w-4 h-4")
+  subtab_text_size: "text-xs",   # Text size class (default: "text-sm")
+  subtab_animation: :slide       # Animation: :none, :slide, :fade, :collapse
+}
+```
+
+#### Per-Subtab Overrides
+
+Individual subtabs can override the parent's styling:
+
+```elixir
+# Parent with default styling
+%{id: :settings, label: "Settings", path: "/dashboard/settings", subtab_display: :always},
+
+# Subtab with custom styling (overrides parent)
+%{
+  id: :advanced_settings,
+  label: "Advanced",
+  path: "/dashboard/settings/advanced",
+  parent: :settings,
+  subtab_indent: "pl-14",
+  subtab_text_size: "text-xs font-medium"
+}
+```
+
+#### Global Defaults
+
+Set global subtab styling defaults in your config:
+
+```elixir
+config :phoenix_kit,
+  dashboard_subtab_style: [
+    indent: "pl-9",           # Default indent
+    icon_size: "w-4 h-4",     # Default icon size
+    text_size: "text-sm",     # Default text size
+    animation: :none          # Default animation
+  ]
+```
+
+#### Style Cascade
+
+Styles are resolved in this order (first non-nil wins):
+1. Subtab's own `subtab_*` fields
+2. Parent tab's `subtab_*` fields
+3. Global `dashboard_subtab_style` config
+4. Hardcoded defaults
+
+#### Animation Options
+
+- `:none` - No animation (default)
+- `:slide` - Slides in from the left
+- `:fade` - Fades in
+- `:collapse` - Expands from collapsed state
+
+Animations play when subtabs become visible (when navigating to parent or subtab).
 
 ### Dynamic Subtab Registration
 
