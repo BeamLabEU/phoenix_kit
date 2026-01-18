@@ -13,8 +13,8 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
 
   @impl true
   def mount(_params, _session, socket) do
-    # Get project title from config (same as dashboard layout)
-    project_title = PhoenixKit.Config.get(:project_title, "PhoenixKit")
+    # Get project title from settings (with Config fallback)
+    project_title = PhoenixKit.Settings.get_project_title()
 
     {:ok,
      socket

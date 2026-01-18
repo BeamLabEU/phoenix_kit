@@ -9,6 +9,7 @@ defmodule PhoenixKitWeb.Live.Dashboard.Index do
     socket =
       socket
       |> assign(:page_title, gettext("Dashboard"))
+      |> assign(:project_title, PhoenixKit.Settings.get_project_title())
 
     {:ok, socket}
   end

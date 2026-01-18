@@ -15,7 +15,7 @@
   Note: This layout does NOT use LayoutWrapper.app_layout as that's for admin pages only.
 --%>
 <% # Branding configuration
-project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
+project_title = assigns[:project_title] || PhoenixKit.Settings.get_project_title()
 project_title_suffix = assigns[:project_title_suffix]
 
 project_title_suffix =

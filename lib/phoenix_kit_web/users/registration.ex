@@ -34,8 +34,8 @@ defmodule PhoenixKitWeb.Users.Registration do
         })
       end
 
-      # Get project title from config (same as dashboard layout)
-      project_title = PhoenixKit.Config.get(:project_title, "PhoenixKit")
+      # Get project title from settings (with Config fallback)
+      project_title = PhoenixKit.Settings.get_project_title()
 
       # Get referral codes configuration
       referral_codes_config = Referrals.get_config()

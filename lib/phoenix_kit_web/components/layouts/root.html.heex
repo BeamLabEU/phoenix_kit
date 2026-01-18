@@ -14,7 +14,7 @@
       <meta name="googlebot" content="noindex,nofollow" />
     <% end %>
     <.live_title
-      default={PhoenixKit.Config.get(:project_title, "PhoenixKit")}
+      default={PhoenixKit.Settings.get_project_title()}
       suffix=" · Phoenix Framework"
     >
       {assigns[:page_title]}
@@ -27,7 +27,7 @@
     <nav class="navbar bg-base-100 shadow-sm">
       <div class="navbar-start">
         <a class="btn btn-ghost normal-case text-xl" href="/">
-          {PhoenixKit.Config.get(:project_title, "PhoenixKit")}
+          {PhoenixKit.Settings.get_project_title()}
         </a>
       </div>
       <div class="navbar-end">
