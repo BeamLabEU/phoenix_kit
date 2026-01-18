@@ -34,7 +34,7 @@ defmodule PhoenixKitWeb.Live.Modules do
     # Set locale for LiveView process
 
     # Get project title from settings cache
-    project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load module states
     referral_codes_config = Referrals.get_config()

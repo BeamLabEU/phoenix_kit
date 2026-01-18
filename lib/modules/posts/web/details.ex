@@ -35,7 +35,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Details do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     # Get project title
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load post with all associations
     case Posts.get_post!(post_id, preload: [:user, [media: :file], :tags, :groups, :mentions]) do

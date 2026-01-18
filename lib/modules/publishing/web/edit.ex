@@ -28,7 +28,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
 
         {:ok,
          socket
-         |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+         |> assign(:project_title, Settings.get_project_title())
          |> assign(:page_title, gettext("Edit Blog"))
          |> assign(
            :current_path,

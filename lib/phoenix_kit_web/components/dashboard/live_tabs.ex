@@ -82,7 +82,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
       # Restore context badge value for a specific tab after update
       defp restore_context_badge_value(tabs, tab_id, context_badge_values) do
         case Map.get(context_badge_values, tab_id) do
-          nil -> tabs
+          nil ->
+            tabs
+
           value ->
             Enum.map(tabs, fn tab ->
               if tab.id == tab_id and tab.badge != nil and
@@ -495,7 +497,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   end
 
   # Merges context badge values into tabs so they're ready for rendering
-  defp merge_context_badge_values(tabs, context_badge_values) when map_size(context_badge_values) == 0 do
+  defp merge_context_badge_values(tabs, context_badge_values)
+       when map_size(context_badge_values) == 0 do
     tabs
   end
 

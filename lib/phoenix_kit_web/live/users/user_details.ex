@@ -20,7 +20,7 @@ defmodule PhoenixKitWeb.Live.Users.UserDetails do
 
   @impl true
   def mount(%{"id" => user_id}, _session, socket) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     user_id_int =
       case Integer.parse(user_id) do

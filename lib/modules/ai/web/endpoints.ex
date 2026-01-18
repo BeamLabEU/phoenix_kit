@@ -40,7 +40,7 @@ defmodule PhoenixKit.Modules.AI.Web.Endpoints do
   @impl true
   def mount(_params, session, socket) do
     current_path = get_current_path(socket, session)
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Subscribe to real-time updates
     if connected?(socket) do

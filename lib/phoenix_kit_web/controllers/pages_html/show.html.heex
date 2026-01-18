@@ -3,7 +3,7 @@
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
   current_path={@conn.request_path}
-  project_title={PhoenixKit.Settings.get_setting("project_title", "PhoenixKit")}
+  project_title={PhoenixKit.Settings.get_project_title()}
   current_locale={assigns[:current_locale] || PhoenixKit.Utils.Routes.get_default_admin_locale()}
 >
   <div class="container mx-auto px-4 py-8 max-w-4xl">

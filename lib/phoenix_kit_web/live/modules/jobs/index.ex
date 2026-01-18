@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Jobs.Index do
   def mount(_params, _session, socket) do
     # Check if module is enabled
     if JobsModule.enabled?() do
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       if connected?(socket) do
         Process.send_after(self(), :refresh, @refresh_interval)

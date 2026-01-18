@@ -49,7 +49,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Posts do
     # Check if posts module is enabled
     if posts_enabled?() do
       # Get project title from settings cache
-      project_title = Settings.get_setting_cached("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       # Get current user
       current_user = socket.assigns[:phoenix_kit_current_user]

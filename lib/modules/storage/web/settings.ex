@@ -21,7 +21,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.Settings do
     current_path = get_current_path(socket, %{})
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load buckets
     buckets = Storage.list_buckets()

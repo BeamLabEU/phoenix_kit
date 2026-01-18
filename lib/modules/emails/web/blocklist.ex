@@ -62,7 +62,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Blocklist do
     # Check if email system is enabled
     if Emails.enabled?() do
       # Get project title from settings
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       # Schedule periodic refresh
       if connected?(socket) do

@@ -32,7 +32,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.Edit do
     current_user = socket.assigns[:phoenix_kit_current_user]
 
     # Get project title
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Determine if this is a new post or editing existing
     post_id = Map.get(params, "id")

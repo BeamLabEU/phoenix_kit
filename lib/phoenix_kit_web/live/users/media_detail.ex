@@ -33,7 +33,7 @@ defmodule PhoenixKitWeb.Live.Users.MediaDetail do
     settings =
       Settings.get_settings_cached(
         ["project_title"],
-        %{"project_title" => "PhoenixKit"}
+        %{"project_title" => PhoenixKit.Config.get(:project_title, "PhoenixKit")}
       )
 
     socket =

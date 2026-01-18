@@ -139,7 +139,7 @@ defmodule PhoenixKit.Modules.AI.Web.EndpointForm do
   @impl true
   def mount(params, _session, socket) do
     if AI.enabled?() do
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

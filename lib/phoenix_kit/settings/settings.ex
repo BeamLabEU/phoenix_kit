@@ -204,6 +204,40 @@ defmodule PhoenixKit.Settings do
   end
 
   @doc """
+  Gets the project title with proper fallback chain.
+
+  Checks in order:
+  1. Settings database (runtime customizable via admin panel)
+  2. Config `:phoenix_kit, :project_title` (compile-time setting)
+  3. Default "PhoenixKit"
+
+  This ensures users who set `config :phoenix_kit, project_title: "My App"`
+  see their branding everywhere, while still allowing runtime customization.
+
+  ## Examples
+
+      # With config :phoenix_kit, project_title: "My App"
+      iex> PhoenixKit.Settings.get_project_title()
+      "My App"
+
+      # With database setting overriding config
+      iex> PhoenixKit.Settings.get_project_title()
+      "Custom Title"
+  """
+  @spec get_project_title() :: String.t()
+  def get_project_title do
+    # Check Settings (database) first - allows runtime customization
+    case get_setting("project_title") do
+      nil ->
+        # Fall back to Config (compile-time setting)
+        PhoenixKit.Config.get(:project_title, "PhoenixKit")
+
+      value ->
+        value
+    end
+  end
+
+  @doc """
   Gets a setting value from cache with fallback to database.
 
   This is the preferred method for getting settings as it provides

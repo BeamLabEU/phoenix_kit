@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.DB.Web.Index do
     socket =
       socket
       |> assign(:page_title, "DB")
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:current_locale, locale)
       |> assign(:current_path, Routes.path("/admin/db", locale: locale))
       |> assign(:search, search)

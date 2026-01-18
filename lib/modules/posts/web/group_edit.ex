@@ -31,7 +31,7 @@ defmodule PhoenixKitWeb.Live.Modules.Posts.GroupEdit do
   @impl true
   def mount(params, _session, socket) do
     current_user = socket.assigns[:phoenix_kit_current_user]
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     allow_groups = Settings.get_setting("posts_allow_groups", "true") == "true"
 
     if allow_groups do

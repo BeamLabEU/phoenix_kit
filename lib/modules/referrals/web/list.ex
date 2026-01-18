@@ -11,7 +11,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.List do
 
   def mount(_params, _session, socket) do
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load referral codes and stats
     codes = Referrals.list_codes()

@@ -30,7 +30,7 @@ defmodule PhoenixKit.Modules.Sitemap.Web.Settings do
     end
 
     locale = params["locale"] || "en"
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     site_url = Settings.get_setting("site_url", "")
     config = Sitemap.get_config()
 

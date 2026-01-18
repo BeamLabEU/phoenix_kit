@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Orders do
       # Subscribe to order events for real-time updates
       if connected?(socket), do: Events.subscribe_orders()
 
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

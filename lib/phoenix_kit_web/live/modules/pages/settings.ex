@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Settings do
       |> assign(:current_path, current_path)
       |> assign(:url_path, current_path)
       |> assign(:page_title, "Pages Settings")
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:pages_enabled, Pages.enabled?())
       |> refresh_pages_assigns()
 
