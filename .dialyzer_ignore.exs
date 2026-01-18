@@ -58,16 +58,12 @@
   {"lib/mix/tasks/phoenix_kit.sync_email_status.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.fix_missing_events.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.process_sqs.ex", :callback_info_missing, 1},
-  {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :callback_info_missing, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :callback_info_missing, 1},
 
   # False positive pattern match warnings (runtime behavior differs from static analysis)
   {"lib/mix/tasks/phoenix_kit/email_cleanup.ex", :pattern_match, 1},
   {"lib/mix/tasks/phoenix_kit.migrate_blog_versions.ex", :pattern_match_cov},
   {"lib/mix/tasks/phoenix_kit.migrate_blogging_to_publishing.ex", :pattern_match_cov},
-  # Dialyzer incorrectly thinks 'false' pattern is unreachable after 'true' in boolean case
-  ~r/lib\/mix\/tasks\/phoenix_kit\.configure_aws_ses\.ex:193:.*pattern_match/,
-
   # ExAws library type definition issues (false positives from incomplete type specs)
   ~r/lib\/modules\/emails\/archiver\.ex:.*pattern_match/,
   ~r/lib\/modules\/emails\/archiver\.ex:.*unused_fun/,
@@ -75,17 +71,9 @@
   # Ecto.Multi opaque type false positives (code works correctly)
   ~r/lib\/phoenix_kit\/users\/auth\.ex:.*call_without_opaque/,
 
-  # Ignore test files - ExUnit internals not available to Dialyzer
-  ~r|^test/.*|,
-
-  # Blogging module type inference false positives
-  # Dialyzer incorrectly infers create_post only returns {:error, ...} in certain contexts
-  ~r/lib\/phoenix_kit_web\/live\/modules\/blogging\/editor\.ex:839:.*pattern_match/,
-
   # Legal module - dynamic dispatch to Blogging module
   # Dialyzer can't infer types through blogging_module() helper
   ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match/,
-  ~r/lib\/modules\/legal\/legal\.ex:.*pattern_match_cov/,
   # Legal settings - read_post type inference false positives
   ~r/lib\/modules\/legal\/web\/settings\.ex:.*pattern_match/,
 
@@ -112,11 +100,7 @@
   # Dashboard tab system - keyword list spec inference false positives
   # Functions accept keyword() but Dialyzer infers broader types from pattern matching
   ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*invalid_contract/,
-  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:.*exact_compare/,
   ~r/lib\/phoenix_kit\/dashboard\/dashboard\.ex:.*invalid_contract/,
-  # Legacy warning about nil check - path field can be nil for dividers/headers
-  # This is a false positive - dividers and group headers have nil paths by design
-  ~r/lib\/phoenix_kit\/dashboard\/tab\.ex:256.*can never evaluate to/,
 
   # Dashboard context selector - user-provided display_name callback might return nil
   # Dialyzer infers binary() type from usage but callback contract allows nil
