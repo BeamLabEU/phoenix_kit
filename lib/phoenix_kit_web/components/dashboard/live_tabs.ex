@@ -403,10 +403,15 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   defp subscribe_to_badge_topics(tabs, contexts_map) do
     for tab <- tabs, tab.badge, Badge.live?(tab.badge) do
       context = get_context_for_badge(tab.badge, contexts_map)
-      topic = Badge.get_resolved_topic(tab.badge, context)
 
-      if topic do
-        Phoenix.PubSub.subscribe(PhoenixKit.PubSub, topic)
+      # Skip subscription for context-aware badges when context is nil
+      # (would result in malformed topics like "org::alerts")
+      unless Badge.context_aware?(tab.badge) and is_nil(context) do
+        topic = Badge.get_resolved_topic(tab.badge, context)
+
+        if topic do
+          Phoenix.PubSub.subscribe(PhoenixKit.PubSub, topic)
+        end
       end
     end
 
