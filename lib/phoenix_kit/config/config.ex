@@ -188,12 +188,17 @@ defmodule PhoenixKit.Config do
 
   @doc """
   Gets a specific configuration value.
+
+  Uses direct Application.get_env lookup for performance (avoids iterating
+  all config keys on every call).
   """
   @spec get(atom()) :: {:ok, any()} | :not_found
   def get(key) when is_atom(key) do
-    config = get_all()
+    # Use direct lookup with default config fallback for performance
+    # This avoids calling get_all() which iterates the entire config
+    default = Keyword.get(@default_config, key)
 
-    case Keyword.get(config, key) do
+    case Application.get_env(:phoenix_kit, key, default) do
       nil -> :not_found
       value -> {:ok, value}
     end
@@ -437,15 +442,46 @@ defmodule PhoenixKit.Config do
     end
   end
 
+  # Cache key for URL prefix (called very frequently during tab matching)
+  @url_prefix_cache_key {__MODULE__, :url_prefix}
+
   @doc """
   Gets configured prefix for urls or default value.
+
+  This value is cached using :persistent_term for performance since it's
+  called on every tab path match during dashboard renders.
   """
   @spec get_url_prefix() :: String.t()
   def get_url_prefix do
+    case :persistent_term.get(@url_prefix_cache_key, :not_cached) do
+      :not_cached ->
+        value = compute_url_prefix()
+        :persistent_term.put(@url_prefix_cache_key, value)
+        value
+
+      cached ->
+        cached
+    end
+  end
+
+  defp compute_url_prefix do
     case get_string(:url_prefix, "/phoenix_kit") do
       "" -> "/"
       value -> value
     end
+  end
+
+  @doc """
+  Clears the cached URL prefix.
+
+  Call this if you change the url_prefix config at runtime (rare).
+  """
+  @spec clear_url_prefix_cache() :: :ok
+  def clear_url_prefix_cache do
+    :persistent_term.erase(@url_prefix_cache_key)
+    :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   @doc """
