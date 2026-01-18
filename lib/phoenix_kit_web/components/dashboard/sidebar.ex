@@ -468,16 +468,20 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :show_context_selectors_map, :map, default: %{}
 
   def mobile_fab_menu(assigns) do
-    tabs =
+    all_tabs =
       Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
       |> Enum.filter(&Tab.navigable?/1)
+
+    # Get only top-level tabs for rendering (subtabs handled separately)
+    top_level_tabs = filter_top_level(all_tabs)
 
     # Check if multi-selector mode
     has_multi_selector = assigns.context_selector_configs != []
 
     assigns =
       assigns
-      |> assign(:tabs, tabs)
+      |> assign(:all_tabs, all_tabs)
+      |> assign(:top_level_tabs, top_level_tabs)
       |> assign(:has_multi_selector, has_multi_selector)
 
     ~H"""
@@ -507,34 +511,101 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
               />
             <% end %>
           <% end %>
-          <%!-- Navigation Tabs --%>
+          <%!-- Navigation Tabs with Subtab Support --%>
           <ul class="menu p-2">
-            <%= for tab <- @tabs do %>
-              <li>
-                <.link
-                  navigate={build_path(tab.path, @locale)}
-                  class={[
-                    "flex items-center gap-3",
-                    tab.active && "bg-primary text-primary-content"
-                  ]}
-                >
-                  <%= if tab.icon do %>
-                    <.icon name={tab.icon} class="w-4 h-4" />
-                  <% end %>
-                  <span>{tab.label}</span>
-                  <%= if tab.badge do %>
-                    <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
-                      badge={tab.badge}
-                      class="ml-auto badge-xs"
-                    />
-                  <% end %>
-                </.link>
-              </li>
+            <%= for tab <- @top_level_tabs do %>
+              <.mobile_tab_with_subtabs
+                tab={tab}
+                all_tabs={@all_tabs}
+                locale={@locale}
+              />
             <% end %>
           </ul>
         </div>
       </div>
     </div>
+    """
+  end
+
+  # Renders a mobile tab with its subtabs (if any).
+  # Handles subtab visibility, redirect_to_first_subtab, and highlight_with_subtabs.
+  attr :tab, :any, required: true
+  attr :all_tabs, :list, required: true
+  attr :locale, :string, default: nil
+
+  defp mobile_tab_with_subtabs(assigns) do
+    subtabs = get_subtabs_for(assigns.tab.id, assigns.all_tabs)
+    subtab_active = any_subtab_active?(subtabs)
+
+    show_subtabs =
+      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or subtab_active
+
+    # Apply redirect_to_first_subtab logic
+    display_tab = maybe_redirect_to_first_subtab(assigns.tab, subtabs)
+
+    # Apply highlight_with_subtabs logic
+    parent_active =
+      if subtab_active and not assigns.tab.highlight_with_subtabs do
+        false
+      else
+        assigns.tab.active
+      end
+
+    assigns =
+      assigns
+      |> assign(:subtabs, subtabs)
+      |> assign(:show_subtabs, show_subtabs)
+      |> assign(:has_subtabs, subtabs != [])
+      |> assign(:display_tab, display_tab)
+      |> assign(:parent_active, parent_active)
+
+    ~H"""
+    <%!-- Parent Tab --%>
+    <li>
+      <.link
+        navigate={build_path(@display_tab.path, @locale)}
+        class={[
+          "flex items-center gap-3",
+          @parent_active && "bg-primary text-primary-content"
+        ]}
+      >
+        <%= if @tab.icon do %>
+          <.icon name={@tab.icon} class="w-4 h-4" />
+        <% end %>
+        <span>{@tab.label}</span>
+        <%= if @tab.badge do %>
+          <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
+            badge={@tab.badge}
+            class="ml-auto badge-xs"
+          />
+        <% end %>
+      </.link>
+    </li>
+    <%!-- Subtabs (indented, smaller) --%>
+    <%= if @has_subtabs and @show_subtabs do %>
+      <%= for subtab <- @subtabs do %>
+        <li>
+          <.link
+            navigate={build_path(subtab.path, @locale)}
+            class={[
+              "flex items-center gap-3 pl-6 text-sm",
+              subtab.active && "bg-primary/80 text-primary-content"
+            ]}
+          >
+            <%= if subtab.icon do %>
+              <.icon name={subtab.icon} class="w-3 h-3" />
+            <% end %>
+            <span>{subtab.label}</span>
+            <%= if subtab.badge do %>
+              <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
+                badge={subtab.badge}
+                class="ml-auto badge-xs"
+              />
+            <% end %>
+          </.link>
+        </li>
+      <% end %>
+    <% end %>
     """
   end
 
