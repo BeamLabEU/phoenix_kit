@@ -82,6 +82,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   end
 
   @impl true
+  def handle_event("view_product", %{"id" => id}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/shop/products/#{id}"))}
+  end
+
+  @impl true
+  def handle_event("noop", _params, socket) do
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_event("delete_product", %{"id" => id}, socket) do
     product = Shop.get_product!(id)
 
@@ -210,7 +220,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   </tr>
                 <% else %>
                   <%= for product <- @products do %>
-                    <tr class="hover">
+                    <tr
+                      class="hover cursor-pointer"
+                      phx-click="view_product"
+                      phx-value-id={product.id}
+                    >
                       <td>
                         <div class="flex items-center gap-3">
                           <div class="avatar placeholder">
@@ -248,7 +262,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       <td class="text-right font-mono">
                         {format_price(product.price, @currency)}
                       </td>
-                      <td class="text-right">
+                      <td class="text-right" phx-click="noop">
                         <div class="dropdown dropdown-end">
                           <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
                             <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />

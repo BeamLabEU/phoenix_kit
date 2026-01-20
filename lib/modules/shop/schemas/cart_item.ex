@@ -23,8 +23,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
   - `line_total` - Calculated: unit_price * quantity
   - `weight_grams` - Weight for shipping calculation
   - `taxable` - Whether item is taxable
-  - `variant_id` - For future variant support
-  - `variant_options` - JSON object for variant options (size, color, etc.)
+  - `selected_specs` - JSON object for specification-based pricing (e.g., {"material": "PETG", "color": "Gold"})
   """
 
   use Ecto.Schema
@@ -60,9 +59,8 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
     field :weight_grams, :integer, default: 0
     field :taxable, :boolean, default: true
 
-    # Variants (for future)
-    field :variant_id, :integer
-    field :variant_options, :map, default: %{}
+    # Specification-based pricing
+    field :selected_specs, :map, default: %{}
 
     field :metadata, :map, default: %{}
 
@@ -88,8 +86,7 @@ defmodule PhoenixKit.Modules.Shop.CartItem do
       :line_total,
       :weight_grams,
       :taxable,
-      :variant_id,
-      :variant_options,
+      :selected_specs,
       :metadata
     ])
     |> validate_required([:cart_id, :product_title, :unit_price, :quantity])

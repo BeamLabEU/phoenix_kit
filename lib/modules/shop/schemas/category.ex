@@ -13,6 +13,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
   - `parent_id` - Parent category for nesting
   - `position` - Sort order
   - `metadata` - JSONB for custom fields
+  - `option_schema` - Category-specific product option definitions (JSONB array)
   """
 
   use Ecto.Schema
@@ -27,6 +28,7 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :image_url, :string
     field :position, :integer, default: 0
     field :metadata, :map, default: %{}
+    field :option_schema, {:array, :map}, default: []
 
     # Self-referential for nesting
     belongs_to :parent, __MODULE__
@@ -43,7 +45,16 @@ defmodule PhoenixKit.Modules.Shop.Category do
   """
   def changeset(category, attrs) do
     category
-    |> cast(attrs, [:name, :slug, :description, :image_url, :parent_id, :position, :metadata])
+    |> cast(attrs, [
+      :name,
+      :slug,
+      :description,
+      :image_url,
+      :parent_id,
+      :position,
+      :metadata,
+      :option_schema
+    ])
     |> validate_required([:name])
     |> validate_length(:name, max: 255)
     |> validate_length(:slug, max: 255)

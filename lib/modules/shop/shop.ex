@@ -3,13 +3,13 @@ defmodule PhoenixKit.Modules.Shop do
   E-commerce Shop Module for PhoenixKit.
 
   Provides comprehensive e-commerce functionality including products, categories,
-  variants, inventory, and cart management.
+  options-based pricing, and cart management.
 
   ## Features
 
   - **Products**: Physical and digital products with JSONB flexibility
   - **Categories**: Hierarchical product categories
-  - **Variants**: Product variants (size, color, etc.) with individual pricing
+  - **Options**: Product options with dynamic pricing (fixed or percent modifiers)
   - **Inventory**: Stock tracking with reservation system
   - **Cart**: Persistent shopping cart (DB-backed for cross-device support)
 
@@ -31,9 +31,11 @@ defmodule PhoenixKit.Modules.Shop do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop.Cart
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Settings
@@ -85,6 +87,8 @@ defmodule PhoenixKit.Modules.Shop do
       tax_rate: Settings.get_setting_cached("shop_tax_rate", "20"),
       inventory_tracking:
         Settings.get_setting_cached("shop_inventory_tracking", "true") == "true",
+      allow_price_override:
+        Settings.get_setting_cached("shop_allow_price_override", "false") == "true",
       products_count: count_products(),
       categories_count: count_categories()
     }
@@ -231,6 +235,106 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def change_product(%Product{} = product, attrs \\ %{}) do
     Product.changeset(product, attrs)
+  end
+
+  # ============================================
+  # OPTIONS-BASED PRICING
+  # ============================================
+
+  @doc """
+  Calculates the final price for a product based on selected specifications.
+
+  Applies option price modifiers (fixed and percent) to the base price.
+  Fixed modifiers are applied first, then percent modifiers.
+
+  ## Example
+
+      product = %Product{price: Decimal.new("20.00")}
+      selected_specs = %{"material" => "PETG", "finish" => "Premium"}
+
+      # If PETG has +$10 fixed and Premium has +20% percent:
+      calculate_product_price(product, selected_specs)
+      # => Decimal.new("36.00")  # ($20 + $10) * 1.20
+  """
+  def calculate_product_price(%Product{} = product, selected_specs) when is_map(selected_specs) do
+    base_price = product.price || Decimal.new("0")
+    metadata = product.metadata || %{}
+
+    # Get price-affecting options for this product
+    price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
+
+    # Calculate final price with fixed and percent modifiers
+    # Pass metadata to apply custom per-product price overrides
+    Options.calculate_final_price(price_affecting_specs, selected_specs, base_price, metadata)
+  end
+
+  def calculate_product_price(%Product{} = product, _) do
+    product.price || Decimal.new("0")
+  end
+
+  @doc """
+  Gets the price range for a product based on option modifiers.
+
+  Returns `{min_price, max_price}` where:
+  - min_price = minimum possible price (base + min modifiers)
+  - max_price = maximum possible price (base + max modifiers)
+
+  ## Example
+
+      # Product with base $20, material options (0, +5, +10), finish options (0%, +20%)
+      get_price_range(product)
+      # => {Decimal.new("20.00"), Decimal.new("36.00")}
+  """
+  def get_price_range(%Product{} = product) do
+    base_price = product.price || Decimal.new("0")
+    metadata = product.metadata || %{}
+
+    # Get price-affecting options
+    price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
+
+    if Enum.empty?(price_affecting_specs) do
+      {base_price, base_price}
+    else
+      # Pass metadata to apply custom per-product price overrides
+      Options.get_price_range(price_affecting_specs, base_price, metadata)
+    end
+  end
+
+  @doc """
+  Formats the product price for catalog display.
+
+  Returns:
+  - "$19.99" for products without price-affecting options
+  - "From $19.99" if options have different price modifiers
+  - "$19.99 - $38.00" for range display
+  """
+  def format_product_price(%Product{} = product, currency, style \\ :from) do
+    {min_price, max_price} = get_price_range(product)
+
+    format_fn = fn price ->
+      case currency do
+        %{} = c -> Currency.format_amount(price, c)
+        nil -> "$#{Decimal.round(price, 2)}"
+      end
+    end
+
+    if Decimal.compare(min_price, max_price) == :eq do
+      format_fn.(min_price)
+    else
+      case style do
+        :from -> "From #{format_fn.(min_price)}"
+        :range -> "#{format_fn.(min_price)} - #{format_fn.(max_price)}"
+      end
+    end
+  end
+
+  @doc """
+  Gets price-affecting options for a product.
+
+  Convenience wrapper around `Options.get_price_affecting_specs_for_product/1`.
+  """
+  def get_price_affecting_specs(%Product{} = product) do
+    Options.get_price_affecting_specs_for_product(product)
   end
 
   # ============================================
@@ -544,11 +648,39 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Adds item to cart.
+
+  ## Options
+  - `:selected_specs` - Map of selected specifications (for dynamic pricing)
+
+  ## Examples
+
+      # Add simple product
+      add_to_cart(cart, product, 2)
+
+      # Add product with specification-based pricing
+      add_to_cart(cart, product, 1, selected_specs: %{"material" => "PETG", "color" => "Gold"})
   """
-  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity \\ 1) do
+  def add_to_cart(cart, product, quantity \\ 1, opts \\ [])
+
+  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity, opts) when is_list(opts) do
+    selected_specs = Keyword.get(opts, :selected_specs, %{})
+
+    if map_size(selected_specs) > 0 do
+      add_product_with_specs_to_cart(cart, product, quantity, selected_specs)
+    else
+      add_simple_product_to_cart(cart, product, quantity)
+    end
+  end
+
+  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity, _opts)
+      when is_integer(quantity) do
+    add_simple_product_to_cart(cart, product, quantity)
+  end
+
+  defp add_simple_product_to_cart(cart, product, quantity) do
     repo().transaction(fn ->
-      # Check if product already in cart
-      existing = find_cart_item(cart.id, product.id)
+      # Check if product already in cart (without specs)
+      existing = find_cart_item_by_specs(cart.id, product.id, %{})
 
       case existing do
         nil ->
@@ -558,6 +690,36 @@ defmodule PhoenixKit.Modules.Shop do
 
         item ->
           # Update quantity
+          new_qty = item.quantity + quantity
+          item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+      end
+
+      # Recalculate totals
+      recalculate_cart_totals!(cart)
+    end)
+  end
+
+  defp add_product_with_specs_to_cart(cart, product, quantity, selected_specs) do
+    # Calculate price with spec modifiers
+    calculated_price = calculate_product_price(product, selected_specs)
+
+    repo().transaction(fn ->
+      # Check if same product with same specs already in cart
+      existing = find_cart_item_by_specs(cart.id, product.id, selected_specs)
+
+      case existing do
+        nil ->
+          # Create new item with specs and calculated price
+          attrs =
+            CartItem.from_product(product, quantity)
+            |> Map.put(:cart_id, cart.id)
+            |> Map.put(:unit_price, calculated_price)
+            |> Map.put(:selected_specs, selected_specs)
+
+          %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+
+        item ->
+          # Update quantity (price already frozen from first add)
           new_qty = item.quantity + quantity
           item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
       end
@@ -744,7 +906,9 @@ defmodule PhoenixKit.Modules.Shop do
         repo().transaction(fn ->
           # Move items from guest to user cart
           for item <- guest.items do
-            existing = find_cart_item(user.id, item.product_id)
+            # Find existing cart item with same product and specs
+            existing =
+              find_cart_item_by_specs(user.id, item.product_id, item.selected_specs || %{})
 
             case existing do
               nil ->
@@ -1221,10 +1385,21 @@ defmodule PhoenixKit.Modules.Shop do
   defp filter_shipping_by_active(query, active), do: where(query, [s], s.active == ^active)
 
   # Cart helpers
-  defp find_cart_item(cart_id, product_id) do
+
+  # Find cart item by product and selected_specs
+  defp find_cart_item_by_specs(cart_id, product_id, specs) when map_size(specs) == 0 do
+    # No specs - find item without specs
     CartItem
     |> where([i], i.cart_id == ^cart_id and i.product_id == ^product_id)
-    |> where([i], is_nil(i.variant_id))
+    |> where([i], i.selected_specs == ^%{})
+    |> repo().one()
+  end
+
+  defp find_cart_item_by_specs(cart_id, product_id, specs) when is_map(specs) do
+    # With specs - find item with matching specs
+    CartItem
+    |> where([i], i.cart_id == ^cart_id and i.product_id == ^product_id)
+    |> where([i], i.selected_specs == ^specs)
     |> repo().one()
   end
 

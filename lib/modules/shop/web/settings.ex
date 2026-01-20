@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
+  # Test comment for live reload
   @impl true
   def mount(_params, _session, socket) do
     config = Shop.get_config()
@@ -183,14 +184,30 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           </div>
         </div>
 
-        <%!-- Phase 2 Features --%>
-        <div class="card bg-base-200/50 border-2 border-dashed border-base-300">
-          <div class="card-body text-center">
-            <.icon name="hero-clock" class="w-12 h-12 mx-auto text-base-content/50 mb-3" />
-            <h3 class="text-lg font-medium text-base-content/70">Coming Soon</h3>
-            <p class="text-sm text-base-content/50">
-              Variants, inventory management, cart, and checkout will be available in Phase 2
-            </p>
+        <%!-- Product Options --%>
+        <div class="card bg-base-100 shadow-lg mb-6">
+          <div class="card-body">
+            <h2 class="card-title mb-4">
+              <.icon name="hero-tag" class="w-6 h-6" /> Product Options
+            </h2>
+
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="font-medium">Global Product Options</p>
+                <p class="text-sm text-base-content/60">
+                  Define options that apply to all products (size, color, material, etc.)
+                </p>
+                <p class="text-xs text-base-content/50 mt-1">
+                  Price override is configured per-option in the options settings.
+                </p>
+              </div>
+              <.link
+                navigate={Routes.path("/admin/shop/settings/options")}
+                class="btn btn-sm btn-primary"
+              >
+                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
+              </.link>
+            </div>
           </div>
         </div>
       </div>
