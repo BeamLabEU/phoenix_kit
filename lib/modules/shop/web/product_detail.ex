@@ -47,32 +47,36 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div class="flex items-center gap-4">
-            <.link navigate={Routes.path("/admin/shop/products")} class="btn btn-ghost btn-sm">
-              <.icon name="hero-arrow-left" class="w-5 h-5" />
-            </.link>
-            <div>
-              <h1 class="text-3xl font-bold text-base-content">{@product.title}</h1>
-              <p class="text-base-content/60">{@product.slug}</p>
-            </div>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop/products")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+          </.link>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">{@product.title}</h1>
+            <p class="text-lg text-base-content/70">{@product.slug}</p>
           </div>
+        </header>
 
-          <div class="flex gap-2">
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4 justify-end">
             <.link
               navigate={Routes.path("/admin/shop/products/#{@product.id}/edit")}
               class="btn btn-primary"
             >
-              <.icon name="hero-pencil" class="w-5 h-5 mr-2" /> Edit
+              <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
             </.link>
             <button
               phx-click="delete"
               data-confirm="Are you sure you want to delete this product?"
-              class="btn btn-error btn-outline"
+              class="btn btn-outline btn-error"
             >
-              <.icon name="hero-trash" class="w-5 h-5" />
+              <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
             </button>
           </div>
         </div>
@@ -81,7 +85,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
           <%!-- Main Content --%>
           <div class="lg:col-span-2 space-y-6">
             <%!-- Details --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Product Details</h2>
 
@@ -113,7 +117,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             </div>
 
             <%!-- Pricing --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Pricing</h2>
 
@@ -150,7 +154,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
           <%!-- Sidebar --%>
           <div class="space-y-6">
             <%!-- Status --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Status</h2>
                 <div class="flex items-center gap-2">
@@ -162,7 +166,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             </div>
 
             <%!-- Category --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Category</h2>
                 <%= if @product.category do %>
@@ -174,7 +178,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             </div>
 
             <%!-- Timestamps --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body text-sm">
                 <h2 class="card-title">Timestamps</h2>
                 <div class="space-y-2 text-base-content/70">

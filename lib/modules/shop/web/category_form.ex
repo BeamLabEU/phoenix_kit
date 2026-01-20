@@ -265,14 +265,22 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-2xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
-          <.link navigate={Routes.path("/admin/shop/categories")} class="btn btn-ghost">
-            <.icon name="hero-x-mark" class="w-5 h-5" />
+      <div class="container flex-col mx-auto px-4 py-6 max-w-2xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop/categories")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
           </.link>
-        </div>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
+            <p class="text-lg text-base-content/70">
+              {if @live_action == :new, do: "Create a new category", else: "Edit category details"}
+            </p>
+          </div>
+        </header>
 
         <%!-- Form --%>
         <.form
@@ -281,7 +289,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
           phx-submit="save"
           class="space-y-6"
         >
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <div class="form-control">
                 <label class="label"><span class="label-text">Name *</span></label>
@@ -368,7 +376,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
           <%!-- Category Options (only in edit mode) --%>
           <%= if @live_action == :edit do %>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <div class="flex items-center justify-between mb-4">
                   <h2 class="card-title">

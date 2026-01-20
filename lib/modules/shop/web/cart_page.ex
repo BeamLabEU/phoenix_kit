@@ -139,19 +139,26 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   def render(assigns) do
     ~H"""
     <.shop_layout {assigns}>
-      <div class="p-6 max-w-6xl mx-auto">
-        <div class="flex items-center justify-between mb-8">
-          <h1 class="text-3xl font-bold">Shopping Cart</h1>
-          <.link navigate={Routes.path("/shop")} class="btn btn-outline btn-sm gap-2">
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Continue Shopping
+      <div class="container flex-col mx-auto px-4 py-6 max-w-6xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/shop")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Continue Shopping
           </.link>
-        </div>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Shopping Cart</h1>
+            <p class="text-lg text-base-content/70">Review your items before checkout</p>
+          </div>
+        </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Cart Items --%>
           <div class="lg:col-span-2">
             <%= if @cart.items == [] do %>
-              <div class="card bg-base-100 shadow-lg">
+              <div class="card bg-base-100 shadow-xl">
                 <div class="card-body text-center py-16">
                   <.icon name="hero-shopping-cart" class="w-16 h-16 mx-auto mb-4 opacity-30" />
                   <h2 class="text-xl font-medium text-base-content/60">Your cart is empty</h2>
@@ -162,7 +169,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                 </div>
               </div>
             <% else %>
-              <div class="card bg-base-100 shadow-lg">
+              <div class="card bg-base-100 shadow-xl">
                 <div class="card-body p-0">
                   <div class="overflow-x-auto">
                     <table class="table">
@@ -250,7 +257,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
             <%!-- Shipping Section --%>
             <%= if @cart.items != [] do %>
-              <div class="card bg-base-100 shadow-lg mt-6">
+              <div class="card bg-base-100 shadow-xl mt-6">
                 <div class="card-body">
                   <h2 class="card-title mb-4">Shipping Method</h2>
 
@@ -307,7 +314,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
           <%!-- Order Summary --%>
           <div class="lg:col-span-1">
-            <div class="card bg-base-100 shadow-lg sticky top-6">
+            <div class="card bg-base-100 shadow-xl sticky top-6">
               <div class="card-body">
                 <h2 class="card-title mb-4">Order Summary</h2>
 

@@ -151,6 +151,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Convert final_price inputs to modifier values
     metadata = convert_final_prices_to_modifiers(metadata, base_price)
 
+    # Clean up _option_values - remove entries where all values are selected
+    metadata = clean_option_values(metadata, socket.assigns.option_schema)
+
     # Clean up metadata - convert multiselect arrays if needed
     cleaned_metadata =
       metadata
@@ -274,16 +277,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
-          </div>
-          <.link navigate={Routes.path("/admin/shop/products")} class="btn btn-ghost">
-            <.icon name="hero-x-mark" class="w-5 h-5" />
+      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop/products")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
           </.link>
-        </div>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
+            <p class="text-lg text-base-content/70">
+              {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
+            </p>
+          </div>
+        </header>
 
         <%!-- Form --%>
         <.form
@@ -292,94 +301,45 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           phx-submit="save"
           class="space-y-6"
         >
-          <%!-- Basic Info --%>
-          <div class="card bg-base-100 shadow-lg">
+          <%!-- Card 1: Basic Info & Organization --%>
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Basic Information</h2>
+              <h2 class="card-title text-xl mb-6">Product Details</h2>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Title *</span></label>
-                <input
-                  type="text"
-                  name="product[title]"
-                  value={Ecto.Changeset.get_field(@changeset, :title)}
-                  class={["input input-bordered", @changeset.errors[:title] && "input-error"]}
-                  placeholder="Product title"
-                  required
-                />
-                <%= if @changeset.errors[:title] do %>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+                <%!-- Row 1: Title + Status --%>
+                <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text-alt text-error">
-                      {elem(@changeset.errors[:title], 0)}
-                    </span>
+                    <span class="label-text font-medium">Title *</span>
                   </label>
-                <% end %>
-              </div>
-
-              <div class="form-control">
-                <label class="label"><span class="label-text">Slug</span></label>
-                <input
-                  type="text"
-                  name="product[slug]"
-                  value={Ecto.Changeset.get_field(@changeset, :slug)}
-                  class="input input-bordered"
-                  placeholder="Auto-generated from title"
-                />
-              </div>
-
-              <div class="form-control">
-                <label class="label"><span class="label-text">Description</span></label>
-                <textarea
-                  name="product[description]"
-                  class="textarea textarea-bordered h-24"
-                  placeholder="Short description"
-                >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Type & Category --%>
-          <div class="card bg-base-100 shadow-lg">
-            <div class="card-body">
-              <h2 class="card-title mb-4">Type & Organization</h2>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Product Type</span></label>
-                  <select name="product[product_type]" class="select select-bordered">
-                    <option
-                      value="physical"
-                      selected={Ecto.Changeset.get_field(@changeset, :product_type) == "physical"}
-                    >
-                      Physical
-                    </option>
-                    <option
-                      value="digital"
-                      selected={Ecto.Changeset.get_field(@changeset, :product_type) == "digital"}
-                    >
-                      Digital
-                    </option>
-                  </select>
+                  <input
+                    type="text"
+                    name="product[title]"
+                    value={Ecto.Changeset.get_field(@changeset, :title)}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @changeset.errors[:title] && "input-error"
+                    ]}
+                    placeholder="Product title"
+                    required
+                  />
+                  <%= if @changeset.errors[:title] do %>
+                    <label class="label py-1">
+                      <span class="label-text-alt text-error">
+                        {elem(@changeset.errors[:title], 0)}
+                      </span>
+                    </label>
+                  <% end %>
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Category</span></label>
-                  <select name="product[category_id]" class="select select-bordered">
-                    <option value="">No category</option>
-                    <%= for {name, id} <- @categories do %>
-                      <option
-                        value={id}
-                        selected={Ecto.Changeset.get_field(@changeset, :category_id) == id}
-                      >
-                        {name}
-                      </option>
-                    <% end %>
-                  </select>
-                </div>
-
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Status</span></label>
-                  <select name="product[status]" class="select select-bordered">
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Status</span>
+                  </label>
+                  <select
+                    name="product[status]"
+                    class="select select-bordered w-full focus:select-primary"
+                  >
                     <option
                       value="draft"
                       selected={Ecto.Changeset.get_field(@changeset, :status) == "draft"}
@@ -401,80 +361,219 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                   </select>
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Vendor</span></label>
+                <%!-- Row 2: Slug + Vendor --%>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Slug</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="product[slug]"
+                    value={Ecto.Changeset.get_field(@changeset, :slug)}
+                    class="input input-bordered w-full focus:input-primary"
+                    placeholder="Auto-generated from title"
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Vendor</span>
+                  </label>
                   <input
                     type="text"
                     name="product[vendor]"
                     value={Ecto.Changeset.get_field(@changeset, :vendor)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     placeholder="Brand or manufacturer"
                   />
+                </div>
+
+                <%!-- Row 3: Product Type + Category --%>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Product Type</span>
+                  </label>
+                  <select
+                    name="product[product_type]"
+                    class="select select-bordered w-full focus:select-primary"
+                  >
+                    <option
+                      value="physical"
+                      selected={Ecto.Changeset.get_field(@changeset, :product_type) == "physical"}
+                    >
+                      Physical
+                    </option>
+                    <option
+                      value="digital"
+                      selected={Ecto.Changeset.get_field(@changeset, :product_type) == "digital"}
+                    >
+                      Digital
+                    </option>
+                  </select>
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Category</span>
+                  </label>
+                  <select
+                    name="product[category_id]"
+                    class="select select-bordered w-full focus:select-primary"
+                  >
+                    <option value="">No category</option>
+                    <%= for {name, id} <- @categories do %>
+                      <option
+                        value={id}
+                        selected={Ecto.Changeset.get_field(@changeset, :category_id) == id}
+                      >
+                        {name}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+
+                <%!-- Row 4: Description (full width) --%>
+                <div class="form-control w-full md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Description</span>
+                  </label>
+                  <textarea
+                    name="product[description]"
+                    class="textarea textarea-bordered w-full h-24 focus:textarea-primary"
+                    placeholder="Short product description"
+                  >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
                 </div>
               </div>
             </div>
           </div>
 
-          <%!-- Pricing --%>
-          <div class="card bg-base-100 shadow-lg">
+          <%!-- Card 2: Pricing --%>
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Pricing</h2>
+              <h2 class="card-title text-xl mb-6">Pricing</h2>
 
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Base Price *</span></label>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
+                <%!-- Row 1: Base Price + Compare Price --%>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Base Price *</span>
+                  </label>
                   <input
                     type="number"
                     name="product[price]"
                     value={Ecto.Changeset.get_field(@changeset, :price)}
-                    class={["input input-bordered", @changeset.errors[:price] && "input-error"]}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @changeset.errors[:price] && "input-error"
+                    ]}
                     step="0.01"
                     min="0"
                     required
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Compare at price</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Compare at Price</span>
+                  </label>
                   <input
                     type="number"
                     name="product[compare_at_price]"
                     value={Ecto.Changeset.get_field(@changeset, :compare_at_price)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     step="0.01"
                     min="0"
                     placeholder="Original price"
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Cost per item</span></label>
+                <%!-- Row 2: Cost + Taxable --%>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Cost per Item</span>
+                  </label>
                   <input
                     type="number"
                     name="product[cost_per_item]"
                     value={Ecto.Changeset.get_field(@changeset, :cost_per_item)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     step="0.01"
                     min="0"
-                    placeholder="Your cost"
+                    placeholder="Your cost for profit calculation"
                   />
                 </div>
-              </div>
 
-              <div class="form-control mt-4">
-                <label class="label cursor-pointer justify-start gap-3">
-                  <input
-                    type="checkbox"
-                    name="product[taxable]"
-                    value="true"
-                    checked={Ecto.Changeset.get_field(@changeset, :taxable)}
-                    class="checkbox checkbox-primary"
-                  />
-                  <span class="label-text">Charge tax on this product</span>
-                </label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Tax Settings</span>
+                  </label>
+                  <label class="label cursor-pointer justify-start gap-3 h-12 px-4 bg-base-200 rounded-lg">
+                    <input
+                      type="checkbox"
+                      name="product[taxable]"
+                      value="true"
+                      checked={Ecto.Changeset.get_field(@changeset, :taxable)}
+                      class="checkbox checkbox-primary"
+                    />
+                    <span class="label-text">Charge tax on this product</span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
+
+          <%!-- Available Option Values Section --%>
+          <% select_options =
+            Enum.filter(@option_schema, fn opt ->
+              opt["type"] in ["select", "multiselect"] and length(opt["options"] || []) > 1
+            end) %>
+          <%= if select_options != [] and @live_action == :edit do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">
+                  <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Available Options
+                </h2>
+                <p class="text-sm text-base-content/60 mb-4">
+                  Select which option values are available for this product.
+                  Uncheck values that don't apply.
+                </p>
+
+                <div class="space-y-4">
+                  <%= for option <- select_options do %>
+                    <% option_key = option["key"] %>
+                    <% all_values = option["options"] || [] %>
+                    <% custom_values = get_custom_option_values(@metadata, option_key) %>
+                    <% active_values = if custom_values, do: custom_values, else: all_values %>
+
+                    <div class="p-4 bg-base-200 rounded-lg">
+                      <div class="flex items-center justify-between mb-3">
+                        <span class="font-medium">{option["label"]}</span>
+                        <%= if custom_values do %>
+                          <span class="badge badge-warning badge-sm">Custom selection</span>
+                        <% else %>
+                          <span class="badge badge-ghost badge-sm">All values</span>
+                        <% end %>
+                      </div>
+                      <div class="flex flex-wrap gap-3">
+                        <%= for value <- all_values do %>
+                          <label class="label cursor-pointer gap-2 p-0">
+                            <input
+                              type="checkbox"
+                              name={"product[metadata][_option_values][#{option_key}][]"}
+                              value={value}
+                              checked={value in active_values}
+                              class="checkbox checkbox-sm checkbox-primary"
+                            />
+                            <span class="label-text">{value}</span>
+                          </label>
+                        <% end %>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
+              </div>
+            </div>
+          <% end %>
 
           <%!-- Option Price Modifiers Section --%>
           <%= if @price_affecting_options != [] do %>
@@ -489,7 +588,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 opt["allow_override"] == true
               end) %>
 
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">
                   <.icon name="hero-calculator" class="w-5 h-5" /> Option Prices
@@ -651,9 +750,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           <% end %>
 
           <%!-- Product Images --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">
+              <h2 class="card-title text-xl mb-6">
                 <.icon name="hero-photo" class="w-5 h-5" /> Product Images
               </h2>
 
@@ -739,9 +838,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           <%!-- Product Specifications (Options without affects_price) --%>
           <% non_price_options = Enum.reject(@option_schema, & &1["affects_price"]) %>
           <%= if non_price_options != [] do %>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
-                <h2 class="card-title mb-4">
+                <h2 class="card-title text-xl mb-6">
                   <.icon name="hero-tag" class="w-5 h-5" /> Specifications
                 </h2>
                 <p class="text-sm text-base-content/60 mb-4">
@@ -838,6 +937,17 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         # Old structure (backward compat): just a value string
         # Treat as custom with inherited type
         nil
+
+      _ ->
+        nil
+    end
+  end
+
+  # Get custom option values from metadata, returns nil if not customized
+  defp get_custom_option_values(metadata, option_key) do
+    case metadata do
+      %{"_option_values" => %{^option_key => values}} when is_list(values) and values != [] ->
+        values
 
       _ ->
         nil
@@ -981,6 +1091,48 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   defp get_schema_for_category_id(_), do: Options.get_global_options()
+
+  # Clean up _option_values - remove entries where all values are selected (use defaults)
+  defp clean_option_values(metadata, option_schema) do
+    case metadata["_option_values"] do
+      nil ->
+        metadata
+
+      option_values when is_map(option_values) ->
+        # Build a map of option_key -> all_values from schema
+        schema_values =
+          option_schema
+          |> Enum.filter(&(&1["type"] in ["select", "multiselect"]))
+          |> Enum.map(&{&1["key"], &1["options"] || []})
+          |> Map.new()
+
+        # Remove entries where all values are selected
+        cleaned =
+          option_values
+          |> Enum.map(fn {key, selected_values} ->
+            all_values = Map.get(schema_values, key, [])
+            selected = if is_list(selected_values), do: selected_values, else: []
+
+            # If all values selected or none selected, use defaults (nil)
+            if Enum.sort(selected) == Enum.sort(all_values) or selected == [] do
+              {key, nil}
+            else
+              {key, selected}
+            end
+          end)
+          |> Enum.reject(fn {_k, v} -> is_nil(v) end)
+          |> Map.new()
+
+        if cleaned == %{} do
+          Map.delete(metadata, "_option_values")
+        else
+          Map.put(metadata, "_option_values", cleaned)
+        end
+
+      _ ->
+        metadata
+    end
+  end
 
   # Convert final_price inputs to modifier values
   # final_price - base_price = modifier (for fixed type)

@@ -96,25 +96,27 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">E-Commerce Settings</h1>
-            <p class="text-base-content/70 mt-1">Configure your e-commerce store</p>
-          </div>
-
-          <.link navigate={Routes.path("/admin/shop")} class="btn btn-outline">
-            <.icon name="hero-arrow-left" class="w-5 h-5 mr-2" /> Back to Dashboard
+      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
           </.link>
-        </div>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">E-Commerce Settings</h1>
+            <p class="text-lg text-base-content/70">Configure your e-commerce store</p>
+          </div>
+        </header>
 
-        <%!-- Module Status --%>
-        <div class="card bg-base-100 shadow-lg mb-6">
+        <%!-- Module Status Card --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="card-title">Module Status</h2>
+                <h2 class="card-title text-xl">Module Status</h2>
                 <p class="text-base-content/70">Enable or disable the E-Commerce module</p>
               </div>
               <div class="flex items-center gap-4">
@@ -146,26 +148,28 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           </div>
         </div>
 
-        <%!-- Inventory Settings --%>
-        <div class="card bg-base-100 shadow-lg mb-6">
+        <%!-- Inventory Settings (toggle pattern) --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
-            <h2 class="card-title mb-4">
+            <h2 class="card-title text-xl mb-6">
               <.icon name="hero-archive-box" class="w-6 h-6" /> Inventory
             </h2>
 
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="font-medium">Track Inventory</p>
-                <p class="text-sm text-base-content/60">
-                  Enable stock tracking for products (Phase 2)
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@inventory_tracking}
-                phx-click="toggle_inventory_tracking"
-              />
+            <div class="form-control">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Track Inventory</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Enable stock tracking for products (Phase 2)
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-secondary"
+                  checked={@inventory_tracking}
+                  phx-click="toggle_inventory_tracking"
+                />
+              </label>
             </div>
           </div>
         </div>
@@ -185,28 +189,30 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
         </div>
 
         <%!-- Product Options --%>
-        <div class="card bg-base-100 shadow-lg mb-6">
+        <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
-            <h2 class="card-title mb-4">
+            <h2 class="card-title text-xl mb-6">
               <.icon name="hero-tag" class="w-6 h-6" /> Product Options
             </h2>
 
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="font-medium">Global Product Options</p>
-                <p class="text-sm text-base-content/60">
-                  Define options that apply to all products (size, color, material, etc.)
-                </p>
-                <p class="text-xs text-base-content/50 mt-1">
-                  Price override is configured per-option in the options settings.
-                </p>
-              </div>
-              <.link
-                navigate={Routes.path("/admin/shop/settings/options")}
-                class="btn btn-sm btn-primary"
-              >
-                <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" /> Configure
-              </.link>
+            <div class="form-control">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Global Product Options</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Define options that apply to all products (size, color, material, etc.)
+                  </div>
+                  <div class="text-xs text-base-content/50 mt-1">
+                    Price override is configured per-option in the options settings.
+                  </div>
+                </span>
+                <.link
+                  navigate={Routes.path("/admin/shop/settings/options")}
+                  class="btn btn-primary"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> Configure
+                </.link>
+              </label>
             </div>
           </div>
         </div>

@@ -232,22 +232,28 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">Product Options</h1>
-            <p class="text-base-content/70 mt-1">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop/settings")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+          </.link>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Product Options</h1>
+            <p class="text-lg text-base-content/70">
               Define global options that apply to all products
             </p>
           </div>
+        </header>
 
-          <div class="flex gap-2">
-            <.link navigate={Routes.path("/admin/shop/settings")} class="btn btn-ghost">
-              <.icon name="hero-arrow-left" class="w-5 h-5 mr-2" /> Back
-            </.link>
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4 justify-end">
             <button type="button" phx-click="show_add_modal" class="btn btn-primary">
-              <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Option
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Option
             </button>
           </div>
         </div>
@@ -265,9 +271,9 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
         </div>
 
         <%!-- Options List --%>
-        <div class="card bg-base-100 shadow-lg">
+        <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h2 class="card-title mb-4">
+            <h2 class="card-title text-xl mb-6">
               <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Global Options
             </h2>
 

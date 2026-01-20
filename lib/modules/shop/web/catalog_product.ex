@@ -258,7 +258,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   def render(assigns) do
     ~H"""
     <.shop_layout {assigns}>
-      <div class="p-6 max-w-7xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
           <ul>
@@ -474,7 +474,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                           <div class="text-error text-xs mb-1">Please select an option</div>
                         <% end %>
                         <div class="flex flex-wrap gap-2">
-                          <%= for opt_value <- attr["options"] || [] do %>
+                          <%= for opt_value <- get_option_values(@product, attr) do %>
                             <.option_button
                               option_key={attr["key"]}
                               option_value={opt_value}
@@ -592,13 +592,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 <%!-- Add to Cart Button --%>
                 <button
                   phx-click="add_to_cart"
-                  class={["btn btn-primary btn-lg w-full gap-2", @adding_to_cart && "loading"]}
+                  class={["btn btn-primary btn-lg w-full", @adding_to_cart && "loading"]}
                   disabled={@adding_to_cart}
                 >
                   <%= if @adding_to_cart do %>
                     Adding...
                   <% else %>
-                    <.icon name="hero-shopping-cart" class="w-5 h-5" />
+                    <.icon name="hero-shopping-cart" class="w-5 h-5 mr-2" />
                     <%= if @cart_item do %>
                       Add More to Cart
                     <% else %>
@@ -608,8 +608,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 </button>
 
                 <%!-- View Cart Link --%>
-                <.link navigate={Routes.path("/cart")} class="btn btn-ghost w-full gap-2">
-                  <.icon name="hero-eye" class="w-5 h-5" /> View Cart
+                <.link navigate={Routes.path("/cart")} class="btn btn-outline w-full">
+                  <.icon name="hero-eye" class="w-5 h-5 mr-2" /> View Cart
                 </.link>
               </div>
             <% else %>
@@ -747,6 +747,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   defp format_price(price, nil) do
     "$#{Decimal.round(price, 2)}"
+  end
+
+  # Get option values for a product, with fallback to schema defaults
+  # Allows per-product customization of available option values via metadata
+  defp get_option_values(product, option) do
+    key = option["key"]
+
+    case product.metadata do
+      %{"_option_values" => %{^key => values}} when is_list(values) and values != [] ->
+        values
+
+      _ ->
+        option["options"] || []
+    end
   end
 
   defp discount_percentage(%{price: price, compare_at_price: compare}) when not is_nil(compare) do

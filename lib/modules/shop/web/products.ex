@@ -136,42 +136,46 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-7xl mx-auto">
-        <%!-- Header --%>
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">Products</h1>
-            <p class="text-base-content/70">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
+        <%!-- Header (centered pattern) --%>
+        <header class="w-full relative mb-6">
+          <.link
+            navigate={Routes.path("/admin/shop")}
+            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
+          >
+            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+          </.link>
+          <div class="text-center pt-10 sm:pt-0">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Products</h1>
+            <p class="text-lg text-base-content/70">
               {if @total == 1, do: "1 product", else: "#{@total} products"}
             </p>
           </div>
+        </header>
 
-          <.link navigate={Routes.path("/admin/shop/products/new")} class="btn btn-primary">
-            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Product
-          </.link>
-        </div>
+        <%!-- Controls Bar (Users pattern) --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4">
+            <%!-- Search --%>
+            <div class="flex-1">
+              <label class="label"><span class="label-text">Search</span></label>
+              <form phx-submit="search" phx-change="search">
+                <input
+                  type="text"
+                  name="search"
+                  value={@search}
+                  placeholder="Search products..."
+                  class="input input-bordered w-full focus:input-primary"
+                  phx-debounce="300"
+                />
+              </form>
+            </div>
 
-        <%!-- Filters --%>
-        <div class="card bg-base-100 shadow mb-6">
-          <div class="card-body py-4">
-            <div class="flex flex-col md:flex-row gap-4">
-              <%!-- Search --%>
-              <div class="form-control flex-1">
-                <form phx-submit="search" phx-change="search">
-                  <input
-                    type="text"
-                    name="search"
-                    value={@search}
-                    placeholder="Search products..."
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                  />
-                </form>
-              </div>
-
-              <%!-- Status Filter --%>
+            <%!-- Status Filter --%>
+            <div class="w-full lg:w-48">
+              <label class="label"><span class="label-text">Status</span></label>
               <select
-                class="select select-bordered w-full md:w-40"
+                class="select select-bordered w-full focus:select-primary"
                 phx-change="filter_status"
                 name="status"
               >
@@ -180,10 +184,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                 <option value="draft" selected={@status_filter == "draft"}>Draft</option>
                 <option value="archived" selected={@status_filter == "archived"}>Archived</option>
               </select>
+            </div>
 
-              <%!-- Type Filter --%>
+            <%!-- Type Filter --%>
+            <div class="w-full lg:w-48">
+              <label class="label"><span class="label-text">Type</span></label>
               <select
-                class="select select-bordered w-full md:w-40"
+                class="select select-bordered w-full focus:select-primary"
                 phx-change="filter_type"
                 name="type"
               >
@@ -192,11 +199,19 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                 <option value="digital" selected={@type_filter == "digital"}>Digital</option>
               </select>
             </div>
+
+            <%!-- Actions --%>
+            <div class="w-full lg:w-auto">
+              <label class="label"><span class="label-text">Actions</span></label>
+              <.link navigate={Routes.path("/admin/shop/products/new")} class="btn btn-primary">
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Product
+              </.link>
+            </div>
           </div>
         </div>
 
         <%!-- Products Table --%>
-        <div class="card bg-base-100 shadow-lg overflow-hidden">
+        <div class="card bg-base-100 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="table">
               <thead>
@@ -263,35 +278,27 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                         {format_price(product.price, @currency)}
                       </td>
                       <td class="text-right" phx-click="noop">
-                        <div class="dropdown dropdown-end">
-                          <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
-                            <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                          </div>
-                          <ul
-                            tabindex="0"
-                            class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-48 z-10"
+                        <div class="flex flex-wrap gap-1 justify-end">
+                          <.link
+                            navigate={Routes.path("/admin/shop/products/#{product.id}")}
+                            class="btn btn-xs btn-outline btn-info"
                           >
-                            <li>
-                              <.link navigate={Routes.path("/admin/shop/products/#{product.id}")}>
-                                <.icon name="hero-eye" class="w-4 h-4" /> View
-                              </.link>
-                            </li>
-                            <li>
-                              <.link navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}>
-                                <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                              </.link>
-                            </li>
-                            <li>
-                              <button
-                                phx-click="delete_product"
-                                phx-value-id={product.id}
-                                data-confirm="Delete this product?"
-                                class="text-error"
-                              >
-                                <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                              </button>
-                            </li>
-                          </ul>
+                            <.icon name="hero-eye" class="h-4 w-4" />
+                          </.link>
+                          <.link
+                            navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}
+                            class="btn btn-xs btn-outline btn-secondary"
+                          >
+                            <.icon name="hero-pencil" class="h-4 w-4" />
+                          </.link>
+                          <button
+                            phx-click="delete_product"
+                            phx-value-id={product.id}
+                            data-confirm="Delete this product?"
+                            class="btn btn-xs btn-outline btn-error"
+                          >
+                            <.icon name="hero-trash" class="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

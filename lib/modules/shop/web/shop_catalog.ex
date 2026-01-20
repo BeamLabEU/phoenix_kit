@@ -34,14 +34,16 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   def render(assigns) do
     ~H"""
     <.shop_layout {assigns}>
-      <div class="p-6 max-w-7xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
         <%!-- Hero Section --%>
-        <div class="text-center mb-12">
-          <h1 class="text-4xl font-bold mb-4">Welcome to Our Shop</h1>
-          <p class="text-lg text-base-content/70 max-w-2xl mx-auto">
-            Browse our collection of products across various categories
-          </p>
-        </div>
+        <header class="w-full relative mb-6">
+          <div class="text-center">
+            <h1 class="text-4xl font-bold text-base-content mb-3">Welcome to Our Shop</h1>
+            <p class="text-lg text-base-content/70">
+              Browse our collection of products across various categories
+            </p>
+          </div>
+        </header>
 
         <%!-- Categories Section --%>
         <div class="mb-12">
@@ -53,7 +55,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
               <%= for category <- @categories do %>
                 <.link
                   navigate={Routes.path("/shop/category/#{category.slug}")}
-                  class="card bg-base-100 shadow-md hover:shadow-lg transition-shadow"
+                  class="card bg-base-100 shadow-md hover:shadow-xl transition-shadow"
                 >
                   <div class="card-body items-center text-center p-4">
                     <%= if category.image_url do %>
@@ -92,7 +94,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
           </div>
 
           <%= if @products == [] do %>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body text-center py-16">
                 <.icon name="hero-cube" class="w-16 h-16 mx-auto mb-4 opacity-30" />
                 <h3 class="text-xl font-medium text-base-content/60">No products available</h3>
@@ -142,7 +144,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     ~H"""
     <.link
       navigate={Routes.path("/shop/product/#{@product.slug}")}
-      class="card bg-base-100 shadow-md hover:shadow-lg transition-all hover:-translate-y-1"
+      class="card bg-base-100 shadow-md hover:shadow-xl transition-all hover:-translate-y-1"
     >
       <figure class="h-48 bg-base-200">
         <%= if first_image(@product) do %>
