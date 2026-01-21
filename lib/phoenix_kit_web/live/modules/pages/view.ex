@@ -25,7 +25,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.View do
         |> assign(:file_content, "")
         |> assign(:rendered_html, "")
         |> assign(:metadata, nil)
-        |> assign(:project_title, PhoenixKit.Settings.get_setting("project_title", "PhoenixKit"))
+        |> assign(:project_title, PhoenixKit.Settings.get_project_title())
         |> assign(:current_locale, locale)
 
       {:ok, socket}

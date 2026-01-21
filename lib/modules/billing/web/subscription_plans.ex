@@ -14,7 +14,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionPlans do
   @impl true
   def mount(_params, _session, socket) do
     if Billing.enabled?() do
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

@@ -23,7 +23,7 @@ defmodule PhoenixKit.Modules.Billing.Web.SubscriptionDetail do
            |> push_navigate(to: Routes.path("/admin/billing/subscriptions"))}
 
         subscription ->
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
           plans = Billing.list_subscription_plans(active_only: true)
 
           socket =

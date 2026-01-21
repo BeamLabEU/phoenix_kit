@@ -38,7 +38,7 @@ defmodule PhoenixKit.Modules.DB.Web.Activity do
     socket =
       socket
       |> assign(:page_title, "Live Activity")
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:current_locale, locale)
       |> assign(:current_path, Routes.path("/admin/db/activity", locale: locale))
       |> assign(:activity_log, [])

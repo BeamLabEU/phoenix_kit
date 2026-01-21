@@ -22,7 +22,7 @@ defmodule PhoenixKitWeb.Live.Modules.Maintenance.Settings do
     socket =
       socket
       |> assign(:page_title, "Maintenance Mode Settings")
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:current_path, current_path)
       |> assign(:header, config.header)
       |> assign(:subtext, config.subtext)

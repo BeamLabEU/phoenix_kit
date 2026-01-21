@@ -28,8 +28,8 @@ defmodule PhoenixKitWeb.Users.Login do
       })
     end
 
-    # Get project title and registration setting from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Get project title from settings (with Config fallback)
+    project_title = PhoenixKit.Settings.get_project_title()
     allow_registration = Settings.get_boolean_setting("allow_registration", true)
     magic_link_enabled = Settings.get_boolean_setting("magic_link_login_enabled", true)
 

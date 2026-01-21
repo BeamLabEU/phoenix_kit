@@ -22,7 +22,7 @@ defmodule PhoenixKit.Modules.Billing.Web.OrderDetail do
            |> push_navigate(to: Routes.path("/admin/billing/orders"))}
 
         order ->
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
           invoices = Billing.list_invoices_for_order(order.id)
 
           socket =

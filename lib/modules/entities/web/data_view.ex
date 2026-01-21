@@ -35,7 +35,7 @@ defmodule PhoenixKit.Modules.Entities.Web.DataView do
   end
 
   defp mount_data_view(socket, entity, data_record, locale) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Get public form configuration
     settings = entity.settings || %{}

@@ -253,6 +253,21 @@ defmodule PhoenixKit.Dashboard.Presence do
   def presence_topic, do: @presence_topic
 
   @doc """
+  Clears the cached presence module detection.
+
+  Call this after hot code reloading if the presence module configuration
+  has changed. The next call to any presence function will re-detect.
+  """
+  @spec clear_presence_module_cache() :: :ok
+  def clear_presence_module_cache do
+    :persistent_term.erase({__MODULE__, :presence_module})
+    :ok
+  rescue
+    # Ignore if key doesn't exist
+    ArgumentError -> :ok
+  end
+
+  @doc """
   Checks if presence tracking is enabled.
   """
   @spec enabled?() :: boolean()
@@ -296,7 +311,24 @@ defmodule PhoenixKit.Dashboard.Presence do
   defp user_key(nil), do: "anonymous_#{System.unique_integer([:positive])}"
   defp user_key(user), do: "user:#{user.id}"
 
+  # Cache key for persistent_term storage
+  @presence_module_cache_key {__MODULE__, :presence_module}
+
   defp get_presence_module do
+    # Use persistent_term to cache the result of Code.ensure_loaded?
+    # This avoids ~180+ code_server calls per second on busy dashboards
+    case :persistent_term.get(@presence_module_cache_key, :not_cached) do
+      :not_cached ->
+        module = determine_presence_module()
+        :persistent_term.put(@presence_module_cache_key, module)
+        module
+
+      cached_module ->
+        cached_module
+    end
+  end
+
+  defp determine_presence_module do
     # Check if PhoenixKit.Presence exists and is configured
     cond do
       Code.ensure_loaded?(PhoenixKit.Presence) ->

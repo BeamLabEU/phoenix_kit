@@ -44,7 +44,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
 
       ticket ->
         changeset = Ticket.changeset(ticket, %{})
-        project_title = Settings.get_setting("project_title", "PhoenixKit")
+        project_title = Settings.get_project_title()
 
         socket
         |> assign(:page_title, "Edit Ticket")
@@ -61,7 +61,7 @@ defmodule PhoenixKit.Modules.Tickets.Web.Edit do
   defp load_ticket_or_new(socket, _params, current_user) do
     ticket = %Ticket{user_id: current_user.id}
     changeset = Ticket.changeset(ticket, %{})
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket
     |> assign(:page_title, "New Ticket")

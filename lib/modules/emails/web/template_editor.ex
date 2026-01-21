@@ -38,7 +38,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
   @impl true
   def mount(_params, _session, socket) do
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket =
       socket
@@ -451,7 +451,7 @@ defmodule PhoenixKit.Modules.Emails.Web.TemplateEditor do
       "magic_link_url" => "https://example.com/magic",
       "update_url" => "https://example.com/update",
       "timestamp" => DateTime.utc_now() |> DateTime.to_string(),
-      "app_name" => "PhoenixKit",
+      "app_name" => PhoenixKit.Config.get(:project_title, "PhoenixKit"),
       "company_name" => "Your Company",
       "support_email" => "support@example.com"
     }

@@ -48,7 +48,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
     current_path = get_current_path(socket, session)
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load email configuration
     email_config = Emails.get_config()
@@ -96,7 +96,8 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
         :sender_settings,
         %{
           from_email: Settings.get_setting("from_email", "noreply@localhost"),
-          from_name: Settings.get_setting("from_name", "PhoenixKit")
+          from_name:
+            Settings.get_setting("from_name", PhoenixKit.Config.get(:from_name, "PhoenixKit"))
         }
       )
       |> assign(:saving_sender, false)
@@ -626,7 +627,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Settings do
 
     settings_to_update = %{
       "from_email" => sender_params["from_email"] || "noreply@localhost",
-      "from_name" => sender_params["from_name"] || "PhoenixKit"
+      "from_name" => sender_params["from_name"] || PhoenixKit.Config.get(:from_name, "PhoenixKit")
     }
 
     case Settings.update_settings_batch(settings_to_update) do

@@ -36,7 +36,7 @@ defmodule PhoenixKit.Modules.DB.Web.Show do
     socket =
       socket
       |> assign(:page_title, "#{schema}.#{table}")
-      |> assign(:project_title, Settings.get_setting("project_title", "PhoenixKit"))
+      |> assign(:project_title, Settings.get_project_title())
       |> assign(:current_locale, locale)
       |> assign(
         :current_path,

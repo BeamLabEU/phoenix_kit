@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoicePrint do
            |> push_navigate(to: Routes.path("/admin/billing/invoices"))}
 
         invoice ->
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
           company_info = get_company_info()
 
           # Calculate refund info from transactions

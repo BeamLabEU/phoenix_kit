@@ -14,7 +14,46 @@
 
   Note: This layout does NOT use LayoutWrapper.app_layout as that's for admin pages only.
 --%>
-<% project_title = assigns[:project_title] || PhoenixKit.Config.get(:project_title, "PhoenixKit") %>
+<% # Branding configuration
+project_title = assigns[:project_title] || PhoenixKit.Settings.get_project_title()
+project_title_suffix = assigns[:project_title_suffix]
+
+project_title_suffix =
+  if is_nil(project_title_suffix),
+    do: PhoenixKit.Config.get(:project_title_suffix, "Dashboard"),
+    else: project_title_suffix
+
+project_logo = assigns[:project_logo] || PhoenixKit.Config.get(:project_logo, nil)
+project_icon = assigns[:project_icon] || PhoenixKit.Config.get(:project_icon, "hero-home")
+
+project_logo_height =
+  assigns[:project_logo_height] || PhoenixKit.Config.get(:project_logo_height, "h-8")
+
+project_logo_class =
+  assigns[:project_logo_class] || PhoenixKit.Config.get(:project_logo_class, nil)
+
+project_home_url_raw = assigns[:project_home_url] || PhoenixKit.Config.get(:project_home_url, "/")
+# Paths starting with ~/ get the URL prefix applied, others stay as-is
+project_home_url =
+  case project_home_url_raw do
+    "~/" <> path -> PhoenixKit.Utils.Routes.path("/" <> path)
+    other -> other
+  end
+
+show_title_with_logo = assigns[:show_title_with_logo]
+
+show_title_with_logo =
+  if is_nil(show_title_with_logo),
+    do: PhoenixKit.Config.get(:show_title_with_logo, true),
+    else: show_title_with_logo
+
+# Build full display title
+display_title =
+  if project_title_suffix && project_title_suffix != "" do
+    "#{project_title} #{project_title_suffix}"
+  else
+    project_title
+  end %>
 <% # Get tabs from registry (with active state based on current path)
 dashboard_tabs =
   assigns[:dashboard_tabs] ||
@@ -35,17 +74,28 @@ dashboard_contexts = assigns[:dashboard_contexts] || []
 current_context = assigns[:current_context]
 
 context_selector_config =
-  assigns[:context_selector_config] || %PhoenixKit.Dashboard.ContextSelector{enabled: false} %> <!DOCTYPE html>
+  assigns[:context_selector_config] || %PhoenixKit.Dashboard.ContextSelector{enabled: false}
+
+# Multi-selector data (new)
+context_selector_configs = assigns[:context_selector_configs] || []
+dashboard_contexts_map = assigns[:dashboard_contexts_map] || %{}
+current_contexts_map = assigns[:current_contexts_map] || %{}
+show_context_selectors_map = assigns[:show_context_selectors_map] || %{}
+has_multi_selector = context_selector_configs != [] %> <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
     <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
-    <.live_title default={"#{project_title} Dashboard"}>
+    <.live_title default={display_title}>
       {assigns[:page_title] || "Dashboard"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href="/assets/css/app.css" />
+    <%!-- PhoenixKit Custom Theme CSS (phoenix-light, phoenix-dark) --%>
+    <style data-phoenix-kit-themes>
+      <%= Phoenix.HTML.raw(PhoenixKit.ThemeConfig.custom_theme_css()) %>
+    </style>
     <%!-- Dashboard animations CSS --%>
     <style>
       /* Shake animation for attention */
@@ -71,6 +121,25 @@ context_selector_config =
       }
       .animate-badge-pop { animation: badge-pop 0.3s ease-out; }
 
+      /* Subtab animations */
+      @keyframes slide-in-left {
+        0% { opacity: 0; transform: translateX(-24px); }
+        100% { opacity: 1; transform: translateX(0); }
+      }
+      .animate-slide-in-left { animation: slide-in-left 0.35s ease-out; }
+
+      @keyframes fade-in {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      .animate-fade-in { animation: fade-in 0.3s ease-out; }
+
+      @keyframes collapse-open {
+        0% { opacity: 0; max-height: 0; }
+        100% { opacity: 1; max-height: 100px; }
+      }
+      .animate-collapse-open { animation: collapse-open 0.3s ease-out; }
+
       /* Respect reduced motion preference */
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after {
@@ -88,44 +157,89 @@ context_selector_config =
           <%!-- Left: Logo and Title --%>
           <div class="flex items-center gap-3">
             <.link
-              navigate="/"
+              navigate={project_home_url}
               class="flex items-center gap-3 hover:opacity-80 transition-opacity"
             >
-              <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <.icon name="hero-home" class="w-5 h-5 text-primary-content" />
-              </div>
-              <span class="font-bold text-base-content hidden sm:inline">
-                {gettext("%{project_title} Dashboard", project_title: project_title)}
-              </span>
+              <%= if project_logo do %>
+                <%!-- Custom logo image --%>
+                <img
+                  src={project_logo}
+                  alt={project_title}
+                  class={[project_logo_height, "w-auto", project_logo_class]}
+                />
+              <% else %>
+                <%!-- Default icon in colored box --%>
+                <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <.icon name={project_icon} class="w-5 h-5 text-primary-content" />
+                </div>
+              <% end %>
+              <%= if show_title_with_logo or is_nil(project_logo) do %>
+                <span class="font-bold text-base-content hidden sm:inline">
+                  {display_title}
+                </span>
+              <% end %>
             </.link>
-            <%!-- Context Selector (header start - after logo) --%>
-            <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :start do %>
-              <div class="hidden sm:flex items-center">
-                <%= if context_selector_config.separator do %>
-                  <span class="text-base-content/30 mx-2">
-                    {context_selector_config.separator}
-                  </span>
-                <% end %>
+            <%!-- Context Selector(s) (header start - after logo) --%>
+            <%= if has_multi_selector do %>
+              <%!-- Multi-selector mode --%>
+              <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector
+                position={:header}
+                sub_position={:start}
+                configs={context_selector_configs}
+                contexts_map={dashboard_contexts_map}
+                current_map={current_contexts_map}
+                show_map={show_context_selectors_map}
+                class="hidden sm:flex"
+              />
+            <% else %>
+              <%!-- Legacy single selector --%>
+              <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :start do %>
+                <div class="hidden sm:flex items-center">
+                  <%= if context_selector_config.separator do %>
+                    <span class="text-base-content/30 mx-2">
+                      {context_selector_config.separator}
+                    </span>
+                  <% end %>
+                  <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
+                    contexts={dashboard_contexts}
+                    current={current_context}
+                    config={context_selector_config}
+                  />
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+
+          <%!-- Right: Context Selector, Theme, User Dropdown --%>
+          <div class="flex items-center gap-3">
+            <%!-- Context Selector(s) (header end - before theme/user) --%>
+            <%= if has_multi_selector do %>
+              <%!-- Multi-selector mode --%>
+              <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector
+                position={:header}
+                sub_position={:end}
+                configs={context_selector_configs}
+                contexts_map={dashboard_contexts_map}
+                current_map={current_contexts_map}
+                show_map={show_context_selectors_map}
+                class="hidden sm:flex"
+              />
+            <% else %>
+              <%!-- Legacy single selector --%>
+              <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :end do %>
                 <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
                   contexts={dashboard_contexts}
                   current={current_context}
                   config={context_selector_config}
+                  class="hidden sm:flex"
                 />
-              </div>
+              <% end %>
             <% end %>
-          </div>
-
-          <%!-- Right: User Dropdown --%>
-          <div class="flex items-center gap-3">
-            <%!-- Context Selector (header end - before user menu) --%>
-            <%= if show_context_selector and context_selector_config.position == :header and context_selector_config.sub_position == :end do %>
-              <PhoenixKitWeb.Components.Dashboard.ContextSelector.context_selector
-                contexts={dashboard_contexts}
-                current={current_context}
-                config={context_selector_config}
-                class="hidden sm:flex"
-              />
-            <% end %>
+            <%!-- Theme Switcher --%>
+            <PhoenixKitWeb.Components.Core.ThemeController.theme_controller
+              themes={PhoenixKit.Config.get(:dashboard_themes, :all)}
+              id="dashboard-theme-dropdown"
+            />
             <PhoenixKitWeb.Components.UserDashboardNav.user_dropdown
               scope={assigns[:phoenix_kit_current_scope]}
               current_path={assigns[:url_path] || "/dashboard"}
@@ -152,17 +266,36 @@ context_selector_config =
                 dashboard_contexts={dashboard_contexts}
                 current_context={current_context}
                 context_selector_config={context_selector_config}
+                context_selector_configs={context_selector_configs}
+                dashboard_contexts_map={dashboard_contexts_map}
+                current_contexts_map={current_contexts_map}
+                show_context_selectors_map={show_context_selectors_map}
               />
             </div>
-            <%!-- Bottom Context Selector (when sub_position: :end) --%>
-            <%= if show_context_selector and context_selector_config && context_selector_config.enabled and context_selector_config.position == :sidebar and context_selector_config.sub_position == :end do %>
+            <%!-- Bottom Context Selector(s) (when sub_position: :end) --%>
+            <%= if has_multi_selector do %>
+              <%!-- Multi-selector mode --%>
               <div class="p-4 border-t border-base-300 mt-auto">
-                <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
-                  contexts={dashboard_contexts}
-                  current={current_context}
-                  config={context_selector_config}
+                <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector_sidebar
+                  position={:sidebar}
+                  sub_position={:end}
+                  configs={context_selector_configs}
+                  contexts_map={dashboard_contexts_map}
+                  current_map={current_contexts_map}
+                  show_map={show_context_selectors_map}
                 />
               </div>
+            <% else %>
+              <%!-- Legacy single selector --%>
+              <%= if show_context_selector and context_selector_config && context_selector_config.enabled and context_selector_config.position == :sidebar and context_selector_config.sub_position == :end do %>
+                <div class="p-4 border-t border-base-300 mt-auto">
+                  <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+                    contexts={dashboard_contexts}
+                    current={current_context}
+                    config={context_selector_config}
+                  />
+                </div>
+              <% end %>
             <% end %>
           </aside>
 
@@ -175,6 +308,10 @@ context_selector_config =
             dashboard_contexts={dashboard_contexts}
             current_context={current_context}
             context_selector_config={context_selector_config}
+            context_selector_configs={context_selector_configs}
+            dashboard_contexts_map={dashboard_contexts_map}
+            current_contexts_map={current_contexts_map}
+            show_context_selectors_map={show_context_selectors_map}
           />
 
           <%!-- Main Content --%>
@@ -187,5 +324,81 @@ context_selector_config =
         </div>
       </div>
     </div>
+    <%!-- Theme Controller JavaScript --%>
+    <script>
+      (function() {
+        const STORAGE_KEY = 'phx:theme';
+        const themeBaseMap = {
+          'phoenix-light': 'light', 'light': 'light', 'cupcake': 'light', 'bumblebee': 'light',
+          'emerald': 'light', 'corporate': 'light', 'retro': 'light', 'cyberpunk': 'light',
+          'valentine': 'light', 'garden': 'light', 'aqua': 'light', 'lofi': 'light',
+          'pastel': 'light', 'fantasy': 'light', 'wireframe': 'light', 'cmyk': 'light',
+          'autumn': 'light', 'acid': 'light', 'lemonade': 'light', 'winter': 'light',
+          'caramellatte': 'light', 'silk': 'light',
+          'phoenix-dark': 'dark', 'dark': 'dark', 'synthwave': 'dark', 'halloween': 'dark',
+          'forest': 'dark', 'black': 'dark', 'luxury': 'dark', 'dracula': 'dark',
+          'business': 'dark', 'night': 'dark', 'coffee': 'dark', 'dim': 'dark',
+          'nord': 'dark', 'sunset': 'dark', 'abyss': 'dark'
+        };
+
+        function getSystemTheme() {
+          return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'phoenix-dark' : 'phoenix-light';
+        }
+
+        function applyTheme(theme) {
+          const html = document.documentElement;
+          const body = document.body;
+          let resolvedTheme = theme;
+          if (theme === 'system') {
+            resolvedTheme = getSystemTheme();
+          }
+          html.setAttribute('data-theme', resolvedTheme);
+          body.setAttribute('data-theme', resolvedTheme);
+          const base = themeBaseMap[resolvedTheme] || 'light';
+          html.style.colorScheme = base;
+          body.style.colorScheme = base;
+        }
+
+        function setTheme(theme) {
+          applyTheme(theme);
+          if (theme === 'system') {
+            localStorage.removeItem(STORAGE_KEY);
+          } else {
+            localStorage.setItem(STORAGE_KEY, theme);
+          }
+          // Update active indicators
+          document.querySelectorAll('[data-theme-target]').forEach(btn => {
+            const targets = (btn.dataset.themeTarget || '').split(',').map(s => s.trim()).filter(Boolean);
+            const isActive = targets.includes(theme);
+            if (btn.dataset.themeRole === 'dropdown-option') {
+              btn.classList.toggle('bg-base-200', isActive);
+              btn.classList.toggle('ring-2', isActive);
+              btn.classList.toggle('ring-primary/70', isActive);
+              btn.querySelectorAll('[data-theme-active-indicator]').forEach(icon => {
+                icon.classList.toggle('opacity-100', isActive);
+                icon.classList.toggle('scale-100', isActive);
+                icon.classList.toggle('scale-75', !isActive);
+              });
+            }
+          });
+        }
+
+        // Initialize
+        const saved = localStorage.getItem(STORAGE_KEY) || 'system';
+        applyTheme(saved);
+
+        // Listen for system theme changes
+        window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if ((localStorage.getItem(STORAGE_KEY) || 'system') === 'system') {
+            applyTheme('system');
+          }
+        });
+
+        // Listen for theme change events
+        window.addEventListener('phx:set-theme', e => {
+          if (e?.detail?.theme) setTheme(e.detail.theme);
+        });
+      })();
+    </script>
   </body>
 </html>

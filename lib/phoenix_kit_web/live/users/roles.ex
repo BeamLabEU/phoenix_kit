@@ -24,7 +24,7 @@ defmodule PhoenixKitWeb.Live.Users.Roles do
     role_stats = load_role_statistics()
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket =
       socket

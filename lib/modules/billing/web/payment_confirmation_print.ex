@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Billing.Web.PaymentConfirmationPrint do
   end
 
   defp mount_payment_confirmation(socket, invoice, transaction) do
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
     company_info = get_company_info()
     confirmation_number = generate_confirmation_number(transaction)
     all_transactions = Billing.list_invoice_transactions(invoice.id)

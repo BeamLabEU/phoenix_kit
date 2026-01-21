@@ -63,6 +63,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   - `dashboard_contexts` - List of available contexts
   - `current_context` - Currently selected context
   - `context_selector_config` - ContextSelector config struct
+
+  ## Multi-Selector Attributes (optional)
+
+  - `context_selector_configs` - List of all ContextSelector configs
+  - `dashboard_contexts_map` - Map of key => list of contexts
+  - `current_contexts_map` - Map of key => current context
+  - `show_context_selectors_map` - Map of key => boolean
   """
   attr :current_path, :string, default: "/dashboard"
   attr :scope, :any, default: nil
@@ -77,6 +84,11 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :dashboard_contexts, :list, default: []
   attr :current_context, :any, default: nil
   attr :context_selector_config, :any, default: nil
+  # Multi-selector attributes
+  attr :context_selector_configs, :list, default: []
+  attr :dashboard_contexts_map, :map, default: %{}
+  attr :current_contexts_map, :map, default: %{}
+  attr :show_context_selectors_map, :map, default: %{}
 
   def dashboard_sidebar(assigns) do
     # Load tabs if not provided
@@ -105,15 +117,33 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
       |> assign(:groups, groups)
       |> assign(:viewer_counts, viewer_counts)
 
+    # Check if multi-selector mode
+    has_multi_selector = assigns.context_selector_configs != []
+
+    assigns = assign(assigns, :has_multi_selector, has_multi_selector)
+
     ~H"""
     <nav class={["space-y-1", @class]} role="navigation" aria-label="Dashboard navigation">
-      <%!-- Context Selector at top (sub_position: :start) --%>
-      <%= if show_context_selector_at?(@show_context_selector, @context_selector_config, :start) do %>
-        <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
-          contexts={@dashboard_contexts}
-          current={@current_context}
-          config={@context_selector_config}
+      <%!-- Context Selector(s) at top (sub_position: :start) --%>
+      <%= if @has_multi_selector do %>
+        <%!-- Multi-selector mode --%>
+        <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector_sidebar
+          position={:sidebar}
+          sub_position={:start}
+          configs={@context_selector_configs}
+          contexts_map={@dashboard_contexts_map}
+          current_map={@current_contexts_map}
+          show_map={@show_context_selectors_map}
         />
+      <% else %>
+        <%!-- Legacy single selector --%>
+        <%= if show_context_selector_at?(@show_context_selector, @context_selector_config, :start) do %>
+          <PhoenixKitWeb.Components.Dashboard.ContextSelector.sidebar_context_selector
+            contexts={@dashboard_contexts}
+            current={@current_context}
+            config={@context_selector_config}
+          />
+        <% end %>
       <% end %>
 
       <%= for group <- sorted_groups(@groups, @grouped_tabs) do %>
@@ -221,22 +251,37 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
   def tab_with_subtabs(assigns) do
     subtabs = get_subtabs_for(assigns.tab.id, assigns.all_tabs)
+    subtab_active = any_subtab_active?(subtabs)
 
     show_subtabs =
-      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or any_subtab_active?(subtabs)
+      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or subtab_active
+
+    # If redirect_to_first_subtab is true, modify the parent tab's path
+    display_tab = maybe_redirect_to_first_subtab(assigns.tab, subtabs)
+
+    # Determine if parent should be highlighted
+    # If highlight_with_subtabs is false (default) and a subtab is active, don't highlight parent
+    parent_active =
+      if subtab_active and not assigns.tab.highlight_with_subtabs do
+        false
+      else
+        assigns.tab.active
+      end
 
     assigns =
       assigns
       |> assign(:subtabs, subtabs)
       |> assign(:show_subtabs, show_subtabs)
       |> assign(:has_subtabs, subtabs != [])
+      |> assign(:display_tab, display_tab)
+      |> assign(:parent_active, parent_active)
 
     ~H"""
     <div class="tab-with-subtabs" data-tab-id={@tab.id} data-has-subtabs={@has_subtabs}>
       <%!-- Parent Tab --%>
       <TabItem.tab_item
-        tab={@tab}
-        active={@tab.active}
+        tab={@display_tab}
+        active={@parent_active}
         viewer_count={Map.get(@viewer_counts, @tab.id, 0)}
         locale={@locale}
         compact={@compact}
@@ -252,6 +297,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
               viewer_count={Map.get(@viewer_counts, subtab.id, 0)}
               locale={@locale}
               compact={@compact}
+              parent_tab={@tab}
             />
           <% end %>
         </div>
@@ -415,13 +461,28 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   attr :dashboard_contexts, :list, default: []
   attr :current_context, :any, default: nil
   attr :context_selector_config, :any, default: nil
+  # Multi-selector attributes
+  attr :context_selector_configs, :list, default: []
+  attr :dashboard_contexts_map, :map, default: %{}
+  attr :current_contexts_map, :map, default: %{}
+  attr :show_context_selectors_map, :map, default: %{}
 
   def mobile_fab_menu(assigns) do
-    tabs =
+    all_tabs =
       Registry.get_tabs_with_active(assigns.current_path, scope: assigns.scope)
       |> Enum.filter(&Tab.navigable?/1)
 
-    assigns = assign(assigns, :tabs, tabs)
+    # Get only top-level tabs for rendering (subtabs handled separately)
+    top_level_tabs = filter_top_level(all_tabs)
+
+    # Check if multi-selector mode
+    has_multi_selector = assigns.context_selector_configs != []
+
+    assigns =
+      assigns
+      |> assign(:all_tabs, all_tabs)
+      |> assign(:top_level_tabs, top_level_tabs)
+      |> assign(:has_multi_selector, has_multi_selector)
 
     ~H"""
     <div class={["fixed bottom-4 right-4 z-50 lg:hidden", @class]}>
@@ -433,42 +494,118 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
           tabindex="0"
           class="dropdown-content shadow bg-base-100 rounded-box w-56 mb-2 border border-base-300 max-h-96 overflow-y-auto"
         >
-          <%!-- Mobile Context Selector --%>
-          <%= if @show_context_selector and @context_selector_config && @context_selector_config.enabled do %>
-            <PhoenixKitWeb.Components.Dashboard.ContextSelector.mobile_context_selector
-              contexts={@dashboard_contexts}
-              current={@current_context}
-              config={@context_selector_config}
+          <%!-- Mobile Context Selector(s) --%>
+          <%= if @has_multi_selector do %>
+            <PhoenixKitWeb.Components.Dashboard.MultiContextSelector.multi_context_selector_mobile
+              configs={@context_selector_configs}
+              contexts_map={@dashboard_contexts_map}
+              current_map={@current_contexts_map}
+              show_map={@show_context_selectors_map}
             />
+          <% else %>
+            <%= if @show_context_selector and @context_selector_config && @context_selector_config.enabled do %>
+              <PhoenixKitWeb.Components.Dashboard.ContextSelector.mobile_context_selector
+                contexts={@dashboard_contexts}
+                current={@current_context}
+                config={@context_selector_config}
+              />
+            <% end %>
           <% end %>
-          <%!-- Navigation Tabs --%>
+          <%!-- Navigation Tabs with Subtab Support --%>
           <ul class="menu p-2">
-            <%= for tab <- @tabs do %>
-              <li>
-                <.link
-                  navigate={build_path(tab.path, @locale)}
-                  class={[
-                    "flex items-center gap-3",
-                    tab.active && "bg-primary text-primary-content"
-                  ]}
-                >
-                  <%= if tab.icon do %>
-                    <.icon name={tab.icon} class="w-4 h-4" />
-                  <% end %>
-                  <span>{tab.label}</span>
-                  <%= if tab.badge do %>
-                    <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
-                      badge={tab.badge}
-                      class="ml-auto badge-xs"
-                    />
-                  <% end %>
-                </.link>
-              </li>
+            <%= for tab <- @top_level_tabs do %>
+              <.mobile_tab_with_subtabs
+                tab={tab}
+                all_tabs={@all_tabs}
+                locale={@locale}
+              />
             <% end %>
           </ul>
         </div>
       </div>
     </div>
+    """
+  end
+
+  # Renders a mobile tab with its subtabs (if any).
+  # Handles subtab visibility, redirect_to_first_subtab, and highlight_with_subtabs.
+  attr :tab, :any, required: true
+  attr :all_tabs, :list, required: true
+  attr :locale, :string, default: nil
+
+  defp mobile_tab_with_subtabs(assigns) do
+    subtabs = get_subtabs_for(assigns.tab.id, assigns.all_tabs)
+    subtab_active = any_subtab_active?(subtabs)
+
+    show_subtabs =
+      Tab.show_subtabs?(assigns.tab, assigns.tab.active) or subtab_active
+
+    # Apply redirect_to_first_subtab logic
+    display_tab = maybe_redirect_to_first_subtab(assigns.tab, subtabs)
+
+    # Apply highlight_with_subtabs logic
+    parent_active =
+      if subtab_active and not assigns.tab.highlight_with_subtabs do
+        false
+      else
+        assigns.tab.active
+      end
+
+    assigns =
+      assigns
+      |> assign(:subtabs, subtabs)
+      |> assign(:show_subtabs, show_subtabs)
+      |> assign(:has_subtabs, subtabs != [])
+      |> assign(:display_tab, display_tab)
+      |> assign(:parent_active, parent_active)
+
+    ~H"""
+    <%!-- Parent Tab --%>
+    <li>
+      <.link
+        navigate={build_path(@display_tab.path, @locale)}
+        class={[
+          "flex items-center gap-3",
+          @parent_active && "bg-primary text-primary-content"
+        ]}
+      >
+        <%= if @tab.icon do %>
+          <.icon name={@tab.icon} class="w-4 h-4" />
+        <% end %>
+        <span>{@tab.label}</span>
+        <%= if @tab.badge do %>
+          <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
+            badge={@tab.badge}
+            class="ml-auto badge-xs"
+          />
+        <% end %>
+      </.link>
+    </li>
+    <%!-- Subtabs (indented, smaller) --%>
+    <%= if @has_subtabs and @show_subtabs do %>
+      <%= for subtab <- @subtabs do %>
+        <li>
+          <.link
+            navigate={build_path(subtab.path, @locale)}
+            class={[
+              "flex items-center gap-3 pl-6 text-sm",
+              subtab.active && "bg-primary/80 text-primary-content"
+            ]}
+          >
+            <%= if subtab.icon do %>
+              <.icon name={subtab.icon} class="w-3 h-3" />
+            <% end %>
+            <span>{subtab.label}</span>
+            <%= if subtab.badge do %>
+              <PhoenixKitWeb.Components.Dashboard.Badge.dashboard_badge
+                badge={subtab.badge}
+                class="ml-auto badge-xs"
+              />
+            <% end %>
+          </.link>
+        </li>
+      <% end %>
+    <% end %>
     """
   end
 
@@ -500,7 +637,9 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
     |> Enum.drop(shown_count)
   end
 
-  defp build_path(path, nil), do: path
+  # Always apply URL prefix via Routes.path
+  # When locale is nil, use :none to skip locale prefix but still apply URL prefix
+  defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
   defp build_path(path, locale) do
     Routes.path(path, locale: locale)
@@ -523,6 +662,13 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
   defp any_subtab_active?(subtabs) do
     Enum.any?(subtabs, & &1.active)
   end
+
+  # If redirect_to_first_subtab is enabled, replace the tab's path with the first subtab's path
+  defp maybe_redirect_to_first_subtab(%{redirect_to_first_subtab: true} = tab, [first_subtab | _]) do
+    %{tab | path: first_subtab.path}
+  end
+
+  defp maybe_redirect_to_first_subtab(tab, _subtabs), do: tab
 
   # Check if context selector should show at a specific position
   defp show_context_selector_at?(false, _config, _position), do: false

@@ -26,6 +26,33 @@ defmodule PhoenixKit.Dashboard.Badge do
         subscribe: {"farm:stats", fn msg -> msg.printing_count end}
       }
 
+  ## Context-Aware Badge
+
+  For badges that show different values per user/organization/context, use `context_key`
+  and optionally `loader`. The badge value is stored per-context in socket assigns
+  instead of globally.
+
+      # Badge depends on current organization context
+      %Badge{
+        type: :count,
+        context_key: :organization,
+        loader: {MyApp.Alerts, :count_for_org},  # Called with (context)
+        subscribe: "org:{id}:alerts"  # {id} replaced with context.id
+      }
+
+  ### Context Placeholders
+
+  Subscribe topics support `{field}` placeholders that are resolved from the current context:
+  - `{id}` - context.id or context[:id]
+  - `{name}` - context.name or context[:name]
+  - Any field accessible on the context struct/map
+
+  ### Loader Function
+
+  The loader is called when the LiveView mounts to get the initial badge value:
+  - `{Module, :function}` - Called as `Module.function(context)`
+  - `fn context -> value end` - Anonymous function
+
   ## Badge with Attention Animation
 
       %Badge{
@@ -43,6 +70,8 @@ defmodule PhoenixKit.Dashboard.Badge do
 
   @type subscribe_config :: {String.t(), (map() -> any())} | {String.t(), atom()} | String.t()
 
+  @type loader_config :: {module(), atom()} | (any() -> any())
+
   @type t :: %__MODULE__{
           type: badge_type(),
           value: any(),
@@ -53,7 +82,9 @@ defmodule PhoenixKit.Dashboard.Badge do
           hidden_when_zero: boolean(),
           subscribe: subscribe_config() | nil,
           format: (any() -> String.t()) | nil,
-          metadata: map()
+          metadata: map(),
+          context_key: atom() | nil,
+          loader: loader_config() | nil
         }
 
   defstruct [
@@ -61,6 +92,8 @@ defmodule PhoenixKit.Dashboard.Badge do
     :subscribe,
     :format,
     :max,
+    :context_key,
+    :loader,
     type: :count,
     color: :primary,
     pulse: false,
@@ -87,6 +120,8 @@ defmodule PhoenixKit.Dashboard.Badge do
   - `:subscribe` - PubSub subscription config for live updates (optional)
   - `:format` - Custom formatter function for the value (optional)
   - `:metadata` - Custom metadata map (default: %{})
+  - `:context_key` - Context selector key for per-context badges (optional, e.g., :organization)
+  - `:loader` - Function to load initial value for context: `{Module, :function}` or `fn context -> value end`
 
   ## Subscribe Configuration
 
@@ -101,6 +136,9 @@ defmodule PhoenixKit.Dashboard.Badge do
   3. Just a topic string (uses full message as value):
      `"user:notifications:count"`
 
+  Topics support `{field}` placeholders for context-aware badges:
+     `"org:{id}:alerts"` - resolves to `"org:123:alerts"` when context.id is 123
+
   ## Examples
 
       iex> Badge.new(type: :count, value: 5)
@@ -111,6 +149,10 @@ defmodule PhoenixKit.Dashboard.Badge do
 
       iex> Badge.new(type: :count, subscribe: {"orders:count", :count})
       {:ok, %Badge{type: :count, subscribe: {"orders:count", :count}}}
+
+      # Context-aware badge
+      iex> Badge.new(type: :count, context_key: :organization, loader: {MyApp.Alerts, :count_for_org})
+      {:ok, %Badge{type: :count, context_key: :organization, loader: {MyApp.Alerts, :count_for_org}}}
   """
   @spec new(map() | keyword()) :: {:ok, t()} | {:error, String.t()}
   def new(attrs) when is_list(attrs), do: new(Map.new(attrs))
@@ -143,7 +185,9 @@ defmodule PhoenixKit.Dashboard.Badge do
       hidden_when_zero: get_attr_with_default(attrs, :hidden_when_zero, true),
       subscribe: parse_subscribe(get_attr(attrs, :subscribe)),
       format: get_attr(attrs, :format),
-      metadata: get_attr(attrs, :metadata) || %{}
+      metadata: get_attr(attrs, :metadata) || %{},
+      context_key: get_attr(attrs, :context_key),
+      loader: parse_loader(get_attr(attrs, :loader))
     }
   end
 
@@ -412,4 +456,116 @@ defmodule PhoenixKit.Dashboard.Badge do
   defp parse_subscribe({topic, extractor}) when is_binary(topic), do: {topic, extractor}
   defp parse_subscribe(topic) when is_binary(topic), do: topic
   defp parse_subscribe(_), do: nil
+
+  defp parse_loader(nil), do: nil
+  defp parse_loader({mod, fun}) when is_atom(mod) and is_atom(fun), do: {mod, fun}
+  defp parse_loader(fun) when is_function(fun, 1), do: fun
+  defp parse_loader(_), do: nil
+
+  # Context-aware badge functions
+
+  @doc """
+  Creates a context-aware badge that loads values per-context.
+
+  ## Examples
+
+      # Badge that shows alert count for current organization
+      Badge.context(:organization, {MyApp.Alerts, :count_for_org}, color: :error)
+
+      # With live updates via context-specific PubSub topic
+      Badge.context(:farm, {MyApp.Farms, :printing_count},
+        subscribe: "farm:{id}:stats",
+        color: :info
+      )
+  """
+  @spec context(atom(), loader_config(), keyword()) :: t()
+  def context(context_key, loader, opts \\ []) do
+    new!(Keyword.merge([type: :count, context_key: context_key, loader: loader], opts))
+  end
+
+  @doc """
+  Checks if this badge is context-aware (requires per-context value storage).
+  """
+  @spec context_aware?(t()) :: boolean()
+  def context_aware?(%__MODULE__{context_key: nil}), do: false
+  def context_aware?(%__MODULE__{context_key: _}), do: true
+
+  @doc """
+  Resolves placeholders in a topic string using context data.
+
+  Supports `{field}` syntax where field is accessed from the context.
+
+  ## Examples
+
+      iex> Badge.resolve_topic("org:{id}:alerts", %{id: 123})
+      "org:123:alerts"
+
+      iex> Badge.resolve_topic("farm:{farm_id}:stats", %{farm_id: "abc"})
+      "farm:abc:stats"
+  """
+  @spec resolve_topic(String.t() | nil, map() | struct()) :: String.t() | nil
+  def resolve_topic(nil, _context), do: nil
+
+  def resolve_topic(topic, context) when is_binary(topic) do
+    Regex.replace(~r/\{(\w+)\}/, topic, fn _match, field ->
+      field_atom = String.to_existing_atom(field)
+      value = get_context_field(context, field_atom)
+      to_string(value)
+    end)
+  rescue
+    ArgumentError -> topic
+  end
+
+  @doc """
+  Gets the resolved topic for this badge given a context.
+
+  For context-aware badges, resolves placeholders. For regular badges, returns the topic as-is.
+  """
+  @spec get_resolved_topic(t(), map() | struct() | nil) :: String.t() | nil
+  def get_resolved_topic(%__MODULE__{} = badge, context) do
+    topic = get_topic(badge)
+
+    if context_aware?(badge) and topic do
+      resolve_topic(topic, context)
+    else
+      topic
+    end
+  end
+
+  @doc """
+  Loads the initial badge value using the loader function.
+
+  ## Examples
+
+      iex> badge = Badge.context(:org, {MyApp.Alerts, :count_for_org})
+      iex> Badge.load_value(badge, %{id: 123})
+      5  # Result from MyApp.Alerts.count_for_org(%{id: 123})
+  """
+  @spec load_value(t(), map() | struct() | nil) :: any()
+  def load_value(%__MODULE__{loader: nil}, _context), do: nil
+
+  def load_value(%__MODULE__{loader: {mod, fun}}, context) do
+    apply(mod, fun, [context])
+  rescue
+    _ -> nil
+  end
+
+  def load_value(%__MODULE__{loader: fun}, context) when is_function(fun, 1) do
+    fun.(context)
+  rescue
+    _ -> nil
+  end
+
+  def load_value(_, _), do: nil
+
+  # Helper to get a field from context (supports both maps and structs)
+  defp get_context_field(context, field) when is_map(context) do
+    Map.get(context, field) || Map.get(context, Atom.to_string(field))
+  end
+
+  defp get_context_field(context, field) when is_struct(context) do
+    Map.get(context, field)
+  end
+
+  defp get_context_field(_, _), do: nil
 end

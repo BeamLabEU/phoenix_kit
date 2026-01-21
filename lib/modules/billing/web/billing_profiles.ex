@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Billing.Web.BillingProfiles do
       # Subscribe to billing profile events for real-time updates
       if connected?(socket), do: Events.subscribe_profiles()
 
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

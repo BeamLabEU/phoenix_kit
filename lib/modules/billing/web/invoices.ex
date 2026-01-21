@@ -20,7 +20,7 @@ defmodule PhoenixKit.Modules.Billing.Web.Invoices do
       # Subscribe to invoice events for real-time updates
       if connected?(socket), do: Events.subscribe_invoices()
 
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       socket =
         socket

@@ -45,7 +45,7 @@ defmodule PhoenixKitWeb.Live.Modules.Pages.Pages do
         |> assign(:copy_item_path, nil)
         |> assign(:copy_item_name, nil)
         |> assign(:copy_destination, "/")
-        |> assign(:project_title, PhoenixKit.Settings.get_setting("project_title", "PhoenixKit"))
+        |> assign(:project_title, PhoenixKit.Settings.get_project_title())
         |> assign(:current_locale, locale)
         |> assign(:root_path, root_path)
 

@@ -171,7 +171,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
               original_inner_block: original_inner_block,
               current_path: assigns[:current_path],
               phoenix_kit_current_scope: assigns[:phoenix_kit_current_scope],
-              project_title: assigns[:project_title] || "PhoenixKit",
+              project_title: assigns[:project_title] || PhoenixKit.Settings.get_project_title(),
               current_locale: assigns[:current_locale],
               publishing_groups: assigns[:publishing_groups] || []
             }
@@ -220,12 +220,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                     <PhoenixKitWeb.Components.Core.Icons.icon_shield />
                   </div>
 
-                  <%!-- Project title as link to home page --%>
-                  <.link href="/" class="font-bold text-base-content hover:opacity-80 transition-opacity">
-                    {@project_title}
-                  </.link>
-
-                  <span class="font-bold text-base-content">{gettext("Admin")}</span>
+                  <%!-- Project title and Admin label grouped together --%>
+                  <div class="flex items-center gap-1">
+                    <.link href="/" class="font-bold text-base-content hover:opacity-80 transition-opacity">
+                      {@project_title}
+                    </.link>
+                    <span class="font-bold text-base-content">{gettext("Admin")}</span>
+                  </div>
                 </div>
 
                 <%!-- Right: Theme Switcher, Language Dropdown, and User Dropdown --%>
@@ -1394,7 +1395,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="csrf-token" content={Plug.CSRFProtection.get_csrf_token()} />
         <meta name="phoenix-kit-prefix" content={PhoenixKit.Utils.Routes.url_prefix()} />
-        <.live_title default={"#{assigns[:project_title] || "PhoenixKit"} Admin"}>
+        <.live_title default={"#{assigns[:project_title] || PhoenixKit.Settings.get_project_title()} Admin"}>
           {assigns[:page_title] || "Admin"}
         </.live_title>
         <%= if assigns[:seo_no_index] do %>

@@ -29,6 +29,16 @@ defmodule PhoenixKit.Config do
   - `:from_email` - Default sender email address for notifications
   - `:from_name` - Default sender name for notifications (default: "PhoenixKit")
   - `:users_module` - User schema module (default: PhoenixKit.Users.Auth.User)
+  - `:project_title` - Project/application name displayed in dashboard header (default: "PhoenixKit")
+  - `:project_title_suffix` - Suffix appended to title (default: "Dashboard", set to "" to remove)
+  - `:project_logo` - URL or path to logo image for dashboard header (optional, use SVG with currentColor for theme support)
+  - `:project_icon` - Heroicon name when no logo image (default: "hero-home")
+  - `:project_logo_height` - Logo height CSS class (default: "h-8")
+  - `:project_logo_class` - Additional CSS classes for logo image (optional)
+  - `:project_home_url` - URL the logo links to (default: "/", use "~/" prefix for URL prefix)
+  - `:show_title_with_logo` - Show title text alongside logo (default: true)
+  - `:dashboard_themes` - Themes available in dashboard theme switcher (default: `:all`)
+  - `:dashboard_subtab_style` - Default styling for subtabs (indent, icon_size, text_size, animation)
   - `:user_dashboard_enabled` - Enable/disable user dashboard (default: true)
   - `:user_dashboard_tabs` - List of custom tabs for the user dashboard sidebar
   - `:user_dashboard_tab_groups` - List of tab groups for organizing dashboard tabs
@@ -114,6 +124,17 @@ defmodule PhoenixKit.Config do
     host: "localhost",
     port: 4000,
     url_prefix: "/phoenix_kit",
+    # Branding settings
+    project_title: "PhoenixKit",
+    project_title_suffix: "Dashboard",
+    project_logo: nil,
+    project_icon: "hero-home",
+    project_logo_height: "h-8",
+    project_logo_class: nil,
+    project_home_url: "/",
+    show_title_with_logo: true,
+    # Dashboard theme settings (:all for all themes, or list of theme names)
+    dashboard_themes: :all,
     layouts_module: nil,
     phoenix_version_strategy: nil,
     from_email: nil,
@@ -144,7 +165,16 @@ defmodule PhoenixKit.Config do
       track_anonymous: false
     ],
     # Admin dashboard categories
-    admin_dashboard_categories: []
+    admin_dashboard_categories: [],
+    # Multiple context selectors (takes precedence over single selector)
+    dashboard_context_selectors: nil,
+    # Subtab styling defaults
+    dashboard_subtab_style: [
+      indent: "pl-9",
+      icon_size: "w-4 h-4",
+      text_size: "text-sm",
+      animation: :none
+    ]
   ]
 
   @doc """
@@ -158,12 +188,17 @@ defmodule PhoenixKit.Config do
 
   @doc """
   Gets a specific configuration value.
+
+  Uses direct Application.get_env lookup for performance (avoids iterating
+  all config keys on every call).
   """
   @spec get(atom()) :: {:ok, any()} | :not_found
   def get(key) when is_atom(key) do
-    config = get_all()
+    # Use direct lookup with default config fallback for performance
+    # This avoids calling get_all() which iterates the entire config
+    default = Keyword.get(@default_config, key)
 
-    case Keyword.get(config, key) do
+    case Application.get_env(:phoenix_kit, key, default) do
       nil -> :not_found
       value -> {:ok, value}
     end
@@ -407,15 +442,46 @@ defmodule PhoenixKit.Config do
     end
   end
 
+  # Cache key for URL prefix (called very frequently during tab matching)
+  @url_prefix_cache_key {__MODULE__, :url_prefix}
+
   @doc """
   Gets configured prefix for urls or default value.
+
+  This value is cached using :persistent_term for performance since it's
+  called on every tab path match during dashboard renders.
   """
   @spec get_url_prefix() :: String.t()
   def get_url_prefix do
+    case :persistent_term.get(@url_prefix_cache_key, :not_cached) do
+      :not_cached ->
+        value = compute_url_prefix()
+        :persistent_term.put(@url_prefix_cache_key, value)
+        value
+
+      cached ->
+        cached
+    end
+  end
+
+  defp compute_url_prefix do
     case get_string(:url_prefix, "/phoenix_kit") do
       "" -> "/"
       value -> value
     end
+  end
+
+  @doc """
+  Clears the cached URL prefix.
+
+  Call this if you change the url_prefix config at runtime (rare).
+  """
+  @spec clear_url_prefix_cache() :: :ok
+  def clear_url_prefix_cache do
+    :persistent_term.erase(@url_prefix_cache_key)
+    :ok
+  rescue
+    ArgumentError -> :ok
   end
 
   @doc """

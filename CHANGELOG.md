@@ -1,3 +1,33 @@
+## 1.7.27 - 2026-01-19
+- Changed / Added
+  - Added prefix-aware navigation helpers and dynamic URL prefix support across dashboard, tabs, auth pages, and project home URLs, fixing issues when locale or prefix is nil.
+  - Introduced comprehensive dashboard branding and theming:
+    - Configurable branding, title suffix, and logo handling.
+    - Shared theme controller with daisyUI integration, color scheme guide, and improved theme switcher placement.
+  - Enhanced dashboard navigation:
+    - Configurable subtab styling, redirects, highlights, and mobile subtab support.
+    - Multiple context selectors with dependency support.
+    - Reserved additional locale path segments for dashboard and users.
+  - Added context-aware features:
+    - Context-aware badges with update helpers, guards for nil contexts, and improved preservation during tab refresh.
+    - Consistent context-aware merge behavior.
+  - Improved authentication and user setup:
+    - Added fetch_phoenix_kit_current_user to the auto-setup pipeline.
+    - Fixed auth pages and titles to use centralized Settings/Config branding.
+  - Performance and quality improvements:
+    - Optimized Presence and Config modules to reduce repeated checks and lookups.
+    - Added dashboard_assigns/1 helper to prevent unnecessary layout re-rendering.
+    - Fixed hardcoded branding and paths to rely on configuration fallbacks.
+  - Documentation updates:
+    - Added guides for dashboard theming, tab path formats, subtab behavior, and context selectors.
+    - Added prominent built-in features section and reduced overall documentation size.
+- Maintenance:
+  - Fixed Credo/Dialyzer issues, formatting problems, and test failures.
+  - Cleaned up unused Dialyzer ignores and added ignores for test support files.
+
+## 1.7.26 - 2026-01-18
+- Language switcher fix
+
 ## 1.7.25 - 2026-01-16
 - Bug fix - Added check for nil on language_swithcer on log-in page
 

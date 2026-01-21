@@ -18,7 +18,7 @@ defmodule PhoenixKit.Modules.Referrals.Web.Form do
     mode = if code_id, do: :edit, else: :new
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket =
       socket

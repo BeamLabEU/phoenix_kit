@@ -53,7 +53,7 @@ defmodule PhoenixKit.Modules.Emails.Web.Emails do
     # Check if email tracking is enabled
     if Emails.enabled?() do
       # Get project title from settings
-      project_title = Settings.get_setting("project_title", "PhoenixKit")
+      project_title = Settings.get_project_title()
 
       # Load table columns configuration
       selected_columns = TableColumns.get_user_table_columns()

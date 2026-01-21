@@ -8,14 +8,13 @@ defmodule PhoenixKitWeb.Users.MagicLinkRegistrationRequest do
   use PhoenixKitWeb, :live_view
 
   alias Phoenix.LiveView.JS
-  alias PhoenixKit.Settings
   alias PhoenixKit.Users.MagicLinkRegistration
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    # Get project title from settings (with Config fallback)
+    project_title = PhoenixKit.Settings.get_project_title()
 
     {:ok,
      socket

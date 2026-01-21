@@ -6,7 +6,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   (organizations, farms, teams, workspaces, etc.) in the dashboard.
   Users with only one context won't see the selector.
 
-  ## Configuration
+  ## Single Selector Configuration (Legacy)
 
   Configure in your `config/config.exs`:
 
@@ -22,10 +22,43 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
         session_key: "dashboard_context_id",
         tab_loader: {MyApp.Farms, :get_tabs_for_context}
 
+  ## Multiple Selectors Configuration
+
+  Configure multiple independent or dependent selectors:
+
+      config :phoenix_kit, :dashboard_context_selectors, [
+        %{
+          key: :organization,
+          loader: {MyApp.Orgs, :list_for_user},
+          display_name: fn org -> org.name end,
+          label: "Organization",
+          icon: "hero-building-office",
+          position: :header,
+          sub_position: :start,
+          priority: 100
+        },
+        %{
+          key: :project,
+          depends_on: :organization,
+          loader: {MyApp.Projects, :list_for_org},
+          display_name: fn p -> p.name end,
+          label: "Project",
+          icon: "hero-folder",
+          position: :header,
+          sub_position: :end,
+          priority: 200,
+          on_parent_change: :reset
+        }
+      ]
+
   ## Configuration Options
+
+  - `:key` - Required for multi-selector. Unique atom identifier (e.g., `:organization`).
+    Used in session storage and routes.
 
   - `:loader` - Required. A `{Module, :function}` tuple that takes a user ID
     and returns a list of context items. Example: `{MyApp.Farms, :list_for_user}`
+    For dependent selectors, the function receives `(user_id, parent_context)`.
 
   - `:display_name` - Required. A function that takes a context item and returns
     the display string. Example: `fn farm -> farm.name end`
@@ -48,6 +81,15 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
       or `{:priority, N}` to sort among tabs.
     Defaults to `:start`.
 
+  - `:priority` - Optional. Integer for ordering within same position/sub_position.
+    Lower values come first. Defaults to 500.
+
+  - `:depends_on` - Optional. Key of parent selector (for dependent selectors).
+    When set, the loader receives `(user_id, parent_context)` instead of just `user_id`.
+
+  - `:on_parent_change` - Optional. What to do when parent selector changes.
+    Options: `:reset` (default, select first), `:keep`, `{:redirect, "/path"}`.
+
   - `:empty_behavior` - Optional. What to do when user has no contexts.
     Options: `:hide` (default), `:show_empty`, `{:redirect, "/path"}`.
 
@@ -61,7 +103,8 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     customizing the layout template if precise alignment is required.
 
   - `:session_key` - Optional. The session key for storing the selected context ID.
-    Defaults to `"dashboard_context_id"`.
+    Defaults to `"dashboard_context_id"` for single selector, or
+    `"dashboard_context_ids"` (map) for multiple selectors.
 
   - `:tab_loader` - Optional. A `{Module, :function}` tuple that takes a context
     item and returns a list of tab definitions. Enables dynamic tabs that change
@@ -71,10 +114,17 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
 
   The `ContextProvider` on_mount hook automatically sets these assigns:
 
+  ### Single Selector (Legacy)
   - `@dashboard_contexts` - List of all contexts for the user
   - `@current_context` - The currently selected context item
   - `@show_context_selector` - Boolean, true only if user has 2+ contexts
   - `@dashboard_tabs` - (Optional) List of Tab structs when `tab_loader` is configured
+
+  ### Multiple Selectors
+  - `@dashboard_contexts_map` - Map of key => list of contexts
+  - `@current_contexts_map` - Map of key => current context item
+  - `@show_context_selectors_map` - Map of key => boolean
+  - `@context_selector_configs` - List of all ContextSelector configs
 
   Access the current context in your LiveView:
 
@@ -93,6 +143,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   alias PhoenixKit.Config
 
   defstruct [
+    :key,
     :loader,
     :display_name,
     :id_field,
@@ -100,6 +151,9 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     :icon,
     :position,
     :sub_position,
+    :priority,
+    :depends_on,
+    :on_parent_change,
     :empty_behavior,
     :session_key,
     :tab_loader,
@@ -108,8 +162,10 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   ]
 
   @type sub_position :: :start | :end | {:priority, integer()}
+  @type on_parent_change :: :reset | :keep | {:redirect, String.t()}
 
   @type t :: %__MODULE__{
+          key: atom() | nil,
           loader: {module(), atom()} | nil,
           display_name: (any() -> String.t()) | nil,
           id_field: atom() | (any() -> any()),
@@ -117,6 +173,9 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
           icon: String.t() | nil,
           position: :header | :sidebar,
           sub_position: sub_position() | nil,
+          priority: integer(),
+          depends_on: atom() | nil,
+          on_parent_change: on_parent_change(),
           empty_behavior: :hide | :show_empty | {:redirect, String.t()},
           session_key: String.t(),
           tab_loader: {module(), atom()} | nil,
@@ -128,8 +187,12 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   @default_icon "hero-building-office"
   @default_empty_behavior :hide
   @default_session_key "dashboard_context_id"
+  @default_multi_session_key "dashboard_context_ids"
   @default_separator "/"
   @default_id_field :id
+  @default_priority 500
+  @default_on_parent_change :reset
+  @default_key :default
 
   @doc """
   Gets the context selector configuration.
@@ -241,7 +304,7 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
       is_function(config.id_field, 1) ->
         config.id_field.(item)
 
-      is_atom(config.id_field) ->
+      is_atom(config.id_field) and not is_nil(config.id_field) ->
         get_field(item, config.id_field)
 
       true ->
@@ -331,11 +394,13 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
     tab_loader = get_config_value(config, :tab_loader)
     raw_position = get_config_value(config, :position)
     raw_sub_position = get_config_value(config, :sub_position)
+    key = get_config_value(config, :key)
 
     {position, sub_position} = parse_position_and_sub(raw_position, raw_sub_position)
 
     %__MODULE__{
       enabled: true,
+      key: parse_key(key),
       loader: loader,
       display_name: display_name,
       id_field: get_config_value(config, :id_field, @default_id_field),
@@ -343,6 +408,9 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
       icon: get_config_value(config, :icon, @default_icon),
       position: position,
       sub_position: sub_position,
+      priority: get_config_value(config, :priority, @default_priority),
+      depends_on: parse_key(get_config_value(config, :depends_on)),
+      on_parent_change: parse_on_parent_change(get_config_value(config, :on_parent_change)),
       empty_behavior: config |> get_config_value(:empty_behavior) |> parse_empty_behavior(),
       session_key: get_config_value(config, :session_key, @default_session_key),
       tab_loader: validate_tab_loader(tab_loader),
@@ -431,4 +499,308 @@ defmodule PhoenixKit.Dashboard.ContextSelector do
   end
 
   defp ids_match?(id1, id2), do: id1 == id2
+
+  # Parse key - convert string to atom, keep atoms as-is
+  defp parse_key(nil), do: nil
+  defp parse_key(key) when is_atom(key), do: key
+  defp parse_key(key) when is_binary(key), do: String.to_atom(key)
+  defp parse_key(_), do: nil
+
+  # Parse on_parent_change option
+  defp parse_on_parent_change(:reset), do: :reset
+  defp parse_on_parent_change("reset"), do: :reset
+  defp parse_on_parent_change(:keep), do: :keep
+  defp parse_on_parent_change("keep"), do: :keep
+  defp parse_on_parent_change({:redirect, path}) when is_binary(path), do: {:redirect, path}
+  defp parse_on_parent_change(nil), do: @default_on_parent_change
+  defp parse_on_parent_change(_), do: @default_on_parent_change
+
+  # ============================================================================
+  # Multi-Selector Support
+  # ============================================================================
+
+  @doc """
+  Checks if multiple selectors are configured.
+
+  Returns `true` if the plural `:dashboard_context_selectors` config is set.
+  """
+  @spec multi_selector_enabled?() :: boolean()
+  def multi_selector_enabled? do
+    case Config.get(:dashboard_context_selectors) do
+      {:ok, [_ | _]} -> true
+      _ -> false
+    end
+  end
+
+  @doc """
+  Gets all context selector configurations.
+
+  Returns a list of validated `%ContextSelector{}` structs.
+  Handles both the legacy single selector config (`:dashboard_context_selector`)
+  and the new multi-selector config (`:dashboard_context_selectors`).
+
+  For legacy single selectors, assigns the default key `:default`.
+
+  ## Examples
+
+      iex> PhoenixKit.Dashboard.ContextSelector.get_all_configs()
+      [%ContextSelector{key: :organization, ...}, %ContextSelector{key: :project, ...}]
+
+  """
+  @spec get_all_configs() :: [t()]
+  def get_all_configs do
+    case Config.get(:dashboard_context_selectors) do
+      {:ok, [_ | _] = selectors} ->
+        selectors
+        |> Enum.map(&validate_multi_config/1)
+        |> Enum.filter(& &1.enabled)
+        |> validate_no_circular_dependencies()
+
+      _ ->
+        # Fallback to legacy single selector
+        config = get_config()
+
+        if config.enabled do
+          # Ensure legacy config has a key
+          [%{config | key: config.key || @default_key}]
+        else
+          []
+        end
+    end
+  end
+
+  @doc """
+  Orders selectors by their dependencies using topological sort.
+
+  Independent selectors come first, then dependent selectors in order
+  of their dependency chain. Selectors with the same dependency level
+  are sorted by priority (lower first).
+
+  ## Examples
+
+      iex> configs = [%{key: :project, depends_on: :org}, %{key: :org}]
+      iex> PhoenixKit.Dashboard.ContextSelector.order_by_dependencies(configs)
+      [%{key: :org}, %{key: :project, depends_on: :org}]
+
+  """
+  @spec order_by_dependencies([t()]) :: [t()]
+  def order_by_dependencies(configs) when is_list(configs) do
+    # Build dependency graph
+    key_to_config = Map.new(configs, fn c -> {c.key, c} end)
+
+    # Topological sort using Kahn's algorithm
+    {sorted, _} = topological_sort(configs, key_to_config)
+
+    # Sort by priority within same dependency level
+    sorted
+    |> Enum.sort_by(& &1.priority)
+  end
+
+  @doc """
+  Gets the keys of all selectors that depend on the given key.
+
+  Useful for determining which selectors need to be reset when a parent changes.
+
+  ## Examples
+
+      iex> configs = [%{key: :org}, %{key: :project, depends_on: :org}]
+      iex> PhoenixKit.Dashboard.ContextSelector.get_dependent_keys(configs, :org)
+      [:project]
+
+  """
+  @spec get_dependent_keys([t()], atom()) :: [atom()]
+  def get_dependent_keys(configs, parent_key) when is_list(configs) and is_atom(parent_key) do
+    configs
+    |> Enum.filter(fn c -> c.depends_on == parent_key end)
+    |> Enum.map(& &1.key)
+  end
+
+  @doc """
+  Loads contexts for a specific selector config.
+
+  For independent selectors, calls `loader(user_id)`.
+  For dependent selectors, calls `loader(user_id, parent_context)`.
+
+  ## Parameters
+
+  - `config` - The selector configuration
+  - `user_id` - The user ID to load contexts for
+  - `parent_context` - The parent context (required for dependent selectors)
+
+  """
+  @spec load_contexts_for_config(t(), any(), any()) :: list()
+  def load_contexts_for_config(config, user_id, parent_context \\ nil)
+
+  def load_contexts_for_config(%__MODULE__{enabled: false}, _user_id, _parent_context), do: []
+
+  def load_contexts_for_config(%__MODULE__{depends_on: nil} = config, user_id, _parent_context) do
+    # Independent selector - call with just user_id
+    call_loader(config.loader, user_id)
+  end
+
+  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_id, nil) do
+    # Dependent selector but no parent context - return empty
+    # This can happen if parent selector has no items
+    call_loader_with_parent(config.loader, user_id, nil)
+  end
+
+  def load_contexts_for_config(%__MODULE__{depends_on: _} = config, user_id, parent_context) do
+    # Dependent selector - call with user_id and parent context
+    call_loader_with_parent(config.loader, user_id, parent_context)
+  end
+
+  @doc """
+  Gets the session key for storing multiple context IDs.
+
+  Returns the configured multi-selector session key.
+  """
+  @spec multi_session_key() :: String.t()
+  def multi_session_key do
+    @default_multi_session_key
+  end
+
+  @doc """
+  Gets the display name for a context item using a specific config.
+
+  ## Examples
+
+      iex> PhoenixKit.Dashboard.ContextSelector.get_display_name_for_config(config, item)
+      "My Organization"
+
+  """
+  @spec get_display_name_for_config(t(), any()) :: String.t()
+  def get_display_name_for_config(_config, nil), do: ""
+
+  def get_display_name_for_config(%__MODULE__{display_name: display_fn}, item)
+      when is_function(display_fn, 1) do
+    case display_fn.(item) do
+      nil -> ""
+      result -> result
+    end
+  rescue
+    _ -> to_string(item)
+  end
+
+  def get_display_name_for_config(_config, item), do: to_string(item)
+
+  @doc """
+  Gets the ID for a context item using a specific config.
+  """
+  @spec get_id_for_config(t(), any()) :: any()
+  def get_id_for_config(_config, nil), do: nil
+
+  def get_id_for_config(%__MODULE__{id_field: id_field}, item) do
+    cond do
+      is_function(id_field, 1) -> id_field.(item)
+      is_atom(id_field) and not is_nil(id_field) -> get_field(item, id_field)
+      true -> get_field(item, :id)
+    end
+  rescue
+    _ -> nil
+  end
+
+  # Private multi-selector helpers
+
+  defp validate_multi_config(config) when is_map(config) do
+    # Multi-selector requires a key
+    key = get_config_value(config, :key)
+
+    if key do
+      validated = validate_config(config)
+      # Ensure key is set even if validate_config didn't set it
+      %{validated | key: parse_key(key) || validated.key}
+    else
+      %__MODULE__{enabled: false}
+    end
+  end
+
+  defp validate_multi_config(config) when is_list(config) do
+    validate_multi_config(Map.new(config))
+  end
+
+  defp validate_multi_config(_), do: %__MODULE__{enabled: false}
+
+  defp validate_no_circular_dependencies(configs) do
+    keys = MapSet.new(configs, & &1.key)
+
+    has_circular =
+      Enum.any?(configs, fn config ->
+        config.depends_on &&
+          MapSet.member?(keys, config.depends_on) &&
+          check_circular_dependency(config.key, config.depends_on, configs, MapSet.new())
+      end)
+
+    if has_circular do
+      # Return only independent selectors on circular dependency
+      Enum.filter(configs, fn c -> is_nil(c.depends_on) end)
+    else
+      configs
+    end
+  end
+
+  @spec check_circular_dependency(atom(), atom(), [t()], MapSet.t(atom())) :: boolean()
+  defp check_circular_dependency(original_key, current_key, configs, visited) do
+    if MapSet.member?(visited, current_key) do
+      # Already visited - this is a cycle
+      true
+    else
+      visited = MapSet.put(visited, current_key)
+      config = Enum.find(configs, fn c -> c.key == current_key end)
+      check_config_for_cycle(original_key, config, configs, visited)
+    end
+  end
+
+  @spec check_config_for_cycle(atom(), t() | nil, [t()], MapSet.t(atom())) :: boolean()
+  defp check_config_for_cycle(_original_key, nil, _configs, _visited), do: false
+
+  defp check_config_for_cycle(original_key, config, _configs, _visited)
+       when config.depends_on == original_key,
+       do: true
+
+  defp check_config_for_cycle(_original_key, config, _configs, _visited)
+       when is_nil(config.depends_on),
+       do: false
+
+  defp check_config_for_cycle(original_key, config, configs, visited) do
+    check_circular_dependency(original_key, config.depends_on, configs, visited)
+  end
+
+  defp topological_sort(configs, key_to_config) do
+    # Start with configs that have no dependencies
+    {independent, dependent} =
+      Enum.split_with(configs, fn c -> is_nil(c.depends_on) end)
+
+    # Process dependent configs in order
+    process_dependent(
+      independent,
+      dependent,
+      key_to_config,
+      MapSet.new(Enum.map(independent, & &1.key))
+    )
+  end
+
+  defp process_dependent(sorted, [], _key_to_config, _processed_keys), do: {sorted, []}
+
+  defp process_dependent(sorted, remaining, key_to_config, processed_keys) do
+    # Find configs whose dependencies have been processed
+    {ready, not_ready} =
+      Enum.split_with(remaining, fn c ->
+        MapSet.member?(processed_keys, c.depends_on)
+      end)
+
+    if ready == [] do
+      # No progress - remaining have unresolved dependencies
+      {sorted, remaining}
+    else
+      new_sorted = sorted ++ ready
+      new_processed = MapSet.union(processed_keys, MapSet.new(ready, & &1.key))
+      process_dependent(new_sorted, not_ready, key_to_config, new_processed)
+    end
+  end
+
+  defp call_loader_with_parent({module, function}, user_id, parent_context) do
+    apply(module, function, [user_id, parent_context])
+  rescue
+    _ -> []
+  end
 end

@@ -166,6 +166,7 @@ defmodule PhoenixKitWeb.Integration do
       # Define the auto-setup pipeline
       pipeline :phoenix_kit_auto_setup do
         plug PhoenixKitWeb.Plugs.RequestTimer
+        plug PhoenixKitWeb.Users.Auth, :fetch_phoenix_kit_current_user
         plug PhoenixKitWeb.Integration, :phoenix_kit_auto_setup
       end
 
@@ -212,7 +213,9 @@ defmodule PhoenixKitWeb.Integration do
         get "/users/log-out", Users.Session, :get_logout
         get "/users/magic-link/:token", Users.MagicLinkVerify, :verify
 
-        # Dashboard context switching
+        # Dashboard context switching (multi-selector with key, must come before legacy route)
+        post "/context/:key/:id", ContextController, :set
+        # Dashboard context switching (legacy single selector)
         post "/context/:id", ContextController, :set
 
         # OAuth routes for external provider authentication

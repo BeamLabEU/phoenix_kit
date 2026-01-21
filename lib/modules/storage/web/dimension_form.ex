@@ -18,7 +18,7 @@ defmodule PhoenixKitWeb.Live.Modules.Storage.DimensionForm do
     mode = if dimension_id, do: :edit, else: :new
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket =
       socket

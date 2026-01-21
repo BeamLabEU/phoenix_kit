@@ -16,7 +16,7 @@ defmodule PhoenixKit.Modules.Entities.Web.EntitiesSettings do
   def mount(_params, _session, socket) do
     # Set locale for LiveView process
 
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load current entities settings
     settings = %{

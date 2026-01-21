@@ -44,6 +44,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   attr :locale, :string, default: nil
   attr :compact, :boolean, default: false
   attr :class, :string, default: ""
+  attr :parent_tab, :any, default: nil
 
   def tab_item(assigns) do
     cond do
@@ -61,11 +62,14 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   defp render_tab(assigns) do
     path = build_path(assigns.tab.path, assigns.locale)
     is_subtab = Tab.subtab?(assigns.tab)
+    # For subtabs, get style from parent_tab if provided, otherwise fall back to global defaults
+    subtab_style = get_subtab_style(assigns.tab, assigns.parent_tab)
 
     assigns =
       assigns
       |> assign(:path, path)
       |> assign(:is_subtab, is_subtab)
+      |> assign(:subtab_style, subtab_style)
 
     ~H"""
     <%= if @tab.external do %>
@@ -73,7 +77,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
         href={@path}
         target={if @tab.new_tab, do: "_blank", else: nil}
         rel={if @tab.new_tab, do: "noopener noreferrer", else: nil}
-        class={tab_classes(@active, @tab.attention, @is_subtab, @class)}
+        class={tab_classes(@active, @tab.attention, @is_subtab, @subtab_style, @class)}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
         data-parent-id={@tab.parent}
@@ -84,6 +88,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
           viewer_count={@viewer_count}
           compact={@compact}
           is_subtab={@is_subtab}
+          subtab_style={@subtab_style}
         />
         <%= if @tab.external do %>
           <.icon name="hero-arrow-top-right-on-square" class="w-3 h-3 ml-auto opacity-50" />
@@ -92,7 +97,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     <% else %>
       <.link
         navigate={@path}
-        class={tab_classes(@active, @tab.attention, @is_subtab, @class)}
+        class={tab_classes(@active, @tab.attention, @is_subtab, @subtab_style, @class)}
         title={@tab.tooltip}
         data-tab-id={@tab.id}
         data-parent-id={@tab.parent}
@@ -103,6 +108,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
           viewer_count={@viewer_count}
           compact={@compact}
           is_subtab={@is_subtab}
+          subtab_style={@subtab_style}
         />
       </.link>
     <% end %>
@@ -169,15 +175,21 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
   attr :viewer_count, :integer, default: 0
   attr :compact, :boolean, default: false
   attr :is_subtab, :boolean, default: false
+  attr :subtab_style, :map, default: %{}
 
   def tab_content(assigns) do
     ~H"""
     <div class="flex items-center gap-3 flex-1 min-w-0">
       <%= if @tab.icon do %>
-        <.icon name={@tab.icon} class={icon_classes(@active, @tab.attention, @is_subtab)} />
+        <.icon
+          name={@tab.icon}
+          class={icon_classes(@active, @tab.attention, @is_subtab, @subtab_style)}
+        />
       <% end %>
       <%= unless @compact do %>
-        <span class={["truncate", @is_subtab && "text-sm"]}>{@tab.label}</span>
+        <span class={["truncate", @is_subtab && (@subtab_style[:text_size] || "text-sm")]}>
+          {@tab.label}
+        </span>
       <% end %>
     </div>
     <div class="flex items-center gap-2 ml-auto">
@@ -231,18 +243,26 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
   # Helper functions
 
-  defp build_path(path, nil), do: path
+  # Always apply URL prefix via Routes.path
+  # When locale is nil, use :none to skip locale prefix but still apply URL prefix
+  defp build_path(path, nil), do: Routes.path(path, locale: :none)
 
   defp build_path(path, locale) do
     Routes.path(path, locale: locale)
   end
 
-  defp tab_classes(active, attention, is_subtab, extra_class) do
+  defp tab_classes(active, attention, is_subtab, subtab_style, extra_class) do
     base =
       "flex items-center py-2 text-sm font-medium rounded-lg transition-all duration-200"
 
-    # Subtabs are indented with more left padding
-    padding_class = if is_subtab, do: "pl-9 pr-3", else: "px-3"
+    # Subtabs use configurable indent, defaults to "pl-9 pr-3"
+    padding_class =
+      if is_subtab do
+        indent = subtab_style[:indent] || "pl-9"
+        "#{indent} pr-3"
+      else
+        "px-3"
+      end
 
     active_class =
       if active do
@@ -261,14 +281,28 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
 
     attention_class = attention_animation_class(attention)
 
-    [base, padding_class, active_class, attention_class, extra_class]
+    # Add subtab animation class if applicable
+    animation_class =
+      if is_subtab do
+        subtab_animation_class(subtab_style[:animation])
+      else
+        nil
+      end
+
+    [base, padding_class, active_class, attention_class, animation_class, extra_class]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" ")
   end
 
-  defp icon_classes(_active, attention, is_subtab) do
-    # Subtabs have smaller icons
-    base = if is_subtab, do: "w-4 h-4 shrink-0", else: "w-5 h-5 shrink-0"
+  defp icon_classes(_active, attention, is_subtab, subtab_style) do
+    # Subtabs use configurable icon size, defaults to "w-4 h-4"
+    base =
+      if is_subtab do
+        icon_size = subtab_style[:icon_size] || "w-4 h-4"
+        "#{icon_size} shrink-0"
+      else
+        "w-5 h-5 shrink-0"
+      end
 
     attention_class =
       case attention do
@@ -280,6 +314,36 @@ defmodule PhoenixKitWeb.Components.Dashboard.TabItem do
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" ")
   end
+
+  # Gets subtab style configuration with cascade: subtab -> parent -> global defaults
+  # Priority: subtab's own style > parent tab's style > global config
+  defp get_subtab_style(tab, parent_tab) do
+    global_style = PhoenixKit.Config.get(:dashboard_subtab_style, [])
+
+    %{
+      indent: get_style_value(:subtab_indent, tab, parent_tab, global_style, :indent, "pl-9"),
+      icon_size:
+        get_style_value(:subtab_icon_size, tab, parent_tab, global_style, :icon_size, "w-4 h-4"),
+      text_size:
+        get_style_value(:subtab_text_size, tab, parent_tab, global_style, :text_size, "text-sm"),
+      animation:
+        get_style_value(:subtab_animation, tab, parent_tab, global_style, :animation, :none)
+    }
+  end
+
+  # Fallback chain: tab -> parent -> global -> default
+  defp get_style_value(tab_key, tab, parent_tab, global_style, global_key, default) do
+    Map.get(tab, tab_key) ||
+      (parent_tab && Map.get(parent_tab, tab_key)) ||
+      Keyword.get(global_style, global_key, default)
+  end
+
+  defp subtab_animation_class(nil), do: nil
+  defp subtab_animation_class(:none), do: nil
+  defp subtab_animation_class(:slide), do: "animate-slide-in-left"
+  defp subtab_animation_class(:fade), do: "animate-fade-in"
+  defp subtab_animation_class(:collapse), do: "animate-collapse-open"
+  defp subtab_animation_class(_), do: nil
 
   defp mobile_tab_classes(active, attention, extra_class) do
     base = "flex flex-col items-center justify-center py-2 px-3 min-w-[4rem] transition-all"

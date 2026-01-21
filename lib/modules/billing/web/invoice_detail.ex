@@ -24,7 +24,7 @@ defmodule PhoenixKit.Modules.Billing.Web.InvoiceDetail do
            |> push_navigate(to: Routes.path("/admin/billing/invoices"))}
 
         invoice ->
-          project_title = Settings.get_setting("project_title", "PhoenixKit")
+          project_title = Settings.get_project_title()
           transactions = Billing.list_invoice_transactions(invoice.id)
 
           available_providers = Providers.list_available_providers()

@@ -925,9 +925,22 @@ if Code.ensure_loaded?(Igniter.Mix.Task) do
       try do
         case System.cmd("mix", ["ecto.migrate"], stderr_to_stdout: true) do
           {output, 0} ->
-            Mix.shell().info("\n✅ Migration completed successfully!")
-            Mix.shell().info(output)
-            show_update_success_notice()
+            # Check if migrations were actually applied or already up-to-date
+            cond do
+              String.contains?(output, "Migrations already up") ->
+                Mix.shell().info("\n✅ Already up to date - no migrations needed.")
+                Mix.shell().info(output)
+
+              String.contains?(output, "Migrated") ->
+                Mix.shell().info("\n✅ Migration completed successfully!")
+                Mix.shell().info(output)
+                show_update_success_notice()
+
+              true ->
+                # Fallback for unexpected output format
+                Mix.shell().info("\n✅ Migration command completed.")
+                Mix.shell().info(output)
+            end
 
           {output, _} ->
             Mix.shell().info("\n❌ Migration failed:")

@@ -41,7 +41,7 @@ defmodule PhoenixKit.Modules.Emails.Web.EmailTracking do
       params["locale"] || socket.assigns[:current_locale]
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     # Load email tracking configuration
     email_tracking_config = Emails.get_config()

@@ -40,7 +40,7 @@ defmodule PhoenixKitWeb.Live.Users.LiveSessions do
     end
 
     # Get project title from settings
-    project_title = Settings.get_setting("project_title", "PhoenixKit")
+    project_title = Settings.get_project_title()
 
     socket =
       socket
