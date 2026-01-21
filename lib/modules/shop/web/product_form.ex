@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Product
@@ -29,6 +30,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     product = %Product{}
     changeset = Shop.change_product(product)
     categories = Shop.category_options()
+    currency = Shop.get_default_currency()
 
     # Get global options (no category selected yet)
     option_schema = Options.get_global_options()
@@ -39,6 +41,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:product, product)
     |> assign(:changeset, changeset)
     |> assign(:categories, categories)
+    |> assign(:currency, currency)
     |> assign(:option_schema, option_schema)
     |> assign(:metadata, %{})
     |> assign(:price_affecting_options, price_affecting_options)
@@ -47,12 +50,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:media_selection_target, nil)
     |> assign(:featured_image_id, nil)
     |> assign(:gallery_image_ids, [])
+    |> assign(:new_value_inputs, %{})
+    |> assign(:selected_option_values, %{})
+    |> assign(:original_option_values, %{})
+    |> assign(:add_option_key, "")
+    |> assign(:add_option_value, "")
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
     product = Shop.get_product!(id, preload: [:category])
     changeset = Shop.change_product(product)
     categories = Shop.category_options()
+    currency = Shop.get_default_currency()
 
     # Get merged option schema for the product
     option_schema = Options.get_option_schema_for_product(product)
@@ -65,13 +74,21 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     {min_price, max_price} =
       Options.get_price_range(price_affecting_options, base_price, metadata)
 
+    # Store original option values for UI (so unchecking all doesn't hide the section)
+    original_option_values = metadata["_option_values"] || %{}
+
+    # Selected option values - managed in assigns, not in form
+    selected_option_values = metadata["_option_values"] || %{}
+
     socket
     |> assign(:page_title, "Edit #{product.title}")
     |> assign(:product, product)
     |> assign(:changeset, changeset)
     |> assign(:categories, categories)
+    |> assign(:currency, currency)
     |> assign(:option_schema, option_schema)
     |> assign(:metadata, metadata)
+    |> assign(:original_option_values, original_option_values)
     |> assign(:price_affecting_options, price_affecting_options)
     |> assign(:min_price, min_price)
     |> assign(:max_price, max_price)
@@ -80,10 +97,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:media_selection_target, nil)
     |> assign(:featured_image_id, product.featured_image_id)
     |> assign(:gallery_image_ids, product.image_ids || [])
+    |> assign(:new_value_inputs, %{})
+    |> assign(:selected_option_values, selected_option_values)
+    |> assign(:add_option_key, "")
+    |> assign(:add_option_value, "")
   end
 
   @impl true
-  def handle_event("validate", %{"product" => product_params}, socket) do
+  def handle_event("validate", %{"product" => product_params} = params, socket) do
     changeset =
       socket.assigns.product
       |> Shop.change_product(product_params)
@@ -109,6 +130,27 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Convert final_price inputs to modifier values for proper preview
     base_price = parse_decimal(product_params["price"])
     raw_metadata = product_params["metadata"] || %{}
+
+    # Extract _new_option_value_* fields from root params (not product_params!)
+    new_value_inputs =
+      params
+      |> Enum.filter(fn {k, _v} -> String.starts_with?(k, "_new_option_value_") end)
+      |> Enum.map(fn {k, v} ->
+        key = String.replace_prefix(k, "_new_option_value_", "")
+        {key, v}
+      end)
+      |> Map.new()
+
+    # Merge with existing tracked values (keep old if new is empty)
+    new_value_inputs =
+      Map.merge(socket.assigns[:new_value_inputs] || %{}, new_value_inputs, fn _k, old, new ->
+        if new == "", do: old, else: new
+      end)
+
+    # Extract add_option inputs from root params
+    add_option_key = params["_add_option_key"] || ""
+    add_option_value = params["_add_option_first_value"] || ""
+
     metadata = convert_final_prices_to_modifiers(raw_metadata, base_price)
 
     # Update price range when price changes
@@ -139,11 +181,23 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     socket
     |> assign(:changeset, changeset)
     |> assign(:metadata, metadata)
+    |> assign(:new_value_inputs, new_value_inputs)
+    |> assign(:add_option_key, add_option_key)
+    |> assign(:add_option_value, add_option_value)
     |> then(&{:noreply, &1})
   end
 
   @impl true
   def handle_event("save", %{"product" => product_params}, socket) do
+    # Remove helper fields from params (they're just UI helpers)
+    product_params =
+      product_params
+      |> Enum.reject(fn {k, _v} ->
+        String.starts_with?(k, "_new_option_value_") or
+          String.starts_with?(k, "_add_option_")
+      end)
+      |> Map.new()
+
     # Merge metadata into product params
     metadata = product_params["metadata"] || %{}
     base_price = parse_decimal(product_params["price"])
@@ -151,8 +205,26 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Convert final_price inputs to modifier values
     metadata = convert_final_prices_to_modifiers(metadata, base_price)
 
+    # Remove _option_values from form metadata (may have garbage from Phoenix)
+    metadata = Map.delete(metadata, "_option_values")
+
+    # Add _option_values from socket assigns (managed via phx-click)
+    selected_option_values = socket.assigns.selected_option_values
+
+    metadata =
+      if selected_option_values == %{} do
+        metadata
+      else
+        Map.put(metadata, "_option_values", selected_option_values)
+      end
+
     # Clean up _option_values - remove entries where all values are selected
-    metadata = clean_option_values(metadata, socket.assigns.option_schema)
+    metadata =
+      clean_option_values(
+        metadata,
+        socket.assigns.option_schema,
+        socket.assigns[:original_option_values] || %{}
+      )
 
     # Clean up metadata - convert multiselect arrays if needed
     cleaned_metadata =
@@ -203,6 +275,185 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     {:noreply, assign(socket, :gallery_image_ids, updated)}
   end
 
+  # ===========================================
+  # OPTION VALUES MANAGEMENT
+  # ===========================================
+
+  # Toggle option value selection (managed in socket assigns, not form)
+  # all_values is passed as JSON to know what "all selected" means
+  def handle_event(
+        "toggle_option_value",
+        %{"key" => option_key, "opt-value" => value, "all-values" => all_values_json},
+        socket
+      ) do
+    selected = socket.assigns.selected_option_values
+    all_values = Jason.decode!(all_values_json)
+
+    # If this key doesn't exist in selected, it means "all are selected"
+    # We need to initialize it properly when user starts toggling
+    current_for_key =
+      if Map.has_key?(selected, option_key) do
+        Map.get(selected, option_key, [])
+      else
+        # Key not in selected = all values are implicitly selected
+        all_values
+      end
+
+    updated_for_key =
+      if value in current_for_key do
+        # Remove this value
+        Enum.reject(current_for_key, &(&1 == value))
+      else
+        # Add this value
+        current_for_key ++ [value]
+      end
+
+    # If updated list equals all values, remove the key (implicit "all selected")
+    updated_selected =
+      cond do
+        updated_for_key == [] ->
+          # None selected - keep explicit empty list
+          Map.put(selected, option_key, [])
+
+        Enum.sort(updated_for_key) == Enum.sort(all_values) ->
+          # All selected - remove key to indicate "all"
+          Map.delete(selected, option_key)
+
+        true ->
+          Map.put(selected, option_key, updated_for_key)
+      end
+
+    {:noreply, assign(socket, :selected_option_values, updated_selected)}
+  end
+
+  # Track input value changes for add new value fields
+  def handle_event("update_new_value_input", %{"key" => key, "value" => value}, socket) do
+    new_inputs = Map.put(socket.assigns[:new_value_inputs] || %{}, key, value)
+    {:noreply, assign(socket, :new_value_inputs, new_inputs)}
+  end
+
+  # Handle Enter key in add value input
+  def handle_event("add_option_value_keydown", %{"key" => option_key}, socket) do
+    new_inputs = socket.assigns[:new_value_inputs] || %{}
+    value = Map.get(new_inputs, option_key, "") |> String.trim()
+    do_add_option_value(socket, option_key, value)
+  end
+
+  # Handle click on Add button - get value from tracked inputs
+  def handle_event("add_option_value_click", %{"key" => option_key}, socket) do
+    new_inputs = socket.assigns[:new_value_inputs] || %{}
+    value = Map.get(new_inputs, option_key, "") |> String.trim()
+    do_add_option_value(socket, option_key, value)
+  end
+
+  def handle_event("add_option_value", %{"key" => option_key, "new_value" => value}, socket) do
+    value = String.trim(value)
+
+    if value == "" do
+      {:noreply, socket}
+    else
+      # Check in both original and current values
+      original_values = socket.assigns[:original_option_values] || %{}
+      original_for_key = Map.get(original_values, option_key, [])
+
+      metadata = socket.assigns.metadata
+      option_values = metadata["_option_values"] || %{}
+      current_values = Map.get(option_values, option_key, [])
+
+      # Also check schema values
+      schema_opt = Enum.find(socket.assigns.option_schema, &(&1["key"] == option_key))
+      schema_values = (schema_opt && schema_opt["options"]) || []
+
+      all_existing = Enum.uniq(original_for_key ++ current_values ++ schema_values)
+
+      if value in all_existing do
+        {:noreply, put_flash(socket, :error, "Value '#{value}' already exists")}
+      else
+        # Add to original_option_values
+        updated_original = Map.put(original_values, option_key, original_for_key ++ [value])
+
+        # Add to selected_option_values (new value is selected by default)
+        # If key doesn't exist in selected, initialize with all values first
+        selected = socket.assigns.selected_option_values
+
+        current_selected =
+          if Map.has_key?(selected, option_key) do
+            Map.get(selected, option_key, [])
+          else
+            # Key not present = all values implicitly selected
+            Enum.uniq(schema_values ++ original_for_key)
+          end
+
+        updated_selected = Map.put(selected, option_key, current_selected ++ [value])
+
+        {:noreply,
+         socket
+         |> assign(:original_option_values, updated_original)
+         |> assign(:selected_option_values, updated_selected)}
+      end
+    end
+  end
+
+  def handle_event("add_option_value", %{"key" => _option_key}, socket) do
+    # No value provided
+    {:noreply, socket}
+  end
+
+  # Handle click on Add button for new option (reads from assigns)
+  def handle_event("add_new_option_click", _params, socket) do
+    key =
+      (socket.assigns[:add_option_key] || "")
+      |> String.trim()
+      |> String.downcase()
+      |> String.replace(~r/\s+/, "_")
+
+    value = (socket.assigns[:add_option_value] || "") |> String.trim()
+    do_add_new_option(socket, key, value)
+  end
+
+  # Handle form submit for new option (legacy, reads from form params)
+  def handle_event("add_new_option", %{"option_key" => key, "first_value" => value}, socket) do
+    key = key |> String.trim() |> String.downcase() |> String.replace(~r/\s+/, "_")
+    value = String.trim(value)
+    do_add_new_option(socket, key, value)
+  end
+
+  def handle_event("remove_option_value", %{"key" => option_key, "opt-value" => value}, socket) do
+    # Remove from original_option_values (available values)
+    original_values = socket.assigns[:original_option_values] || %{}
+    original_for_key = Map.get(original_values, option_key, [])
+    updated_original_for_key = Enum.reject(original_for_key, &(&1 == value))
+
+    updated_original =
+      if updated_original_for_key == [] do
+        Map.delete(original_values, option_key)
+      else
+        Map.put(original_values, option_key, updated_original_for_key)
+      end
+
+    # Remove from selected_option_values (selected values)
+    selected = socket.assigns.selected_option_values
+    current_selected = Map.get(selected, option_key, [])
+    updated_selected_for_key = Enum.reject(current_selected, &(&1 == value))
+
+    updated_selected =
+      if updated_selected_for_key == [] do
+        Map.delete(selected, option_key)
+      else
+        Map.put(selected, option_key, updated_selected_for_key)
+      end
+
+    # Also remove price modifier for this value if exists
+    metadata = socket.assigns.metadata
+    updated_metadata = remove_price_modifier_for_value(metadata, option_key, value)
+
+    {:noreply,
+     socket
+     |> assign(:metadata, updated_metadata)
+     |> assign(:original_option_values, updated_original)
+     |> assign(:selected_option_values, updated_selected)}
+  end
+
   @impl true
   def handle_info({:media_selected, file_ids}, socket) do
     socket = apply_media_selection(socket, socket.assigns.media_selection_target, file_ids)
@@ -230,6 +481,116 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # ===========================================
   # PRIVATE FUNCTIONS
   # ===========================================
+
+  # Shared logic for adding option value
+  defp do_add_option_value(socket, option_key, value) do
+    if value == "" do
+      {:noreply, put_flash(socket, :error, "Please enter a value first")}
+    else
+      original_values = socket.assigns[:original_option_values] || %{}
+      original_for_key = Map.get(original_values, option_key, [])
+
+      metadata = socket.assigns.metadata
+      option_values = metadata["_option_values"] || %{}
+      current_values = Map.get(option_values, option_key, [])
+
+      # Also check schema values
+      schema_opt = Enum.find(socket.assigns.option_schema, &(&1["key"] == option_key))
+      schema_values = (schema_opt && schema_opt["options"]) || []
+
+      all_existing = Enum.uniq(original_for_key ++ current_values ++ schema_values)
+
+      if value in all_existing do
+        {:noreply, put_flash(socket, :error, "Value '#{value}' already exists")}
+      else
+        # Add to original_option_values (tracks all available values)
+        updated_original = Map.put(original_values, option_key, original_for_key ++ [value])
+
+        # Add to selected_option_values (new value is selected by default)
+        # If key doesn't exist in selected, initialize with all schema values first
+        selected = socket.assigns.selected_option_values
+
+        current_selected =
+          if Map.has_key?(selected, option_key) do
+            Map.get(selected, option_key, [])
+          else
+            # Key not present = all values implicitly selected
+            # Initialize with schema values + original values
+            Enum.uniq(schema_values ++ original_for_key)
+          end
+
+        updated_selected = Map.put(selected, option_key, current_selected ++ [value])
+
+        # Clear the input field
+        new_inputs = socket.assigns[:new_value_inputs] || %{}
+        new_inputs = Map.put(new_inputs, option_key, "")
+
+        {:noreply,
+         socket
+         |> assign(:original_option_values, updated_original)
+         |> assign(:selected_option_values, updated_selected)
+         |> assign(:new_value_inputs, new_inputs)
+         |> put_flash(:info, "Value '#{value}' added")}
+      end
+    end
+  end
+
+  defp do_add_new_option(socket, key, value) do
+    if key == "" or value == "" do
+      {:noreply, put_flash(socket, :error, "Option key and value are required")}
+    else
+      original_values = socket.assigns[:original_option_values] || %{}
+      current_values = socket.assigns.metadata["_option_values"] || %{}
+
+      # Check if option already exists - if so, add value to it
+      existing_original = Map.get(original_values, key, [])
+      existing_current = Map.get(current_values, key, [])
+      all_existing = Enum.uniq(existing_original ++ existing_current)
+
+      # Also check schema values
+      schema_opt = Enum.find(socket.assigns.option_schema, &(&1["key"] == key))
+      schema_values = (schema_opt && schema_opt["options"]) || []
+      all_existing = Enum.uniq(all_existing ++ schema_values)
+
+      # Get current selected_option_values
+      selected = socket.assigns.selected_option_values
+      current_selected = Map.get(selected, key, [])
+
+      cond do
+        # Value already exists in this option
+        value in all_existing ->
+          {:noreply, put_flash(socket, :error, "Value '#{value}' already exists in '#{key}'")}
+
+        # Option exists - add value to it
+        all_existing != [] ->
+          # Initialize selected with all existing values if not already set
+          init_selected = if current_selected == [], do: all_existing, else: current_selected
+          updated_original = Map.put(original_values, key, existing_original ++ [value])
+          updated_selected = Map.put(selected, key, init_selected ++ [value])
+
+          {:noreply,
+           socket
+           |> assign(:original_option_values, updated_original)
+           |> assign(:selected_option_values, updated_selected)
+           |> assign(:add_option_key, "")
+           |> assign(:add_option_value, "")
+           |> put_flash(:info, "Value '#{value}' added to '#{key}'")}
+
+        # New option - create it
+        true ->
+          updated_original = Map.put(original_values, key, [value])
+          updated_selected = Map.put(selected, key, [value])
+
+          {:noreply,
+           socket
+           |> assign(:original_option_values, updated_original)
+           |> assign(:selected_option_values, updated_selected)
+           |> assign(:add_option_key, "")
+           |> assign(:add_option_value, "")
+           |> put_flash(:info, "Option '#{key}' created")}
+      end
+    end
+  end
 
   defp save_product(socket, :new, product_params) do
     case Shop.create_product(product_params) do
@@ -277,20 +638,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
-        <%!-- Header (centered pattern) --%>
-        <header class="w-full relative mb-6">
-          <.link
-            navigate={Routes.path("/admin/shop/products")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-            <p class="text-lg text-base-content/70">
-              {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
-            </p>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop/products")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
+              <p class="text-base-content/70 mt-1">
+                {if @live_action == :new, do: "Create a new product", else: "Edit product details"}
+              </p>
+            </div>
           </div>
         </header>
 
@@ -523,71 +886,245 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
           </div>
 
           <%!-- Available Option Values Section --%>
-          <% select_options =
+          <% # Use original_option_values for showing all available values (persists across unchecks)
+          # Use current metadata for determining which are currently selected
+          original_values = assigns[:original_option_values] || %{}
+          current_option_values = @metadata["_option_values"] || %{}
+
+          # Merge original + current to get all known values
+          all_known_values =
+            Map.merge(original_values, current_option_values, fn _k, orig, curr ->
+              Enum.uniq(orig ++ curr)
+            end)
+
+          # 1. ALL select/multiselect options from schema (even with empty options list)
+          # This allows adding custom values to options defined in category schema
+          schema_options =
             Enum.filter(@option_schema, fn opt ->
-              opt["type"] in ["select", "multiselect"] and length(opt["options"] || []) > 1
-            end) %>
-          <%= if select_options != [] and @live_action == :edit do %>
+              opt["type"] in ["select", "multiselect"]
+            end)
+
+          # 2. Options from _option_values (imported) that are NOT already in schema
+          schema_keys_with_values = Enum.map(schema_options, & &1["key"])
+
+          imported_options =
+            all_known_values
+            |> Enum.reject(fn {key, _} -> key in schema_keys_with_values end)
+            |> Enum.map(fn {key, values} ->
+              # Find option in schema (may exist but with empty options list)
+              schema_opt = Enum.find(@option_schema, &(&1["key"] == key))
+
+              %{
+                "key" => key,
+                "label" => (schema_opt && schema_opt["label"]) || String.capitalize(key),
+                "type" => (schema_opt && schema_opt["type"]) || "select",
+                "options" => values,
+                "imported" => true
+              }
+            end)
+
+          # Combine: schema options first, then imported-only options
+          all_select_options = schema_options ++ imported_options %>
+          <%= if @live_action == :edit do %>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">
                   <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Available Options
                 </h2>
                 <p class="text-sm text-base-content/60 mb-4">
-                  Select which option values are available for this product.
-                  Uncheck values that don't apply.
+                  <%= if all_select_options != [] do %>
+                    Select which option values are available for this product.
+                  <% else %>
+                    Add custom options for this product.
+                  <% end %>
                 </p>
 
                 <div class="space-y-4">
-                  <%= for option <- select_options do %>
+                  <%= for option <- all_select_options do %>
                     <% option_key = option["key"] %>
-                    <% all_values = option["options"] || [] %>
-                    <% custom_values = get_custom_option_values(@metadata, option_key) %>
-                    <% active_values = if custom_values, do: custom_values, else: all_values %>
+                    <% # Determine all available values
+                    schema_values = option["options"] || []
+                    original_imported = Map.get(original_values, option_key, [])
+                    current_imported = Map.get(current_option_values, option_key, [])
+                    # Also include manually added values from socket assigns
+                    manually_added = Map.get(@original_option_values, option_key, [])
+
+                    # All values = schema values + manually added OR merged original+current imported
+                    all_values =
+                      if schema_values != [] do
+                        Enum.uniq(schema_values ++ manually_added)
+                      else
+                        Enum.uniq(original_imported ++ current_imported ++ manually_added)
+                      end
+
+                    # Active values = from socket assigns (managed via phx-click, not form)
+                    # If selected_option_values has this key, use it; otherwise all are active
+                    active_values = Map.get(@selected_option_values, option_key, all_values)
+
+                    is_imported = option["imported"] == true
+
+                    is_editable =
+                      is_imported or schema_values == [] or option["allow_override"] == true
+
+                    has_custom_selection = Map.has_key?(@selected_option_values, option_key) %>
 
                     <div class="p-4 bg-base-200 rounded-lg">
                       <div class="flex items-center justify-between mb-3">
-                        <span class="font-medium">{option["label"]}</span>
-                        <%= if custom_values do %>
+                        <span class="font-medium">
+                          {option["label"]}
+                          <%= if is_imported do %>
+                            <span class="badge badge-info badge-xs ml-2">Imported</span>
+                          <% end %>
+                        </span>
+                        <%= if has_custom_selection do %>
                           <span class="badge badge-warning badge-sm">Custom selection</span>
                         <% else %>
                           <span class="badge badge-ghost badge-sm">All values</span>
                         <% end %>
                       </div>
-                      <div class="flex flex-wrap gap-3">
+
+                      <%!-- Option values as toggleable badges --%>
+                      <div class="flex flex-wrap gap-2 mb-3">
                         <%= for value <- all_values do %>
-                          <label class="label cursor-pointer gap-2 p-0">
-                            <input
-                              type="checkbox"
-                              name={"product[metadata][_option_values][#{option_key}][]"}
-                              value={value}
-                              checked={value in active_values}
-                              class="checkbox checkbox-sm checkbox-primary"
-                            />
-                            <span class="label-text">{value}</span>
-                          </label>
+                          <% is_selected = value in active_values %>
+                          <div class="flex items-center gap-1">
+                            <button
+                              type="button"
+                              phx-click="toggle_option_value"
+                              phx-value-key={option_key}
+                              phx-value-opt-value={value}
+                              phx-value-all-values={Jason.encode!(all_values)}
+                              class={[
+                                "flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-colors",
+                                if(is_selected,
+                                  do: "bg-primary/10 border-primary text-primary",
+                                  else:
+                                    "bg-base-200 border-base-300 text-base-content/50 hover:border-base-400"
+                                )
+                              ]}
+                            >
+                              <span class={[
+                                "w-4 h-4 rounded border-2 flex items-center justify-center text-xs",
+                                if(is_selected,
+                                  do: "bg-primary border-primary text-primary-content",
+                                  else: "border-current"
+                                )
+                              ]}>
+                                <%= if is_selected do %>
+                                  <.icon name="hero-check" class="w-3 h-3" />
+                                <% end %>
+                              </span>
+                              <span class="text-sm">{value}</span>
+                            </button>
+                            <%= if is_editable do %>
+                              <button
+                                type="button"
+                                phx-click="remove_option_value"
+                                phx-value-key={option_key}
+                                phx-value-opt-value={value}
+                                class="btn btn-ghost btn-xs px-1 text-error hover:bg-error/20"
+                              >
+                                <.icon name="hero-x-mark" class="w-3 h-3" />
+                              </button>
+                            <% end %>
+                          </div>
                         <% end %>
                       </div>
+
+                      <%!-- Add new value input --%>
+                      <%= if is_editable do %>
+                        <% input_value = Map.get(assigns[:new_value_inputs] || %{}, option_key, "") %>
+                        <div class="flex gap-2 items-center mt-2 pt-2 border-t border-base-300">
+                          <input
+                            type="text"
+                            id={"new_option_value_#{option_key}"}
+                            name={"_new_option_value_#{option_key}"}
+                            value={input_value}
+                            placeholder="Add new value..."
+                            class="input input-sm input-bordered flex-1 max-w-xs"
+                            autocomplete="off"
+                            phx-keydown="add_option_value_keydown"
+                            phx-key="Enter"
+                            phx-value-key={option_key}
+                          />
+                          <button
+                            type="button"
+                            class="btn btn-sm btn-primary"
+                            phx-click="add_option_value_click"
+                            phx-value-key={option_key}
+                          >
+                            <.icon name="hero-plus" class="w-4 h-4" /> Add
+                          </button>
+                        </div>
+                      <% end %>
                     </div>
                   <% end %>
+                </div>
+
+                <%!-- Add Option/Value Section --%>
+                <div class="divider text-sm text-base-content/50">Add Option or Value</div>
+                <p class="text-xs text-base-content/50 mb-2">
+                  Enter an existing option key to add a new value, or a new key to create a new option.
+                </p>
+                <div class="flex flex-wrap gap-3 items-end">
+                  <div class="form-control">
+                    <label class="label py-1">
+                      <span class="label-text text-xs">Option Key</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="_add_option_key"
+                      placeholder="e.g. size, color"
+                      class="input input-sm input-bordered w-40"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="form-control flex-1">
+                    <label class="label py-1">
+                      <span class="label-text text-xs">Value</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="_add_option_first_value"
+                      placeholder="e.g. 14 inches, Red"
+                      class="input input-sm input-bordered min-w-32"
+                      autocomplete="off"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline btn-primary"
+                    phx-click="add_new_option_click"
+                  >
+                    <.icon name="hero-plus" class="w-4 h-4" /> Add
+                  </button>
                 </div>
               </div>
             </div>
           <% end %>
 
           <%!-- Option Price Modifiers Section --%>
-          <%= if @price_affecting_options != [] do %>
-            <%!-- Editable options: has allow_override flag --%>
-            <% editable_options =
-              Enum.filter(@price_affecting_options, fn opt ->
-                opt["allow_override"] == true
-              end) %>
-            <%!-- Read-only options: without allow_override --%>
-            <% readonly_options =
-              Enum.reject(@price_affecting_options, fn opt ->
-                opt["allow_override"] == true
-              end) %>
+          <% # Filter to only options that have actual values to display
+          price_options_with_values =
+            Enum.filter(@price_affecting_options, fn opt ->
+              (opt["options"] || []) != []
+            end)
 
+          # Editable options: has allow_override flag AND has options
+          editable_options =
+            Enum.filter(price_options_with_values, fn opt ->
+              opt["allow_override"] == true
+            end)
+
+          # Read-only options: without allow_override AND has price_modifiers
+          readonly_options =
+            price_options_with_values
+            |> Enum.reject(fn opt -> opt["allow_override"] == true end)
+            |> Enum.filter(fn opt -> (opt["price_modifiers"] || %{}) != %{} end)
+
+          # Only show section if there's something to display
+          has_schema_price_content = editable_options != [] or readonly_options != [] %>
+          <%= if has_schema_price_content do %>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">
@@ -596,7 +1133,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 <p class="text-sm text-base-content/60 mb-4">
                   Base price:
                   <span class="font-semibold">
-                    {format_price(Ecto.Changeset.get_field(@changeset, :price))}
+                    {format_price(Ecto.Changeset.get_field(@changeset, :price), @currency)}
                   </span>
                   — Options that affect the final price
                 </p>
@@ -623,6 +1160,18 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                           <div class="overflow-x-auto">
                             <% base_price =
                               Ecto.Changeset.get_field(@changeset, :price) || Decimal.new("0") %>
+                            <% # Combine schema values with manually added values
+                            schema_values = option["options"] || []
+                            manually_added = Map.get(@original_option_values, option["key"], [])
+                            all_option_values = Enum.uniq(schema_values ++ manually_added)
+                            # Calculate min modifier for suggesting price for added values
+                            price_modifiers = option["price_modifiers"] || %{}
+
+                            min_modifier =
+                              price_modifiers
+                              |> Map.values()
+                              |> Enum.map(&parse_decimal/1)
+                              |> Enum.min(fn -> Decimal.new("0") end) %>
                             <table class="table table-xs">
                               <thead>
                                 <tr>
@@ -632,9 +1181,15 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                                 </tr>
                               </thead>
                               <tbody>
-                                <%= for opt_value <- option["options"] || [] do %>
-                                  <% default_val =
-                                    get_in(option, ["price_modifiers", opt_value]) || "0" %>
+                                <%= for opt_value <- all_option_values do %>
+                                  <% is_from_schema = opt_value in schema_values %>
+                                  <% # For schema values use their modifier; for added values use min modifier
+                                  default_val =
+                                    if is_from_schema do
+                                      get_in(option, ["price_modifiers", opt_value]) || "0"
+                                    else
+                                      Decimal.to_string(min_modifier)
+                                    end %>
                                   <% default_type = option["modifier_type"] || "fixed" %>
                                   <% default_final =
                                     calculate_option_price(base_price, default_type, default_val) %>
@@ -650,9 +1205,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                                         ),
                                       else: nil %>
                                   <tr>
-                                    <td class="font-medium">{opt_value}</td>
+                                    <td class="font-medium">
+                                      {opt_value}
+                                    </td>
                                     <td class="text-base-content/60">
-                                      {format_price(default_final)}
+                                      {format_price(default_final, @currency)}
                                       <span class="text-xs opacity-60">
                                         (<%= if default_type == "percent" do %>
                                           +{default_val}%
@@ -663,21 +1220,51 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                                     </td>
                                     <td>
                                       <div class="flex items-center gap-2">
-                                        <input
-                                          type="number"
-                                          step="0.01"
-                                          min="0"
-                                          name={"product[metadata][_price_modifiers][#{option["key"]}][#{opt_value}][final_price]"}
-                                          value={
-                                            if custom_final,
-                                              do: Decimal.round(custom_final, 2),
-                                              else: ""
-                                          }
-                                          class="input input-xs input-bordered w-24"
-                                          placeholder={Decimal.round(default_final, 2)}
-                                        />
-                                        <%= if custom_final do %>
-                                          <span class="badge badge-success badge-xs">Custom</span>
+                                        <%= if is_from_schema do %>
+                                          <%!-- Schema values: use [final_price] suffix for map structure --%>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            name={"product[metadata][_price_modifiers][#{option["key"]}][#{opt_value}][final_price]"}
+                                            value={
+                                              if custom_final,
+                                                do: Decimal.round(custom_final, 2),
+                                                else: ""
+                                            }
+                                            class="input input-xs input-bordered w-24"
+                                            placeholder={Decimal.round(default_final, 2)}
+                                          />
+                                          <%= if custom_final do %>
+                                            <span class="badge badge-success badge-xs">Custom</span>
+                                          <% end %>
+                                        <% else %>
+                                          <%!-- Added values: use simple format like imported --%>
+                                          <% # Check if there's already a stored modifier for this value
+                                          stored_mod =
+                                            get_in(@metadata, [
+                                              "_price_modifiers",
+                                              option["key"],
+                                              opt_value
+                                            ])
+
+                                          display_final =
+                                            if is_binary(stored_mod) do
+                                              Decimal.add(base_price, parse_decimal(stored_mod))
+                                            else
+                                              default_final
+                                            end %>
+                                          <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            name={"product[metadata][_price_modifiers][#{option["key"]}][#{opt_value}]"}
+                                            value={Decimal.round(display_final, 2)}
+                                            class="input input-xs input-bordered w-28"
+                                          />
+                                          <span class="text-xs text-base-content/50">
+                                            {currency_symbol(@currency)}
+                                          </span>
                                         <% end %>
                                       </div>
                                     </td>
@@ -718,7 +1305,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                                 <%= if option["modifier_type"] == "percent" do %>
                                   +{modifier}%
                                 <% else %>
-                                  +{format_price(modifier)}
+                                  +{format_price(modifier, @currency)}
                                 <% end %>
                               </td>
                               <td>
@@ -740,11 +1327,108 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                     <div class="flex justify-between items-center">
                       <span class="text-sm">Price Range:</span>
                       <span class="font-bold text-lg">
-                        {format_price(@min_price)} — {format_price(@max_price)}
+                        {format_price(@min_price, @currency)} — {format_price(@max_price, @currency)}
                       </span>
                     </div>
                   </div>
                 <% end %>
+              </div>
+            </div>
+          <% end %>
+
+          <%!-- Imported Option Prices Section --%>
+          <% # Use original_option_values to ensure we show all values even if some unchecked
+          price_original_values = assigns[:original_option_values] || %{}
+          imported_price_modifiers = @metadata["_price_modifiers"] || %{}
+
+          # Use original_option_values directly (it contains all available values)
+          all_price_values = price_original_values
+
+          # Find options that exist in _option_values but NOT in price_affecting_options schema
+          schema_price_keys = Enum.map(@price_affecting_options, & &1["key"])
+
+          imported_price_options =
+            all_price_values
+            |> Enum.reject(fn {key, _} -> key in schema_price_keys end)
+            |> Enum.map(fn {key, values} ->
+              %{
+                "key" => key,
+                "label" => String.capitalize(String.replace(key, "_", " ")),
+                "values" => values,
+                "modifiers" => Map.get(imported_price_modifiers, key, %{})
+              }
+            end) %>
+          <%= if imported_price_options != [] and @live_action == :edit do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">
+                  <.icon name="hero-currency-dollar" class="w-5 h-5" /> Imported Option Prices
+                  <span class="badge badge-info badge-sm">From Import</span>
+                </h2>
+                <p class="text-sm text-base-content/60 mb-4">
+                  Set prices for each option value. Enter the final price (base price + modifier).
+                </p>
+
+                <% base_price = Ecto.Changeset.get_field(@changeset, :price) || Decimal.new("0") %>
+
+                <div class="space-y-4">
+                  <%= for opt <- imported_price_options do %>
+                    <div class="p-4 bg-base-200 rounded-lg">
+                      <div class="font-medium mb-3 flex items-center gap-2">
+                        {opt["label"]}
+                        <span class="badge badge-xs badge-info">Imported</span>
+                      </div>
+                      <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                          <thead>
+                            <tr>
+                              <th>Value</th>
+                              <th>Current Modifier</th>
+                              <th>Final Price</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <%= for value <- opt["values"] do %>
+                              <% # Get existing modifier (stored as string like "12.01")
+                              stored_modifier = opt["modifiers"][value]
+
+                              modifier_value =
+                                if is_binary(stored_modifier), do: stored_modifier, else: "0"
+
+                              modifier_decimal = parse_decimal(modifier_value)
+                              final_price = Decimal.add(base_price, modifier_decimal) %>
+                              <tr>
+                                <td class="font-medium">{value}</td>
+                                <td class="text-base-content/60">
+                                  <%= if modifier_decimal != Decimal.new("0") do %>
+                                    <span class="text-success">+{modifier_value}</span>
+                                  <% else %>
+                                    <span class="text-base-content/40">+0</span>
+                                  <% end %>
+                                </td>
+                                <td>
+                                  <div class="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      name={"product[metadata][_price_modifiers][#{opt["key"]}][#{value}]"}
+                                      value={Decimal.round(final_price, 2)}
+                                      class="input input-xs input-bordered w-28"
+                                    />
+                                    <span class="text-xs text-base-content/50">
+                                      {currency_symbol(@currency)}
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            <% end %>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  <% end %>
+                </div>
               </div>
             </div>
           <% end %>
@@ -849,7 +1533,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <%= for opt <- non_price_options do %>
-                    <.option_field opt={opt} value={@metadata[opt["key"]]} />
+                    <.option_field opt={opt} value={@metadata[opt["key"]]} currency={@currency} />
                   <% end %>
                 </div>
               </div>
@@ -906,19 +1590,28 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     _ -> nil
   end
 
-  # Format price for display
-  defp format_price(nil), do: "$0.00"
-  defp format_price(""), do: "$0.00"
+  # Format price for display with currency
+  defp format_price(nil, _currency), do: "—"
+  defp format_price("", _currency), do: "—"
 
-  defp format_price(price) when is_binary(price) do
+  defp format_price(price, %Currency{} = currency) when is_binary(price) do
     case Decimal.parse(price) do
-      {decimal, _} -> "$#{Decimal.round(decimal, 2)}"
-      :error -> "$#{price}"
+      {decimal, _} -> Currency.format_amount(decimal, currency)
+      :error -> Currency.format_amount(Decimal.new("0"), currency)
     end
   end
 
-  defp format_price(%Decimal{} = price), do: "$#{Decimal.round(price, 2)}"
-  defp format_price(price), do: "$#{price}"
+  defp format_price(price, %Currency{} = currency) do
+    Currency.format_amount(price, currency)
+  end
+
+  defp format_price(price, nil) do
+    "$#{Decimal.round(price, 2)}"
+  end
+
+  # Get currency symbol for display
+  defp currency_symbol(%Currency{symbol: symbol}), do: symbol
+  defp currency_symbol(_), do: "$"
 
   # Get modifier override from product metadata (new structure with type and value)
   defp get_modifier_override(metadata, option_key, option_value) do
@@ -937,17 +1630,6 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         # Old structure (backward compat): just a value string
         # Treat as custom with inherited type
         nil
-
-      _ ->
-        nil
-    end
-  end
-
-  # Get custom option values from metadata, returns nil if not customized
-  defp get_custom_option_values(metadata, option_key) do
-    case metadata do
-      %{"_option_values" => %{^option_key => values}} when is_list(values) and values != [] ->
-        values
 
       _ ->
         nil
@@ -979,6 +1661,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   # Dynamic option field component
   attr :opt, :map, required: true
   attr :value, :any, default: nil
+  attr :currency, :any, default: nil
 
   defp option_field(assigns) do
     ~H"""
@@ -990,7 +1673,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
             <span class="text-error">*</span>
           <% end %>
           <%= if @opt["affects_price"] do %>
-            <span class="badge badge-xs badge-info ml-1">$</span>
+            <span class="badge badge-xs badge-info ml-1">{currency_symbol(@currency)}</span>
           <% end %>
         </span>
         <%= if @opt["unit"] do %>
@@ -1093,32 +1776,20 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp get_schema_for_category_id(_), do: Options.get_global_options()
 
   # Clean up _option_values - remove entries where all values are selected (use defaults)
-  defp clean_option_values(metadata, option_schema) do
+  defp clean_option_values(metadata, option_schema, original_option_values) do
     case metadata["_option_values"] do
       nil ->
         metadata
 
       option_values when is_map(option_values) ->
-        # Build a map of option_key -> all_values from schema
-        schema_values =
-          option_schema
-          |> Enum.filter(&(&1["type"] in ["select", "multiselect"]))
-          |> Enum.map(&{&1["key"], &1["options"] || []})
-          |> Map.new()
+        schema_values = build_schema_values_map(option_schema)
 
-        # Remove entries where all values are selected
         cleaned =
           option_values
           |> Enum.map(fn {key, selected_values} ->
-            all_values = Map.get(schema_values, key, [])
-            selected = if is_list(selected_values), do: selected_values, else: []
-
-            # If all values selected or none selected, use defaults (nil)
-            if Enum.sort(selected) == Enum.sort(all_values) or selected == [] do
-              {key, nil}
-            else
-              {key, selected}
-            end
+            schema_for_key = Map.get(schema_values, key, [])
+            original_for_key = Map.get(original_option_values, key, [])
+            clean_option_entry(key, selected_values, schema_for_key, original_for_key)
           end)
           |> Enum.reject(fn {_k, v} -> is_nil(v) end)
           |> Map.new()
@@ -1134,8 +1805,80 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     end
   end
 
+  # Build a map of option_key -> available values from schema
+  defp build_schema_values_map(option_schema) do
+    option_schema
+    |> Enum.filter(&(&1["type"] in ["select", "multiselect"]))
+    |> Enum.map(&{&1["key"], &1["options"] || []})
+    |> Map.new()
+  end
+
+  # Determine whether to keep an option entry or discard it (nil)
+  defp clean_option_entry(key, selected_values, schema_for_key, original_for_key) do
+    all_values = Enum.uniq(schema_for_key ++ original_for_key)
+    selected = if is_list(selected_values), do: selected_values, else: []
+    has_custom_values = original_for_key != [] and original_for_key != schema_for_key
+
+    cond do
+      # Has custom values - always keep to preserve the added values
+      has_custom_values and selected != [] ->
+        {key, selected}
+
+      # All selected from schema only - can be nil
+      Enum.sort(selected) == Enum.sort(all_values) ->
+        {key, nil}
+
+      # None selected - nil
+      selected == [] ->
+        {key, nil}
+
+      # Partial selection - keep
+      true ->
+        {key, selected}
+    end
+  end
+
+  # Remove price modifier for a specific option value when it's deleted
+  defp remove_price_modifier_for_value(metadata, option_key, value) do
+    case metadata["_price_modifiers"] do
+      nil ->
+        metadata
+
+      price_modifiers when is_map(price_modifiers) ->
+        case Map.get(price_modifiers, option_key) do
+          nil ->
+            metadata
+
+          option_modifiers when is_map(option_modifiers) ->
+            updated_option_modifiers = Map.delete(option_modifiers, value)
+
+            updated_price_modifiers =
+              if updated_option_modifiers == %{} do
+                Map.delete(price_modifiers, option_key)
+              else
+                Map.put(price_modifiers, option_key, updated_option_modifiers)
+              end
+
+            if updated_price_modifiers == %{} do
+              Map.delete(metadata, "_price_modifiers")
+            else
+              Map.put(metadata, "_price_modifiers", updated_price_modifiers)
+            end
+
+          _ ->
+            metadata
+        end
+
+      _ ->
+        metadata
+    end
+  end
+
   # Convert final_price inputs to modifier values
   # final_price - base_price = modifier (for fixed type)
+  # Handles two formats:
+  # 1. Schema options: %{"final_price" => "123.45"} -> %{"type" => "fixed", "value" => "23.45"}
+  # 2. Imported options: "123.45" -> "23.45" (simple string modifier)
   defp convert_final_prices_to_modifiers(metadata, base_price) do
     case metadata["_price_modifiers"] do
       nil ->
@@ -1166,6 +1909,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   # Convert a single modifier data entry
+  # Handle map format (from schema options with final_price key)
   defp convert_modifier_data(modifier_data, base_price) when is_map(modifier_data) do
     final_price_str = modifier_data["final_price"]
 
@@ -1196,6 +1940,23 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       # No valid data
       true ->
         nil
+    end
+  end
+
+  # Handle string format (from imported options where input sends final_price directly)
+  defp convert_modifier_data(final_price_str, base_price) when is_binary(final_price_str) do
+    if final_price_str == "" do
+      nil
+    else
+      final_price = parse_decimal(final_price_str)
+      # modifier = final_price - base_price
+      modifier = Decimal.sub(final_price, base_price)
+
+      # Store as string for consistency with import format
+      modifier_str = Decimal.to_string(Decimal.round(modifier, 2))
+
+      # Return as simple string (import format) not map
+      modifier_str
     end
   end
 
