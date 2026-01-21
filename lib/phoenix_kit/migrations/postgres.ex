@@ -337,7 +337,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - JSONB fields for tags, images, option_names, metadata
   - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
 
-  ### V46 - Product Options with Dynamic Pricing ⚡ LATEST
+  ### V46 - Product Options with Dynamic Pricing + Import Logs ⚡ LATEST
   - Phoenix_kit_shop_config table for global Shop configuration (key-value JSONB)
   - Adds option_schema JSONB column to phoenix_kit_shop_categories
   - Two-level option system: global options + category-specific options
@@ -348,6 +348,12 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Adds image_ids UUID[] array column to products for gallery images
   - Adds selected_specs JSONB column to cart_items for specification storage
   - Cart items freeze calculated price at add-to-cart time
+  - Phoenix_kit_shop_import_logs for CSV import history tracking
+  - Import status tracking: pending, processing, completed, failed
+  - Import statistics: imported, updated, skipped, errors counts
+  - Error details stored in JSONB for debugging
+  - User association for audit trail (who initiated import)
+  - Enables admin UI for Shopify CSV import management
 
   ## Migration Paths
 

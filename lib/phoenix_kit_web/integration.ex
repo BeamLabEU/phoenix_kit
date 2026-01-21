@@ -568,6 +568,9 @@ defmodule PhoenixKitWeb.Integration do
                :index,
                as: :shop_options_settings
 
+          live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
+            as: :shop_imports
+
           live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
         end
       end

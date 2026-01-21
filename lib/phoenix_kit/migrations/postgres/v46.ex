@@ -1,12 +1,14 @@
 defmodule PhoenixKit.Migrations.Postgres.V46 do
   @moduledoc """
-  V46: Product Options with Dynamic Pricing
+  V46: Product Options with Dynamic Pricing + Import Logs
 
   This migration adds:
   - phoenix_kit_shop_config table for global Shop configuration
   - option_schema JSONB column to categories for category-specific options
+  - image_id BIGINT column to categories for Storage media integration
   - featured_image_id and image_ids columns to products for Storage integration
   - selected_specs JSONB column to cart_items for specification storage
+  - phoenix_kit_shop_import_logs table for CSV import history tracking
 
   ## Option Schema Format
 
@@ -63,10 +65,17 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ON #{prefix_str}phoenix_kit_shop_config(uuid);
     """
 
-    # 2. Add option_schema to categories
+    # 2. Add option_schema, image_id, and status to categories
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
-    ADD COLUMN IF NOT EXISTS option_schema JSONB DEFAULT '[]';
+    ADD COLUMN IF NOT EXISTS option_schema JSONB DEFAULT '[]',
+    ADD COLUMN IF NOT EXISTS image_id UUID,
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_categories_status
+    ON #{prefix_str}phoenix_kit_shop_categories(status);
     """
 
     # 3. Add new columns to products
@@ -83,12 +92,68 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ADD COLUMN IF NOT EXISTS selected_specs JSONB DEFAULT '{}';
     """
 
-    # 5. Update version
+    # 5. Create import_logs table for CSV import history
+    execute """
+    CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_shop_import_logs (
+      id BIGSERIAL PRIMARY KEY,
+      uuid UUID DEFAULT gen_random_uuid(),
+      filename VARCHAR(255) NOT NULL,
+      file_path VARCHAR(1024),
+      status VARCHAR(50) DEFAULT 'pending',
+
+      total_rows INTEGER DEFAULT 0,
+      processed_rows INTEGER DEFAULT 0,
+      imported_count INTEGER DEFAULT 0,
+      updated_count INTEGER DEFAULT 0,
+      skipped_count INTEGER DEFAULT 0,
+      error_count INTEGER DEFAULT 0,
+
+      options JSONB DEFAULT '{}',
+      error_details JSONB DEFAULT '[]',
+
+      started_at TIMESTAMP,
+      completed_at TIMESTAMP,
+
+      user_id BIGINT REFERENCES #{prefix_str}phoenix_kit_users(id) ON DELETE SET NULL,
+
+      inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+    """
+
+    execute """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shop_import_logs_uuid
+    ON #{prefix_str}phoenix_kit_shop_import_logs(uuid);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_import_logs_status
+    ON #{prefix_str}phoenix_kit_shop_import_logs(status);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_import_logs_inserted_at
+    ON #{prefix_str}phoenix_kit_shop_import_logs(inserted_at DESC);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_import_logs_user_id
+    ON #{prefix_str}phoenix_kit_shop_import_logs(user_id);
+    """
+
+    # 6. Update version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '46'"
   end
 
   def down(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+
+    # Drop import_logs table and indexes
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_user_id;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_inserted_at;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_status;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_uuid;"
+    execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_import_logs CASCADE;"
 
     # Remove selected_specs from cart_items
     execute """
@@ -104,10 +169,14 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     DROP COLUMN IF EXISTS image_ids;
     """
 
-    # Remove option_schema from categories
+    # Remove option_schema, image_id, and status from categories
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_categories_status;"
+
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
-    DROP COLUMN IF EXISTS option_schema;
+    DROP COLUMN IF EXISTS option_schema,
+    DROP COLUMN IF EXISTS image_id,
+    DROP COLUMN IF EXISTS status;
     """
 
     # Drop shop_config table

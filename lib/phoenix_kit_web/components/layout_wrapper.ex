@@ -554,12 +554,13 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             "/admin/shop/categories",
                             "/admin/shop/shipping",
                             "/admin/shop/carts",
+                            "/admin/shop/imports",
                             "/admin/shop/settings"
                           ])
                         }
                       />
 
-                      <%= if submenu_open?(@current_path, ["/admin/shop", "/admin/shop/products", "/admin/shop/categories", "/admin/shop/shipping", "/admin/shop/carts", "/admin/shop/settings"]) do %>
+                      <%= if submenu_open?(@current_path, ["/admin/shop", "/admin/shop/products", "/admin/shop/categories", "/admin/shop/shipping", "/admin/shop/carts", "/admin/shop/imports", "/admin/shop/settings"]) do %>
                         <div class="mt-1">
                           <.admin_nav_item
                             href={Routes.locale_aware_path(assigns, "/admin/shop")}
@@ -598,6 +599,14 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                             href={Routes.locale_aware_path(assigns, "/admin/shop/carts")}
                             icon="hero-shopping-cart"
                             label={gettext("Carts")}
+                            current_path={@current_path || ""}
+                            nested={true}
+                          />
+
+                          <.admin_nav_item
+                            href={Routes.locale_aware_path(assigns, "/admin/shop/imports")}
+                            icon="hero-cloud-arrow-up"
+                            label={gettext("CSV Import")}
                             current_path={@current_path || ""}
                             nested={true}
                           />
