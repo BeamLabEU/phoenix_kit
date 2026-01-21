@@ -12,12 +12,23 @@ defmodule PhoenixKit.Modules.Shop.Category do
   - `image_url` - Category image
   - `parent_id` - Parent category for nesting
   - `position` - Sort order
+  - `status` - Category status: "active", "hidden", "archived"
   - `metadata` - JSONB for custom fields
   - `option_schema` - Category-specific product option definitions (JSONB array)
+
+  ## Status Values
+
+  - `active` - Category and products visible in storefront
+  - `unlisted` - Category hidden from menu, but products still visible
+  - `hidden` - Category and all products hidden from storefront
   """
 
   use Ecto.Schema
   import Ecto.Changeset
+
+  alias PhoenixKit.Modules.Storage.URLSigner
+
+  @statuses ~w(active unlisted hidden)
 
   schema "phoenix_kit_shop_categories" do
     field :uuid, Ecto.UUID
@@ -26,7 +37,9 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :slug, :string
     field :description, :string
     field :image_url, :string
+    field :image_id, Ecto.UUID
     field :position, :integer, default: 0
+    field :status, :string, default: "active"
     field :metadata, :map, default: %{}
     field :option_schema, {:array, :map}, default: []
 
@@ -40,6 +53,9 @@ defmodule PhoenixKit.Modules.Shop.Category do
     timestamps()
   end
 
+  @doc "Returns list of valid category statuses"
+  def statuses, do: @statuses
+
   @doc """
   Changeset for category creation and updates.
   """
@@ -50,8 +66,10 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :slug,
       :description,
       :image_url,
+      :image_id,
       :parent_id,
       :position,
+      :status,
       :metadata,
       :option_schema
     ])
@@ -59,10 +77,37 @@ defmodule PhoenixKit.Modules.Shop.Category do
     |> validate_length(:name, max: 255)
     |> validate_length(:slug, max: 255)
     |> validate_number(:position, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:status, @statuses)
     |> maybe_generate_slug()
     |> validate_not_self_parent()
     |> unique_constraint(:slug)
   end
+
+  @doc """
+  Returns the image URL for a category.
+
+  Priority:
+  1. Storage media (image_id) if available
+  2. External image_url if available
+  3. nil if no image
+
+  ## Options
+  - `:size` - Storage dimension to use (default: "large")
+  """
+  def get_image_url(category, opts \\ [])
+
+  def get_image_url(%__MODULE__{image_id: image_id}, opts)
+      when is_binary(image_id) and image_id != "" do
+    size = Keyword.get(opts, :size, "large")
+    URLSigner.signed_url(image_id, size)
+  end
+
+  def get_image_url(%__MODULE__{image_url: image_url}, _opts)
+      when is_binary(image_url) and image_url != "" do
+    image_url
+  end
+
+  def get_image_url(_category, _opts), do: nil
 
   @doc """
   Returns true if category is a root category (no parent).
@@ -78,6 +123,40 @@ defmodule PhoenixKit.Modules.Shop.Category do
   end
 
   def has_children?(_), do: false
+
+  @doc """
+  Returns true if category is active (visible in storefront).
+  """
+  def active?(%__MODULE__{status: "active"}), do: true
+  def active?(_), do: false
+
+  @doc """
+  Returns true if category is unlisted (not in menu, but products visible).
+  """
+  def unlisted?(%__MODULE__{status: "unlisted"}), do: true
+  def unlisted?(_), do: false
+
+  @doc """
+  Returns true if category is hidden (category and products not visible).
+  """
+  def hidden?(%__MODULE__{status: "hidden"}), do: true
+  def hidden?(_), do: false
+
+  @doc """
+  Returns true if products in this category should be visible in storefront.
+  Products are visible when category is active or unlisted.
+  """
+  def products_visible?(%__MODULE__{status: status}) when status in ["active", "unlisted"],
+    do: true
+
+  def products_visible?(_), do: false
+
+  @doc """
+  Returns true if category should appear in category menu/list.
+  Only active categories appear in the menu.
+  """
+  def show_in_menu?(%__MODULE__{status: "active"}), do: true
+  def show_in_menu?(_), do: false
 
   @doc """
   Returns the full path of category names from root to this category.
