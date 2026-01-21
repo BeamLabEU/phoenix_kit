@@ -376,11 +376,100 @@ defmodule PhoenixKit.Modules.Shop.Options do
   Gets price-affecting options for a specific product.
 
   Combines global and category options, then filters for price-affecting ones.
+
+  If the product has `_option_values` in metadata, only returns options
+  for which the product has values. This allows products without certain
+  options (e.g., Size) to skip required validation for those options.
+
+  Additionally, discovers options from product metadata that have price modifiers
+  but are not defined in the schema (e.g., imported products with custom options).
   """
   def get_price_affecting_specs_for_product(product) do
-    product
-    |> get_option_schema_for_product()
-    |> get_price_affecting_specs()
+    schema_specs =
+      product
+      |> get_option_schema_for_product()
+      |> get_price_affecting_specs()
+      |> filter_by_product_option_values(product)
+
+    # Discover additional options from product metadata
+    discovered_specs = discover_options_from_metadata(product)
+
+    # Merge: schema specs take priority over discovered
+    merge_discovered_specs(schema_specs, discovered_specs)
+  end
+
+  # Filters options - keeps only those for which product has values in metadata.
+  # If product has no _option_values, returns all options (backward compatibility).
+  defp filter_by_product_option_values(specs, product) do
+    metadata = product.metadata || %{}
+    option_values = Map.get(metadata, "_option_values", %{})
+
+    # Only filter if product has _option_values (imported products)
+    if option_values != %{} do
+      Enum.filter(specs, fn spec ->
+        key = spec["key"]
+
+        case Map.get(option_values, key) do
+          values when is_list(values) and values != [] -> true
+          _ -> false
+        end
+      end)
+    else
+      # No _option_values - return all options (backward compatibility)
+      specs
+    end
+  end
+
+  # Discovers options from product metadata that have price modifiers.
+  # Creates "virtual" option specs for keys found in _option_values that also
+  # have corresponding _price_modifiers entries.
+  defp discover_options_from_metadata(product) do
+    metadata = product.metadata || %{}
+    option_values = Map.get(metadata, "_option_values", %{})
+    price_modifiers = Map.get(metadata, "_price_modifiers", %{})
+
+    # For each key in _option_values that has _price_modifiers
+    option_values
+    |> Enum.filter(fn {key, values} ->
+      is_list(values) and values != [] and Map.has_key?(price_modifiers, key)
+    end)
+    |> Enum.map(fn {key, values} ->
+      %{
+        "key" => key,
+        "label" => humanize_key(key),
+        "type" => "select",
+        "options" => values,
+        "affects_price" => true,
+        "modifier_type" => "fixed",
+        "allow_override" => true,
+        "price_modifiers" => Map.get(price_modifiers, key, %{}),
+        "_discovered" => true
+      }
+    end)
+  end
+
+  # Converts snake_case key to human-readable label.
+  # Example: "main_color" -> "Main Color"
+  defp humanize_key(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  # Merges schema specs with discovered specs.
+  # Schema specs take priority - discovered specs are only added if their key
+  # is not already in the schema.
+  defp merge_discovered_specs(schema_specs, discovered_specs) do
+    schema_keys = Enum.map(schema_specs, & &1["key"]) |> MapSet.new()
+
+    # Only add discovered specs not already in schema
+    new_specs =
+      Enum.reject(discovered_specs, fn spec ->
+        MapSet.member?(schema_keys, spec["key"])
+      end)
+
+    schema_specs ++ new_specs
   end
 
   @doc """
