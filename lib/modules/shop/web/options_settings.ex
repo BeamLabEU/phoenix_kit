@@ -232,20 +232,22 @@ defmodule PhoenixKit.Modules.Shop.Web.OptionsSettings do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="container flex-col mx-auto px-4 py-6 max-w-4xl">
-        <%!-- Header (centered pattern) --%>
-        <header class="w-full relative mb-6">
-          <.link
-            navigate={Routes.path("/admin/shop/settings")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-4xl font-bold text-base-content mb-3">Product Options</h1>
-            <p class="text-lg text-base-content/70">
-              Define global options that apply to all products
-            </p>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop/settings")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Product Options</h1>
+              <p class="text-base-content/70 mt-1">
+                Define global options that apply to all products
+              </p>
+            </div>
           </div>
         </header>
 

@@ -11,6 +11,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.OptionTypes
+  alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -19,6 +20,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       socket
       |> assign(:page_title, "New Category")
       |> assign(:supported_types, OptionTypes.supported_types())
+      |> assign(:show_media_selector, false)
+      |> assign(:image_id, nil)
 
     {:ok, socket}
   end
@@ -46,6 +49,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:show_opt_modal, false)
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
+    |> assign(:image_id, nil)
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -71,6 +75,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:show_opt_modal, false)
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
+    |> assign(:image_id, category.image_id)
   end
 
   @impl true
@@ -85,7 +90,21 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   @impl true
   def handle_event("save", %{"category" => category_params}, socket) do
+    # Add Storage image_id from socket assigns
+    category_params = Map.put(category_params, "image_id", socket.assigns.image_id)
     save_category(socket, socket.assigns.live_action, category_params)
+  end
+
+  # Media Picker Events
+
+  @impl true
+  def handle_event("open_media_picker", _params, socket) do
+    {:noreply, assign(socket, :show_media_selector, true)}
+  end
+
+  @impl true
+  def handle_event("remove_image", _params, socket) do
+    {:noreply, assign(socket, :image_id, nil)}
   end
 
   # Option Modal Events
@@ -255,6 +274,23 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     {:noreply, assign(socket, :opt_form_data, updated)}
   end
 
+  # Media Picker Info Handlers
+
+  @impl true
+  def handle_info({:media_selected, file_ids}, socket) do
+    image_id = List.first(file_ids)
+
+    {:noreply,
+     socket
+     |> assign(:image_id, image_id)
+     |> assign(:show_media_selector, false)}
+  end
+
+  @impl true
+  def handle_info({:media_selector_closed}, socket) do
+    {:noreply, assign(socket, :show_media_selector, false)}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -265,20 +301,22 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="container flex-col mx-auto px-4 py-6 max-w-2xl">
-        <%!-- Header (centered pattern) --%>
-        <header class="w-full relative mb-6">
-          <.link
-            navigate={Routes.path("/admin/shop/categories")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-4xl font-bold text-base-content mb-3">{@page_title}</h1>
-            <p class="text-lg text-base-content/70">
-              {if @live_action == :new, do: "Create a new category", else: "Edit category details"}
-            </p>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop/categories")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
+              <p class="text-base-content/70 mt-1">
+                {if @live_action == :new, do: "Create a new category", else: "Edit category details"}
+              </p>
+            </div>
           </div>
         </header>
 
@@ -291,85 +329,207 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
         >
           <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <div class="form-control">
-                <label class="label"><span class="label-text">Name *</span></label>
-                <input
-                  type="text"
-                  name="category[name]"
-                  value={Ecto.Changeset.get_field(@changeset, :name)}
-                  class={["input input-bordered", @changeset.errors[:name] && "input-error"]}
-                  placeholder="Category name"
-                  required
-                />
-                <%= if @changeset.errors[:name] do %>
+              <h2 class="card-title text-xl mb-6">Basic Information</h2>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text-alt text-error">
-                      {elem(@changeset.errors[:name], 0)}
+                    <span class="label-text font-medium">Name *</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="category[name]"
+                    value={Ecto.Changeset.get_field(@changeset, :name)}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @changeset.errors[:name] && "input-error"
+                    ]}
+                    placeholder="Category name"
+                    required
+                  />
+                  <%= if @changeset.errors[:name] do %>
+                    <label class="label">
+                      <span class="label-text-alt text-error">
+                        {elem(@changeset.errors[:name], 0)}
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Slug</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="category[slug]"
+                    value={Ecto.Changeset.get_field(@changeset, :slug)}
+                    class="input input-bordered w-full focus:input-primary"
+                    placeholder="Auto-generated from name"
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Parent Category</span>
+                  </label>
+                  <select
+                    name="category[parent_id]"
+                    class="select select-bordered w-full focus:select-primary"
+                  >
+                    <option value="">No parent (root category)</option>
+                    <%= for {name, id} <- @parent_options do %>
+                      <option
+                        value={id}
+                        selected={Ecto.Changeset.get_field(@changeset, :parent_id) == id}
+                      >
+                        {name}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Position</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="category[position]"
+                    value={Ecto.Changeset.get_field(@changeset, :position) || 0}
+                    class="input input-bordered w-full focus:input-primary"
+                    min="0"
+                    placeholder="0"
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Status</span>
+                  </label>
+                  <select
+                    name="category[status]"
+                    class="select select-bordered w-full focus:select-primary"
+                  >
+                    <option
+                      value="active"
+                      selected={Ecto.Changeset.get_field(@changeset, :status) == "active"}
+                    >
+                      Active — Category and products visible
+                    </option>
+                    <option
+                      value="unlisted"
+                      selected={Ecto.Changeset.get_field(@changeset, :status) == "unlisted"}
+                    >
+                      Unlisted — Category hidden, products still visible
+                    </option>
+                    <option
+                      value="hidden"
+                      selected={Ecto.Changeset.get_field(@changeset, :status) == "hidden"}
+                    >
+                      Hidden — Category and products hidden
+                    </option>
+                  </select>
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/50">
+                      Unlisted: products appear in search/catalog but category not in menu
                     </span>
                   </label>
-                <% end %>
-              </div>
+                </div>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Slug</span></label>
-                <input
-                  type="text"
-                  name="category[slug]"
-                  value={Ecto.Changeset.get_field(@changeset, :slug)}
-                  class="input input-bordered"
-                  placeholder="Auto-generated from name"
-                />
-              </div>
+                <div class="form-control w-full md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Description</span>
+                  </label>
+                  <textarea
+                    name="category[description]"
+                    class="textarea textarea-bordered w-full focus:textarea-primary h-24"
+                    placeholder="Category description"
+                  >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
+                </div>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Description</span></label>
-                <textarea
-                  name="category[description]"
-                  class="textarea textarea-bordered h-24"
-                  placeholder="Category description"
-                >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
-              </div>
+                <%!-- Category Image Section --%>
+                <div class="form-control w-full md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Category Image</span>
+                  </label>
+                  <div class="flex items-start gap-4">
+                    <%!-- Image Preview --%>
+                    <%= if @image_id do %>
+                      <div class="relative group">
+                        <img
+                          src={get_storage_image_url(@image_id, "thumbnail")}
+                          class="w-24 h-24 object-cover rounded-lg shadow"
+                          alt="Category image"
+                        />
+                        <button
+                          type="button"
+                          phx-click="remove_image"
+                          class="absolute -top-2 -right-2 btn btn-circle btn-xs btn-error opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    <% else %>
+                      <%= if image_url = Ecto.Changeset.get_field(@changeset, :image_url) do %>
+                        <div class="relative">
+                          <img
+                            src={image_url}
+                            class="w-24 h-24 object-cover rounded-lg shadow"
+                            alt="Category image"
+                          />
+                          <span class="absolute -bottom-1 left-0 right-0 text-center text-xs text-base-content/50">
+                            URL
+                          </span>
+                        </div>
+                      <% else %>
+                        <div class="w-24 h-24 border-2 border-dashed border-base-300 rounded-lg flex items-center justify-center">
+                          <.icon name="hero-photo" class="w-8 h-8 opacity-30" />
+                        </div>
+                      <% end %>
+                    <% end %>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Parent Category</span></label>
-                <select name="category[parent_id]" class="select select-bordered">
-                  <option value="">No parent (root category)</option>
-                  <%= for {name, id} <- @parent_options do %>
-                    <option
-                      value={id}
-                      selected={Ecto.Changeset.get_field(@changeset, :parent_id) == id}
-                    >
-                      {name}
-                    </option>
-                  <% end %>
-                </select>
-              </div>
+                    <%!-- Select from Storage --%>
+                    <div class="flex flex-col gap-2">
+                      <button
+                        type="button"
+                        phx-click="open_media_picker"
+                        class="btn btn-sm btn-primary"
+                      >
+                        <.icon name="hero-photo" class="w-4 h-4 mr-1" />
+                        {if @image_id, do: "Change Image", else: "Select from Storage"}
+                      </button>
+                      <p class="text-xs text-base-content/50">
+                        or use external URL below
+                      </p>
+                    </div>
+                  </div>
+                </div>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Position</span></label>
-                <input
-                  type="number"
-                  name="category[position]"
-                  value={Ecto.Changeset.get_field(@changeset, :position) || 0}
-                  class="input input-bordered w-32"
-                  min="0"
-                />
-                <label class="label">
-                  <span class="label-text-alt text-base-content/60">
-                    Lower numbers appear first
-                  </span>
-                </label>
-              </div>
-
-              <div class="form-control">
-                <label class="label"><span class="label-text">Image URL</span></label>
-                <input
-                  type="url"
-                  name="category[image_url]"
-                  value={Ecto.Changeset.get_field(@changeset, :image_url)}
-                  class="input input-bordered"
-                  placeholder="https://..."
-                />
+                <%!-- Fallback Image URL --%>
+                <div class="form-control w-full md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Image URL (fallback)</span>
+                    <%= if @image_id do %>
+                      <span class="label-text-alt text-warning">Storage image has priority</span>
+                    <% end %>
+                  </label>
+                  <input
+                    type="url"
+                    name="category[image_url]"
+                    value={Ecto.Changeset.get_field(@changeset, :image_url)}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @image_id && "opacity-50"
+                    ]}
+                    placeholder="https://..."
+                  />
+                  <label class="label">
+                    <span class="label-text-alt text-base-content/50">
+                      Used only if no Storage image is selected
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -378,14 +538,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
           <%= if @live_action == :edit do %>
             <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
-                <div class="flex items-center justify-between mb-4">
-                  <h2 class="card-title">
+                <div class="flex items-center justify-between mb-6">
+                  <h2 class="card-title text-xl">
                     <.icon name="hero-tag" class="w-5 h-5" /> Category Options
                   </h2>
                   <button
                     type="button"
                     phx-click="show_add_opt_modal"
-                    class="btn btn-outline btn-sm"
+                    class="btn btn-outline btn-primary btn-sm"
                   >
                     <.icon name="hero-plus" class="w-4 h-4 mr-1" /> Add Option
                   </button>
@@ -477,11 +637,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
           <%!-- Submit --%>
           <div class="flex justify-end gap-4">
-            <.link navigate={Routes.path("/admin/shop/categories")} class="btn btn-ghost">
+            <.link navigate={Routes.path("/admin/shop/categories")} class="btn btn-outline">
               Cancel
             </.link>
             <button type="submit" class="btn btn-primary">
-              <.icon name="hero-check" class="w-5 h-5 mr-2" />
+              <.icon name="hero-check" class="w-4 h-4 mr-2" />
               {if @live_action == :new, do: "Create Category", else: "Update Category"}
             </button>
           </div>
@@ -606,6 +766,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
           <div class="modal-backdrop" phx-click="close_opt_modal"></div>
         </div>
       <% end %>
+
+      <%!-- Media Selector Modal --%>
+      <.live_component
+        module={PhoenixKitWeb.Live.Components.MediaSelectorModal}
+        id="media-selector-modal"
+        show={@show_media_selector}
+        mode={:single}
+        selected_ids={if @image_id, do: [@image_id], else: []}
+        phoenix_kit_current_user={@phoenix_kit_current_user}
+      />
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
   end
@@ -706,4 +876,13 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
 
   defp parse_options(options) when is_list(options), do: options
   defp parse_options(_), do: []
+
+  # Get Storage image URL
+  defp get_storage_image_url(nil, _variant), do: nil
+
+  defp get_storage_image_url(file_id, variant) do
+    URLSigner.signed_url(file_id, variant)
+  rescue
+    _ -> nil
+  end
 end

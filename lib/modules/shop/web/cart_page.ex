@@ -140,17 +140,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     ~H"""
     <.shop_layout {assigns}>
       <div class="container flex-col mx-auto px-4 py-6 max-w-6xl">
-        <%!-- Header (centered pattern) --%>
-        <header class="w-full relative mb-6">
-          <.link
-            navigate={Routes.path("/shop")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Continue Shopping
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-4xl font-bold text-base-content mb-3">Shopping Cart</h1>
-            <p class="text-lg text-base-content/70">Review your items before checkout</p>
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Continue Shopping
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Shopping Cart</h1>
+              <p class="text-base-content/70 mt-1">Review your items before checkout</p>
+            </div>
           </div>
         </header>
 

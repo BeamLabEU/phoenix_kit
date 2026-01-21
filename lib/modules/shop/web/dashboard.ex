@@ -42,17 +42,19 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
       page_title={@page_title}
     >
       <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
-        <%!-- Header (centered pattern) --%>
-        <header class="w-full relative mb-6">
-          <.link
-            navigate={Routes.path("/admin")}
-            class="btn btn-outline btn-primary btn-sm absolute left-0 top-0"
-          >
-            <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
-          </.link>
-          <div class="text-center pt-10 sm:pt-0">
-            <h1 class="text-4xl font-bold text-base-content mb-3">E-Commerce</h1>
-            <p class="text-lg text-base-content/70">Manage your e-commerce store</p>
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">E-Commerce</h1>
+              <p class="text-base-content/70 mt-1">Manage your e-commerce store</p>
+            </div>
           </div>
         </header>
 
@@ -177,6 +179,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
                 class="btn btn-outline btn-lg justify-start"
               >
                 <.icon name="hero-shopping-cart" class="w-5 h-5 mr-2" /> Carts
+              </.link>
+
+              <.link
+                navigate={Routes.path("/admin/shop/imports")}
+                class="btn btn-outline btn-lg justify-start"
+              >
+                <.icon name="hero-cloud-arrow-up" class="w-5 h-5 mr-2" /> CSV Import
               </.link>
 
               <.link

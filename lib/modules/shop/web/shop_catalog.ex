@@ -6,18 +6,40 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
 
   use PhoenixKitWeb, :live_view
 
+  alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
-    categories = Shop.list_categories(preload: [:parent])
-    {products, _total} = Shop.list_products_with_count(status: "active", per_page: 12)
+    categories = Shop.list_active_categories(preload: [:parent])
+
+    {products, _total} =
+      Shop.list_products_with_count(
+        status: "active",
+        per_page: 12,
+        exclude_hidden_categories: true
+      )
+
     currency = Shop.get_default_currency()
 
     # Check if user is authenticated
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
+    # Build dashboard tabs with shop categories for authenticated users
+    dashboard_tabs =
+      if authenticated do
+        build_dashboard_tabs_with_shop(
+          categories,
+          nil,
+          socket.assigns[:url_path] || "/shop",
+          socket.assigns[:phoenix_kit_current_scope]
+        )
+      else
+        nil
+      end
 
     socket =
       socket
@@ -26,8 +48,85 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       |> assign(:products, products)
       |> assign(:currency, currency)
       |> assign(:authenticated, authenticated)
+      |> assign(:dashboard_tabs, dashboard_tabs)
 
     {:ok, socket}
+  end
+
+  # Build dashboard tabs including shop categories as subtabs
+  defp build_dashboard_tabs_with_shop(categories, current_category, current_path, scope) do
+    # Get existing dashboard tabs from registry
+    base_tabs = Registry.get_tabs_with_active(current_path, scope: scope)
+
+    # Find existing shop tab and update it, or create new one if not found
+    {updated_tabs, shop_exists?} = update_existing_shop_tab(base_tabs)
+
+    # Create category subtabs
+    category_tabs = build_category_subtabs(categories, current_category)
+
+    if shop_exists? do
+      # Shop tab exists - just append category subtabs
+      updated_tabs ++ category_tabs
+    else
+      # No shop tab in registry - create one with categories
+      shop_tab = create_shop_parent_tab(current_category)
+      updated_tabs ++ [shop_tab | category_tabs]
+    end
+  end
+
+  # Update existing dashboard_shop tab to show subtabs always
+  defp update_existing_shop_tab(tabs) do
+    shop_exists? = Enum.any?(tabs, &(&1.id == :dashboard_shop))
+
+    updated_tabs =
+      Enum.map(tabs, fn tab ->
+        if tab.id == :dashboard_shop do
+          %{tab | subtab_display: :always}
+        else
+          tab
+        end
+      end)
+
+    {updated_tabs, shop_exists?}
+  end
+
+  # Create shop parent tab (only if not in registry)
+  defp create_shop_parent_tab(current_category) do
+    tab =
+      Tab.new!(
+        id: :dashboard_shop,
+        label: "Shop",
+        icon: "hero-building-storefront",
+        path: Routes.path("/shop"),
+        priority: 300,
+        group: :shop,
+        match: :prefix,
+        subtab_display: :always
+      )
+
+    Map.put(tab, :active, is_nil(current_category))
+  end
+
+  # Build category subtabs for existing dashboard_shop tab
+  defp build_category_subtabs(categories, current_category) do
+    categories
+    |> Enum.with_index()
+    |> Enum.map(fn {cat, idx} ->
+      tab =
+        Tab.new!(
+          id: String.to_atom("shop_cat_#{cat.id}"),
+          label: cat.name,
+          icon: "hero-folder",
+          path: Routes.path("/shop/category/#{cat.slug}"),
+          priority: 301 + idx,
+          parent: :dashboard_shop,
+          group: :shop,
+          match: :prefix
+        )
+
+      is_active = current_category && current_category.id == cat.id
+      Map.put(tab, :active, is_active)
+    end)
   end
 
   @impl true
@@ -58,10 +157,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
                   class="card bg-base-100 shadow-md hover:shadow-xl transition-shadow"
                 >
                   <div class="card-body items-center text-center p-4">
-                    <%= if category.image_url do %>
+                    <%= if image_url = Category.get_image_url(category) do %>
                       <div class="w-16 h-16 rounded-full overflow-hidden mb-2">
                         <img
-                          src={category.image_url}
+                          src={image_url}
                           alt={category.name}
                           class="w-full h-full object-cover"
                         />
@@ -124,16 +223,49 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
         {render_slot(@inner_block)}
       </PhoenixKitWeb.Layouts.dashboard>
     <% else %>
-      <PhoenixKitWeb.Components.LayoutWrapper.app_layout
-        flash={@flash}
-        phoenix_kit_current_scope={@phoenix_kit_current_scope}
-        current_path={@url_path}
-        current_locale={@current_locale}
-        page_title={@page_title}
-      >
+      <.shop_public_layout {assigns}>
         {render_slot(@inner_block)}
-      </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
+      </.shop_public_layout>
     <% end %>
+    """
+  end
+
+  # Public shop layout with wide container for guests
+  slot :inner_block, required: true
+
+  defp shop_public_layout(assigns) do
+    ~H"""
+    <div class="min-h-screen bg-base-100">
+      <%!-- Simple navbar for shop --%>
+      <nav class="navbar bg-base-100 shadow-sm border-b border-base-200">
+        <div class="navbar-start">
+          <.link navigate="/" class="btn btn-ghost text-xl">
+            <.icon name="hero-home" class="w-5 h-5" />
+          </.link>
+        </div>
+        <div class="navbar-center">
+          <.link navigate={Routes.path("/shop")} class="btn btn-ghost text-xl">
+            <.icon name="hero-shopping-bag" class="w-5 h-5 mr-2" /> Shop
+          </.link>
+        </div>
+        <div class="navbar-end gap-2">
+          <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-circle">
+            <.icon name="hero-shopping-cart" class="w-5 h-5" />
+          </.link>
+          <.link navigate={Routes.path("/users/log-in")} class="btn btn-primary btn-sm">
+            Sign In
+          </.link>
+        </div>
+      </nav>
+
+      <%!-- Flash messages --%>
+      <.flash_group flash={@flash} />
+
+      <%!-- Wide content area --%>
+      <main class="py-6">
+        {render_slot(@inner_block)}
+      </main>
+    </div>
     """
   end
 
@@ -183,7 +315,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
     """
   end
 
-  defp first_image(%{images: [first | _]}), do: first
+  defp first_image(%{images: [%{"src" => src} | _]}), do: src
+  defp first_image(%{images: [first | _]}) when is_binary(first), do: first
   defp first_image(_), do: nil
 
   defp format_price(nil, _currency), do: "-"

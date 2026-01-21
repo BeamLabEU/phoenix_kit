@@ -22,10 +22,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
   end
 
   defp apply_action(socket, :new, _params) do
-    method = %ShippingMethod{}
+    default_currency = Billing.get_default_currency()
+    default_currency_code = if default_currency, do: default_currency.code, else: "USD"
+
+    method = %ShippingMethod{currency: default_currency_code}
     changeset = Shop.change_shipping_method(method)
     currencies = load_currencies()
-    default_currency = Billing.get_default_currency()
 
     socket
     |> assign(:page_title, "New Shipping Method")
@@ -100,83 +102,110 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-3xl mx-auto">
-        <div class="flex items-center justify-between mb-8">
-          <h1 class="text-3xl font-bold">{@page_title}</h1>
-          <.link navigate={Routes.path("/admin/shop/shipping")} class="btn btn-ghost">
-            <.icon name="hero-x-mark" class="w-5 h-5" />
-          </.link>
-        </div>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop/shipping")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">{@page_title}</h1>
+              <p class="text-base-content/70 mt-1">Configure shipping method details</p>
+            </div>
+          </div>
+        </header>
 
         <.form for={@changeset} phx-change="validate" phx-submit="save" class="space-y-6">
           <%!-- Basic Info --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Basic Information</h2>
+              <h2 class="card-title text-xl mb-6">Basic Information</h2>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Name *</span></label>
-                <input
-                  type="text"
-                  name="shipping_method[name]"
-                  value={Ecto.Changeset.get_field(@changeset, :name)}
-                  class={["input input-bordered", @changeset.errors[:name] && "input-error"]}
-                  placeholder="Standard Shipping"
-                  required
-                />
-                <%= if @changeset.errors[:name] do %>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="form-control w-full">
                   <label class="label">
-                    <span class="label-text-alt text-error">
-                      {elem(@changeset.errors[:name], 0)}
-                    </span>
+                    <span class="label-text font-medium">Name *</span>
                   </label>
-                <% end %>
-              </div>
+                  <input
+                    type="text"
+                    name="shipping_method[name]"
+                    value={Ecto.Changeset.get_field(@changeset, :name)}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @changeset.errors[:name] && "input-error"
+                    ]}
+                    placeholder="Standard Shipping"
+                    required
+                  />
+                  <%= if @changeset.errors[:name] do %>
+                    <label class="label">
+                      <span class="label-text-alt text-error">
+                        {elem(@changeset.errors[:name], 0)}
+                      </span>
+                    </label>
+                  <% end %>
+                </div>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Slug</span></label>
-                <input
-                  type="text"
-                  name="shipping_method[slug]"
-                  value={Ecto.Changeset.get_field(@changeset, :slug)}
-                  class="input input-bordered"
-                  placeholder="standard-shipping (auto-generated if empty)"
-                />
-              </div>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Slug</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="shipping_method[slug]"
+                    value={Ecto.Changeset.get_field(@changeset, :slug)}
+                    class="input input-bordered w-full focus:input-primary"
+                    placeholder="auto-generated if empty"
+                  />
+                </div>
 
-              <div class="form-control">
-                <label class="label"><span class="label-text">Description</span></label>
-                <textarea
-                  name="shipping_method[description]"
-                  class="textarea textarea-bordered"
-                  placeholder="Delivery in 3-5 business days"
-                  rows="2"
-                >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
+                <div class="form-control w-full md:col-span-2">
+                  <label class="label">
+                    <span class="label-text font-medium">Description</span>
+                  </label>
+                  <textarea
+                    name="shipping_method[description]"
+                    class="textarea textarea-bordered w-full focus:textarea-primary"
+                    placeholder="Delivery in 3-5 business days"
+                    rows="2"
+                  >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
+                </div>
               </div>
             </div>
           </div>
 
           <%!-- Pricing --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Pricing</h2>
+              <h2 class="card-title text-xl mb-6">Pricing</h2>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Price *</span></label>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Price *</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[price]"
                     value={Ecto.Changeset.get_field(@changeset, :price)}
-                    class={["input input-bordered", @changeset.errors[:price] && "input-error"]}
+                    class={[
+                      "input input-bordered w-full focus:input-primary",
+                      @changeset.errors[:price] && "input-error"
+                    ]}
                     step="0.01"
                     min="0"
                     required
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Currency</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Currency</span>
+                  </label>
                   <%= if @currencies == [] do %>
                     <div class="input input-bordered flex items-center bg-base-200">
                       {if @default_currency,
@@ -188,13 +217,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
                       name="shipping_method[currency]"
                       value={if @default_currency, do: @default_currency.code, else: "USD"}
                     />
-                    <label class="label">
-                      <span class="label-text-alt text-base-content/60">
-                        Configure currencies in Billing → Currencies
-                      </span>
-                    </label>
                   <% else %>
-                    <select name="shipping_method[currency]" class="select select-bordered">
+                    <select
+                      name="shipping_method[currency]"
+                      class="select select-bordered w-full focus:select-primary"
+                    >
                       <%= for currency <- @currencies do %>
                         <option
                           value={currency.code}
@@ -207,138 +234,143 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
                   <% end %>
                 </div>
 
-                <div class="form-control md:col-span-2">
-                  <label class="label"><span class="label-text">Free shipping above</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Free above</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[free_above_amount]"
                     value={Ecto.Changeset.get_field(@changeset, :free_above_amount)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     step="0.01"
                     min="0"
-                    placeholder="Leave empty for no threshold"
+                    placeholder="No threshold"
                   />
-                  <label class="label">
-                    <span class="label-text-alt text-base-content/60">
-                      Shipping becomes free when order subtotal reaches this amount
-                    </span>
-                  </label>
                 </div>
               </div>
             </div>
           </div>
 
           <%!-- Constraints --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Constraints</h2>
+              <h2 class="card-title text-xl mb-6">Constraints</h2>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Min weight (grams)</span></label>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Min weight (g)</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[min_weight_grams]"
                     value={Ecto.Changeset.get_field(@changeset, :min_weight_grams)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     min="0"
+                    placeholder="0"
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Max weight (grams)</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Max weight (g)</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[max_weight_grams]"
                     value={Ecto.Changeset.get_field(@changeset, :max_weight_grams)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     min="0"
                     placeholder="No limit"
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Min order amount</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Min order</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[min_order_amount]"
                     value={Ecto.Changeset.get_field(@changeset, :min_order_amount)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     step="0.01"
                     min="0"
-                    placeholder="No minimum"
+                    placeholder="No min"
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Max order amount</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Max order</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[max_order_amount]"
                     value={Ecto.Changeset.get_field(@changeset, :max_order_amount)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     step="0.01"
                     min="0"
-                    placeholder="No maximum"
+                    placeholder="No max"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          <%!-- Delivery Estimate --%>
-          <div class="card bg-base-100 shadow-lg">
+          <%!-- Delivery & Status --%>
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
-              <h2 class="card-title mb-4">Delivery Estimate</h2>
+              <h2 class="card-title text-xl mb-6">Delivery & Status</h2>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Estimated days (min)</span></label>
+              <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Est. days (min)</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[estimated_days_min]"
                     value={Ecto.Changeset.get_field(@changeset, :estimated_days_min)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
                     min="0"
+                    placeholder="1"
                   />
                 </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Estimated days (max)</span></label>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Est. days (max)</span>
+                  </label>
                   <input
                     type="number"
                     name="shipping_method[estimated_days_max]"
                     value={Ecto.Changeset.get_field(@changeset, :estimated_days_max)}
-                    class="input input-bordered"
+                    class="input input-bordered w-full focus:input-primary"
+                    min="0"
+                    placeholder="5"
+                  />
+                </div>
+
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Position</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="shipping_method[position]"
+                    value={Ecto.Changeset.get_field(@changeset, :position) || 0}
+                    class="input input-bordered w-full focus:input-primary"
                     min="0"
                   />
                 </div>
 
-                <div class="form-control md:col-span-2">
-                  <label class="label cursor-pointer justify-start gap-3">
-                    <input type="hidden" name="shipping_method[tracking_supported]" value="false" />
-                    <input
-                      type="checkbox"
-                      name="shipping_method[tracking_supported]"
-                      value="true"
-                      checked={Ecto.Changeset.get_field(@changeset, :tracking_supported)}
-                      class="checkbox checkbox-primary"
-                    />
-                    <span class="label-text">Tracking supported</span>
+                <div class="form-control w-full">
+                  <label class="label">
+                    <span class="label-text font-medium">Status</span>
                   </label>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <%!-- Status --%>
-          <div class="card bg-base-100 shadow-lg">
-            <div class="card-body">
-              <h2 class="card-title mb-4">Status</h2>
-
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="form-control">
-                  <label class="label cursor-pointer justify-start gap-3">
+                  <label class="label cursor-pointer justify-start gap-3 h-12">
                     <input type="hidden" name="shipping_method[active]" value="false" />
                     <input
                       type="checkbox"
@@ -349,39 +381,34 @@ defmodule PhoenixKit.Modules.Shop.Web.ShippingMethodForm do
                     />
                     <span class="label-text">Active</span>
                   </label>
-                  <label class="label">
-                    <span class="label-text-alt text-base-content/60">
-                      Inactive methods are not shown to customers
-                    </span>
-                  </label>
                 </div>
+              </div>
 
-                <div class="form-control">
-                  <label class="label"><span class="label-text">Position</span></label>
+              <div class="divider my-2"></div>
+
+              <div class="form-control">
+                <label class="label cursor-pointer justify-start gap-3">
+                  <input type="hidden" name="shipping_method[tracking_supported]" value="false" />
                   <input
-                    type="number"
-                    name="shipping_method[position]"
-                    value={Ecto.Changeset.get_field(@changeset, :position) || 0}
-                    class="input input-bordered"
-                    min="0"
+                    type="checkbox"
+                    name="shipping_method[tracking_supported]"
+                    value="true"
+                    checked={Ecto.Changeset.get_field(@changeset, :tracking_supported)}
+                    class="checkbox checkbox-primary"
                   />
-                  <label class="label">
-                    <span class="label-text-alt text-base-content/60">
-                      Lower numbers appear first
-                    </span>
-                  </label>
-                </div>
+                  <span class="label-text font-medium">Tracking supported</span>
+                </label>
               </div>
             </div>
           </div>
 
           <%!-- Submit --%>
           <div class="flex justify-end gap-4">
-            <.link navigate={Routes.path("/admin/shop/shipping")} class="btn btn-ghost">
+            <.link navigate={Routes.path("/admin/shop/shipping")} class="btn btn-outline">
               Cancel
             </.link>
             <button type="submit" class="btn btn-primary">
-              <.icon name="hero-check" class="w-5 h-5 mr-2" />
+              <.icon name="hero-check" class="w-4 h-4 mr-2" />
               {if @live_action == :new, do: "Create Method", else: "Update Method"}
             </button>
           </div>
