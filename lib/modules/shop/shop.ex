@@ -36,6 +36,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Options
+  alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Settings
@@ -207,8 +208,13 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Creates a new product.
+
+  Automatically normalizes metadata (price modifiers, option values)
+  before saving to ensure consistent storage format.
   """
   def create_product(attrs) do
+    attrs = MetadataValidator.normalize_product_attrs(attrs)
+
     %Product{}
     |> Product.changeset(attrs)
     |> repo().insert()
@@ -216,8 +222,13 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Updates a product.
+
+  Automatically normalizes metadata (price modifiers, option values)
+  before saving to ensure consistent storage format.
   """
   def update_product(%Product{} = product, attrs) do
+    attrs = MetadataValidator.normalize_product_attrs(attrs)
+
     product
     |> Product.changeset(attrs)
     |> repo().update()
@@ -235,6 +246,45 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def change_product(%Product{} = product, attrs \\ %{}) do
     Product.changeset(product, attrs)
+  end
+
+  @doc """
+  Bulk update product status.
+  Returns count of updated products.
+  """
+  def bulk_update_product_status(ids, status) when is_list(ids) and is_binary(status) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+
+    count
+  end
+
+  @doc """
+  Bulk update product category.
+  Returns count of updated products.
+  """
+  def bulk_update_product_category(ids, category_id) when is_list(ids) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().update_all(set: [category_id: category_id, updated_at: DateTime.utc_now()])
+
+    count
+  end
+
+  @doc """
+  Bulk delete products.
+  Returns count of deleted products.
+  """
+  def bulk_delete_products(ids) when is_list(ids) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().delete_all()
+
+    count
   end
 
   # ============================================
@@ -346,6 +396,7 @@ defmodule PhoenixKit.Modules.Shop do
 
   ## Options
   - `:parent_id` - Filter by parent (nil for root categories)
+  - `:status` - Filter by status: "active", "hidden", "archived", or list of statuses
   - `:search` - Search in name
   - `:preload` - Associations to preload
   """
@@ -362,6 +413,13 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def list_root_categories(opts \\ []) do
     list_categories(Keyword.put(opts, :parent_id, nil))
+  end
+
+  @doc """
+  Lists active categories only (for storefront display).
+  """
+  def list_active_categories(opts \\ []) do
+    list_categories(Keyword.put(opts, :status, "active"))
   end
 
   @doc """
@@ -1335,6 +1393,7 @@ defmodule PhoenixKit.Modules.Shop do
     |> filter_by_product_type(Keyword.get(opts, :product_type))
     |> filter_by_category(Keyword.get(opts, :category_id))
     |> filter_by_product_search(Keyword.get(opts, :search))
+    |> filter_by_visible_categories(Keyword.get(opts, :exclude_hidden_categories, false))
   end
 
   defp filter_by_status(query, nil), do: query
@@ -1345,6 +1404,18 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_category(query, nil), do: query
   defp filter_by_category(query, id), do: where(query, [p], p.category_id == ^id)
+
+  defp filter_by_visible_categories(query, false), do: query
+
+  defp filter_by_visible_categories(query, true) do
+    # Exclude products from categories with status "hidden"
+    # Products from "active" and "unlisted" categories are visible
+    from(p in query,
+      left_join: c in Category,
+      on: c.id == p.category_id,
+      where: is_nil(c.id) or c.status != "hidden"
+    )
+  end
 
   defp filter_by_product_search(query, nil), do: query
   defp filter_by_product_search(query, ""), do: query
@@ -1362,12 +1433,23 @@ defmodule PhoenixKit.Modules.Shop do
   defp apply_category_filters(query, opts) do
     query
     |> filter_by_parent(Keyword.get(opts, :parent_id, :skip))
+    |> filter_by_category_status(Keyword.get(opts, :status, :skip))
     |> filter_by_category_search(Keyword.get(opts, :search))
   end
 
   defp filter_by_parent(query, :skip), do: query
   defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_id))
   defp filter_by_parent(query, id), do: where(query, [c], c.parent_id == ^id)
+
+  defp filter_by_category_status(query, :skip), do: query
+
+  defp filter_by_category_status(query, status) when is_binary(status) do
+    where(query, [c], c.status == ^status)
+  end
+
+  defp filter_by_category_status(query, statuses) when is_list(statuses) do
+    where(query, [c], c.status in ^statuses)
+  end
 
   defp filter_by_category_search(query, nil), do: query
   defp filter_by_category_search(query, ""), do: query
@@ -1480,4 +1562,152 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()
+
+  # ============================================
+  # IMPORT LOGS
+  # ============================================
+
+  alias PhoenixKit.Modules.Shop.ImportLog
+
+  @doc """
+  Creates a new import log entry.
+  """
+  def create_import_log(attrs) do
+    %ImportLog{}
+    |> ImportLog.create_changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Gets an import log by ID.
+  """
+  def get_import_log(id) when is_integer(id) do
+    repo().get(ImportLog, id)
+  end
+
+  def get_import_log(uuid) when is_binary(uuid) do
+    repo().get_by(ImportLog, uuid: uuid)
+  end
+
+  @doc """
+  Gets an import log by ID, raises if not found.
+  """
+  def get_import_log!(id) when is_integer(id) do
+    repo().get!(ImportLog, id)
+  end
+
+  @doc """
+  Lists recent import logs.
+  """
+  def list_import_logs(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+
+    ImportLog
+    |> order_by([l], desc: l.inserted_at)
+    |> limit(^limit)
+    |> repo().all()
+    |> repo().preload(:user)
+  end
+
+  @doc """
+  Updates an import log.
+  """
+  def update_import_log(%ImportLog{} = import_log, attrs) do
+    import_log
+    |> ImportLog.update_changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as started.
+  """
+  def start_import(%ImportLog{} = import_log, total_rows) do
+    import_log
+    |> ImportLog.start_changeset(total_rows)
+    |> repo().update()
+  end
+
+  @doc """
+  Updates import progress.
+  """
+  def update_import_progress(%ImportLog{} = import_log, attrs) do
+    import_log
+    |> ImportLog.progress_changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as completed.
+  """
+  def complete_import(%ImportLog{} = import_log, stats) do
+    import_log
+    |> ImportLog.complete_changeset(stats)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as failed.
+  """
+  def fail_import(%ImportLog{} = import_log, error) do
+    import_log
+    |> ImportLog.fail_changeset(error)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes an import log.
+  """
+  def delete_import_log(%ImportLog{} = import_log) do
+    # Also delete the temp file if it exists
+    if import_log.file_path && File.exists?(import_log.file_path) do
+      File.rm(import_log.file_path)
+    end
+
+    repo().delete(import_log)
+  end
+
+  # ============================================
+  # PRODUCT UPSERT
+  # ============================================
+
+  @doc """
+  Creates or updates a product by slug.
+
+  Uses upsert (INSERT ... ON CONFLICT) to handle existing products.
+  Returns {:ok, product} with :inserted or :updated action.
+  """
+  def upsert_product(attrs) do
+    changeset = Product.changeset(%Product{}, attrs)
+
+    case repo().insert(changeset,
+           on_conflict:
+             {:replace,
+              [
+                :title,
+                :description,
+                :body_html,
+                :price,
+                :compare_at_price,
+                :vendor,
+                :tags,
+                :status,
+                :images,
+                :featured_image,
+                :seo_title,
+                :seo_description,
+                :metadata,
+                :updated_at
+              ]},
+           conflict_target: :slug,
+           returning: true
+         ) do
+      {:ok, product} ->
+        # Check if this was an insert or update by checking timestamps
+        action = if product.inserted_at == product.updated_at, do: :inserted, else: :updated
+        {:ok, product, action}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
 end

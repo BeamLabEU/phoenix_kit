@@ -1613,23 +1613,29 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   defp currency_symbol(%Currency{symbol: symbol}), do: symbol
   defp currency_symbol(_), do: "$"
 
-  # Get modifier override from product metadata (new structure with type and value)
+  # Get modifier override from product metadata
+  # Handles both formats:
+  # - String format (unified): "10.00" -> %{"type" => "fixed", "value" => "10.00"}
+  # - Object format (legacy): %{"type" => "fixed", "value" => "10.00"} -> returned as-is
   defp get_modifier_override(metadata, option_key, option_value) do
     case metadata do
       %{"_price_modifiers" => %{^option_key => %{^option_value => override}}}
       when is_map(override) ->
-        # New structure: %{"type" => "fixed", "value" => "10"}
-        if override["type"] && override["type"] != "" do
-          override
+        # Object format (legacy): %{"type" => "fixed", "value" => "10"}
+        if (override["type"] && override["type"] != "") or
+             (override["value"] && override["value"] != "") do
+          %{
+            "type" => override["type"] || "fixed",
+            "value" => override["value"] || "0"
+          }
         else
           nil
         end
 
       %{"_price_modifiers" => %{^option_key => %{^option_value => value}}}
-      when is_binary(value) ->
-        # Old structure (backward compat): just a value string
-        # Treat as custom with inherited type
-        nil
+      when is_binary(value) and value != "" ->
+        # String format (unified): convert to object for UI display
+        %{"type" => "fixed", "value" => value}
 
       _ ->
         nil
@@ -1910,6 +1916,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   # Convert a single modifier data entry
   # Handle map format (from schema options with final_price key)
+  # Always returns string format for consistency with imports
   defp convert_modifier_data(modifier_data, base_price) when is_map(modifier_data) do
     final_price_str = modifier_data["final_price"]
 
@@ -1917,25 +1924,21 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       # If final_price is provided, calculate modifier from it
       final_price_str && final_price_str != "" ->
         final_price = parse_decimal(final_price_str)
-        # modifier = final_price - base_price (always store as fixed)
+        # modifier = final_price - base_price
         modifier = Decimal.sub(final_price, base_price)
 
         # Only store if it's different from 0 (otherwise use default)
         if Decimal.compare(modifier, Decimal.new("0")) == :eq do
           nil
         else
-          %{
-            "type" => "fixed",
-            "value" => Decimal.to_string(Decimal.round(modifier, 2))
-          }
+          # Return simple string (unified format)
+          Decimal.to_string(Decimal.round(modifier, 2))
         end
 
-      # If no final_price but has explicit value, keep as-is
+      # If no final_price but has explicit value, extract and return as string
       modifier_data["value"] && modifier_data["value"] != "" ->
-        %{
-          "type" => modifier_data["type"] || "fixed",
-          "value" => modifier_data["value"]
-        }
+        # Return just the value string (unified format)
+        modifier_data["value"]
 
       # No valid data
       true ->
