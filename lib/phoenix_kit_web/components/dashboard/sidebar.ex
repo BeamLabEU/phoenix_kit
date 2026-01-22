@@ -261,8 +261,10 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
 
     # Determine if parent should be highlighted
     # If highlight_with_subtabs is false (default) and a subtab is active, don't highlight parent
+    highlight_with_subtabs = Map.get(assigns.tab, :highlight_with_subtabs, false)
+
     parent_active =
-      if subtab_active and not assigns.tab.highlight_with_subtabs do
+      if subtab_active and not highlight_with_subtabs do
         false
       else
         assigns.tab.active
@@ -544,8 +546,10 @@ defmodule PhoenixKitWeb.Components.Dashboard.Sidebar do
     display_tab = maybe_redirect_to_first_subtab(assigns.tab, subtabs)
 
     # Apply highlight_with_subtabs logic
+    highlight_with_subtabs = Map.get(assigns.tab, :highlight_with_subtabs, false)
+
     parent_active =
-      if subtab_active and not assigns.tab.highlight_with_subtabs do
+      if subtab_active and not highlight_with_subtabs do
         false
       else
         assigns.tab.active

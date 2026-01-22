@@ -92,7 +92,13 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ADD COLUMN IF NOT EXISTS selected_specs JSONB DEFAULT '{}';
     """
 
-    # 5. Create import_logs table for CSV import history
+    # 5. Create GIN index for selected_specs JSONB for efficient querying
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_cart_items_selected_specs
+    ON #{prefix_str}phoenix_kit_shop_cart_items USING GIN(selected_specs);
+    """
+
+    # 6. Create import_logs table for CSV import history
     execute """
     CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_shop_import_logs (
       id BIGSERIAL PRIMARY KEY,
@@ -141,12 +147,53 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ON #{prefix_str}phoenix_kit_shop_import_logs(user_id);
     """
 
-    # 6. Update version
+    # 7. Create import_configs table for configurable CSV import filtering
+    execute """
+    CREATE TABLE IF NOT EXISTS #{prefix_str}phoenix_kit_shop_import_configs (
+      id BIGSERIAL PRIMARY KEY,
+      uuid UUID DEFAULT gen_random_uuid(),
+      name VARCHAR(255) NOT NULL,
+      include_keywords TEXT[] DEFAULT '{}',
+      exclude_keywords TEXT[] DEFAULT '{}',
+      exclude_phrases TEXT[] DEFAULT '{}',
+      skip_filter BOOLEAN DEFAULT false,
+      category_rules JSONB DEFAULT '[]',
+      default_category_slug VARCHAR(255),
+      required_columns TEXT[] DEFAULT ARRAY['Handle', 'Title', 'Variant Price'],
+      is_default BOOLEAN DEFAULT false,
+      active BOOLEAN DEFAULT true,
+      inserted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+    """
+
+    execute """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shop_import_configs_uuid
+    ON #{prefix_str}phoenix_kit_shop_import_configs(uuid);
+    """
+
+    execute """
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_shop_import_configs_name
+    ON #{prefix_str}phoenix_kit_shop_import_configs(name);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_import_configs_is_default
+    ON #{prefix_str}phoenix_kit_shop_import_configs(is_default) WHERE is_default = true;
+    """
+
+    # 8. Update version
     execute "COMMENT ON TABLE #{prefix_str}phoenix_kit IS '46'"
   end
 
   def down(%{prefix: prefix} = _opts) do
     prefix_str = if prefix && prefix != "public", do: "#{prefix}.", else: ""
+
+    # Drop import_configs table and indexes
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_configs_is_default;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_configs_name;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_configs_uuid;"
+    execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_import_configs CASCADE;"
 
     # Drop import_logs table and indexes
     execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_user_id;"
@@ -154,6 +201,9 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_status;"
     execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_import_logs_uuid;"
     execute "DROP TABLE IF EXISTS #{prefix_str}phoenix_kit_shop_import_logs CASCADE;"
+
+    # Drop GIN index for selected_specs
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_cart_items_selected_specs;"
 
     # Remove selected_specs from cart_items
     execute """

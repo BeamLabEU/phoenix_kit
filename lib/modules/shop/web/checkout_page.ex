@@ -2,6 +2,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   @moduledoc """
   Checkout page LiveView for converting cart to order.
   Supports both logged-in users (with billing profiles) and guest checkout.
+
+  Supports real-time cart synchronization across multiple browser tabs
+  via PubSub subscription.
   """
 
   use PhoenixKitWeb, :live_view
@@ -12,6 +15,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Billing.PaymentOption
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -45,6 +49,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp setup_checkout_assigns(socket, cart, user) do
     is_guest = is_nil(user)
     authenticated = not is_nil(socket.assigns[:phoenix_kit_current_user])
+
+    # Subscribe to cart events for real-time sync across tabs
+    if connected?(socket) do
+      Events.subscribe_to_cart(cart)
+    end
 
     # Load and auto-select payment option
     payment_options = Billing.list_active_payment_options()
@@ -457,6 +466,57 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
   defp blank?(""), do: true
   defp blank?(str) when is_binary(str), do: String.trim(str) == ""
   defp blank?(_), do: false
+
+  # ============================================
+  # PUBSUB EVENT HANDLERS
+  # ============================================
+
+  @impl true
+  def handle_info({:cart_updated, cart}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:item_added, cart, _item}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:item_removed, cart, _item_id}, socket) do
+    # If cart becomes empty, redirect to cart page
+    if Enum.empty?(cart.items) do
+      {:noreply, redirect_to_cart(socket, "Your cart is empty")}
+    else
+      {:noreply, assign(socket, :cart, cart)}
+    end
+  end
+
+  @impl true
+  def handle_info({:quantity_updated, cart, _item}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:shipping_selected, cart}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:payment_selected, cart}, socket) do
+    # Also update selected_payment_option if it changed
+    selected = Enum.find(socket.assigns.payment_options, &(&1.id == cart.payment_option_id))
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:selected_payment_option, selected)}
+  end
+
+  @impl true
+  def handle_info({:cart_cleared, _cart}, socket) do
+    # Cart was cleared, redirect to cart page
+    {:noreply, redirect_to_cart(socket, "Your cart is empty")}
+  end
 
   @impl true
   def render(assigns) do
@@ -1018,6 +1078,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
                 <% end %>
                 <div class="flex-1">
                   <div class="font-medium">{item.product_title}</div>
+                  <%= if item.selected_specs && item.selected_specs != %{} do %>
+                    <div class="text-xs text-base-content/60 mt-0.5">
+                      <%= for {key, value} <- item.selected_specs do %>
+                        <span class="inline-block mr-2">
+                          <span class="font-medium">{humanize_key(key)}:</span>
+                          <span>{value}</span>
+                        </span>
+                      <% end %>
+                    </div>
+                  <% end %>
                   <div class="text-sm text-base-content/60">
                     Qty: {item.quantity} × {format_price(item.unit_price, @currency)}
                   </div>
@@ -1154,4 +1224,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CheckoutPage do
       _ -> nil
     end
   end
+
+  # Convert key to human-readable format: "material_type" -> "Material Type"
+  defp humanize_key(key) when is_binary(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp humanize_key(key), do: to_string(key)
 end

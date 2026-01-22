@@ -8,6 +8,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   - `import_log_id` - ID of the ImportLog record
   - `path` - Path to the uploaded CSV file
+  - `config_id` - Optional ImportConfig ID for filtering rules
 
   ## Usage
 
@@ -15,7 +16,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
       CSVImportWorker.new(%{
         import_log_id: log.id,
-        path: "/tmp/uploads/products.csv"
+        path: "/tmp/uploads/products.csv",
+        config_id: config.id  # optional
       })
       |> Oban.insert()
 
@@ -33,7 +35,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     unique: [period: :infinity, keys: [:import_log_id], states: :incomplete]
 
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Import.{CSVParser, Filter, ProductTransformer}
+  alias PhoenixKit.Modules.Shop.Import.{CSVParser, CSVValidator, Filter, ProductTransformer}
+  alias PhoenixKit.Modules.Shop.ImportConfig
+  alias PhoenixKit.PubSub.Manager
+
   require Logger
 
   @progress_interval 50
@@ -42,14 +47,16 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
   def perform(%Oban.Job{args: args}) do
     import_log_id = Map.fetch!(args, "import_log_id")
     path = Map.fetch!(args, "path")
+    config_id = Map.get(args, "config_id")
 
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
     with {:ok, import_log} <- get_import_log(import_log_id),
-         :ok <- validate_file(path),
-         {:ok, total_rows} <- count_products(path),
+         {:ok, config} <- load_config(config_id, import_log),
+         :ok <- validate_file(path, config),
+         {:ok, total_rows} <- count_products(path, config),
          {:ok, import_log} <- start_import(import_log, total_rows),
-         {:ok, stats} <- process_file(import_log, path),
+         {:ok, stats} <- process_file(import_log, path, config),
          {:ok, _import_log} <- complete_import(import_log, stats) do
       cleanup_file(path)
       broadcast_complete(import_log_id, stats)
@@ -74,17 +81,60 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp validate_file(path) do
+  defp load_config(nil, import_log) do
+    # Try to load config from import_log options, or use default
+    config_id = get_in(import_log.options, ["config_id"])
+
+    if config_id do
+      load_config_by_id(config_id)
+    else
+      # Try to get default config, fall back to nil (legacy defaults)
+      case Shop.get_default_import_config() do
+        nil -> {:ok, nil}
+        config -> {:ok, config}
+      end
+    end
+  end
+
+  defp load_config(config_id, _import_log) when is_integer(config_id) do
+    load_config_by_id(config_id)
+  end
+
+  defp load_config(config_id, _import_log) when is_binary(config_id) do
+    load_config_by_id(String.to_integer(config_id))
+  end
+
+  defp load_config_by_id(config_id) do
+    case Shop.get_import_config(config_id) do
+      nil -> {:ok, nil}
+      config -> {:ok, config}
+    end
+  end
+
+  defp validate_file(path, config) do
+    # Check file exists
     if File.exists?(path) do
-      :ok
+      # Validate CSV structure
+      required_columns = get_required_columns(config)
+
+      case CSVValidator.validate_headers(path, required_columns) do
+        {:ok, _headers} -> :ok
+        {:error, reason} -> {:error, {:validation_failed, reason}}
+      end
     else
       {:error, :file_not_found}
     end
   end
 
-  defp count_products(path) do
+  defp get_required_columns(%ImportConfig{required_columns: cols}) when is_list(cols), do: cols
+  defp get_required_columns(_), do: ImportConfig.default_required_columns()
+
+  defp count_products(path, config) do
     grouped = CSVParser.parse_and_group(path)
-    filtered_count = Enum.count(grouped, fn {_handle, rows} -> Filter.should_include?(rows) end)
+
+    filtered_count =
+      Enum.count(grouped, fn {_handle, rows} -> Filter.should_include?(rows, config) end)
+
     {:ok, filtered_count}
   rescue
     e ->
@@ -99,7 +149,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp process_file(import_log, path) do
+  defp process_file(import_log, path, config) do
     categories_map = build_categories_map()
     grouped = CSVParser.parse_and_group(path)
 
@@ -113,10 +163,10 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
     result =
       grouped
-      |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows) end)
+      |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
       |> Enum.with_index(1)
       |> Enum.reduce(stats, fn {{handle, rows}, index}, acc ->
-        result = process_product(handle, rows, categories_map)
+        result = process_product(handle, rows, categories_map, config)
         new_acc = update_stats(acc, result)
 
         # Broadcast progress at intervals
@@ -134,8 +184,8 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       {:error, {:process_error, e}}
   end
 
-  defp process_product(handle, rows, categories_map) do
-    attrs = ProductTransformer.transform(handle, rows, categories_map)
+  defp process_product(handle, rows, categories_map, config) do
+    attrs = ProductTransformer.transform(handle, rows, categories_map, config)
 
     case Shop.upsert_product(attrs) do
       {:ok, _product, :inserted} ->
@@ -242,7 +292,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
 
   defp broadcast(import_log_id, message) do
     topic = "shop:import:#{import_log_id}"
-    Phoenix.PubSub.broadcast(PhoenixKit.PubSub, topic, message)
+    Manager.broadcast(topic, message)
   rescue
     _ -> :ok
   end

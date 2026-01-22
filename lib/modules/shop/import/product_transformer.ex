@@ -5,11 +5,15 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   Handles:
   - Basic product fields (title, description, price, etc.)
   - Option values and price modifiers in metadata
-  - Category assignment based on title keywords
+  - Category assignment based on title keywords (configurable)
   - Image collection
+  - Auto-creation of missing categories
   """
 
+  alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{Filter, OptionBuilder}
+
+  require Logger
 
   @doc """
   Transform a group of CSV rows (one product) into Product attrs.
@@ -19,25 +23,29 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   - handle: Product handle (slug)
   - rows: List of CSV row maps for this product
   - categories_map: Map of slug => category_id
+  - config: Optional ImportConfig for category rules (nil = legacy defaults)
 
   ## Returns
 
   Map suitable for `Shop.create_product/1`
   """
-  def transform(handle, rows, categories_map \\ %{}) do
+  def transform(handle, rows, categories_map \\ %{}, config \\ nil) do
     first_row = List.first(rows)
     options = OptionBuilder.build_from_variants(rows)
 
-    # Determine category
-    category_slug = Filter.categorize(first_row["Title"] || "")
-    category_id = Map.get(categories_map, category_slug)
+    # Determine category using config or legacy defaults
+    title = first_row["Title"] || ""
+    category_slug = Filter.categorize(title, config)
+
+    # Get category_id, auto-creating if necessary
+    category_id = resolve_category_id(category_slug, categories_map)
 
     # Build metadata with option values and price modifiers
     metadata = build_metadata(options)
 
     %{
       slug: handle,
-      title: first_row["Title"],
+      title: title,
       body_html: first_row["Body (HTML)"],
       description: extract_description(first_row["Body (HTML)"]),
       vendor: get_non_empty(first_row, "Vendor"),
@@ -55,6 +63,79 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       metadata: metadata
     }
   end
+
+  @doc """
+  Resolves category_id from slug, auto-creating if necessary.
+
+  If category doesn't exist, creates it with:
+  - name: Generated from slug (capitalize, replace hyphens with spaces)
+  - status: "active"
+  - slug: The original slug
+  """
+  def resolve_category_id(category_slug, categories_map) when is_binary(category_slug) do
+    case Map.get(categories_map, category_slug) do
+      nil ->
+        # Category doesn't exist - try to create it
+        maybe_create_category(category_slug)
+
+      category_id ->
+        category_id
+    end
+  end
+
+  def resolve_category_id(_, _), do: nil
+
+  defp maybe_create_category(slug) when is_binary(slug) and slug != "" do
+    # Generate name from slug: "vases-planters" -> "Vases Planters"
+    name =
+      slug
+      |> String.replace("-", " ")
+      |> String.split(" ")
+      |> Enum.map_join(" ", &String.capitalize/1)
+
+    attrs = %{
+      name: name,
+      slug: slug,
+      status: "active"
+    }
+
+    case Shop.create_category(attrs) do
+      {:ok, category} ->
+        Logger.info("Auto-created category: #{slug} (id: #{category.id})")
+        category.id
+
+      {:error, changeset} ->
+        # Might already exist due to race condition - try to fetch
+        case Shop.get_category_by_slug(slug) do
+          nil ->
+            Logger.warning("Failed to create category #{slug}: #{inspect(changeset.errors)}")
+            nil
+
+          category ->
+            category.id
+        end
+    end
+  end
+
+  defp maybe_create_category(_), do: nil
+
+  @doc """
+  Build an updated categories_map including any auto-created categories.
+
+  Call this after transform() to update the map for subsequent products.
+  """
+  def update_categories_map(categories_map, category_slug) when is_binary(category_slug) do
+    if Map.has_key?(categories_map, category_slug) do
+      categories_map
+    else
+      case Shop.get_category_by_slug(category_slug) do
+        nil -> categories_map
+        category -> Map.put(categories_map, category_slug, category.id)
+      end
+    end
+  end
+
+  def update_categories_map(categories_map, _), do: categories_map
 
   # Private helpers
 

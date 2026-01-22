@@ -14,6 +14,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.ImportLog
   alias PhoenixKit.Modules.Shop.Workers.CSVImportWorker
+  alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Utils.Routes
 
   require Logger
@@ -22,7 +23,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
   def mount(_params, _session, socket) do
     if connected?(socket) do
       # Subscribe to import updates
-      Phoenix.PubSub.subscribe(PhoenixKit.PubSub, "shop:imports")
+      Manager.subscribe("shop:imports")
     end
 
     socket =
@@ -83,7 +84,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
             |> Oban.insert()
 
             # Subscribe to this specific import
-            Phoenix.PubSub.subscribe(PhoenixKit.PubSub, "shop:import:#{import_log.id}")
+            Manager.subscribe("shop:import:#{import_log.id}")
 
             socket =
               socket
@@ -122,7 +123,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           |> Oban.insert()
 
           # Subscribe to updates
-          Phoenix.PubSub.subscribe(PhoenixKit.PubSub, "shop:import:#{updated_log.id}")
+          Manager.subscribe("shop:import:#{updated_log.id}")
 
           socket =
             socket

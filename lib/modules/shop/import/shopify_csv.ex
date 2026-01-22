@@ -2,7 +2,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   @moduledoc """
   Main orchestrator for Shopify CSV import.
 
-  Coordinates CSV parsing, filtering, transformation, and product creation.
+  Coordinates CSV parsing, validation, filtering, transformation, and product creation.
 
   ## Usage
 
@@ -12,13 +12,18 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       # Full import
       ShopifyCSV.import("/path/to/products.csv")
 
+      # Import with custom config
+      config = Shop.get_import_config!(config_id)
+      ShopifyCSV.import("/path/to/products.csv", config: config)
+
       # Import to specific category
       category = Shop.get_category_by_slug("shelves")
       ShopifyCSV.import("/path/to/products.csv", category_id: category.id)
   """
 
   alias PhoenixKit.Modules.Shop
-  alias PhoenixKit.Modules.Shop.Import.{CSVParser, Filter, ProductTransformer}
+  alias PhoenixKit.Modules.Shop.Import.{CSVParser, CSVValidator, Filter, ProductTransformer}
+  alias PhoenixKit.Modules.Shop.ImportConfig
 
   require Logger
 
@@ -31,6 +36,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   - `:category_id` - Override category for all products
   - `:skip_existing` - If true, skip products with existing slugs (default: true)
   - `:update_existing` - If true, update existing products instead of skipping (default: false)
+  - `:config` - ImportConfig struct for filtering/categorization (nil = use defaults)
+  - `:validate` - If true, validate CSV before import (default: true)
 
   Note: When `update_existing: true`, `skip_existing` is ignored.
 
@@ -43,12 +50,78 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   - `:errors` - count of failed imports
   - `:dry_run` - count of products in dry run
   - `:error_details` - list of error tuples
+  - `:validation_report` - CSV validation report (if validate: true)
   """
   def import(file_path, opts \\ []) do
     dry_run = Keyword.get(opts, :dry_run, false)
     category_id = Keyword.get(opts, :category_id)
     skip_existing = Keyword.get(opts, :skip_existing, true)
     update_existing = Keyword.get(opts, :update_existing, false)
+    config = Keyword.get(opts, :config)
+    validate = Keyword.get(opts, :validate, true)
+
+    # Get required columns from config if provided
+    required_columns = get_required_columns(config)
+
+    # Validate CSV first if requested
+    validation_result =
+      if validate do
+        case CSVValidator.validate_headers(file_path, required_columns) do
+          {:ok, _headers} ->
+            {:ok,
+             CSVValidator.get_validation_report(file_path, required_columns: required_columns)}
+
+          {:error, reason} ->
+            {:error, reason}
+        end
+      else
+        {:ok, nil}
+      end
+
+    case validation_result do
+      {:error, reason} ->
+        %{
+          imported: 0,
+          updated: 0,
+          dry_run: 0,
+          skipped: 0,
+          errors: 1,
+          error_details: [{:validation_failed, format_validation_error(reason)}],
+          validation_report: nil
+        }
+
+      {:ok, validation_report} ->
+        do_import(file_path, %{
+          dry_run: dry_run,
+          category_id: category_id,
+          skip_existing: skip_existing,
+          update_existing: update_existing,
+          config: config,
+          validation_report: validation_report
+        })
+    end
+  end
+
+  defp get_required_columns(%ImportConfig{required_columns: cols}) when is_list(cols), do: cols
+  defp get_required_columns(_), do: ImportConfig.default_required_columns()
+
+  defp format_validation_error({:missing_columns, cols}),
+    do: "Missing columns: #{Enum.join(cols, ", ")}"
+
+  defp format_validation_error(:file_not_found), do: "File not found"
+  defp format_validation_error(:empty_file), do: "File is empty"
+  defp format_validation_error({:parse_error, msg}), do: "CSV parse error: #{msg}"
+  defp format_validation_error(other), do: inspect(other)
+
+  defp do_import(file_path, opts) do
+    %{
+      dry_run: dry_run,
+      category_id: category_id,
+      skip_existing: skip_existing,
+      update_existing: update_existing,
+      config: config,
+      validation_report: validation_report
+    } = opts
 
     # Build categories map for auto-assignment
     categories_map = build_categories_map()
@@ -67,33 +140,37 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
           category_id: category_id,
           categories_map: categories_map,
           skip_existing: skip_existing,
-          update_existing: update_existing
+          update_existing: update_existing,
+          config: config
         })
       end)
 
-    summarize(results)
+    summary = summarize(results)
+    Map.put(summary, :validation_report, validation_report)
   end
 
   @doc """
   Quick dry run - just parse and filter, show what would be imported.
   """
-  def preview(file_path) do
+  def preview(file_path, opts \\ []) do
+    config = Keyword.get(opts, :config)
+
     grouped = CSVParser.parse_and_group(file_path)
 
     filtered =
       grouped
-      |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows) end)
+      |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
 
     Logger.info("Total products in CSV: #{map_size(grouped)}")
-    Logger.info("Would import (3D printed): #{length(filtered)}")
-    Logger.info("Would skip (decals, etc): #{map_size(grouped) - length(filtered)}")
+    Logger.info("Would import (matching filter): #{length(filtered)}")
+    Logger.info("Would skip (filtered out): #{map_size(grouped) - length(filtered)}")
 
     # Show sample
     filtered
     |> Enum.take(5)
     |> Enum.each(fn {handle, rows} ->
       first = List.first(rows)
-      category = Filter.categorize(first["Title"] || "")
+      category = Filter.categorize(first["Title"] || "", config)
       Logger.info("  #{handle} -> #{category}")
     end)
 
@@ -102,6 +179,18 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       would_import: length(filtered),
       would_skip: map_size(grouped) - length(filtered)
     }
+  end
+
+  @doc """
+  Validates CSV file without importing.
+
+  Returns validation report with headers, row count, and any warnings.
+  """
+  def validate(file_path, opts \\ []) do
+    config = Keyword.get(opts, :config)
+    required_columns = get_required_columns(config)
+
+    CSVValidator.get_validation_report(file_path, required_columns: required_columns)
   end
 
   # Private helpers
@@ -114,7 +203,9 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
   end
 
   defp process_product(handle, rows, opts) do
-    if Filter.should_include?(rows) do
+    config = opts.config
+
+    if Filter.should_include?(rows, config) do
       do_process_product(handle, rows, opts)
     else
       {:skipped, handle, :filtered}
@@ -125,11 +216,12 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
     %{
       dry_run: dry_run,
       category_id: override_category_id,
-      categories_map: categories_map
+      categories_map: categories_map,
+      config: config
     } = opts
 
-    # Transform
-    attrs = ProductTransformer.transform(handle, rows, categories_map)
+    # Transform with config
+    attrs = ProductTransformer.transform(handle, rows, categories_map, config)
 
     # Override category if specified
     attrs =

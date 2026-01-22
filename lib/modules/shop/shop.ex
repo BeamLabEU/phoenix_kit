@@ -35,6 +35,8 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Cart
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Events
+  alias PhoenixKit.Modules.Shop.ImportConfig
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
@@ -736,69 +738,105 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp add_simple_product_to_cart(cart, product, quantity) do
-    repo().transaction(fn ->
-      # Check if product already in cart (without specs)
-      existing = find_cart_item_by_specs(cart.id, product.id, %{})
+    result =
+      repo().transaction(fn ->
+        # Check if product already in cart (without specs)
+        existing = find_cart_item_by_specs(cart.id, product.id, %{})
 
-      case existing do
-        nil ->
-          # Create new item
-          attrs = CartItem.from_product(product, quantity) |> Map.put(:cart_id, cart.id)
-          %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+        item =
+          case existing do
+            nil ->
+              # Create new item
+              attrs = CartItem.from_product(product, quantity) |> Map.put(:cart_id, cart.id)
+              %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
 
-        item ->
-          # Update quantity
-          new_qty = item.quantity + quantity
-          item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
-      end
+            item ->
+              # Update quantity
+              new_qty = item.quantity + quantity
+              item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+          end
 
-      # Recalculate totals
-      recalculate_cart_totals!(cart)
-    end)
+        # Recalculate totals
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, item}} ->
+        Events.broadcast_item_added(updated_cart, item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   defp add_product_with_specs_to_cart(cart, product, quantity, selected_specs) do
     # Calculate price with spec modifiers
     calculated_price = calculate_product_price(product, selected_specs)
 
-    repo().transaction(fn ->
-      # Check if same product with same specs already in cart
-      existing = find_cart_item_by_specs(cart.id, product.id, selected_specs)
+    result =
+      repo().transaction(fn ->
+        # Check if same product with same specs already in cart
+        existing = find_cart_item_by_specs(cart.id, product.id, selected_specs)
 
-      case existing do
-        nil ->
-          # Create new item with specs and calculated price
-          attrs =
-            CartItem.from_product(product, quantity)
-            |> Map.put(:cart_id, cart.id)
-            |> Map.put(:unit_price, calculated_price)
-            |> Map.put(:selected_specs, selected_specs)
+        item =
+          case existing do
+            nil ->
+              # Create new item with specs and calculated price
+              attrs =
+                CartItem.from_product(product, quantity)
+                |> Map.put(:cart_id, cart.id)
+                |> Map.put(:unit_price, calculated_price)
+                |> Map.put(:selected_specs, selected_specs)
 
-          %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+              %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
 
-        item ->
-          # Update quantity (price already frozen from first add)
-          new_qty = item.quantity + quantity
-          item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
-      end
+            item ->
+              # Update quantity (price already frozen from first add)
+              new_qty = item.quantity + quantity
+              item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+          end
 
-      # Recalculate totals
-      recalculate_cart_totals!(cart)
-    end)
+        # Recalculate totals
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, item}} ->
+        Events.broadcast_item_added(updated_cart, item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Updates item quantity in cart.
   """
   def update_cart_item(%CartItem{} = item, quantity) when quantity > 0 do
-    repo().transaction(fn ->
-      item
-      |> CartItem.changeset(%{quantity: quantity})
-      |> repo().update!()
+    result =
+      repo().transaction(fn ->
+        updated_item =
+          item
+          |> CartItem.changeset(%{quantity: quantity})
+          |> repo().update!()
 
-      cart = repo().get!(Cart, item.cart_id)
-      recalculate_cart_totals!(cart)
-    end)
+        cart = repo().get!(Cart, item.cart_id)
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, updated_item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, updated_item}} ->
+        Events.broadcast_quantity_updated(updated_cart, updated_item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   def update_cart_item(%CartItem{} = item, 0), do: remove_from_cart(item)
@@ -807,26 +845,48 @@ defmodule PhoenixKit.Modules.Shop do
   Removes item from cart.
   """
   def remove_from_cart(%CartItem{} = item) do
-    repo().transaction(fn ->
-      cart_id = item.cart_id
-      repo().delete!(item)
+    item_id = item.id
 
-      cart = repo().get!(Cart, cart_id)
-      recalculate_cart_totals!(cart)
-    end)
+    result =
+      repo().transaction(fn ->
+        cart_id = item.cart_id
+        repo().delete!(item)
+
+        cart = repo().get!(Cart, cart_id)
+        recalculate_cart_totals!(cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_item_removed(updated_cart, item_id)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Clears all items from cart.
   """
   def clear_cart(%Cart{} = cart) do
-    repo().transaction(fn ->
-      CartItem
-      |> where([i], i.cart_id == ^cart.id)
-      |> repo().delete_all()
+    result =
+      repo().transaction(fn ->
+        CartItem
+        |> where([i], i.cart_id == ^cart.id)
+        |> repo().delete_all()
 
-      recalculate_cart_totals!(cart)
-    end)
+        recalculate_cart_totals!(cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_cart_cleared(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -844,18 +904,28 @@ defmodule PhoenixKit.Modules.Shop do
   def set_cart_shipping(%Cart{} = cart, %ShippingMethod{} = method, country) do
     shipping_cost = ShippingMethod.calculate_cost(method, cart.subtotal || Decimal.new("0"))
 
-    repo().transaction(fn ->
-      updated_cart =
-        cart
-        |> Cart.shipping_changeset(%{
-          shipping_method_id: method.id,
-          shipping_country: country,
-          shipping_amount: shipping_cost
-        })
-        |> repo().update!()
+    result =
+      repo().transaction(fn ->
+        updated_cart =
+          cart
+          |> Cart.shipping_changeset(%{
+            shipping_method_id: method.id,
+            shipping_country: country,
+            shipping_amount: shipping_cost
+          })
+          |> repo().update!()
 
-      recalculate_cart_totals!(updated_cart)
-    end)
+        recalculate_cart_totals!(updated_cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_shipping_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -863,15 +933,35 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def set_cart_payment_option(%Cart{} = cart, payment_option_id)
       when is_integer(payment_option_id) do
-    cart
-    |> Cart.payment_changeset(%{payment_option_id: payment_option_id})
-    |> repo().update()
+    result =
+      cart
+      |> Cart.payment_changeset(%{payment_option_id: payment_option_id})
+      |> repo().update()
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_payment_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   def set_cart_payment_option(%Cart{} = cart, nil) do
-    cart
-    |> Cart.payment_changeset(%{payment_option_id: nil})
-    |> repo().update()
+    result =
+      cart
+      |> Cart.payment_changeset(%{payment_option_id: nil})
+      |> repo().update()
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_payment_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -1151,7 +1241,8 @@ defmodule PhoenixKit.Modules.Shop do
       Enum.map(cart.items, fn item ->
         %{
           "name" => item.product_title,
-          "description" => item.product_slug,
+          "description" => format_item_description(item),
+          "selected_specs" => item.selected_specs || %{},
           "quantity" => item.quantity,
           "unit_price" => Decimal.to_string(item.unit_price),
           "total" => Decimal.to_string(item.line_total),
@@ -1358,6 +1449,29 @@ defmodule PhoenixKit.Modules.Shop do
   # ============================================
   # PRIVATE HELPERS
   # ============================================
+
+  # Format cart item description including selected_specs
+  defp format_item_description(%CartItem{product_slug: slug, selected_specs: specs})
+       when specs == %{} or is_nil(specs) do
+    slug
+  end
+
+  defp format_item_description(%CartItem{product_slug: slug, selected_specs: specs}) do
+    specs_text =
+      Enum.map_join(specs, ", ", fn {key, value} -> "#{humanize_key(key)}: #{value}" end)
+
+    "#{slug} (#{specs_text})"
+  end
+
+  # Convert key to human-readable format: "material_type" -> "Material Type"
+  defp humanize_key(key) when is_binary(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp humanize_key(key), do: to_string(key)
 
   defp count_products do
     Product |> repo().aggregate(:count, :id)
@@ -1664,6 +1778,116 @@ defmodule PhoenixKit.Modules.Shop do
     end
 
     repo().delete(import_log)
+  end
+
+  # ============================================
+  # IMPORT CONFIG CRUD
+  # ============================================
+
+  @doc """
+  Lists all active import configs.
+  """
+  def list_import_configs(opts \\ []) do
+    query =
+      ImportConfig
+      |> order_by([c], desc: c.is_default, asc: c.name)
+
+    query =
+      if Keyword.get(opts, :active_only, true) do
+        where(query, [c], c.active == true)
+      else
+        query
+      end
+
+    repo().all(query)
+  end
+
+  @doc """
+  Gets an import config by ID.
+  """
+  def get_import_config(id) when is_integer(id) do
+    repo().get(ImportConfig, id)
+  end
+
+  def get_import_config(uuid) when is_binary(uuid) do
+    repo().get_by(ImportConfig, uuid: uuid)
+  end
+
+  @doc """
+  Gets an import config by ID, raises if not found.
+  """
+  def get_import_config!(id) when is_integer(id) do
+    repo().get!(ImportConfig, id)
+  end
+
+  @doc """
+  Gets the default import config, if one exists.
+  """
+  def get_default_import_config do
+    ImportConfig
+    |> where([c], c.is_default == true and c.active == true)
+    |> limit(1)
+    |> repo().one()
+  end
+
+  @doc """
+  Gets an import config by name.
+  """
+  def get_import_config_by_name(name) when is_binary(name) do
+    repo().get_by(ImportConfig, name: name)
+  end
+
+  @doc """
+  Creates an import config.
+  """
+  def create_import_config(attrs \\ %{}) do
+    result =
+      %ImportConfig{}
+      |> ImportConfig.changeset(attrs)
+      |> repo().insert()
+
+    # If this is the new default, clear other defaults
+    case result do
+      {:ok, %ImportConfig{is_default: true} = config} ->
+        clear_other_defaults(config.id)
+        {:ok, config}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
+  Updates an import config.
+  """
+  def update_import_config(%ImportConfig{} = config, attrs) do
+    result =
+      config
+      |> ImportConfig.changeset(attrs)
+      |> repo().update()
+
+    # If this is the new default, clear other defaults
+    case result do
+      {:ok, %ImportConfig{is_default: true} = updated_config} ->
+        clear_other_defaults(updated_config.id)
+        {:ok, updated_config}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
+  Deletes an import config.
+  """
+  def delete_import_config(%ImportConfig{} = config) do
+    repo().delete(config)
+  end
+
+  defp clear_other_defaults(except_id) do
+    ImportConfig
+    |> where([c], c.is_default == true and c.id != ^except_id)
+    |> repo().update_all(set: [is_default: false])
   end
 
   # ============================================
