@@ -425,6 +425,24 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   @doc """
+  Lists categories visible in storefront navigation/menu.
+  Only active categories appear in menus.
+  Semantic alias for list_active_categories/1.
+  """
+  def list_menu_categories(opts \\ []) do
+    list_active_categories(opts)
+  end
+
+  @doc """
+  Lists categories whose products are visible in storefront.
+  Includes both active and unlisted categories.
+  Use for product filtering, not for navigation menus.
+  """
+  def list_visible_categories(opts \\ []) do
+    list_categories(Keyword.put(opts, :status, ["active", "unlisted"]))
+  end
+
+  @doc """
   Lists categories with count for pagination.
   """
   def list_categories_with_count(opts \\ []) do
@@ -1933,5 +1951,236 @@ defmodule PhoenixKit.Modules.Shop do
       {:error, changeset} ->
         {:error, changeset}
     end
+  end
+
+  # ============================================
+  # LOCALIZED API (Multi-Language Support)
+  # ============================================
+
+  alias PhoenixKit.Modules.Shop.SlugResolver
+  alias PhoenixKit.Modules.Shop.Translations
+
+  @doc """
+  Gets a product by slug with language awareness.
+
+  Searches both translated slugs and canonical slug for the specified language.
+
+  ## Parameters
+
+    - `slug` - The URL slug to search for
+    - `language` - Language code (e.g., "es-ES" or base code "en")
+    - `opts` - Options: `:preload`, `:status`
+
+  ## Examples
+
+      iex> Shop.get_product_by_slug_localized("maceta-geometrica", "es-ES")
+      {:ok, %Product{}}
+
+      iex> Shop.get_product_by_slug_localized("geometric-planter", "en")
+      {:ok, %Product{}}
+  """
+  def get_product_by_slug_localized(slug, language, opts \\ []) do
+    SlugResolver.find_product_by_slug(slug, language, opts)
+  end
+
+  @doc """
+  Gets a category by slug with language awareness.
+
+  Searches both translated slugs and canonical slug for the specified language.
+
+  ## Parameters
+
+    - `slug` - The URL slug to search for
+    - `language` - Language code (e.g., "es-ES" or base code "en")
+    - `opts` - Options: `:preload`, `:status`
+
+  ## Examples
+
+      iex> Shop.get_category_by_slug_localized("jarrones-macetas", "es-ES")
+      {:ok, %Category{}}
+  """
+  def get_category_by_slug_localized(slug, language, opts \\ []) do
+    SlugResolver.find_category_by_slug(slug, language, opts)
+  end
+
+  @doc """
+  Updates translation for a specific language on a product.
+
+  ## Parameters
+
+    - `product` - The product struct
+    - `language` - Language code (e.g., "es-ES")
+    - `attrs` - Translation attributes: title, slug, description, body_html, seo_title, seo_description
+
+  ## Examples
+
+      iex> Shop.update_product_translation(product, "es-ES", %{
+      ...>   "title" => "Maceta Geométrica",
+      ...>   "slug" => "maceta-geometrica"
+      ...> })
+      {:ok, %Product{}}
+  """
+  def update_product_translation(%Product{} = product, language, attrs)
+      when is_binary(language) do
+    translation_attrs =
+      Translations.translation_changeset_attrs(product.translations, language, attrs)
+
+    update_product(product, translation_attrs)
+  end
+
+  @doc """
+  Updates translation for a specific language on a category.
+
+  ## Parameters
+
+    - `category` - The category struct
+    - `language` - Language code (e.g., "es-ES")
+    - `attrs` - Translation attributes: name, slug, description
+
+  ## Examples
+
+      iex> Shop.update_category_translation(category, "es-ES", %{
+      ...>   "name" => "Jarrones y Macetas",
+      ...>   "slug" => "jarrones-macetas"
+      ...> })
+      {:ok, %Category{}}
+  """
+  def update_category_translation(%Category{} = category, language, attrs)
+      when is_binary(language) do
+    translation_attrs =
+      Translations.translation_changeset_attrs(category.translations, language, attrs)
+
+    update_category(category, translation_attrs)
+  end
+
+  @doc """
+  Lists products with translated fields for a specific language.
+
+  Returns products with an additional `:localized` virtual map containing
+  translated fields with fallback to defaults.
+
+  ## Parameters
+
+    - `language` - Language code for translations
+    - `opts` - Standard list options: `:page`, `:per_page`, `:status`, `:category_id`, etc.
+
+  ## Examples
+
+      iex> Shop.list_products_localized("es-ES", status: "active")
+      [%Product{localized: %{title: "Maceta...", ...}}, ...]
+  """
+  def list_products_localized(language, opts \\ []) do
+    products = list_products(opts)
+
+    Enum.map(products, fn product ->
+      Map.put(product, :localized, build_localized_product(product, language))
+    end)
+  end
+
+  @doc """
+  Lists categories with translated fields for a specific language.
+
+  ## Parameters
+
+    - `language` - Language code for translations
+    - `opts` - Standard list options
+
+  ## Examples
+
+      iex> Shop.list_categories_localized("es-ES", status: "active")
+      [%Category{localized: %{name: "Jarrones...", ...}}, ...]
+  """
+  def list_categories_localized(language, opts \\ []) do
+    categories = list_categories(opts)
+
+    Enum.map(categories, fn category ->
+      Map.put(category, :localized, build_localized_category(category, language))
+    end)
+  end
+
+  @doc """
+  Gets the localized slug for a product.
+
+  Returns translated slug if available, otherwise canonical slug.
+
+  ## Examples
+
+      iex> Shop.get_product_slug(product, "es-ES")
+      "maceta-geometrica"
+  """
+  def get_product_slug(%Product{} = product, language) do
+    SlugResolver.product_slug(product, language)
+  end
+
+  @doc """
+  Gets the localized slug for a category.
+
+  ## Examples
+
+      iex> Shop.get_category_slug(category, "es-ES")
+      "jarrones-macetas"
+  """
+  def get_category_slug(%Category{} = category, language) do
+    SlugResolver.category_slug(category, language)
+  end
+
+  @doc """
+  Checks if a product slug exists for a language.
+
+  Useful for validation during translation editing.
+
+  ## Examples
+
+      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES")
+      true
+
+      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES", exclude_id: 123)
+      false
+  """
+  def product_slug_exists?(slug, language, opts \\ []) do
+    SlugResolver.product_slug_exists?(slug, language, opts)
+  end
+
+  @doc """
+  Checks if a category slug exists for a language.
+
+  ## Examples
+
+      iex> Shop.category_slug_exists?("jarrones-macetas", "es-ES")
+      true
+  """
+  def category_slug_exists?(slug, language, opts \\ []) do
+    SlugResolver.category_slug_exists?(slug, language, opts)
+  end
+
+  @doc """
+  Returns translation helpers module for direct access.
+
+  ## Examples
+
+      iex> Shop.translations()
+      PhoenixKit.Modules.Shop.Translations
+  """
+  def translations, do: Translations
+
+  # Build localized map for a product
+  defp build_localized_product(product, language) do
+    %{
+      title: Translations.get_field(product, :title, language),
+      slug: Translations.get_field(product, :slug, language) || product.slug,
+      description: Translations.get_field(product, :description, language),
+      body_html: Translations.get_field(product, :body_html, language),
+      seo_title: Translations.get_field(product, :seo_title, language),
+      seo_description: Translations.get_field(product, :seo_description, language)
+    }
+  end
+
+  # Build localized map for a category
+  defp build_localized_category(category, language) do
+    %{
+      name: Translations.get_field(category, :name, language),
+      slug: Translations.get_field(category, :slug, language) || category.slug,
+      description: Translations.get_field(category, :description, language)
+    }
   end
 end

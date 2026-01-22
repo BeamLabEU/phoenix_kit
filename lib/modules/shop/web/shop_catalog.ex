@@ -10,10 +10,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
+    # Get current language for localized content
+    current_language = socket.assigns[:current_locale] || Translations.default_language()
+
     categories = Shop.list_active_categories(preload: [:parent])
 
     {products, _total} =
@@ -47,6 +51,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ShopCatalog do
       |> assign(:categories, categories)
       |> assign(:products, products)
       |> assign(:currency, currency)
+      |> assign(:current_language, current_language)
       |> assign(:authenticated, authenticated)
       |> assign(:dashboard_tabs, dashboard_tabs)
 

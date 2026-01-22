@@ -35,6 +35,8 @@ defmodule PhoenixKit.Modules.Shop.Product do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @statuses ["draft", "active", "archived"]
   @product_types ["physical", "digital"]
 
@@ -87,6 +89,9 @@ defmodule PhoenixKit.Modules.Shop.Product do
     # Extensibility
     field :metadata, :map, default: %{}
 
+    # Multi-language support
+    field :translations, :map, default: %{}
+
     # Relations
     belongs_to :category, PhoenixKit.Modules.Shop.Category
     belongs_to :created_by_user, PhoenixKit.Users.Auth.User, foreign_key: :created_by
@@ -126,6 +131,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :download_limit,
       :download_expiry_days,
       :metadata,
+      :translations,
       :category_id,
       :created_by
     ])

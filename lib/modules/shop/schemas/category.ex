@@ -28,6 +28,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   alias PhoenixKit.Modules.Storage.URLSigner
 
+  @type t :: %__MODULE__{}
+
   @statuses ~w(active unlisted hidden)
 
   schema "phoenix_kit_shop_categories" do
@@ -42,6 +44,9 @@ defmodule PhoenixKit.Modules.Shop.Category do
     field :status, :string, default: "active"
     field :metadata, :map, default: %{}
     field :option_schema, {:array, :map}, default: []
+
+    # Multi-language support
+    field :translations, :map, default: %{}
 
     # Self-referential for nesting
     belongs_to :parent, __MODULE__
@@ -71,7 +76,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :position,
       :status,
       :metadata,
-      :option_schema
+      :option_schema,
+      :translations
     ])
     |> validate_required([:name])
     |> validate_length(:name, max: 255)

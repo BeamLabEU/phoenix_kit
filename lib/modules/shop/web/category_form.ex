@@ -11,8 +11,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.OptionTypes
+  alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Web.Components.TranslationTabs
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
+
+  import TranslationTabs
 
   @impl true
   def mount(_params, _session, socket) do
@@ -50,6 +54,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
     |> assign(:image_id, nil)
+    |> assign_translation_state(%Category{})
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -76,6 +81,21 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
     |> assign(:editing_opt, nil)
     |> assign(:opt_form_data, initial_opt_form_data())
     |> assign(:image_id, category.image_id)
+    |> assign_translation_state(category)
+  end
+
+  # Assign translation-related state
+  defp assign_translation_state(socket, category) do
+    enabled_languages = TranslationTabs.get_enabled_languages()
+    default_language = TranslationTabs.get_default_language()
+    show_translations = TranslationTabs.show_translation_tabs?()
+
+    socket
+    |> assign(:enabled_languages, enabled_languages)
+    |> assign(:default_language, default_language)
+    |> assign(:current_translation_language, default_language)
+    |> assign(:show_translation_tabs, show_translations)
+    |> assign(:category_translations, category.translations || %{})
   end
 
   @impl true
@@ -85,14 +105,37 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
       |> Shop.change_category(category_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, :changeset, changeset)}
+    # Update translations from form params
+    category_translations =
+      merge_translation_params(
+        socket.assigns[:category_translations] || %{},
+        category_params["translations"]
+      )
+
+    socket
+    |> assign(:changeset, changeset)
+    |> assign(:category_translations, category_translations)
+    |> then(&{:noreply, &1})
   end
 
   @impl true
   def handle_event("save", %{"category" => category_params}, socket) do
     # Add Storage image_id from socket assigns
     category_params = Map.put(category_params, "image_id", socket.assigns.image_id)
+
+    # Add translations from socket assigns (merged during validate)
+    category_params =
+      if socket.assigns[:show_translation_tabs] do
+        Map.put(category_params, "translations", socket.assigns[:category_translations] || %{})
+      else
+        category_params
+      end
+
     save_category(socket, socket.assigns.live_action, category_params)
+  end
+
+  def handle_event("switch_language", %{"language" => language}, socket) do
+    {:noreply, assign(socket, :current_translation_language, language)}
   end
 
   # Media Picker Events
@@ -534,6 +577,58 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
             </div>
           </div>
 
+          <%!-- Card: Translations (only show when Languages module enabled with 2+ languages) --%>
+          <%= if @show_translation_tabs do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title text-xl mb-4">Translations</h2>
+                <p class="text-base-content/60 text-sm mb-4">
+                  Translate category content for different languages. The default language uses the main fields above.
+                </p>
+
+                <%!-- Language Tabs --%>
+                <.translation_tabs
+                  languages={@enabled_languages}
+                  current_language={@current_translation_language}
+                  translations={@category_translations}
+                  translatable_fields={Translations.category_fields()}
+                  on_click="switch_language"
+                />
+
+                <%!-- Translation Fields for Current Language --%>
+                <div class="mt-6">
+                  <.translation_fields
+                    language={@current_translation_language}
+                    translations={@category_translations}
+                    is_default_language={@current_translation_language == @default_language}
+                    form_prefix="category"
+                    fields={[
+                      %{
+                        key: :name,
+                        label: "Name",
+                        type: :text,
+                        placeholder: "Translated category name"
+                      },
+                      %{
+                        key: :slug,
+                        label: "URL Slug",
+                        type: :text,
+                        placeholder: "translated-url-slug",
+                        hint: "SEO-friendly URL for this language"
+                      },
+                      %{
+                        key: :description,
+                        label: "Description",
+                        type: :textarea,
+                        placeholder: "Translated description"
+                      }
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+          <% end %>
+
           <%!-- Category Options (only in edit mode) --%>
           <%= if @live_action == :edit do %>
             <div class="card bg-base-100 shadow-xl">
@@ -885,4 +980,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CategoryForm do
   rescue
     _ -> nil
   end
+
+  # Merge translation params from form into existing translations
+  defp merge_translation_params(existing, nil), do: existing
+
+  defp merge_translation_params(existing, new_params) when is_map(new_params) do
+    Enum.reduce(new_params, existing, fn {lang, fields}, acc ->
+      existing_lang = Map.get(acc, lang, %{})
+      merged_lang = Map.merge(existing_lang, fields || %{})
+      # Remove empty values
+      cleaned_lang = Enum.reject(merged_lang, fn {_k, v} -> v == "" end) |> Map.new()
+      if cleaned_lang == %{}, do: Map.delete(acc, lang), else: Map.put(acc, lang, cleaned_lang)
+    end)
+  end
+
+  defp merge_translation_params(existing, _), do: existing
 end

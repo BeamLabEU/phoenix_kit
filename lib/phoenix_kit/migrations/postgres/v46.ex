@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Migrations.Postgres.V46 do
   @moduledoc """
-  V46: Product Options with Dynamic Pricing + Import Logs
+  V46: Product Options with Dynamic Pricing + Import Logs + Translations
 
   This migration adds:
   - phoenix_kit_shop_config table for global Shop configuration
@@ -9,6 +9,7 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
   - featured_image_id and image_ids columns to products for Storage integration
   - selected_specs JSONB column to cart_items for specification storage
   - phoenix_kit_shop_import_logs table for CSV import history tracking
+  - translations JSONB column to products and categories for multi-language support
 
   ## Option Schema Format
 
@@ -65,12 +66,13 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ON #{prefix_str}phoenix_kit_shop_config(uuid);
     """
 
-    # 2. Add option_schema, image_id, and status to categories
+    # 2. Add option_schema, image_id, status, and translations to categories
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
     ADD COLUMN IF NOT EXISTS option_schema JSONB DEFAULT '[]',
     ADD COLUMN IF NOT EXISTS image_id UUID,
-    ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active',
+    ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}';
     """
 
     execute """
@@ -78,12 +80,24 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     ON #{prefix_str}phoenix_kit_shop_categories(status);
     """
 
-    # 3. Add new columns to products
+    # 3. Add new columns to products (including translations for multi-language)
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_products
     ADD COLUMN IF NOT EXISTS made_to_order BOOLEAN DEFAULT false,
     ADD COLUMN IF NOT EXISTS featured_image_id UUID,
-    ADD COLUMN IF NOT EXISTS image_ids UUID[] DEFAULT '{}';
+    ADD COLUMN IF NOT EXISTS image_ids UUID[] DEFAULT '{}',
+    ADD COLUMN IF NOT EXISTS translations JSONB DEFAULT '{}';
+    """
+
+    # 3b. Create GIN indexes for translations JSONB fields
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_products_translations
+    ON #{prefix_str}phoenix_kit_shop_products USING GIN(translations);
+    """
+
+    execute """
+    CREATE INDEX IF NOT EXISTS idx_shop_categories_translations
+    ON #{prefix_str}phoenix_kit_shop_categories USING GIN(translations);
     """
 
     # 4. Add selected_specs to cart_items for storing user selections
@@ -211,22 +225,28 @@ defmodule PhoenixKit.Migrations.Postgres.V46 do
     DROP COLUMN IF EXISTS selected_specs;
     """
 
+    # Drop translations GIN indexes
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_products_translations;"
+    execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_categories_translations;"
+
     # Remove new columns from products
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_products
     DROP COLUMN IF EXISTS made_to_order,
     DROP COLUMN IF EXISTS featured_image_id,
-    DROP COLUMN IF EXISTS image_ids;
+    DROP COLUMN IF EXISTS image_ids,
+    DROP COLUMN IF EXISTS translations;
     """
 
-    # Remove option_schema, image_id, and status from categories
+    # Remove option_schema, image_id, status, and translations from categories
     execute "DROP INDEX IF EXISTS #{prefix_str}idx_shop_categories_status;"
 
     execute """
     ALTER TABLE #{prefix_str}phoenix_kit_shop_categories
     DROP COLUMN IF EXISTS option_schema,
     DROP COLUMN IF EXISTS image_id,
-    DROP COLUMN IF EXISTS status;
+    DROP COLUMN IF EXISTS status,
+    DROP COLUMN IF EXISTS translations;
     """
 
     # Drop shop_config table

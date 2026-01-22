@@ -12,8 +12,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Product
+  alias PhoenixKit.Modules.Shop.Translations
+  alias PhoenixKit.Modules.Shop.Web.Components.TranslationTabs
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
+
+  import TranslationTabs
 
   @impl true
   def mount(_params, _session, socket) do
@@ -55,6 +59,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:original_option_values, %{})
     |> assign(:add_option_key, "")
     |> assign(:add_option_value, "")
+    |> assign_translation_state(%Product{})
   end
 
   defp apply_action(socket, :edit, %{"id" => id}) do
@@ -101,6 +106,21 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign(:selected_option_values, selected_option_values)
     |> assign(:add_option_key, "")
     |> assign(:add_option_value, "")
+    |> assign_translation_state(product)
+  end
+
+  # Assign translation-related state
+  defp assign_translation_state(socket, product) do
+    enabled_languages = TranslationTabs.get_enabled_languages()
+    default_language = TranslationTabs.get_default_language()
+    show_translations = TranslationTabs.show_translation_tabs?()
+
+    socket
+    |> assign(:enabled_languages, enabled_languages)
+    |> assign(:default_language, default_language)
+    |> assign(:current_translation_language, default_language)
+    |> assign(:show_translation_tabs, show_translations)
+    |> assign(:product_translations, product.translations || %{})
   end
 
   @impl true
@@ -178,12 +198,20 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
         socket
       end
 
+    # Update translations from form params
+    product_translations =
+      merge_translation_params(
+        socket.assigns[:product_translations] || %{},
+        product_params["translations"]
+      )
+
     socket
     |> assign(:changeset, changeset)
     |> assign(:metadata, metadata)
     |> assign(:new_value_inputs, new_value_inputs)
     |> assign(:add_option_key, add_option_key)
     |> assign(:add_option_value, add_option_value)
+    |> assign(:product_translations, product_translations)
     |> then(&{:noreply, &1})
   end
 
@@ -243,10 +271,25 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       |> Map.put("featured_image_id", socket.assigns.featured_image_id)
       |> Map.put("image_ids", socket.assigns.gallery_image_ids)
 
+    # Add translations from socket assigns (merged during validate)
+    product_params =
+      if socket.assigns[:show_translation_tabs] do
+        Map.put(product_params, "translations", socket.assigns[:product_translations] || %{})
+      else
+        product_params
+      end
+
     save_product(socket, socket.assigns.live_action, product_params)
   end
 
   # ===========================================
+  # TRANSLATION LANGUAGE SWITCHING
+  # ===========================================
+
+  def handle_event("switch_language", %{"language" => language}, socket) do
+    {:noreply, assign(socket, :current_translation_language, language)}
+  end
+
   # IMAGE MANAGEMENT
   # ===========================================
 
@@ -884,6 +927,76 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
               </div>
             </div>
           </div>
+
+          <%!-- Card: Translations (only show when Languages module enabled with 2+ languages) --%>
+          <%= if @show_translation_tabs do %>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title text-xl mb-4">Translations</h2>
+                <p class="text-base-content/60 text-sm mb-4">
+                  Translate product content for different languages. The default language uses the main fields above.
+                </p>
+
+                <%!-- Language Tabs --%>
+                <.translation_tabs
+                  languages={@enabled_languages}
+                  current_language={@current_translation_language}
+                  translations={@product_translations}
+                  translatable_fields={Translations.product_fields()}
+                  on_click="switch_language"
+                />
+
+                <%!-- Translation Fields for Current Language --%>
+                <div class="mt-6">
+                  <.translation_fields
+                    language={@current_translation_language}
+                    translations={@product_translations}
+                    is_default_language={@current_translation_language == @default_language}
+                    form_prefix="product"
+                    fields={[
+                      %{
+                        key: :title,
+                        label: "Title",
+                        type: :text,
+                        placeholder: "Translated product title"
+                      },
+                      %{
+                        key: :slug,
+                        label: "URL Slug",
+                        type: :text,
+                        placeholder: "translated-url-slug",
+                        hint: "SEO-friendly URL for this language"
+                      },
+                      %{
+                        key: :description,
+                        label: "Description",
+                        type: :textarea,
+                        placeholder: "Short translated description"
+                      },
+                      %{
+                        key: :body_html,
+                        label: "Full Description (HTML)",
+                        type: :html,
+                        placeholder: "<p>Full translated description...</p>"
+                      },
+                      %{
+                        key: :seo_title,
+                        label: "SEO Title",
+                        type: :text,
+                        placeholder: "Page title for search engines (max 60 chars)"
+                      },
+                      %{
+                        key: :seo_description,
+                        label: "SEO Description",
+                        type: :text,
+                        placeholder: "Meta description for search engines (max 160 chars)"
+                      }
+                    ]}
+                  />
+                </div>
+              </div>
+            </div>
+          <% end %>
 
           <%!-- Available Option Values Section --%>
           <% # Use original_option_values for showing all available values (persists across unchecks)
@@ -1978,4 +2091,19 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
 
   defp parse_decimal(%Decimal{} = value), do: value
   defp parse_decimal(_), do: Decimal.new("0")
+
+  # Merge translation params from form into existing translations
+  defp merge_translation_params(existing, nil), do: existing
+
+  defp merge_translation_params(existing, new_params) when is_map(new_params) do
+    Enum.reduce(new_params, existing, fn {lang, fields}, acc ->
+      existing_lang = Map.get(acc, lang, %{})
+      merged_lang = Map.merge(existing_lang, fields || %{})
+      # Remove empty values
+      cleaned_lang = Enum.reject(merged_lang, fn {_k, v} -> v == "" end) |> Map.new()
+      if cleaned_lang == %{}, do: Map.delete(acc, lang), else: Map.put(acc, lang, cleaned_lang)
+    end)
+  end
+
+  defp merge_translation_params(existing, _), do: existing
 end

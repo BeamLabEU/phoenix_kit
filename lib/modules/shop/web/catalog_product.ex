@@ -11,27 +11,32 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Modules.Storage.URLSigner
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"slug" => slug}, session, socket) do
-    case Shop.get_product_by_slug(slug, preload: [:category]) do
-      nil ->
+    # Get current language for localized lookup
+    current_language = get_current_language(socket)
+
+    # Try localized slug lookup first, fallback to canonical
+    case Shop.get_product_by_slug_localized(slug, current_language, preload: [:category]) do
+      {:error, :not_found} ->
         {:ok,
          socket
          |> put_flash(:error, "Product not found")
          |> push_navigate(to: Routes.path("/shop"))}
 
       # Hide product if its category is hidden
-      %{category: %{status: "hidden"}} ->
+      {:ok, %{category: %{status: "hidden"}}} ->
         {:ok,
          socket
          |> put_flash(:error, "Product not found")
          |> push_navigate(to: Routes.path("/shop"))}
 
-      product ->
+      {:ok, product} ->
         # Get session_id for guest cart
         session_id = session["shop_session_id"] || generate_session_id()
         user = get_current_user(socket)
@@ -63,7 +68,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         # Build dashboard tabs with shop categories for authenticated users
         dashboard_tabs =
           if authenticated do
-            categories = Shop.list_categories()
+            categories = Shop.list_menu_categories()
             current_category = product.category
 
             build_dashboard_tabs_with_shop(
@@ -76,10 +81,19 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             nil
           end
 
+        # Get localized content
+        localized_title = Translations.get_field(product, :title, current_language)
+        localized_description = Translations.get_field(product, :description, current_language)
+        localized_body = Translations.get_field(product, :body_html, current_language)
+
         socket =
           socket
-          |> assign(:page_title, product.title)
+          |> assign(:page_title, localized_title)
           |> assign(:product, product)
+          |> assign(:current_language, current_language)
+          |> assign(:localized_title, localized_title)
+          |> assign(:localized_description, localized_description)
+          |> assign(:localized_body, localized_body)
           |> assign(:currency, currency)
           |> assign(:quantity, 1)
           |> assign(:session_id, session_id)
@@ -1039,5 +1053,10 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       end)
 
     Shop.calculate_product_price(product, temp_specs)
+  end
+
+  # Get current language from socket assigns or default
+  defp get_current_language(socket) do
+    socket.assigns[:current_locale] || Translations.default_language()
   end
 end

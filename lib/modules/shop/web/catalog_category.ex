@@ -9,25 +9,29 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(%{"slug" => slug}, _session, socket) do
-    case Shop.get_category_by_slug(slug, preload: [:parent]) do
-      nil ->
+    # Get current language for localized lookup
+    current_language = socket.assigns[:current_locale] || Translations.default_language()
+
+    case Shop.get_category_by_slug_localized(slug, current_language, preload: [:parent]) do
+      {:error, :not_found} ->
         {:ok,
          socket
          |> put_flash(:error, "Category not found")
          |> push_navigate(to: Routes.path("/shop"))}
 
       # Redirect if category is hidden (products not visible)
-      %{status: "hidden"} ->
+      {:ok, %{status: "hidden"}} ->
         {:ok,
          socket
          |> put_flash(:error, "Category not found")
          |> push_navigate(to: Routes.path("/shop"))}
 
-      category ->
+      {:ok, category} ->
         {products, total} =
           Shop.list_products_with_count(
             status: "active",
@@ -55,10 +59,17 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
             nil
           end
 
+        # Get localized category content
+        localized_name = Translations.get_field(category, :name, current_language)
+        localized_description = Translations.get_field(category, :description, current_language)
+
         socket =
           socket
-          |> assign(:page_title, category.name)
+          |> assign(:page_title, localized_name)
           |> assign(:category, category)
+          |> assign(:current_language, current_language)
+          |> assign(:localized_name, localized_name)
+          |> assign(:localized_description, localized_description)
           |> assign(:products, products)
           |> assign(:total_products, total)
           |> assign(:categories, all_categories)
@@ -108,7 +119,8 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
   end
 
   # Create shop parent tab (only if not in registry)
-  defp create_shop_parent_tab(current_category) do
+  # When viewing a category page, parent tab is not active
+  defp create_shop_parent_tab(_current_category) do
     tab =
       Tab.new!(
         id: :dashboard_shop,
@@ -121,7 +133,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
         subtab_display: :always
       )
 
-    Map.put(tab, :active, is_nil(current_category))
+    Map.put(tab, :active, false)
   end
 
   # Build category subtabs for existing dashboard_shop tab
@@ -141,8 +153,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogCategory do
           match: :prefix
         )
 
-      is_active = current_category && current_category.id == cat.id
-      Map.put(tab, :active, is_active)
+      Map.put(tab, :active, current_category.id == cat.id)
     end)
   end
 
