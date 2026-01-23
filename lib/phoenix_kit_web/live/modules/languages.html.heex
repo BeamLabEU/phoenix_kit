@@ -78,15 +78,46 @@
             </div>
             <div class="flex flex-wrap gap-2">
               <%= for lang <- @languages |> Enum.filter(& &1["is_enabled"]) do %>
-                <span
-                  class={[
-                    "badge",
-                    if(lang["code"] == @default_code, do: "badge-secondary", else: "badge-primary")
-                  ]}
-                  title={lang["code"]}
-                >
-                  {lang["name"]}
-                </span>
+                <div class="dropdown dropdown-hover">
+                  <div
+                    tabindex="0"
+                    role="button"
+                    class={[
+                      "badge cursor-pointer",
+                      if(lang["code"] == @default_code, do: "badge-secondary", else: "badge-primary")
+                    ]}
+                    title={lang["code"]}
+                  >
+                    {lang["name"]}
+                  </div>
+                  <ul
+                    tabindex="0"
+                    class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-40 border border-base-300"
+                  >
+                    <%= if lang["code"] != @default_code do %>
+                      <li>
+                        <button phx-click="set_default" phx-value-code={lang["code"]}>
+                          <PhoenixKitWeb.Components.Core.Icons.icon_star class="w-4 h-4" />
+                          Set Default
+                        </button>
+                      </li>
+                      <li>
+                        <button
+                          phx-click="toggle_language_availability"
+                          phx-value-code={lang["code"]}
+                          class="text-error"
+                        >
+                          <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" />
+                          Disable
+                        </button>
+                      </li>
+                    <% else %>
+                      <li class="disabled">
+                        <span class="text-base-content/60 text-sm">Default language</span>
+                      </li>
+                    <% end %>
+                  </ul>
+                </div>
               <% end %>
             </div>
           </div>
@@ -401,24 +432,38 @@
                   <% language = PhoenixKit.Modules.Languages.get_predefined_language(language_code) %>
                   <% language_flag = if language, do: language.flag, else: "🌐" %>
                   <% language_name = if language, do: language.name, else: language_code %>
-                  <span
-                    class="badge badge-primary gap-1 group cursor-default transition-all"
-                    title={language_name}
-                  >
-                    <span class="text-lg">{language_flag}</span>
-                    {language_code}
-                    <%= if length(@admin_languages) > 1 do %>
-                      <button
-                        type="button"
-                        class="hidden group-hover:inline-flex hover:text-error"
-                        phx-click="remove_admin_language_from_form"
-                        phx-value-code={language_code}
-                        title={"Remove " <> language_name}
-                      >
-                        <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-3 h-3" />
-                      </button>
-                    <% end %>
-                  </span>
+                  <div class="dropdown dropdown-hover">
+                    <div
+                      tabindex="0"
+                      role="button"
+                      class="badge badge-primary gap-1 cursor-pointer"
+                      title={language_code}
+                    >
+                      <span class="text-lg">{language_flag}</span>
+                      {language_name}
+                    </div>
+                    <ul
+                      tabindex="0"
+                      class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-40 border border-base-300"
+                    >
+                      <%= if length(@admin_languages) > 1 do %>
+                        <li>
+                          <button
+                            phx-click="remove_admin_language_from_form"
+                            phx-value-code={language_code}
+                            class="text-error"
+                          >
+                            <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-4 h-4" />
+                            Remove
+                          </button>
+                        </li>
+                      <% else %>
+                        <li class="disabled">
+                          <span class="text-base-content/60 text-sm">Last language</span>
+                        </li>
+                      <% end %>
+                    </ul>
+                  </div>
                 <% end %>
               <% end %>
             </div>
