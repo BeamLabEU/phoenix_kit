@@ -7,7 +7,6 @@ defmodule PhoenixKitWeb.Live.Settings do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
-  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Settings
   alias PhoenixKit.Settings.Events, as: SettingsEvents
   alias PhoenixKit.Users.OAuthConfig
@@ -32,21 +31,6 @@ defmodule PhoenixKitWeb.Live.Settings do
     # Create form changeset
     changeset = Settings.change_settings(merged_settings)
 
-    # Load module statuses
-    languages_enabled = Languages.enabled?()
-
-    # Load content language
-    content_language = Settings.get_content_language()
-    content_language_details = Settings.get_content_language_details()
-
-    # Get available languages if module is enabled
-    available_languages =
-      if languages_enabled do
-        Languages.get_enabled_languages()
-      else
-        []
-      end
-
     socket =
       socket
       |> assign(:page_title, "Settings")
@@ -60,10 +44,6 @@ defmodule PhoenixKitWeb.Live.Settings do
         :project_title,
         merged_settings["project_title"] || PhoenixKit.Config.get(:project_title, "PhoenixKit")
       )
-      |> assign(:languages_enabled, languages_enabled)
-      |> assign(:content_language, content_language)
-      |> assign(:content_language_details, content_language_details)
-      |> assign(:available_content_languages, available_languages)
 
     {:ok, socket}
   end
@@ -154,39 +134,7 @@ defmodule PhoenixKitWeb.Live.Settings do
     end
   end
 
-  def handle_event("update_content_language", %{"language" => language_code}, socket) do
-    case Settings.set_content_language(language_code) do
-      {:ok, _setting} ->
-        # Reload content language details
-        content_language_details = Settings.get_content_language_details()
-
-        socket =
-          socket
-          |> assign(:content_language, language_code)
-          |> assign(:content_language_details, content_language_details)
-          |> put_flash(:info, "Content language updated to #{content_language_details.name}")
-
-        {:noreply, socket}
-
-      {:error, reason} ->
-        socket = put_flash(socket, :error, reason)
-        {:noreply, socket}
-    end
-  end
-
   ## Live updates - handle broadcasts from other admins
-
-  def handle_info({:content_language_changed, new_language}, socket) do
-    # Another admin changed the content language - update our view
-    content_language_details = Settings.get_content_language_details()
-
-    socket =
-      socket
-      |> assign(:content_language, new_language)
-      |> assign(:content_language_details, content_language_details)
-
-    {:noreply, socket}
-  end
 
   # Catch-all for other settings changes (future-proof)
   def handle_info({:setting_changed, _key, _value}, socket) do
