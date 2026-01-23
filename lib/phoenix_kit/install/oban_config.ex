@@ -17,6 +17,7 @@ defmodule PhoenixKit.Install.ObanConfig do
   @dialyzer {:nowarn_function, ensure_sitemap_queue: 2}
   @dialyzer {:nowarn_function, ensure_sqs_polling_queue: 2}
   @dialyzer {:nowarn_function, ensure_sync_queue: 2}
+  @dialyzer {:nowarn_function, ensure_shop_imports_queue: 2}
   @dialyzer {:nowarn_function, ensure_cron_plugin: 2}
   @dialyzer {:nowarn_function, ensure_pruner_max_age: 2}
   @dialyzer {:nowarn_function, add_cron_plugin_to_plugins: 2}
@@ -173,6 +174,7 @@ defmodule PhoenixKit.Install.ObanConfig do
       |> ensure_sitemap_queue(app_name)
       |> ensure_sqs_polling_queue(app_name)
       |> ensure_sync_queue(app_name)
+      |> ensure_shop_imports_queue(app_name)
       |> ensure_cron_plugin(app_name)
       |> ensure_pruner_max_age(app_name)
 
@@ -363,6 +365,51 @@ defmodule PhoenixKit.Install.ObanConfig do
           )
 
           Mix.shell().error("     Please manually add: sync: 5")
+          content
+      end
+    end
+  end
+
+  # Ensure shop_imports queue exists in the queues list
+  defp ensure_shop_imports_queue(content, app_name) do
+    # Check if shop_imports queue already exists
+    if Regex.match?(~r/shop_imports:\s*\d+/, content) do
+      Mix.shell().info("  ℹ️  shop_imports queue already configured")
+      content
+    else
+      Mix.shell().info("  ➕ Adding shop_imports queue to Oban configuration...")
+
+      # Find the ACTIVE queues configuration (not commented out)
+      case Regex.run(
+             ~r/(^config\s+:#{app_name},\s+Oban.*?queues:\s*\[)(.*?)(\n\s*\])/ms,
+             content,
+             capture: :all
+           ) do
+        [full_match, before_queues, queues_content, after_queues] ->
+          Mix.shell().info("  ✓ Found queues block, adding shop_imports queue")
+
+          # Remove trailing whitespace and check for comma
+          trimmed_content = String.trim_trailing(queues_content)
+          has_trailing_comma = String.ends_with?(trimmed_content, ",")
+
+          # Add shop_imports queue with proper formatting
+          new_queue_entry =
+            if has_trailing_comma do
+              "\n    shop_imports: 2"
+            else
+              ",\n    shop_imports: 2"
+            end
+
+          updated_queues = before_queues <> queues_content <> new_queue_entry <> after_queues
+
+          String.replace(content, full_match, updated_queues, global: false)
+
+        nil ->
+          Mix.shell().error(
+            "  ⚠️  Could not parse queues block for :#{app_name} - skipping shop_imports queue update"
+          )
+
+          Mix.shell().error("     Please manually add: shop_imports: 2")
           content
       end
     end

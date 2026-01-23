@@ -1,12 +1,17 @@
 defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   @moduledoc """
   Public cart page LiveView for E-Commerce module.
+
+  Supports real-time cart synchronization across multiple browser tabs
+  via PubSub subscription. When cart is updated in one tab, all other
+  tabs receive the update automatically.
   """
 
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Utils.Routes
 
@@ -21,6 +26,11 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
     # Get or create cart
     {:ok, cart} = Shop.get_or_create_cart(user_id: user_id, session_id: session_id)
+
+    # Subscribe to cart events for real-time sync across tabs
+    if connected?(socket) do
+      Events.subscribe_to_cart(cart)
+    end
 
     # Get available shipping methods
     shipping_methods = Shop.get_available_shipping_methods(cart)
@@ -135,23 +145,96 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
     end
   end
 
+  # ============================================
+  # PUBSUB EVENT HANDLERS
+  # ============================================
+
+  @impl true
+  def handle_info({:cart_updated, cart}, socket) do
+    shipping_methods = Shop.get_available_shipping_methods(cart)
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:shipping_methods, shipping_methods)}
+  end
+
+  @impl true
+  def handle_info({:item_added, cart, _item}, socket) do
+    shipping_methods = Shop.get_available_shipping_methods(cart)
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:shipping_methods, shipping_methods)}
+  end
+
+  @impl true
+  def handle_info({:item_removed, cart, _item_id}, socket) do
+    shipping_methods = Shop.get_available_shipping_methods(cart)
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:shipping_methods, shipping_methods)}
+  end
+
+  @impl true
+  def handle_info({:quantity_updated, cart, _item}, socket) do
+    shipping_methods = Shop.get_available_shipping_methods(cart)
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:shipping_methods, shipping_methods)}
+  end
+
+  @impl true
+  def handle_info({:shipping_selected, cart}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:payment_selected, cart}, socket) do
+    {:noreply, assign(socket, :cart, cart)}
+  end
+
+  @impl true
+  def handle_info({:cart_cleared, cart}, socket) do
+    shipping_methods = Shop.get_available_shipping_methods(cart)
+
+    {:noreply,
+     socket
+     |> assign(:cart, cart)
+     |> assign(:shipping_methods, shipping_methods)}
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
     <.shop_layout {assigns}>
-      <div class="p-6 max-w-6xl mx-auto">
-        <div class="flex items-center justify-between mb-8">
-          <h1 class="text-3xl font-bold">Shopping Cart</h1>
-          <.link navigate={Routes.path("/shop")} class="btn btn-outline btn-sm gap-2">
-            <.icon name="hero-arrow-left" class="w-4 h-4" /> Continue Shopping
-          </.link>
-        </div>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-6xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Continue Shopping
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Shopping Cart</h1>
+              <p class="text-base-content/70 mt-1">Review your items before checkout</p>
+            </div>
+          </div>
+        </header>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <%!-- Cart Items --%>
           <div class="lg:col-span-2">
             <%= if @cart.items == [] do %>
-              <div class="card bg-base-100 shadow-lg">
+              <div class="card bg-base-100 shadow-xl">
                 <div class="card-body text-center py-16">
                   <.icon name="hero-shopping-cart" class="w-16 h-16 mx-auto mb-4 opacity-30" />
                   <h2 class="text-xl font-medium text-base-content/60">Your cart is empty</h2>
@@ -162,7 +245,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                 </div>
               </div>
             <% else %>
-              <div class="card bg-base-100 shadow-lg">
+              <div class="card bg-base-100 shadow-xl">
                 <div class="card-body p-0">
                   <div class="overflow-x-auto">
                     <table class="table">
@@ -197,6 +280,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                                   <%= if item.product_sku do %>
                                     <div class="text-xs text-base-content/50">
                                       SKU: {item.product_sku}
+                                    </div>
+                                  <% end %>
+                                  <%= if item.selected_specs && item.selected_specs != %{} do %>
+                                    <div class="text-xs text-base-content/60 mt-1">
+                                      <%= for {key, value} <- item.selected_specs do %>
+                                        <span class="inline-block mr-2">
+                                          <span class="font-medium">{humanize_key(key)}:</span>
+                                          <span>{value}</span>
+                                        </span>
+                                      <% end %>
                                     </div>
                                   <% end %>
                                   <%= if item.compare_at_price && Decimal.compare(item.compare_at_price, item.unit_price) == :gt do %>
@@ -250,7 +343,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
             <%!-- Shipping Section --%>
             <%= if @cart.items != [] do %>
-              <div class="card bg-base-100 shadow-lg mt-6">
+              <div class="card bg-base-100 shadow-xl mt-6">
                 <div class="card-body">
                   <h2 class="card-title mb-4">Shipping Method</h2>
 
@@ -307,7 +400,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
 
           <%!-- Order Summary --%>
           <div class="lg:col-span-1">
-            <div class="card bg-base-100 shadow-lg sticky top-6">
+            <div class="card bg-base-100 shadow-xl sticky top-6">
               <div class="card-body">
                 <h2 class="card-title mb-4">Order Summary</h2>
 
@@ -421,4 +514,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
       _ -> nil
     end
   end
+
+  # Convert key to human-readable format: "material_type" -> "Material Type"
+  defp humanize_key(key) when is_binary(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp humanize_key(key), do: to_string(key)
 end

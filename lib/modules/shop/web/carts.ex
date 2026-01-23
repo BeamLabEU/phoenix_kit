@@ -93,33 +93,46 @@ defmodule PhoenixKit.Modules.Shop.Web.Carts do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-7xl mx-auto">
-        <div class="flex justify-between items-center mb-6">
-          <div>
-            <h1 class="text-3xl font-bold">Shopping Carts</h1>
-            <p class="text-base-content/70">{@total} carts total</p>
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
+        <%!-- Header --%>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Shopping Carts</h1>
+              <p class="text-base-content/70 mt-1">{@total} carts total</p>
+            </div>
           </div>
-        </div>
+        </header>
 
-        <%!-- Filters --%>
-        <div class="card bg-base-100 shadow mb-6">
-          <div class="card-body py-4">
-            <div class="flex flex-col md:flex-row gap-4">
-              <div class="form-control flex-1">
-                <form phx-submit="search" phx-change="search">
-                  <input
-                    type="text"
-                    name="search"
-                    value={@search}
-                    placeholder="Search by email or session ID..."
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                  />
-                </form>
-              </div>
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4">
+            <%!-- Search --%>
+            <div class="flex-1">
+              <label class="label"><span class="label-text">Search</span></label>
+              <form phx-submit="search" phx-change="search">
+                <input
+                  type="text"
+                  name="search"
+                  value={@search}
+                  placeholder="Search by email or session ID..."
+                  class="input input-bordered w-full focus:input-primary"
+                  phx-debounce="300"
+                />
+              </form>
+            </div>
 
+            <%!-- Status Filter --%>
+            <div class="w-full lg:w-48">
+              <label class="label"><span class="label-text">Status</span></label>
               <select
-                class="select select-bordered w-full md:w-48"
+                class="select select-bordered w-full focus:select-primary"
                 phx-change="filter_status"
                 name="status"
               >
@@ -135,7 +148,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Carts do
         </div>
 
         <%!-- Carts Table --%>
-        <div class="card bg-base-100 shadow-lg overflow-hidden">
+        <div class="card bg-base-100 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="table">
               <thead>

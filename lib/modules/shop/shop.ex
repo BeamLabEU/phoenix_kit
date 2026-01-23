@@ -3,13 +3,13 @@ defmodule PhoenixKit.Modules.Shop do
   E-commerce Shop Module for PhoenixKit.
 
   Provides comprehensive e-commerce functionality including products, categories,
-  variants, inventory, and cart management.
+  options-based pricing, and cart management.
 
   ## Features
 
   - **Products**: Physical and digital products with JSONB flexibility
   - **Categories**: Hierarchical product categories
-  - **Variants**: Product variants (size, color, etc.) with individual pricing
+  - **Options**: Product options with dynamic pricing (fixed or percent modifiers)
   - **Inventory**: Stock tracking with reservation system
   - **Cart**: Persistent shopping cart (DB-backed for cross-device support)
 
@@ -31,9 +31,14 @@ defmodule PhoenixKit.Modules.Shop do
   import Ecto.Query, warn: false
 
   alias PhoenixKit.Modules.Billing
+  alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop.Cart
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Events
+  alias PhoenixKit.Modules.Shop.ImportConfig
+  alias PhoenixKit.Modules.Shop.Options
+  alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
   alias PhoenixKit.Settings
@@ -85,6 +90,8 @@ defmodule PhoenixKit.Modules.Shop do
       tax_rate: Settings.get_setting_cached("shop_tax_rate", "20"),
       inventory_tracking:
         Settings.get_setting_cached("shop_inventory_tracking", "true") == "true",
+      allow_price_override:
+        Settings.get_setting_cached("shop_allow_price_override", "false") == "true",
       products_count: count_products(),
       categories_count: count_categories()
     }
@@ -203,8 +210,13 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Creates a new product.
+
+  Automatically normalizes metadata (price modifiers, option values)
+  before saving to ensure consistent storage format.
   """
   def create_product(attrs) do
+    attrs = MetadataValidator.normalize_product_attrs(attrs)
+
     %Product{}
     |> Product.changeset(attrs)
     |> repo().insert()
@@ -212,8 +224,13 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Updates a product.
+
+  Automatically normalizes metadata (price modifiers, option values)
+  before saving to ensure consistent storage format.
   """
   def update_product(%Product{} = product, attrs) do
+    attrs = MetadataValidator.normalize_product_attrs(attrs)
+
     product
     |> Product.changeset(attrs)
     |> repo().update()
@@ -233,6 +250,145 @@ defmodule PhoenixKit.Modules.Shop do
     Product.changeset(product, attrs)
   end
 
+  @doc """
+  Bulk update product status.
+  Returns count of updated products.
+  """
+  def bulk_update_product_status(ids, status) when is_list(ids) and is_binary(status) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().update_all(set: [status: status, updated_at: DateTime.utc_now()])
+
+    count
+  end
+
+  @doc """
+  Bulk update product category.
+  Returns count of updated products.
+  """
+  def bulk_update_product_category(ids, category_id) when is_list(ids) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().update_all(set: [category_id: category_id, updated_at: DateTime.utc_now()])
+
+    count
+  end
+
+  @doc """
+  Bulk delete products.
+  Returns count of deleted products.
+  """
+  def bulk_delete_products(ids) when is_list(ids) do
+    {count, _} =
+      Product
+      |> where([p], p.id in ^ids)
+      |> repo().delete_all()
+
+    count
+  end
+
+  # ============================================
+  # OPTIONS-BASED PRICING
+  # ============================================
+
+  @doc """
+  Calculates the final price for a product based on selected specifications.
+
+  Applies option price modifiers (fixed and percent) to the base price.
+  Fixed modifiers are applied first, then percent modifiers.
+
+  ## Example
+
+      product = %Product{price: Decimal.new("20.00")}
+      selected_specs = %{"material" => "PETG", "finish" => "Premium"}
+
+      # If PETG has +$10 fixed and Premium has +20% percent:
+      calculate_product_price(product, selected_specs)
+      # => Decimal.new("36.00")  # ($20 + $10) * 1.20
+  """
+  def calculate_product_price(%Product{} = product, selected_specs) when is_map(selected_specs) do
+    base_price = product.price || Decimal.new("0")
+    metadata = product.metadata || %{}
+
+    # Get price-affecting options for this product
+    price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
+
+    # Calculate final price with fixed and percent modifiers
+    # Pass metadata to apply custom per-product price overrides
+    Options.calculate_final_price(price_affecting_specs, selected_specs, base_price, metadata)
+  end
+
+  def calculate_product_price(%Product{} = product, _) do
+    product.price || Decimal.new("0")
+  end
+
+  @doc """
+  Gets the price range for a product based on option modifiers.
+
+  Returns `{min_price, max_price}` where:
+  - min_price = minimum possible price (base + min modifiers)
+  - max_price = maximum possible price (base + max modifiers)
+
+  ## Example
+
+      # Product with base $20, material options (0, +5, +10), finish options (0%, +20%)
+      get_price_range(product)
+      # => {Decimal.new("20.00"), Decimal.new("36.00")}
+  """
+  def get_price_range(%Product{} = product) do
+    base_price = product.price || Decimal.new("0")
+    metadata = product.metadata || %{}
+
+    # Get price-affecting options
+    price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
+
+    if Enum.empty?(price_affecting_specs) do
+      {base_price, base_price}
+    else
+      # Pass metadata to apply custom per-product price overrides
+      Options.get_price_range(price_affecting_specs, base_price, metadata)
+    end
+  end
+
+  @doc """
+  Formats the product price for catalog display.
+
+  Returns:
+  - "$19.99" for products without price-affecting options
+  - "From $19.99" if options have different price modifiers
+  - "$19.99 - $38.00" for range display
+  """
+  def format_product_price(%Product{} = product, currency, style \\ :from) do
+    {min_price, max_price} = get_price_range(product)
+
+    format_fn = fn price ->
+      case currency do
+        %{} = c -> Currency.format_amount(price, c)
+        nil -> "$#{Decimal.round(price, 2)}"
+      end
+    end
+
+    if Decimal.compare(min_price, max_price) == :eq do
+      format_fn.(min_price)
+    else
+      case style do
+        :from -> "From #{format_fn.(min_price)}"
+        :range -> "#{format_fn.(min_price)} - #{format_fn.(max_price)}"
+      end
+    end
+  end
+
+  @doc """
+  Gets price-affecting options for a product.
+
+  Convenience wrapper around `Options.get_price_affecting_specs_for_product/1`.
+  """
+  def get_price_affecting_specs(%Product{} = product) do
+    Options.get_price_affecting_specs_for_product(product)
+  end
+
   # ============================================
   # CATEGORIES
   # ============================================
@@ -242,6 +398,7 @@ defmodule PhoenixKit.Modules.Shop do
 
   ## Options
   - `:parent_id` - Filter by parent (nil for root categories)
+  - `:status` - Filter by status: "active", "hidden", "archived", or list of statuses
   - `:search` - Search in name
   - `:preload` - Associations to preload
   """
@@ -258,6 +415,31 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def list_root_categories(opts \\ []) do
     list_categories(Keyword.put(opts, :parent_id, nil))
+  end
+
+  @doc """
+  Lists active categories only (for storefront display).
+  """
+  def list_active_categories(opts \\ []) do
+    list_categories(Keyword.put(opts, :status, "active"))
+  end
+
+  @doc """
+  Lists categories visible in storefront navigation/menu.
+  Only active categories appear in menus.
+  Semantic alias for list_active_categories/1.
+  """
+  def list_menu_categories(opts \\ []) do
+    list_active_categories(opts)
+  end
+
+  @doc """
+  Lists categories whose products are visible in storefront.
+  Includes both active and unlisted categories.
+  Use for product filtering, not for navigation menus.
+  """
+  def list_visible_categories(opts \\ []) do
+    list_categories(Keyword.put(opts, :status, ["active", "unlisted"]))
   end
 
   @doc """
@@ -544,41 +726,135 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Adds item to cart.
+
+  ## Options
+  - `:selected_specs` - Map of selected specifications (for dynamic pricing)
+
+  ## Examples
+
+      # Add simple product
+      add_to_cart(cart, product, 2)
+
+      # Add product with specification-based pricing
+      add_to_cart(cart, product, 1, selected_specs: %{"material" => "PETG", "color" => "Gold"})
   """
-  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity \\ 1) do
-    repo().transaction(fn ->
-      # Check if product already in cart
-      existing = find_cart_item(cart.id, product.id)
+  def add_to_cart(cart, product, quantity \\ 1, opts \\ [])
 
-      case existing do
-        nil ->
-          # Create new item
-          attrs = CartItem.from_product(product, quantity) |> Map.put(:cart_id, cart.id)
-          %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity, opts) when is_list(opts) do
+    selected_specs = Keyword.get(opts, :selected_specs, %{})
 
-        item ->
-          # Update quantity
-          new_qty = item.quantity + quantity
-          item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
-      end
+    if map_size(selected_specs) > 0 do
+      add_product_with_specs_to_cart(cart, product, quantity, selected_specs)
+    else
+      add_simple_product_to_cart(cart, product, quantity)
+    end
+  end
 
-      # Recalculate totals
-      recalculate_cart_totals!(cart)
-    end)
+  def add_to_cart(%Cart{} = cart, %Product{} = product, quantity, _opts)
+      when is_integer(quantity) do
+    add_simple_product_to_cart(cart, product, quantity)
+  end
+
+  defp add_simple_product_to_cart(cart, product, quantity) do
+    result =
+      repo().transaction(fn ->
+        # Check if product already in cart (without specs)
+        existing = find_cart_item_by_specs(cart.id, product.id, %{})
+
+        item =
+          case existing do
+            nil ->
+              # Create new item
+              attrs = CartItem.from_product(product, quantity) |> Map.put(:cart_id, cart.id)
+              %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+
+            item ->
+              # Update quantity
+              new_qty = item.quantity + quantity
+              item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+          end
+
+        # Recalculate totals
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, item}} ->
+        Events.broadcast_item_added(updated_cart, item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
+  end
+
+  defp add_product_with_specs_to_cart(cart, product, quantity, selected_specs) do
+    # Calculate price with spec modifiers
+    calculated_price = calculate_product_price(product, selected_specs)
+
+    result =
+      repo().transaction(fn ->
+        # Check if same product with same specs already in cart
+        existing = find_cart_item_by_specs(cart.id, product.id, selected_specs)
+
+        item =
+          case existing do
+            nil ->
+              # Create new item with specs and calculated price
+              attrs =
+                CartItem.from_product(product, quantity)
+                |> Map.put(:cart_id, cart.id)
+                |> Map.put(:unit_price, calculated_price)
+                |> Map.put(:selected_specs, selected_specs)
+
+              %CartItem{} |> CartItem.changeset(attrs) |> repo().insert!()
+
+            item ->
+              # Update quantity (price already frozen from first add)
+              new_qty = item.quantity + quantity
+              item |> CartItem.changeset(%{quantity: new_qty}) |> repo().update!()
+          end
+
+        # Recalculate totals
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, item}} ->
+        Events.broadcast_item_added(updated_cart, item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Updates item quantity in cart.
   """
   def update_cart_item(%CartItem{} = item, quantity) when quantity > 0 do
-    repo().transaction(fn ->
-      item
-      |> CartItem.changeset(%{quantity: quantity})
-      |> repo().update!()
+    result =
+      repo().transaction(fn ->
+        updated_item =
+          item
+          |> CartItem.changeset(%{quantity: quantity})
+          |> repo().update!()
 
-      cart = repo().get!(Cart, item.cart_id)
-      recalculate_cart_totals!(cart)
-    end)
+        cart = repo().get!(Cart, item.cart_id)
+        updated_cart = recalculate_cart_totals!(cart)
+        {updated_cart, updated_item}
+      end)
+
+    case result do
+      {:ok, {updated_cart, updated_item}} ->
+        Events.broadcast_quantity_updated(updated_cart, updated_item)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   def update_cart_item(%CartItem{} = item, 0), do: remove_from_cart(item)
@@ -587,26 +863,48 @@ defmodule PhoenixKit.Modules.Shop do
   Removes item from cart.
   """
   def remove_from_cart(%CartItem{} = item) do
-    repo().transaction(fn ->
-      cart_id = item.cart_id
-      repo().delete!(item)
+    item_id = item.id
 
-      cart = repo().get!(Cart, cart_id)
-      recalculate_cart_totals!(cart)
-    end)
+    result =
+      repo().transaction(fn ->
+        cart_id = item.cart_id
+        repo().delete!(item)
+
+        cart = repo().get!(Cart, cart_id)
+        recalculate_cart_totals!(cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_item_removed(updated_cart, item_id)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
   Clears all items from cart.
   """
   def clear_cart(%Cart{} = cart) do
-    repo().transaction(fn ->
-      CartItem
-      |> where([i], i.cart_id == ^cart.id)
-      |> repo().delete_all()
+    result =
+      repo().transaction(fn ->
+        CartItem
+        |> where([i], i.cart_id == ^cart.id)
+        |> repo().delete_all()
 
-      recalculate_cart_totals!(cart)
-    end)
+        recalculate_cart_totals!(cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_cart_cleared(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -624,18 +922,28 @@ defmodule PhoenixKit.Modules.Shop do
   def set_cart_shipping(%Cart{} = cart, %ShippingMethod{} = method, country) do
     shipping_cost = ShippingMethod.calculate_cost(method, cart.subtotal || Decimal.new("0"))
 
-    repo().transaction(fn ->
-      updated_cart =
-        cart
-        |> Cart.shipping_changeset(%{
-          shipping_method_id: method.id,
-          shipping_country: country,
-          shipping_amount: shipping_cost
-        })
-        |> repo().update!()
+    result =
+      repo().transaction(fn ->
+        updated_cart =
+          cart
+          |> Cart.shipping_changeset(%{
+            shipping_method_id: method.id,
+            shipping_country: country,
+            shipping_amount: shipping_cost
+          })
+          |> repo().update!()
 
-      recalculate_cart_totals!(updated_cart)
-    end)
+        recalculate_cart_totals!(updated_cart)
+      end)
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_shipping_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -643,15 +951,35 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def set_cart_payment_option(%Cart{} = cart, payment_option_id)
       when is_integer(payment_option_id) do
-    cart
-    |> Cart.payment_changeset(%{payment_option_id: payment_option_id})
-    |> repo().update()
+    result =
+      cart
+      |> Cart.payment_changeset(%{payment_option_id: payment_option_id})
+      |> repo().update()
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_payment_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   def set_cart_payment_option(%Cart{} = cart, nil) do
-    cart
-    |> Cart.payment_changeset(%{payment_option_id: nil})
-    |> repo().update()
+    result =
+      cart
+      |> Cart.payment_changeset(%{payment_option_id: nil})
+      |> repo().update()
+
+    case result do
+      {:ok, updated_cart} ->
+        Events.broadcast_payment_selected(updated_cart)
+        {:ok, updated_cart}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -744,7 +1072,9 @@ defmodule PhoenixKit.Modules.Shop do
         repo().transaction(fn ->
           # Move items from guest to user cart
           for item <- guest.items do
-            existing = find_cart_item(user.id, item.product_id)
+            # Find existing cart item with same product and specs
+            existing =
+              find_cart_item_by_specs(user.id, item.product_id, item.selected_specs || %{})
 
             case existing do
               nil ->
@@ -929,7 +1259,8 @@ defmodule PhoenixKit.Modules.Shop do
       Enum.map(cart.items, fn item ->
         %{
           "name" => item.product_title,
-          "description" => item.product_slug,
+          "description" => format_item_description(item),
+          "selected_specs" => item.selected_specs || %{},
           "quantity" => item.quantity,
           "unit_price" => Decimal.to_string(item.unit_price),
           "total" => Decimal.to_string(item.line_total),
@@ -1137,6 +1468,29 @@ defmodule PhoenixKit.Modules.Shop do
   # PRIVATE HELPERS
   # ============================================
 
+  # Format cart item description including selected_specs
+  defp format_item_description(%CartItem{product_slug: slug, selected_specs: specs})
+       when specs == %{} or is_nil(specs) do
+    slug
+  end
+
+  defp format_item_description(%CartItem{product_slug: slug, selected_specs: specs}) do
+    specs_text =
+      Enum.map_join(specs, ", ", fn {key, value} -> "#{humanize_key(key)}: #{value}" end)
+
+    "#{slug} (#{specs_text})"
+  end
+
+  # Convert key to human-readable format: "material_type" -> "Material Type"
+  defp humanize_key(key) when is_binary(key) do
+    key
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
+  end
+
+  defp humanize_key(key), do: to_string(key)
+
   defp count_products do
     Product |> repo().aggregate(:count, :id)
   rescue
@@ -1171,6 +1525,7 @@ defmodule PhoenixKit.Modules.Shop do
     |> filter_by_product_type(Keyword.get(opts, :product_type))
     |> filter_by_category(Keyword.get(opts, :category_id))
     |> filter_by_product_search(Keyword.get(opts, :search))
+    |> filter_by_visible_categories(Keyword.get(opts, :exclude_hidden_categories, false))
   end
 
   defp filter_by_status(query, nil), do: query
@@ -1181,6 +1536,18 @@ defmodule PhoenixKit.Modules.Shop do
 
   defp filter_by_category(query, nil), do: query
   defp filter_by_category(query, id), do: where(query, [p], p.category_id == ^id)
+
+  defp filter_by_visible_categories(query, false), do: query
+
+  defp filter_by_visible_categories(query, true) do
+    # Exclude products from categories with status "hidden"
+    # Products from "active" and "unlisted" categories are visible
+    from(p in query,
+      left_join: c in Category,
+      on: c.id == p.category_id,
+      where: is_nil(c.id) or c.status != "hidden"
+    )
+  end
 
   defp filter_by_product_search(query, nil), do: query
   defp filter_by_product_search(query, ""), do: query
@@ -1198,12 +1565,23 @@ defmodule PhoenixKit.Modules.Shop do
   defp apply_category_filters(query, opts) do
     query
     |> filter_by_parent(Keyword.get(opts, :parent_id, :skip))
+    |> filter_by_category_status(Keyword.get(opts, :status, :skip))
     |> filter_by_category_search(Keyword.get(opts, :search))
   end
 
   defp filter_by_parent(query, :skip), do: query
   defp filter_by_parent(query, nil), do: where(query, [c], is_nil(c.parent_id))
   defp filter_by_parent(query, id), do: where(query, [c], c.parent_id == ^id)
+
+  defp filter_by_category_status(query, :skip), do: query
+
+  defp filter_by_category_status(query, status) when is_binary(status) do
+    where(query, [c], c.status == ^status)
+  end
+
+  defp filter_by_category_status(query, statuses) when is_list(statuses) do
+    where(query, [c], c.status in ^statuses)
+  end
 
   defp filter_by_category_search(query, nil), do: query
   defp filter_by_category_search(query, ""), do: query
@@ -1221,10 +1599,21 @@ defmodule PhoenixKit.Modules.Shop do
   defp filter_shipping_by_active(query, active), do: where(query, [s], s.active == ^active)
 
   # Cart helpers
-  defp find_cart_item(cart_id, product_id) do
+
+  # Find cart item by product and selected_specs
+  defp find_cart_item_by_specs(cart_id, product_id, specs) when map_size(specs) == 0 do
+    # No specs - find item without specs
     CartItem
     |> where([i], i.cart_id == ^cart_id and i.product_id == ^product_id)
-    |> where([i], is_nil(i.variant_id))
+    |> where([i], i.selected_specs == ^%{})
+    |> repo().one()
+  end
+
+  defp find_cart_item_by_specs(cart_id, product_id, specs) when is_map(specs) do
+    # With specs - find item with matching specs
+    CartItem
+    |> where([i], i.cart_id == ^cart_id and i.product_id == ^product_id)
+    |> where([i], i.selected_specs == ^specs)
     |> repo().one()
   end
 
@@ -1305,4 +1694,493 @@ defmodule PhoenixKit.Modules.Shop do
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()
+
+  # ============================================
+  # IMPORT LOGS
+  # ============================================
+
+  alias PhoenixKit.Modules.Shop.ImportLog
+
+  @doc """
+  Creates a new import log entry.
+  """
+  def create_import_log(attrs) do
+    %ImportLog{}
+    |> ImportLog.create_changeset(attrs)
+    |> repo().insert()
+  end
+
+  @doc """
+  Gets an import log by ID.
+  """
+  def get_import_log(id) when is_integer(id) do
+    repo().get(ImportLog, id)
+  end
+
+  def get_import_log(uuid) when is_binary(uuid) do
+    repo().get_by(ImportLog, uuid: uuid)
+  end
+
+  @doc """
+  Gets an import log by ID, raises if not found.
+  """
+  def get_import_log!(id) when is_integer(id) do
+    repo().get!(ImportLog, id)
+  end
+
+  @doc """
+  Lists recent import logs.
+  """
+  def list_import_logs(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+
+    ImportLog
+    |> order_by([l], desc: l.inserted_at)
+    |> limit(^limit)
+    |> repo().all()
+    |> repo().preload(:user)
+  end
+
+  @doc """
+  Updates an import log.
+  """
+  def update_import_log(%ImportLog{} = import_log, attrs) do
+    import_log
+    |> ImportLog.update_changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as started.
+  """
+  def start_import(%ImportLog{} = import_log, total_rows) do
+    import_log
+    |> ImportLog.start_changeset(total_rows)
+    |> repo().update()
+  end
+
+  @doc """
+  Updates import progress.
+  """
+  def update_import_progress(%ImportLog{} = import_log, attrs) do
+    import_log
+    |> ImportLog.progress_changeset(attrs)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as completed.
+  """
+  def complete_import(%ImportLog{} = import_log, stats) do
+    import_log
+    |> ImportLog.complete_changeset(stats)
+    |> repo().update()
+  end
+
+  @doc """
+  Marks import as failed.
+  """
+  def fail_import(%ImportLog{} = import_log, error) do
+    import_log
+    |> ImportLog.fail_changeset(error)
+    |> repo().update()
+  end
+
+  @doc """
+  Deletes an import log.
+  """
+  def delete_import_log(%ImportLog{} = import_log) do
+    # Also delete the temp file if it exists
+    if import_log.file_path && File.exists?(import_log.file_path) do
+      File.rm(import_log.file_path)
+    end
+
+    repo().delete(import_log)
+  end
+
+  # ============================================
+  # IMPORT CONFIG CRUD
+  # ============================================
+
+  @doc """
+  Lists all active import configs.
+  """
+  def list_import_configs(opts \\ []) do
+    query =
+      ImportConfig
+      |> order_by([c], desc: c.is_default, asc: c.name)
+
+    query =
+      if Keyword.get(opts, :active_only, true) do
+        where(query, [c], c.active == true)
+      else
+        query
+      end
+
+    repo().all(query)
+  end
+
+  @doc """
+  Gets an import config by ID.
+  """
+  def get_import_config(id) when is_integer(id) do
+    repo().get(ImportConfig, id)
+  end
+
+  def get_import_config(uuid) when is_binary(uuid) do
+    repo().get_by(ImportConfig, uuid: uuid)
+  end
+
+  @doc """
+  Gets an import config by ID, raises if not found.
+  """
+  def get_import_config!(id) when is_integer(id) do
+    repo().get!(ImportConfig, id)
+  end
+
+  @doc """
+  Gets the default import config, if one exists.
+  """
+  def get_default_import_config do
+    ImportConfig
+    |> where([c], c.is_default == true and c.active == true)
+    |> limit(1)
+    |> repo().one()
+  end
+
+  @doc """
+  Gets an import config by name.
+  """
+  def get_import_config_by_name(name) when is_binary(name) do
+    repo().get_by(ImportConfig, name: name)
+  end
+
+  @doc """
+  Creates an import config.
+  """
+  def create_import_config(attrs \\ %{}) do
+    result =
+      %ImportConfig{}
+      |> ImportConfig.changeset(attrs)
+      |> repo().insert()
+
+    # If this is the new default, clear other defaults
+    case result do
+      {:ok, %ImportConfig{is_default: true} = config} ->
+        clear_other_defaults(config.id)
+        {:ok, config}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
+  Updates an import config.
+  """
+  def update_import_config(%ImportConfig{} = config, attrs) do
+    result =
+      config
+      |> ImportConfig.changeset(attrs)
+      |> repo().update()
+
+    # If this is the new default, clear other defaults
+    case result do
+      {:ok, %ImportConfig{is_default: true} = updated_config} ->
+        clear_other_defaults(updated_config.id)
+        {:ok, updated_config}
+
+      other ->
+        other
+    end
+  end
+
+  @doc """
+  Deletes an import config.
+  """
+  def delete_import_config(%ImportConfig{} = config) do
+    repo().delete(config)
+  end
+
+  defp clear_other_defaults(except_id) do
+    ImportConfig
+    |> where([c], c.is_default == true and c.id != ^except_id)
+    |> repo().update_all(set: [is_default: false])
+  end
+
+  # ============================================
+  # PRODUCT UPSERT
+  # ============================================
+
+  @doc """
+  Creates or updates a product by slug.
+
+  Uses upsert (INSERT ... ON CONFLICT) to handle existing products.
+  Returns {:ok, product} with :inserted or :updated action.
+  """
+  def upsert_product(attrs) do
+    changeset = Product.changeset(%Product{}, attrs)
+
+    case repo().insert(changeset,
+           on_conflict:
+             {:replace,
+              [
+                :title,
+                :description,
+                :body_html,
+                :price,
+                :compare_at_price,
+                :vendor,
+                :tags,
+                :status,
+                :images,
+                :featured_image,
+                :seo_title,
+                :seo_description,
+                :metadata,
+                :updated_at
+              ]},
+           conflict_target: :slug,
+           returning: true
+         ) do
+      {:ok, product} ->
+        # Check if this was an insert or update by checking timestamps
+        action = if product.inserted_at == product.updated_at, do: :inserted, else: :updated
+        {:ok, product, action}
+
+      {:error, changeset} ->
+        {:error, changeset}
+    end
+  end
+
+  # ============================================
+  # LOCALIZED API (Multi-Language Support)
+  # ============================================
+
+  alias PhoenixKit.Modules.Shop.SlugResolver
+  alias PhoenixKit.Modules.Shop.Translations
+
+  @doc """
+  Gets a product by slug with language awareness.
+
+  Searches both translated slugs and canonical slug for the specified language.
+
+  ## Parameters
+
+    - `slug` - The URL slug to search for
+    - `language` - Language code (e.g., "es-ES" or base code "en")
+    - `opts` - Options: `:preload`, `:status`
+
+  ## Examples
+
+      iex> Shop.get_product_by_slug_localized("maceta-geometrica", "es-ES")
+      {:ok, %Product{}}
+
+      iex> Shop.get_product_by_slug_localized("geometric-planter", "en")
+      {:ok, %Product{}}
+  """
+  def get_product_by_slug_localized(slug, language, opts \\ []) do
+    SlugResolver.find_product_by_slug(slug, language, opts)
+  end
+
+  @doc """
+  Gets a category by slug with language awareness.
+
+  Searches both translated slugs and canonical slug for the specified language.
+
+  ## Parameters
+
+    - `slug` - The URL slug to search for
+    - `language` - Language code (e.g., "es-ES" or base code "en")
+    - `opts` - Options: `:preload`, `:status`
+
+  ## Examples
+
+      iex> Shop.get_category_by_slug_localized("jarrones-macetas", "es-ES")
+      {:ok, %Category{}}
+  """
+  def get_category_by_slug_localized(slug, language, opts \\ []) do
+    SlugResolver.find_category_by_slug(slug, language, opts)
+  end
+
+  @doc """
+  Updates translation for a specific language on a product.
+
+  ## Parameters
+
+    - `product` - The product struct
+    - `language` - Language code (e.g., "es-ES")
+    - `attrs` - Translation attributes: title, slug, description, body_html, seo_title, seo_description
+
+  ## Examples
+
+      iex> Shop.update_product_translation(product, "es-ES", %{
+      ...>   "title" => "Maceta Geométrica",
+      ...>   "slug" => "maceta-geometrica"
+      ...> })
+      {:ok, %Product{}}
+  """
+  def update_product_translation(%Product{} = product, language, attrs)
+      when is_binary(language) do
+    translation_attrs =
+      Translations.translation_changeset_attrs(product.translations, language, attrs)
+
+    update_product(product, translation_attrs)
+  end
+
+  @doc """
+  Updates translation for a specific language on a category.
+
+  ## Parameters
+
+    - `category` - The category struct
+    - `language` - Language code (e.g., "es-ES")
+    - `attrs` - Translation attributes: name, slug, description
+
+  ## Examples
+
+      iex> Shop.update_category_translation(category, "es-ES", %{
+      ...>   "name" => "Jarrones y Macetas",
+      ...>   "slug" => "jarrones-macetas"
+      ...> })
+      {:ok, %Category{}}
+  """
+  def update_category_translation(%Category{} = category, language, attrs)
+      when is_binary(language) do
+    translation_attrs =
+      Translations.translation_changeset_attrs(category.translations, language, attrs)
+
+    update_category(category, translation_attrs)
+  end
+
+  @doc """
+  Lists products with translated fields for a specific language.
+
+  Returns products with an additional `:localized` virtual map containing
+  translated fields with fallback to defaults.
+
+  ## Parameters
+
+    - `language` - Language code for translations
+    - `opts` - Standard list options: `:page`, `:per_page`, `:status`, `:category_id`, etc.
+
+  ## Examples
+
+      iex> Shop.list_products_localized("es-ES", status: "active")
+      [%Product{localized: %{title: "Maceta...", ...}}, ...]
+  """
+  def list_products_localized(language, opts \\ []) do
+    products = list_products(opts)
+
+    Enum.map(products, fn product ->
+      Map.put(product, :localized, build_localized_product(product, language))
+    end)
+  end
+
+  @doc """
+  Lists categories with translated fields for a specific language.
+
+  ## Parameters
+
+    - `language` - Language code for translations
+    - `opts` - Standard list options
+
+  ## Examples
+
+      iex> Shop.list_categories_localized("es-ES", status: "active")
+      [%Category{localized: %{name: "Jarrones...", ...}}, ...]
+  """
+  def list_categories_localized(language, opts \\ []) do
+    categories = list_categories(opts)
+
+    Enum.map(categories, fn category ->
+      Map.put(category, :localized, build_localized_category(category, language))
+    end)
+  end
+
+  @doc """
+  Gets the localized slug for a product.
+
+  Returns translated slug if available, otherwise canonical slug.
+
+  ## Examples
+
+      iex> Shop.get_product_slug(product, "es-ES")
+      "maceta-geometrica"
+  """
+  def get_product_slug(%Product{} = product, language) do
+    SlugResolver.product_slug(product, language)
+  end
+
+  @doc """
+  Gets the localized slug for a category.
+
+  ## Examples
+
+      iex> Shop.get_category_slug(category, "es-ES")
+      "jarrones-macetas"
+  """
+  def get_category_slug(%Category{} = category, language) do
+    SlugResolver.category_slug(category, language)
+  end
+
+  @doc """
+  Checks if a product slug exists for a language.
+
+  Useful for validation during translation editing.
+
+  ## Examples
+
+      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES")
+      true
+
+      iex> Shop.product_slug_exists?("maceta-geometrica", "es-ES", exclude_id: 123)
+      false
+  """
+  def product_slug_exists?(slug, language, opts \\ []) do
+    SlugResolver.product_slug_exists?(slug, language, opts)
+  end
+
+  @doc """
+  Checks if a category slug exists for a language.
+
+  ## Examples
+
+      iex> Shop.category_slug_exists?("jarrones-macetas", "es-ES")
+      true
+  """
+  def category_slug_exists?(slug, language, opts \\ []) do
+    SlugResolver.category_slug_exists?(slug, language, opts)
+  end
+
+  @doc """
+  Returns translation helpers module for direct access.
+
+  ## Examples
+
+      iex> Shop.translations()
+      PhoenixKit.Modules.Shop.Translations
+  """
+  def translations, do: Translations
+
+  # Build localized map for a product
+  defp build_localized_product(product, language) do
+    %{
+      title: Translations.get_field(product, :title, language),
+      slug: Translations.get_field(product, :slug, language) || product.slug,
+      description: Translations.get_field(product, :description, language),
+      body_html: Translations.get_field(product, :body_html, language),
+      seo_title: Translations.get_field(product, :seo_title, language),
+      seo_description: Translations.get_field(product, :seo_description, language)
+    }
+  end
+
+  # Build localized map for a category
+  defp build_localized_category(category, language) do
+    %{
+      name: Translations.get_field(category, :name, language),
+      slug: Translations.get_field(category, :slug, language) || category.slug,
+      description: Translations.get_field(category, :description, language)
+    }
+  end
 end

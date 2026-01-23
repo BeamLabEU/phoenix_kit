@@ -565,6 +565,16 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/shop/settings", PhoenixKit.Modules.Shop.Web.Settings, :index,
             as: :shop_settings
+
+          live "/admin/shop/settings/options",
+               PhoenixKit.Modules.Shop.Web.OptionsSettings,
+               :index,
+               as: :shop_options_settings
+
+          live "/admin/shop/imports", PhoenixKit.Modules.Shop.Web.Imports, :index,
+            as: :shop_imports
+
+          live "/admin/shop/test", PhoenixKit.Modules.Shop.Web.TestShop, :index, as: :shop_test
         end
       end
 
@@ -1200,13 +1210,19 @@ defmodule PhoenixKitWeb.Integration do
       scope blog_scope_multi do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        # Exclude admin paths from blogging catch-all routes
+        # Exclude admin and static paths from blogging catch-all routes
         # Language must be 2-letter ISO code (excludes "assets", "sitemap", etc.)
         get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
+          constraints: %{
+            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
+            "language" => ~r/^[a-z]{2}$/
+          }
 
         get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/, "language" => ~r/^[a-z]{2}$/}
+          constraints: %{
+            "blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/,
+            "language" => ~r/^[a-z]{2}$/
+          }
       end
 
       # Non-localized blog routes (for when url_prefix is "/")
@@ -1219,13 +1235,13 @@ defmodule PhoenixKitWeb.Integration do
       scope blog_scope_non_localized do
         pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_locale_validation]
 
-        # Exclude admin paths from blogging catch-all routes
+        # Exclude admin and static asset paths from blogging catch-all routes
         # Language detection is handled in the controller by checking if content exists
         get "/:blog", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
 
         get "/:blog/*path", PhoenixKit.Modules.Publishing.Web.Controller, :show,
-          constraints: %{"blog" => ~r/^(?!admin$)/}
+          constraints: %{"blog" => ~r/^(?!admin$|assets$|images$|fonts$|js$|css$|favicon)/}
       end
     end
   end

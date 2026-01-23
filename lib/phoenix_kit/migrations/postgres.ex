@@ -328,7 +328,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Rename settings keys: db_sync_* → sync_*
   - Matches module rename from DBSync to Sync
 
-  ### V45 - E-commerce Shop Module ⚡ LATEST
+  ### V45 - E-commerce Shop Module
   - Phoenix_kit_shop_categories for product organization with nesting
   - Phoenix_kit_shop_products for physical and digital products
   - Phoenix_kit_shop_shipping_methods, phoenix_kit_shop_carts, phoenix_kit_shop_cart_items
@@ -336,6 +336,24 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Cart supports payment_option_id for payment method selection
   - JSONB fields for tags, images, option_names, metadata
   - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
+
+  ### V46 - Product Options with Dynamic Pricing + Import Logs ⚡ LATEST
+  - Phoenix_kit_shop_config table for global Shop configuration (key-value JSONB)
+  - Adds option_schema JSONB column to phoenix_kit_shop_categories
+  - Two-level option system: global options + category-specific options
+  - Option schema format with types: text, number, boolean, select, multiselect
+  - Price modifiers support: fixed (+$10) and percent (+20%) modifier types
+  - Price calculation order: fixed modifiers first, then percent applied to result
+  - Adds featured_image_id UUID column to products for Storage integration
+  - Adds image_ids UUID[] array column to products for gallery images
+  - Adds selected_specs JSONB column to cart_items for specification storage
+  - Cart items freeze calculated price at add-to-cart time
+  - Phoenix_kit_shop_import_logs for CSV import history tracking
+  - Import status tracking: pending, processing, completed, failed
+  - Import statistics: imported, updated, skipped, errors counts
+  - Error details stored in JSONB for debugging
+  - User association for audit trail (who initiated import)
+  - Enables admin UI for Shopify CSV import management
 
   ## Migration Paths
 
@@ -395,7 +413,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 45
+  @current_version 46
   @default_prefix "public"
 
   @doc false

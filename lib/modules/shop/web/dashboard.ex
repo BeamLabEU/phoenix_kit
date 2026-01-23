@@ -41,20 +41,28 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-7xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
         <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">E-Commerce</h1>
-            <p class="text-base-content/70 mt-1">Manage your e-commerce store</p>
-          </div>
-
-          <div class="flex items-center gap-3">
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
             <.link
-              navigate={Routes.path("/admin/shop/products/new")}
-              class="btn btn-primary"
+              navigate={Routes.path("/admin")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
             >
-              <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Product
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">E-Commerce</h1>
+              <p class="text-base-content/70 mt-1">Manage your e-commerce store</p>
+            </div>
+          </div>
+        </header>
+
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4 justify-end">
+            <.link navigate={Routes.path("/admin/shop/products/new")} class="btn btn-primary">
+              <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Product
             </.link>
           </div>
         </div>
@@ -62,7 +70,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
         <%!-- Stats Grid --%>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <%!-- Total Products --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <div class="flex items-center justify-between">
                 <div>
@@ -77,7 +85,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
           </div>
 
           <%!-- Active Products --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <div class="flex items-center justify-between">
                 <div>
@@ -92,7 +100,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
           </div>
 
           <%!-- Draft Products --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <div class="flex items-center justify-between">
                 <div>
@@ -107,7 +115,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
           </div>
 
           <%!-- Categories --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <div class="flex items-center justify-between">
                 <div>
@@ -125,7 +133,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
         <%!-- Product Types Grid --%>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <%!-- Physical Products --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <h2 class="card-title">
                 <.icon name="hero-truck" class="w-6 h-6" /> Physical Products
@@ -136,7 +144,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
           </div>
 
           <%!-- Digital Products --%>
-          <div class="card bg-base-100 shadow-lg">
+          <div class="card bg-base-100 shadow-xl">
             <div class="card-body">
               <h2 class="card-title">
                 <.icon name="hero-arrow-down-tray" class="w-6 h-6" /> Digital Products
@@ -148,22 +156,36 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
         </div>
 
         <%!-- Quick Actions --%>
-        <div class="card bg-base-100 shadow-lg">
+        <div class="card bg-base-100 shadow-xl">
           <div class="card-body">
-            <h2 class="card-title mb-4">Quick Actions</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <h2 class="card-title text-xl mb-6">Quick Actions</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <.link
                 navigate={Routes.path("/admin/shop/products")}
                 class="btn btn-outline btn-lg justify-start"
               >
-                <.icon name="hero-cube" class="w-5 h-5 mr-2" /> Manage Products
+                <.icon name="hero-cube" class="w-5 h-5 mr-2" /> Products
               </.link>
 
               <.link
                 navigate={Routes.path("/admin/shop/categories")}
                 class="btn btn-outline btn-lg justify-start"
               >
-                <.icon name="hero-folder" class="w-5 h-5 mr-2" /> Manage Categories
+                <.icon name="hero-folder" class="w-5 h-5 mr-2" /> Categories
+              </.link>
+
+              <.link
+                navigate={Routes.path("/admin/shop/carts")}
+                class="btn btn-outline btn-lg justify-start"
+              >
+                <.icon name="hero-shopping-cart" class="w-5 h-5 mr-2" /> Carts
+              </.link>
+
+              <.link
+                navigate={Routes.path("/admin/shop/imports")}
+                class="btn btn-outline btn-lg justify-start"
+              >
+                <.icon name="hero-cloud-arrow-up" class="w-5 h-5 mr-2" /> CSV Import
               </.link>
 
               <.link
@@ -174,13 +196,6 @@ defmodule PhoenixKit.Modules.Shop.Web.Dashboard do
               </.link>
             </div>
           </div>
-        </div>
-
-        <%!-- Phase 2 Placeholder --%>
-        <div class="mt-8 p-6 border-2 border-dashed border-base-300 rounded-lg text-center text-base-content/50">
-          <.icon name="hero-rocket-launch" class="w-12 h-12 mx-auto mb-3" />
-          <p class="text-lg font-medium">Coming in Phase 2</p>
-          <p class="text-sm">Variants, Inventory, Cart, Orders</p>
         </div>
       </div>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

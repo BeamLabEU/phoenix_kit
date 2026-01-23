@@ -21,8 +21,7 @@ defmodule PhoenixKit.Modules.Shop.Product do
   - `taxable` - Subject to tax
   - `weight_grams` - Weight for shipping
   - `requires_shipping` - Needs physical delivery
-  - `has_variants` - Has product variants
-  - `option_names` - JSONB array of variant option names
+  - `made_to_order` - Always available regardless of inventory
   - `images` - JSONB array of image objects
   - `featured_image` - Main image URL
   - `seo_title` - SEO title
@@ -35,6 +34,8 @@ defmodule PhoenixKit.Modules.Shop.Product do
 
   use Ecto.Schema
   import Ecto.Changeset
+
+  @type t :: %__MODULE__{}
 
   @statuses ["draft", "active", "archived"]
   @product_types ["physical", "digital"]
@@ -65,13 +66,16 @@ defmodule PhoenixKit.Modules.Shop.Product do
     field :weight_grams, :integer, default: 0
     field :requires_shipping, :boolean, default: true
 
-    # Variants
-    field :has_variants, :boolean, default: false
-    field :option_names, {:array, :string}, default: []
+    # Availability
+    field :made_to_order, :boolean, default: false
 
-    # Media
+    # Media (legacy URL-based)
     field :images, {:array, :map}, default: []
     field :featured_image, :string
+
+    # Media (Storage integration)
+    field :featured_image_id, Ecto.UUID
+    field :image_ids, {:array, Ecto.UUID}, default: []
 
     # SEO
     field :seo_title, :string
@@ -84,6 +88,9 @@ defmodule PhoenixKit.Modules.Shop.Product do
 
     # Extensibility
     field :metadata, :map, default: %{}
+
+    # Multi-language support
+    field :translations, :map, default: %{}
 
     # Relations
     belongs_to :category, PhoenixKit.Modules.Shop.Category
@@ -113,16 +120,18 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :taxable,
       :weight_grams,
       :requires_shipping,
-      :has_variants,
-      :option_names,
+      :made_to_order,
       :images,
       :featured_image,
+      :featured_image_id,
+      :image_ids,
       :seo_title,
       :seo_description,
       :file_id,
       :download_limit,
       :download_expiry_days,
       :metadata,
+      :translations,
       :category_id,
       :created_by
     ])

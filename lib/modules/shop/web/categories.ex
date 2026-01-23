@@ -6,6 +6,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -48,21 +49,37 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-5xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
         <%!-- Header --%>
-        <div class="flex items-center justify-between mb-6">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">Categories</h1>
-            <p class="text-base-content/70">{length(@categories)} categories</p>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Categories</h1>
+              <p class="text-base-content/70 mt-1">{length(@categories)} categories</p>
+            </div>
           </div>
+        </header>
 
-          <.link navigate={Routes.path("/admin/shop/categories/new")} class="btn btn-primary">
-            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Category
-          </.link>
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4 justify-end">
+            <%!-- Actions --%>
+            <div class="w-full lg:w-auto">
+              <.link navigate={Routes.path("/admin/shop/categories/new")} class="btn btn-primary">
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Category
+              </.link>
+            </div>
+          </div>
         </div>
 
         <%!-- Categories Table --%>
-        <div class="card bg-base-100 shadow-lg overflow-hidden">
+        <div class="card bg-base-100 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="table">
               <thead>
@@ -70,6 +87,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                   <th>Name</th>
                   <th>Slug</th>
                   <th>Parent</th>
+                  <th>Status</th>
                   <th>Position</th>
                   <th class="text-right">Actions</th>
                 </tr>
@@ -77,7 +95,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
               <tbody>
                 <%= if Enum.empty?(@categories) do %>
                   <tr>
-                    <td colspan="5" class="text-center py-12 text-base-content/50">
+                    <td colspan="6" class="text-center py-12 text-base-content/50">
                       <.icon name="hero-folder" class="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p class="text-lg">No categories yet</p>
                       <p class="text-sm">Create your first category to organize products</p>
@@ -90,8 +108,8 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                         <div class="flex items-center gap-3">
                           <div class="avatar placeholder">
                             <div class="bg-base-300 text-base-content/50 w-10 h-10 rounded">
-                              <%= if category.image_url do %>
-                                <img src={category.image_url} alt={category.name} />
+                              <%= if image_url = Category.get_image_url(category, size: "thumbnail") do %>
+                                <img src={image_url} alt={category.name} />
                               <% else %>
                                 <.icon name="hero-folder" class="w-5 h-5" />
                               <% end %>
@@ -108,22 +126,27 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                           <span class="text-base-content/40">—</span>
                         <% end %>
                       </td>
+                      <td>
+                        <span class={status_badge_class(category.status)}>
+                          {category.status || "active"}
+                        </span>
+                      </td>
                       <td>{category.position}</td>
                       <td class="text-right">
-                        <div class="flex gap-2 justify-end">
+                        <div class="flex flex-wrap gap-1 justify-end">
                           <.link
                             navigate={Routes.path("/admin/shop/categories/#{category.id}/edit")}
-                            class="btn btn-ghost btn-sm"
+                            class="btn btn-xs btn-outline btn-secondary"
                           >
-                            <.icon name="hero-pencil" class="w-4 h-4" />
+                            <.icon name="hero-pencil" class="h-4 w-4" />
                           </.link>
                           <button
                             phx-click="delete"
                             phx-value-id={category.id}
                             data-confirm="Delete this category?"
-                            class="btn btn-ghost btn-sm text-error"
+                            class="btn btn-xs btn-outline btn-error"
                           >
-                            <.icon name="hero-trash" class="w-4 h-4" />
+                            <.icon name="hero-trash" class="h-4 w-4" />
                           </button>
                         </div>
                       </td>
@@ -138,4 +161,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
   end
+
+  defp status_badge_class("active"), do: "badge badge-success"
+  defp status_badge_class("unlisted"), do: "badge badge-warning"
+  defp status_badge_class("hidden"), do: "badge badge-error"
+  defp status_badge_class(_), do: "badge badge-success"
 end

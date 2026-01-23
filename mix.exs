@@ -110,6 +110,7 @@ defmodule PhoenixKit.MixProject do
       {:jason, "~> 1.4"},
       {:earmark, "~> 1.4"},
       {:yaml_elixir, "~> 2.9"},
+      {:nimble_csv, "~> 1.2"},
       {:uuidv7, "~> 1.0"},
       {:oban, "~> 2.20"},
 

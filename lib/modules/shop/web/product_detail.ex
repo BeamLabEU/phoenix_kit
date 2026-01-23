@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -14,11 +15,20 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     product = Shop.get_product!(id, preload: [:category])
     currency = Shop.get_default_currency()
 
+    # Get price-affecting specs for admin view
+    price_affecting_specs = Options.get_price_affecting_specs_for_product(product)
+
+    {min_price, max_price} =
+      Options.get_price_range(price_affecting_specs, product.price, product.metadata)
+
     socket =
       socket
       |> assign(:page_title, product.title)
       |> assign(:product, product)
       |> assign(:currency, currency)
+      |> assign(:price_affecting_specs, price_affecting_specs)
+      |> assign(:min_price, min_price)
+      |> assign(:max_price, max_price)
 
     {:ok, socket}
   end
@@ -47,32 +57,38 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
         <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div class="flex items-center gap-4">
-            <.link navigate={Routes.path("/admin/shop/products")} class="btn btn-ghost btn-sm">
-              <.icon name="hero-arrow-left" class="w-5 h-5" />
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop/products")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
             </.link>
-            <div>
+            <div class="flex-1 min-w-0">
               <h1 class="text-3xl font-bold text-base-content">{@product.title}</h1>
-              <p class="text-base-content/60">{@product.slug}</p>
+              <p class="text-base-content/70 mt-1">{@product.slug}</p>
             </div>
           </div>
+        </header>
 
-          <div class="flex gap-2">
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="flex flex-col lg:flex-row gap-4 justify-end">
             <.link
               navigate={Routes.path("/admin/shop/products/#{@product.id}/edit")}
               class="btn btn-primary"
             >
-              <.icon name="hero-pencil" class="w-5 h-5 mr-2" /> Edit
+              <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
             </.link>
             <button
               phx-click="delete"
               data-confirm="Are you sure you want to delete this product?"
-              class="btn btn-error btn-outline"
+              class="btn btn-outline btn-error"
             >
-              <.icon name="hero-trash" class="w-5 h-5" />
+              <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
             </button>
           </div>
         </div>
@@ -80,8 +96,41 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <%!-- Main Content --%>
           <div class="lg:col-span-2 space-y-6">
+            <%!-- Product Image --%>
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">Image</h2>
+                <div class="aspect-video bg-base-200 rounded-lg overflow-hidden">
+                  <%= if first_image(@product) do %>
+                    <img
+                      src={first_image(@product)}
+                      alt={@product.title}
+                      class="w-full h-full object-contain"
+                    />
+                  <% else %>
+                    <div class="w-full h-full flex items-center justify-center">
+                      <.icon name="hero-photo" class="w-16 h-16 opacity-30" />
+                      <span class="ml-2 text-base-content/50">No image</span>
+                    </div>
+                  <% end %>
+                </div>
+                <%= if has_multiple_images?(@product) do %>
+                  <div class="flex gap-2 mt-4 overflow-x-auto">
+                    <%= for image <- @product.images || [] do %>
+                      <% url = image_url(image) %>
+                      <%= if url do %>
+                        <div class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-base-200">
+                          <img src={url} alt="Thumbnail" class="w-full h-full object-cover" />
+                        </div>
+                      <% end %>
+                    <% end %>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+
             <%!-- Details --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Product Details</h2>
 
@@ -108,16 +157,55 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                     <span class="text-base-content/60">Weight:</span>
                     <span class="ml-2 font-medium">{@product.weight_grams || 0}g</span>
                   </div>
+                  <div>
+                    <span class="text-base-content/60">Requires Shipping:</span>
+                    <span class="ml-2 font-medium">
+                      {if @product.requires_shipping, do: "Yes", else: "No"}
+                    </span>
+                  </div>
+                  <div>
+                    <span class="text-base-content/60">Made to Order:</span>
+                    <span class="ml-2 font-medium">
+                      {if @product.made_to_order, do: "Yes", else: "No"}
+                    </span>
+                  </div>
                 </div>
+
+                <%!-- Tags --%>
+                <%= if @product.tags && @product.tags != [] do %>
+                  <div class="divider"></div>
+                  <div>
+                    <span class="text-base-content/60 text-sm">Tags:</span>
+                    <div class="flex flex-wrap gap-1 mt-2">
+                      <%= for tag <- @product.tags do %>
+                        <span class="badge badge-outline badge-sm">{tag}</span>
+                      <% end %>
+                    </div>
+                  </div>
+                <% end %>
+
+                <%!-- Body HTML --%>
+                <%= if @product.body_html && @product.body_html != "" do %>
+                  <div class="divider"></div>
+                  <div>
+                    <span class="text-base-content/60 text-sm">Full Description:</span>
+                    <div class="prose prose-sm mt-2 max-w-none">
+                      {Phoenix.HTML.raw(@product.body_html)}
+                    </div>
+                  </div>
+                <% end %>
               </div>
             </div>
 
             <%!-- Pricing --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
-                <h2 class="card-title">Pricing</h2>
+                <div class="flex items-center justify-between">
+                  <h2 class="card-title">Pricing</h2>
+                  <span class="badge badge-outline">{(@currency && @currency.code) || "—"}</span>
+                </div>
 
-                <div class="grid grid-cols-3 gap-4">
+                <div class="grid grid-cols-3 gap-4 mt-4">
                   <div class="stat p-0">
                     <div class="stat-title">Price</div>
                     <div class="stat-value text-2xl">
@@ -145,12 +233,97 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 </div>
               </div>
             </div>
+
+            <%!-- Option Values Section --%>
+            <% option_values = @product.metadata["_option_values"] || %{} %>
+            <%= if option_values != %{} do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h2 class="card-title">
+                    <.icon name="hero-adjustments-horizontal" class="w-5 h-5" /> Available Options
+                  </h2>
+                  <div class="space-y-3">
+                    <%= for {key, values} <- option_values do %>
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="font-medium min-w-24">{String.capitalize(key)}:</span>
+                        <%= for value <- values do %>
+                          <span class="badge badge-outline">{value}</span>
+                        <% end %>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- Price Modifiers Section (Admin Only) --%>
+            <%= if @price_affecting_specs != [] do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                  <h2 class="card-title">
+                    <.icon name="hero-calculator" class="w-5 h-5" /> Price Calculation
+                  </h2>
+
+                  <div class="bg-base-200 rounded-lg p-4 text-sm space-y-3">
+                    <%!-- Base Price --%>
+                    <div class="flex justify-between">
+                      <span class="text-base-content/70">Base Price</span>
+                      <span class="font-medium">{format_price(@product.price, @currency)}</span>
+                    </div>
+
+                    <%!-- Options with modifiers --%>
+                    <%= for spec <- @price_affecting_specs do %>
+                      <div class="border-t border-base-300 pt-3">
+                        <div class="flex justify-between items-center mb-2">
+                          <span class="font-medium">{spec["label"]}</span>
+                          <span class="badge badge-sm badge-ghost">
+                            {spec["modifier_type"] || "fixed"}
+                          </span>
+                        </div>
+                        <div class="flex flex-wrap gap-1">
+                          <%= for {value, modifier} <- spec["price_modifiers"] || %{} do %>
+                            <% mod_value = parse_modifier(modifier) %>
+                            <span class={[
+                              "badge badge-sm",
+                              if(Decimal.compare(mod_value, Decimal.new("0")) == :gt,
+                                do: "badge-success",
+                                else: "badge-ghost"
+                              )
+                            ]}>
+                              {value}
+                              <%= if Decimal.compare(mod_value, Decimal.new("0")) != :eq do %>
+                                <span class="ml-1 opacity-70">
+                                  +{format_modifier(mod_value, spec["modifier_type"], @currency)}
+                                </span>
+                              <% end %>
+                            </span>
+                          <% end %>
+                        </div>
+                      </div>
+                    <% end %>
+
+                    <%!-- Price Range --%>
+                    <div class="divider my-2"></div>
+                    <div class="flex justify-between font-bold">
+                      <span>Price Range</span>
+                      <span class="text-primary">
+                        <%= if Decimal.compare(@min_price, @max_price) == :eq do %>
+                          {format_price(@min_price, @currency)}
+                        <% else %>
+                          {format_price(@min_price, @currency)} — {format_price(@max_price, @currency)}
+                        <% end %>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
           </div>
 
           <%!-- Sidebar --%>
           <div class="space-y-6">
             <%!-- Status --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Status</h2>
                 <div class="flex items-center gap-2">
@@ -162,7 +335,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             </div>
 
             <%!-- Category --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body">
                 <h2 class="card-title">Category</h2>
                 <%= if @product.category do %>
@@ -173,8 +346,60 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
               </div>
             </div>
 
+            <%!-- Digital Product --%>
+            <%= if @product.product_type == "digital" do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-sm">
+                  <h2 class="card-title">Digital Product</h2>
+                  <div class="space-y-2 text-base-content/70">
+                    <div>
+                      <span>File:</span>
+                      <span class="ml-2">
+                        {if @product.file_id, do: "Attached", else: "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <span>Download Limit:</span>
+                      <span class="ml-2">{@product.download_limit || "Unlimited"}</span>
+                    </div>
+                    <div>
+                      <span>Expiry:</span>
+                      <span class="ml-2">
+                        {if @product.download_expiry_days,
+                          do: "#{@product.download_expiry_days} days",
+                          else: "Never"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
+            <%!-- SEO --%>
+            <%= if @product.seo_title || @product.seo_description do %>
+              <div class="card bg-base-100 shadow-xl">
+                <div class="card-body text-sm">
+                  <h2 class="card-title">SEO</h2>
+                  <div class="space-y-2">
+                    <%= if @product.seo_title do %>
+                      <div>
+                        <span class="text-base-content/60">Title:</span>
+                        <p class="font-medium">{@product.seo_title}</p>
+                      </div>
+                    <% end %>
+                    <%= if @product.seo_description do %>
+                      <div>
+                        <span class="text-base-content/60">Description:</span>
+                        <p class="text-base-content/70">{@product.seo_description}</p>
+                      </div>
+                    <% end %>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+
             <%!-- Timestamps --%>
-            <div class="card bg-base-100 shadow-lg">
+            <div class="card bg-base-100 shadow-xl">
               <div class="card-body text-sm">
                 <h2 class="card-title">Timestamps</h2>
                 <div class="space-y-2 text-base-content/70">
@@ -213,5 +438,40 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   defp format_price(price, nil) do
     "$#{Decimal.round(price, 2)}"
+  end
+
+  # Image helpers
+  defp first_image(%{images: [%{"src" => src} | _]}), do: src
+  defp first_image(%{images: [first | _]}) when is_binary(first), do: first
+  defp first_image(_), do: nil
+
+  defp image_url(%{"src" => src}), do: src
+  defp image_url(url) when is_binary(url), do: url
+  defp image_url(_), do: nil
+
+  defp has_multiple_images?(%{images: [_, _ | _]}), do: true
+  defp has_multiple_images?(_), do: false
+
+  # Price modifier helpers
+  defp parse_modifier(value) when is_binary(value) do
+    case Decimal.parse(value) do
+      {decimal, ""} -> decimal
+      _ -> Decimal.new("0")
+    end
+  end
+
+  defp parse_modifier(%{"value" => value}), do: parse_modifier(value)
+  defp parse_modifier(_), do: Decimal.new("0")
+
+  defp format_modifier(value, "percent", _currency) do
+    "#{Decimal.round(value, 0)}%"
+  end
+
+  defp format_modifier(value, _type, %Currency{} = currency) do
+    Currency.format_amount(value, currency)
+  end
+
+  defp format_modifier(value, _type, _currency) do
+    "$#{Decimal.round(value, 2)}"
   end
 end

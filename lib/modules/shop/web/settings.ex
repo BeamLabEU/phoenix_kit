@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
   alias PhoenixKit.Settings
   alias PhoenixKit.Utils.Routes
 
+  # Test comment for live reload
   @impl true
   def mount(_params, _session, socket) do
     config = Shop.get_config()
@@ -95,25 +96,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-4xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-5xl">
         <%!-- Header --%>
-        <div class="flex items-center justify-between mb-8">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">E-Commerce Settings</h1>
-            <p class="text-base-content/70 mt-1">Configure your e-commerce store</p>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">E-Commerce Settings</h1>
+              <p class="text-base-content/70 mt-1">Configure your e-commerce store</p>
+            </div>
           </div>
+        </header>
 
-          <.link navigate={Routes.path("/admin/shop")} class="btn btn-outline">
-            <.icon name="hero-arrow-left" class="w-5 h-5 mr-2" /> Back to Dashboard
-          </.link>
-        </div>
-
-        <%!-- Module Status --%>
-        <div class="card bg-base-100 shadow-lg mb-6">
+        <%!-- Module Status Card --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
             <div class="flex items-center justify-between">
               <div>
-                <h2 class="card-title">Module Status</h2>
+                <h2 class="card-title text-xl">Module Status</h2>
                 <p class="text-base-content/70">Enable or disable the E-Commerce module</p>
               </div>
               <div class="flex items-center gap-4">
@@ -145,26 +150,28 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           </div>
         </div>
 
-        <%!-- Inventory Settings --%>
-        <div class="card bg-base-100 shadow-lg mb-6">
+        <%!-- Inventory Settings (toggle pattern) --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
           <div class="card-body">
-            <h2 class="card-title mb-4">
+            <h2 class="card-title text-xl mb-6">
               <.icon name="hero-archive-box" class="w-6 h-6" /> Inventory
             </h2>
 
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="font-medium">Track Inventory</p>
-                <p class="text-sm text-base-content/60">
-                  Enable stock tracking for products (Phase 2)
-                </p>
-              </div>
-              <input
-                type="checkbox"
-                class="toggle toggle-primary"
-                checked={@inventory_tracking}
-                phx-click="toggle_inventory_tracking"
-              />
+            <div class="form-control">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Track Inventory</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Enable stock tracking for products (Phase 2)
+                  </div>
+                </span>
+                <input
+                  type="checkbox"
+                  class="toggle toggle-secondary"
+                  checked={@inventory_tracking}
+                  phx-click="toggle_inventory_tracking"
+                />
+              </label>
             </div>
           </div>
         </div>
@@ -183,14 +190,32 @@ defmodule PhoenixKit.Modules.Shop.Web.Settings do
           </div>
         </div>
 
-        <%!-- Phase 2 Features --%>
-        <div class="card bg-base-200/50 border-2 border-dashed border-base-300">
-          <div class="card-body text-center">
-            <.icon name="hero-clock" class="w-12 h-12 mx-auto text-base-content/50 mb-3" />
-            <h3 class="text-lg font-medium text-base-content/70">Coming Soon</h3>
-            <p class="text-sm text-base-content/50">
-              Variants, inventory management, cart, and checkout will be available in Phase 2
-            </p>
+        <%!-- Product Options --%>
+        <div class="card bg-base-100 shadow-xl mb-6">
+          <div class="card-body">
+            <h2 class="card-title text-xl mb-6">
+              <.icon name="hero-tag" class="w-6 h-6" /> Product Options
+            </h2>
+
+            <div class="form-control">
+              <label class="label cursor-pointer justify-between">
+                <span class="label-text text-lg">
+                  <span class="font-semibold">Global Product Options</span>
+                  <div class="text-sm text-base-content/70 mt-1">
+                    Define options that apply to all products (size, color, material, etc.)
+                  </div>
+                  <div class="text-xs text-base-content/50 mt-1">
+                    Price override is configured per-option in the options settings.
+                  </div>
+                </span>
+                <.link
+                  navigate={Routes.path("/admin/shop/settings/options")}
+                  class="btn btn-primary"
+                >
+                  <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-2" /> Configure
+                </.link>
+              </label>
+            </div>
           </div>
         </div>
       </div>

@@ -29,6 +29,10 @@
   function getConfigEndpoint() {
     var meta = document.querySelector('meta[name="phoenix-kit-prefix"]');
     var prefix = meta ? meta.getAttribute("content") : "/phoenix_kit";
+    // Handle case when prefix is "/" to avoid double slash (//api/...)
+    if (prefix === "/") {
+      return "/api/consent-config";
+    }
     return prefix + "/api/consent-config";
   }
   var OPT_IN_FRAMEWORKS = ["gdpr", "uk_gdpr", "lgpd", "pipeda"];

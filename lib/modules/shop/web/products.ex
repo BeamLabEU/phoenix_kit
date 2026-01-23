@@ -15,6 +15,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   def mount(_params, _session, socket) do
     {products, total} = Shop.list_products_with_count(per_page: @per_page, preload: [:category])
     currency = Shop.get_default_currency()
+    categories = Shop.list_categories()
 
     socket =
       socket
@@ -26,7 +27,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:search, "")
       |> assign(:status_filter, nil)
       |> assign(:type_filter, nil)
+      |> assign(:category_filter, nil)
+      |> assign(:categories, categories)
       |> assign(:currency, currency)
+      |> assign(:selected_ids, MapSet.new())
+      |> assign(:show_bulk_modal, nil)
 
     {:ok, socket}
   end
@@ -35,8 +40,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
   def handle_params(params, _uri, socket) do
     page = (params["page"] || "1") |> String.to_integer()
     search = params["search"] || ""
-    status = params["status"]
-    type = params["type"]
+    status = if params["status"] in ["", nil], do: nil, else: params["status"]
+    type = if params["type"] in ["", nil], do: nil, else: params["type"]
+    category_id = parse_category_id(params["category"])
 
     opts = [
       page: page,
@@ -44,6 +50,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       search: search,
       status: status,
       product_type: type,
+      category_id: category_id,
       preload: [:category]
     ]
 
@@ -57,28 +64,81 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:search, search)
       |> assign(:status_filter, status)
       |> assign(:type_filter, type)
+      |> assign(:category_filter, category_id)
 
     {:noreply, socket}
   end
 
   @impl true
   def handle_event("search", %{"search" => search}, socket) do
-    params = build_params(socket.assigns, search: search, page: 1)
-    {:noreply, push_patch(socket, to: Routes.path("/admin/shop/products?#{params}"))}
+    socket =
+      socket
+      |> assign(:search, search)
+      |> assign(:page, 1)
+      |> load_products()
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("filter_status", %{"status" => status}, socket) do
     status = if status == "", do: nil, else: status
-    params = build_params(socket.assigns, status: status, page: 1)
-    {:noreply, push_patch(socket, to: Routes.path("/admin/shop/products?#{params}"))}
+
+    socket =
+      socket
+      |> assign(:status_filter, status)
+      |> assign(:page, 1)
+      |> load_products()
+
+    {:noreply, socket}
   end
 
   @impl true
   def handle_event("filter_type", %{"type" => type}, socket) do
     type = if type == "", do: nil, else: type
-    params = build_params(socket.assigns, type: type, page: 1)
-    {:noreply, push_patch(socket, to: Routes.path("/admin/shop/products?#{params}"))}
+
+    socket =
+      socket
+      |> assign(:type_filter, type)
+      |> assign(:page, 1)
+      |> load_products()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("filter_category", %{"category" => category}, socket) do
+    category_id = parse_category_id(category)
+
+    socket =
+      socket
+      |> assign(:category_filter, category_id)
+      |> assign(:page, 1)
+      |> load_products()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("change_page", %{"page" => page}, socket) do
+    page = String.to_integer(page)
+
+    socket =
+      socket
+      |> assign(:page, page)
+      |> load_products()
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_event("view_product", %{"id" => id}, socket) do
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/shop/products/#{id}"))}
+  end
+
+  @impl true
+  def handle_event("noop", _params, socket) do
+    {:noreply, socket}
   end
 
   @impl true
@@ -105,15 +165,112 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     end
   end
 
-  defp build_params(assigns, overrides) do
-    %{
-      search: Keyword.get(overrides, :search, assigns.search),
-      status: Keyword.get(overrides, :status, assigns.status_filter),
-      type: Keyword.get(overrides, :type, assigns.type_filter),
-      page: Keyword.get(overrides, :page, assigns.page)
-    }
-    |> Enum.filter(fn {_k, v} -> v && v != "" end)
-    |> URI.encode_query()
+  # Bulk selection events
+  @impl true
+  def handle_event("toggle_select", %{"id" => id}, socket) do
+    id = String.to_integer(id)
+    selected = socket.assigns.selected_ids
+
+    selected =
+      if MapSet.member?(selected, id) do
+        MapSet.delete(selected, id)
+      else
+        MapSet.put(selected, id)
+      end
+
+    {:noreply, assign(socket, :selected_ids, selected)}
+  end
+
+  @impl true
+  def handle_event("select_all", _params, socket) do
+    all_ids = Enum.map(socket.assigns.products, & &1.id) |> MapSet.new()
+    current = socket.assigns.selected_ids
+
+    selected =
+      if MapSet.subset?(all_ids, current) do
+        MapSet.difference(current, all_ids)
+      else
+        MapSet.union(current, all_ids)
+      end
+
+    {:noreply, assign(socket, :selected_ids, selected)}
+  end
+
+  @impl true
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, :selected_ids, MapSet.new())}
+  end
+
+  # Bulk action modals
+  @impl true
+  def handle_event("show_bulk_modal", %{"action" => action}, socket) do
+    {:noreply, assign(socket, :show_bulk_modal, action)}
+  end
+
+  @impl true
+  def handle_event("close_bulk_modal", _params, socket) do
+    {:noreply, assign(socket, :show_bulk_modal, nil)}
+  end
+
+  # Bulk actions
+  @impl true
+  def handle_event("bulk_change_status", %{"status" => status}, socket) do
+    ids = MapSet.to_list(socket.assigns.selected_ids)
+    count = Shop.bulk_update_product_status(ids, status)
+
+    socket = load_products(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:show_bulk_modal, nil)
+     |> put_flash(:info, "#{count} products updated to #{status}")}
+  end
+
+  @impl true
+  def handle_event("bulk_change_category", %{"category_id" => category_id}, socket) do
+    ids = MapSet.to_list(socket.assigns.selected_ids)
+    category_id = if category_id == "", do: nil, else: String.to_integer(category_id)
+    count = Shop.bulk_update_product_category(ids, category_id)
+
+    socket = load_products(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:show_bulk_modal, nil)
+     |> put_flash(:info, "#{count} products moved")}
+  end
+
+  @impl true
+  def handle_event("bulk_delete", _params, socket) do
+    ids = MapSet.to_list(socket.assigns.selected_ids)
+    count = Shop.bulk_delete_products(ids)
+
+    socket = load_products(socket)
+
+    {:noreply,
+     socket
+     |> assign(:selected_ids, MapSet.new())
+     |> assign(:show_bulk_modal, nil)
+     |> put_flash(:info, "#{count} products deleted")}
+  end
+
+  defp load_products(socket) do
+    {products, total} =
+      Shop.list_products_with_count(
+        page: socket.assigns.page,
+        per_page: @per_page,
+        search: socket.assigns.search,
+        status: socket.assigns.status_filter,
+        product_type: socket.assigns.type_filter,
+        category_id: socket.assigns.category_filter,
+        preload: [:category]
+      )
+
+    socket
+    |> assign(:products, products)
+    |> assign(:total, total)
   end
 
   @impl true
@@ -126,71 +283,151 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       current_locale={@current_locale}
       page_title={@page_title}
     >
-      <div class="p-6 max-w-7xl mx-auto">
+      <div class="container flex-col mx-auto px-4 py-6 max-w-7xl">
         <%!-- Header --%>
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 class="text-3xl font-bold text-base-content">Products</h1>
-            <p class="text-base-content/70">
-              {if @total == 1, do: "1 product", else: "#{@total} products"}
-            </p>
+        <header class="mb-6">
+          <div class="flex items-start gap-4">
+            <.link
+              navigate={Routes.path("/admin/shop")}
+              class="btn btn-outline btn-primary btn-sm shrink-0"
+            >
+              <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
+            </.link>
+            <div class="flex-1 min-w-0">
+              <h1 class="text-3xl font-bold text-base-content">Products</h1>
+              <p class="text-base-content/70 mt-1">
+                {if @total == 1, do: "1 product", else: "#{@total} products"}
+              </p>
+            </div>
           </div>
+        </header>
 
-          <.link navigate={Routes.path("/admin/shop/products/new")} class="btn btn-primary">
-            <.icon name="hero-plus" class="w-5 h-5 mr-2" /> Add Product
-          </.link>
-        </div>
+        <%!-- Controls Bar --%>
+        <div class="bg-base-200 rounded-lg p-6 mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+            <%!-- Search --%>
+            <div class="lg:col-span-2">
+              <label class="label"><span class="label-text">Search</span></label>
+              <form phx-submit="search" phx-change="search">
+                <input
+                  type="text"
+                  name="search"
+                  value={@search}
+                  placeholder="Search products..."
+                  class="input input-bordered w-full focus:input-primary"
+                  phx-debounce="300"
+                />
+              </form>
+            </div>
 
-        <%!-- Filters --%>
-        <div class="card bg-base-100 shadow mb-6">
-          <div class="card-body py-4">
-            <div class="flex flex-col md:flex-row gap-4">
-              <%!-- Search --%>
-              <div class="form-control flex-1">
-                <form phx-submit="search" phx-change="search">
-                  <input
-                    type="text"
-                    name="search"
-                    value={@search}
-                    placeholder="Search products..."
-                    class="input input-bordered w-full"
-                    phx-debounce="300"
-                  />
-                </form>
-              </div>
+            <%!-- Status Filter --%>
+            <div>
+              <label class="label"><span class="label-text">Status</span></label>
+              <form phx-change="filter_status">
+                <select class="select select-bordered w-full focus:select-primary" name="status">
+                  <option value="" selected={is_nil(@status_filter)}>All Status</option>
+                  <option value="active" selected={@status_filter == "active"}>Active</option>
+                  <option value="draft" selected={@status_filter == "draft"}>Draft</option>
+                  <option value="archived" selected={@status_filter == "archived"}>Archived</option>
+                </select>
+              </form>
+            </div>
 
-              <%!-- Status Filter --%>
-              <select
-                class="select select-bordered w-full md:w-40"
-                phx-change="filter_status"
-                name="status"
+            <%!-- Type Filter --%>
+            <div>
+              <label class="label"><span class="label-text">Type</span></label>
+              <form phx-change="filter_type">
+                <select class="select select-bordered w-full focus:select-primary" name="type">
+                  <option value="" selected={is_nil(@type_filter)}>All Types</option>
+                  <option value="physical" selected={@type_filter == "physical"}>Physical</option>
+                  <option value="digital" selected={@type_filter == "digital"}>Digital</option>
+                </select>
+              </form>
+            </div>
+
+            <%!-- Category Filter --%>
+            <div>
+              <label class="label"><span class="label-text">Category</span></label>
+              <form phx-change="filter_category">
+                <select class="select select-bordered w-full focus:select-primary" name="category">
+                  <option value="" selected={is_nil(@category_filter)}>All Categories</option>
+                  <%= for category <- @categories do %>
+                    <option value={category.id} selected={@category_filter == category.id}>
+                      {category.name}
+                    </option>
+                  <% end %>
+                </select>
+              </form>
+            </div>
+
+            <%!-- Add Button --%>
+            <div>
+              <label class="label"><span class="label-text">&nbsp;</span></label>
+              <.link
+                navigate={Routes.path("/admin/shop/products/new")}
+                class="btn btn-primary w-full"
               >
-                <option value="" selected={is_nil(@status_filter)}>All Status</option>
-                <option value="active" selected={@status_filter == "active"}>Active</option>
-                <option value="draft" selected={@status_filter == "draft"}>Draft</option>
-                <option value="archived" selected={@status_filter == "archived"}>Archived</option>
-              </select>
-
-              <%!-- Type Filter --%>
-              <select
-                class="select select-bordered w-full md:w-40"
-                phx-change="filter_type"
-                name="type"
-              >
-                <option value="" selected={is_nil(@type_filter)}>All Types</option>
-                <option value="physical" selected={@type_filter == "physical"}>Physical</option>
-                <option value="digital" selected={@type_filter == "digital"}>Digital</option>
-              </select>
+                <.icon name="hero-plus" class="w-4 h-4 mr-2" /> Add Product
+              </.link>
             </div>
           </div>
         </div>
 
+        <%!-- Bulk Actions Bar --%>
+        <%= if MapSet.size(@selected_ids) > 0 do %>
+          <div class="bg-primary/10 border border-primary/30 rounded-lg p-4 mb-6">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-2">
+                <span class="badge badge-primary badge-lg">
+                  {MapSet.size(@selected_ids)} selected
+                </span>
+                <button phx-click="clear_selection" class="btn btn-ghost btn-sm">
+                  Clear selection
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  phx-click="show_bulk_modal"
+                  phx-value-action="status"
+                  class="btn btn-sm btn-outline"
+                >
+                  <.icon name="hero-arrow-path" class="w-4 h-4 mr-1" /> Change Status
+                </button>
+                <button
+                  phx-click="show_bulk_modal"
+                  phx-value-action="category"
+                  class="btn btn-sm btn-outline"
+                >
+                  <.icon name="hero-folder" class="w-4 h-4 mr-1" /> Move to Category
+                </button>
+                <button
+                  phx-click="show_bulk_modal"
+                  phx-value-action="delete"
+                  class="btn btn-sm btn-outline btn-error"
+                >
+                  <.icon name="hero-trash" class="w-4 h-4 mr-1" /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        <% end %>
+
         <%!-- Products Table --%>
-        <div class="card bg-base-100 shadow-lg overflow-hidden">
+        <div class="card bg-base-100 shadow-xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="table">
               <thead>
                 <tr>
+                  <th class="w-12">
+                    <label class="cursor-pointer">
+                      <input
+                        type="checkbox"
+                        class="checkbox checkbox-sm"
+                        phx-click="select_all"
+                        checked={all_selected?(@products, @selected_ids)}
+                      />
+                    </label>
+                  </th>
                   <th>Product</th>
                   <th>Status</th>
                   <th>Type</th>
@@ -202,7 +439,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               <tbody>
                 <%= if Enum.empty?(@products) do %>
                   <tr>
-                    <td colspan="6" class="text-center py-12 text-base-content/50">
+                    <td colspan="7" class="text-center py-12 text-base-content/50">
                       <.icon name="hero-cube" class="w-12 h-12 mx-auto mb-3 opacity-50" />
                       <p class="text-lg">No products found</p>
                       <p class="text-sm">Create your first product to get started</p>
@@ -210,8 +447,22 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   </tr>
                 <% else %>
                   <%= for product <- @products do %>
-                    <tr class="hover">
-                      <td>
+                    <tr class={[
+                      "hover",
+                      if(MapSet.member?(@selected_ids, product.id), do: "bg-primary/5", else: "")
+                    ]}>
+                      <td phx-click="noop">
+                        <label class="cursor-pointer">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-sm"
+                            phx-click="toggle_select"
+                            phx-value-id={product.id}
+                            checked={MapSet.member?(@selected_ids, product.id)}
+                          />
+                        </label>
+                      </td>
+                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <div class="flex items-center gap-3">
                           <div class="avatar placeholder">
                             <div class="bg-base-300 text-base-content/50 w-12 h-12 rounded">
@@ -228,56 +479,52 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                           </div>
                         </div>
                       </td>
-                      <td>
+                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <span class={status_badge_class(product.status)}>
                           {product.status}
                         </span>
                       </td>
-                      <td>
+                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <span class={type_badge_class(product.product_type)}>
                           {product.product_type}
                         </span>
                       </td>
-                      <td>
+                      <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <%= if product.category do %>
                           <span class="badge badge-ghost">{product.category.name}</span>
                         <% else %>
                           <span class="text-base-content/40">—</span>
                         <% end %>
                       </td>
-                      <td class="text-right font-mono">
+                      <td
+                        class="text-right font-mono cursor-pointer"
+                        phx-click="view_product"
+                        phx-value-id={product.id}
+                      >
                         {format_price(product.price, @currency)}
                       </td>
-                      <td class="text-right">
-                        <div class="dropdown dropdown-end">
-                          <div tabindex="0" role="button" class="btn btn-ghost btn-sm">
-                            <.icon name="hero-ellipsis-vertical" class="w-5 h-5" />
-                          </div>
-                          <ul
-                            tabindex="0"
-                            class="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-48 z-10"
+                      <td class="text-right" phx-click="noop">
+                        <div class="flex flex-wrap gap-1 justify-end">
+                          <.link
+                            navigate={Routes.path("/admin/shop/products/#{product.id}")}
+                            class="btn btn-xs btn-outline btn-info"
                           >
-                            <li>
-                              <.link navigate={Routes.path("/admin/shop/products/#{product.id}")}>
-                                <.icon name="hero-eye" class="w-4 h-4" /> View
-                              </.link>
-                            </li>
-                            <li>
-                              <.link navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}>
-                                <.icon name="hero-pencil" class="w-4 h-4" /> Edit
-                              </.link>
-                            </li>
-                            <li>
-                              <button
-                                phx-click="delete_product"
-                                phx-value-id={product.id}
-                                data-confirm="Delete this product?"
-                                class="text-error"
-                              >
-                                <.icon name="hero-trash" class="w-4 h-4" /> Delete
-                              </button>
-                            </li>
-                          </ul>
+                            <.icon name="hero-eye" class="h-4 w-4" />
+                          </.link>
+                          <.link
+                            navigate={Routes.path("/admin/shop/products/#{product.id}/edit")}
+                            class="btn btn-xs btn-outline btn-secondary"
+                          >
+                            <.icon name="hero-pencil" class="h-4 w-4" />
+                          </.link>
+                          <button
+                            phx-click="delete_product"
+                            phx-value-id={product.id}
+                            data-confirm="Delete this product?"
+                            class="btn btn-xs btn-outline btn-error"
+                          >
+                            <.icon name="hero-trash" class="h-4 w-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -293,12 +540,13 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
               <div class="flex justify-center">
                 <div class="join">
                   <%= for page <- 1..ceil(@total / @per_page) do %>
-                    <.link
-                      patch={Routes.path("/admin/shop/products?page=#{page}")}
+                    <button
+                      phx-click="change_page"
+                      phx-value-page={page}
                       class={["join-item btn btn-sm", if(@page == page, do: "btn-active", else: "")]}
                     >
                       {page}
-                    </.link>
+                    </button>
                   <% end %>
                 </div>
               </div>
@@ -306,8 +554,116 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
           <% end %>
         </div>
       </div>
+
+      <%!-- Bulk Status Change Modal --%>
+      <%= if @show_bulk_modal == "status" do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">Change Status</h3>
+            <p class="text-base-content/70 mb-4">
+              Update status for {MapSet.size(@selected_ids)} selected products
+            </p>
+            <div class="flex flex-col gap-2">
+              <button
+                phx-click="bulk_change_status"
+                phx-value-status="active"
+                class="btn btn-success btn-outline justify-start"
+              >
+                <.icon name="hero-check-circle" class="w-5 h-5 mr-2" /> Set Active
+              </button>
+              <button
+                phx-click="bulk_change_status"
+                phx-value-status="draft"
+                class="btn btn-warning btn-outline justify-start"
+              >
+                <.icon name="hero-pencil-square" class="w-5 h-5 mr-2" /> Set Draft
+              </button>
+              <button
+                phx-click="bulk_change_status"
+                phx-value-status="archived"
+                class="btn btn-neutral btn-outline justify-start"
+              >
+                <.icon name="hero-archive-box" class="w-5 h-5 mr-2" /> Set Archived
+              </button>
+            </div>
+            <div class="modal-action">
+              <button phx-click="close_bulk_modal" class="btn">Cancel</button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="close_bulk_modal"></div>
+        </div>
+      <% end %>
+
+      <%!-- Bulk Category Change Modal --%>
+      <%= if @show_bulk_modal == "category" do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">Move to Category</h3>
+            <p class="text-base-content/70 mb-4">
+              Move {MapSet.size(@selected_ids)} selected products to a category
+            </p>
+            <div class="flex flex-col gap-2">
+              <button
+                phx-click="bulk_change_category"
+                phx-value-category_id=""
+                class="btn btn-ghost justify-start"
+              >
+                <.icon name="hero-x-mark" class="w-5 h-5 mr-2" /> No Category
+              </button>
+              <%= for category <- @categories do %>
+                <button
+                  phx-click="bulk_change_category"
+                  phx-value-category_id={category.id}
+                  class="btn btn-outline justify-start"
+                >
+                  <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {category.name}
+                </button>
+              <% end %>
+            </div>
+            <div class="modal-action">
+              <button phx-click="close_bulk_modal" class="btn">Cancel</button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="close_bulk_modal"></div>
+        </div>
+      <% end %>
+
+      <%!-- Bulk Delete Confirmation Modal --%>
+      <%= if @show_bulk_modal == "delete" do %>
+        <div class="modal modal-open">
+          <div class="modal-box">
+            <h3 class="font-bold text-lg text-error mb-4">Delete Products</h3>
+            <p class="text-base-content/70 mb-4">
+              Are you sure you want to delete {MapSet.size(@selected_ids)} products?
+              This action cannot be undone.
+            </p>
+            <div class="modal-action">
+              <button phx-click="close_bulk_modal" class="btn">Cancel</button>
+              <button phx-click="bulk_delete" class="btn btn-error">
+                <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete Products
+              </button>
+            </div>
+          </div>
+          <div class="modal-backdrop" phx-click="close_bulk_modal"></div>
+        </div>
+      <% end %>
     </PhoenixKitWeb.Components.LayoutWrapper.app_layout>
     """
+  end
+
+  defp all_selected?(products, selected_ids) do
+    products != [] and
+      Enum.all?(products, fn p -> MapSet.member?(selected_ids, p.id) end)
+  end
+
+  defp parse_category_id(nil), do: nil
+  defp parse_category_id(""), do: nil
+
+  defp parse_category_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int, ""} -> int
+      _ -> nil
+    end
   end
 
   defp status_badge_class("active"), do: "badge badge-success"

@@ -1,0 +1,165 @@
+defmodule PhoenixKit.Modules.Shop.ImportConfig do
+  @moduledoc """
+  ImportConfig schema for configurable CSV import filtering.
+
+  Allows defining custom filtering rules per import type instead of
+  using hardcoded keywords.
+
+  ## Fields
+
+  - `name` - Config name (e.g., "decor_3d", "general")
+  - `include_keywords` - Keywords that must be present for inclusion
+  - `exclude_keywords` - Keywords that cause exclusion
+  - `exclude_phrases` - Phrases that cause exclusion
+  - `skip_filter` - If true, skip all filtering (import everything)
+  - `category_rules` - List of maps: `[%{keywords: [...], slug: "category-slug"}]`
+  - `default_category_slug` - Fallback category when no rules match
+  - `required_columns` - CSV columns that must be present
+  - `is_default` - Use this config when none specified
+  - `active` - Config is available for use
+
+  ## Example Category Rules
+
+      [
+        %{"keywords" => ["shelf"], "slug" => "shelves"},
+        %{"keywords" => ["mask"], "slug" => "masks"},
+        %{"keywords" => ["vase", "planter"], "slug" => "vases-planters"}
+      ]
+  """
+
+  use Ecto.Schema
+  import Ecto.Changeset
+
+  @default_required_columns ["Handle", "Title", "Variant Price"]
+
+  schema "phoenix_kit_shop_import_configs" do
+    field :uuid, Ecto.UUID
+    field :name, :string
+
+    # Filtering keywords (PostgreSQL TEXT[] arrays)
+    field :include_keywords, {:array, :string}, default: []
+    field :exclude_keywords, {:array, :string}, default: []
+    field :exclude_phrases, {:array, :string}, default: []
+    field :skip_filter, :boolean, default: false
+
+    # Category assignment rules (JSONB)
+    field :category_rules, {:array, :map}, default: []
+    field :default_category_slug, :string
+
+    # CSV validation
+    field :required_columns, {:array, :string}, default: @default_required_columns
+
+    # Status flags
+    field :is_default, :boolean, default: false
+    field :active, :boolean, default: true
+
+    timestamps()
+  end
+
+  @doc """
+  Changeset for creating/updating an import config.
+  """
+  def changeset(config \\ %__MODULE__{}, attrs) do
+    config
+    |> cast(attrs, [
+      :name,
+      :include_keywords,
+      :exclude_keywords,
+      :exclude_phrases,
+      :skip_filter,
+      :category_rules,
+      :default_category_slug,
+      :required_columns,
+      :is_default,
+      :active
+    ])
+    |> validate_required([:name])
+    |> unique_constraint(:name)
+    |> unique_constraint(:uuid)
+    |> validate_category_rules()
+    |> generate_uuid()
+  end
+
+  defp validate_category_rules(changeset) do
+    case get_field(changeset, :category_rules) do
+      nil ->
+        changeset
+
+      rules when is_list(rules) ->
+        if Enum.all?(rules, &valid_category_rule?/1) do
+          changeset
+        else
+          add_error(
+            changeset,
+            :category_rules,
+            "each rule must have 'keywords' (list) and 'slug' (string)"
+          )
+        end
+
+      _ ->
+        add_error(changeset, :category_rules, "must be a list of rule objects")
+    end
+  end
+
+  defp valid_category_rule?(rule) when is_map(rule) do
+    keywords = rule["keywords"] || rule[:keywords]
+    slug = rule["slug"] || rule[:slug]
+
+    is_list(keywords) and is_binary(slug) and slug != ""
+  end
+
+  defp valid_category_rule?(_), do: false
+
+  defp generate_uuid(changeset) do
+    if get_field(changeset, :uuid) do
+      changeset
+    else
+      put_change(changeset, :uuid, Ecto.UUID.generate())
+    end
+  end
+
+  @doc """
+  Returns default required columns for CSV validation.
+  """
+  def default_required_columns, do: @default_required_columns
+
+  @doc """
+  Builds a config struct from legacy hardcoded values (for backward compatibility).
+  """
+  def from_legacy_defaults do
+    %__MODULE__{
+      name: "legacy_default",
+      include_keywords:
+        ~w(3d printed shelf mask vase planter holder stand lamp light figurine sculpture statue),
+      exclude_keywords: ~w(decal sticker mural wallpaper poster tapestry canvas),
+      exclude_phrases: ["wall art"],
+      skip_filter: false,
+      category_rules: [
+        %{"keywords" => ["shelf"], "slug" => "shelves"},
+        %{"keywords" => ["mask"], "slug" => "masks"},
+        %{"keywords" => ["vase", "planter"], "slug" => "vases-planters"},
+        %{"keywords" => ["holder", "stand"], "slug" => "holders-stands"},
+        %{"keywords" => ["lamp", "light"], "slug" => "lamps"},
+        %{"keywords" => ["figurine", "sculpture", "statue"], "slug" => "figurines"}
+      ],
+      default_category_slug: "other-3d",
+      required_columns: @default_required_columns,
+      is_default: true,
+      active: true
+    }
+  end
+
+  @doc """
+  Builds a "no filter" config that imports everything.
+  """
+  def no_filter_config do
+    %__MODULE__{
+      name: "no_filter",
+      skip_filter: true,
+      category_rules: [],
+      required_columns: @default_required_columns,
+      is_default: false,
+      active: true
+    }
+  end
+end

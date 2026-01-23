@@ -466,25 +466,23 @@ defmodule PhoenixKitWeb.Components.AdminNav do
   end
 
   # Helper function to determine if navigation item is active
-  defp nav_item_active?(current_path, href, nested, exact_match_only) do
+  defp nav_item_active?(current_path, href, _nested, exact_match_only) do
     current_parts = parse_admin_path(current_path)
     href_parts = parse_admin_path(href)
 
-    # For nested items, use only exact and tab matching to prevent parent highlighting
-    if nested do
-      exact_match?(current_parts, href_parts) or tab_match?(current_parts, href_parts)
-    else
-      # For top-level items with exact_match_only, skip hierarchical matching
-      base_matches =
-        exact_match?(current_parts, href_parts) or
-          tab_match?(current_parts, href_parts) or
-          parent_match?(current_parts, href_parts)
+    # Base matching: exact, tab, or parent match
+    base_matches =
+      exact_match?(current_parts, href_parts) or
+        tab_match?(current_parts, href_parts) or
+        parent_match?(current_parts, href_parts)
 
-      if exact_match_only do
-        base_matches
-      else
-        base_matches or hierarchical_match?(current_parts, href_parts)
-      end
+    # For exact_match_only items (like Dashboard), skip hierarchical matching
+    # For all other items (including nested), use hierarchical matching
+    # This allows nested items like Products to be active on /products/:id/edit
+    if exact_match_only do
+      base_matches
+    else
+      base_matches or hierarchical_match?(current_parts, href_parts)
     end
   end
 
