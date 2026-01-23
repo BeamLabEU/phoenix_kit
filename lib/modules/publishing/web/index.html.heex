@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={Routes.path("/admin", locale: @current_locale)}
+        navigate={Routes.path("/admin")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
@@ -45,7 +45,7 @@
             </p>
             <div class="flex flex-wrap justify-center gap-3">
               <.link
-                href={Routes.path("/admin/settings/publishing/new", locale: @current_locale)}
+                href={Routes.path("/admin/settings/publishing/new")}
                 class="btn btn-primary btn-sm"
               >
                 <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext(
@@ -53,7 +53,7 @@
                 )}
               </.link>
               <.link
-                navigate={Routes.path("/admin/settings/publishing", locale: @current_locale)}
+                navigate={Routes.path("/admin/settings/publishing")}
                 class="btn btn-outline btn-sm"
               >
                 <.icon name="hero-information-circle" class="w-4 h-4 mr-1" /> {gettext(
@@ -107,11 +107,7 @@
                   <div class="space-y-2">
                     <h3 class="text-xl font-semibold text-base-content">
                       <.link
-                        navigate={
-                          Routes.path("/admin/publishing/#{insight.slug}",
-                            locale: @current_locale
-                          )
-                        }
+                        navigate={Routes.path("/admin/publishing/#{insight.slug}")}
                         class="hover:text-primary transition-colors"
                       >
                         {insight.name}
@@ -185,21 +181,14 @@
 
                 <div class="flex gap-2 mt-auto">
                   <.link
-                    navigate={
-                      Routes.path("/admin/publishing/#{insight.slug}", locale: @current_locale)
-                    }
+                    navigate={Routes.path("/admin/publishing/#{insight.slug}")}
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-arrow-right" class="w-4 h-4 mr-1" />
                     {gettext("Open")}
                   </.link>
                   <.link
-                    navigate={
-                      Routes.path(
-                        "/admin/settings/publishing/#{insight.slug}/edit",
-                        locale: @current_locale
-                      )
-                    }
+                    navigate={Routes.path("/admin/settings/publishing/#{insight.slug}/edit")}
                     class="btn btn-outline btn-sm"
                   >
                     <.icon name="hero-cog-6-tooth" class="w-4 h-4 mr-1" />

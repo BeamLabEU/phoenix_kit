@@ -54,10 +54,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     current_path =
       case blog_slug do
         nil ->
-          Routes.path("/admin/publishing", locale: socket.assigns.current_locale_base)
+          Routes.path("/admin/publishing")
 
         slug ->
-          Routes.path("/admin/publishing/#{slug}", locale: socket.assigns.current_locale_base)
+          Routes.path("/admin/publishing/#{slug}")
       end
 
     socket =
@@ -152,11 +152,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Use redirect for full page refresh to ensure editor JS initializes properly
     {:noreply,
      redirect(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{blog_slug}/edit?new=true",
-           locale: socket.assigns.current_locale_base
-         )
+       to: Routes.path("/admin/publishing/#{blog_slug}/edit?new=true")
      )}
   end
 
@@ -175,8 +171,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
      redirect(socket,
        to:
          Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-           locale: socket.assigns.current_locale_base
+           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}"
          )
      )}
   end
@@ -188,8 +183,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
      redirect(socket,
        to:
          Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}",
-           locale: socket.assigns.current_locale_base
+           "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(path)}"
          )
      )}
   end
@@ -204,8 +198,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
        redirect(socket,
          to:
            Routes.path(
-             "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}",
-             locale: socket.assigns.current_locale_base
+             "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(post_path)}&switch_to=#{lang_code}"
            )
        )}
     else
@@ -632,20 +625,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         # Current group was deleted - redirect to first available
         case blogs do
           [%{"slug" => slug} | _] ->
-            push_navigate(socket,
-              to:
-                Routes.path("/admin/publishing/#{slug}",
-                  locale: socket.assigns.current_locale_base
-                )
-            )
+            push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
           [] ->
-            push_navigate(socket,
-              to:
-                Routes.path("/admin/settings/publishing",
-                  locale: socket.assigns.current_locale_base
-                )
-            )
+            push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
         end
       else
         assign(socket, :blogs, blogs)
@@ -786,15 +769,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   defp redirect_if_missing(%{assigns: %{current_blog: nil}} = socket) do
     case socket.assigns.blogs do
       [%{"slug" => slug} | _] ->
-        push_navigate(socket,
-          to: Routes.path("/admin/publishing/#{slug}", locale: socket.assigns.current_locale_base)
-        )
+        push_navigate(socket, to: Routes.path("/admin/publishing/#{slug}"))
 
       [] ->
-        push_navigate(socket,
-          to:
-            Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
-        )
+        push_navigate(socket, to: Routes.path("/admin/settings/publishing"))
     end
   end
 

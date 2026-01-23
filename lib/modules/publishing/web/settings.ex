@@ -36,7 +36,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Settings do
       |> assign(:page_title, gettext("Manage Publishing"))
       |> assign(
         :current_path,
-        Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
+        Routes.path("/admin/settings/publishing")
       )
       |> assign(:module_enabled, Publishing.enabled?())
       |> assign(:blogs, blogs_with_legacy)

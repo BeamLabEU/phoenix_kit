@@ -25,9 +25,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
       |> assign(:blog_name, Publishing.group_name(blog_slug) || blog_slug)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/preview",
-          locale: socket.assigns.current_locale_base
-        )
+        Routes.path("/admin/publishing/#{blog_slug}/preview")
       )
       |> assign(:rendered_content, nil)
       |> assign(:error, nil)
@@ -122,12 +120,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(
-           to:
-             Routes.path("/admin/publishing/#{blog_slug}",
-               locale: socket.assigns.current_locale_base
-             )
-         )}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{blog_slug}"))}
     end
   end
 
@@ -137,10 +130,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Preview do
     query = socket |> preview_return_params() |> encode_query()
 
     destination =
-      Routes.path(
-        "/admin/publishing/#{socket.assigns.blog_slug}/edit#{query}",
-        locale: socket.assigns.current_locale_base
-      )
+      Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/edit#{query}")
 
     {:noreply, push_navigate(socket, to: destination)}
   end

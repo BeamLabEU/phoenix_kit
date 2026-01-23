@@ -2,9 +2,7 @@
   flash={@flash}
   phoenix_kit_current_scope={assigns[:phoenix_kit_current_scope]}
   page_title={@page_title}
-  current_path={
-    PhoenixKit.Utils.Routes.path("/admin/publishing/#{@blog_slug}/edit", locale: @current_locale)
-  }
+  current_path={PhoenixKit.Utils.Routes.path("/admin/publishing/#{@blog_slug}/edit")}
   project_title={@project_title}
   current_locale={@current_locale}
 >
@@ -340,7 +338,7 @@
                 <span class="label-text-alt text-base-content/60">
                   {gettext("Configure endpoints in")}
                   <.link
-                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai", locale: @current_locale)}
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
                     class="link link-primary"
                   >
                     {gettext("AI Settings")}

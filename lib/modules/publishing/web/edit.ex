@@ -17,10 +17,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
         {:ok,
          socket
          |> put_flash(:error, gettext("The requested blog could not be found."))
-         |> push_navigate(
-           to:
-             Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
-         )}
+         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
 
       blog ->
         form =
@@ -32,9 +29,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:page_title, gettext("Edit Blog"))
          |> assign(
            :current_path,
-           Routes.path("/admin/settings/publishing/#{blog_slug}/edit",
-             locale: socket.assigns.current_locale_base
-           )
+           Routes.path("/admin/settings/publishing/#{blog_slug}/edit")
          )
          |> assign(:blog, blog)
          |> assign(:form, form)}
@@ -64,10 +59,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
          |> assign(:blog, updated_group)
          |> assign(:form, updated_form)
          |> put_flash(:info, gettext("Group updated"))
-         |> push_navigate(
-           to:
-             Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
-         )}
+         |> push_navigate(to: Routes.path("/admin/settings/publishing"))}
 
       {:error, :already_exists} ->
         {:noreply,
@@ -110,10 +102,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Edit do
   end
 
   def handle_event("cancel", _params, socket) do
-    {:noreply,
-     push_navigate(socket,
-       to: Routes.path("/admin/settings/publishing", locale: socket.assigns.current_locale_base)
-     )}
+    {:noreply, push_navigate(socket, to: Routes.path("/admin/settings/publishing"))}
   end
 
   defp find_blog(slug) do

@@ -108,9 +108,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_translation_status, nil)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit",
-          locale: socket.assigns.current_locale_base
-        )
+        Routes.path("/admin/publishing/#{blog_slug}/edit")
       )
 
     {:ok, socket}
@@ -185,9 +183,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign_current_language(primary_language)
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing/#{blog_slug}/edit?new=true",
-          locale: socket.assigns.current_locale_base
-        )
+        Routes.path("/admin/publishing/#{blog_slug}/edit?new=true")
       )
       |> assign(:has_pending_changes, false)
       |> assign(:is_new_post, true)
@@ -263,8 +259,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> assign(
                 :current_path,
                 Routes.path(
-                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(new_path)}"
                 )
               )
               |> assign(:current_version, current_version)
@@ -303,8 +298,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
               |> assign(
                 :current_path,
                 Routes.path(
-                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode_www_form(path)}"
                 )
               )
               |> assign(:has_pending_changes, false)
@@ -342,12 +336,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         {:noreply,
          socket
          |> put_flash(:error, gettext("Post not found"))
-         |> push_navigate(
-           to:
-             Routes.path("/admin/publishing/#{blog_slug}",
-               locale: socket.assigns.current_locale_base
-             )
-         )}
+         |> push_navigate(to: Routes.path("/admin/publishing/#{blog_slug}"))}
     end
   end
 
@@ -650,11 +639,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     {:noreply,
      push_navigate(socket,
-       to:
-         Routes.path(
-           "/admin/publishing/#{socket.assigns.blog_slug}/preview#{query_string}",
-           locale: socket.assigns.current_locale_base
-         )
+       to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/preview#{query_string}")
      )}
   end
 
@@ -670,12 +655,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     {:noreply,
      socket
      |> push_event("changes-status", %{has_changes: false})
-     |> push_navigate(
-       to:
-         Routes.path("/admin/publishing/#{socket.assigns.blog_slug}",
-           locale: socket.assigns.current_locale_base
-         )
-     )}
+     |> push_navigate(to: Routes.path("/admin/publishing/#{socket.assigns.blog_slug}"))}
   end
 
   def handle_event("back_to_list", _params, socket) do
@@ -703,11 +683,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
       {:noreply,
        push_patch(socket,
-         to:
-           Routes.path(
-             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
-             locale: socket.assigns.current_locale_base
-           )
+         to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
        )}
     else
       virtual_post =
@@ -762,8 +738,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
        push_patch(socket,
          to:
            Routes.path(
-             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}",
-             locale: socket.assigns.current_locale_base
+             "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(original_path)}&switch_to=#{new_language}"
            ),
          replace: true
        )}
@@ -858,11 +833,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
          |> assign(:new_version_source, nil)
          |> put_flash(:info, flash_msg)
          |> push_navigate(
-           to:
-             Routes.path(
-               "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}",
-               locale: socket.assigns.current_locale_base
-             )
+           to: Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_path)}")
          )}
 
       {:error, reason} ->
@@ -910,8 +881,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             |> push_patch(
               to:
                 Routes.path(
-                  "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}",
-                  locale: socket.assigns.current_locale_base
+                  "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(migrated_post.path)}"
                 )
             )
 
@@ -1053,10 +1023,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     # Update URL to reflect the new version's path
     push_patch(socket,
       to:
-        Routes.path(
-          "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}",
-          locale: socket.assigns.current_locale_base
-        ),
+        Routes.path("/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(version_post.path)}"),
       replace: true
     )
   end
@@ -1733,8 +1700,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           |> push_patch(
             to:
               Routes.path(
-                "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}",
-                locale: socket.assigns.current_locale_base
+                "/admin/publishing/#{blog_slug}/edit?path=#{URI.encode(new_version_post.path)}"
               )
           )
 
@@ -1944,8 +1910,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
           |> push_patch(
             to:
               Routes.path(
-                "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}",
-                locale: socket.assigns.current_locale_base
+                "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{URI.encode(updated_post.path)}"
               )
           )
 
@@ -2485,9 +2450,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         encoded -> "?" <> encoded
       end
 
-    Routes.path("/admin/publishing/#{blog_slug}/edit#{query}",
-      locale: socket.assigns.current_locale_base
-    )
+    Routes.path("/admin/publishing/#{blog_slug}/edit#{query}")
   end
 
   defp infer_mode(socket) do
@@ -2858,10 +2821,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     encoded = URI.encode(new_path)
 
     path =
-      Routes.path(
-        "/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{encoded}",
-        locale: socket.assigns.current_locale_base
-      )
+      Routes.path("/admin/publishing/#{socket.assigns.blog_slug}/edit?path=#{encoded}")
 
     socket
     |> assign(:current_path, path)

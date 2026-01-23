@@ -11,6 +11,10 @@ defmodule PhoenixKit.Utils.Routes do
 
   @default_locale Config.default_locale()
 
+  # List of path prefixes that should NEVER have a locale added.
+  # This should be kept in sync with @reserved_segments in LocaleExtractor plug.
+  @reserved_prefixes ~w(/admin /api /webhooks /assets /static /files /images /fonts /js /css /sitemap)
+
   @doc """
   Returns the configured PhoenixKit URL prefix.
 
@@ -30,30 +34,41 @@ defmodule PhoenixKit.Utils.Routes do
       url_prefix = PhoenixKit.Config.get_url_prefix()
       base_path = if url_prefix === "/", do: "", else: url_prefix
 
-      locale =
-        case Keyword.fetch(opts, :locale) do
-          {:ok, :none} -> :none
-          {:ok, nil} -> determine_locale()
-          {:ok, locale_value} -> locale_value
-          :error -> determine_locale()
-        end
-
-      case locale do
-        :none ->
-          "#{base_path}#{url_path}"
-
-        locale_value ->
-          if default_locale?(locale_value) do
-            "#{base_path}#{url_path}"
-          else
-            "#{base_path}/#{locale_value}#{url_path}"
+      # Reserved paths NEVER get a locale prefix to prevent crossing
+      # live_session boundaries and breaking layouts.
+      if reserved_path?(url_path) do
+        "#{base_path}#{url_path}"
+      else
+        locale =
+          case Keyword.fetch(opts, :locale) do
+            {:ok, :none} -> :none
+            {:ok, nil} -> determine_locale()
+            {:ok, locale_value} -> locale_value
+            :error -> determine_locale()
           end
+
+        case locale do
+          :none ->
+            "#{base_path}#{url_path}"
+
+          locale_value ->
+            if default_locale?(locale_value) do
+              "#{base_path}#{url_path}"
+            else
+              "#{base_path}/#{locale_value}#{url_path}"
+            end
+        end
       end
     else
       raise """
       Url path must start with "/".
       """
     end
+  end
+
+  # Check if a path starts with one of the reserved prefixes.
+  defp reserved_path?(path) do
+    Enum.any?(@reserved_prefixes, &String.starts_with?(path, &1))
   end
 
   defp determine_locale do

@@ -50,7 +50,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Index do
       |> assign(:page_title, gettext("Publishing"))
       |> assign(
         :current_path,
-        Routes.path("/admin/publishing", locale: socket.assigns.current_locale_base)
+        Routes.path("/admin/publishing")
       )
       |> assign(:blogs, blogs)
       |> assign(:dashboard_insights, insights)

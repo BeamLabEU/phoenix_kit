@@ -11,7 +11,7 @@
     <header class="w-full relative mb-6">
       <%!-- Back Button (Left aligned) --%>
       <.link
-        navigate={PhoenixKit.Utils.Routes.path("/admin", locale: @current_locale)}
+        navigate={PhoenixKit.Utils.Routes.path("/admin")}
         class="btn btn-outline btn-primary btn-sm absolute left-0 top-0 -mb-12"
       >
         <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back to Dashboard
@@ -40,9 +40,7 @@
             <p>
               {gettext("The")}
               <.link
-                navigate={
-                  PhoenixKit.Utils.Routes.path("/admin/settings", locale: @current_locale)
-                }
+                navigate={PhoenixKit.Utils.Routes.path("/admin/settings")}
                 class="link link-primary font-medium underline"
               >
                 {gettext("Content Language")}
@@ -53,11 +51,7 @@
               <%= if @languages_enabled do %>
                 {gettext("Additional languages are configured in the")}
                 <.link
-                  navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/settings/languages",
-                      locale: @current_locale
-                    )
-                  }
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages")}
                   class="link link-primary font-medium underline"
                 >
                   {gettext("Languages Module")}
@@ -65,9 +59,7 @@
               <% else %>
                 {gettext("To enable multi-language support, activate the")}
                 <.link
-                  navigate={
-                    PhoenixKit.Utils.Routes.path("/admin/modules", locale: @current_locale)
-                  }
+                  navigate={PhoenixKit.Utils.Routes.path("/admin/modules")}
                   class="link link-primary font-medium underline"
                 >
                   {gettext("Languages Module")}
@@ -93,7 +85,7 @@
               </p>
             </div>
             <.link
-              href={Routes.path("/admin/settings/publishing/new", locale: @current_locale)}
+              href={Routes.path("/admin/settings/publishing/new")}
               class="btn btn-primary btn-sm whitespace-nowrap"
             >
               <.icon name="hero-plus" class="w-4 h-4 mr-1" /> {gettext("Create Publishing Group")}
@@ -119,11 +111,7 @@
                   <div class="space-y-1">
                     <p class="flex items-center gap-2 text-base font-semibold text-base-content">
                       <.link
-                        navigate={
-                          Routes.path("/admin/publishing/#{blog["slug"]}",
-                            locale: @current_locale
-                          )
-                        }
+                        navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
                         class="hover:text-primary transition-colors"
                       >
                         {blog["name"]}
@@ -181,21 +169,14 @@
                     <% end %>
                     <.link
                       aria-label={gettext("Open Admin")}
-                      navigate={
-                        Routes.path("/admin/publishing/#{blog["slug"]}", locale: @current_locale)
-                      }
+                      navigate={Routes.path("/admin/publishing/#{blog["slug"]}")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-arrow-right" class="w-4 h-4" />
                     </.link>
                     <.link
                       aria-label={gettext("Edit")}
-                      navigate={
-                        Routes.path(
-                          "/admin/settings/publishing/#{blog["slug"]}/edit",
-                          locale: @current_locale
-                        )
-                      }
+                      navigate={Routes.path("/admin/settings/publishing/#{blog["slug"]}/edit")}
                       class="btn btn-outline btn-sm btn-square"
                     >
                       <.icon name="hero-pencil-square" class="w-4 h-4" />
