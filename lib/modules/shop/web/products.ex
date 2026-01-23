@@ -7,6 +7,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
 
   alias PhoenixKit.Modules.Billing.Currency
   alias PhoenixKit.Modules.Shop
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @per_page 25
@@ -16,6 +17,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
     {products, total} = Shop.list_products_with_count(per_page: @per_page, preload: [:category])
     currency = Shop.get_default_currency()
     categories = Shop.list_categories()
+
+    # Get current language for admin (use default language)
+    current_language = Translations.default_language()
 
     socket =
       socket
@@ -32,6 +36,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
       |> assign(:currency, currency)
       |> assign(:selected_ids, MapSet.new())
       |> assign(:show_bulk_modal, nil)
+      |> assign(:current_language, current_language)
 
     {:ok, socket}
   end
@@ -353,7 +358,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   <option value="" selected={is_nil(@category_filter)}>All Categories</option>
                   <%= for category <- @categories do %>
                     <option value={category.id} selected={@category_filter == category.id}>
-                      {category.name}
+                      {Translations.get(category, :name, @current_language)}
                     </option>
                   <% end %>
                 </select>
@@ -464,18 +469,20 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       </td>
                       <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <div class="flex items-center gap-3">
+                          <% product_title = Translations.get(product, :title, @current_language) %>
+                          <% product_slug = Translations.get(product, :slug, @current_language) %>
                           <div class="avatar placeholder">
                             <div class="bg-base-300 text-base-content/50 w-12 h-12 rounded">
                               <%= if product.featured_image do %>
-                                <img src={product.featured_image} alt={product.title} />
+                                <img src={product.featured_image} alt={product_title} />
                               <% else %>
                                 <.icon name="hero-cube" class="w-6 h-6" />
                               <% end %>
                             </div>
                           </div>
                           <div>
-                            <div class="font-bold">{product.title}</div>
-                            <div class="text-sm text-base-content/60">{product.slug}</div>
+                            <div class="font-bold">{product_title}</div>
+                            <div class="text-sm text-base-content/60">{product_slug}</div>
                           </div>
                         </div>
                       </td>
@@ -491,7 +498,9 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                       </td>
                       <td class="cursor-pointer" phx-click="view_product" phx-value-id={product.id}>
                         <%= if product.category do %>
-                          <span class="badge badge-ghost">{product.category.name}</span>
+                          <span class="badge badge-ghost">
+                            {Translations.get(product.category, :name, @current_language)}
+                          </span>
                         <% else %>
                           <span class="text-base-content/40">—</span>
                         <% end %>
@@ -616,7 +625,11 @@ defmodule PhoenixKit.Modules.Shop.Web.Products do
                   phx-value-category_id={category.id}
                   class="btn btn-outline justify-start"
                 >
-                  <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {category.name}
+                  <.icon name="hero-folder" class="w-5 h-5 mr-2" /> {Translations.get(
+                    category,
+                    :name,
+                    @current_language
+                  )}
                 </button>
               <% end %>
             </div>

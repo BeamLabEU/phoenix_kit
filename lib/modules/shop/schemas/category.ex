@@ -35,18 +35,18 @@ defmodule PhoenixKit.Modules.Shop.Category do
   schema "phoenix_kit_shop_categories" do
     field :uuid, Ecto.UUID
 
-    field :name, :string
-    field :slug, :string
-    field :description, :string
+    # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
+    field :name, :map, default: %{}
+    field :slug, :map, default: %{}
+    field :description, :map, default: %{}
+
+    # Non-localized fields
     field :image_url, :string
     field :image_id, Ecto.UUID
     field :position, :integer, default: 0
     field :status, :string, default: "active"
     field :metadata, :map, default: %{}
     field :option_schema, {:array, :map}, default: []
-
-    # Multi-language support
-    field :translations, :map, default: %{}
 
     # Self-referential for nesting
     belongs_to :parent, __MODULE__
@@ -60,6 +60,8 @@ defmodule PhoenixKit.Modules.Shop.Category do
 
   @doc "Returns list of valid category statuses"
   def statuses, do: @statuses
+
+  @localized_fields [:name, :slug, :description]
 
   @doc """
   Changeset for category creation and updates.
@@ -76,18 +78,20 @@ defmodule PhoenixKit.Modules.Shop.Category do
       :position,
       :status,
       :metadata,
-      :option_schema,
-      :translations
+      :option_schema
     ])
-    |> validate_required([:name])
-    |> validate_length(:name, max: 255)
-    |> validate_length(:slug, max: 255)
+    |> normalize_map_fields(@localized_fields)
+    |> validate_localized_required(:name)
     |> validate_number(:position, greater_than_or_equal_to: 0)
     |> validate_inclusion(:status, @statuses)
     |> maybe_generate_slug()
     |> validate_not_self_parent()
-    |> unique_constraint(:slug)
   end
+
+  @doc """
+  Returns the list of localized field names.
+  """
+  def localized_fields, do: @localized_fields
 
   @doc """
   Returns the image URL for a category.
@@ -180,17 +184,59 @@ defmodule PhoenixKit.Modules.Shop.Category do
     [category.name]
   end
 
-  # Generate slug from name if not provided
-  defp maybe_generate_slug(changeset) do
-    case get_change(changeset, :slug) do
-      nil ->
-        case get_change(changeset, :name) do
-          nil -> changeset
-          name -> put_change(changeset, :slug, slugify(name))
-        end
+  # Remove empty string values from map fields
+  defp normalize_map_fields(changeset, fields) do
+    Enum.reduce(fields, changeset, fn field, acc ->
+      case get_change(acc, field) do
+        nil ->
+          acc
 
-      _ ->
-        changeset
+        map when is_map(map) ->
+          cleaned =
+            map
+            |> Enum.reject(fn {_k, v} -> v in [nil, ""] end)
+            |> Map.new()
+
+          put_change(acc, field, cleaned)
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  # Validate that localized field has value for default language
+  defp validate_localized_required(changeset, field) do
+    value = get_field(changeset, field) || %{}
+    default_lang = default_language()
+
+    if Map.get(value, default_lang) in [nil, ""] do
+      add_error(changeset, field, "#{default_lang} translation is required")
+    else
+      changeset
+    end
+  end
+
+  # Generate slug from name for each language
+  defp maybe_generate_slug(changeset) do
+    name_map = get_field(changeset, :name) || %{}
+    slug_map = get_field(changeset, :slug) || %{}
+
+    # For each language with a name but no slug, generate one
+    updated_slugs =
+      Enum.reduce(name_map, slug_map, fn {lang, name}, acc ->
+        if Map.get(acc, lang) in [nil, ""] and name not in [nil, ""] do
+          generated = slugify(name)
+          Map.put(acc, lang, generated)
+        else
+          acc
+        end
+      end)
+
+    if updated_slugs != slug_map do
+      put_change(changeset, :slug, updated_slugs)
+    else
+      changeset
     end
   end
 
@@ -206,12 +252,28 @@ defmodule PhoenixKit.Modules.Shop.Category do
     end
   end
 
-  defp slugify(text) do
+  defp slugify(text) when is_binary(text) do
     text
     |> String.downcase()
     |> String.replace(~r/[^\w\s-]/, "")
     |> String.replace(~r/\s+/, "-")
     |> String.replace(~r/-+/, "-")
     |> String.trim("-")
+  end
+
+  defp slugify(_), do: ""
+
+  defp default_language do
+    alias PhoenixKit.Modules.Languages
+
+    if Code.ensure_loaded?(Languages) and function_exported?(Languages, :enabled?, 0) and
+         Languages.enabled?() do
+      case Languages.get_default_language() do
+        %{"code" => code} -> code
+        _ -> "en"
+      end
+    else
+      "en"
+    end
   end
 end

@@ -7,16 +7,19 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Category
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @impl true
   def mount(_params, _session, socket) do
     categories = Shop.list_categories(preload: [:parent])
+    current_language = Translations.default_language()
 
     socket =
       socket
       |> assign(:page_title, "Categories")
       |> assign(:categories, categories)
+      |> assign(:current_language, current_language)
 
     {:ok, socket}
   end
@@ -103,25 +106,29 @@ defmodule PhoenixKit.Modules.Shop.Web.Categories do
                   </tr>
                 <% else %>
                   <%= for category <- @categories do %>
+                    <% cat_name = Translations.get(category, :name, @current_language) %>
+                    <% cat_slug = Translations.get(category, :slug, @current_language) %>
                     <tr class="hover">
                       <td>
                         <div class="flex items-center gap-3">
                           <div class="avatar placeholder">
                             <div class="bg-base-300 text-base-content/50 w-10 h-10 rounded">
                               <%= if image_url = Category.get_image_url(category, size: "thumbnail") do %>
-                                <img src={image_url} alt={category.name} />
+                                <img src={image_url} alt={cat_name} />
                               <% else %>
                                 <.icon name="hero-folder" class="w-5 h-5" />
                               <% end %>
                             </div>
                           </div>
-                          <span class="font-medium">{category.name}</span>
+                          <span class="font-medium">{cat_name}</span>
                         </div>
                       </td>
-                      <td class="text-base-content/60">{category.slug}</td>
+                      <td class="text-base-content/60">{cat_slug}</td>
                       <td>
                         <%= if category.parent do %>
-                          <span class="badge badge-ghost">{category.parent.name}</span>
+                          <span class="badge badge-ghost">
+                            {Translations.get(category.parent, :name, @current_language)}
+                          </span>
                         <% else %>
                           <span class="text-base-content/40">—</span>
                         <% end %>

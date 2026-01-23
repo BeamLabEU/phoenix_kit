@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Import.{Filter, OptionBuilder}
+  alias PhoenixKit.Modules.Shop.Translations
 
   require Logger
 
@@ -24,30 +25,45 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
   - rows: List of CSV row maps for this product
   - categories_map: Map of slug => category_id
   - config: Optional ImportConfig for category rules (nil = legacy defaults)
+  - opts: Keyword options:
+    - `:language` - Target language for imported content (default: system default language)
 
   ## Returns
 
   Map suitable for `Shop.create_product/1`
   """
-  def transform(handle, rows, categories_map \\ %{}, config \\ nil) do
+  def transform(handle, rows, categories_map \\ %{}, config \\ nil, opts \\ []) do
     first_row = List.first(rows)
     options = OptionBuilder.build_from_variants(rows)
+
+    # Get target language for localized fields
+    language = Keyword.get(opts, :language, Translations.default_language())
 
     # Determine category using config or legacy defaults
     title = first_row["Title"] || ""
     category_slug = Filter.categorize(title, config)
 
-    # Get category_id, auto-creating if necessary
-    category_id = resolve_category_id(category_slug, categories_map)
+    # Get category_id, auto-creating if necessary (with localized name/slug)
+    category_id = resolve_category_id(category_slug, categories_map, language)
 
     # Build metadata with option values and price modifiers
     metadata = build_metadata(options)
 
+    # Extract non-localized values
+    body_html_raw = first_row["Body (HTML)"]
+    description_raw = extract_description(body_html_raw)
+    seo_title_raw = get_non_empty(first_row, "SEO Title")
+    seo_description_raw = get_non_empty(first_row, "SEO Description")
+
     %{
-      slug: handle,
-      title: title,
-      body_html: first_row["Body (HTML)"],
-      description: extract_description(first_row["Body (HTML)"]),
+      # Localized fields - stored as maps with language key
+      slug: localized_map(handle, language),
+      title: localized_map(title, language),
+      body_html: localized_map(body_html_raw, language),
+      description: localized_map(description_raw, language),
+      seo_title: localized_map(seo_title_raw, language),
+      seo_description: localized_map(seo_description_raw, language),
+      # Non-localized fields
       vendor: get_non_empty(first_row, "Vendor"),
       tags: parse_tags(first_row["Tags"]),
       status: parse_status(first_row["Published"]),
@@ -57,35 +73,49 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       taxable: true,
       featured_image: find_featured_image(rows),
       images: collect_images(rows),
-      seo_title: get_non_empty(first_row, "SEO Title"),
-      seo_description: get_non_empty(first_row, "SEO Description"),
       category_id: category_id,
       metadata: metadata
     }
   end
 
+  # Build a localized field map for a single value
+  defp localized_map(nil, _language), do: %{}
+  defp localized_map("", _language), do: %{}
+  defp localized_map(value, language), do: %{language => value}
+
   @doc """
   Resolves category_id from slug, auto-creating if necessary.
 
   If category doesn't exist, creates it with:
-  - name: Generated from slug (capitalize, replace hyphens with spaces)
+  - name: Generated from slug (capitalize, replace hyphens with spaces) - localized map
   - status: "active"
-  - slug: The original slug
+  - slug: The original slug - localized map
+
+  ## Arguments
+
+  - category_slug: The slug string to look up
+  - categories_map: Map of slug => category_id
+  - language: Target language for localized fields (default: system default)
   """
-  def resolve_category_id(category_slug, categories_map) when is_binary(category_slug) do
+  def resolve_category_id(category_slug, categories_map, language \\ nil)
+
+  def resolve_category_id(category_slug, categories_map, language)
+      when is_binary(category_slug) do
+    lang = language || Translations.default_language()
+
     case Map.get(categories_map, category_slug) do
       nil ->
         # Category doesn't exist - try to create it
-        maybe_create_category(category_slug)
+        maybe_create_category(category_slug, lang)
 
       category_id ->
         category_id
     end
   end
 
-  def resolve_category_id(_, _), do: nil
+  def resolve_category_id(_, _, _), do: nil
 
-  defp maybe_create_category(slug) when is_binary(slug) and slug != "" do
+  defp maybe_create_category(slug, language) when is_binary(slug) and slug != "" do
     # Generate name from slug: "vases-planters" -> "Vases Planters"
     name =
       slug
@@ -93,15 +123,19 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
       |> String.split(" ")
       |> Enum.map_join(" ", &String.capitalize/1)
 
+    # Create localized attributes
     attrs = %{
-      name: name,
-      slug: slug,
+      name: %{language => name},
+      slug: %{language => slug},
       status: "active"
     }
 
     case Shop.create_category(attrs) do
       {:ok, category} ->
-        Logger.info("Auto-created category: #{slug} (id: #{category.id})")
+        Logger.info(
+          "Auto-created category: #{slug} (id: #{category.id}) with language: #{language}"
+        )
+
         category.id
 
       {:error, changeset} ->
@@ -117,7 +151,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ProductTransformer do
     end
   end
 
-  defp maybe_create_category(_), do: nil
+  defp maybe_create_category(_, _), do: nil
 
   @doc """
   Build an updated categories_map including any auto-created categories.

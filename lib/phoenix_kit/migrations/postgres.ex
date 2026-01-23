@@ -337,7 +337,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - JSONB fields for tags, images, option_names, metadata
   - Settings: shop_enabled, shop_currency, shop_tax_enabled, shop_tax_rate, shop_inventory_tracking
 
-  ### V46 - Product Options with Dynamic Pricing + Import Logs ⚡ LATEST
+  ### V46 - Product Options with Dynamic Pricing + Import Logs
   - Phoenix_kit_shop_config table for global Shop configuration (key-value JSONB)
   - Adds option_schema JSONB column to phoenix_kit_shop_categories
   - Two-level option system: global options + category-specific options
@@ -354,6 +354,18 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Error details stored in JSONB for debugging
   - User association for audit trail (who initiated import)
   - Enables admin UI for Shopify CSV import management
+
+  ### V47 - Shop Localized Fields ⚡ LATEST
+  - Converts Shop module from separate translations JSONB to localized fields approach
+  - Product fields (title, slug, description, body_html, seo_title, seo_description) become JSONB maps
+  - Category fields (name, slug, description) become JSONB maps
+  - Removes translations column from products and categories
+  - Each field stores language → value map: %{"en" => "Product", "ru" => "Продукт"}
+  - Migration merges existing canonical data with translations field data
+  - Default language determined from phoenix_kit_settings.default_language
+  - GIN indexes on slug fields for efficient localized URL lookups
+  - Enables explicit language tagging for CSV imports
+  - Solves language ambiguity problem when changing default language
 
   ## Migration Paths
 
@@ -413,7 +425,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   use Ecto.Migration
 
   @initial_version 1
-  @current_version 46
+  @current_version 47
   @default_prefix "public"
 
   @doc false

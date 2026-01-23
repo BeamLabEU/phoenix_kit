@@ -32,6 +32,8 @@ defmodule PhoenixKit.Modules.Shop do
 
   alias PhoenixKit.Modules.Billing
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop.Cart
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Category
@@ -41,6 +43,7 @@ defmodule PhoenixKit.Modules.Shop do
   alias PhoenixKit.Modules.Shop.Options.MetadataValidator
   alias PhoenixKit.Modules.Shop.Product
   alias PhoenixKit.Modules.Shop.ShippingMethod
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Settings
   alias PhoenixKit.Users.Auth
   alias PhoenixKit.Utils.Routes
@@ -529,12 +532,17 @@ defmodule PhoenixKit.Modules.Shop do
 
   @doc """
   Returns categories as options for select input.
+  Returns list of {localized_name, id} tuples.
   """
   def category_options do
+    default_lang = Translations.default_language()
+
     Category
     |> order_by([c], [c.position, c.name])
-    |> select([c], {c.name, c.id})
     |> repo().all()
+    |> Enum.map(fn cat ->
+      {Translations.get(cat, :name, default_lang), cat.id}
+    end)
   end
 
   # ============================================
@@ -2022,11 +2030,18 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def update_product_translation(%Product{} = product, language, attrs)
       when is_binary(language) do
-    translation_attrs =
-      Translations.translation_changeset_attrs(product.translations, language, attrs)
+    # Convert attrs to atom-keyed map for changeset_attrs_multi
+    field_values =
+      attrs
+      |> Enum.map(fn {k, v} -> {to_atom(k), v} end)
+      |> Map.new()
 
+    translation_attrs = Translations.changeset_attrs_multi(product, language, field_values)
     update_product(product, translation_attrs)
   end
+
+  defp to_atom(key) when is_atom(key), do: key
+  defp to_atom(key) when is_binary(key), do: String.to_existing_atom(key)
 
   @doc """
   Updates translation for a specific language on a category.
@@ -2047,9 +2062,13 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def update_category_translation(%Category{} = category, language, attrs)
       when is_binary(language) do
-    translation_attrs =
-      Translations.translation_changeset_attrs(category.translations, language, attrs)
+    # Convert attrs to atom-keyed map for changeset_attrs_multi
+    field_values =
+      attrs
+      |> Enum.map(fn {k, v} -> {to_atom(k), v} end)
+      |> Map.new()
 
+    translation_attrs = Translations.changeset_attrs_multi(category, language, field_values)
     update_category(category, translation_attrs)
   end
 
@@ -2122,6 +2141,164 @@ defmodule PhoenixKit.Modules.Shop do
   """
   def get_category_slug(%Category{} = category, language) do
     SlugResolver.category_slug(category, language)
+  end
+
+  @doc """
+  Finds a product by slug in any language.
+
+  Searches across all translated slugs to find the product.
+  Useful for cross-language redirect when user visits with a slug
+  from a different language.
+
+  ## Examples
+
+      iex> Shop.get_product_by_any_slug("maceta-geometrica")
+      {:ok, %Product{}, "es"}
+
+      iex> Shop.get_product_by_any_slug("nonexistent")
+      {:error, :not_found}
+  """
+  def get_product_by_any_slug(slug, opts \\ []) do
+    SlugResolver.find_product_by_any_slug(slug, opts)
+  end
+
+  @doc """
+  Finds a category by slug in any language.
+
+  ## Examples
+
+      iex> Shop.get_category_by_any_slug("jarrones-macetas")
+      {:ok, %Category{}, "es"}
+  """
+  def get_category_by_any_slug(slug, opts \\ []) do
+    SlugResolver.find_category_by_any_slug(slug, opts)
+  end
+
+  # ============================================
+  # URL GENERATION
+  # ============================================
+
+  @doc """
+  Generates a localized URL for a product.
+
+  Returns the correct locale-prefixed URL with translated slug.
+  The URL respects the PhoenixKit URL prefix configuration.
+
+  ## Parameters
+
+    - `product` - The Product struct
+    - `language` - Language code (e.g., "en-US", "ru", "es-ES")
+
+  ## Examples
+
+      iex> Shop.product_url(product, "es-ES")
+      "/es/shop/product/maceta-geometrica"
+
+      iex> Shop.product_url(product, "ru")
+      "/ru/shop/product/geometricheskoe-kashpo"
+
+      iex> Shop.product_url(product, "en")
+      "/shop/product/geometric-planter"  # Default language - no prefix
+  """
+  @spec product_url(Product.t(), String.t()) :: String.t()
+  def product_url(%Product{} = product, language) do
+    slug = SlugResolver.product_slug(product, language)
+    base = DialectMapper.extract_base(language)
+    # Let Routes.path handle locale prefix - it adds prefix for non-default locales
+    Routes.path("/shop/product/#{slug}", locale: base)
+  end
+
+  @doc """
+  Generates a localized URL for a category.
+
+  Returns the correct locale-prefixed URL with translated slug.
+
+  ## Parameters
+
+    - `category` - The Category struct
+    - `language` - Language code (e.g., "en-US", "ru", "es-ES")
+
+  ## Examples
+
+      iex> Shop.category_url(category, "es-ES")
+      "/es/shop/category/jarrones-macetas"
+
+      iex> Shop.category_url(category, "en")
+      "/shop/category/vases-planters"  # Default language - no prefix
+  """
+  @spec category_url(Category.t(), String.t()) :: String.t()
+  def category_url(%Category{} = category, language) do
+    slug = SlugResolver.category_slug(category, language)
+    base = DialectMapper.extract_base(language)
+    # Let Routes.path handle locale prefix - it adds prefix for non-default locales
+    Routes.path("/shop/category/#{slug}", locale: base)
+  end
+
+  @doc """
+  Generates a localized URL for the shop catalog.
+
+  ## Examples
+
+      iex> Shop.catalog_url("es-ES")
+      "/es/shop"
+
+      iex> Shop.catalog_url("en")
+      "/shop"
+  """
+  @spec catalog_url(String.t()) :: String.t()
+  def catalog_url(language) do
+    base = DialectMapper.extract_base(language)
+    # Let Routes.path handle locale prefix - it adds prefix for non-default locales
+    Routes.path("/shop", locale: base)
+  end
+
+  @doc """
+  Generates a localized URL for the cart page.
+
+  ## Examples
+
+      iex> Shop.cart_url("ru")
+      "/ru/cart"
+
+      iex> Shop.cart_url("en")
+      "/cart"
+  """
+  @spec cart_url(String.t()) :: String.t()
+  def cart_url(language) do
+    base = DialectMapper.extract_base(language)
+    # Let Routes.path handle locale prefix - it adds prefix for non-default locales
+    Routes.path("/cart", locale: base)
+  end
+
+  @doc """
+  Generates a localized URL for the checkout page.
+
+  ## Examples
+
+      iex> Shop.checkout_url("ru")
+      "/ru/checkout"
+
+      iex> Shop.checkout_url("en")
+      "/checkout"
+  """
+  @spec checkout_url(String.t()) :: String.t()
+  def checkout_url(language) do
+    base = DialectMapper.extract_base(language)
+    # Let Routes.path handle locale prefix - it adds prefix for non-default locales
+    Routes.path("/checkout", locale: base)
+  end
+
+  @doc """
+  Gets the default language code (base code, e.g., "en").
+
+  Reads from Languages module configuration or falls back to "en".
+  """
+  @spec get_default_language() :: String.t()
+  def get_default_language do
+    case Languages.get_default_language() do
+      nil -> "en"
+      lang -> DialectMapper.extract_base(lang["code"])
+    end
   end
 
   @doc """

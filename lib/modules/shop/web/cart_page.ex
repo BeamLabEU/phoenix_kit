@@ -13,12 +13,15 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Events
   alias PhoenixKit.Modules.Shop.ShippingMethod
-  alias PhoenixKit.Utils.Routes
+  alias PhoenixKit.Modules.Shop.Translations
 
   @impl true
   def mount(_params, session, socket) do
     # Get session_id from session (for guest users)
     session_id = session["shop_session_id"] || generate_session_id()
+
+    # Get current language for localized URLs
+    current_language = socket.assigns[:current_locale] || Translations.default_language()
 
     # Get current user if logged in
     user = get_current_user(socket)
@@ -52,6 +55,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
       |> assign(:shipping_methods, shipping_methods)
       |> assign(:currency, currency)
       |> assign(:authenticated, authenticated)
+      |> assign(:current_language, current_language)
 
     {:ok, socket}
   end
@@ -120,7 +124,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
         {:noreply, put_flash(socket, :error, "Please select a shipping method")}
 
       true ->
-        {:noreply, push_navigate(socket, to: Routes.path("/checkout"))}
+        {:noreply, push_navigate(socket, to: Shop.checkout_url(socket.assigns.current_language))}
     end
   end
 
@@ -218,7 +222,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
         <header class="mb-6">
           <div class="flex items-start gap-4">
             <.link
-              navigate={Routes.path("/shop")}
+              navigate={Shop.catalog_url(@current_language)}
               class="btn btn-outline btn-primary btn-sm shrink-0"
             >
               <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Continue Shopping
@@ -239,7 +243,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CartPage do
                   <.icon name="hero-shopping-cart" class="w-16 h-16 mx-auto mb-4 opacity-30" />
                   <h2 class="text-xl font-medium text-base-content/60">Your cart is empty</h2>
                   <p class="text-base-content/50 mb-6">Add some products to get started</p>
-                  <.link navigate={Routes.path("/shop")} class="btn btn-primary">
+                  <.link navigate={Shop.catalog_url(@current_language)} class="btn btn-primary">
                     Browse Products
                   </.link>
                 </div>

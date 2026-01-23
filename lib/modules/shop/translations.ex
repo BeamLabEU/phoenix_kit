@@ -1,61 +1,37 @@
 defmodule PhoenixKit.Modules.Shop.Translations do
   @moduledoc """
-  Translation helpers for Shop module entities (Products, Categories).
+  Localized fields helper for Shop module.
 
-  Provides a consistent API for reading and writing translations stored
-  in the JSONB `translations` field on products and categories.
+  All translatable fields are stored as JSONB maps directly in the field:
 
-  ## Translation Structure
-
-  Translations are stored per language code (e.g., "en-US", "es-ES"):
-
-      %{
-        "en-US" => %{
-          "title" => "Geometric Planter",
-          "slug" => "geometric-planter",
-          "description" => "Modern faceted plant pot..."
-        },
-        "es-ES" => %{
-          "title" => "Maceta Geométrica",
-          "slug" => "maceta-geometrica",
-          "description" => "Maceta moderna facetada..."
-        }
+      %Product{
+        title: %{"en" => "Planter", "ru" => "Кашпо"},
+        slug: %{"en" => "planter", "ru" => "kashpo"},
+        description: %{"en" => "Modern pot", "ru" => "Современное кашпо"}
       }
 
   ## Fallback Chain
 
   When retrieving a translated field, the fallback chain is:
-  1. Exact language match (e.g., "es-ES")
+  1. Exact language match (e.g., "ru")
   2. Default language from Languages module
-  3. Canonical field value from main entity
+  3. First available value in the map
 
   ## Usage Examples
 
       # Get translated field with automatic fallback
-      Translations.get_field(product, :title, "es-ES")
-      # => "Maceta Geométrica" or fallback to default language or canonical field
+      Translations.get(product, :title, "ru")
+      #=> "Кашпо"
+
+      Translations.get(product, :title, "fr")
+      #=> "Planter" (fallback to default or first available)
 
       # Set a single translated field
-      product = Translations.put_field(product, :title, "es-ES", "Maceta Geométrica")
+      product = Translations.put(product, :title, "es", "Maceta")
 
-      # Get all translations for a language
-      Translations.get_translation(product, "es-ES")
-      # => %{"title" => "...", "slug" => "...", ...}
-
-      # Set full translation for a language
-      product = Translations.put_translation(product, "es-ES", %{
-        title: "Maceta Geométrica",
-        slug: "maceta-geometrica",
-        description: "..."
-      })
-
-      # Check if entity has translation
-      Translations.has_translation?(product, "es-ES")
-      # => true
-
-      # List available languages for entity
-      Translations.available_languages(product)
-      # => ["en-US", "es-ES"]
+      # Build changeset attrs for localized field update
+      attrs = Translations.changeset_attrs(product, :title, "ru", "Новое кашпо")
+      #=> %{title: %{"en" => "Planter", "ru" => "Новое кашпо"}}
   """
 
   alias PhoenixKit.Modules.Languages
@@ -72,22 +48,22 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   Returns the default/master language code.
 
   Checks Languages module first, falls back to Settings content language,
-  then defaults to "en-US".
+  then defaults to "en".
 
   ## Examples
 
       iex> Translations.default_language()
-      "en-US"
+      "en"
   """
   @spec default_language() :: String.t()
   def default_language do
     if languages_enabled?() do
       case Languages.get_default_language() do
         %{"code" => code} -> code
-        _ -> "en-US"
+        _ -> "en"
       end
     else
-      Settings.get_content_language() || "en-US"
+      Settings.get_content_language() || "en"
     end
   end
 
@@ -100,11 +76,11 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   ## Examples
 
       iex> Translations.enabled_languages()
-      ["en-US", "es-ES", "ru-RU"]
+      ["en", "es", "ru"]
 
       # When Languages module disabled:
       iex> Translations.enabled_languages()
-      ["en-US"]
+      ["en"]
   """
   @spec enabled_languages() :: [String.t()]
   def enabled_languages do
@@ -120,110 +96,77 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   """
   @spec languages_enabled?() :: boolean()
   def languages_enabled? do
-    Code.ensure_loaded?(Languages) and Languages.enabled?()
+    Code.ensure_loaded?(Languages) and function_exported?(Languages, :enabled?, 0) and
+      Languages.enabled?()
   end
 
   # ============================================================================
-  # Reading Translations
+  # Reading Translations (New Localized Fields Approach)
   # ============================================================================
 
   @doc """
-  Gets a translated field value with automatic fallback chain.
+  Gets a localized value with automatic fallback chain.
 
   Fallback order:
   1. Exact language match
   2. Default language
-  3. Canonical field on entity
+  3. First available value
 
   ## Parameters
 
     - `entity` - Product or Category struct
     - `field` - Field atom (e.g., :title, :name, :slug)
-    - `language` - Language code (e.g., "es-ES")
+    - `language` - Language code (e.g., "ru", "en")
 
   ## Examples
 
-      iex> Translations.get_field(product, :title, "es-ES")
-      "Maceta Geométrica"
+      iex> product = %Product{title: %{"en" => "Planter", "ru" => "Кашпо"}}
+      iex> Translations.get(product, :title, "ru")
+      "Кашпо"
 
-      iex> Translations.get_field(product, :title, "fr-FR")
-      "Geometric Planter"  # Falls back to default or canonical
+      iex> Translations.get(product, :title, "fr")
+      "Planter"  # Falls back to default or first available
   """
-  @spec get_field(struct(), atom(), String.t()) :: any()
-  def get_field(entity, field, language) do
-    translations = Map.get(entity, :translations) || %{}
-    field_str = to_string(field)
+  @spec get(struct(), atom(), String.t()) :: any()
+  def get(entity, field, language) do
+    field_map = Map.get(entity, field) || %{}
 
-    # Try exact language match
-    case get_in(translations, [language, field_str]) do
-      nil ->
-        # Fallback to default language
-        default = default_language()
-
-        case get_in(translations, [default, field_str]) do
-          nil ->
-            # Final fallback to canonical field
-            Map.get(entity, field)
-
-          value ->
-            value
-        end
-
-      value ->
-        value
-    end
+    field_map[language] ||
+      field_map[default_language()] ||
+      first_available(field_map)
   end
 
   @doc """
-  Gets the translated slug with fallback.
+  Gets the localized slug with fallback.
 
   Convenience function for URL slug retrieval.
 
   ## Examples
 
-      iex> Translations.get_slug(product, "es-ES")
+      iex> Translations.get_slug(product, "es")
       "maceta-geometrica"
   """
   @spec get_slug(struct(), String.t()) :: String.t() | nil
   def get_slug(entity, language) do
-    get_field(entity, :slug, language) || Map.get(entity, :slug)
+    get(entity, :slug, language)
   end
 
   @doc """
-  Gets the full translation map for a specific language.
+  Gets all values for a specific language from the entity's localized fields.
 
-  Returns empty map if no translation exists.
-
-  ## Examples
-
-      iex> Translations.get_translation(product, "es-ES")
-      %{"title" => "...", "slug" => "...", "description" => "..."}
-
-      iex> Translations.get_translation(product, "unknown")
-      %{}
-  """
-  @spec get_translation(struct(), String.t()) :: map()
-  def get_translation(entity, language) do
-    translations = Map.get(entity, :translations) || %{}
-    Map.get(translations, language, %{})
-  end
-
-  @doc """
-  Gets translated fields for all enabled languages.
-
-  Returns a map of language code => translation map.
+  Returns a map of field => value for the given language.
 
   ## Examples
 
-      iex> Translations.get_all_translations(product)
-      %{
-        "en-US" => %{"title" => "Planter", ...},
-        "es-ES" => %{"title" => "Maceta", ...}
-      }
+      iex> Translations.get_all_for_language(product, "ru", [:title, :slug, :description])
+      %{title: "Кашпо", slug: "kashpo", description: "Описание"}
   """
-  @spec get_all_translations(struct()) :: map()
-  def get_all_translations(entity) do
-    Map.get(entity, :translations) || %{}
+  @spec get_all_for_language(struct(), String.t(), [atom()]) :: map()
+  def get_all_for_language(entity, language, fields) do
+    Enum.reduce(fields, %{}, fn field, acc ->
+      value = get(entity, field, language)
+      Map.put(acc, field, value)
+    end)
   end
 
   # ============================================================================
@@ -231,124 +174,68 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   # ============================================================================
 
   @doc """
-  Sets a single translated field value.
+  Sets a localized value for a language.
 
   Returns the updated entity struct (not persisted to database).
 
   ## Examples
 
-      iex> product = Translations.put_field(product, :title, "es-ES", "Maceta")
-      %Product{translations: %{"es-ES" => %{"title" => "Maceta"}}}
+      iex> product = Translations.put(product, :title, "ru", "Новое кашпо")
+      %Product{title: %{"en" => "Planter", "ru" => "Новое кашпо"}}
   """
-  @spec put_field(struct(), atom(), String.t(), any()) :: struct()
-  def put_field(entity, field, language, value) do
-    translations = Map.get(entity, :translations) || %{}
-    lang_data = Map.get(translations, language, %{})
-    updated_lang = Map.put(lang_data, to_string(field), value)
-    updated_translations = Map.put(translations, language, updated_lang)
-    Map.put(entity, :translations, updated_translations)
+  @spec put(struct(), atom(), String.t(), any()) :: struct()
+  def put(entity, field, language, value) do
+    current = Map.get(entity, field) || %{}
+    updated = Map.put(current, language, value)
+    Map.put(entity, field, updated)
   end
 
   @doc """
-  Sets the full translation map for a language.
+  Builds changeset attrs for localized field update.
 
-  Atom keys are automatically converted to strings for consistency.
+  Merges the new value into the existing field map for the given language.
+
+  ## Examples
+
+      iex> Translations.changeset_attrs(product, :title, "ru", "Новое кашпо")
+      %{title: %{"en" => "Planter", "ru" => "Новое кашпо"}}
+  """
+  @spec changeset_attrs(struct(), atom(), String.t(), any()) :: map()
+  def changeset_attrs(entity, field, language, value) do
+    current = Map.get(entity, field) || %{}
+    updated = Map.put(current, language, value)
+    %{field => updated}
+  end
+
+  @doc """
+  Builds changeset attrs for multiple localized fields at once.
+
+  ## Examples
+
+      iex> Translations.changeset_attrs_multi(product, "ru", %{title: "Кашпо", slug: "kashpo"})
+      %{title: %{"en" => "Planter", "ru" => "Кашпо"}, slug: %{"en" => "planter", "ru" => "kashpo"}}
+  """
+  @spec changeset_attrs_multi(struct(), String.t(), map()) :: map()
+  def changeset_attrs_multi(entity, language, field_values) do
+    Enum.reduce(field_values, %{}, fn {field, value}, acc ->
+      Map.merge(acc, changeset_attrs(entity, field, language, value))
+    end)
+  end
+
+  @doc """
+  Sets multiple translated fields for a language.
+
   Returns the updated entity struct (not persisted to database).
 
   ## Examples
 
-      iex> product = Translations.put_translation(product, "es-ES", %{
-      ...>   title: "Maceta Geométrica",
-      ...>   slug: "maceta-geometrica"
-      ...> })
-      %Product{translations: %{"es-ES" => %{"title" => "...", "slug" => "..."}}}
+      iex> product = Translations.put_all(product, "es", %{title: "Maceta", slug: "maceta"})
+      %Product{title: %{"en" => "Planter", "es" => "Maceta"}, ...}
   """
-  @spec put_translation(struct(), String.t(), map()) :: struct()
-  def put_translation(entity, language, translation_map) do
-    translations = Map.get(entity, :translations) || %{}
-
-    # Convert atom keys to strings for consistency
-    string_keyed =
-      Map.new(translation_map, fn {k, v} ->
-        {to_string(k), v}
-      end)
-
-    updated = Map.put(translations, language, string_keyed)
-    Map.put(entity, :translations, updated)
-  end
-
-  @doc """
-  Merges translation fields into existing translation for a language.
-
-  Unlike `put_translation/3`, this preserves existing fields and only
-  updates the specified ones.
-
-  ## Examples
-
-      iex> product = Translations.merge_translation(product, "es-ES", %{title: "New Title"})
-      # Preserves existing slug, description, etc.
-  """
-  @spec merge_translation(struct(), String.t(), map()) :: struct()
-  def merge_translation(entity, language, translation_map) do
-    translations = Map.get(entity, :translations) || %{}
-    existing = Map.get(translations, language, %{})
-
-    string_keyed =
-      Map.new(translation_map, fn {k, v} ->
-        {to_string(k), v}
-      end)
-
-    merged = Map.merge(existing, string_keyed)
-    updated = Map.put(translations, language, merged)
-    Map.put(entity, :translations, updated)
-  end
-
-  # ============================================================================
-  # Changeset Helpers
-  # ============================================================================
-
-  @doc """
-  Builds changeset attrs for updating translations.
-
-  Use this when building attrs for Ecto changeset updates.
-
-  ## Examples
-
-      iex> attrs = Translations.translation_changeset_attrs(
-      ...>   product.translations,
-      ...>   "es-ES",
-      ...>   %{"title" => "Nueva Maceta"}
-      ...> )
-      %{"translations" => %{"es-ES" => %{"title" => "Nueva Maceta", ...}}}
-  """
-  @spec translation_changeset_attrs(map() | nil, String.t(), map()) :: map()
-  def translation_changeset_attrs(current_translations, language, params) do
-    translations = current_translations || %{}
-    lang_data = Map.get(translations, language, %{})
-    updated_lang = Map.merge(lang_data, stringify_keys(params))
-    %{"translations" => Map.put(translations, language, updated_lang)}
-  end
-
-  @doc """
-  Extracts translation attrs from form params for a specific language.
-
-  Useful when handling form submissions with language-prefixed fields.
-
-  ## Examples
-
-      iex> params = %{"title_es-ES" => "Maceta", "slug_es-ES" => "maceta"}
-      iex> Translations.extract_translation_params(params, "es-ES", [:title, :slug])
-      %{"title" => "Maceta", "slug" => "maceta"}
-  """
-  @spec extract_translation_params(map(), String.t(), [atom()]) :: map()
-  def extract_translation_params(params, language, fields) do
-    Enum.reduce(fields, %{}, fn field, acc ->
-      key = "#{field}_#{language}"
-
-      case Map.get(params, key) do
-        nil -> acc
-        value -> Map.put(acc, to_string(field), value)
-      end
+  @spec put_all(struct(), String.t(), map()) :: struct()
+  def put_all(entity, language, field_values) do
+    Enum.reduce(field_values, entity, fn {field, value}, acc ->
+      put(acc, field, language, value)
     end)
   end
 
@@ -357,65 +244,58 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   # ============================================================================
 
   @doc """
-  Checks if entity has any translation for the specified language.
+  Gets all languages that have a value for a field.
 
   ## Examples
 
-      iex> Translations.has_translation?(product, "es-ES")
+      iex> Translations.available_languages(product, :title)
+      ["en", "ru"]
+  """
+  @spec available_languages(struct(), atom()) :: [String.t()]
+  def available_languages(entity, field) do
+    field_map = Map.get(entity, field) || %{}
+
+    field_map
+    |> Map.keys()
+    |> Enum.filter(fn lang ->
+      value = Map.get(field_map, lang)
+      value != nil and value != ""
+    end)
+  end
+
+  @doc """
+  Checks if translation exists for language in a specific field.
+
+  ## Examples
+
+      iex> Translations.has_translation?(product, :title, "ru")
       true
 
-      iex> Translations.has_translation?(product, "zh-CN")
+      iex> Translations.has_translation?(product, :title, "zh")
       false
   """
-  @spec has_translation?(struct(), String.t()) :: boolean()
-  def has_translation?(entity, language) do
-    translations = Map.get(entity, :translations) || %{}
-
-    case Map.get(translations, language) do
-      nil -> false
-      map when map == %{} -> false
-      _ -> true
-    end
+  @spec has_translation?(struct(), atom(), String.t()) :: boolean()
+  def has_translation?(entity, field, language) do
+    field_map = Map.get(entity, field) || %{}
+    value = Map.get(field_map, language)
+    value != nil and value != ""
   end
 
   @doc """
-  Lists all language codes that have translations for this entity.
-
-  Only returns languages with non-empty translation maps.
+  Gets translation completeness for a language across all translatable fields.
 
   ## Examples
 
-      iex> Translations.available_languages(product)
-      ["en-US", "es-ES"]
-  """
-  @spec available_languages(struct()) :: [String.t()]
-  def available_languages(entity) do
-    translations = Map.get(entity, :translations) || %{}
-
-    translations
-    |> Enum.filter(fn {_lang, data} -> data != %{} end)
-    |> Enum.map(fn {lang, _data} -> lang end)
-  end
-
-  @doc """
-  Returns translation completeness status for a language.
-
-  Compares translated fields against required fields.
-
-  ## Examples
-
-      iex> Translations.translation_status(product, "es-ES")
-      %{complete: 4, total: 6, missing: [:body_html, :seo_description]}
+      iex> Translations.translation_status(product, "ru")
+      %{complete: 4, total: 6, percentage: 67, missing: [:body_html, :seo_description]}
   """
   @spec translation_status(struct(), String.t(), [atom()] | nil) :: map()
   def translation_status(entity, language, required_fields \\ nil) do
     fields = required_fields || translatable_fields(entity)
-    translation = get_translation(entity, language)
 
     present =
       Enum.filter(fields, fn field ->
-        value = Map.get(translation, to_string(field))
-        value != nil and value != ""
+        has_translation?(entity, field, language)
       end)
 
     missing = fields -- present
@@ -455,10 +335,53 @@ defmodule PhoenixKit.Modules.Shop.Translations do
   def translatable_fields(_), do: []
 
   # ============================================================================
+  # Legacy Compatibility (Deprecated)
+  # ============================================================================
+
+  @doc """
+  DEPRECATED: Use `get/3` instead.
+
+  This function exists for backward compatibility during migration.
+  """
+  @spec get_field(struct(), atom(), String.t()) :: any()
+  def get_field(entity, field, language) do
+    get(entity, field, language)
+  end
+
+  @doc """
+  DEPRECATED: Use `put/4` instead.
+
+  This function exists for backward compatibility during migration.
+  """
+  @spec put_field(struct(), atom(), String.t(), any()) :: struct()
+  def put_field(entity, field, language, value) do
+    put(entity, field, language, value)
+  end
+
+  @doc """
+  DEPRECATED: Use `changeset_attrs_multi/3` instead.
+
+  Builds changeset attrs for updating translations.
+  This function adapts the old API to the new localized fields approach.
+  """
+  @spec translation_changeset_attrs(map() | nil, String.t(), map()) :: map()
+  def translation_changeset_attrs(_current_translations, _language, _params) do
+    # This function is no longer applicable in the new approach
+    # where each field is its own map.
+    # Kept for compilation but should not be used.
+    %{}
+  end
+
+  # ============================================================================
   # Private Helpers
   # ============================================================================
 
-  defp stringify_keys(map) when is_map(map) do
-    Map.new(map, fn {k, v} -> {to_string(k), v} end)
+  defp first_available(map) when map == %{}, do: nil
+
+  defp first_available(map) do
+    case Enum.at(map, 0) do
+      {_key, value} -> value
+      nil -> nil
+    end
   end
 end

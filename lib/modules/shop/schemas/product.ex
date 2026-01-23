@@ -43,11 +43,13 @@ defmodule PhoenixKit.Modules.Shop.Product do
   schema "phoenix_kit_shop_products" do
     field :uuid, Ecto.UUID
 
-    # Basic info
-    field :title, :string
-    field :slug, :string
-    field :description, :string
-    field :body_html, :string
+    # Localized fields (JSONB maps: %{"en" => "value", "ru" => "значение"})
+    field :title, :map, default: %{}
+    field :slug, :map, default: %{}
+    field :description, :map, default: %{}
+    field :body_html, :map, default: %{}
+
+    # Status (non-localized)
     field :status, :string, default: "draft"
 
     # Type
@@ -77,9 +79,9 @@ defmodule PhoenixKit.Modules.Shop.Product do
     field :featured_image_id, Ecto.UUID
     field :image_ids, {:array, Ecto.UUID}, default: []
 
-    # SEO
-    field :seo_title, :string
-    field :seo_description, :string
+    # SEO (localized JSONB maps)
+    field :seo_title, :map, default: %{}
+    field :seo_description, :map, default: %{}
 
     # Digital products
     field :file_id, Ecto.UUID
@@ -88,9 +90,6 @@ defmodule PhoenixKit.Modules.Shop.Product do
 
     # Extensibility
     field :metadata, :map, default: %{}
-
-    # Multi-language support
-    field :translations, :map, default: %{}
 
     # Relations
     belongs_to :category, PhoenixKit.Modules.Shop.Category
@@ -102,6 +101,8 @@ defmodule PhoenixKit.Modules.Shop.Product do
   @doc """
   Changeset for product creation and updates.
   """
+  @localized_fields [:title, :slug, :description, :body_html, :seo_title, :seo_description]
+
   def changeset(product, attrs) do
     product
     |> cast(attrs, [
@@ -131,11 +132,12 @@ defmodule PhoenixKit.Modules.Shop.Product do
       :download_limit,
       :download_expiry_days,
       :metadata,
-      :translations,
       :category_id,
       :created_by
     ])
-    |> validate_required([:title, :price])
+    |> normalize_map_fields(@localized_fields)
+    |> validate_required([:price])
+    |> validate_localized_required(:title)
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:product_type, @product_types)
     |> validate_number(:price, greater_than_or_equal_to: 0)
@@ -144,12 +146,14 @@ defmodule PhoenixKit.Modules.Shop.Product do
     |> validate_number(:weight_grams, greater_than_or_equal_to: 0)
     |> validate_number(:download_limit, greater_than: 0)
     |> validate_number(:download_expiry_days, greater_than: 0)
-    |> validate_length(:title, max: 255)
-    |> validate_length(:slug, max: 255)
     |> validate_length(:currency, is: 3)
     |> maybe_generate_slug()
-    |> unique_constraint(:slug)
   end
+
+  @doc """
+  Returns the list of localized field names.
+  """
+  def localized_fields, do: @localized_fields
 
   @doc """
   Returns true if product is active.
@@ -203,26 +207,84 @@ defmodule PhoenixKit.Modules.Shop.Product do
     end
   end
 
-  # Generate slug from title if not provided
-  defp maybe_generate_slug(changeset) do
-    case get_change(changeset, :slug) do
-      nil ->
-        case get_change(changeset, :title) do
-          nil -> changeset
-          title -> put_change(changeset, :slug, slugify(title))
-        end
+  # Remove empty string values from map fields
+  defp normalize_map_fields(changeset, fields) do
+    Enum.reduce(fields, changeset, fn field, acc ->
+      case get_change(acc, field) do
+        nil ->
+          acc
 
-      _ ->
-        changeset
+        map when is_map(map) ->
+          cleaned =
+            map
+            |> Enum.reject(fn {_k, v} -> v in [nil, ""] end)
+            |> Map.new()
+
+          put_change(acc, field, cleaned)
+
+        _ ->
+          acc
+      end
+    end)
+  end
+
+  # Validate that localized field has value for default language
+  defp validate_localized_required(changeset, field) do
+    value = get_field(changeset, field) || %{}
+    default_lang = default_language()
+
+    if Map.get(value, default_lang) in [nil, ""] do
+      add_error(changeset, field, "#{default_lang} translation is required")
+    else
+      changeset
     end
   end
 
-  defp slugify(text) do
+  # Generate slug from title for each language
+  defp maybe_generate_slug(changeset) do
+    title_map = get_field(changeset, :title) || %{}
+    slug_map = get_field(changeset, :slug) || %{}
+
+    # For each language with a title but no slug, generate one
+    updated_slugs =
+      Enum.reduce(title_map, slug_map, fn {lang, title}, acc ->
+        if Map.get(acc, lang) in [nil, ""] and title not in [nil, ""] do
+          generated = slugify(title)
+          Map.put(acc, lang, generated)
+        else
+          acc
+        end
+      end)
+
+    if updated_slugs != slug_map do
+      put_change(changeset, :slug, updated_slugs)
+    else
+      changeset
+    end
+  end
+
+  defp slugify(text) when is_binary(text) do
     text
     |> String.downcase()
     |> String.replace(~r/[^\w\s-]/, "")
     |> String.replace(~r/\s+/, "-")
     |> String.replace(~r/-+/, "-")
     |> String.trim("-")
+  end
+
+  defp slugify(_), do: ""
+
+  defp default_language do
+    alias PhoenixKit.Modules.Languages
+
+    if Code.ensure_loaded?(Languages) and function_exported?(Languages, :enabled?, 0) and
+         Languages.enabled?() do
+      case Languages.get_default_language() do
+        %{"code" => code} -> code
+        _ -> "en"
+      end
+    else
+      "en"
+    end
   end
 end

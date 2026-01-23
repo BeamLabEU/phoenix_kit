@@ -6,8 +6,11 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   use PhoenixKitWeb, :live_view
 
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Utils.Routes
 
   @impl true
@@ -21,10 +24,29 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
     {min_price, max_price} =
       Options.get_price_range(price_affecting_specs, product.price, product.metadata)
 
+    default_lang = Translations.default_language()
+    product_title = Translations.get(product, :title, default_lang)
+    product_slug = Translations.get(product, :slug, default_lang)
+    product_description = Translations.get(product, :description, default_lang)
+    product_body_html = Translations.get(product, :body_html, default_lang)
+    product_seo_title = Translations.get(product, :seo_title, default_lang)
+    product_seo_description = Translations.get(product, :seo_description, default_lang)
+
+    # Get enabled languages for preview switcher
+    available_languages = get_available_languages()
+
     socket =
       socket
-      |> assign(:page_title, product.title)
+      |> assign(:page_title, product_title)
       |> assign(:product, product)
+      |> assign(:product_title, product_title)
+      |> assign(:product_slug, product_slug)
+      |> assign(:product_description, product_description)
+      |> assign(:product_body_html, product_body_html)
+      |> assign(:product_seo_title, product_seo_title)
+      |> assign(:product_seo_description, product_seo_description)
+      |> assign(:current_language, default_lang)
+      |> assign(:available_languages, available_languages)
       |> assign(:currency, currency)
       |> assign(:price_affecting_specs, price_affecting_specs)
       |> assign(:min_price, min_price)
@@ -48,6 +70,31 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
   end
 
   @impl true
+  def handle_event("switch_preview_language", %{"language" => language}, socket) do
+    product = socket.assigns.product
+
+    # Update localized content for the selected language
+    product_title = Translations.get(product, :title, language)
+    product_slug = Translations.get(product, :slug, language)
+    product_description = Translations.get(product, :description, language)
+    product_body_html = Translations.get(product, :body_html, language)
+    product_seo_title = Translations.get(product, :seo_title, language)
+    product_seo_description = Translations.get(product, :seo_description, language)
+
+    socket =
+      socket
+      |> assign(:current_language, language)
+      |> assign(:product_title, product_title)
+      |> assign(:product_slug, product_slug)
+      |> assign(:product_description, product_description)
+      |> assign(:product_body_html, product_body_html)
+      |> assign(:product_seo_title, product_seo_title)
+      |> assign(:product_seo_description, product_seo_description)
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def render(assigns) do
     ~H"""
     <PhoenixKitWeb.Components.LayoutWrapper.app_layout
@@ -68,28 +115,54 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
               <.icon name="hero-arrow-left" class="w-4 h-4 mr-2" /> Back
             </.link>
             <div class="flex-1 min-w-0">
-              <h1 class="text-3xl font-bold text-base-content">{@product.title}</h1>
-              <p class="text-base-content/70 mt-1">{@product.slug}</p>
+              <h1 class="text-3xl font-bold text-base-content">{@product_title}</h1>
+              <p class="text-base-content/70 mt-1">{@product_slug}</p>
             </div>
           </div>
         </header>
 
         <%!-- Controls Bar --%>
         <div class="bg-base-200 rounded-lg p-6 mb-6">
-          <div class="flex flex-col lg:flex-row gap-4 justify-end">
-            <.link
-              navigate={Routes.path("/admin/shop/products/#{@product.id}/edit")}
-              class="btn btn-primary"
-            >
-              <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
-            </.link>
-            <button
-              phx-click="delete"
-              data-confirm="Are you sure you want to delete this product?"
-              class="btn btn-outline btn-error"
-            >
-              <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
-            </button>
+          <div class="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <%!-- Language Preview Switcher --%>
+            <div class="flex items-center gap-2">
+              <span class="text-sm text-base-content/70">
+                <.icon name="hero-eye" class="w-4 h-4 inline mr-1" /> Preview:
+              </span>
+              <div class="join">
+                <%= for lang <- @available_languages do %>
+                  <button
+                    type="button"
+                    phx-click="switch_preview_language"
+                    phx-value-language={lang.code}
+                    class={[
+                      "join-item btn btn-sm",
+                      if(lang.code == @current_language, do: "btn-primary", else: "btn-ghost")
+                    ]}
+                  >
+                    <span class="text-base mr-1">{lang.flag}</span>
+                    <span class="uppercase">{lang.base}</span>
+                  </button>
+                <% end %>
+              </div>
+            </div>
+
+            <%!-- Action Buttons --%>
+            <div class="flex gap-2">
+              <.link
+                navigate={Routes.path("/admin/shop/products/#{@product.id}/edit")}
+                class="btn btn-primary"
+              >
+                <.icon name="hero-pencil" class="w-4 h-4 mr-2" /> Edit
+              </.link>
+              <button
+                phx-click="delete"
+                data-confirm="Are you sure you want to delete this product?"
+                class="btn btn-outline btn-error"
+              >
+                <.icon name="hero-trash" class="w-4 h-4 mr-2" /> Delete
+              </button>
+            </div>
           </div>
         </div>
 
@@ -104,7 +177,7 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                   <%= if first_image(@product) do %>
                     <img
                       src={first_image(@product)}
-                      alt={@product.title}
+                      alt={@product_title}
                       class="w-full h-full object-contain"
                     />
                   <% else %>
@@ -134,8 +207,8 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
               <div class="card-body">
                 <h2 class="card-title">Product Details</h2>
 
-                <%= if @product.description do %>
-                  <p class="text-base-content/80">{@product.description}</p>
+                <%= if @product_description do %>
+                  <p class="text-base-content/80">{@product_description}</p>
                 <% end %>
 
                 <div class="divider"></div>
@@ -185,12 +258,12 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
                 <% end %>
 
                 <%!-- Body HTML --%>
-                <%= if @product.body_html && @product.body_html != "" do %>
+                <%= if @product_body_html && @product_body_html != "" do %>
                   <div class="divider"></div>
                   <div>
                     <span class="text-base-content/60 text-sm">Full Description:</span>
                     <div class="prose prose-sm mt-2 max-w-none">
-                      {Phoenix.HTML.raw(@product.body_html)}
+                      {Phoenix.HTML.raw(@product_body_html)}
                     </div>
                   </div>
                 <% end %>
@@ -339,7 +412,9 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
               <div class="card-body">
                 <h2 class="card-title">Category</h2>
                 <%= if @product.category do %>
-                  <span class="badge badge-lg">{@product.category.name}</span>
+                  <span class="badge badge-lg">
+                    {Translations.get(@product.category, :name, @current_language)}
+                  </span>
                 <% else %>
                   <span class="text-base-content/50">No category</span>
                 <% end %>
@@ -376,21 +451,21 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
             <% end %>
 
             <%!-- SEO --%>
-            <%= if @product.seo_title || @product.seo_description do %>
+            <%= if @product_seo_title || @product_seo_description do %>
               <div class="card bg-base-100 shadow-xl">
                 <div class="card-body text-sm">
                   <h2 class="card-title">SEO</h2>
                   <div class="space-y-2">
-                    <%= if @product.seo_title do %>
+                    <%= if @product_seo_title do %>
                       <div>
                         <span class="text-base-content/60">Title:</span>
-                        <p class="font-medium">{@product.seo_title}</p>
+                        <p class="font-medium">{@product_seo_title}</p>
                       </div>
                     <% end %>
-                    <%= if @product.seo_description do %>
+                    <%= if @product_seo_description do %>
                       <div>
                         <span class="text-base-content/60">Description:</span>
-                        <p class="text-base-content/70">{@product.seo_description}</p>
+                        <p class="text-base-content/70">{@product_seo_description}</p>
                       </div>
                     <% end %>
                   </div>
@@ -473,5 +548,28 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductDetail do
 
   defp format_modifier(value, _type, _currency) do
     "$#{Decimal.round(value, 2)}"
+  end
+
+  # Get available languages for preview switcher
+  defp get_available_languages do
+    case Languages.get_enabled_languages() do
+      [] ->
+        # Fallback to default language when no languages enabled
+        [%{code: Translations.default_language(), base: "en", flag: "🇺🇸", name: "English"}]
+
+      enabled ->
+        Enum.map(enabled, fn lang ->
+          code = lang["code"]
+          base = DialectMapper.extract_base(code)
+          predefined = Languages.get_predefined_language(code)
+
+          %{
+            code: code,
+            base: base,
+            flag: (predefined && predefined.flag) || "🌐",
+            name: lang["name"] || code
+          }
+        end)
+    end
   end
 end

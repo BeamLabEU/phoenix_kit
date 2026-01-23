@@ -49,6 +49,7 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop.Category
   alias PhoenixKit.Modules.Shop.Product
+  alias PhoenixKit.Modules.Shop.Translations
 
   # ============================================================================
   # Product Slug Resolution
@@ -91,13 +92,14 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     preload = Keyword.get(opts, :preload, [])
     status = Keyword.get(opts, :status)
 
+    # Localized fields: slug is a JSONB map like %{"en" => "planter", "ru" => "kashpo"}
+    # Search for exact language match or fallback to default language
     query =
       from(p in Product,
         where:
           fragment(
-            "translations->?->>'slug' = ? OR slug = ?",
+            "slug->>? = ?",
             ^lang,
-            ^url_slug,
             ^url_slug
           ),
         limit: 1
@@ -143,11 +145,12 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     lang = normalize_language(language)
     preload = Keyword.get(opts, :preload, [])
 
+    # Localized fields: slug is a JSONB map
     query =
       from(p in Product,
         where:
           fragment(
-            "translations->?->>'slug' = ?",
+            "slug->>? = ?",
             ^lang,
             ^url_slug
           ),
@@ -200,13 +203,13 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     preload = Keyword.get(opts, :preload, [])
     status = Keyword.get(opts, :status)
 
+    # Localized fields: slug is a JSONB map
     query =
       from(c in Category,
         where:
           fragment(
-            "translations->?->>'slug' = ? OR slug = ?",
+            "slug->>? = ?",
             ^lang,
-            ^url_slug,
             ^url_slug
           ),
         limit: 1
@@ -248,11 +251,12 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     lang = normalize_language(language)
     preload = Keyword.get(opts, :preload, [])
 
+    # Localized fields: slug is a JSONB map
     query =
       from(c in Category,
         where:
           fragment(
-            "translations->?->>'slug' = ?",
+            "slug->>? = ?",
             ^lang,
             ^url_slug
           ),
@@ -292,14 +296,15 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     preload = Keyword.get(opts, :preload, [])
     status = Keyword.get(opts, :status)
 
+    # Localized fields: slug is a JSONB map
     query =
       from(p in Product,
         where:
           fragment(
-            "translations->?->>'slug' = ANY(?)",
+            "slug->>? = ANY(?)",
             ^lang,
             ^url_slugs
-          ) or p.slug in ^url_slugs
+          )
       )
 
     query =
@@ -333,14 +338,15 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     preload = Keyword.get(opts, :preload, [])
     status = Keyword.get(opts, :status)
 
+    # Localized fields: slug is a JSONB map
     query =
       from(c in Category,
         where:
           fragment(
-            "translations->?->>'slug' = ANY(?)",
+            "slug->>? = ANY(?)",
             ^lang,
             ^url_slugs
-          ) or c.slug in ^url_slugs
+          )
       )
 
     query =
@@ -388,13 +394,13 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     lang = normalize_language(language)
     exclude_id = Keyword.get(opts, :exclude_id)
 
+    # Localized fields: slug is a JSONB map
     query =
       from(p in Product,
         where:
           fragment(
-            "translations->?->>'slug' = ? OR slug = ?",
+            "slug->>? = ?",
             ^lang,
-            ^slug,
             ^slug
           ),
         select: count(p.id)
@@ -423,13 +429,13 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
     lang = normalize_language(language)
     exclude_id = Keyword.get(opts, :exclude_id)
 
+    # Localized fields: slug is a JSONB map
     query =
       from(c in Category,
         where:
           fragment(
-            "translations->?->>'slug' = ? OR slug = ?",
+            "slug->>? = ?",
             ^lang,
-            ^slug,
             ^slug
           ),
         select: count(c.id)
@@ -465,13 +471,10 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
   @spec product_slug(Product.t(), String.t()) :: String.t() | nil
   def product_slug(%Product{} = product, language) do
     lang = normalize_language(language)
-    translations = product.translations || %{}
+    slug_map = product.slug || %{}
 
-    case get_in(translations, [lang, "slug"]) do
-      nil -> product.slug
-      "" -> product.slug
-      slug -> slug
-    end
+    # Localized fields approach: slug is directly a map
+    slug_map[lang] || slug_map[default_language()] || first_slug(slug_map)
   end
 
   @doc """
@@ -487,13 +490,137 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
   @spec category_slug(Category.t(), String.t()) :: String.t() | nil
   def category_slug(%Category{} = category, language) do
     lang = normalize_language(language)
-    translations = category.translations || %{}
+    slug_map = category.slug || %{}
 
-    case get_in(translations, [lang, "slug"]) do
-      nil -> category.slug
-      "" -> category.slug
-      slug -> slug
+    # Localized fields approach: slug is directly a map
+    slug_map[lang] || slug_map[default_language()] || first_slug(slug_map)
+  end
+
+  # ============================================================================
+  # Cross-Language Slug Resolution
+  # ============================================================================
+
+  @doc """
+  Finds a product by slug in any language.
+
+  Searches across all translated slugs to find the product.
+  Useful for cross-language redirect when user visits with a slug
+  from a different language.
+
+  ## Parameters
+
+    - `url_slug` - The URL slug to search for
+    - `opts` - Optional keyword list:
+      - `:preload` - Associations to preload (default: [])
+      - `:status` - Filter by status (e.g., "active")
+
+  ## Examples
+
+      iex> SlugResolver.find_product_by_any_slug("maceta-geometrica")
+      {:ok, %Product{}, "es"}  # Returns product with language that matched
+
+      iex> SlugResolver.find_product_by_any_slug("geometric-planter")
+      {:ok, %Product{}, "en"}
+
+      iex> SlugResolver.find_product_by_any_slug("nonexistent")
+      {:error, :not_found}
+  """
+  @spec find_product_by_any_slug(String.t(), keyword()) ::
+          {:ok, Product.t(), String.t()} | {:error, :not_found}
+  def find_product_by_any_slug(url_slug, opts \\ []) do
+    preload = Keyword.get(opts, :preload, [])
+    status = Keyword.get(opts, :status)
+
+    # Search across all language slugs using JSONB query
+    # slug is a JSONB map like %{"en" => "planter", "ru" => "kashpo", "es" => "maceta"}
+    query =
+      from(p in Product,
+        where:
+          fragment(
+            "EXISTS (SELECT 1 FROM jsonb_each_text(slug) WHERE value = ?)",
+            ^url_slug
+          ),
+        limit: 1
+      )
+
+    query =
+      if status do
+        from(p in query, where: p.status == ^status)
+      else
+        query
+      end
+
+    query =
+      if preload != [] do
+        from(p in query, preload: ^preload)
+      else
+        query
+      end
+
+    case repo().one(query) do
+      nil ->
+        {:error, :not_found}
+
+      product ->
+        # Find which language matched
+        matched_lang = find_matching_language(product.slug || %{}, url_slug)
+        {:ok, product, matched_lang}
     end
+  end
+
+  @doc """
+  Finds a category by slug in any language.
+
+  ## Examples
+
+      iex> SlugResolver.find_category_by_any_slug("jarrones-macetas")
+      {:ok, %Category{}, "es"}
+  """
+  @spec find_category_by_any_slug(String.t(), keyword()) ::
+          {:ok, Category.t(), String.t()} | {:error, :not_found}
+  def find_category_by_any_slug(url_slug, opts \\ []) do
+    preload = Keyword.get(opts, :preload, [])
+    status = Keyword.get(opts, :status)
+
+    query =
+      from(c in Category,
+        where:
+          fragment(
+            "EXISTS (SELECT 1 FROM jsonb_each_text(slug) WHERE value = ?)",
+            ^url_slug
+          ),
+        limit: 1
+      )
+
+    query =
+      if status do
+        from(c in query, where: c.status == ^status)
+      else
+        query
+      end
+
+    query =
+      if preload != [] do
+        from(c in query, preload: ^preload)
+      else
+        query
+      end
+
+    case repo().one(query) do
+      nil ->
+        {:error, :not_found}
+
+      category ->
+        matched_lang = find_matching_language(category.slug || %{}, url_slug)
+        {:ok, category, matched_lang}
+    end
+  end
+
+  # Find which language key contains the matching slug
+  defp find_matching_language(slug_map, slug) do
+    Enum.find_value(slug_map, default_language(), fn {lang, lang_slug} ->
+      if lang_slug == slug, do: lang, else: nil
+    end)
   end
 
   # ============================================================================
@@ -515,6 +642,16 @@ defmodule PhoenixKit.Modules.Shop.SlugResolver do
       true ->
         lang
     end
+  end
+
+  defp default_language do
+    Translations.default_language()
+  end
+
+  defp first_slug(map) when map == %{}, do: nil
+
+  defp first_slug(map) do
+    map |> Map.values() |> List.first()
   end
 
   defp repo, do: PhoenixKit.RepoHelper.repo()
