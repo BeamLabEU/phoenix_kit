@@ -348,15 +348,140 @@
     </div>
     <% else %>
       <%!-- Backend Tab --%>
+
+      <%!-- Admin Panel Languages Section --%>
       <div class="card bg-base-100 shadow-xl">
         <div class="card-body">
-          <div class="text-center py-12">
-            <div class="text-6xl mb-4">🔧</div>
-            <h3 class="text-2xl font-bold mb-2">Backend Languages</h3>
-            <p class="text-base-content/70 max-w-md mx-auto">
-              Configure backend language settings for server-side translations and API responses.
-            </p>
-            <div class="badge badge-info mt-4">Coming Soon</div>
+          <h3 class="card-title text-xl flex items-center gap-2">
+            <PhoenixKitWeb.Components.Core.Icons.icon_settings class="w-5 h-5" />
+            Admin Panel Languages
+          </h3>
+
+          <div class="alert alert-info text-sm mb-4">
+            <PhoenixKitWeb.Components.Core.Icons.icon_info class="w-5 h-5" />
+            <div>
+              <h4 class="font-bold text-sm">Admin Panel Languages</h4>
+              <div class="text-xs mt-1">
+                <p>
+                  Select which languages are available in the admin panel navbar language switcher.
+                  This is independent from the website's content languages.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Currently Selected Languages --%>
+          <div class="mb-4">
+            <label class="label">
+              <span class="label-text font-medium">Currently Selected</span>
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <%= if Enum.empty?(@admin_languages) do %>
+                <span class="text-base-content/60">No languages selected</span>
+              <% else %>
+                <%= for language_code <- @admin_languages do %>
+                  <% language = PhoenixKit.Modules.Languages.get_predefined_language(language_code) %>
+                  <% language_flag = if language, do: language.flag, else: "🌐" %>
+                  <% language_name = if language, do: language.name, else: language_code %>
+                  <span
+                    class="badge badge-primary gap-1 group cursor-default transition-all"
+                    title={language_name}
+                  >
+                    <span class="text-lg">{language_flag}</span>
+                    {language_code}
+                    <%= if length(@admin_languages) > 1 do %>
+                      <button
+                        type="button"
+                        class="hidden group-hover:inline-flex hover:text-error"
+                        phx-click="remove_admin_language_from_form"
+                        phx-value-code={language_code}
+                        title={"Remove " <> language_name}
+                      >
+                        <PhoenixKitWeb.Components.Core.Icons.icon_x class="w-3 h-3" />
+                      </button>
+                    <% end %>
+                  </span>
+                <% end %>
+              <% end %>
+            </div>
+          </div>
+
+          <%!-- Add Language Dropdown --%>
+          <div class="mb-4">
+            <label class="label">
+              <span class="label-text font-medium">Add/Remove Languages</span>
+            </label>
+            <div class="dropdown w-full" id="admin_languages-dropdown">
+              <div
+                tabindex="0"
+                role="button"
+                class="btn btn-outline w-full justify-between"
+              >
+                <span>Select languages to add or remove...</span>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+
+              <div
+                tabindex="0"
+                class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full mt-2 max-h-96 overflow-y-auto border border-base-300"
+              >
+                <ul class="space-y-1">
+                  <li class="menu-title">
+                    <span>Available Languages</span>
+                  </li>
+                  <%= for language <- Enum.filter(PhoenixKit.Modules.Languages.get_available_languages(), & &1.code in PhoenixKit.Modules.Languages.get_default_language_codes()) do %>
+                    <% is_selected = language.code in @admin_languages %>
+                    <li>
+                      <a
+                        class="flex items-center gap-3 p-3 rounded hover:bg-base-200"
+                        phx-click="add_admin_language_to_form"
+                        phx-value-admin_language_code_input={language.code}
+                      >
+                        <div class="flex-shrink-0">
+                          <input
+                            type="checkbox"
+                            class="checkbox checkbox-primary pointer-events-none"
+                            checked={is_selected}
+                          />
+                        </div>
+                        <div class="flex-1 flex items-center gap-2">
+                          <span class="text-xl">{language.flag}</span>
+                          <div class="flex flex-col">
+                            <span class="font-medium">{language.name}</span>
+                            <span class="text-xs text-base-content/60">{language.code}</span>
+                          </div>
+                        </div>
+                      </a>
+                    </li>
+                  <% end %>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <%!-- Save Button --%>
+          <div class="card-actions justify-end">
+            <button
+              type="button"
+              class="btn btn-primary"
+              phx-click="save_admin_languages"
+            >
+              <PhoenixKitWeb.Components.Core.Icons.icon_check class="w-4 h-4" />
+              Save Admin Languages
+            </button>
           </div>
         </div>
       </div>
