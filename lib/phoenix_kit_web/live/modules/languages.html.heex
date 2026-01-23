@@ -26,34 +26,26 @@
       </div>
     </header>
 
-    <%!-- System Toggle Section --%>
-    <div class="card bg-base-100 shadow-xl mb-6">
-      <div class="card-body">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="text-3xl mr-4">🌐</div>
-            <div>
-              <h3 class="card-title text-xl">Languages</h3>
-              <p class="text-base-content/70">
-                Enable language module for your application
-              </p>
-            </div>
-          </div>
-          <div class="form-control">
-            <label class="label cursor-pointer">
-              <input
-                type="checkbox"
-                class="toggle toggle-primary toggle-lg"
-                checked={@ml_enabled}
-                phx-click="toggle_languages"
-              />
-            </label>
-          </div>
-        </div>
-      </div>
+    <%!-- Tabs --%>
+    <div role="tablist" class="tabs tabs-boxed bg-base-200 p-1 mb-6">
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages/frontend")}
+        class={"tab gap-2 #{if @active_tab == "frontend", do: "tab-active"}"}
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_language class="w-4 h-4" />
+        Frontend
+      </.link>
+      <.link
+        navigate={PhoenixKit.Utils.Routes.path("/admin/settings/languages/backend")}
+        class={"tab gap-2 #{if @active_tab == "backend", do: "tab-active"}"}
+      >
+        <PhoenixKitWeb.Components.Core.Icons.icon_system class="w-4 h-4" />
+        Backend
+      </.link>
     </div>
 
-    <%!-- Summary Section --%>
+    <%= if @active_tab == "frontend" do %>
+      <%!-- Summary Section --%>
     <div class="card bg-base-100 shadow-xl mb-6">
       <div class="card-body">
         <h3 class="card-title text-xl">Summary</h3>
@@ -354,5 +346,20 @@
         <% end %>
       </div>
     </div>
+    <% else %>
+      <%!-- Backend Tab --%>
+      <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+          <div class="text-center py-12">
+            <div class="text-6xl mb-4">🔧</div>
+            <h3 class="text-2xl font-bold mb-2">Backend Languages</h3>
+            <p class="text-base-content/70 max-w-md mx-auto">
+              Configure backend language settings for server-side translations and API responses.
+            </p>
+            <div class="badge badge-info mt-4">Coming Soon</div>
+          </div>
+        </div>
+      </div>
+    <% end %>
   </div>
 </PhoenixKitWeb.Components.LayoutWrapper.app_layout>

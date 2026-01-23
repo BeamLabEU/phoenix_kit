@@ -61,6 +61,17 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
     {:ok, socket}
   end
 
+  def handle_params(_params, _uri, socket) do
+    active_tab =
+      case socket.assigns.live_action do
+        :backend -> "backend"
+        # Default to frontend for :index and :frontend
+        _ -> "frontend"
+      end
+
+    {:noreply, assign(socket, :active_tab, active_tab)}
+  end
+
   def handle_event("toggle_languages", _params, socket) do
     # Toggle languages
     new_enabled = !socket.assigns.ml_enabled
