@@ -401,7 +401,7 @@ defmodule PhoenixKitWeb.Live.Modules.Languages do
   def handle_event("save_admin_languages", _params, socket) do
     admin_languages = socket.assigns.admin_languages || [@default_locale]
 
-    case Settings.update_json_setting("admin_languages", admin_languages) do
+    case Settings.update_setting("admin_languages", Jason.encode!(admin_languages)) do
       {:ok, _} ->
         socket = put_flash(socket, :info, "Admin panel languages saved successfully.")
         {:noreply, socket}
