@@ -36,7 +36,7 @@
         <div class="flex gap-3">
           <.icon name="hero-information-circle" class="w-5 h-5 shrink-0 text-primary" />
           <div class="text-sm">
-            <p class="font-semibold mb-1">{gettext("Master Language")}</p>
+            <p class="font-semibold mb-1">{gettext("Primary Language")}</p>
             <p>
               {gettext("The")}
               <.link
@@ -46,7 +46,7 @@
                 {gettext("Content Language")}
               </.link>
               {gettext(
-                "setting determines the master language for all content. This is the primary language used for versioning—translations in other languages follow the master's version history."
+                "setting determines the primary language for all content. This is the base language used for versioning—translations in other languages follow the primary's version history."
               )}
               <%= if @languages_enabled do %>
                 {gettext("Additional languages are configured in the")}

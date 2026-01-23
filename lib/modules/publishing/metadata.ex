@@ -31,7 +31,7 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
           version: integer() | nil,
           version_created_at: String.t() | nil,
           version_created_from: integer() | nil,
-          # Translation status override (true = manually set, won't inherit from master)
+          # Translation status override (true = manually set, won't inherit from primary)
           status_manual: boolean() | nil,
           # Per-post version access control (allows public access to older versions)
           allow_version_access: boolean() | nil,
@@ -148,7 +148,7 @@ defmodule PhoenixKit.Modules.Publishing.Metadata do
       version: 1,
       version_created_at: DateTime.to_iso8601(now),
       version_created_from: nil,
-      # Translation status - false means inherit from master language
+      # Translation status - false means inherit from primary language
       status_manual: false,
       # Per-post version access - defaults to false (only published version accessible)
       allow_version_access: false,

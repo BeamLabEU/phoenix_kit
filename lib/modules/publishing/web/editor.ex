@@ -83,7 +83,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:current_language, nil)
       |> assign(:current_language_enabled, true)
       |> assign(:current_language_known, true)
-      |> assign(:is_master_language, true)
+      |> assign(:is_primary_language, true)
       |> assign(:available_languages, [])
       |> assign(:all_enabled_languages, [])
       |> assign(:has_pending_changes, false)
@@ -242,7 +242,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
             fk = PublishingPubSub.generate_form_key(blog_slug, virtual_post, :edit)
 
             # Recalculate viewing_older_version for the new translation language
-            # Translations (non-master languages) should not be locked
+            # Translations (non-primary languages) should not be locked
             current_version = Map.get(post, :version, 1)
             available_versions = Map.get(post, :available_versions, [])
 
@@ -697,7 +697,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         |> Map.put(:slug, post.slug || Map.get(socket.assigns.form, "slug"))
 
       # Recalculate viewing_older_version for the new language
-      # Translations (non-master languages) should not be locked
+      # Translations (non-primary languages) should not be locked
       current_version = socket.assigns.current_version || 1
       available_versions = socket.assigns.available_versions || []
 
@@ -964,7 +964,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     blog_slug = socket.assigns.blog_slug
     post = socket.assigns.post
     language = socket.assigns.current_language
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
 
     read_fn =
       if socket.assigns.blog_mode == "slug" do
@@ -973,10 +973,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
         fn lang -> read_timestamp_version(blog_slug, post, lang, version) end
       end
 
-    # Try current language first, fall back to master if different
+    # Try current language first, fall back to primary if different
     case read_fn.(language) do
       {:ok, _} = result -> result
-      {:error, _} when language != master_language -> read_fn.(master_language)
+      {:error, _} when language != primary_language -> read_fn.(primary_language)
       error -> error
     end
   end
@@ -1725,22 +1725,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
 
     # Check if this is a status change TO published for a versioned post
     # If so, we need to use publish_version which archives other versions
-    # IMPORTANT: Only trigger for master language - translation status changes
+    # IMPORTANT: Only trigger for primary language - translation status changes
     # should not archive other versions
-    is_master_language = socket.assigns[:is_master_language] == true
+    is_primary_language = socket.assigns[:is_primary_language] == true
 
     is_publishing =
-      is_master_language and
+      is_primary_language and
         new_status == "published" and
         current_status != "published" and
         current_version != nil and
         not Map.get(post, :is_legacy_structure, false)
 
     # First update the post content/metadata
-    # Pass is_master_language so storage can set status_manual when translator changes status
+    # Pass is_primary_language so storage can set status_manual when translator changes status
     case Publishing.update_post(blog_slug, post, params, %{
            scope: scope,
-           is_master_language: is_master_language
+           is_primary_language: is_primary_language
          }) do
       {:ok, updated_post} ->
         # If publishing, call publish_version to archive other versions
@@ -1969,7 +1969,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   defp assign_current_language(socket, language_code) do
     enabled_languages = socket.assigns[:all_enabled_languages] || []
     lang_info = Publishing.get_language_info(language_code)
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
 
     socket
     |> assign(:current_language, language_code)
@@ -1978,7 +1978,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       Storage.language_enabled?(language_code, enabled_languages)
     )
     |> assign(:current_language_known, lang_info != nil)
-    |> assign(:is_master_language, language_code == master_language)
+    |> assign(:is_primary_language, language_code == primary_language)
   end
 
   # Helper function to handle post creation errors
@@ -2619,7 +2619,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     url_slug = Map.get(form, "url_slug", "")
     post_slug = Map.get(socket.assigns.post || %{}, :slug, "")
 
-    # Track slug (for master language)
+    # Track slug (for primary language)
     slug_manually_set =
       case Keyword.fetch(opts, :slug_manually_set) do
         {:ok, value} -> value
@@ -2672,8 +2672,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       not slug_update_applicable?(socket, content) ->
         no_slug_update(socket)
 
-      Map.get(socket.assigns, :is_master_language, true) ->
-        maybe_update_master_slug(socket, content, opts)
+      Map.get(socket.assigns, :is_primary_language, true) ->
+        maybe_update_primary_slug(socket, content, opts)
 
       true ->
         maybe_update_translation_url_slug(socket, content, opts)
@@ -2684,7 +2684,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     socket.assigns.blog_mode == "slug" and String.trim(content) != ""
   end
 
-  defp maybe_update_master_slug(socket, content, opts) do
+  defp maybe_update_primary_slug(socket, content, opts) do
     force? = Keyword.get(opts, :force, false)
     slug_manually_set? = Map.get(socket.assigns, :slug_manually_set, false)
 
@@ -3363,17 +3363,17 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
   end
 
   defp get_target_languages_for_translation(socket) do
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
     available_languages = socket.assigns.post.available_languages || []
 
     Storage.enabled_language_codes()
-    |> Enum.reject(&(&1 == master_language or &1 in available_languages))
+    |> Enum.reject(&(&1 == primary_language or &1 in available_languages))
   end
 
   defp get_all_target_languages do
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
 
     Storage.enabled_language_codes()
-    |> Enum.reject(&(&1 == master_language))
+    |> Enum.reject(&(&1 == primary_language))
   end
 end

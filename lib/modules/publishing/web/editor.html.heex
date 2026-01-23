@@ -297,7 +297,7 @@
     <% end %>
 
     <%!-- AI Translation Section --%>
-    <%= if @ai_enabled and @is_master_language and not @is_new_post and length(@ai_endpoints) > 0 do %>
+    <%= if @ai_enabled and @is_primary_language and not @is_new_post and length(@ai_endpoints) > 0 do %>
       <div class="collapse collapse-arrow bg-base-100 shadow-xl border border-base-200">
         <input
           type="checkbox"
@@ -410,8 +410,8 @@
               <div class="space-y-4">
                 <%!-- Title is extracted from markdown content (first # Heading) --%>
                 <%= if @blog_mode == "slug" do %>
-                  <%= if @is_master_language do %>
-                    <%!-- Master language: editable slug that sets the directory name --%>
+                  <%= if @is_primary_language do %>
+                    <%!-- Primary language: editable slug that sets the directory name --%>
                     <div>
                       <label class="label">
                         <span class="label-text text-sm font-semibold text-base-content">
@@ -663,7 +663,7 @@
                 <%!-- Version Access Toggle - DISABLED: Boss doesn't want public version history
                 <% is_versioned_post = @post && not Map.get(@post, :is_legacy_structure, true) %>
                 <% can_toggle_version_access =
-                  is_versioned_post && @is_master_language && not @viewing_older_version %>
+                  is_versioned_post && @is_primary_language && not @viewing_older_version %>
                 <%= if can_toggle_version_access do %>
                   <div class="border-t border-base-200 pt-4 mt-4">
                     <div class="flex items-center justify-between">

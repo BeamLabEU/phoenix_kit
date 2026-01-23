@@ -290,7 +290,7 @@ The post title is **extracted from the first Markdown heading** (`# Title`), not
 - `featured_image_id` – Optional reference to a featured image asset
 - `description` – Optional post description/excerpt for SEO
 - `version`, `version_created_at`, `version_created_from` – Managed automatically for versioned posts
-- `status_manual` – When `true`, translation status won't inherit from master language on publish
+- `status_manual` – When `true`, translation status won't inherit from primary language on publish
 - `allow_version_access` – Enables public viewing of historical versions when set to `true`
 
 **Audit Fields (optional):**
@@ -461,7 +461,7 @@ Publishing.slug_exists?("docs", "getting-started")  # => true/false
 
 # Language utilities
 Publishing.enabled_language_codes()  # => ["en", "es", "fr"]
-Publishing.get_master_language()     # => "en"
+Publishing.get_primary_language()    # => "en"
 Publishing.language_enabled?("en", ["en-US", "es"])  # => true
 Publishing.get_display_code("en", ["en-US", "es"])   # => "en-US"
 Publishing.order_languages_for_display(["fr", "en"], ["en", "es"])
@@ -586,7 +586,7 @@ attempts or drafts rather than sequential history. Only ONE version can be publi
 - **Versions are editable**: Unlike historical versioning, all versions remain editable regardless
   of status. You can modify drafts, archived versions, or even the published version.
 - **Branching**: Create new versions by copying from an existing version or starting blank.
-- **Translation inheritance**: When publishing, translations inherit the master language's status
+- **Translation inheritance**: When publishing, translations inherit the primary language's status
   unless `status_manual: true` is set.
 
 **Creating New Versions:**
@@ -620,15 +620,15 @@ The editor provides a complete version management interface:
 
 **Translation Status Overrides:**
 
-Translations can maintain their own status independently of the master language:
+Translations can maintain their own status independently of the primary language:
 
-- By default, translations inherit the master language's status when published
+- By default, translations inherit the primary language's status when published
 - When a translator manually changes a translation's status, `status_manual: true` is set
-- Translations with `status_manual: true` keep their status even when the master is republished
-- This allows keeping a translation as "draft" while the master is published (e.g., awaiting review)
+- Translations with `status_manual: true` keep their status even when the primary is republished
+- This allows keeping a translation as "draft" while the primary is published (e.g., awaiting review)
 
 Example workflow:
-1. Master (English) is published with v2
+1. Primary (English) is published with v2
 2. French translation is still being reviewed, translator sets it to "draft"
 3. `status_manual: true` is automatically set on the French file
 4. Later, when English v3 is published, French keeps its "draft" status
@@ -930,9 +930,9 @@ The Publishing module integrates with the AI module to provide automated transla
 
 ### Editor UI
 
-When prerequisites are met, a collapsible **AI Translation** panel appears in the post editor (for master language posts only):
+When prerequisites are met, a collapsible **AI Translation** panel appears in the post editor (for primary language posts only):
 
-1. Open any post in the master language
+1. Open any post in the primary language
 2. Expand the "AI Translation" section (marked with Beta badge)
 3. Select an AI endpoint from the dropdown
 4. Click one of the translation buttons:
@@ -979,7 +979,7 @@ With a default endpoint configured, you can omit the `endpoint_id` option:
 ### How It Works
 
 1. **Job Enqueued**: An Oban job is created in the `:default` queue
-2. **Source Read**: The master language content is read from the specified post
+2. **Source Read**: The primary language content is read from the specified post
 3. **AI Translation**: For each target language, the content is sent to the AI with a translation prompt
 4. **Files Created**: Translation files are created or updated (e.g., `es.phk`, `fr.phk`)
 5. **Cache Updated**: The listing cache is regenerated to include new translations
@@ -1018,7 +1018,7 @@ The worker uses a built-in translation prompt that instructs the AI to:
 | Option | Type | Description |
 |--------|------|-------------|
 | `endpoint_id` | integer | AI endpoint ID (required if not set in settings) |
-| `source_language` | string | Source language code (defaults to master language) |
+| `source_language` | string | Source language code (defaults to primary language) |
 | `target_languages` | list | Target language codes (defaults to all enabled except source) |
 | `version` | integer | Version number to translate (defaults to latest) |
 | `user_id` | integer | User ID for audit trail |
@@ -1047,7 +1047,7 @@ Example log output:
 - **Partial Failures**: If some languages fail, the job reports which languages succeeded and which failed
 - **Retries**: Jobs retry up to 3 times with exponential backoff
 - **Timeout**: Jobs have a 10-minute timeout for large posts or many languages
-- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language file (prevents overwriting master)
+- **Language Fallback Protection**: The worker verifies each translation is saved to the correct language file (prevents overwriting primary)
 
 ### Programmatic Usage
 
@@ -1441,7 +1441,7 @@ Each language translation can have its own SEO-friendly URL slug, enabling local
 
 **In the Editor:**
 
-1. Open a translation (non-master language) in the editor
+1. Open a translation (non-primary language) in the editor
 2. Find the "URL Slug" field in the metadata panel (only visible for translations)
 3. Enter a localized slug (e.g., `primeros-pasos` for Spanish)
 4. Save - the URL immediately updates

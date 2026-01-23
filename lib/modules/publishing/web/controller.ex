@@ -878,7 +878,7 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # Fetch a slug-mode post - iterates from highest version down, returns first published
-  # Falls back to master language or first available if requested language isn't found
+  # Falls back to primary language or first available if requested language isn't found
   defp fetch_post(blog_slug, {:slug, post_slug}, language) do
     case Storage.list_versions(blog_slug, post_slug) do
       [] ->
@@ -913,26 +913,26 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   defp find_published_slug_post(blog_slug, post_slug, versions, language) do
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
     post_dir = Path.join([Storage.group_path(blog_slug), post_slug])
 
     published_result =
       versions
       |> Enum.sort(:desc)
       |> Enum.find_value(
-        &find_published_version(&1, blog_slug, post_slug, post_dir, language, master_language)
+        &find_published_version(&1, blog_slug, post_slug, post_dir, language, primary_language)
       )
 
     published_result || {:error, :post_not_found}
   end
 
-  defp find_published_version(version, blog_slug, post_slug, post_dir, language, master_language) do
+  defp find_published_version(version, blog_slug, post_slug, post_dir, language, primary_language) do
     version_dir = Path.join(post_dir, "v#{version}")
     available_languages = detect_available_languages_in_dir(version_dir)
     resolved_language = resolve_language_for_post(language, available_languages)
 
     languages_to_try =
-      [resolved_language, master_language | available_languages]
+      [resolved_language, primary_language | available_languages]
       |> Enum.uniq()
       |> Enum.filter(&(&1 in available_languages))
 
@@ -1017,10 +1017,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
   # Fetch a versioned timestamp post (files in v1/, v2/, etc.)
   # Iterates from highest version down, returns first published version found
-  # Falls back to master language or first available if requested language isn't found
+  # Falls back to primary language or first available if requested language isn't found
   defp fetch_versioned_timestamp_post(blog_slug, date, time, language, post_dir) do
     versions = list_timestamp_versions(post_dir) |> Enum.sort(:desc)
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
 
     # Find first published version, starting from highest
     published_result =
@@ -1030,12 +1030,12 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
         # Build priority list of languages to try:
         # 1. Resolved version of requested language
-        # 2. Master language
+        # 2. Primary language
         # 3. First available language
         resolved_language = resolve_language_for_post(language, available_languages)
 
         languages_to_try =
-          [resolved_language, master_language | available_languages]
+          [resolved_language, primary_language | available_languages]
           |> Enum.uniq()
           |> Enum.filter(&(&1 in available_languages))
 
@@ -1053,15 +1053,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # Fetch a legacy timestamp post (files directly in post directory)
-  # Falls back to master language or first available if requested language isn't found
+  # Falls back to primary language or first available if requested language isn't found
   defp fetch_legacy_timestamp_post(blog_slug, date, time, language, post_dir) do
     available_languages = detect_available_languages_in_dir(post_dir)
-    master_language = Storage.get_master_language()
+    primary_language = Storage.get_primary_language()
     resolved_language = resolve_language_for_post(language, available_languages)
 
     # Build priority list of languages to try
     languages_to_try =
-      [resolved_language, master_language | available_languages]
+      [resolved_language, primary_language | available_languages]
       |> Enum.uniq()
       |> Enum.filter(&(&1 in available_languages))
 
@@ -1568,13 +1568,13 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
   end
 
   # Checks if a specific post allows public access to older versions
-  # Always reads from the master language's live version to ensure consistency
+  # Always reads from the primary language's live version to ensure consistency
   defp post_allows_version_access?(blog_slug, post_slug, _language) do
-    # Always read from master language to ensure per-post (not per-language) behavior
-    master_language = Storage.get_master_language()
+    # Always read from primary language to ensure per-post (not per-language) behavior
+    primary_language = Storage.get_primary_language()
 
     # Read the live version (version: nil means get latest/live)
-    case Publishing.read_post(blog_slug, post_slug, master_language, nil) do
+    case Publishing.read_post(blog_slug, post_slug, primary_language, nil) do
       {:ok, post} ->
         Map.get(post.metadata, :allow_version_access, false)
 
@@ -1641,20 +1641,20 @@ defmodule PhoenixKit.Modules.Publishing.Web.Controller do
 
       {:error, _} ->
         # Cache miss - fall back to file reads
-        master_language = Storage.get_master_language()
-        allow_access = get_allow_access_from_file(blog_slug, current_post, master_language)
+        primary_language = Storage.get_primary_language()
+        allow_access = get_allow_access_from_file(blog_slug, current_post, primary_language)
         live_version = get_live_version_from_file(blog_slug, current_post.slug)
         {allow_access, live_version}
     end
   end
 
   # Fallback: Gets allow_version_access from file when cache misses
-  defp get_allow_access_from_file(blog_slug, current_post, master_language) do
-    if current_post.language == master_language do
+  defp get_allow_access_from_file(blog_slug, current_post, primary_language) do
+    if current_post.language == primary_language do
       Map.get(current_post.metadata, :allow_version_access, false)
     else
-      case Publishing.read_post(blog_slug, current_post.slug, master_language, nil) do
-        {:ok, master_post} -> Map.get(master_post.metadata, :allow_version_access, false)
+      case Publishing.read_post(blog_slug, current_post.slug, primary_language, nil) do
+        {:ok, primary_post} -> Map.get(primary_post.metadata, :allow_version_access, false)
         {:error, _} -> false
       end
     end

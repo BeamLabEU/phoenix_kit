@@ -2,7 +2,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   @moduledoc """
   Oban worker for translating publishing posts to multiple languages using AI.
 
-  This worker translates the master language version of a post to all enabled
+  This worker translates the primary language version of a post to all enabled
   languages (or a specified subset). Each language translation is processed
   sequentially to avoid overwhelming the AI endpoint.
 
@@ -29,7 +29,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   - `group_slug` - The publishing group slug
   - `post_slug` - The post slug (for slug mode) or date/time path (for timestamp mode)
   - `endpoint_id` - AI endpoint ID to use for translation
-  - `source_language` - Source language to translate from (optional, defaults to master language)
+  - `source_language` - Source language to translate from (optional, defaults to primary language)
   - `target_languages` - List of target languages (optional, defaults to all enabled except source)
   - `version` - Version number to translate (optional, defaults to latest/published)
   - `user_id` - User ID for audit trail (optional)
@@ -76,7 +76,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     group_slug = Map.fetch!(args, "group_slug")
     post_slug = Map.fetch!(args, "post_slug")
     endpoint_id = Map.get(args, "endpoint_id") || get_default_endpoint_id()
-    source_language = Map.get(args, "source_language") || Storage.get_master_language()
+    source_language = Map.get(args, "source_language") || Storage.get_primary_language()
     target_languages = Map.get(args, "target_languages") || get_target_languages(source_language)
     version = Map.get(args, "version")
     user_id = Map.get(args, "user_id")
@@ -575,7 +575,7 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
   ## Options
 
   - `:endpoint_id` - AI endpoint ID (required if not set in settings)
-  - `:source_language` - Source language (defaults to master language)
+  - `:source_language` - Source language (defaults to primary language)
   - `:target_languages` - List of target languages (defaults to all enabled except source)
   - `:version` - Version to translate (defaults to latest)
   - `:user_id` - User ID for audit trail

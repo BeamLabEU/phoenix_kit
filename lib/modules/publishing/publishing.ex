@@ -48,7 +48,12 @@ defmodule PhoenixKit.Modules.Publishing do
 
   # Delegate language utilities to Storage
   defdelegate enabled_language_codes(), to: Storage
+  defdelegate get_primary_language(), to: Storage
+
+  @doc false
+  @deprecated "Use get_primary_language/0 instead"
   defdelegate get_master_language(), to: Storage
+
   defdelegate language_enabled?(language_code, enabled_languages), to: Storage
   defdelegate get_display_code(language_code, enabled_languages), to: Storage
   defdelegate order_languages_for_display(available_languages, enabled_languages), to: Storage
@@ -495,8 +500,8 @@ defmodule PhoenixKit.Modules.Publishing do
       opts_map
       |> fetch_option(:scope)
       |> audit_metadata(:update)
-      # Include is_master_language so storage can set status_manual correctly
-      |> Map.put(:is_master_language, Map.get(opts_map, :is_master_language, true))
+      # Include is_primary_language so storage can set status_manual correctly
+      |> Map.put(:is_primary_language, Map.get(opts_map, :is_primary_language, true))
 
     mode =
       Map.get(post, :mode) ||
@@ -565,12 +570,12 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Publishes a version, making it the only published version.
 
-  Sets the target version's master language to `status: "published"`.
+  Sets the target version's primary language to `status: "published"`.
   Archives ALL other versions (`status: "archived"`).
 
   Translation status logic:
   - If `status_manual: true` → keep translation's current status
-  - If `status_manual: false` AND has content → inherit master status
+  - If `status_manual: false` AND has content → inherit primary status
   - If no content → remain unchanged
 
   ## Examples
@@ -647,7 +652,7 @@ defmodule PhoenixKit.Modules.Publishing do
   Sets a translation's status and marks it as manually overridden.
 
   When a translation status is set manually, it will NOT inherit status
-  changes from the master language when publishing.
+  changes from the primary language when publishing.
 
   ## Examples
 
@@ -1225,14 +1230,14 @@ defmodule PhoenixKit.Modules.Publishing do
   Enqueues an Oban job to translate a post to all enabled languages using AI.
 
   This creates a background job that will:
-  1. Read the source post in the master language
+  1. Read the source post in the primary language
   2. Translate the content to each target language using the AI module
   3. Create or update translation files for each language
 
   ## Options
 
   - `:endpoint_id` - AI endpoint ID to use for translation (required if not set in settings)
-  - `:source_language` - Source language to translate from (defaults to master language)
+  - `:source_language` - Source language to translate from (defaults to primary language)
   - `:target_languages` - List of target language codes (defaults to all enabled except source)
   - `:version` - Version number to translate (defaults to latest/published)
   - `:user_id` - User ID for audit trail
