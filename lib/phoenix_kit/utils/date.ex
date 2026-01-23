@@ -473,6 +473,9 @@ defmodule PhoenixKit.Utils.Date do
   end
 
   # Private helper to apply timezone offset to datetime
+  defp shift_to_timezone_offset(datetime, nil), do: datetime
+  defp shift_to_timezone_offset(datetime, ""), do: datetime
+
   defp shift_to_timezone_offset(datetime, timezone_offset) do
     case Integer.parse(timezone_offset) do
       {offset_hours, ""} ->
