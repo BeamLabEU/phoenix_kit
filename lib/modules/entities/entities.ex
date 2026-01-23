@@ -1,6 +1,6 @@
 defmodule PhoenixKit.Modules.Entities do
   @moduledoc """
-  Dynamic entity system for PhoenixKit - WordPress ACF equivalent.
+  Dynamic entity system for PhoenixKit.
 
   This module provides both the Ecto schema definition and business logic for
   managing custom content types (entities) with flexible field schemas.

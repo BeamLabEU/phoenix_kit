@@ -104,7 +104,7 @@ defmodule PhoenixKit.Migrations.Postgres do
   - Multiple providers per user support
   - Magic link registration tokens with nullable user_id
 
-  ### V17 - Entities System (WordPress ACF-like)
+  ### V17 - Entities System (Dynamic Content Types)
   - Phoenix_kit_entities for dynamic content type definitions
   - Phoenix_kit_entity_data for entity records
   - JSONB storage for flexible field schemas
