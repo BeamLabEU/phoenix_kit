@@ -9,7 +9,6 @@
 
 # Where third-party dependencies like ExDoc output generated docs.
 /doc/
-/docs/
 /test_projects/
 /scripts/
 /scripts_backup/
