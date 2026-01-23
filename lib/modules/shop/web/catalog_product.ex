@@ -264,6 +264,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     # Recalculate price with new spec selection
     calculated_price = Shop.calculate_product_price(product, selected_specs)
 
+    # Check for image mapping - update selected_image if mapping exists
+    selected_image = get_mapped_image(product, key, value, socket.assigns.selected_image)
+
     # Check if this combination is in cart
     cart_item =
       find_cart_item_with_specs(
@@ -280,6 +283,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
       socket
       |> assign(:selected_specs, selected_specs)
       |> assign(:calculated_price, calculated_price)
+      |> assign(:selected_image, selected_image)
       |> assign(:cart_item, cart_item)
       |> assign(:missing_required_specs, missing_required_specs)
 
@@ -857,6 +861,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   # Image helpers - prefer Storage images over legacy URL-based images
+
+  # Get mapped image URL for selected option value, or keep current image if no mapping
+  defp get_mapped_image(product, option_key, option_value, current_image) do
+    case get_in(product.metadata || %{}, ["_image_mappings", option_key, option_value]) do
+      nil -> current_image
+      "" -> current_image
+      image_id -> get_storage_image_url(image_id, "large") || current_image
+    end
+  end
+
   defp first_image(%{featured_image_id: id}) when not is_nil(id) do
     get_storage_image_url(id, "large")
   end
