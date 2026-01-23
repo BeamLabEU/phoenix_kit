@@ -27,6 +27,7 @@
  *   - TimeAgo ......... Client-side relative time updates
  *   - LanguageSwitcherSearch ... Client-side language filtering for dropdown
  *   - LanguageSwitcherPosition . Auto-position dropdown based on viewport space
+ *   - PreserveScroll ........... Preserve scroll position during LiveView updates
  *
  * @version 2.0.0
  * @license MIT
@@ -1200,6 +1201,52 @@
           } else {
             this.el.classList.add("dropdown-bottom");
           }
+        }
+      });
+    }
+  };
+
+  // ---------------------------------------------------------------------------
+  // PreserveScroll Hook
+  // ---------------------------------------------------------------------------
+  //
+  // Preserves scroll position during LiveView updates. Useful for pages with
+  // toggles or interactive elements that trigger re-renders.
+  //
+  // Usage in LiveView template:
+  //   <div id="content" phx-hook="PreserveScroll">
+  //     ...content with toggles...
+  //   </div>
+  //
+  // ---------------------------------------------------------------------------
+
+  window.PhoenixKitHooks.PreserveScroll = {
+    mounted() {
+      this.scrollPosition = 0;
+      this.openDetails = [];
+    },
+    beforeUpdate() {
+      // Save scroll position
+      this.scrollPosition = window.scrollY;
+
+      // Save which details elements are open (by their index or id)
+      this.openDetails = [];
+      this.el.querySelectorAll("details").forEach((detail, index) => {
+        if (detail.open) {
+          // Use id if available, otherwise use index
+          this.openDetails.push(detail.id || "idx-" + index);
+        }
+      });
+    },
+    updated() {
+      // Restore scroll position
+      window.scrollTo(0, this.scrollPosition);
+
+      // Restore open state of details elements
+      this.el.querySelectorAll("details").forEach((detail, index) => {
+        const identifier = detail.id || "idx-" + index;
+        if (this.openDetails.includes(identifier)) {
+          detail.open = true;
         }
       });
     }
