@@ -58,27 +58,16 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
 
   @doc """
   Returns the primary/canonical language for versioning.
-  This is the explicitly configured content language from Settings.
-  Falls back to first enabled language if not configured.
+
+  Uses the default language from the Languages module (via Settings.get_content_language).
+  Falls back to "en" if Languages module is disabled or no default is set.
 
   This should be used instead of `hd(enabled_language_codes())` when
   determining which language controls versioning logic.
   """
   @spec get_primary_language() :: String.t()
   def get_primary_language do
-    # Use explicit content language setting for primary language detection
-    # This is more reliable than list position which can change
-    case Settings.get_content_language() do
-      nil ->
-        # Fall back to first enabled language, or "en" if none configured
-        case enabled_language_codes() do
-          [] -> "en"
-          [first | _] -> first
-        end
-
-      content_lang ->
-        content_lang
-    end
+    Settings.get_content_language()
   end
 
   @doc false
