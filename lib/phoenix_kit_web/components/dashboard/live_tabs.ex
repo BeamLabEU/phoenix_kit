@@ -56,6 +56,12 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
   alias PhoenixKit.Dashboard
   alias PhoenixKit.Dashboard.{Badge, Presence, Registry}
 
+  # Get the PubSub server from the socket's endpoint configuration
+  # This allows PhoenixKit to work with any parent app's PubSub server
+  defp get_pubsub(socket) do
+    socket.endpoint.config(:pubsub_server)
+  end
+
   @doc """
   Use this module in a LiveView to get dashboard tab helpers.
   """
@@ -220,8 +226,10 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
     # Subscribe to updates if connected
     if Phoenix.LiveView.connected?(socket) do
+      pubsub = get_pubsub(socket)
+
       # Subscribe to tab updates
-      Phoenix.PubSub.subscribe(PhoenixKit.PubSub, Registry.pubsub_topic())
+      Phoenix.PubSub.subscribe(pubsub, Registry.pubsub_topic())
 
       # Subscribe to presence updates
       if show_presence do
@@ -230,7 +238,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
       # Subscribe to badge topics (resolving context placeholders)
       if subscribe_badges do
-        subscribe_to_badge_topics(tabs, contexts_map)
+        subscribe_to_badge_topics(tabs, contexts_map, pubsub)
       end
     end
 
@@ -391,7 +399,8 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
     # Resubscribe to badge topics with new context
     if Phoenix.LiveView.connected?(socket) do
-      subscribe_to_badge_topics(tabs, contexts_map)
+      pubsub = get_pubsub(socket)
+      subscribe_to_badge_topics(tabs, contexts_map, pubsub)
     end
 
     # Reload context badge values and merge into tabs
@@ -464,7 +473,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
 
   # Private helpers
 
-  defp subscribe_to_badge_topics(tabs, contexts_map) do
+  defp subscribe_to_badge_topics(tabs, contexts_map, pubsub) do
     for tab <- tabs, tab.badge, Badge.live?(tab.badge) do
       context = get_context_for_badge(tab.badge, contexts_map)
 
@@ -474,7 +483,7 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
         topic = Badge.get_resolved_topic(tab.badge, context)
 
         if topic do
-          Phoenix.PubSub.subscribe(PhoenixKit.PubSub, topic)
+          Phoenix.PubSub.subscribe(pubsub, topic)
         end
       end
     end
@@ -509,6 +518,15 @@ defmodule PhoenixKitWeb.Components.Dashboard.LiveTabs do
       case Map.get(context_badge_values, tab.id) do
         nil ->
           tab
+
+        # For compound badges, if loader returns a list, treat as segments
+        segments when is_list(segments) and tab.badge != nil and tab.badge.type == :compound ->
+          if Badge.context_aware?(tab.badge) do
+            updated_badge = Badge.update_segments(tab.badge, segments)
+            %{tab | badge: updated_badge}
+          else
+            tab
+          end
 
         value when tab.badge != nil ->
           # Only update if badge is still context-aware (config might have changed)
