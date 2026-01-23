@@ -28,6 +28,7 @@ defmodule PhoenixKitWeb.Users.Auth do
 
   alias Phoenix.LiveView
   alias PhoenixKit.Admin.Events
+  alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Maintenance
   alias PhoenixKit.Users.Auth
@@ -1113,8 +1114,8 @@ defmodule PhoenixKitWeb.Users.Auth do
           String.contains?(locale, "-") ->
             redirect_to_base_locale(conn, locale)
 
-          # Validate base code exists in predefined language list
-          DialectMapper.valid_base_code?(locale) ->
+          # Validate base code exists in predefined language list AND is enabled
+          DialectMapper.valid_base_code?(locale) and language_enabled?(locale) ->
             # If this is the default language, redirect to clean URL (no prefix needed)
             if locale == get_default_admin_language() do
               redirect_default_locale_to_clean_url(conn, locale)
@@ -1133,6 +1134,10 @@ defmodule PhoenixKitWeb.Users.Auth do
               |> assign(:current_locale, full_dialect)
               |> put_session(:phoenix_kit_locale_base, locale)
             end
+
+          # Valid predefined but not enabled → redirect to default
+          DialectMapper.valid_base_code?(locale) ->
+            redirect_invalid_locale(conn, locale)
 
           # Invalid base code → redirect to default
           true ->
@@ -1215,6 +1220,23 @@ defmodule PhoenixKitWeb.Users.Auth do
           {:ok, [first | _]} -> DialectMapper.extract_base(first)
           _ -> "en"
         end
+    end
+  end
+
+  # Check if a language (base code) is enabled in the system
+  # Returns true if the language is in the enabled languages list or if Languages module is disabled
+  defp language_enabled?(base_code) do
+    case Languages.get_enabled_languages() do
+      [] ->
+        # No languages enabled, allow all predefined languages
+        true
+
+      enabled_languages ->
+        # Check if base_code matches any enabled language
+        Enum.any?(enabled_languages, fn lang ->
+          lang_base = DialectMapper.extract_base(lang["code"])
+          lang_base == base_code
+        end)
     end
   end
 

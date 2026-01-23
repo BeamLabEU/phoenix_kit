@@ -85,8 +85,10 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     # Selected option values - managed in assigns, not in form
     selected_option_values = metadata["_option_values"] || %{}
 
+    product_title = Translations.get(product, :title, TranslationTabs.get_default_language())
+
     socket
-    |> assign(:page_title, "Edit #{product.title}")
+    |> assign(:page_title, "Edit #{product_title}")
     |> assign(:product, product)
     |> assign(:changeset, changeset)
     |> assign(:categories, categories)
@@ -109,18 +111,22 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
     |> assign_translation_state(product)
   end
 
-  # Assign translation-related state
+  # Assign translation-related state (localized fields model)
   defp assign_translation_state(socket, product) do
     enabled_languages = TranslationTabs.get_enabled_languages()
     default_language = TranslationTabs.get_default_language()
     show_translations = TranslationTabs.show_translation_tabs?()
+
+    # Build translations map from localized fields for UI
+    translatable_fields = Translations.product_fields()
+    translations_map = TranslationTabs.build_translations_map(product, translatable_fields)
 
     socket
     |> assign(:enabled_languages, enabled_languages)
     |> assign(:default_language, default_language)
     |> assign(:current_translation_language, default_language)
     |> assign(:show_translation_tabs, show_translations)
-    |> assign(:product_translations, product.translations || %{})
+    |> assign(:product_translations, translations_map)
   end
 
   @impl true
@@ -271,13 +277,14 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
       |> Map.put("featured_image_id", socket.assigns.featured_image_id)
       |> Map.put("image_ids", socket.assigns.gallery_image_ids)
 
-    # Add translations from socket assigns (merged during validate)
+    # Build localized field attrs from main form values and translations
     product_params =
-      if socket.assigns[:show_translation_tabs] do
-        Map.put(product_params, "translations", socket.assigns[:product_translations] || %{})
-      else
-        product_params
-      end
+      build_localized_params(
+        socket.assigns.product,
+        product_params,
+        socket.assigns[:product_translations] || %{},
+        socket.assigns.default_language
+      )
 
     save_product(socket, socket.assigns.live_action, product_params)
   end
@@ -717,11 +724,16 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 <div class="form-control w-full">
                   <label class="label">
                     <span class="label-text font-medium">Title *</span>
+                    <%= if @show_translation_tabs do %>
+                      <span class="label-text-alt text-base-content/50">
+                        {String.upcase(@default_language)}
+                      </span>
+                    <% end %>
                   </label>
                   <input
                     type="text"
                     name="product[title]"
-                    value={Ecto.Changeset.get_field(@changeset, :title)}
+                    value={TranslationTabs.get_localized_value(@changeset, :title, @default_language)}
                     class={[
                       "input input-bordered w-full focus:input-primary",
                       @changeset.errors[:title] && "input-error"
@@ -771,11 +783,16 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 <div class="form-control w-full">
                   <label class="label">
                     <span class="label-text font-medium">Slug</span>
+                    <%= if @show_translation_tabs do %>
+                      <span class="label-text-alt text-base-content/50">
+                        {String.upcase(@default_language)}
+                      </span>
+                    <% end %>
                   </label>
                   <input
                     type="text"
                     name="product[slug]"
-                    value={Ecto.Changeset.get_field(@changeset, :slug)}
+                    value={TranslationTabs.get_localized_value(@changeset, :slug, @default_language)}
                     class="input input-bordered w-full focus:input-primary"
                     placeholder="Auto-generated from title"
                   />
@@ -842,12 +859,17 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
                 <div class="form-control w-full md:col-span-2">
                   <label class="label">
                     <span class="label-text font-medium">Description</span>
+                    <%= if @show_translation_tabs do %>
+                      <span class="label-text-alt text-base-content/50">
+                        {String.upcase(@default_language)}
+                      </span>
+                    <% end %>
                   </label>
                   <textarea
                     name="product[description]"
                     class="textarea textarea-bordered w-full h-24 focus:textarea-primary"
                     placeholder="Short product description"
-                  >{Ecto.Changeset.get_field(@changeset, :description)}</textarea>
+                  >{TranslationTabs.get_localized_value(@changeset, :description, @default_language)}</textarea>
                 </div>
               </div>
             </div>
@@ -2106,4 +2128,38 @@ defmodule PhoenixKit.Modules.Shop.Web.ProductForm do
   end
 
   defp merge_translation_params(existing, _), do: existing
+
+  # Build localized field params from main form values and translations
+  defp build_localized_params(entity, params, translations_map, default_language) do
+    translatable_fields = Translations.product_fields()
+
+    # Extract main form values for default language
+    default_values = %{
+      "title" => params["title"],
+      "slug" => params["slug"],
+      "description" => params["description"],
+      "body_html" => params["body_html"],
+      "seo_title" => params["seo_title"],
+      "seo_description" => params["seo_description"]
+    }
+
+    # Merge translations into localized field maps
+    localized_attrs =
+      TranslationTabs.merge_translations_to_attrs(
+        entity,
+        translations_map,
+        default_values,
+        default_language,
+        translatable_fields
+      )
+
+    # Replace simple field values with localized maps
+    params
+    |> Map.put("title", localized_attrs[:title])
+    |> Map.put("slug", localized_attrs[:slug])
+    |> Map.put("description", localized_attrs[:description])
+    |> Map.put("body_html", localized_attrs[:body_html])
+    |> Map.put("seo_title", localized_attrs[:seo_title])
+    |> Map.put("seo_description", localized_attrs[:seo_description])
+  end
 end

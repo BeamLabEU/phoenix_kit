@@ -48,6 +48,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     import_log_id = Map.fetch!(args, "import_log_id")
     path = Map.fetch!(args, "path")
     config_id = Map.get(args, "config_id")
+    language = Map.get(args, "language")
 
     Logger.info("CSVImportWorker: Starting import #{import_log_id} from #{path}")
 
@@ -56,7 +57,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
          :ok <- validate_file(path, config),
          {:ok, total_rows} <- count_products(path, config),
          {:ok, import_log} <- start_import(import_log, total_rows),
-         {:ok, stats} <- process_file(import_log, path, config),
+         {:ok, stats} <- process_file(import_log, path, config, language),
          {:ok, _import_log} <- complete_import(import_log, stats) do
       cleanup_file(path)
       broadcast_complete(import_log_id, stats)
@@ -149,7 +150,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
     end
   end
 
-  defp process_file(import_log, path, config) do
+  defp process_file(import_log, path, config, language) do
     categories_map = build_categories_map()
     grouped = CSVParser.parse_and_group(path)
 
@@ -166,7 +167,7 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       |> Enum.filter(fn {_handle, rows} -> Filter.should_include?(rows, config) end)
       |> Enum.with_index(1)
       |> Enum.reduce(stats, fn {{handle, rows}, index}, acc ->
-        result = process_product(handle, rows, categories_map, config)
+        result = process_product(handle, rows, categories_map, config, language)
         new_acc = update_stats(acc, result)
 
         # Broadcast progress at intervals
@@ -184,8 +185,9 @@ defmodule PhoenixKit.Modules.Shop.Workers.CSVImportWorker do
       {:error, {:process_error, e}}
   end
 
-  defp process_product(handle, rows, categories_map, config) do
-    attrs = ProductTransformer.transform(handle, rows, categories_map, config)
+  defp process_product(handle, rows, categories_map, config, language) do
+    transform_opts = if language, do: [language: language], else: []
+    attrs = ProductTransformer.transform(handle, rows, categories_map, config, transform_opts)
 
     case Shop.upsert_product(attrs) do
       {:ok, _product, :inserted} ->

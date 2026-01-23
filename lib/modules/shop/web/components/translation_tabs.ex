@@ -5,12 +5,24 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
   Displays language tabs for editing product/category translations.
   Only visible when the Languages module is enabled and has multiple languages.
 
+  ## Localized Fields Model
+
+  With the new localized fields approach, each translatable field stores
+  a map of language → value directly:
+
+      %Product{
+        title: %{"en" => "Planter", "ru" => "Кашпо"},
+        slug: %{"en" => "planter", "ru" => "kashpo"}
+      }
+
+  The component provides helpers to work with this structure in forms.
+
   ## Examples
 
       <.translation_tabs
         languages={@enabled_languages}
         current_language={@current_language}
-        translations={@product.translations}
+        entity={@product}
         translatable_fields={[:title, :slug, :description]}
         on_click="switch_language"
       />
@@ -272,6 +284,151 @@ defmodule PhoenixKit.Modules.Shop.Web.Components.TranslationTabs do
       length(Languages.get_enabled_language_codes()) > 1
     else
       false
+    end
+  end
+
+  # ============================================================================
+  # Localized Fields Helpers
+  # ============================================================================
+
+  @doc """
+  Gets the value of a localized field for a specific language.
+
+  Works with the new localized fields model where each field is a map.
+
+  ## Examples
+
+      iex> get_localized_value(%Product{title: %{"en" => "Planter", "ru" => "Кашпо"}}, :title, "en")
+      "Planter"
+
+      iex> get_localized_value(%Product{title: %{"en" => "Planter"}}, :title, "ru")
+      nil
+  """
+  @spec get_localized_value(struct() | Ecto.Changeset.t(), atom(), String.t()) ::
+          String.t() | nil
+  def get_localized_value(%Ecto.Changeset{} = changeset, field, language) do
+    field_map = Ecto.Changeset.get_field(changeset, field) || %{}
+    Map.get(field_map, language)
+  end
+
+  def get_localized_value(entity, field, language) when is_struct(entity) do
+    field_map = Map.get(entity, field) || %{}
+    Map.get(field_map, language)
+  end
+
+  def get_localized_value(_, _, _), do: nil
+
+  @doc """
+  Builds a translations map from entity's localized fields.
+
+  Transforms from new model (field → lang → value) to UI model (lang → field → value).
+  This allows the TranslationTabs UI to work with the new localized fields model.
+
+  ## Examples
+
+      iex> entity = %Product{
+      ...>   title: %{"en" => "Planter", "ru" => "Кашпо"},
+      ...>   slug: %{"en" => "planter", "ru" => "kashpo"}
+      ...> }
+      iex> build_translations_map(entity, [:title, :slug])
+      %{
+        "en" => %{"title" => "Planter", "slug" => "planter"},
+        "ru" => %{"title" => "Кашпо", "slug" => "kashpo"}
+      }
+  """
+  @spec build_translations_map(struct(), [atom()]) :: map()
+  def build_translations_map(entity, fields) when is_struct(entity) and is_list(fields) do
+    # Get all languages present in any field
+    all_languages =
+      fields
+      |> Enum.flat_map(fn field ->
+        field_map = Map.get(entity, field) || %{}
+        Map.keys(field_map)
+      end)
+      |> Enum.uniq()
+
+    # Build translations map: lang => {field => value}
+    Enum.reduce(all_languages, %{}, fn lang, acc ->
+      field_values =
+        Enum.reduce(fields, %{}, fn field, field_acc ->
+          field_map = Map.get(entity, field) || %{}
+          value = Map.get(field_map, lang)
+
+          if value do
+            Map.put(field_acc, to_string(field), value)
+          else
+            field_acc
+          end
+        end)
+
+      if field_values != %{} do
+        Map.put(acc, lang, field_values)
+      else
+        acc
+      end
+    end)
+  end
+
+  def build_translations_map(_, _), do: %{}
+
+  @doc """
+  Merges translations map back into localized field attrs for changeset.
+
+  Transforms from UI model (lang → field → value) to new model attrs.
+
+  ## Parameters
+
+    - `entity` - The current entity (to preserve existing values)
+    - `translations_map` - UI translations map
+    - `default_lang_values` - Values from main form fields (for default language)
+    - `fields` - List of translatable field atoms
+
+  ## Examples
+
+      iex> merge_translations_to_attrs(
+      ...>   %Product{title: %{"en" => "Old"}, slug: %{"en" => "old"}},
+      ...>   %{"ru" => %{"title" => "Кашпо", "slug" => "kashpo"}},
+      ...>   %{"title" => "New Planter", "slug" => "new-planter"},
+      ...>   "en",
+      ...>   [:title, :slug]
+      ...> )
+      %{
+        title: %{"en" => "New Planter", "ru" => "Кашпо"},
+        slug: %{"en" => "new-planter", "ru" => "kashpo"}
+      }
+  """
+  @spec merge_translations_to_attrs(struct(), map(), map(), String.t(), [atom()]) :: map()
+  def merge_translations_to_attrs(entity, translations_map, default_values, default_lang, fields) do
+    Enum.reduce(fields, %{}, fn field, acc ->
+      # Start with existing field values
+      existing = Map.get(entity, field) || %{}
+
+      # Add default language value from main form
+      field_str = to_string(field)
+
+      updated = merge_field_value(existing, default_lang, default_values, field_str)
+
+      # Merge translations from other languages
+      updated =
+        Enum.reduce(translations_map, updated, fn {lang, field_values}, field_acc ->
+          merge_field_value(field_acc, lang, field_values, field_str)
+        end)
+
+      Map.put(acc, field, updated)
+    end)
+  end
+
+  # Helper to merge a single field value, reducing nesting depth
+  defp merge_field_value(field_acc, lang, field_values, field_str) do
+    case Map.fetch(field_values, field_str) do
+      {:ok, value} when is_binary(value) and value != "" ->
+        Map.put(field_acc, lang, value)
+
+      {:ok, _empty_value} ->
+        Map.delete(field_acc, lang)
+
+      :error ->
+        field_acc
     end
   end
 

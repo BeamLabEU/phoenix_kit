@@ -9,6 +9,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   alias PhoenixKit.Dashboard.{Registry, Tab}
   alias PhoenixKit.Modules.Billing.Currency
+  alias PhoenixKit.Modules.Languages.DialectMapper
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.Translations
@@ -17,24 +18,23 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   alias PhoenixKit.Utils.Routes
 
   @impl true
-  def mount(%{"slug" => slug}, session, socket) do
-    # Get current language for localized lookup
-    current_language = get_current_language(socket)
+  def mount(%{"slug" => slug} = params, session, socket) do
+    # Determine language: use URL locale param if present, otherwise default
+    # This ensures /shop/... always uses default language, not session
+    current_language = get_language_from_params_or_default(params)
 
-    # Try localized slug lookup first, fallback to canonical
+    # Try localized slug lookup first
     case Shop.get_product_by_slug_localized(slug, current_language, preload: [:category]) do
       {:error, :not_found} ->
-        {:ok,
-         socket
-         |> put_flash(:error, "Product not found")
-         |> push_navigate(to: Routes.path("/shop"))}
+        # Slug not found in current language - try cross-language lookup
+        handle_cross_language_redirect(slug, current_language, session, socket)
 
       # Hide product if its category is hidden
       {:ok, %{category: %{status: "hidden"}}} ->
         {:ok,
          socket
          |> put_flash(:error, "Product not found")
-         |> push_navigate(to: Routes.path("/shop"))}
+         |> push_navigate(to: Shop.catalog_url(current_language))}
 
       {:ok, product} ->
         # Get session_id for guest cart
@@ -82,9 +82,12 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           end
 
         # Get localized content
-        localized_title = Translations.get_field(product, :title, current_language)
-        localized_description = Translations.get_field(product, :description, current_language)
-        localized_body = Translations.get_field(product, :body_html, current_language)
+        localized_title = Translations.get(product, :title, current_language)
+        localized_description = Translations.get(product, :description, current_language)
+        localized_body = Translations.get(product, :body_html, current_language)
+
+        # Get current path for language switcher
+        current_path = socket.assigns[:url_path] || Shop.product_url(product, current_language)
 
         socket =
           socket
@@ -108,8 +111,34 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           |> assign(:calculated_price, calculated_price)
           |> assign(:missing_required_specs, missing_required_specs)
           |> assign(:dashboard_tabs, dashboard_tabs)
+          |> assign(:current_path, current_path)
 
         {:ok, socket}
+    end
+  end
+
+  # Handle cross-language slug redirect
+  # When user visits with a slug from a different language, redirect to correct localized URL
+  defp handle_cross_language_redirect(slug, current_language, _session, socket) do
+    case Shop.get_product_by_any_slug(slug, preload: [:category]) do
+      {:error, :not_found} ->
+        # Product truly not found
+        {:ok,
+         socket
+         |> put_flash(:error, "Product not found")
+         |> push_navigate(to: Shop.catalog_url(current_language))}
+
+      {:ok, %{category: %{status: "hidden"}}, _matched_lang} ->
+        # Product's category is hidden
+        {:ok,
+         socket
+         |> put_flash(:error, "Product not found")
+         |> push_navigate(to: Shop.catalog_url(current_language))}
+
+      {:ok, product, _matched_lang} ->
+        # Found product - redirect to correct localized URL with 301
+        correct_url = Shop.product_url(product, current_language)
+        {:ok, push_navigate(socket, to: correct_url)}
     end
   end
 
@@ -152,12 +181,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   # Create shop parent tab (only if not in registry)
   defp create_shop_parent_tab(current_category) do
+    default_lang = Translations.default_language()
+
     tab =
       Tab.new!(
         id: :dashboard_shop,
         label: "Shop",
         icon: "hero-building-storefront",
-        path: Routes.path("/shop"),
+        path: Shop.catalog_url(default_lang),
         priority: 300,
         group: :shop,
         match: :prefix,
@@ -169,15 +200,20 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
 
   # Build category subtabs for existing dashboard_shop tab
   defp build_category_subtabs(categories, current_category) do
+    default_lang = Translations.default_language()
+
     categories
     |> Enum.with_index()
     |> Enum.map(fn {cat, idx} ->
+      # Get localized name
+      cat_name = Translations.get(cat, :name, default_lang)
+
       tab =
         Tab.new!(
           id: String.to_atom("shop_cat_#{cat.id}"),
-          label: cat.name,
+          label: cat_name,
           icon: "hero-folder",
-          path: Routes.path("/shop/category/#{cat.slug}"),
+          path: Shop.category_url(cat, default_lang),
           priority: 301 + idx,
           parent: :dashboard_shop,
           group: :shop,
@@ -344,11 +380,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
   end
 
   defp build_cart_display_name(product, price_affecting_specs, selected_specs) do
+    # Get localized title (use default language for cart display)
+    title = Translations.get(product, :title, Translations.default_language())
+
     if price_affecting_specs != [] && map_size(selected_specs) > 0 do
       specs_str = selected_specs |> Map.values() |> Enum.join(", ")
-      "#{product.title} (#{specs_str})"
+      "#{title} (#{specs_str})"
     else
-      product.title
+      title
     end
   end
 
@@ -377,15 +416,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
         <%!-- Breadcrumbs --%>
         <div class="breadcrumbs text-sm mb-6">
           <ul>
-            <li><.link navigate={Routes.path("/shop")}>Shop</.link></li>
+            <li><.link navigate={Shop.catalog_url(@current_language)}>Shop</.link></li>
             <%= if @product.category do %>
+              <% cat_name = Translations.get(@product.category, :name, @current_language) %>
               <li>
-                <.link navigate={Routes.path("/shop/category/#{@product.category.slug}")}>
-                  {@product.category.name}
+                <.link navigate={Shop.category_url(@product.category, @current_language)}>
+                  {cat_name}
                 </.link>
               </li>
             <% end %>
-            <li class="font-medium truncate max-w-xs">{@product.title}</li>
+            <li class="font-medium truncate max-w-xs">{@localized_title}</li>
           </ul>
         </div>
 
@@ -397,7 +437,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
               <%= if @selected_image do %>
                 <img
                   src={@selected_image}
-                  alt={@product.title}
+                  alt={@localized_title}
                   class="w-full h-full object-cover"
                 />
               <% else %>
@@ -463,7 +503,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           <%!-- Product Info --%>
           <div class="space-y-6">
             <div>
-              <h1 class="text-3xl font-bold mb-2">{@product.title}</h1>
+              <h1 class="text-3xl font-bold mb-2">{@localized_title}</h1>
 
               <%= if @product.vendor do %>
                 <p class="text-base-content/60">by {@product.vendor}</p>
@@ -499,9 +539,9 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
             </div>
 
             <%!-- Description --%>
-            <%= if @product.description do %>
+            <%= if @localized_description do %>
               <div class="prose prose-sm max-w-none">
-                <p>{@product.description}</p>
+                <p>{@localized_description}</p>
               </div>
             <% end %>
 
@@ -517,13 +557,14 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
               <% end %>
 
               <%= if @product.category do %>
+                <% cat_name = Translations.get(@product.category, :name, @current_language) %>
                 <div>
                   <span class="text-base-content/60">Category:</span>
                   <.link
-                    navigate={Routes.path("/shop/category/#{@product.category.slug}")}
+                    navigate={Shop.category_url(@product.category, @current_language)}
                     class="ml-2 link link-primary"
                   >
-                    {@product.category.name}
+                    {cat_name}
                   </.link>
                 </div>
               <% end %>
@@ -696,7 +737,7 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
                 </button>
 
                 <%!-- View Cart Link --%>
-                <.link navigate={Routes.path("/cart")} class="btn btn-outline w-full">
+                <.link navigate={Shop.cart_url(@current_language)} class="btn btn-outline w-full">
                   <.icon name="hero-eye" class="w-5 h-5 mr-2" /> View Cart
                 </.link>
               </div>
@@ -780,12 +821,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
           </.link>
         </div>
         <div class="navbar-center">
-          <.link navigate={Routes.path("/shop")} class="btn btn-ghost text-xl">
+          <.link navigate={Shop.catalog_url(@current_language)} class="btn btn-ghost text-xl">
             <.icon name="hero-shopping-bag" class="w-5 h-5 mr-2" /> Shop
           </.link>
         </div>
         <div class="navbar-end gap-2">
-          <.link navigate={Routes.path("/cart")} class="btn btn-ghost btn-circle">
+          <.language_switcher_dropdown
+            current_locale={@current_language}
+            current_path={@current_path}
+          />
+          <.link navigate={Shop.cart_url(@current_language)} class="btn btn-ghost btn-circle">
             <.icon name="hero-shopping-cart" class="w-5 h-5" />
           </.link>
           <.link navigate={Routes.path("/users/log-in")} class="btn btn-primary btn-sm">
@@ -1055,8 +1100,16 @@ defmodule PhoenixKit.Modules.Shop.Web.CatalogProduct do
     Shop.calculate_product_price(product, temp_specs)
   end
 
-  # Get current language from socket assigns or default
-  defp get_current_language(socket) do
-    socket.assigns[:current_locale] || Translations.default_language()
+  # Determine language from URL params - use locale param if present, otherwise default
+  # This ensures non-localized routes (/shop/...) always use default language,
+  # regardless of what's stored in session from previous visits
+  defp get_language_from_params_or_default(%{"locale" => locale}) when is_binary(locale) do
+    # Localized route - use the locale from URL
+    DialectMapper.resolve_dialect(locale, nil)
+  end
+
+  defp get_language_from_params_or_default(_params) do
+    # Non-localized route - always use default language
+    Translations.default_language()
   end
 end

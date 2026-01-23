@@ -12,6 +12,7 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
   alias PhoenixKit.Modules.Shop.CartItem
   alias PhoenixKit.Modules.Shop.Options
   alias PhoenixKit.Modules.Shop.OptionTypes
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Storage
   alias PhoenixKit.Utils.Routes
 
@@ -65,8 +66,10 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
       calculated_price = Shop.calculate_product_price(product, test_selections)
       {min_price, max_price} = Shop.get_price_range(product)
 
+      product_title = Translations.get(product, :title, Translations.default_language())
+
       result = %{
-        name: "Price Test: #{product.title}",
+        name: "Price Test: #{product_title}",
         status: :ok,
         details:
           "Base: $#{product.price}, Calculated: $#{calculated_price}, Range: $#{min_price} - $#{max_price}"
@@ -177,10 +180,15 @@ defmodule PhoenixKit.Modules.Shop.Web.TestShop do
                         <% price_specs = Shop.get_price_affecting_specs(product) %>
                         <% has_storage_images =
                           product.featured_image_id != nil or (product.image_ids || []) != [] %>
+                        <% default_lang = Translations.default_language() %>
                         <tr>
                           <td>
-                            <div class="font-medium">{product.title}</div>
-                            <div class="text-xs text-base-content/60">{product.slug}</div>
+                            <div class="font-medium">
+                              {Translations.get(product, :title, default_lang)}
+                            </div>
+                            <div class="text-xs text-base-content/60">
+                              {Translations.get(product, :slug, default_lang)}
+                            </div>
                           </td>
                           <td>${Decimal.round(product.price || Decimal.new("0"), 2)}</td>
                           <td>

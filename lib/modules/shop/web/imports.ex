@@ -13,6 +13,7 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
 
   alias PhoenixKit.Modules.Shop
   alias PhoenixKit.Modules.Shop.ImportLog
+  alias PhoenixKit.Modules.Shop.Translations
   alias PhoenixKit.Modules.Shop.Workers.CSVImportWorker
   alias PhoenixKit.PubSub.Manager
   alias PhoenixKit.Utils.Routes
@@ -26,12 +27,16 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
       Manager.subscribe("shop:imports")
     end
 
+    # Get current language for import
+    current_language = Translations.default_language()
+
     socket =
       socket
       |> assign(:page_title, "CSV Import")
       |> assign(:imports, list_imports())
       |> assign(:current_import, nil)
       |> assign(:import_progress, nil)
+      |> assign(:current_language, current_language)
       |> allow_upload(:csv_file,
         accept: ~w(.csv),
         max_file_size: 50_000_000,
@@ -78,8 +83,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
                options: %{}
              }) do
           {:ok, import_log} ->
-            # Enqueue Oban job
-            %{import_log_id: import_log.id, path: dest_path}
+            # Enqueue Oban job with language
+            language = socket.assigns.current_language
+
+            %{import_log_id: import_log.id, path: dest_path, language: language}
             |> CSVImportWorker.new()
             |> Oban.insert()
 
@@ -117,8 +124,10 @@ defmodule PhoenixKit.Modules.Shop.Web.Imports do
           {:ok, updated_log} =
             Shop.update_import_log(import_log, %{status: "pending", error_details: []})
 
-          # Re-enqueue job
-          %{import_log_id: updated_log.id, path: import_log.file_path}
+          # Re-enqueue job with language
+          language = socket.assigns.current_language
+
+          %{import_log_id: updated_log.id, path: import_log.file_path, language: language}
           |> CSVImportWorker.new()
           |> Oban.insert()
 

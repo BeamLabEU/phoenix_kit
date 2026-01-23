@@ -59,6 +59,7 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
     update_existing = Keyword.get(opts, :update_existing, false)
     config = Keyword.get(opts, :config)
     validate = Keyword.get(opts, :validate, true)
+    language = Keyword.get(opts, :language)
 
     # Get required columns from config if provided
     required_columns = get_required_columns(config)
@@ -97,7 +98,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
           skip_existing: skip_existing,
           update_existing: update_existing,
           config: config,
-          validation_report: validation_report
+          validation_report: validation_report,
+          language: language
         })
     end
   end
@@ -120,7 +122,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       skip_existing: skip_existing,
       update_existing: update_existing,
       config: config,
-      validation_report: validation_report
+      validation_report: validation_report,
+      language: language
     } = opts
 
     # Build categories map for auto-assignment
@@ -141,7 +144,8 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
           categories_map: categories_map,
           skip_existing: skip_existing,
           update_existing: update_existing,
-          config: config
+          config: config,
+          language: language
         })
       end)
 
@@ -217,11 +221,13 @@ defmodule PhoenixKit.Modules.Shop.Import.ShopifyCSV do
       dry_run: dry_run,
       category_id: override_category_id,
       categories_map: categories_map,
-      config: config
+      config: config,
+      language: language
     } = opts
 
-    # Transform with config
-    attrs = ProductTransformer.transform(handle, rows, categories_map, config)
+    # Transform with config and language
+    transform_opts = if language, do: [language: language], else: []
+    attrs = ProductTransformer.transform(handle, rows, categories_map, config, transform_opts)
 
     # Override category if specified
     attrs =

@@ -578,30 +578,8 @@ defmodule PhoenixKitWeb.Integration do
         end
       end
 
-      # Shop public routes (catalog, cart - no admin auth required)
-      scope unquote(url_prefix) do
-        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
-
-        live_session :phoenix_kit_shop_public,
-          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
-          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
-
-          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
-            as: :shop_category
-
-          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
-            as: :shop_product
-
-          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
-
-          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
-
-          live "/checkout/complete/:uuid",
-               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
-               :show,
-               as: :shop_checkout_complete
-        end
-      end
+      # Shop public routes are generated via generate_shop_public_routes/1 helper
+      # This supports locale-prefixed URLs (/:locale/shop/...) with language switching
 
       # Shop user dashboard routes (requires authentication)
       scope unquote(url_prefix) do
@@ -658,6 +636,70 @@ defmodule PhoenixKitWeb.Integration do
 
           live "/admin/ai/prompts/:id/edit", PhoenixKit.Modules.AI.Web.PromptForm, :edit,
             as: :ai_prompt_edit
+        end
+      end
+    end
+  end
+
+  # Helper function to generate Shop public routes with locale support
+  # Uses separate scope because PhoenixKit.Modules.* namespace can't be inside PhoenixKitWeb scope
+  defp generate_shop_public_routes(url_prefix) do
+    quote do
+      # Localized shop routes (with :locale prefix)
+      # Pattern: /:locale/shop/... where locale is 2-letter code
+      scope "#{unquote(url_prefix)}/:locale" do
+        pipe_through [
+          :browser,
+          :phoenix_kit_auto_setup,
+          :phoenix_kit_shop_session,
+          :phoenix_kit_locale_validation
+        ]
+
+        live_session :phoenix_kit_shop_public_localized,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index,
+            as: :shop_catalog_localized
+
+          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+            as: :shop_category_localized
+
+          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+            as: :shop_product_localized
+
+          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart_localized
+
+          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index,
+            as: :shop_checkout_localized
+
+          live "/checkout/complete/:uuid",
+               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
+               :show,
+               as: :shop_checkout_complete_localized
+        end
+      end
+
+      # Non-localized shop routes (default language - no prefix)
+      scope unquote(url_prefix) do
+        pipe_through [:browser, :phoenix_kit_auto_setup, :phoenix_kit_shop_session]
+
+        live_session :phoenix_kit_shop_public,
+          on_mount: [{PhoenixKitWeb.Users.Auth, :phoenix_kit_mount_current_scope}] do
+          live "/shop", PhoenixKit.Modules.Shop.Web.ShopCatalog, :index, as: :shop_catalog
+
+          live "/shop/category/:slug", PhoenixKit.Modules.Shop.Web.CatalogCategory, :show,
+            as: :shop_category
+
+          live "/shop/product/:slug", PhoenixKit.Modules.Shop.Web.CatalogProduct, :show,
+            as: :shop_product
+
+          live "/cart", PhoenixKit.Modules.Shop.Web.CartPage, :index, as: :shop_cart
+
+          live "/checkout", PhoenixKit.Modules.Shop.Web.CheckoutPage, :index, as: :shop_checkout
+
+          live "/checkout/complete/:uuid",
+               PhoenixKit.Modules.Shop.Web.CheckoutComplete,
+               :show,
+               as: :shop_checkout_complete
         end
       end
     end
@@ -1295,6 +1337,10 @@ defmodule PhoenixKitWeb.Integration do
 
       # Generate non-localized routes
       unquote(generate_non_localized_routes(url_prefix))
+
+      # Generate shop public routes (with locale support)
+      # Must be BEFORE blog routes to avoid conflicts with Publishing catch-all
+      unquote(generate_shop_public_routes(url_prefix))
 
       # Generate blog routes (after other routes to prevent conflicts)
       unquote(generate_blog_routes(url_prefix))
