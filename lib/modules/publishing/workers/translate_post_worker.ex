@@ -626,4 +626,154 @@ defmodule PhoenixKit.Modules.Publishing.Workers.TranslatePostWorker do
     |> create_job(post_slug, opts)
     |> Oban.insert()
   end
+
+  @doc """
+  Translates content and returns the result without saving.
+
+  Use this when you want to display the translation in the UI first,
+  allowing the user to review/edit before saving.
+
+  ## Parameters
+
+  - `group_slug` - The publishing group slug
+  - `post_slug` - The post slug
+  - `target_language` - The target language code (e.g., "es")
+  - `opts` - Options:
+    - `:endpoint_id` - AI endpoint ID to use (required)
+    - `:source_language` - Source language code (defaults to post's primary language)
+    - `:version` - Version to translate (defaults to latest)
+
+  ## Returns
+
+  - `{:ok, %{title: title, url_slug: slug, content: content}}` on success
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      {:ok, result} = TranslatePostWorker.translate_content("docs", "getting-started", "es", endpoint_id: 1)
+      # => {:ok, %{title: "Primeros Pasos", url_slug: "primeros-pasos", content: "..."}}
+
+  """
+  def translate_content(group_slug, post_slug, target_language, opts \\ []) do
+    endpoint_id = Keyword.get(opts, :endpoint_id) || get_default_endpoint_id()
+    version = Keyword.get(opts, :version)
+
+    source_language =
+      Keyword.get(opts, :source_language) ||
+        Storage.get_post_primary_language(group_slug, post_slug, version)
+
+    unless AI.enabled?() do
+      {:error, "AI module is not enabled"}
+    else
+      case AI.get_endpoint(endpoint_id) do
+        nil ->
+          {:error, "AI endpoint not found: #{endpoint_id}"}
+
+        %{enabled: false} ->
+          {:error, "AI endpoint is disabled"}
+
+        endpoint ->
+          case Publishing.read_post(group_slug, post_slug, source_language, version) do
+            {:ok, source_post} ->
+              do_translate_content(source_post, target_language, endpoint, source_language)
+
+            {:error, reason} ->
+              {:error, "Failed to read source post: #{inspect(reason)}"}
+          end
+      end
+    end
+  end
+
+  defp do_translate_content(source_post, target_language, endpoint, source_language) do
+    source_lang_info = Storage.get_language_info(source_language)
+    target_lang_info = Storage.get_language_info(target_language)
+
+    source_lang_name = source_lang_info[:name] || source_language
+    target_lang_name = target_lang_info[:name] || target_language
+
+    source_title = extract_title(source_post)
+    source_content = source_post.content || ""
+
+    prompt =
+      build_translation_prompt(source_title, source_content, source_lang_name, target_lang_name)
+
+    case AI.ask(endpoint.id, prompt, source: "Publishing.TranslatePostWorker") do
+      {:ok, response} ->
+        case AI.extract_content(response) do
+          {:ok, translated_text} ->
+            {title, url_slug, content} = parse_translated_response(translated_text)
+            {:ok, %{title: title, url_slug: url_slug, content: content}}
+
+          {:error, reason} ->
+            {:error, "Failed to extract AI response: #{inspect(reason)}"}
+        end
+
+      {:error, reason} ->
+        {:error, "AI request failed: #{inspect(reason)}"}
+    end
+  end
+
+  @doc """
+  Translates a post to a single language synchronously (without queuing).
+
+  Use this for immediate translation of a single language, e.g., when the user
+  clicks "Translate to This Language" while viewing a non-primary language.
+
+  ## Parameters
+
+  - `group_slug` - The publishing group slug
+  - `post_slug` - The post slug
+  - `target_language` - The target language code (e.g., "es")
+  - `opts` - Options:
+    - `:endpoint_id` - AI endpoint ID to use (required)
+    - `:source_language` - Source language code (defaults to post's primary language)
+    - `:version` - Version to translate (defaults to latest)
+    - `:user_id` - User ID for audit trail
+
+  ## Returns
+
+  - `:ok` on success
+  - `{:error, reason}` on failure
+
+  ## Example
+
+      :ok = TranslatePostWorker.translate_now("docs", "getting-started", "es", endpoint_id: 1)
+
+  """
+  def translate_now(group_slug, post_slug, target_language, opts \\ []) do
+    endpoint_id = Keyword.get(opts, :endpoint_id) || get_default_endpoint_id()
+    version = Keyword.get(opts, :version)
+    user_id = Keyword.get(opts, :user_id)
+
+    source_language =
+      Keyword.get(opts, :source_language) ||
+        Storage.get_post_primary_language(group_slug, post_slug, version)
+
+    unless AI.enabled?() do
+      {:error, "AI module is not enabled"}
+    else
+      case AI.get_endpoint(endpoint_id) do
+        nil ->
+          {:error, "AI endpoint not found: #{endpoint_id}"}
+
+        %{enabled: false} ->
+          {:error, "AI endpoint is disabled"}
+
+        endpoint ->
+          case Publishing.read_post(group_slug, post_slug, source_language, version) do
+            {:ok, source_post} ->
+              translate_single_language(
+                source_post,
+                target_language,
+                endpoint,
+                source_language,
+                user_id
+              )
+
+            {:error, reason} ->
+              {:error, "Failed to read source post: #{inspect(reason)}"}
+          end
+      end
+    end
+  end
 end

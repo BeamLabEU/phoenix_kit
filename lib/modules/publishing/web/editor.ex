@@ -108,6 +108,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       |> assign(:ai_endpoints, list_ai_endpoints())
       |> assign(:ai_selected_endpoint_id, get_default_ai_endpoint_id())
       |> assign(:ai_translation_status, nil)
+      |> assign(:translation_task_ref, nil)
+      |> assign(:translation_target_language, nil)
       |> assign(
         :current_path,
         Routes.path("/admin/publishing/#{blog_slug}/edit")
@@ -623,6 +625,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     enqueue_translation(socket, target_languages, empty_opts)
   end
 
+  def handle_event("translate_to_this_language", _params, socket) do
+    # Only owners can translate (spectators are readonly)
+    if socket.assigns[:readonly?] do
+      {:noreply, socket}
+    else
+      start_translation_to_current(socket)
+    end
+  end
+
   def handle_event("preview", _params, socket) do
     preview_payload = build_preview_payload(socket)
     endpoint = socket.endpoint || PhoenixKitWeb.Endpoint
@@ -1045,6 +1056,50 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
     |> put_flash(:error, gettext("Failed to enqueue translation job"))
   end
 
+  # Helper for translating TO the current (non-primary) language - runs immediately via Task
+  defp start_translation_to_current(socket) do
+    cond do
+      socket.assigns.is_new_post ->
+        {:noreply,
+         put_flash(socket, :error, gettext("Please save the post first before translating"))}
+
+      is_nil(socket.assigns.ai_selected_endpoint_id) ->
+        {:noreply, put_flash(socket, :error, gettext("Please select an AI endpoint"))}
+
+      true ->
+        do_start_translation_to_current(socket)
+    end
+  end
+
+  defp do_start_translation_to_current(socket) do
+    post = socket.assigns.post
+    blog_slug = socket.assigns.blog_slug
+    target_language = socket.assigns.current_language
+    primary_language = post[:primary_language] || Storage.get_primary_language()
+    endpoint_id = socket.assigns.ai_selected_endpoint_id
+    version = socket.assigns.current_version
+
+    # Run translation in a monitored Task (non-blocking, but we catch crashes)
+    task =
+      Task.async(fn ->
+        TranslatePostWorker.translate_content(
+          blog_slug,
+          post.slug,
+          target_language,
+          endpoint_id: endpoint_id,
+          version: version,
+          source_language: primary_language
+        )
+      end)
+
+    {:noreply,
+     socket
+     |> assign(:ai_translation_status, :translating)
+     |> assign(:translation_task_ref, task.ref)
+     |> assign(:translation_target_language, target_language)
+     |> put_flash(:info, gettext("Translating..."))}
+  end
+
   # Helper functions for version switching
   defp read_version_post(socket, version) do
     blog_slug = socket.assigns.blog_slug
@@ -1345,6 +1400,121 @@ defmodule PhoenixKit.Modules.Publishing.Web.Editor do
       true ->
         socket = apply_remote_form_change(socket, payload)
         {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async result for translation (ref, result tuple)
+  def handle_info({ref, {:ok, %{title: title, url_slug: url_slug, content: content}}}, socket)
+      when is_reference(ref) do
+    # Clean up the DOWN message that Task.async sends
+    Process.demonitor(ref, [:flush])
+
+    # Verify this is our translation task and the language hasn't changed
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+    current_language = socket.assigns.current_language
+
+    cond do
+      ref != expected_ref ->
+        # Not our task, ignore
+        {:noreply, socket}
+
+      target_language != current_language ->
+        # User switched languages while translation was in progress - discard result
+        lang_info = Storage.get_language_info(target_language)
+        lang_name = lang_info[:name] || target_language
+
+        {:noreply,
+         socket
+         |> assign(:ai_translation_status, nil)
+         |> assign(:translation_task_ref, nil)
+         |> assign(:translation_target_language, nil)
+         |> put_flash(
+           :warning,
+           gettext("Translation to %{language} completed but discarded (language was switched)",
+             language: lang_name
+           )
+         )}
+
+      true ->
+        # Success - apply the translation
+        lang_info = Storage.get_language_info(target_language)
+        lang_name = lang_info[:name] || target_language
+
+        form = socket.assigns.form
+        updated_form = form |> Map.put("title", title) |> Map.put("url_slug", url_slug)
+
+        socket =
+          socket
+          |> assign(:ai_translation_status, nil)
+          |> assign(:translation_task_ref, nil)
+          |> assign(:translation_target_language, nil)
+          |> assign(:form, updated_form)
+          |> assign(:content, content)
+          |> assign(:has_pending_changes, true)
+          |> push_event("changes-status", %{has_changes: true})
+          |> push_event("set-content", %{content: content})
+          |> schedule_autosave()
+          |> put_flash(
+            :info,
+            gettext("Translation to %{language} complete!", language: lang_name)
+          )
+
+        # Broadcast to spectators so they see the translated content
+        broadcast_form_change(socket, :content, %{content: content, form: updated_form})
+
+        {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async error result
+  def handle_info({ref, {:error, reason}}, socket) when is_reference(ref) do
+    Process.demonitor(ref, [:flush])
+
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+
+    if ref == expected_ref do
+      lang_info = Storage.get_language_info(target_language)
+      lang_name = lang_info[:name] || target_language
+
+      {:noreply,
+       socket
+       |> assign(:ai_translation_status, nil)
+       |> assign(:translation_task_ref, nil)
+       |> assign(:translation_target_language, nil)
+       |> put_flash(
+         :error,
+         gettext("Translation to %{language} failed: %{reason}",
+           language: lang_name,
+           reason: inspect(reason)
+         )
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  # Handle Task.async crash (DOWN message)
+  def handle_info({:DOWN, ref, :process, _pid, reason}, socket) when is_reference(ref) do
+    expected_ref = socket.assigns[:translation_task_ref]
+    target_language = socket.assigns[:translation_target_language]
+
+    if ref == expected_ref and reason != :normal do
+      lang_info = Storage.get_language_info(target_language || "unknown")
+      lang_name = lang_info[:name] || target_language || "unknown"
+
+      {:noreply,
+       socket
+       |> assign(:ai_translation_status, nil)
+       |> assign(:translation_task_ref, nil)
+       |> assign(:translation_target_language, nil)
+       |> put_flash(
+         :error,
+         gettext("Translation to %{language} failed unexpectedly", language: lang_name)
+       )}
+    else
+      {:noreply, socket}
     end
   end
 

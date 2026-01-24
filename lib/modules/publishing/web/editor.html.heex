@@ -344,7 +344,102 @@
       </div>
     <% end %>
 
-    <%!-- AI Translation Section --%>
+    <%!-- AI Translation Section for Non-Primary Languages (hidden for readonly spectators) --%>
+    <%= if @ai_enabled and not @is_primary_language and not @is_new_post and length(@ai_endpoints) > 0 and not @readonly? do %>
+      <div class="collapse collapse-arrow bg-base-100 shadow-xl border border-base-200">
+        <input
+          type="checkbox"
+          checked={@show_ai_translation}
+          phx-click="toggle_ai_translation"
+        />
+        <div class="collapse-title">
+          <div class="flex items-center gap-2">
+            <.icon name="hero-language" class="w-5 h-5 text-primary" />
+            <span class="font-semibold">{gettext("AI Translation")}</span>
+          </div>
+        </div>
+        <div class="collapse-content">
+          <div class="pt-2 space-y-4">
+            <p class="text-sm text-base-content/70">
+              {gettext(
+                "Translate this post from the primary language using AI. The translation will be queued as a background job."
+              )}
+            </p>
+
+            <%!-- Endpoint Selection --%>
+            <form phx-change="select_ai_endpoint" class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">{gettext("AI Endpoint")}</span>
+              </label>
+              <select
+                class="select select-bordered w-full max-w-xs"
+                name="endpoint_id"
+              >
+                <option value="">{gettext("Select an endpoint...")}</option>
+                <%= for {id, name} <- @ai_endpoints do %>
+                  <option value={id} selected={@ai_selected_endpoint_id == id}>
+                    {name}
+                  </option>
+                <% end %>
+              </select>
+              <label class="label">
+                <span class="label-text-alt text-base-content/60">
+                  {gettext("Configure endpoints in")}
+                  <.link
+                    navigate={PhoenixKit.Utils.Routes.path("/admin/ai")}
+                    class="link link-primary"
+                  >
+                    {gettext("AI Settings")}
+                  </.link>
+                </span>
+              </label>
+            </form>
+
+            <%!-- Translation Status --%>
+            <%= if @ai_translation_status == :translating do %>
+              <div class="alert alert-info">
+                <span class="loading loading-spinner loading-sm"></span>
+                <span>
+                  {gettext("Translating... This may take a moment.")}
+                </span>
+              </div>
+            <% end %>
+
+            <%!-- Action Button --%>
+            <div class="flex flex-wrap gap-3">
+              <button
+                type="button"
+                class={"btn btn-primary btn-sm #{if @ai_selected_endpoint_id == nil or @ai_translation_status == :translating, do: "btn-disabled"}"}
+                phx-click="translate_to_this_language"
+                disabled={
+                  @ai_selected_endpoint_id == nil or @ai_translation_status == :translating
+                }
+                data-confirm={
+                  gettext(
+                    "This will overwrite any existing content in this language with an AI translation. Continue?"
+                  )
+                }
+              >
+                <.icon name="hero-language" class="w-4 h-4" />
+                {gettext("Translate to This Language")}
+              </button>
+            </div>
+
+            <%!-- Info --%>
+            <div class="text-xs text-base-content/50">
+              <p>
+                <.icon name="hero-information-circle" class="w-3 h-3 inline" />
+                {gettext(
+                  "This will translate the primary language content to this language, overwriting any existing content."
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <%!-- AI Translation Section (Primary Language) --%>
     <%= if @ai_enabled and @is_primary_language and not @is_new_post and length(@ai_endpoints) > 0 do %>
       <div class="collapse collapse-arrow bg-base-100 shadow-xl border border-base-200">
         <input
