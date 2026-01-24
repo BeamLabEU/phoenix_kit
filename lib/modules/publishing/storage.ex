@@ -1880,7 +1880,9 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     with :ok <- File.mkdir_p(v1_dir),
          {:ok, phk_files} <- list_phk_files(post_dir),
          :ok <- migrate_files_to_v1(post_dir, v1_dir, phk_files, now, post.metadata) do
-      read_migrated_post(post, language)
+      # Pass post_dir to avoid group_path() resolving to wrong location
+      # when both publishing/ and blogging/ directories exist for the same group
+      read_migrated_post(post, post_dir, language)
     else
       {:error, :no_files} -> {:error, :no_files}
       {:error, reason} -> {:error, reason}
@@ -1908,19 +1910,59 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
     end
   end
 
-  defp read_migrated_post(post, language) do
-    case post.mode do
-      :slug ->
-        read_post_slug_mode(post.group, post.slug, language, 1)
+  # Reads the post after migration using the actual post_dir path.
+  # This avoids group_path() which may resolve to the wrong directory
+  # when both publishing/ and blogging/ folders exist for the same group.
+  defp read_migrated_post(post, post_dir, language) do
+    v1_dir = Path.join(post_dir, "v1")
+    file_path = Path.join(v1_dir, language_filename(language))
 
-      :timestamp ->
-        new_relative_path =
-          relative_path_with_language_versioned(post.group, post.date, post.time, 1, language)
+    with true <- File.exists?(file_path),
+         {:ok, content} <- File.read(file_path),
+         {:ok, metadata, body} <- Metadata.parse_with_content(content) do
+      available_languages = detect_available_languages(v1_dir)
+      language_statuses = load_language_statuses(v1_dir, available_languages)
 
-        read_post(post.group, new_relative_path)
+      # Build the relative path based on mode
+      relative_path =
+        case post.mode do
+          :slug ->
+            Path.join([post.group, post.slug, "v1", language_filename(language)])
 
-      _ ->
-        {:error, :unknown_mode}
+          :timestamp ->
+            date_part = Date.to_iso8601(post.date)
+            time_part = format_time_folder(post.time)
+            Path.join([post.group, date_part, time_part, "v1", language_filename(language)])
+
+          _ ->
+            Path.join([post.group, "v1", language_filename(language)])
+        end
+
+      {:ok,
+       %{
+         group: post.group,
+         slug: post.slug,
+         url_slug: Map.get(metadata, :url_slug) || post.slug,
+         date: post.date,
+         time: post.time,
+         path: relative_path,
+         full_path: file_path,
+         metadata: metadata,
+         content: body,
+         language: language,
+         available_languages: available_languages,
+         language_statuses: language_statuses,
+         mode: post.mode,
+         version: 1,
+         available_versions: [1],
+         version_statuses: %{1 => Map.get(metadata, :status, "draft")},
+         version_dates: %{1 => Map.get(metadata, :version_created_at)},
+         is_legacy_structure: false,
+         primary_language: Map.get(metadata, :primary_language) || get_primary_language()
+       }}
+    else
+      false -> {:error, :not_found}
+      {:error, reason} -> {:error, reason}
     end
   end
 
