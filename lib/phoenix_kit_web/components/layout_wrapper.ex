@@ -862,6 +862,7 @@ defmodule PhoenixKitWeb.Components.LayoutWrapper do
                           label={gettext("General")}
                           current_path={@current_path || ""}
                           nested={true}
+                          exact_match_only={true}
                         />
 
                         <.admin_nav_item
