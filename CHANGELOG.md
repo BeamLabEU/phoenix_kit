@@ -21,6 +21,11 @@
     - Fix admin header dropdowns - Theme and language dropdowns in admin header now work correctly
     - Update Entities module description - Clearer description on the Modules page
 - Updated the languages module added front and backend tabs for languages
+- Add localized routes for Shop module
+  - Add locale-prefixed routes (/:locale/shop/...) for multi-language Shop module support
+  - Add language validation to only allow enabled languages in URLs
+  - Add language preview switcher for admin product detail page
+
 
 ## 1.7.27 - 2026-01-19
 - Changed / Added
