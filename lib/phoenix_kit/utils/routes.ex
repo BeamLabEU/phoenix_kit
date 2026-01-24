@@ -29,40 +29,48 @@ defmodule PhoenixKit.Utils.Routes do
 
   # NOTE: Locale override logic below exists for the temporary blogging component system integration.
   # Switch to the upcoming media/storage helpers once they land.
-  def path(url_path, opts \\ []) do
-    if String.starts_with?(url_path, "/") do
-      url_prefix = PhoenixKit.Config.get_url_prefix()
-      base_path = if url_prefix === "/", do: "", else: url_prefix
+  def path(url_path, opts \\ [])
 
-      # Reserved paths NEVER get a locale prefix to prevent crossing
-      # live_session boundaries and breaking layouts.
-      if reserved_path?(url_path) do
-        "#{base_path}#{url_path}"
-      else
-        locale =
-          case Keyword.fetch(opts, :locale) do
-            {:ok, :none} -> :none
-            {:ok, nil} -> determine_locale()
-            {:ok, locale_value} -> locale_value
-            :error -> determine_locale()
-          end
+  def path("/" <> _ = url_path, opts) do
+    url_prefix = PhoenixKit.Config.get_url_prefix()
+    base_path = if url_prefix === "/", do: "", else: url_prefix
 
-        case locale do
-          :none ->
-            "#{base_path}#{url_path}"
-
-          locale_value ->
-            if default_locale?(locale_value) do
-              "#{base_path}#{url_path}"
-            else
-              "#{base_path}/#{locale_value}#{url_path}"
-            end
-        end
-      end
+    # Reserved paths NEVER get a locale prefix to prevent crossing
+    # live_session boundaries and breaking layouts.
+    if reserved_path?(url_path) do
+      "#{base_path}#{url_path}"
     else
-      raise """
-      Url path must start with "/".
-      """
+      build_localized_path(base_path, url_path, opts)
+    end
+  end
+
+  def path(_url_path, _opts) do
+    raise """
+    Url path must start with "/".
+    """
+  end
+
+  defp build_localized_path(base_path, url_path, opts) do
+    locale = resolve_locale(opts)
+    build_path_with_locale(base_path, url_path, locale)
+  end
+
+  defp resolve_locale(opts) do
+    case Keyword.fetch(opts, :locale) do
+      {:ok, :none} -> :none
+      {:ok, nil} -> determine_locale()
+      {:ok, locale_value} -> locale_value
+      :error -> determine_locale()
+    end
+  end
+
+  defp build_path_with_locale(base_path, url_path, :none), do: "#{base_path}#{url_path}"
+
+  defp build_path_with_locale(base_path, url_path, locale_value) do
+    if default_locale?(locale_value) do
+      "#{base_path}#{url_path}"
+    else
+      "#{base_path}/#{locale_value}#{url_path}"
     end
   end
 

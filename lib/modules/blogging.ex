@@ -78,7 +78,7 @@ defmodule PhoenixKit.Modules.Blogging do
 
   @doc false
   @deprecated "Use get_primary_language/0 instead"
-  defdelegate get_master_language(), to: PhoenixKit.Modules.Publishing
+  def get_master_language, do: get_primary_language()
 
   defdelegate get_language_info(language_code), to: PhoenixKit.Modules.Publishing
 

@@ -4316,6 +4316,7 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   defp pad(value) when value < 10, do: "0#{value}"
+  defp pad(value), do: Integer.to_string(value)
 
   # Get slug from metadata, falling back to provided default if nil or empty
   defp get_slug_with_fallback(metadata, fallback) do
@@ -4325,8 +4326,6 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
       slug -> slug
     end
   end
-
-  defp pad(value), do: Integer.to_string(value)
 
   defp apply_creation_audit_metadata(metadata, audit_meta) do
     created_id = audit_value(audit_meta, :created_by_id)

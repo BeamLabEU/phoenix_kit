@@ -52,7 +52,7 @@ defmodule PhoenixKit.Modules.Publishing do
 
   @doc false
   @deprecated "Use get_primary_language/0 instead"
-  defdelegate get_master_language(), to: Storage
+  def get_master_language, do: get_primary_language()
 
   # Post-specific primary language functions
   defdelegate get_post_primary_language(group_slug, post_slug, version \\ nil), to: Storage
