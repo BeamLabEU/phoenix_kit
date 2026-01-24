@@ -313,32 +313,34 @@ defmodule PhoenixKit.Modules.Publishing.Storage do
   end
 
   # Search predefined languages (BeamLabCountries) with base code fallback
+  # Uses O(1) map lookup for exact matches (most common case)
   defp find_in_predefined_languages(language_code) do
     alias PhoenixKit.Modules.Languages.DialectMapper
 
-    all_languages = Languages.get_available_languages()
+    # First try exact match with O(1) lookup
+    case Languages.get_available_language_by_code(language_code) do
+      nil ->
+        # Try matching by base code (e.g., "en" matches "en-US")
+        base_code = DialectMapper.extract_base(language_code)
 
-    # First try exact match
-    exact_match = Enum.find(all_languages, fn lang -> lang.code == language_code end)
+        # First try the default dialect for this base code (e.g., "en" -> "en-US")
+        default_dialect = DialectMapper.base_to_dialect(base_code)
 
-    if exact_match do
-      exact_match
-    else
-      # Try matching by base code (e.g., "en" matches "en-US")
-      base_code = DialectMapper.extract_base(language_code)
+        case Languages.get_available_language_by_code(default_dialect) do
+          nil ->
+            # Fall back to linear search for base code match (rare case)
+            all_languages = Languages.get_available_languages()
 
-      # First try the default dialect for this base code (e.g., "en" -> "en-US")
-      default_dialect = DialectMapper.base_to_dialect(base_code)
-      default_match = Enum.find(all_languages, fn lang -> lang.code == default_dialect end)
+            Enum.find(all_languages, fn lang ->
+              DialectMapper.extract_base(lang.code) == base_code
+            end)
 
-      if default_match do
-        default_match
-      else
-        # Fall back to any language with matching base code
-        Enum.find(all_languages, fn lang ->
-          DialectMapper.extract_base(lang.code) == base_code
-        end)
-      end
+          default_match ->
+            default_match
+        end
+
+      exact_match ->
+        exact_match
     end
   end
 

@@ -6,6 +6,8 @@ defmodule PhoenixKit.Modules.Publishing do
   for creating timestamped or slug-based markdown posts with multi-language support.
   """
 
+  require Logger
+
   alias PhoenixKit.Modules.Languages
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -654,9 +656,41 @@ defmodule PhoenixKit.Modules.Publishing do
   @doc """
   Lists posts for a given publishing group slug.
   Accepts optional preferred_language to show titles in user's language.
+
+  Uses the ListingCache for fast lookups when available, falling back to
+  filesystem scan on cache miss.
   """
   @spec list_posts(String.t(), String.t() | nil) :: [Storage.post()]
   def list_posts(group_slug, preferred_language \\ nil) do
+    start_time = System.monotonic_time(:millisecond)
+
+    # Try cache first for fast response
+    result =
+      case ListingCache.read(group_slug) do
+        {:ok, cached_posts} ->
+          elapsed = System.monotonic_time(:millisecond) - start_time
+          Logger.debug("[Publishing.list_posts] CACHE HIT for #{group_slug} (#{length(cached_posts)} posts) in #{elapsed}ms")
+          cached_posts
+
+        {:error, :cache_miss} ->
+          # Cache miss - fall back to filesystem scan
+          Logger.debug("[Publishing.list_posts] CACHE MISS for #{group_slug}, scanning filesystem...")
+          posts = list_posts_from_storage(group_slug, preferred_language)
+          elapsed = System.monotonic_time(:millisecond) - start_time
+
+          Logger.debug("[Publishing.list_posts] Filesystem scan complete for #{group_slug} (#{length(posts)} posts) in #{elapsed}ms")
+
+          # Regenerate cache in background for next request
+          Task.start(fn -> ListingCache.regenerate(group_slug) end)
+
+          posts
+      end
+
+    result
+  end
+
+  # Direct filesystem scan (used on cache miss)
+  defp list_posts_from_storage(group_slug, preferred_language) do
     case get_group_mode(group_slug) do
       "slug" -> Storage.list_posts_slug_mode(group_slug, preferred_language)
       _ -> Storage.list_posts(group_slug, preferred_language)

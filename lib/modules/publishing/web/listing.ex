@@ -5,6 +5,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   use PhoenixKitWeb, :live_view
   use Gettext, backend: PhoenixKitWeb.Gettext
 
+  require Logger
+
   alias PhoenixKit.Modules.Publishing
   alias PhoenixKit.Modules.Publishing.ListingCache
   alias PhoenixKit.Modules.Publishing.PubSub, as: PublishingPubSub
@@ -29,7 +31,6 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
 
     # Subscribe to PubSub for live updates when connected
     if connected?(socket) do
-      # Global group updates (for sidebar)
       PublishingPubSub.subscribe_to_groups()
 
       if blog_slug do
@@ -53,16 +54,22 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     blogs = Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == blog_slug end)
 
-    # Don't load posts here - handle_params will load them with proper endpoint_url
-    # This prevents double rendering where first render has nil endpoint_url
+    initial_posts =
+      case blog_slug do
+        nil ->
+          []
+
+        slug ->
+          case ListingCache.read(slug) do
+            {:ok, cached_posts} -> cached_posts
+            {:error, :cache_miss} -> Publishing.list_posts(slug)
+          end
+      end
 
     current_path =
       case blog_slug do
-        nil ->
-          Routes.path("/admin/publishing")
-
-        slug ->
-          Routes.path("/admin/publishing/#{slug}")
+        nil -> Routes.path("/admin/publishing")
+        slug -> Routes.path("/admin/publishing/#{slug}")
       end
 
     socket =
@@ -76,8 +83,8 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:enabled_languages, Storage.enabled_language_codes())
       |> assign(:primary_language, Storage.get_primary_language())
       |> assign(:primary_language_name, get_language_name(Storage.get_primary_language()))
-      |> assign(:posts, [])
-      |> assign(:loading, true)
+      |> assign(:posts, initial_posts)
+      |> assign(:loading, false)
       |> assign(:endpoint_url, "")
       |> assign(:date_time_settings, date_time_settings)
       |> assign(:group_files_root, get_group_files_root(blog_slug))
@@ -85,12 +92,10 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
       |> assign(:primary_language_status, get_primary_language_status(blog_slug))
       |> assign(:active_editors, %{})
       |> assign(:translating_posts, %{})
-      # Debounce timers for post updates (prevents disk hammering on rapid saves)
       |> assign(:pending_post_updates, %{})
       |> assign(:show_migration_modal, false)
       |> assign(:migration_in_progress, false)
       |> assign(:migration_progress, nil)
-      # Version structure migration assigns
       |> assign(:legacy_structure_status, get_legacy_structure_status(blog_slug))
       |> assign(:show_version_migration_modal, false)
       |> assign(:version_migration_in_progress, false)
@@ -107,21 +112,18 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
     # Handle subscription changes when switching blogs
     socket =
       if connected?(socket) && new_blog_slug != old_blog_slug do
-        # Unsubscribe from old blog's topics
         if old_blog_slug do
           PublishingPubSub.unsubscribe_from_posts(old_blog_slug)
           PublishingPubSub.unsubscribe_from_cache(old_blog_slug)
           PublishingPubSub.unsubscribe_from_group_editors(old_blog_slug)
         end
 
-        # Subscribe to new blog's topics
         if new_blog_slug do
           PublishingPubSub.subscribe_to_posts(new_blog_slug)
           PublishingPubSub.subscribe_to_cache(new_blog_slug)
           PublishingPubSub.subscribe_to_group_editors(new_blog_slug)
         end
 
-        # Reset editor tracking state for new blog
         socket
         |> assign(:blog_slug, new_blog_slug)
         |> assign(:active_editors, %{})
@@ -131,33 +133,26 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
         assign(socket, :blog_slug, new_blog_slug)
       end
 
-    # Update current blog
     blogs = socket.assigns[:blogs] || Publishing.list_groups()
     current_blog = Enum.find(blogs, fn blog -> blog["slug"] == new_blog_slug end)
 
-    endpoint_url = extract_endpoint_url(uri)
+    posts =
+      case new_blog_slug do
+        nil ->
+          []
 
-    # Only load posts when connected to avoid double render flicker
-    # During disconnected render, show loading state
-    {posts, loading} =
-      if connected?(socket) do
-        posts =
-          case new_blog_slug do
-            nil -> []
-            slug -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
+        slug ->
+          case ListingCache.read(slug) do
+            {:ok, cached_posts} -> cached_posts
+            {:error, :cache_miss} -> Publishing.list_posts(slug, socket.assigns.current_locale_base)
           end
-
-        {posts, false}
-      else
-        {[], true}
       end
 
     socket =
       socket
       |> assign(:current_blog, current_blog)
       |> assign(:posts, posts)
-      |> assign(:loading, loading)
-      |> assign(:endpoint_url, endpoint_url)
+      |> assign(:endpoint_url, extract_endpoint_url(uri))
       |> assign(:group_files_root, get_group_files_root(new_blog_slug))
       |> assign(:cache_info, get_cache_info(new_blog_slug))
       |> assign(:primary_language_status, get_primary_language_status(new_blog_slug))
@@ -176,12 +171,15 @@ defmodule PhoenixKit.Modules.Publishing.Web.Listing do
   end
 
   def handle_event("refresh", _params, socket) do
+    blog_slug = socket.assigns.blog_slug
+
+    # Force refresh: regenerate cache from filesystem, then read fresh data
+    ListingCache.regenerate(blog_slug)
+
     {:noreply,
-     assign(
-       socket,
-       :posts,
-       Publishing.list_posts(socket.assigns.blog_slug, socket.assigns.current_locale_base)
-     )}
+     socket
+     |> assign(:posts, Publishing.list_posts(blog_slug, socket.assigns.current_locale_base))
+     |> assign(:cache_info, get_cache_info(blog_slug))}
   end
 
   def handle_event("add_language", %{"path" => post_path, "language" => lang_code}, socket) do
